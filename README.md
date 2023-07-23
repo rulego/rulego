@@ -37,7 +37,7 @@ This project is largely inspired by [thingsboard](https://github.com/thingsboard
 Use the `go get` command to install `RuleGo`:
 
 ```bash
-go get github.com/parki/rulego
+go get github.com/rulego/rulego
 ```
 
 ## Usage
@@ -126,7 +126,7 @@ Description:
 Import the `RuleGo` package and create a rule engine instance:
 
 ```go
-import "github.com/yourname/rulego"
+import "github.com/rulego/rulego"
 
 //Create a rule engine instance, each rule engine instance has only one root rule chain
 ruleEngine, err := rulego.New("rule01", []byte(ruleFile))

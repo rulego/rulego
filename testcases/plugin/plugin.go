@@ -1,7 +1,7 @@
 package main
 
 import (
-	"rulego/api/types"
+	"github.com/rulego/rulego/api/types"
 	"strings"
 	"time"
 )

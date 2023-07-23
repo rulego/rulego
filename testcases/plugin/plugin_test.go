@@ -1,10 +1,10 @@
 package main
 
 import (
-	"rulego"
-	"rulego/api/types"
-	"rulego/test/assert"
-	string2 "rulego/utils/str"
+	"github.com/rulego/rulego"
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/test/assert"
+	string2 "github.com/rulego/rulego/utils/str"
 	"sync"
 	"testing"
 )

@@ -17,8 +17,8 @@
 package js
 
 import (
-	"rulego"
-	"rulego/test/assert"
+	"github.com/rulego/rulego"
+	"github.com/rulego/rulego/test/assert"
 	"sync"
 	"testing"
 	"time"
@@ -35,7 +35,7 @@ func TestJsEngine(t *testing.T) {
   	`
 	start := time.Now()
 	config := rulego.NewConfig()
-	jsEngine := NewGojaJsEngine(&config, jsScript, nil)
+	jsEngine := NewGojaJsEngine(config, jsScript, nil)
 	jsEngine.config.Logger.Printf("用时1：%s", time.Since(start))
 	var group sync.WaitGroup
 	group.Add(10)

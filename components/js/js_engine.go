@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/dop251/goja"
-	"rulego/api/types"
+	"github.com/rulego/rulego/api/types"
 	"sync"
 	"time"
 )
