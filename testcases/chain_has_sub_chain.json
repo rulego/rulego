@@ -1,0 +1,42 @@
+{
+  "ruleChain": {
+    "name": "测试子规则链",
+    "root": true
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "s1",
+        "type": "jsFilter",
+        "name": "过滤",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msg!='bb';"
+        }
+      },
+      {
+        "id": "s2",
+        "type": "jsTransform",
+        "name": "转换",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "metadata['test']='test01';\n metadata['index']=51;\n msgType='TEST_MSG_TYPE1';var msg2={};\n  msg2['aa']=11\n return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "s1",
+        "toId": "s2",
+        "type": "True"
+      }
+    ],
+    "ruleChainConnections": [
+      {
+        "fromId": "s1",
+        "toId": "sub_chain_01",
+        "type": "True"
+      }
+    ]
+  }
+}

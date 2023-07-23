@@ -1,0 +1,29 @@
+{
+  "ruleChain": {
+    "additionalInfo": {
+      "description": ""
+    },
+    "name": "测试规则链",
+    "firstRuleNodeId": null,
+    "root": false,
+    "debugMode": false,
+    "configuration": null
+  },
+  "metadata": {
+    "firstNodeIndex": 0,
+    "nodes": [
+      {
+        "type": "jsFilter",
+        "name": "过滤",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "var msg2=JSON.parse(msg);return msg2.temperature>10;"
+        }
+      }
+    ],
+    "connections": [
+
+    ],
+    "ruleChainConnections": null
+  }
+}
