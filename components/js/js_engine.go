@@ -98,6 +98,7 @@ func (g *GojaJsEngine) Execute(functionName string, argumentList ...interface{})
 	state <- 0
 	time.AfterFunc(g.config.JsMaxExecutionTime, func() {
 		if <-state == 0 {
+			state <- 2
 			vm.Interrupt("execution timeout")
 		}
 	})
