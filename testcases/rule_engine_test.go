@@ -255,6 +255,10 @@ func TestRuleChainDebugMode(t *testing.T) {
 func TestNotDebugModel(t *testing.T) {
 	start := time.Now()
 	config := rulego.NewConfig()
+	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		assert.NotEqual(t, "s1", nodeId)
+		assert.NotEqual(t, "s2", nodeId)
+	}
 	config.OnEnd = func(msg types.RuleMsg, err error) {
 		assert.Equal(t, "TEST_MSG_TYPE2", msg.Type)
 		assert.Nil(t, err)
@@ -314,7 +318,6 @@ func TestCallRestApi(t *testing.T) {
 	}
 	config.OnEnd = func(msg types.RuleMsg, err error) {
 		group.Done()
-		//config.Logger.Printf("completed num %d", completed)
 	}
 
 	ruleFile := loadFile("./chain_call_rest_api.json")
@@ -332,4 +335,38 @@ func TestCallRestApi(t *testing.T) {
 	}
 	group.Wait()
 	fmt.Printf("total massages:%d,use times:%s", maxTimes, time.Since(start))
+}
+
+//测试消息路由
+func TestMsgTypeSwitch(t *testing.T) {
+	var wg sync.WaitGroup
+
+	config := rulego.NewConfig()
+	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		wg.Done()
+	}
+	ruleEngine, err := rulego.New(str.RandomStr(10), loadFile("./chain_msg_type_switch.json"), rulego.WithConfig(config))
+	if err != nil {
+		t.Error(err)
+	}
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+
+	//TEST_MSG_TYPE1 找到2条chains,4个nodes
+	wg.Add(6)
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
+	ruleEngine.OnMsg(msg)
+	wg.Wait()
+
+	//TEST_MSG_TYPE2 找到1条chain,2个nodes
+	wg.Add(4)
+	msg = types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":41}")
+	ruleEngine.OnMsg(msg)
+	wg.Wait()
+
+	//TEST_MSG_TYPE3 找到0条chain,1个node
+	wg.Add(2)
+	msg = types.NewMsg(0, "TEST_MSG_TYPE3", types.JSON, metaData, "{\"temperature\":41}")
+	ruleEngine.OnMsg(msg)
+	wg.Wait()
 }

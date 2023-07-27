@@ -81,6 +81,11 @@ func Equal(t *testing.T, a, b interface{}) {
 		t.Errorf("%v != %v\n Error Trace:   %s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"))
 	}
 }
+func NotEqual(t *testing.T, a, b interface{}) {
+	if reflect.DeepEqual(a, b) {
+		t.Errorf("%v == %v\n Error Trace:   %s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"))
+	}
+}
 
 func True(t *testing.T, value bool) {
 	if !value {
