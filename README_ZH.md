@@ -45,8 +45,9 @@ go get github.com/rulego/rulego
 --------
 使用Json格式定义规则链DSL：      
 
-以下例子定义3个规则节点，规则链逻辑如下图：（更多例子参考[testcases/](testcases)）
-![img_1.png](doc/imgs/rulechain/img_1.png)
+以下例子定义3个规则节点，规则链逻辑如下图：（更多例子参考[testcases/](testcases)）     
+
+<img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;">
 
 ```json
 {
@@ -310,15 +311,22 @@ rulego.Registry.RegisterPlugin("test", "./plugin.so")
 
 规则链是`规则节点`及其`关系`的逻辑组。接收来自节点的出站消息将其通过指定`关系`发送至下一个节点。以下是一些常用的规则链例子：
 
-* 顺序执行：
-  ![img_1.png](doc/imgs/rulechain/img_1.png)
-* 异步+顺序执行
-  ![img_3.png](doc/imgs/rulechain/img_2.png)
-* 使用子规则链方式
-  ![img_4.png](doc/imgs/rulechain/img_3.png)
-* 一些复杂例子：
-  ![img_5.png](doc/imgs/rulechain/img_4.png)
+### 顺序执行：
+  <img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;">
 
+--------
+### 异步+顺序执行：  
+  <img src="doc/imgs/rulechain/img_2.png" style="height:50%;width:80%;">
+
+--------
+### 使用子规则链方式：
+  <img src="doc/imgs/rulechain/img_3.png" style="height:50%;width:80%;">
+
+--------
+### 一些复杂例子：
+  <img src="doc/imgs/rulechain/img_4.png" style="height:50%;width:80%;">
+
+--------
 ## 性能
 
 --------

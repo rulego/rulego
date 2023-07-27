@@ -44,8 +44,9 @@ go get github.com/rulego/rulego
 
 --------
 Use Json format to define the rule chain DSL:     
-The following example defines 3 rule nodes, and the rule chain logic is as follows: (For more examples, refer to [testcases/](testcases))
-![img_1.png](doc/imgs/rulechain/img_1.png)
+The following example defines 3 rule nodes, and the rule chain logic is as follows: (For more examples, refer to [testcases/](testcases))      
+
+<img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;">
 
 ```json
 {
@@ -308,16 +309,24 @@ Then use your component in the rule chain DSL file
 
 Rule chain is a logical group of `rule nodes` and their `relationTypes`. It receives outbound messages from nodes and sends them to the next node through a specified `relationship`. Here are some common rule chain examples:
 
-* Sequential execution:
-  ![img_1.png](doc/imgs/rulechain/img_1.png)
-* Asynchronous + sequential execution
-  ![img_3.png](doc/imgs/rulechain/img_2.png)
-* Using sub-rule chain method
-  ![img_4.png](doc/imgs/rulechain/img_3.png)
-* Some complex examples:
-  ![img_5.png](doc/imgs/rulechain/img_4.png)
+#### Sequential execution:
+  <img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;">
 
-##Performance
+--------
+#### Asynchronous + sequential execution:
+  <img src="doc/imgs/rulechain/img_2.png" style="height:50%;width:80%;">
+
+--------
+#### Using sub-rule chain method:
+  <img src="doc/imgs/rulechain/img_3.png" style="height:50%;width:80%;">
+
+--------
+#### Some complex examples:
+  <img src="doc/imgs/rulechain/img_4.png" style="height:50%;width:80%;">
+
+--------
+
+## Performance
 
 --------
 `rulego` almost does not increase system overhead, resource consumption is extremely low, because it uses object coroutine pool and object pool, even higher performance than directly calling business methods, especially suitable for running on edge servers.
