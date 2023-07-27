@@ -22,6 +22,13 @@ import (
 	"sync"
 )
 
+type RelationCache struct {
+	//入接点
+	inNodeId types.RuleNodeId
+	//与出节点连接关系
+	relationType string
+}
+
 // RuleChainCtx 规则链实例定义
 //初始化所有节点
 //记录规则链，所有节点路由关系
@@ -43,6 +50,8 @@ type RuleChainCtx struct {
 	//组件路由关系
 	nodeRoutes    map[types.RuleNodeId][]types.RuleNodeRelation
 	nodeCtxRoutes map[types.RuleNodeId][]types.NodeCtx
+	//通过入节点查询指定关系出节点列表缓存
+	relationCache map[RelationCache][]types.NodeCtx
 	//根上下文
 	rootRuleContext types.RuleContext
 	sync.RWMutex
@@ -55,6 +64,7 @@ func InitRuleChainCtx(config types.Config, ruleChainDef RuleChain) (*RuleChainCt
 		SelfDefinition:     ruleChainDef,
 		nodes:              make(map[types.RuleNodeId]types.NodeCtx),
 		nodeRoutes:         make(map[types.RuleNodeId][]types.RuleNodeRelation),
+		relationCache:      make(map[RelationCache][]types.NodeCtx),
 		componentsRegistry: config.ComponentsRegistry,
 		initialized:        true,
 	}
@@ -143,6 +153,8 @@ func (rc *RuleChainCtx) GetFirstNode() (types.NodeCtx, bool) {
 }
 
 func (rc *RuleChainCtx) GetNodeRoutes(id types.RuleNodeId) ([]types.RuleNodeRelation, bool) {
+	rc.RLock()
+	defer rc.RUnlock()
 	relations, ok := rc.nodeRoutes[id]
 	return relations, ok
 }
@@ -150,21 +162,32 @@ func (rc *RuleChainCtx) GetNodeRoutes(id types.RuleNodeId) ([]types.RuleNodeRela
 // GetNextNodes 获取当前节点指定关系的子节点
 func (rc *RuleChainCtx) GetNextNodes(id types.RuleNodeId, relationType string) ([]types.NodeCtx, bool) {
 	var nodeCtxList []types.NodeCtx
+	cacheKey := RelationCache{inNodeId: id, relationType: relationType}
+	rc.RLock()
+	//get from cache
+	nodeCtxList, ok := rc.relationCache[cacheKey]
+	rc.RUnlock()
+	if ok {
+		return nodeCtxList, nodeCtxList != nil
+	}
+
+	//get from the Routes
 	relations, ok := rc.GetNodeRoutes(id)
 	hasNextComponents := false
-	if !ok {
-		return nodeCtxList, false
-	} else {
+	if ok {
 		for _, item := range relations {
 			if item.RelationType == relationType {
 				if nodeCtx, nodeCtxOk := rc.GetNodeById(item.OutId); nodeCtxOk {
 					nodeCtxList = append(nodeCtxList, nodeCtx)
 					hasNextComponents = true
 				}
-
 			}
 		}
 	}
+	rc.Lock()
+	//add to the cache
+	rc.relationCache[cacheKey] = nodeCtxList
+	rc.Unlock()
 	return nodeCtxList, hasNextComponents
 }
 
@@ -180,6 +203,9 @@ func (rc *RuleChainCtx) AddSubRuleChainCtx(ruleChainId types.RuleNodeId, ctx *Ru
 	//设置子规则链ID
 	ctx.Id = ruleChainId
 	rc.nodes[ruleChainId] = ctx
+
+	//清除缓存
+	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
 }
 
 // Type 组件类型
@@ -273,4 +299,6 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.nodes = newCtx.nodes
 	rc.nodeRoutes = newCtx.nodeRoutes
 	rc.rootRuleContext = newCtx.rootRuleContext
+	//清除缓存
+	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
 }

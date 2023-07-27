@@ -53,7 +53,7 @@ var ruleChainFile = `
 			"name": "转换",
 			"debugMode": true,
 			"configuration": {
-			  "jsScript": "msgType='TEST_MSG_TYPE2';var msg2={};\n  msg2['aa']=66\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+			  "jsScript": "msgType='TEST_MSG_TYPE';var msg2={};\n  msg2['aa']=66\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
 			}
 		  }
 		],
@@ -77,7 +77,7 @@ var modifyMetadataAndMsgNode = `
 			"name": "转换",
 			"debugMode": true,
 			"configuration": {
-			  "jsScript": "metadata['test']='test02';\n metadata['index']=50;\n msgType='TEST_MSG_TYPE2';\n var msg2=JSON.parse(msg);\n msg2['aa']=66;\n return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
+			  "jsScript": "metadata['test']='test02';\n metadata['index']=50;\n msgType='TEST_MSG_TYPE_MODIFY';\n var msg2=JSON.parse(msg);\n msg2['aa']=66;\n return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
 			}
 		  }
 `
@@ -101,7 +101,7 @@ func testRuleEngine(t *testing.T, ruleChainFile string, modifyNodeId, modifyNode
 			testStr, _ := msg.Metadata.GetValue("test")
 			assert.Equal(t, "50", indexStr)
 			assert.Equal(t, "test02", testStr)
-			assert.Equal(t, "TEST_MSG_TYPE2", msg.Type)
+			assert.Equal(t, "TEST_MSG_TYPE_MODIFY", msg.Type)
 		} else {
 			assert.Equal(t, "{\"temperature\":35}", msg.Data)
 		}
@@ -113,15 +113,22 @@ func testRuleEngine(t *testing.T, ruleChainFile string, modifyNodeId, modifyNode
 	assert.Nil(t, err)
 	defer rulego.Del("rule01")
 
-	if modifyNodeId != "" {
-		//modify the node
-		ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: modifyNodeId}, []byte(modifyNodeFile))
-	}
+	//if modifyNodeId != "" {
+	//	//modify the node
+	//	ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: modifyNodeId}, []byte(modifyNodeFile))
+	//}
 
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
-	ruleEngine.OnMsg(msg)
+	maxTimes := 1
+	for j := 0; j < maxTimes; j++ {
+		if modifyNodeId != "" {
+			//modify the node
+			ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: modifyNodeId}, []byte(modifyNodeFile))
+		}
+		ruleEngine.OnMsg(msg)
+	}
 	time.Sleep(time.Second)
 }
 
@@ -244,12 +251,13 @@ func TestRuleChainDebugMode(t *testing.T) {
 	assert.Equal(t, 0, inTimes)
 	assert.Equal(t, 0, outTimes)
 }
+
 func TestNotDebugModel(t *testing.T) {
-	//var group sync.WaitGroup
-	//group.Add(1)
+	start := time.Now()
 	config := rulego.NewConfig()
 	config.OnEnd = func(msg types.RuleMsg, err error) {
 		assert.Equal(t, "TEST_MSG_TYPE2", msg.Type)
+		assert.Nil(t, err)
 	}
 	ruleEngine, err := rulego.New(str.RandomStr(10), loadFile("./not_debug_mode_chain.json"), rulego.WithConfig(config))
 	if err != nil {
@@ -258,8 +266,16 @@ func TestNotDebugModel(t *testing.T) {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"temperature\":41}")
-	ruleEngine.OnMsg(msg)
-	time.Sleep(time.Second)
+	var maxTimes = 1
+	var wg sync.WaitGroup
+	wg.Add(maxTimes)
+	for j := 0; j < maxTimes; j++ {
+		ruleEngine.OnMsgWithEndFunc(msg, func(msg types.RuleMsg, err error) {
+			wg.Done()
+		})
+	}
+	wg.Wait()
+	fmt.Printf("total massages:%d,use times:%s", maxTimes, time.Since(start))
 }
 
 //测试获取节点
