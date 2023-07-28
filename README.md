@@ -307,7 +307,7 @@ Then use your component in the rule chain DSL file
 
 ### Rule chain
 
-Rule chain is a logical group of `rule nodes` and their `relationTypes`. It receives outbound messages from nodes and sends them to the next node through a specified `relationship`. Here are some common rule chain examples:
+Rule chain is a logical group of `rule nodes` and their `relationTypes`. It receives outbound messages from nodes and sends them to the next node or nodes through a specified `relationship`. Here are some common rule chain examples:
 
 #### Sequential execution:
   <img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;">
