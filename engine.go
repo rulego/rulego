@@ -53,44 +53,44 @@ func NewRuleContext(config types.Config, ruleChainCtx *RuleChainCtx, from types.
 	}
 }
 
-func (cxt *DefaultRuleContext) TellSuccess(msg types.RuleMsg) {
-	cxt.tell(msg, nil, types.Success)
+func (ctx *DefaultRuleContext) TellSuccess(msg types.RuleMsg) {
+	ctx.tell(msg, nil, types.Success)
 }
-func (cxt *DefaultRuleContext) TellFailure(msg types.RuleMsg, err error) {
-	cxt.tell(msg, err, types.Failure)
+func (ctx *DefaultRuleContext) TellFailure(msg types.RuleMsg, err error) {
+	ctx.tell(msg, err, types.Failure)
 }
-func (cxt *DefaultRuleContext) TellNext(msg types.RuleMsg, relationTypes ...string) {
-	cxt.tell(msg, nil, relationTypes...)
+func (ctx *DefaultRuleContext) TellNext(msg types.RuleMsg, relationTypes ...string) {
+	ctx.tell(msg, nil, relationTypes...)
 }
-func (cxt *DefaultRuleContext) TellSelf(msg types.RuleMsg, delayMs int64) {
+func (ctx *DefaultRuleContext) TellSelf(msg types.RuleMsg, delayMs int64) {
 	time.AfterFunc(time.Millisecond*time.Duration(delayMs), func() {
-		cxt.tell(msg, nil, types.Success)
+		ctx.tell(msg, nil, types.Success)
 	})
 }
-func (cxt *DefaultRuleContext) NewMsg(msgType string, metaData types.Metadata, data string) types.RuleMsg {
+func (ctx *DefaultRuleContext) NewMsg(msgType string, metaData types.Metadata, data string) types.RuleMsg {
 	return types.NewMsg(0, msgType, types.JSON, metaData, data)
 }
-func (cxt *DefaultRuleContext) GetSelfId() string {
-	return cxt.self.GetNodeId().Id
+func (ctx *DefaultRuleContext) GetSelfId() string {
+	return ctx.self.GetNodeId().Id
 }
 
-func (cxt *DefaultRuleContext) Config() types.Config {
-	return cxt.config
+func (ctx *DefaultRuleContext) Config() types.Config {
+	return ctx.config
 }
 
-func (cxt *DefaultRuleContext) SetEndFunc(onEndFunc func(msg types.RuleMsg, err error)) types.RuleContext {
-	cxt.onEnd = onEndFunc
-	return cxt
+func (ctx *DefaultRuleContext) SetEndFunc(onEndFunc func(msg types.RuleMsg, err error)) types.RuleContext {
+	ctx.onEnd = onEndFunc
+	return ctx
 }
 
-func (cxt *DefaultRuleContext) GetEndFunc() func(msg types.RuleMsg, err error) {
-	return cxt.onEnd
+func (ctx *DefaultRuleContext) GetEndFunc() func(msg types.RuleMsg, err error) {
+	return ctx.onEnd
 }
 
-func (cxt *DefaultRuleContext) SubmitTack(task func()) {
-	if cxt.pool != nil {
-		if err := cxt.pool.Submit(task); err != nil {
-			cxt.config.Logger.Printf("SubmitTack error:%s", err)
+func (ctx *DefaultRuleContext) SubmitTack(task func()) {
+	if ctx.pool != nil {
+		if err := ctx.pool.Submit(task); err != nil {
+			ctx.config.Logger.Printf("SubmitTack error:%s", err)
 		}
 	} else {
 		go task()
@@ -98,83 +98,83 @@ func (cxt *DefaultRuleContext) SubmitTack(task func()) {
 }
 
 // getNextNodes 获取当前节点指定关系的子节点
-func (cxt *DefaultRuleContext) getNextNodes(relationType string) ([]types.NodeCtx, bool) {
-	if cxt.ruleChainCtx == nil || cxt.self == nil {
+func (ctx *DefaultRuleContext) getNextNodes(relationType string) ([]types.NodeCtx, bool) {
+	if ctx.ruleChainCtx == nil || ctx.self == nil {
 		return nil, false
 	}
-	return cxt.ruleChainCtx.GetNextNodes(cxt.self.GetNodeId(), relationType)
+	return ctx.ruleChainCtx.GetNextNodes(ctx.self.GetNodeId(), relationType)
 }
 
-func (cxt *DefaultRuleContext) onDebug(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-	if cxt.config.OnDebug != nil {
-		cxt.config.OnDebug(flowType, nodeId, msg.Copy(), relationType, err)
+func (ctx *DefaultRuleContext) onDebug(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	if ctx.config.OnDebug != nil {
+		ctx.config.OnDebug(flowType, nodeId, msg.Copy(), relationType, err)
 	}
 }
 
-func (cxt *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes ...string) {
+func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes ...string) {
 	msgCopy := msg.Copy()
-	if cxt.isFirst {
-		cxt.SubmitTack(func() {
-			cxt.tellNext(msgCopy, cxt.self)
+	if ctx.isFirst {
+		ctx.SubmitTack(func() {
+			ctx.tellNext(msgCopy, ctx.self)
 		})
 	} else {
 		for _, relationType := range relationTypes {
-			if cxt.self != nil && cxt.self.IsDebugMode() {
+			if ctx.self != nil && ctx.self.IsDebugMode() {
 				//记录调试信息
-				cxt.SubmitTack(func() {
-					cxt.onDebug(types.Out, cxt.GetSelfId(), msgCopy, relationType, err)
+				ctx.SubmitTack(func() {
+					ctx.onDebug(types.Out, ctx.GetSelfId(), msgCopy, relationType, err)
 				})
 			}
 
-			if nodes, ok := cxt.getNextNodes(relationType); ok {
+			if nodes, ok := ctx.getNextNodes(relationType); ok {
 				for _, item := range nodes {
 					tmp := item
-					cxt.SubmitTack(func() {
-						cxt.tellNext(msg.Copy(), tmp)
+					ctx.SubmitTack(func() {
+						ctx.tellNext(msg.Copy(), tmp)
 					})
 				}
 			} else {
-				cxt.doOnEnd(msgCopy, err)
+				ctx.doOnEnd(msgCopy, err)
 			}
 		}
 	}
 
 }
 
-func (cxt *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCtx) {
-	ctx := NewRuleContext(cxt.config, cxt.ruleChainCtx, cxt.self, nextNode, cxt.pool, cxt.onEnd)
+func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCtx) {
+	nextCtx := NewRuleContext(ctx.config, ctx.ruleChainCtx, ctx.self, nextNode, ctx.pool, ctx.onEnd)
 	defer func() {
 		//捕捉异常
 		if e := recover(); e != nil {
-			if cxt.self != nil && ctx.self.IsDebugMode() {
+			if nextCtx.self != nil && nextCtx.self.IsDebugMode() {
 				//记录异常信息
-				cxt.onDebug(types.In, ctx.GetSelfId(), msg, "", fmt.Errorf("%v", e))
+				ctx.onDebug(types.In, nextCtx.GetSelfId(), msg, "", fmt.Errorf("%v", e))
 			}
 		}
 	}()
-	if cxt.self != nil && ctx.self.IsDebugMode() {
+	if nextCtx.self != nil && nextCtx.self.IsDebugMode() {
 		//记录调试信息
-		cxt.onDebug(types.In, ctx.GetSelfId(), msg, "", nil)
+		ctx.onDebug(types.In, nextCtx.GetSelfId(), msg, "", nil)
 	}
-	if err := nextNode.OnMsg(ctx, msg); err != nil {
-		cxt.config.Logger.Printf("tellNext error.node type:%s error: %s", ctx.self.Type(), err)
+	if err := nextNode.OnMsg(nextCtx, msg); err != nil {
+		ctx.config.Logger.Printf("tellNext error.node type:%s error: %s", nextCtx.self.Type(), err)
 	}
 }
 
 //规则链执行完成回调函数
-func (cxt *DefaultRuleContext) doOnEnd(msg types.RuleMsg, err error) {
+func (ctx *DefaultRuleContext) doOnEnd(msg types.RuleMsg, err error) {
 	//全局回调
 	//通过`Config.OnEnd`设置
-	if cxt.config.OnEnd != nil {
-		cxt.SubmitTack(func() {
-			cxt.config.OnEnd(msg, err)
+	if ctx.config.OnEnd != nil {
+		ctx.SubmitTack(func() {
+			ctx.config.OnEnd(msg, err)
 		})
 	}
 	//单条消息的context回调
 	//通过OnMsgWithEndFunc(msg, endFunc)设置
-	if cxt.onEnd != nil {
-		cxt.SubmitTack(func() {
-			cxt.onEnd(msg, err)
+	if ctx.onEnd != nil {
+		ctx.SubmitTack(func() {
+			ctx.onEnd(msg, err)
 		})
 	}
 }
