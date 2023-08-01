@@ -349,6 +349,12 @@ rulego.Registry.RegisterPlugin("test", "./plugin.so")
 * 提交一个合并请求到主分支
 * 等待审核和反馈
 
+## 交流群
+
+--------
+QQ群号：**720103251**     
+<img src="doc/imgs/qq.png">
+
 ## 许可
 
 --------
