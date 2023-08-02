@@ -1,6 +1,5 @@
 # RuleGo
 
---------
 English| [中文](README_ZH.md)
 
 <img src="doc/imgs/logo.png" width="100">   
@@ -10,8 +9,6 @@ English| [中文](README_ZH.md)
 This project is largely inspired by [thingsboard](https://github.com/thingsboard/thingsboard) .
 
 ## Features
-
---------
 
 * Development language: Go 1.18
 * Lightweight: No external middleware dependencies, can efficiently process and link data on low-cost devices, suitable for IoT edge computing.
@@ -28,7 +25,6 @@ This project is largely inspired by [thingsboard](https://github.com/thingsboard
 
 ## Use Cases
 
---------
 `RuleGo` is a rule engine based on orchestration, which is best at decoupling your system.
 
 - If your system is complex and bloated with code
@@ -54,7 +50,6 @@ This project is largely inspired by [thingsboard](https://github.com/thingsboard
 
 ## Installation
 
---------
 Use the `go get` command to install `RuleGo`:
 
 ```bash
@@ -63,7 +58,6 @@ go get github.com/rulego/rulego
 
 ## Usage
 
---------
 Use Json format to define the rule chain DSL:     
 The following example defines 3 rule nodes, and the rule chain logic is as follows: (For more examples, refer to [testcases/](testcases))      
 
@@ -226,8 +220,6 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 
 ## About rule chain
 
---------
-
 ### Rule node
 
 Rule node is the basic component of the rule engine, it processes a single incoming message at a time and generates one or more outgoing messages. Rule node is the main logic unit of the rule engine. Rule nodes can filter, enrich, transform incoming messages, execute actions or communicate with external systems. You can easily encapsulate your business into `RuleGo`
@@ -349,7 +341,6 @@ Rule chain is a logical group of `rule nodes` and their `relationTypes`. It rece
 
 ## Performance
 
---------
 `RuleGo` almost does not increase system overhead, resource consumption is extremely low, because it uses object coroutine pool and object pool, even higher performance than directly calling business methods, especially suitable for running on edge servers.
 
 --------
@@ -360,8 +351,6 @@ Test results: 100 concurrent and 500 concurrent, memory consumption does not cha
 
 ## Contribution
 
---------
-
 Any form of contribution is welcome, including submitting issues, suggestions, documentation, tests or code. Please follow these steps:
 
 * Clone the project repository to your local machine
@@ -371,5 +360,4 @@ Any form of contribution is welcome, including submitting issues, suggestions, d
 
 ## License
 
---------
 `RuleGo` uses Apache 2.0 license, please refer to [LICENSE](LICENSE) file for details.

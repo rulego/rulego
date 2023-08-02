@@ -1,6 +1,5 @@
 # RuleGo
 
---------
 [English](README.md)| 中文
 
 <img src="doc/imgs/logo.png" width="100">  
@@ -10,8 +9,6 @@
 本项目很大程度受[thingsboard](https://github.com/thingsboard/thingsboard) 启发。
 
 ## 特性
-
---------
 
 * 开发语言：Go 1.18
 * 轻量级：无外部中间件依赖，在低成本设备中也能高效对数据进行处理和联动，适用于物联网边缘计算。
@@ -28,7 +25,6 @@
 
 ## 使用场景
 
---------
 `RuleGo`是一款编排式的规则引擎，最擅长去解耦你的系统。   
 
 - 如果你的系统业务复杂，并且代码臃肿不堪       
@@ -54,7 +50,6 @@
 
 ## 安装
 
---------
 使用`go get`命令安装`RuleGo`：
 
 ```bash
@@ -63,7 +58,6 @@ go get github.com/rulego/rulego
 
 ## 使用
 
---------
 使用Json格式定义规则链DSL：      
 
 以下例子定义3个规则节点，规则链逻辑如下图：（更多例子参考[testcases/](testcases)）     
@@ -228,7 +222,6 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 
 ## 关于规则链
 
---------
 
 ### 规则节点
 
@@ -350,7 +343,6 @@ rulego.Registry.RegisterPlugin("test", "./plugin.so")
 --------
 ## 性能
 
---------
 `RuleGo` 大部分工作都在启动时完成，执行规则链时几乎不会额外增加系统开销，资源占用极低。因为使用了对象协程池和对象池，甚至比直接调用业务的方式性能还高，特别适合在边缘服务器运行。
 
 --------
@@ -361,7 +353,6 @@ rulego.Registry.RegisterPlugin("test", "./plugin.so")
 
 ## 贡献
 
---------
 
 欢迎任何形式的贡献，包括提交问题、建议、文档、测试或代码。请遵循以下步骤：
 
@@ -372,11 +363,9 @@ rulego.Registry.RegisterPlugin("test", "./plugin.so")
 
 ## 交流群
 
---------
 QQ群号：**720103251**     
 <img src="doc/imgs/qq.png">
 
 ## 许可
 
---------
 `RuleGo`使用Apache 2.0许可证，详情请参见[LICENSE](LICENSE)文件。
