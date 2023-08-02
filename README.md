@@ -5,14 +5,9 @@ English| [中文](README_ZH.md)
 
 <img src="doc/imgs/logo.png" width="100">   
 
-`RuleGo` is a lightweight, high-performance, embedded rule engine based on `Go` language. It is also a flexible and highly customizable event processing framework. It can filter, transform, enrich and execute various actions on input messages.
+`RuleGo` is a lightweight, high-performance, embedded rule engine based on `Go` language. It is also a flexible and highly customizable event processing framework. It can aggregate, distribute, filter, transform, enrich and execute various actions on input messages.
 
-This project is largely inspired by [thingsboard](https://github.com/thingsboard/thingsboard) . Referencing its rule chain idea, but made major adjustments in the architecture to meet the following scenarios:
-* Greatly optimized the resource consumption and performance, making it more suitable for edge computing scenarios.
-* No downtime, no need to recompile, dynamic orchestration of business, to meet highly customized and highly changing business needs.
-* Non-intrusive embedding into existing projects.
-* Provide more flexible interfaces and callback hooks.
-* More open component ecology. You can use the components provided by the community or encapsulate your business into components, and quickly achieve your business needs by building blocks.
+This project is largely inspired by [thingsboard](https://github.com/thingsboard/thingsboard) .
 
 ## Features
 
@@ -29,6 +24,32 @@ This project is largely inspired by [thingsboard](https://github.com/thingsboard
 * Dynamic loading: Support dynamic loading of components and extension components through `Go plugin`.
 * Built-in common components: `Message type Switch`,`JavaScript Switch`,`JavaScript filter`,`JavaScript converter`,`HTTP push`,`MQTT push`,`Send email`,`Log record` and other components. You can extend other components by yourself.
 * Context isolation mechanism: Reliable context isolation mechanism, no need to worry about data streaming in high concurrency situations.
+
+
+## Use Cases
+
+--------
+`RuleGo` is a rule engine based on orchestration, which is best at decoupling your system.
+
+- If your system is complex and bloated with code
+- If your business scenario is highly customized or frequently changed
+- Or you need an end-to-end IoT solution
+- Or you need to process data from heterogeneous systems centrally
+- Or you want to try hot deployment in `Go` language...
+  Then `RuleGo` framework will be a very good solution.
+
+#### Typical use cases
+
+* Edge computing. For example: You can deploy `RuleGo` on the edge server, preprocess, filter, aggregate or calculate the data before reporting it to the cloud. The data processing rules and distribution rules can be dynamically configured and modified through the rule chain without restarting the system.
+* Internet of Things. For example: Collect device data reporting, and after the rule judgment of the rule chain, trigger one or more actions, such as: send email, send alarm, and link with other devices or systems.
+* Data distribution. For example: You can distribute data to different systems according to different message types, such as HTTP, MQTT or gRPC.
+* Application integration. For example: kafka, message queue, third-party system integration.
+* Data processing from heterogeneous systems. For example: Receive data from different data sources (such as MQTT, HTTP, etc.), and then filter, format conversion, and then distribute to databases, business systems or dashboards.
+* Highly customized business. For example: Decouple highly customized or frequently changed business and hand it over to `RuleGo` rule chain for management. Business requirements change without restarting the main program.
+* Complex business orchestration. For example: Encapsulate the business into custom components, and use `RuleGo` to orchestrate and drive these custom components, and support dynamic adjustment.
+* Microservice orchestration. For example: Use `RuleGo` to orchestrate and drive microservices, or dynamically call third-party services to process business and return results.
+* Business code and business logic decoupling. For example: User points calculation system, risk control system.
+* Flexible configuration and highly customized event processing framework. For example: Asynchronously or synchronously process different message types.
 
 
 ## Installation
@@ -210,7 +231,7 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 ### Rule node
 
 Rule node is the basic component of the rule engine, it processes a single incoming message at a time and generates one or more outgoing messages. Rule node is the main logic unit of the rule engine. Rule nodes can filter, enrich, transform incoming messages, execute actions or communicate with external systems. You can easily encapsulate your business into `RuleGo`
-node components, and then flexibly configure and reuse them, like building blocks to achieve your business needs. Define `rulego` custom node component method:
+node components, and then flexibly configure and reuse them, like building blocks to achieve your business needs. Define `RuleGo` custom node component method:
 
 * Method 1: Implement the `types.Node` interface, refer to the examples in [components](components)
   For example:
@@ -300,7 +321,7 @@ Then use your component in the rule chain DSL file
 }
 ```
 
-`rulego` built-in some common components are divided into the following types:
+`RuleGo` built-in some common components are divided into the following types:
 * Filter component: Filter messages.
 * Transformation component: Transform and enhance messages.
 * Action component: Perform some actions or link with external systems.
@@ -329,7 +350,7 @@ Rule chain is a logical group of `rule nodes` and their `relationTypes`. It rece
 ## Performance
 
 --------
-`rulego` almost does not increase system overhead, resource consumption is extremely low, because it uses object coroutine pool and object pool, even higher performance than directly calling business methods, especially suitable for running on edge servers.
+`RuleGo` almost does not increase system overhead, resource consumption is extremely low, because it uses object coroutine pool and object pool, even higher performance than directly calling business methods, especially suitable for running on edge servers.
 
 --------
 Machine: Raspberry Pi 2 (900MHz Cortex-A7*4,1GB LPDDR2)  
