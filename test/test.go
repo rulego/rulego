@@ -17,6 +17,7 @@
 package test
 
 import (
+	"context"
 	"github.com/rulego/rulego/api/types"
 	"time"
 )
@@ -27,6 +28,7 @@ import (
 //callback 回调处理结果
 type NodeTestRuleContext struct {
 	config   types.Config
+	context  context.Context
 	callback func(msg types.RuleMsg, relationType string)
 }
 
@@ -34,6 +36,7 @@ func NewRuleContext(config types.Config, callback func(msg types.RuleMsg, relati
 	return &NodeTestRuleContext{
 		config:   config,
 		callback: callback,
+		context:  context.TODO(),
 	}
 }
 func (ctx *NodeTestRuleContext) TellSuccess(msg types.RuleMsg) {
@@ -64,6 +67,10 @@ func (ctx *NodeTestRuleContext) Config() types.Config {
 	return ctx.config
 }
 
+func (ctx *NodeTestRuleContext) SubmitTack(task func()) {
+	go task()
+}
+
 func (ctx *NodeTestRuleContext) SetEndFunc(onEndFunc func(msg types.RuleMsg, err error)) types.RuleContext {
 	return ctx
 }
@@ -72,6 +79,11 @@ func (ctx *NodeTestRuleContext) GetEndFunc() func(msg types.RuleMsg, err error) 
 	return nil
 }
 
-func (ctx *NodeTestRuleContext) SubmitTack(task func()) {
-	go task()
+func (ctx *NodeTestRuleContext) SetContext(c context.Context) types.RuleContext {
+	ctx.context = c
+	return ctx
+}
+
+func (ctx *NodeTestRuleContext) GetContext() context.Context {
+	return ctx.context
 }

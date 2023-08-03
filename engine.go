@@ -17,6 +17,7 @@
 package rulego
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
@@ -39,10 +40,12 @@ type DefaultRuleContext struct {
 	pool types.Pool
 	//当前消息整条规则链处理结束回调函数
 	onEnd func(msg types.RuleMsg, err error)
+	//用于不同组件共享信号量和数据的上下文
+	context context.Context
 }
 
 //NewRuleContext 创建一个默认规则引擎消息处理上下文实例
-func NewRuleContext(config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd func(msg types.RuleMsg, err error)) *DefaultRuleContext {
+func NewRuleContext(config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd func(msg types.RuleMsg, err error), context context.Context) *DefaultRuleContext {
 	return &DefaultRuleContext{
 		config:       config,
 		ruleChainCtx: ruleChainCtx,
@@ -50,6 +53,7 @@ func NewRuleContext(config types.Config, ruleChainCtx *RuleChainCtx, from types.
 		self:         self,
 		pool:         pool,
 		onEnd:        onEnd,
+		context:      context,
 	}
 }
 
@@ -85,6 +89,15 @@ func (ctx *DefaultRuleContext) SetEndFunc(onEndFunc func(msg types.RuleMsg, err 
 
 func (ctx *DefaultRuleContext) GetEndFunc() func(msg types.RuleMsg, err error) {
 	return ctx.onEnd
+}
+
+func (ctx *DefaultRuleContext) SetContext(c context.Context) types.RuleContext {
+	ctx.context = c
+	return ctx
+}
+
+func (ctx *DefaultRuleContext) GetContext() context.Context {
+	return ctx.context
 }
 
 func (ctx *DefaultRuleContext) SubmitTack(task func()) {
@@ -142,7 +155,7 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 }
 
 func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCtx) {
-	nextCtx := NewRuleContext(ctx.config, ctx.ruleChainCtx, ctx.self, nextNode, ctx.pool, ctx.onEnd)
+	nextCtx := NewRuleContext(ctx.config, ctx.ruleChainCtx, ctx.self, nextNode, ctx.pool, ctx.onEnd, ctx.GetContext())
 	defer func() {
 		//捕捉异常
 		if e := recover(); e != nil {
@@ -307,19 +320,26 @@ func (e *RuleEngine) Stop() {
 // OnMsg 把消息交给规则引擎处理，异步执行
 //根据规则链节点配置和连接关系处理消息
 func (e *RuleEngine) OnMsg(msg types.RuleMsg) {
-	e.onMsg(msg, nil)
+	e.OnMsgWithOptions(msg)
 }
 
 // OnMsgWithEndFunc 把消息交给规则引擎处理，异步执行
-//并注册一个规则链执行结束回调函数
-//如果规则链有多个结束点，回调函数则会执行多次
+//endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
 func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc func(msg types.RuleMsg, err error)) {
-	e.onMsg(msg, endFunc)
+	e.OnMsgWithOptions(msg, types.WithEndFunc(endFunc))
 }
 
-func (e *RuleEngine) onMsg(msg types.RuleMsg, endFunc func(msg types.RuleMsg, err error)) {
+// OnMsgWithOptions 把消息交给规则引擎处理，异步执行
+//可以携带context选项和结束回调选项
+//context 用于不同组件实例数据共享
+//endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
+func (e *RuleEngine) OnMsgWithOptions(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	if e.rootRuleChainCtx != nil {
-		e.rootRuleChainCtx.rootRuleContext.SetEndFunc(endFunc).TellNext(msg)
+		ruleContext := e.rootRuleChainCtx.rootRuleContext
+		for _, opt := range opts {
+			opt(ruleContext)
+		}
+		ruleContext.TellNext(msg)
 	} else {
 		//沒有定义根则链或者没初始化
 		e.Config.Logger.Printf("onMsg error.RuleEngine not initialized")

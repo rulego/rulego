@@ -17,6 +17,7 @@
 package rulego
 
 import (
+	"context"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"sync"
@@ -127,6 +128,7 @@ func InitRuleChainCtx(config types.Config, ruleChainDef RuleChain) (*RuleChainCt
 			self:         firstNode,
 			isFirst:      true,
 			pool:         config.Pool,
+			context:      context.TODO(),
 		}
 	}
 	return ruleChainCtx, nil
@@ -234,7 +236,7 @@ func (rc *RuleChainCtx) Init(_ types.Config, configuration types.Configuration) 
 
 // OnMsg 处理消息
 func (rc *RuleChainCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
-	rc.rootRuleContext.SetEndFunc(ctx.GetEndFunc()).TellNext(msg)
+	rc.rootRuleContext.SetEndFunc(ctx.GetEndFunc()).SetContext(ctx.GetContext()).TellNext(msg)
 	return nil
 }
 

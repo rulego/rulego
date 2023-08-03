@@ -16,7 +16,10 @@
 
 package types
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 // 关系 节点与节点连接的关系，以下是常用的关系，可以自定义
 // relation types
@@ -151,6 +154,25 @@ type RuleContext interface {
 	SetEndFunc(f func(msg RuleMsg, err error)) RuleContext
 	//GetEndFunc 获取当前消息处理结束回调函数
 	GetEndFunc() func(msg RuleMsg, err error)
+	//SetContext 设置用于不同组件实例共享信号量或者数据的上下文
+	SetContext(c context.Context) RuleContext
+	//GetContext 获取用于不同组件实例共享信号量或者数据的上下文
+	GetContext() context.Context
+}
+
+// RuleContextOption 修改RuleContext选项的函数
+type RuleContextOption func(RuleContext)
+
+func WithEndFunc(endFunc func(msg RuleMsg, err error)) RuleContextOption {
+	return func(rc RuleContext) {
+		rc.SetEndFunc(endFunc)
+	}
+}
+
+func WithContext(c context.Context) RuleContextOption {
+	return func(rc RuleContext) {
+		rc.SetContext(c)
+	}
 }
 
 //JsEngine JavaScript脚本引擎
