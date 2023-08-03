@@ -162,11 +162,15 @@ msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":
 //把消息交给规则引擎处理
 ruleEngine.OnMsg(msg)
 
-//需要得到结束回调方式
-ruleEngine.OnMsgWithEndFunc(msg, func (msg types.RuleMsg, err error) {
+//需要得到结束回调的调用方式
+ruleEngine.OnMsgWithOptions(msg,types.WithEndFunc(func(msg types.RuleMsg, err error) {
 //规则链异步回调结果 
 //注意：规则链如果有多个分支结束点，会调用多次
-})
+}))
+
+//带context.Context的调用方式,用于不同组件实例共享数据
+ruleEngine.OnMsgWithOptions(msg,types.WithContext(context.WithValue(context.Background(), "shareKey", "shareValue")))
+
 ```
 
 添加子规则链：
@@ -212,7 +216,7 @@ config := rulego.NewConfig()
 config.OnDebug = func (flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 }
 //全局的规则链结束回调
-//如果只是想要某一次消息调用，使用ruleEngine.OnMsgWithEndFunc方式
+//如果只是想要某一次消息调用，使用ruleEngine.OnMsgWithOptions方式
 //注意：规则链如果有多个分支结束点，会调用多次
 config.OnEnd = func (msg types.RuleMsg, err error) {
 }

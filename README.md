@@ -160,11 +160,16 @@ msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":
 //Give the message to the rule engine for processing
 ruleEngine.OnMsg(msg)
 
-//Need to get the end callback method
-ruleEngine.OnMsgWithEndFunc(msg, func (msg types.RuleMsg, err error) {
+//with end callback call
+ruleEngine.OnMsgWithOptions(msg,types.WithEndFunc(func(msg types.RuleMsg, err error) {
 //Rule chain asynchronous callback result 
 //Note: If the rule chain has multiple branch endpoints, it will be called multiple times
-})
+}))
+
+//whit context.Context call 
+//Used for sharing data between different component instances
+ruleEngine.OnMsgWithOptions(msg,types.WithContext(context.WithValue(context.Background(), "shareKey", "shareValue")))
+
 ```
 
 Add sub-rule chains:
@@ -210,7 +215,7 @@ config := rulego.NewConfig()
 config.OnDebug = func (flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 }
 //Global rule chain end callback
-//If you just want to call for a single message, use the ruleEngine.OnMsgWithEndFunc method
+//If you just want to call for a single message, use the ruleEngine.OnMsgWithOptions method
 //Note: If the rule chain has multiple branch endpoints, it will be called multiple times
 config.OnEnd = func (msg types.RuleMsg, err error) {
 }
