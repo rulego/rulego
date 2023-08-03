@@ -1,0 +1,29 @@
+{
+  "ruleChain": {
+    "name": "测试数据共享规则链"
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "s1",
+        "type": "test/upper",
+        "name": "test upper",
+        "debugMode": false
+      },
+      {
+        "id":"s2",
+        "type": "test/time",
+        "name": "add time",
+        "debugMode": false
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "s1",
+        "toId": "s2",
+        "type": "Success"
+      }
+    ],
+    "ruleChainConnections": null
+  }
+}

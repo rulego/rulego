@@ -17,6 +17,7 @@
 package testcases
 
 import (
+	"context"
 	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
@@ -29,6 +30,12 @@ import (
 	"time"
 )
 
+var (
+	shareKey      = "shareKey"
+	shareValue    = "shareValue"
+	addShareKey   = "addShareKey"
+	addShareValue = "addShareValue"
+)
 var ruleChainFile = `
 	{
 	  "ruleChain": {
@@ -173,19 +180,19 @@ func TestSubRuleChain(t *testing.T) {
 				//root chain end
 				assert.Equal(t, msg.Data, "{\"aa\":11}")
 				v, _ := msg.Metadata.GetValue("test")
-				assert.Equal(t, v, "test01")
+				assert.Equal(t, v, "Modified by root chain")
 			} else {
 				//sub chain end
 				assert.Equal(t, msg.Data, "{\"bb\":22}")
 				v, _ := msg.Metadata.GetValue("test")
-				assert.Equal(t, v, "test02")
+				assert.Equal(t, v, "Modified by sub chain")
 			}
 		})
 
 	}
 	group.Wait()
 	assert.Equal(t, int32(maxTimes*2), completed)
-	fmt.Printf("use times:%s", time.Since(start))
+	fmt.Printf("use times:%s \n", time.Since(start))
 }
 
 //测试规则链debug模式
@@ -260,6 +267,7 @@ func TestNotDebugModel(t *testing.T) {
 		assert.NotEqual(t, "s2", nodeId)
 	}
 	config.OnEnd = func(msg types.RuleMsg, err error) {
+		//已经被 s2 节点修改消息类型
 		assert.Equal(t, "TEST_MSG_TYPE2", msg.Type)
 		assert.Nil(t, err)
 	}
@@ -279,7 +287,7 @@ func TestNotDebugModel(t *testing.T) {
 		})
 	}
 	wg.Wait()
-	fmt.Printf("total massages:%d,use times:%s", maxTimes, time.Since(start))
+	fmt.Printf("total massages:%d,use times:%s \n", maxTimes, time.Since(start))
 }
 
 //测试获取节点
@@ -334,7 +342,7 @@ func TestCallRestApi(t *testing.T) {
 		}
 	}
 	group.Wait()
-	fmt.Printf("total massages:%d,use times:%s", maxTimes, time.Since(start))
+	fmt.Printf("total massages:%d,use times:%s \n", maxTimes, time.Since(start))
 }
 
 //测试消息路由
@@ -369,4 +377,39 @@ func TestMsgTypeSwitch(t *testing.T) {
 	msg = types.NewMsg(0, "TEST_MSG_TYPE3", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsg(msg)
 	wg.Wait()
+}
+
+func TestWithContext(t *testing.T) {
+	//注册自定义组件
+	rulego.Registry.Register(&UpperNode{})
+	rulego.Registry.Register(&TimeNode{})
+
+	start := time.Now()
+	config := rulego.NewConfig()
+	config.OnEnd = func(msg types.RuleMsg, err error) {
+		assert.Equal(t, "TEST_MSG_TYPE", msg.Type)
+		v1, _ := msg.Metadata.GetValue(shareKey)
+		assert.Equal(t, shareValue, v1)
+
+		v2, _ := msg.Metadata.GetValue(addShareKey)
+		assert.Equal(t, addShareValue, v2)
+		assert.Nil(t, err)
+	}
+	ruleEngine, err := rulego.New(str.RandomStr(10), loadFile("./test_context_chain.json"), rulego.WithConfig(config))
+	if err != nil {
+		t.Error(err)
+	}
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"temperature\":41}")
+	var maxTimes = 1
+	var wg sync.WaitGroup
+	wg.Add(maxTimes)
+	for j := 0; j < maxTimes; j++ {
+		ruleEngine.OnMsgWithOptions(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue)), types.WithEndFunc(func(msg types.RuleMsg, err error) {
+			wg.Done()
+		}))
+	}
+	wg.Wait()
+	fmt.Printf("total massages:%d,use times:%s \n", maxTimes, time.Since(start))
 }

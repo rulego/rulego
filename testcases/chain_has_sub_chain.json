@@ -20,7 +20,7 @@
         "name": "转换",
         "debugMode": true,
         "configuration": {
-          "jsScript": "metadata['test']='test01';\n metadata['index']=51;\n msgType='TEST_MSG_TYPE1';var msg2={};\n  msg2['aa']=11\n return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
+          "jsScript": "metadata['test']='Modified by root chain';\n metadata['index']=51;\n msgType='TEST_MSG_TYPE1';var msg2={};\n  msg2['aa']=11\n return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
         }
       }
     ],
