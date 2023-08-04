@@ -1,12 +1,12 @@
 {
   "ruleChain": {
-    "name": "测试子规则链",
+    "name": "测试根规则链",
     "root": true
   },
   "metadata": {
     "nodes": [
       {
-        "id": "s1",
+        "id": "root_s1",
         "type": "jsFilter",
         "name": "过滤",
         "debugMode": true,
@@ -15,7 +15,7 @@
         }
       },
       {
-        "id": "s2",
+        "id": "root_s2",
         "type": "jsTransform",
         "name": "转换",
         "debugMode": true,
@@ -26,14 +26,14 @@
     ],
     "connections": [
       {
-        "fromId": "s1",
-        "toId": "s2",
+        "fromId": "root_s1",
+        "toId": "root_s2",
         "type": "True"
       }
     ],
     "ruleChainConnections": [
       {
-        "fromId": "s1",
+        "fromId": "root_s1",
         "toId": "sub_chain_01",
         "type": "True"
       }

@@ -6,7 +6,7 @@
   "metadata": {
     "nodes": [
       {
-        "id": "s1",
+        "id": "sub_s1",
         "type": "jsFilter",
         "name": "过滤",
         "debugMode": true,
@@ -15,7 +15,7 @@
         }
       },
       {
-        "id": "s2",
+        "id": "sub_s2",
         "type": "jsTransform",
         "name": "转换",
         "debugMode": true,
@@ -26,8 +26,8 @@
     ],
     "connections": [
       {
-        "fromId": "s1",
-        "toId": "s2",
+        "fromId": "sub_s1",
+        "toId": "sub_s2",
         "type": "True"
       }
     ],

@@ -24,6 +24,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/str"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -227,7 +228,7 @@ func TestRuleChainDebugMode(t *testing.T) {
 	assert.Equal(t, 2, outTimes)
 
 	// close s1 node debug mode
-	nodeCtx, ok := ruleEngine.RootRuleChainCtx().GetNodeById(types.RuleNodeId{Id: "s1"})
+	nodeCtx, ok := ruleEngine.RootRuleChainCtx().GetNodeById(types.RuleNodeId{Id: "sub_s1"})
 	assert.True(t, ok)
 	ruleNodeCtx, ok := nodeCtx.(*rulego.RuleNodeCtx)
 	assert.True(t, ok)
@@ -243,7 +244,7 @@ func TestRuleChainDebugMode(t *testing.T) {
 	assert.Equal(t, 1, outTimes)
 
 	// close s1 node debug mode
-	nodeCtx, ok = ruleEngine.RootRuleChainCtx().GetNodeById(types.RuleNodeId{Id: "s2"})
+	nodeCtx, ok = ruleEngine.RootRuleChainCtx().GetNodeById(types.RuleNodeId{Id: "sub_s2"})
 	assert.True(t, ok)
 	ruleNodeCtx, ok = nodeCtx.(*rulego.RuleNodeCtx)
 	assert.True(t, ok)
@@ -388,8 +389,8 @@ func TestWithContext(t *testing.T) {
 	config := rulego.NewConfig()
 	config.OnEnd = func(msg types.RuleMsg, err error) {
 		assert.Equal(t, "TEST_MSG_TYPE", msg.Type)
-		v1, _ := msg.Metadata.GetValue(shareKey)
-		assert.Equal(t, shareValue, v1)
+		//v1, _ := msg.Metadata.GetValue(shareKey)
+		//assert.Equal(t, shareValue, v1)
 
 		v2, _ := msg.Metadata.GetValue(addShareKey)
 		assert.Equal(t, addShareValue, v2)
@@ -402,13 +403,19 @@ func TestWithContext(t *testing.T) {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"temperature\":41}")
-	var maxTimes = 1
+	var maxTimes = 1000
 	var wg sync.WaitGroup
 	wg.Add(maxTimes)
 	for j := 0; j < maxTimes; j++ {
-		ruleEngine.OnMsgWithOptions(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue)), types.WithEndFunc(func(msg types.RuleMsg, err error) {
-			wg.Done()
-		}))
+		go func() {
+			index := j
+			ruleEngine.OnMsgWithOptions(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue+strconv.Itoa(index))), types.WithEndFunc(func(msg types.RuleMsg, err error) {
+				wg.Done()
+				v1, _ := msg.Metadata.GetValue(shareKey)
+				assert.Equal(t, shareValue+strconv.Itoa(index), v1)
+			}))
+		}()
+
 	}
 	wg.Wait()
 	fmt.Printf("total massages:%d,use times:%s \n", maxTimes, time.Since(start))
