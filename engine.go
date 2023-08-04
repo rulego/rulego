@@ -335,11 +335,13 @@ func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc func(msg types.
 //endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
 func (e *RuleEngine) OnMsgWithOptions(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	if e.rootRuleChainCtx != nil {
-		ruleContext := e.rootRuleChainCtx.rootRuleContext
+		rootCtx := e.rootRuleChainCtx.rootRuleContext.(*DefaultRuleContext)
+		rootCtxCopy := NewRuleContext(rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, rootCtx.onEnd, rootCtx.GetContext())
+		rootCtxCopy.isFirst = rootCtx.isFirst
 		for _, opt := range opts {
-			opt(ruleContext)
+			opt(rootCtxCopy)
 		}
-		ruleContext.TellNext(msg)
+		rootCtxCopy.TellNext(msg)
 	} else {
 		//沒有定义根则链或者没初始化
 		e.Config.Logger.Printf("onMsg error.RuleEngine not initialized")

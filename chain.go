@@ -236,7 +236,11 @@ func (rc *RuleChainCtx) Init(_ types.Config, configuration types.Configuration) 
 
 // OnMsg 处理消息
 func (rc *RuleChainCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
-	rc.rootRuleContext.SetEndFunc(ctx.GetEndFunc()).SetContext(ctx.GetContext()).TellNext(msg)
+	rootCtx := rc.rootRuleContext.(*DefaultRuleContext)
+	rootCtxCopy := NewRuleContext(rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, ctx.GetEndFunc(), ctx.GetContext())
+	rootCtxCopy.isFirst = rootCtx.isFirst
+
+	rootCtxCopy.TellNext(msg)
 	return nil
 }
 
