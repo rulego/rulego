@@ -23,13 +23,14 @@ package transform
 //        "name": "转换",
 //        "debugMode": false,
 //        "configuration": {
-//          "jsScript": "metadata['test']='test02';\n metadata['index']=52;\n msgType='TEST_MSG_TYPE2';\n var msg2=JSON.parse(msg);\n msg2['aa']=66; return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
+//          "jsScript": "metadata['test']='test02';\n metadata['index']=52;\n msgType='TEST_MSG_TYPE2';\n  msg['aa']=66; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
 //        }
 //      }
 import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/js"
+	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 	string2 "github.com/rulego/rulego/utils/str"
 )
@@ -81,8 +82,15 @@ func (x *JsTransformNode) Init(ruleConfig types.Config, configuration types.Conf
 
 //OnMsg 处理消息
 func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
-	//start := time.Now()
-	out, err := x.jsEngine.Execute("Transform", msg.Data, msg.Metadata.Values(), msg.Type)
+	var data interface{} = msg.Data
+	if msg.DataType == types.JSON {
+		var dataMap = make(map[string]interface{})
+		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
+			data = dataMap
+		}
+	}
+
+	out, err := x.jsEngine.Execute("Transform", data, msg.Metadata.Values(), msg.Type)
 
 	if err != nil {
 		ctx.TellFailure(msg, err)

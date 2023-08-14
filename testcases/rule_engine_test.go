@@ -52,7 +52,7 @@ var ruleChainFile = `
 			"name": "过滤",
 			"debugMode": true,
 			"configuration": {
-			  "jsScript": "var msg2=JSON.parse(msg);return msg2.temperature>10;"
+			  "jsScript": "return msg.temperature>10;"
 			}
 		  },
 		  {
@@ -85,7 +85,7 @@ var modifyMetadataAndMsgNode = `
 			"name": "转换",
 			"debugMode": true,
 			"configuration": {
-			  "jsScript": "metadata['test']='test02';\n metadata['index']=50;\n msgType='TEST_MSG_TYPE_MODIFY';\n var msg2=JSON.parse(msg);\n msg2['aa']=66;\n return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
+			  "jsScript": "metadata['test']='test02';\n metadata['index']=50;\n msgType='TEST_MSG_TYPE_MODIFY';\n  msg['aa']=66;\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
 			}
 		  }
 `

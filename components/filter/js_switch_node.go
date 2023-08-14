@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/js"
+	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 )
@@ -46,7 +47,7 @@ type JsSwitchNodeConfiguration struct {
 
 //JsSwitchNode 节点执行已配置的JS脚本。脚本应返回消息应路由到的下一个链名称的数组。
 //如果数组为空-消息不路由到下一个节点。
-//消息体可以通过`msg`变量访问，msg 是string类型。例如:`var msg2=JSON.parse(msg);msg2.temperature > 50;`
+//消息体可以通过`msg`变量访问，msg 是string类型。例如:`msg.temperature > 50;`
 //消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
 //消息类型可以通过`msgType`变量访问.
 type JsSwitchNode struct {
@@ -75,7 +76,15 @@ func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configu
 //OnMsg 处理消息
 func (x *JsSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 
-	out, err := x.jsEngine.Execute("Switch", msg.Data, msg.Metadata.Values(), msg.Type)
+	var data interface{} = msg.Data
+	if msg.DataType == types.JSON {
+		var dataMap = make(map[string]interface{})
+		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
+			data = dataMap
+		}
+	}
+
+	out, err := x.jsEngine.Execute("Switch", data, msg.Metadata.Values(), msg.Type)
 
 	if err != nil {
 		ctx.TellFailure(msg, err)

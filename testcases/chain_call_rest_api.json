@@ -21,7 +21,7 @@
         "name": "转换",
         "debugMode": true,
         "configuration": {
-          "jsScript": "metadata['test']='test02';\n metadata['index']=52;\n msgType='TEST_MSG_TYPE2';\n var msg2=JSON.parse(msg);\n msg2['aa']=66; return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
+          "jsScript": "metadata['test']='test02';\n metadata['index']=52;\n msgType='TEST_MSG_TYPE2';\n  msg['aa']=66; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
         }
       },
       {

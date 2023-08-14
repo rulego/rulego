@@ -23,13 +23,14 @@ package filter
 //        "name": "过滤",
 //        "debugMode": false,
 //        "configuration": {
-//          "jsScript": "var msg2=JSON.parse(msg);return msg2.temperature > 50;"
+//          "jsScript": "return msg.temperature > 50;"
 //        }
 //      }
 import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/js"
+	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 )
 
@@ -50,7 +51,7 @@ type JsFilterNodeConfiguration struct {
 //JsFilterNode 使用js脚本过滤传入信息
 //如果 `True`发送信息到`True`链, `False`发到`False`链。
 //如果 脚本执行失败则发送到`Failure`链
-//消息体可以通过`msg`变量访问，msg 是string类型。例如:`var msg2=JSON.parse(msg);return msg2.temperature > 50;`
+//消息体可以通过`msg`变量访问，msg 是string类型。例如:`return msg.temperature > 50;`
 //消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
 //消息类型可以通过`msgType`变量访问.
 type JsFilterNode struct {
@@ -79,7 +80,15 @@ func (x *JsFilterNode) Init(ruleConfig types.Config, configuration types.Configu
 
 //OnMsg 处理消息
 func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
-	out, err := x.jsEngine.Execute("Filter", msg.Data, msg.Metadata.Values(), msg.Type)
+	var data interface{} = msg.Data
+	if msg.DataType == types.JSON {
+		var dataMap = make(map[string]interface{})
+		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
+			data = dataMap
+		}
+	}
+
+	out, err := x.jsEngine.Execute("Filter", data, msg.Metadata.Values(), msg.Type)
 	if err != nil {
 		ctx.TellFailure(msg, err)
 		return err

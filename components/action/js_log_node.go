@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/js"
+	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 )
 
@@ -52,7 +53,7 @@ type LogNodeConfiguration struct {
 
 //LogNode 使用JS脚本将传入消息转换为字符串，并将最终值记录到日志文件中
 //使用`types.Config.Logger`记录日志
-//消息体可以通过`msg`变量访问，msg 是string类型。例如:`return var msg2=JSON.parse(msg);msg2.temperature > 50;`
+//消息体可以通过`msg`变量访问，msg 是string类型。例如:`return msg.temperature > 50;`
 //消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
 //消息类型可以通过`msgType`变量访问.
 //脚本执行成功，发送信息到`Success`链, 否则发到`Failure`链。
@@ -87,8 +88,14 @@ func (x *LogNode) Init(ruleConfig types.Config, configuration types.Configuratio
 
 //OnMsg 处理消息
 func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
-
-	out, err := x.jsEngine.Execute("ToString", msg.Data, msg.Metadata, msg.Type)
+	var data interface{} = msg.Data
+	if msg.DataType == types.JSON {
+		var dataMap = make(map[string]interface{})
+		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
+			data = dataMap
+		}
+	}
+	out, err := x.jsEngine.Execute("ToString", data, msg.Metadata, msg.Type)
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
