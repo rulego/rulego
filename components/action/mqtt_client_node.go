@@ -49,9 +49,9 @@ type MqttClientNodeConfiguration struct {
 	QOS                  uint8
 	CleanSession         bool
 	ClientID             string
-	CACert               string
-	TLSCert              string
-	TLSKey               string
+	CAFile               string
+	CertFile             string
+	CertKeyFile          string
 }
 
 func (x *MqttClientNodeConfiguration) ToMqttConfig() mqtt.Config {
@@ -63,9 +63,9 @@ func (x *MqttClientNodeConfiguration) ToMqttConfig() mqtt.Config {
 		MaxReconnectInterval: x.MaxReconnectInterval,
 		CleanSession:         x.CleanSession,
 		ClientID:             x.ClientID,
-		CACert:               x.CACert,
-		TLSCert:              x.TLSCert,
-		TLSKey:               x.TLSKey,
+		CAFile:               x.CAFile,
+		CertFile:             x.CertFile,
+		CertKeyFile:          x.CertKeyFile,
 	}
 }
 

@@ -28,18 +28,14 @@ import (
 	"time"
 )
 
-//IHandler 处理订阅数据
-type IHandler interface {
-	//Name 处理器名称
-	Name() string
-	//SubscribeTopics 订阅主题列表
-	SubscribeTopics() []string
-	//SubscribeQos 订阅Qos
-	SubscribeQos() byte
-	//MsgHandler 接收订阅数据
-	MsgHandler(c paho.Client, data paho.Message)
-	//Close 关闭
-	Close() error
+//Handler 订阅数据处理器
+type Handler struct {
+	//订阅主题
+	Topic string
+	//订阅Qos
+	Qos byte
+	//接收订阅数据 处理
+	Handle func(c paho.Client, data paho.Message)
 }
 
 //Config 客户端配置
@@ -55,10 +51,10 @@ type Config struct {
 	QOS                  uint8
 	CleanSession         bool
 	//client Id
-	ClientID string
-	CACert   string
-	TLSCert  string
-	TLSKey   string
+	ClientID    string
+	CAFile      string
+	CertFile    string
+	CertKeyFile string
 }
 
 //Client mqtt客户端
@@ -67,7 +63,7 @@ type Client struct {
 	wg     sync.WaitGroup
 	client paho.Client
 	//订阅主题和处理器映射
-	msgHandlerMap map[string]IHandler
+	msgHandlerMap map[string]Handler
 }
 
 // NewClient 创建一个MQTT客户端实例
@@ -75,7 +71,7 @@ func NewClient(conf Config) (*Client, error) {
 	var err error
 
 	b := Client{
-		msgHandlerMap: make(map[string]IHandler),
+		msgHandlerMap: make(map[string]Handler),
 	}
 
 	opts := paho.NewClientOptions()
@@ -96,9 +92,9 @@ func NewClient(conf Config) (*Client, error) {
 	}
 	opts.SetMaxReconnectInterval(conf.MaxReconnectInterval)
 
-	tlsconfig, err := newTLSConfig(conf.CACert, conf.TLSCert, conf.TLSKey)
+	tlsconfig, err := newTLSConfig(conf.CAFile, conf.CertFile, conf.CertKeyFile)
 	if err != nil {
-		log.Printf("error loading mqtt certificate files,ca_cert=%s,tls_cert=%s,tls_key=%s", conf.CACert, conf.TLSCert, conf.TLSKey)
+		log.Printf("error loading mqtt certificate files,ca_cert=%s,tls_cert=%s,tls_key=%s", conf.CAFile, conf.CertFile, conf.CertKeyFile)
 	}
 	//tls
 	if tlsconfig != nil {
@@ -119,17 +115,15 @@ func NewClient(conf Config) (*Client, error) {
 }
 
 //RegisterHandler 注册订阅数据处理器
-func (b *Client) RegisterHandler(handler IHandler) {
+func (b *Client) RegisterHandler(handler Handler) {
 	b.Lock()
 	defer b.Unlock()
-	for _, topic := range handler.SubscribeTopics() {
-		b.msgHandlerMap[topic] = handler
-	}
+	b.msgHandlerMap[handler.Topic] = handler
 	b.subscribe()
 }
 
 //GetHandlerByUpTopic 通过主题获取数据处理器
-func (b *Client) GetHandlerByUpTopic(topic string) IHandler {
+func (b *Client) GetHandlerByUpTopic(topic string) Handler {
 	b.RLock()
 	defer b.RUnlock()
 	return b.msgHandlerMap[topic]
@@ -137,7 +131,7 @@ func (b *Client) GetHandlerByUpTopic(topic string) IHandler {
 
 func (b *Client) Close() error {
 	for _, v := range b.msgHandlerMap {
-		_ = v.Close()
+		b.client.Unsubscribe(v.Topic)
 	}
 	return nil
 }
@@ -161,9 +155,9 @@ func (b *Client) onConnected(c paho.Client) {
 func (b *Client) subscribe() {
 	for topic, handler := range b.msgHandlerMap {
 		for {
-			log.Printf("subscribing to topic,topic=%s,qos=%d", topic, handler.SubscribeQos())
-			if token := b.client.Subscribe(topic, handler.SubscribeQos(), handler.MsgHandler).(*paho.SubscribeToken); token.Wait() && (token.Error() != nil || is128Err(token, topic)) { //128 ACK错误
-				log.Printf("subscribe error,topic=%s,qos=%d", topic, handler.SubscribeQos())
+			log.Printf("subscribing to topic,topic=%s,qos=%d", topic, int(handler.Qos))
+			if token := b.client.Subscribe(topic, handler.Qos, handler.Handle).(*paho.SubscribeToken); token.Wait() && (token.Error() != nil || is128Err(token, topic)) { //128 ACK错误
+				log.Printf("subscribe error,topic=%s,qos=%d", topic, int(handler.Qos))
 				time.Sleep(2 * time.Second)
 				continue
 			}
