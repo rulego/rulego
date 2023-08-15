@@ -6,6 +6,7 @@ require (
 	github.com/dop251/goja v0.0.0-20230605162241-28ee0ee714f3
 	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/gofrs/uuid/v5 v5.0.0
+	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mitchellh/mapstructure v1.5.0
 )
 
