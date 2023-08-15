@@ -65,9 +65,9 @@ func (md *Metadata) Copy() Metadata {
 }
 
 //GetValue 通过key获取值
-func (md *Metadata) GetValue(key string) (string, bool) {
-	v, ok := md.data[key]
-	return v, ok
+func (md *Metadata) GetValue(key string) string {
+	v, _ := md.data[key]
+	return v
 }
 
 //PutValue 设置值

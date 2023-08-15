@@ -34,9 +34,8 @@ func TestRestApiCallNodeOnMsg(t *testing.T) {
 		t.Errorf("err=%s", err)
 	}
 	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
-		code, ok := msg.Metadata.GetValue(statusCode)
+		code := msg.Metadata.GetValue(statusCode)
 		assert.Equal(t, "404", code)
-		assert.True(t, ok)
 	})
 	metaData := types.BuildMetadata(make(map[string]string))
 	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "{\"test\":\"AA\"}")

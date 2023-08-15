@@ -105,8 +105,8 @@ func testRuleEngine(t *testing.T, ruleChainFile string, modifyNodeId, modifyNode
 	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 		if flowType == types.Out && nodeId == modifyNodeId && modifyNodeId != "" {
-			indexStr, _ := msg.Metadata.GetValue("index")
-			testStr, _ := msg.Metadata.GetValue("test")
+			indexStr := msg.Metadata.GetValue("index")
+			testStr := msg.Metadata.GetValue("test")
 			assert.Equal(t, "50", indexStr)
 			assert.Equal(t, "test02", testStr)
 			assert.Equal(t, "TEST_MSG_TYPE_MODIFY", msg.Type)
@@ -180,12 +180,12 @@ func TestSubRuleChain(t *testing.T) {
 			if msg.Type == "TEST_MSG_TYPE1" {
 				//root chain end
 				assert.Equal(t, msg.Data, "{\"aa\":11}")
-				v, _ := msg.Metadata.GetValue("test")
+				v := msg.Metadata.GetValue("test")
 				assert.Equal(t, v, "Modified by root chain")
 			} else {
 				//sub chain end
 				assert.Equal(t, msg.Data, "{\"bb\":22}")
-				v, _ := msg.Metadata.GetValue("test")
+				v := msg.Metadata.GetValue("test")
 				assert.Equal(t, v, "Modified by sub chain")
 			}
 		})
@@ -392,7 +392,7 @@ func TestWithContext(t *testing.T) {
 		//v1, _ := msg.Metadata.GetValue(shareKey)
 		//assert.Equal(t, shareValue, v1)
 
-		v2, _ := msg.Metadata.GetValue(addShareKey)
+		v2 := msg.Metadata.GetValue(addShareKey)
 		assert.Equal(t, addShareValue, v2)
 		assert.Nil(t, err)
 	}
@@ -411,7 +411,7 @@ func TestWithContext(t *testing.T) {
 			index := j
 			ruleEngine.OnMsgWithOptions(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue+strconv.Itoa(index))), types.WithEndFunc(func(msg types.RuleMsg, err error) {
 				wg.Done()
-				v1, _ := msg.Metadata.GetValue(shareKey)
+				v1 := msg.Metadata.GetValue(shareKey)
 				assert.Equal(t, shareValue+strconv.Itoa(index), v1)
 			}))
 		}()

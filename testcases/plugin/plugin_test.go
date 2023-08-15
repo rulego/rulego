@@ -57,8 +57,8 @@ func TestPlugin(t *testing.T) {
 	}
 	config.OnEnd = func(msg types.RuleMsg, err error) {
 		assert.Equal(t, "AA", msg.Data)
-		_, ok := msg.Metadata.GetValue("timestamp")
-		assert.True(t, ok)
+		v := msg.Metadata.GetValue("timestamp")
+		assert.True(t, v != "")
 		group.Done()
 		config.Logger.Printf("OnEnd data=%s,metaData=%s,err=%s", msg.Data, msg.Metadata, err)
 	}
@@ -99,8 +99,8 @@ func TestReloadPlugin(t *testing.T) {
 	}
 	config.OnEnd = func(msg types.RuleMsg, err error) {
 		assert.Equal(t, "AA", msg.Data)
-		_, ok := msg.Metadata.GetValue("timestamp")
-		assert.True(t, ok)
+		v := msg.Metadata.GetValue("timestamp")
+		assert.True(t, v != "")
 		group.Done()
 		config.Logger.Printf("OnEnd data=%s,metaData=%s,err=%s", msg.Data, msg.Metadata, err)
 	}
