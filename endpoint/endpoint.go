@@ -26,6 +26,7 @@ import (
 )
 
 //Message 接收端点数据抽象接口
+//不同输入源数据统一接口
 type Message interface {
 	//Body message body
 	Body() []byte
@@ -160,12 +161,17 @@ func (t *To) End() *Router {
 	return t.router
 }
 
-//Router 路由，把消息从输入端（From），经过转换（Transform）成RuleMsg结构，然后交给规则链处理（To）
+//Router 路由，抽象不同输入源数据路由
+//把消息从输入端（From），经过转换（Transform）成RuleMsg结构，或者处理Process，然后交给规则链处理（To）
 //或者 把消息从输入端（From），经过转换（Transform），然后处理响应（Process）
 //用法：
+//http endpoint
 // endpoint.NewRouter().From("/api/v1/msg/").Transform().To("chain:xx")
 // endpoint.NewRouter().From("/api/v1/msg/").Transform().Process().To("chain:xx")
 // endpoint.NewRouter().From("/api/v1/msg/").Transform().Process()
+//mqtt endpoint
+// endpoint.NewRouter().From("#").Transform().Process().To("chain:xx")
+// endpoint.NewRouter().From("topic").Transform().Process().To("chain:xx")
 type Router struct {
 	//输入
 	from *From
