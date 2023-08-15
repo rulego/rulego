@@ -135,8 +135,9 @@ func (r *ResponseMessage) Response() paho.Client {
 
 //Mqtt MQTT 接收端端点
 type Mqtt struct {
-	client  *mqtt.Client
-	Config  mqtt.Config
+	client *mqtt.Client
+	Config mqtt.Config
+	//路由
 	Routers map[string]*endpoint.Router
 	sync.RWMutex
 }
@@ -203,10 +204,12 @@ func (m *Mqtt) handler(router *endpoint.Router) func(c paho.Client, data paho.Me
 				response: c,
 			}}
 
+		processResult := true
 		if fromFlow := router.GetFrom(); fromFlow != nil {
-			fromFlow.ExecuteProcess(exchange)
+			processResult = fromFlow.ExecuteProcess(exchange)
 		}
-		if router.ToHandler != nil {
+
+		if router.ToHandler != nil && processResult {
 			router.ToHandler(context.TODO(), router, exchange)
 		}
 	}

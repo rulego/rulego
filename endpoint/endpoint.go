@@ -25,7 +25,7 @@ import (
 	"strings"
 )
 
-//Message 端点接收数据接口
+//Message 接收端点数据抽象接口
 type Message interface {
 	//Body message body
 	Body() []byte
@@ -35,7 +35,7 @@ type Message interface {
 	GetParam(key string) string
 	//SetMsg set RuleMsg
 	SetMsg(msg *types.RuleMsg)
-	//GetMsg to RuleMsg
+	//GetMsg 把接收数据转换成 RuleMsg
 	GetMsg() *types.RuleMsg
 	//SetStatusCode 响应 code
 	SetStatusCode(statusCode int)
@@ -50,11 +50,14 @@ type Exchange struct {
 }
 
 //Process 处理函数
-type Process func(exchange *Exchange)
+//true:执行下一个处理器，否则不执行
+type Process func(exchange *Exchange) bool
 
+//From 来源路由
 type From struct {
 	router *Router
-	from   string
+	//来源路径
+	from string
 	//消息处理拦截器
 	processList []Process
 	//xx:前缀的方式标记目的地，例如"chain:{chainId}"，则是交给规则引擎处理数据
@@ -79,15 +82,22 @@ func (f *From) Process(process Process) *From {
 	f.processList = append(f.processList, process)
 	return f
 }
+
 func (f *From) GetProcessList() []Process {
 	return f.processList
 }
 
 //ExecuteProcess 执行处理函数
-func (f *From) ExecuteProcess(exchange *Exchange) {
+//true:执行下一个逻辑，否则不执行
+func (f *From) ExecuteProcess(exchange *Exchange) bool {
+	result := true
 	for _, process := range f.GetProcessList() {
-		process(exchange)
+		if !process(exchange) {
+			result = false
+			break
+		}
 	}
+	return result
 }
 
 func (f *From) To(to string) *To {
@@ -101,7 +111,7 @@ func (f *From) To(to string) *To {
 		f.router.ToHandler = RuleChainHandler
 		f.to.toPath = to
 	}
-	if strings.Contains(to, "{") && strings.Contains(to, "}") {
+	if strings.Contains(to, "${") && strings.Contains(to, "}") {
 		f.to.HasVars = true
 	}
 	return f.to
@@ -115,6 +125,7 @@ func (f *From) End() *Router {
 	return f.router
 }
 
+//To 目的地路由
 type To struct {
 	router *Router
 	//xx:前缀的方式标记目的地，例如"chain:{chainId}"，则是交给规则引擎处理数据
@@ -203,7 +214,9 @@ var RuleChainHandler = func(ctx context.Context, router *Router, exchange *Excha
 				types.WithEndFunc(func(msg types.RuleMsg, err error) {
 					exchange.Out.SetMsg(&msg)
 					for _, process := range toFlow.GetProcessList() {
-						process(exchange)
+						if !process(exchange) {
+							break
+						}
 					}
 				}))
 		}

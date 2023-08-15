@@ -42,10 +42,11 @@ func TestMqttEndpoint2(t *testing.T) {
 		},
 	}
 	//订阅所有主题路由，并转发到default规则链处理
-	router1 := endpoint.NewRouter().From("#").Transform(func(exchange *endpoint.Exchange) {
+	router1 := endpoint.NewRouter().From("#").Transform(func(exchange *endpoint.Exchange) bool {
 		assert.Equal(t, 1, len(exchange.In.Headers()))
 		assert.NotEqual(t, "", exchange.In.GetMsg().Data)
 		fmt.Println(exchange.In.GetMsg())
+		return true
 	}).To("chain:default").End()
 
 	//注册路由并启动服务

@@ -147,8 +147,7 @@ func restServe(logger *log.Logger, addr string) {
 		Config: endpointRest.Config{Addr: addr},
 	}
 	//处理请求，并转发到规则引擎
-	restEndpoint.POST(endpoint.NewRouter().From(msgPath).Transform(func(exchange *endpoint.Exchange) {
-		//from := exchange.In.From()
+	restEndpoint.POST(endpoint.NewRouter().From(msgPath).Transform(func(exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		//获取消息类型
 		msg.Type = msg.Metadata.GetValue("msgType")
@@ -159,33 +158,38 @@ func restServe(logger *log.Logger, addr string) {
 			userId = "default"
 		}
 		msg.Metadata.PutValue("userId", userId)
-	}).Process(func(exchange *endpoint.Exchange) {
+		return true
+	}).Process(func(exchange *endpoint.Exchange) bool {
 		exchange.Out.SetStatusCode(http.StatusOK)
+		return true
 	}).To("chain:${userId}").End())
 
 	//获取根规则链DSL
-	restEndpoint.GET(endpoint.NewRouter().From(rulePath).Process(func(exchange *endpoint.Exchange) {
+	restEndpoint.GET(endpoint.NewRouter().From(rulePath).Process(func(exchange *endpoint.Exchange) bool {
 		getDsl("", exchange)
+		return true
 	}).End())
 	//获取某个节点DSL
-	restEndpoint.GET(endpoint.NewRouter().From(ruleNodePath).Process(func(exchange *endpoint.Exchange) {
+	restEndpoint.GET(endpoint.NewRouter().From(ruleNodePath).Process(func(exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		nodeId := msg.Metadata.GetValue("nodeId")
 		getDsl(nodeId, exchange)
+		return true
 	}).End())
 
 	//修改根规则链DSL
-	restEndpoint.PUT(endpoint.NewRouter().From(rulePath).Process(func(exchange *endpoint.Exchange) {
+	restEndpoint.PUT(endpoint.NewRouter().From(rulePath).Process(func(exchange *endpoint.Exchange) bool {
 		reloadDsl("", exchange)
+		return true
 	}).End())
 	//修改某个节点DSL
-	restEndpoint.PUT(endpoint.NewRouter().From(ruleNodePath).Process(func(exchange *endpoint.Exchange) {
+	restEndpoint.PUT(endpoint.NewRouter().From(ruleNodePath).Process(func(exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		nodeId := msg.Metadata.GetValue("nodeId")
 		reloadDsl(nodeId, exchange)
+		return true
 	}).End())
 
-	logger.Printf("starting server on :%d", port)
 	//注册路由
 	_ = restEndpoint.Start()
 }

@@ -144,7 +144,9 @@ type Config struct {
 
 //Rest 接收端端点
 type Rest struct {
+	//配置
 	Config Config
+	//路由器
 	router *httprouter.Router
 }
 
@@ -244,11 +246,12 @@ func (r *Rest) handler(router *endpoint.Router) httprouter.Handle {
 			msg.Metadata.PutValue(param.Key, param.Value)
 		}
 
+		processResult := true
 		if fromFlow := router.GetFrom(); fromFlow != nil {
-			fromFlow.ExecuteProcess(exchange)
+			processResult = fromFlow.ExecuteProcess(exchange)
 		}
 
-		if router.ToHandler != nil {
+		if router.ToHandler != nil && processResult {
 			router.ToHandler(r.Context(), router, exchange)
 		}
 	}
