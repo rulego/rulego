@@ -39,10 +39,10 @@ const (
 	apiBasePath = "/api/" + apiVersion + "/"
 
 	// path to rule. /msg/{tenant_id}/{msg_type}
-	msgPath = apiBasePath + "msg/"
+	msgPath = apiBasePath + "msg/:msgType"
 	// /rule/{tenant_id}/{rule_id}
-	rulePath = apiBasePath + "rule/"
-
+	rulePath     = apiBasePath + "rule/"
+	ruleNodePath = apiBasePath + "rule/:nodeId"
 	// server version.
 	version = "1.0.0"
 )
@@ -147,12 +147,11 @@ func restServe(logger *log.Logger, addr string) {
 		Config: endpointRest.Config{Addr: addr},
 	}
 	//处理请求，并转发到规则引擎
-	router1 := endpoint.NewRouter().From(msgPath).Transform(func(exchange *endpoint.Exchange) {
-		from := exchange.In.From()
+	restEndpoint.POST(endpoint.NewRouter().From(msgPath).Transform(func(exchange *endpoint.Exchange) {
+		//from := exchange.In.From()
 		msg := exchange.In.GetMsg()
 		//获取消息类型
-		msgType := from[len(msgPath):]
-		msg.Type = msgType
+		msg.Type = msg.Metadata.GetValue("msgType")
 
 		//用户ID
 		userId := exchange.In.Headers().Get("userId")
@@ -162,18 +161,61 @@ func restServe(logger *log.Logger, addr string) {
 		msg.Metadata.PutValue("userId", userId)
 	}).Process(func(exchange *endpoint.Exchange) {
 		exchange.Out.SetStatusCode(http.StatusOK)
-	}).To("chain:${userId}").End()
+	}).To("chain:${userId}").End())
 
-	//规则链DSL管理
-	router2 := endpoint.NewRouter().From(rulePath).Process(func(exchange *endpoint.Exchange) {
-		request, _ := exchange.In.(*endpointRest.RequestMessage)
-		response, _ := exchange.Out.(*endpointRest.ResponseMessage)
-		handel := ruleIndexHandler(ruleEngine)
-		if request != nil && response != nil {
-			handel.ServeHTTP(response.Response(), request.Request())
-		}
-	}).End()
+	//获取根规则链DSL
+	restEndpoint.GET(endpoint.NewRouter().From(rulePath).Process(func(exchange *endpoint.Exchange) {
+		getDsl("", exchange)
+	}).End())
+	//获取某个节点DSL
+	restEndpoint.GET(endpoint.NewRouter().From(ruleNodePath).Process(func(exchange *endpoint.Exchange) {
+		msg := exchange.In.GetMsg()
+		nodeId := msg.Metadata.GetValue("nodeId")
+		getDsl(nodeId, exchange)
+	}).End())
+
+	//修改根规则链DSL
+	restEndpoint.PUT(endpoint.NewRouter().From(rulePath).Process(func(exchange *endpoint.Exchange) {
+		reloadDsl("", exchange)
+	}).End())
+	//修改某个节点DSL
+	restEndpoint.PUT(endpoint.NewRouter().From(ruleNodePath).Process(func(exchange *endpoint.Exchange) {
+		msg := exchange.In.GetMsg()
+		nodeId := msg.Metadata.GetValue("nodeId")
+		reloadDsl(nodeId, exchange)
+	}).End())
+
 	logger.Printf("starting server on :%d", port)
 	//注册路由
-	_ = restEndpoint.AddRouter(router1, router2).Start()
+	_ = restEndpoint.Start()
+}
+
+//获取DSL
+func getDsl(nodeId string, exchange *endpoint.Exchange) {
+	var def []byte
+	if nodeId == "" {
+		def = ruleEngine.DSL()
+	} else {
+		def = ruleEngine.NodeDSL(types.EmptyRuleNodeId, types.RuleNodeId{Id: nodeId, Type: types.NODE})
+		if def == nil {
+			def = ruleEngine.NodeDSL(types.EmptyRuleNodeId, types.RuleNodeId{Id: nodeId, Type: types.CHAIN})
+		}
+	}
+	exchange.Out.SetBody(def)
+}
+
+//更新DSL
+func reloadDsl(nodeId string, exchange *endpoint.Exchange) {
+	var err error
+	if nodeId == "" {
+		err = ruleEngine.ReloadSelf(exchange.In.Body())
+	} else {
+		err = ruleEngine.ReloadChild(types.RuleNodeId{}, types.RuleNodeId{Id: nodeId, Type: types.NODE}, exchange.In.Body())
+	}
+	if err != nil {
+		log.Print(err)
+		exchange.Out.SetStatusCode(http.StatusInternalServerError)
+	} else {
+		exchange.Out.SetStatusCode(http.StatusCreated)
+	}
 }

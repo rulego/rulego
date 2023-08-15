@@ -17,13 +17,13 @@
 package rest
 
 import (
+	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/endpoint"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/textproto"
-	"sync"
 )
 
 const (
@@ -35,7 +35,9 @@ const (
 type RequestMessage struct {
 	request *http.Request
 	body    []byte
-	msg     *types.RuleMsg
+	//路径参数
+	Params httprouter.Params
+	msg    *types.RuleMsg
 }
 
 func (r *RequestMessage) Body() []byte {
@@ -142,51 +144,83 @@ type Config struct {
 
 //Rest 接收端端点
 type Rest struct {
-	Config  Config
-	Routers map[string]*endpoint.Router
-	sync.RWMutex
+	Config Config
+	router *httprouter.Router
 }
 
 func (r *Rest) Start() error {
-	r.RLock()
-	for _, router := range r.Routers {
-		form := router.GetFrom()
-		if form != nil {
-			http.Handle(form.ToString(), r.handler(router))
-		}
-	}
-	r.RUnlock()
 	var err error
 	if r.Config.CertKeyFile != "" && r.Config.CertFile != "" {
 		log.Printf("starting server with TLS on :%s", r.Config.Addr)
-		err = http.ListenAndServeTLS(r.Config.Addr, r.Config.CertFile, r.Config.CertKeyFile, nil)
+		err = http.ListenAndServeTLS(r.Config.Addr, r.Config.CertFile, r.Config.CertKeyFile, r.router)
 	} else {
 		log.Printf("starting server on :%s", r.Config.Addr)
-		err = http.ListenAndServe(r.Config.Addr, nil)
+		err = http.ListenAndServe(r.Config.Addr, r.router)
 	}
 	return err
 
 }
 
-//AddRouter 添加路由
-func (r *Rest) AddRouter(routers ...*endpoint.Router) *Rest {
-	r.Lock()
-	defer r.Unlock()
-	if r.Routers == nil {
-		r.Routers = make(map[string]*endpoint.Router)
+// AddRouter 注册1个或者多个路由
+//
+// For GET, POST, PUT, PATCH and DELETE requests the respective shortcut
+// functions can be used.
+func (r *Rest) AddRouter(method string, routers ...*endpoint.Router) *Rest {
+	if r.router == nil {
+		r.router = httprouter.New()
 	}
-	for _, router := range routers {
-		r.Routers[router.FromToString()] = router
+
+	for _, rt := range routers {
+		r.router.Handle(method, rt.FromToString(), r.handler(rt))
 	}
 	return r
+}
+
+func (r *Rest) GET(routers ...*endpoint.Router) *Rest {
+	r.AddRouter(http.MethodGet, routers...)
+	return r
+}
+
+func (r *Rest) HEAD(routers ...*endpoint.Router) *Rest {
+	r.AddRouter(http.MethodHead, routers...)
+	return r
+}
+
+func (r *Rest) OPTIONS(routers ...*endpoint.Router) *Rest {
+	r.AddRouter(http.MethodOptions, routers...)
+	return r
+}
+
+func (r *Rest) POST(routers ...*endpoint.Router) *Rest {
+	r.AddRouter(http.MethodPost, routers...)
+	return r
+}
+
+func (r *Rest) PUT(routers ...*endpoint.Router) *Rest {
+	r.AddRouter(http.MethodPut, routers...)
+	return r
+}
+
+func (r *Rest) PATCH(routers ...*endpoint.Router) *Rest {
+	r.AddRouter(http.MethodPatch, routers...)
+	return r
+}
+
+func (r *Rest) DELETE(routers ...*endpoint.Router) *Rest {
+	r.AddRouter(http.MethodDelete, routers...)
+	return r
+}
+
+func (r *Rest) Router() *httprouter.Router {
+	return r.router
 }
 
 func (r *Rest) Stop() {
 
 }
 
-func (r *Rest) handler(router *endpoint.Router) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (r *Rest) handler(router *endpoint.Router) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		defer func() {
 			//捕捉异常
 			if e := recover(); e != nil {
@@ -197,11 +231,18 @@ func (r *Rest) handler(router *endpoint.Router) http.Handler {
 		exchange := &endpoint.Exchange{
 			In: &RequestMessage{
 				request: r,
+				Params:  params,
 			},
 			Out: &ResponseMessage{
 				request:  r,
 				response: w,
 			}}
+
+		msg := exchange.In.GetMsg()
+		//把路径参数放到msg元数据中
+		for _, param := range params {
+			msg.Metadata.PutValue(param.Key, param.Value)
+		}
 
 		if fromFlow := router.GetFrom(); fromFlow != nil {
 			fromFlow.ExecuteProcess(exchange)
@@ -210,5 +251,5 @@ func (r *Rest) handler(router *endpoint.Router) http.Handler {
 		if router.ToHandler != nil {
 			router.ToHandler(r.Context(), router, exchange)
 		}
-	})
+	}
 }

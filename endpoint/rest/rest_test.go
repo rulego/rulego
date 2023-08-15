@@ -11,7 +11,7 @@ func TestRestEndPoint(t *testing.T) {
 	restEndpoint := &Rest{Config: Config{Addr: ":9090"}}
 
 	//路由1
-	router1 := endpoint.NewRouter().From("/api/v1/hello/").Process(func(exchange *endpoint.Exchange) {
+	router1 := endpoint.NewRouter().From("/api/v1/hello/:name").Process(func(exchange *endpoint.Exchange) {
 		//处理请求
 		request, ok := exchange.In.(*RequestMessage)
 		if ok {
@@ -30,16 +30,17 @@ func TestRestEndPoint(t *testing.T) {
 
 	}).End()
 
+	//注册路由
+	restEndpoint.GET(router1)
+
 	//路由2 处理请求，并转发到规则引擎处理
-	router2 := endpoint.NewRouter().From("/api/v1/msg2/").To("chain:default").End()
+	router2 := endpoint.NewRouter().From("/api/v1/msg2/:msgType").To("chain:default").End()
 
 	//路由3 处理请求，并转换，然后转发到规则引擎处理
-	router3 := endpoint.NewRouter().From("/api/v1/msg/").Transform(func(exchange *endpoint.Exchange) {
-		from := exchange.In.From()
+	router3 := endpoint.NewRouter().From("/api/v1/msg/:msgType").Transform(func(exchange *endpoint.Exchange) {
 		msg := exchange.In.GetMsg()
 		//获取消息类型
-		msgType := from[len("/api/v1/msg/"):]
-		msg.Type = msgType
+		msg.Type = msg.Metadata.GetValue("msgType")
 
 		//从header获取用户ID
 		userId := exchange.In.Headers().Get("userId")
@@ -54,6 +55,8 @@ func TestRestEndPoint(t *testing.T) {
 		exchange.Out.SetBody([]byte("ok"))
 	}).To("chain:${userId}").End()
 
-	//注册路由，并启动服务
-	_ = restEndpoint.AddRouter(router1, router2, router3).Start()
+	//注册路由
+	restEndpoint.POST(router2, router3)
+	//并启动服务
+	_ = restEndpoint.Start()
 }
