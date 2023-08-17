@@ -32,10 +32,11 @@ import (
 )
 
 var (
-	shareKey      = "shareKey"
-	shareValue    = "shareValue"
-	addShareKey   = "addShareKey"
-	addShareValue = "addShareValue"
+	shareKey       = "shareKey"
+	shareValue     = "shareValue"
+	addShareKey    = "addShareKey"
+	addShareValue  = "addShareValue"
+	testdataFolder = "../testdata/"
 )
 var ruleChainFile = `
 	{
@@ -92,7 +93,7 @@ var modifyMetadataAndMsgNode = `
 
 //加载文件
 func loadFile(filePath string) []byte {
-	buf, err := os.ReadFile(filePath)
+	buf, err := os.ReadFile(testdataFolder + filePath)
 	if err != nil {
 		return nil
 	} else {
