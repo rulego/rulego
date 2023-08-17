@@ -2,6 +2,8 @@ package mqtt
 
 import (
 	"fmt"
+	"github.com/rulego/rulego"
+	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/test/assert"
@@ -10,12 +12,19 @@ import (
 	"testing"
 )
 
-func TestMessage(t *testing.T) {
-}
+var testdataFolder = "../../testdata"
 
 func TestMqttEndpoint(t *testing.T) {
 	c := make(chan os.Signal)
 	signal.Notify(c)
+
+	buf, err := os.ReadFile(testdataFolder + "/chain_call_rest_api.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := rulego.NewConfig(types.WithDefaultPool())
+	//注册规则链
+	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
 
 	//启动mqtt接收端服务
 	mqttEndpoint := &Mqtt{
@@ -34,6 +43,14 @@ func TestMqttEndpoint(t *testing.T) {
 func TestMqttEndpoint2(t *testing.T) {
 	c := make(chan os.Signal)
 	signal.Notify(c)
+
+	buf, err := os.ReadFile(testdataFolder + "/chain_call_rest_api.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := rulego.NewConfig(types.WithDefaultPool())
+	//注册规则链
+	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
 
 	//mqtt 接收数据
 	mqttEndpoint := &Mqtt{

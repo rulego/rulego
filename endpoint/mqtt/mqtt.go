@@ -209,8 +209,8 @@ func (m *Mqtt) handler(router *endpoint.Router) func(c paho.Client, data paho.Me
 			processResult = fromFlow.ExecuteProcess(exchange)
 		}
 
-		if router.ToHandler != nil && processResult {
-			router.ToHandler(context.TODO(), router, exchange)
+		if router.GetFrom() != nil && router.GetFrom().GetTo() != nil && processResult {
+			router.GetFrom().GetTo().Execute(context.TODO(), exchange)
 		}
 	}
 }

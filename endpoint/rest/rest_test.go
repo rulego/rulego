@@ -1,12 +1,27 @@
 package rest
 
 import (
+	"github.com/rulego/rulego"
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/endpoint"
 	"net/http"
+	"os"
 	"testing"
 )
 
+var testdataFolder = "../../testdata"
+
 func TestRestEndPoint(t *testing.T) {
+
+	buf, err := os.ReadFile(testdataFolder + "/chain_call_rest_api.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := rulego.NewConfig(types.WithDefaultPool())
+	//注册规则链
+	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
+
 	//启动http接收服务
 	restEndpoint := &Rest{Config: Config{Addr: ":9090"}}
 
@@ -73,8 +88,30 @@ func TestRestEndPoint(t *testing.T) {
 		return true
 	}).To("chain:${userId}").End()
 
+	//路由4 处理请求，并转换，然后转发给组件
+	router4 := endpoint.NewRouter().From("/api/v1/msgToComponent/:msgType").Transform(func(exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		//获取消息类型
+		msg.Type = msg.Metadata.GetValue("msgType")
+		return true
+	}).Process(func(exchange *endpoint.Exchange) bool {
+		//响应给客户端
+		exchange.Out.Headers().Set("Content-Type", "application/json")
+		exchange.Out.SetBody([]byte("ok"))
+		return true
+	}).ToComponent(func() types.Node {
+		//定义日志组件，处理数据
+		var configuration = make(types.Configuration)
+		configuration["jsScript"] = `
+		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
+        `
+		logNode := &action.LogNode{}
+		_ = logNode.Init(config, configuration)
+		return logNode
+	}()).End()
+
 	//注册路由
-	restEndpoint.POST(router2, router3)
+	restEndpoint.POST(router2, router3, router4)
 	//并启动服务
 	_ = restEndpoint.Start()
 }

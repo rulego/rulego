@@ -251,8 +251,8 @@ func (r *Rest) handler(router *endpoint.Router) httprouter.Handle {
 			processResult = fromFlow.ExecuteProcess(exchange)
 		}
 
-		if router.ToHandler != nil && processResult {
-			router.ToHandler(r.Context(), router, exchange)
+		if router.GetFrom() != nil && router.GetFrom().GetTo() != nil && processResult {
+			router.GetFrom().GetTo().Execute(r.Context(), exchange)
 		}
 	}
 }

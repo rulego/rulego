@@ -18,11 +18,13 @@ package endpoint
 
 import (
 	"context"
+	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/str"
 	"net/textproto"
 	"strings"
+	"sync"
 )
 
 //Message 接收端点数据抽象接口
@@ -105,11 +107,12 @@ func (f *From) To(to string) *To {
 	f.to = &To{router: f.router, to: to}
 
 	toHandlerType := strings.Split(to, ":")[0]
-	if toHandler, ok := ToHandlerRegistry[toHandlerType]; ok {
-		f.router.ToHandler = toHandler
+
+	if executor, ok := DefaultExecutorFactory.New(toHandlerType); ok {
+		f.to.executor = executor
 		f.to.toPath = strings.TrimSpace(to[len(toHandlerType)+1:])
 	} else {
-		f.router.ToHandler = RuleChainHandler
+		f.to.executor = &ChainExecutor{}
 		f.to.toPath = to
 	}
 	if strings.Contains(to, "${") && strings.Contains(to, "}") {
@@ -119,6 +122,14 @@ func (f *From) To(to string) *To {
 }
 
 func (f *From) GetTo() *To {
+	return f.to
+}
+
+func (f *From) ToComponent(node types.Node) *To {
+	component := &ComponentExecutor{component: node, config: f.router.config}
+	f.to = &To{router: f.router, to: node.Type(), toPath: node.Type()}
+	f.to.executor = component
+
 	return f.to
 }
 
@@ -137,10 +148,26 @@ type To struct {
 	processList []Process
 	//是否有占位符变量
 	HasVars bool
+	//目标处理器，默认是规则链处理
+	executor Executor
+}
+
+func (t *To) ToStringByDict(dict map[string]string) string {
+	if t.HasVars {
+		return str.SprintfDict(t.toPath, dict)
+	}
+	return t.toPath
 }
 
 func (t *To) ToString() string {
 	return t.toPath
+}
+
+//Execute 执行
+func (t *To) Execute(ctx context.Context, exchange *Exchange) {
+	if t.executor != nil {
+		t.executor.Execute(ctx, t.router, exchange)
+	}
 }
 
 func (t *To) Transform(transform Process) *To {
@@ -175,12 +202,35 @@ func (t *To) End() *Router {
 type Router struct {
 	//输入
 	from *From
-	//目标处理器，默认是规则链处理
-	ToHandler ToHandler
+	//规则链池，默认使用rulego.DefaultRuleGo
+	ruleGo *rulego.RuleGo
+	config types.Config
 }
 
-func NewRouter() *Router {
-	return &Router{}
+//RouterOption 选项函数
+type RouterOption func(*Router) error
+
+//WithRuleGo 更改规则链池，默认使用rulego.DefaultRuleGo
+func WithRuleGo(ruleGo *rulego.RuleGo) RouterOption {
+	return func(re *Router) error {
+		re.ruleGo = ruleGo
+		return nil
+	}
+}
+
+func WithRuleConfig(config types.Config) RouterOption {
+	return func(re *Router) error {
+		re.config = config
+		return nil
+	}
+}
+func NewRouter(opts ...RouterOption) *Router {
+	router := &Router{ruleGo: rulego.DefaultRuleGo, config: rulego.NewConfig()}
+	// 设置选项值
+	for _, opt := range opts {
+		_ = opt(router)
+	}
+	return router
 }
 
 func (r *Router) FromToString() string {
@@ -200,22 +250,64 @@ func (r *Router) GetFrom() *From {
 	return r.from
 }
 
-//ToHandler 目标处理器
-type ToHandler func(ctx context.Context, router *Router, exchange *Exchange)
+type Executor interface {
+	New() Executor
+	Init(config types.Config, configuration types.Configuration) error
+	Execute(ctx context.Context, router *Router, exchange *Exchange)
+}
 
-//RuleChainHandler 规则链处理器
-var RuleChainHandler = func(ctx context.Context, router *Router, exchange *Exchange) {
+//ExecutorFactory 执行器工厂
+type ExecutorFactory struct {
+	sync.RWMutex
+	executors map[string]Executor
+}
+
+func (r *ExecutorFactory) Register(name string, executor Executor) {
+	r.Lock()
+	r.Unlock()
+	if r.executors == nil {
+		r.executors = make(map[string]Executor)
+	}
+	r.executors[name] = executor
+}
+
+func (r *ExecutorFactory) New(name string) (Executor, bool) {
+	r.RLock()
+	r.RUnlock()
+	h, ok := r.executors[name]
+	if ok {
+		return h.New(), true
+	} else {
+		return nil, false
+	}
+
+}
+
+//ChainExecutor 规则链执行器
+type ChainExecutor struct {
+}
+
+func (ce *ChainExecutor) New() Executor {
+
+	return &ChainExecutor{}
+}
+
+func (ce *ChainExecutor) Init(_ types.Config, _ types.Configuration) error {
+
+	return nil
+}
+
+func (ce *ChainExecutor) Execute(ctx context.Context, router *Router, exchange *Exchange) {
 	fromFlow := router.GetFrom()
 	if fromFlow == nil {
 		return
 	}
 	inMsg := exchange.In.GetMsg()
 	if toFlow := fromFlow.GetTo(); toFlow != nil && inMsg != nil {
-		toChainId := toFlow.toPath
-		if toFlow.HasVars {
-			toChainId = str.SprintfDict(toFlow.toPath, inMsg.Metadata.Values())
-		}
-		if ruleEngine, ok := rulego.Get(toChainId); ok {
+		toChainId := toFlow.ToStringByDict(inMsg.Metadata.Values())
+
+		//查找规则链，并执行
+		if ruleEngine, ok := router.ruleGo.Get(toChainId); ok {
 			ruleEngine.OnMsgWithOptions(*inMsg, types.WithContext(ctx),
 				types.WithEndFunc(func(msg types.RuleMsg, err error) {
 					exchange.Out.SetMsg(&msg)
@@ -230,7 +322,58 @@ var RuleChainHandler = func(ctx context.Context, router *Router, exchange *Excha
 	}
 }
 
-//ToHandlerRegistry 处理器注册
-var ToHandlerRegistry = map[string]ToHandler{
-	"chain": RuleChainHandler,
+//ComponentExecutor node组件执行器
+type ComponentExecutor struct {
+	component types.Node
+	config    types.Config
+}
+
+func (ce *ComponentExecutor) New() Executor {
+	return &ComponentExecutor{}
+}
+
+func (ce *ComponentExecutor) Init(config types.Config, configuration types.Configuration) error {
+	ce.config = config
+	if configuration == nil {
+		return fmt.Errorf("nodeType can't empty")
+	}
+	nodeType := configuration.GetToString("nodeType")
+	node, err := config.ComponentsRegistry.NewNode(nodeType)
+	if err == nil {
+		ce.component = node
+	}
+	return err
+}
+
+func (ce *ComponentExecutor) Execute(ctx context.Context, router *Router, exchange *Exchange) {
+	if ce.component != nil {
+		fromFlow := router.GetFrom()
+		if fromFlow == nil {
+			return
+		}
+
+		inMsg := exchange.In.GetMsg()
+		if toFlow := fromFlow.GetTo(); toFlow != nil && inMsg != nil {
+			//初始化的空上下文
+			ruleCtx := rulego.NewRuleContext(ce.config, nil, nil, nil, ce.config.Pool, func(msg types.RuleMsg, err error) {
+				exchange.Out.SetMsg(&msg)
+				for _, process := range toFlow.GetProcessList() {
+					if !process(exchange) {
+						break
+					}
+				}
+			}, ctx)
+
+			//执行组件逻辑
+			_ = ce.component.OnMsg(ruleCtx, *inMsg)
+		}
+	}
+}
+
+var DefaultExecutorFactory = new(ExecutorFactory)
+
+//注册默认执行器
+func init() {
+	DefaultExecutorFactory.Register("chain", &ChainExecutor{})
+	DefaultExecutorFactory.Register("component", &ComponentExecutor{})
 }
