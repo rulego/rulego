@@ -18,6 +18,7 @@ package types
 
 import (
 	"context"
+	"github.com/rulego/rulego/utils/str"
 	"sync"
 )
 
@@ -39,6 +40,13 @@ const (
 
 // Configuration 组件配置类型
 type Configuration map[string]interface{}
+
+func (c Configuration) GetToString(key string) string {
+	if v, ok := c[key]; ok {
+		return str.ToString(v)
+	}
+	return ""
+}
 
 //ComponentType 组件类型：规则节点或者子规则链
 type ComponentType int
