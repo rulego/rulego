@@ -17,7 +17,6 @@
 package mqtt
 
 import (
-	"context"
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/mqtt"
@@ -134,6 +133,7 @@ func (r *ResponseMessage) Response() paho.Client {
 
 //Mqtt MQTT 接收端端点
 type Mqtt struct {
+	endpoint.BaseEndpoint
 	Config mqtt.Config
 	client *mqtt.Client
 }
@@ -201,13 +201,6 @@ func (m *Mqtt) handler(router *endpoint.Router) func(c paho.Client, data paho.Me
 				response: c,
 			}}
 
-		processResult := true
-		if fromFlow := router.GetFrom(); fromFlow != nil {
-			processResult = fromFlow.ExecuteProcess(exchange)
-		}
-		//执行to端逻辑
-		if router.GetFrom() != nil && router.GetFrom().GetTo() != nil && processResult {
-			router.GetFrom().GetTo().Execute(context.TODO(), exchange)
-		}
+		m.DoProcess(router, exchange)
 	}
 }

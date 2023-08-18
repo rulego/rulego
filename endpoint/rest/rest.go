@@ -144,20 +144,21 @@ type Config struct {
 
 //Rest 接收端端点
 type Rest struct {
+	endpoint.BaseEndpoint
 	//配置
 	Config Config
 	//路由器
 	router *httprouter.Router
 }
 
-func (r *Rest) Start() error {
+func (rest *Rest) Start() error {
 	var err error
-	if r.Config.CertKeyFile != "" && r.Config.CertFile != "" {
-		log.Printf("starting server with TLS on :%s", r.Config.Addr)
-		err = http.ListenAndServeTLS(r.Config.Addr, r.Config.CertFile, r.Config.CertKeyFile, r.router)
+	if rest.Config.CertKeyFile != "" && rest.Config.CertFile != "" {
+		log.Printf("starting server with TLS on :%s", rest.Config.Addr)
+		err = http.ListenAndServeTLS(rest.Config.Addr, rest.Config.CertFile, rest.Config.CertKeyFile, rest.router)
 	} else {
-		log.Printf("starting server on :%s", r.Config.Addr)
-		err = http.ListenAndServe(r.Config.Addr, r.router)
+		log.Printf("starting server on :%s", rest.Config.Addr)
+		err = http.ListenAndServe(rest.Config.Addr, rest.router)
 	}
 	return err
 
@@ -167,61 +168,61 @@ func (r *Rest) Start() error {
 //
 // For GET, POST, PUT, PATCH and DELETE requests the respective shortcut
 // functions can be used.
-func (r *Rest) AddRouter(method string, routers ...*endpoint.Router) *Rest {
-	if r.router == nil {
-		r.router = httprouter.New()
+func (rest *Rest) AddRouter(method string, routers ...*endpoint.Router) *Rest {
+	if rest.router == nil {
+		rest.router = httprouter.New()
 	}
 
 	for _, rt := range routers {
-		r.router.Handle(method, rt.FromToString(), r.handler(rt))
+		rest.router.Handle(method, rt.FromToString(), rest.handler(rt))
 	}
-	return r
+	return rest
 }
 
-func (r *Rest) GET(routers ...*endpoint.Router) *Rest {
-	r.AddRouter(http.MethodGet, routers...)
-	return r
+func (rest *Rest) GET(routers ...*endpoint.Router) *Rest {
+	rest.AddRouter(http.MethodGet, routers...)
+	return rest
 }
 
-func (r *Rest) HEAD(routers ...*endpoint.Router) *Rest {
-	r.AddRouter(http.MethodHead, routers...)
-	return r
+func (rest *Rest) HEAD(routers ...*endpoint.Router) *Rest {
+	rest.AddRouter(http.MethodHead, routers...)
+	return rest
 }
 
-func (r *Rest) OPTIONS(routers ...*endpoint.Router) *Rest {
-	r.AddRouter(http.MethodOptions, routers...)
-	return r
+func (rest *Rest) OPTIONS(routers ...*endpoint.Router) *Rest {
+	rest.AddRouter(http.MethodOptions, routers...)
+	return rest
 }
 
-func (r *Rest) POST(routers ...*endpoint.Router) *Rest {
-	r.AddRouter(http.MethodPost, routers...)
-	return r
+func (rest *Rest) POST(routers ...*endpoint.Router) *Rest {
+	rest.AddRouter(http.MethodPost, routers...)
+	return rest
 }
 
-func (r *Rest) PUT(routers ...*endpoint.Router) *Rest {
-	r.AddRouter(http.MethodPut, routers...)
-	return r
+func (rest *Rest) PUT(routers ...*endpoint.Router) *Rest {
+	rest.AddRouter(http.MethodPut, routers...)
+	return rest
 }
 
-func (r *Rest) PATCH(routers ...*endpoint.Router) *Rest {
-	r.AddRouter(http.MethodPatch, routers...)
-	return r
+func (rest *Rest) PATCH(routers ...*endpoint.Router) *Rest {
+	rest.AddRouter(http.MethodPatch, routers...)
+	return rest
 }
 
-func (r *Rest) DELETE(routers ...*endpoint.Router) *Rest {
-	r.AddRouter(http.MethodDelete, routers...)
-	return r
+func (rest *Rest) DELETE(routers ...*endpoint.Router) *Rest {
+	rest.AddRouter(http.MethodDelete, routers...)
+	return rest
 }
 
-func (r *Rest) Router() *httprouter.Router {
-	return r.router
+func (rest *Rest) Router() *httprouter.Router {
+	return rest.router
 }
 
-func (r *Rest) Stop() {
+func (rest *Rest) Stop() {
 
 }
 
-func (r *Rest) handler(router *endpoint.Router) httprouter.Handle {
+func (rest *Rest) handler(router *endpoint.Router) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		defer func() {
 			//捕捉异常
@@ -245,14 +246,6 @@ func (r *Rest) handler(router *endpoint.Router) httprouter.Handle {
 		for _, param := range params {
 			msg.Metadata.PutValue(param.Key, param.Value)
 		}
-
-		processResult := true
-		if fromFlow := router.GetFrom(); fromFlow != nil {
-			processResult = fromFlow.ExecuteProcess(exchange)
-		}
-
-		if router.GetFrom() != nil && router.GetFrom().GetTo() != nil && processResult {
-			router.GetFrom().GetTo().Execute(r.Context(), exchange)
-		}
+		rest.DoProcess(router, exchange)
 	}
 }

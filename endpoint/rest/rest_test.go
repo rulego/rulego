@@ -25,7 +25,11 @@ func TestRestEndPoint(t *testing.T) {
 
 	//启动http接收服务
 	restEndpoint := &Rest{Config: Config{Addr: ":9090"}}
-
+	//添加全局拦截器
+	restEndpoint.AddInterceptors(func(exchange *endpoint.Exchange) bool {
+		//权限校验逻辑
+		return true
+	})
 	//路由1
 	router1 := endpoint.NewRouter().From("/api/v1/hello/:name").Process(func(exchange *endpoint.Exchange) bool {
 		//处理请求

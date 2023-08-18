@@ -32,6 +32,11 @@ func TestMqttEndpoint(t *testing.T) {
 			Server: "127.0.0.1:1883",
 		},
 	}
+	//添加全局拦截器
+	mqttEndpoint.AddInterceptors(func(exchange *endpoint.Exchange) bool {
+		//权限校验逻辑
+		return true
+	})
 	//订阅所有主题路由，并转发到default规则链处理
 	router1 := endpoint.NewRouter().From("#").Transform(func(exchange *endpoint.Exchange) bool {
 		t.Logf("receive data:%s,topic:%s", exchange.In.GetMsg().Data, exchange.In.GetMsg().Metadata.GetValue("topic"))

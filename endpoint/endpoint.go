@@ -297,6 +297,37 @@ func (r *Router) GetFrom() *From {
 	return r.from
 }
 
+//BaseEndpoint 基础端点
+//实现全局拦截器基础方法
+type BaseEndpoint struct {
+	//全局拦截器
+	interceptors []Process
+}
+
+//AddInterceptors 添加全局拦截器
+func (e *BaseEndpoint) AddInterceptors(interceptors ...Process) {
+	e.interceptors = append(e.interceptors, interceptors...)
+}
+
+func (e *BaseEndpoint) DoProcess(router *Router, exchange *Exchange) {
+	for _, item := range e.interceptors {
+		//执行全局拦截器
+		if !item(exchange) {
+			return
+		}
+	}
+	//执行from端逻辑
+	if fromFlow := router.GetFrom(); fromFlow != nil {
+		if !fromFlow.ExecuteProcess(exchange) {
+			return
+		}
+	}
+	//执行to端逻辑
+	if router.GetFrom() != nil && router.GetFrom().GetTo() != nil {
+		router.GetFrom().GetTo().Execute(context.TODO(), exchange)
+	}
+}
+
 //Executor to端执行器
 type Executor interface {
 	//New 创建新的实例
@@ -347,7 +378,7 @@ func (ce *ChainExecutor) New() Executor {
 	return &ChainExecutor{}
 }
 
-//PathSupportVar to路径允许带变量
+//IsPathSupportVar to路径允许带变量
 func (ce *ChainExecutor) IsPathSupportVar() bool {
 	return true
 }
