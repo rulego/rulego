@@ -33,7 +33,10 @@ func TestMqttEndpoint(t *testing.T) {
 		},
 	}
 	//订阅所有主题路由，并转发到default规则链处理
-	router1 := endpoint.NewRouter().From("#").To("chain:default").End()
+	router1 := endpoint.NewRouter().From("#").Transform(func(exchange *endpoint.Exchange) bool {
+		t.Logf("receive data:%s,topic:%s", exchange.In.GetMsg().Data, exchange.In.GetMsg().Metadata.GetValue("topic"))
+		return true
+	}).To("chain:default").End()
 	//注册路由并启动服务
 	_ = mqttEndpoint.AddRouter(router1).Start()
 

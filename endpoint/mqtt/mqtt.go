@@ -25,7 +25,6 @@ import (
 	"log"
 	"net/textproto"
 	"strconv"
-	"sync"
 )
 
 //RequestMessage http请求消息
@@ -135,32 +134,20 @@ func (r *ResponseMessage) Response() paho.Client {
 
 //Mqtt MQTT 接收端端点
 type Mqtt struct {
-	client *mqtt.Client
 	Config mqtt.Config
-	//路由
-	Routers map[string]*endpoint.Router
-	sync.RWMutex
+	client *mqtt.Client
 }
 
 func (m *Mqtt) Start() error {
-	var err error
-	m.client, err = mqtt.NewClient(m.Config)
-	if err == nil {
-		m.RLock()
-		for _, router := range m.Routers {
-			form := router.GetFrom()
-			if form != nil {
-				m.client.RegisterHandler(mqtt.Handler{
-					Topic:  form.ToString(),
-					Qos:    m.Config.QOS,
-					Handle: m.handler(router),
-				})
-			}
+	if m.client == nil {
+		if client, err := mqtt.NewClient(m.Config); err != nil {
+			return err
+		} else {
+			m.client = client
+			return nil
 		}
-		m.RUnlock()
-
 	}
-	return err
+	return nil
 }
 
 func (m *Mqtt) Stop() {
@@ -176,13 +163,23 @@ func (m *Mqtt) Close() error {
 
 //AddRouter 添加路由
 func (m *Mqtt) AddRouter(routers ...*endpoint.Router) *Mqtt {
-	m.Lock()
-	defer m.Unlock()
-	if m.Routers == nil {
-		m.Routers = make(map[string]*endpoint.Router)
+	if m.client == nil {
+		if client, err := mqtt.NewClient(m.Config); err != nil {
+			panic(err)
+		} else {
+			m.client = client
+		}
 	}
+
 	for _, router := range routers {
-		m.Routers[router.FromToString()] = router
+		form := router.GetFrom()
+		if form != nil {
+			m.client.RegisterHandler(mqtt.Handler{
+				Topic:  form.ToString(),
+				Qos:    m.Config.QOS,
+				Handle: m.handler(router),
+			})
+		}
 	}
 	return m
 }
@@ -208,7 +205,7 @@ func (m *Mqtt) handler(router *endpoint.Router) func(c paho.Client, data paho.Me
 		if fromFlow := router.GetFrom(); fromFlow != nil {
 			processResult = fromFlow.ExecuteProcess(exchange)
 		}
-
+		//执行to端逻辑
 		if router.GetFrom() != nil && router.GetFrom().GetTo() != nil && processResult {
 			router.GetFrom().GetTo().Execute(context.TODO(), exchange)
 		}
