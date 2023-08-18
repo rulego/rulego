@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+// Package endpoint /**
+
 package endpoint
 
 import (
@@ -25,6 +27,10 @@ import (
 	"net/textproto"
 	"strings"
 	"sync"
+)
+
+const (
+	pathKey = "_path"
 )
 
 //Message 接收端点数据抽象接口
@@ -48,7 +54,9 @@ type Message interface {
 
 //Exchange 包含in 和out message
 type Exchange struct {
-	In  Message
+	//入数据
+	In Message
+	//出数据
 	Out Message
 }
 
@@ -56,14 +64,14 @@ type Exchange struct {
 //true:执行下一个处理器，否则不执行
 type Process func(exchange *Exchange) bool
 
-//From 来源路由
+//From from端
 type From struct {
 	router *Router
 	//来源路径
 	from string
 	//消息处理拦截器
 	processList []Process
-	//xx:前缀的方式标记目的地，例如"chain:{chainId}"，则是交给规则引擎处理数据
+	//流转目标路径，例如"chain:{chainId}"，则是交给规则引擎处理数据
 	to *To
 }
 
@@ -76,22 +84,25 @@ func (f *From) From(from string) *From {
 	return f
 }
 
+//Transform from端转换msg
 func (f *From) Transform(transform Process) *From {
 	f.processList = append(f.processList, transform)
 	return f
 }
 
+//Process from端处理msg
 func (f *From) Process(process Process) *From {
 	f.processList = append(f.processList, process)
 	return f
 }
 
+//GetProcessList 获取from端处理器列表
 func (f *From) GetProcessList() []Process {
 	return f.processList
 }
 
 //ExecuteProcess 执行处理函数
-//true:执行下一个逻辑，否则不执行
+//true:执行To端逻辑，否则不执行
 func (f *From) ExecuteProcess(exchange *Exchange) bool {
 	result := true
 	for _, process := range f.GetProcessList() {
@@ -103,20 +114,43 @@ func (f *From) ExecuteProcess(exchange *Exchange) bool {
 	return result
 }
 
-func (f *From) To(to string) *To {
-	f.to = &To{router: f.router, to: to}
+//To To端
+//参数是组件路径，格式{executorType}:{path} executorType：执行器组件类型，path:组件路径
+//如：chain:{chainId} 执行rulego中注册的规则链
+//component:{nodeType} 执行在config.ComponentsRegistry 中注册的组件
+//可在DefaultExecutorFactory中注册自定义执行器组件类型
+//componentConfigs 组件配置参数
+func (f *From) To(to string, componentConfigs ...types.Configuration) *To {
+	var componentConfig = make(types.Configuration)
+	for _, item := range componentConfigs {
+		for k, v := range item {
+			componentConfig[k] = v
+		}
+	}
+	f.to = &To{router: f.router, to: to, componentConfig: componentConfig}
+	//路径中是否有变量，如：chain:${userId}
+	if strings.Contains(to, "${") && strings.Contains(to, "}") {
+		f.to.HasVars = true
+	}
+	//获取To执行器类型
+	executorType := strings.Split(to, ":")[0]
 
-	toHandlerType := strings.Split(to, ":")[0]
-
-	if executor, ok := DefaultExecutorFactory.New(toHandlerType); ok {
+	//获取To执行器
+	if executor, ok := DefaultExecutorFactory.New(executorType); ok {
+		if f.to.HasVars && !executor.IsPathSupportVar() {
+			panic(fmt.Errorf("executor=%s, path not support variables", executorType))
+		}
+		f.to.toPath = strings.TrimSpace(to[len(executorType)+1:])
+		componentConfig[pathKey] = f.to.toPath
+		//初始化组件
+		err := executor.Init(f.router.config, componentConfig)
+		if err != nil {
+			panic(err)
+		}
 		f.to.executor = executor
-		f.to.toPath = strings.TrimSpace(to[len(toHandlerType)+1:])
 	} else {
 		f.to.executor = &ChainExecutor{}
 		f.to.toPath = to
-	}
-	if strings.Contains(to, "${") && strings.Contains(to, "}") {
-		f.to.HasVars = true
 	}
 	return f.to
 }
@@ -125,33 +159,38 @@ func (f *From) GetTo() *To {
 	return f.to
 }
 
+//ToComponent to组件
+//参数是types.Node类型组件
 func (f *From) ToComponent(node types.Node) *To {
 	component := &ComponentExecutor{component: node, config: f.router.config}
 	f.to = &To{router: f.router, to: node.Type(), toPath: node.Type()}
 	f.to.executor = component
-
 	return f.to
 }
 
+//End 结束返回*Router
 func (f *From) End() *Router {
 	return f.router
 }
 
-//To 目的地路由
+//To to端
 type To struct {
 	router *Router
-	//xx:前缀的方式标记目的地，例如"chain:{chainId}"，则是交给规则引擎处理数据
+	//流转目标路径，例如"chain:{chainId}"，则是交给规则引擎处理数据
 	to string
-	//去掉标记前缀后的路径
+	//去掉to执行器标记的路径
 	toPath string
 	//消息处理拦截器
 	processList []Process
 	//是否有占位符变量
 	HasVars bool
+	//componentConfig Executor组件配置
+	componentConfig types.Configuration
 	//目标处理器，默认是规则链处理
 	executor Executor
 }
 
+//ToStringByDict 转换路径中的变量，并返回最终字符串
 func (t *To) ToStringByDict(dict map[string]string) string {
 	if t.HasVars {
 		return str.SprintfDict(t.toPath, dict)
@@ -163,27 +202,31 @@ func (t *To) ToString() string {
 	return t.toPath
 }
 
-//Execute 执行
+//Execute 执行To端逻辑
 func (t *To) Execute(ctx context.Context, exchange *Exchange) {
 	if t.executor != nil {
 		t.executor.Execute(ctx, t.router, exchange)
 	}
 }
 
+//Transform 执行To端逻辑 后转换
 func (t *To) Transform(transform Process) *To {
 	t.processList = append(t.processList, transform)
 	return t
 }
 
+//Process 执行To端逻辑 后处理
 func (t *To) Process(process Process) *To {
 	t.processList = append(t.processList, process)
 	return t
 }
 
+//GetProcessList 获取执行To端逻辑 处理器
 func (t *To) GetProcessList() []Process {
 	return t.processList
 }
 
+//End 结束返回*Router
 func (t *To) End() *Router {
 	return t.router
 }
@@ -195,6 +238,7 @@ func (t *To) End() *Router {
 //http endpoint
 // endpoint.NewRouter().From("/api/v1/msg/").Transform().To("chain:xx")
 // endpoint.NewRouter().From("/api/v1/msg/").Transform().Process().To("chain:xx")
+// endpoint.NewRouter().From("/api/v1/msg/").Transform().Process().To("component:nodeType")
 // endpoint.NewRouter().From("/api/v1/msg/").Transform().Process()
 //mqtt endpoint
 // endpoint.NewRouter().From("#").Transform().Process().To("chain:xx")
@@ -218,12 +262,15 @@ func WithRuleGo(ruleGo *rulego.RuleGo) RouterOption {
 	}
 }
 
+//WithRuleConfig 更改规则引擎配置
 func WithRuleConfig(config types.Config) RouterOption {
 	return func(re *Router) error {
 		re.config = config
 		return nil
 	}
 }
+
+//NewRouter 创建新的路由
 func NewRouter(opts ...RouterOption) *Router {
 	router := &Router{ruleGo: rulego.DefaultRuleGo, config: rulego.NewConfig()}
 	// 设置选项值
@@ -250,18 +297,25 @@ func (r *Router) GetFrom() *From {
 	return r.from
 }
 
+//Executor to端执行器
 type Executor interface {
+	//New 创建新的实例
 	New() Executor
+	//IsPathSupportVar to路径是否支持${}变量方式，默认不支持
+	IsPathSupportVar() bool
+	//Init 初始化
 	Init(config types.Config, configuration types.Configuration) error
+	//Execute 执行逻辑
 	Execute(ctx context.Context, router *Router, exchange *Exchange)
 }
 
-//ExecutorFactory 执行器工厂
+//ExecutorFactory to端执行器工厂
 type ExecutorFactory struct {
 	sync.RWMutex
 	executors map[string]Executor
 }
 
+//Register 注册to端执行器
 func (r *ExecutorFactory) Register(name string, executor Executor) {
 	r.Lock()
 	r.Unlock()
@@ -271,6 +325,7 @@ func (r *ExecutorFactory) Register(name string, executor Executor) {
 	r.executors[name] = executor
 }
 
+//New 根据类型创建to端执行器实例
 func (r *ExecutorFactory) New(name string) (Executor, bool) {
 	r.RLock()
 	r.RUnlock()
@@ -292,8 +347,12 @@ func (ce *ChainExecutor) New() Executor {
 	return &ChainExecutor{}
 }
 
-func (ce *ChainExecutor) Init(_ types.Config, _ types.Configuration) error {
+//PathSupportVar to路径允许带变量
+func (ce *ChainExecutor) IsPathSupportVar() bool {
+	return true
+}
 
+func (ce *ChainExecutor) Init(_ types.Config, _ types.Configuration) error {
 	return nil
 }
 
@@ -332,15 +391,21 @@ func (ce *ComponentExecutor) New() Executor {
 	return &ComponentExecutor{}
 }
 
+//IsPathSupportVar to路径不允许带变量
+func (ce *ComponentExecutor) IsPathSupportVar() bool {
+	return false
+}
+
 func (ce *ComponentExecutor) Init(config types.Config, configuration types.Configuration) error {
 	ce.config = config
 	if configuration == nil {
 		return fmt.Errorf("nodeType can't empty")
 	}
-	nodeType := configuration.GetToString("nodeType")
+	nodeType := configuration.GetToString(pathKey)
 	node, err := config.ComponentsRegistry.NewNode(nodeType)
 	if err == nil {
 		ce.component = node
+		err = ce.component.Init(config, configuration)
 	}
 	return err
 }
@@ -370,6 +435,7 @@ func (ce *ComponentExecutor) Execute(ctx context.Context, router *Router, exchan
 	}
 }
 
+//DefaultExecutorFactory 默认to端执行器注册器
 var DefaultExecutorFactory = new(ExecutorFactory)
 
 //注册默认执行器
