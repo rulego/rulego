@@ -30,6 +30,23 @@ router := endpoint.NewRouter().From("/api/v1/msg/").Transform(func(exchange *end
 })
 ```
 
+### Response
+
+You can use the Exchange's Out message to respond to the client in the conversion or processing function
+```go
+//Response StatusCode
+exchange.Out.SetStatusCode(http.StatusMethodNotAllowed)
+//Response header
+exchange.Out.Headers().Set("Content-Type", "application/json")
+//Response content
+exchange.Out.SetBody([]byte("ok"))
+```
+Note: mqtt endpoint calling SetBody() will use the specified topic to public data to the broker, specify the topic using the following method
+
+```go
+exchange.Out.Headers().Set("topic", "your topic")
+```
+
 ### Set output end
 
 From type has two methods to set output end: To and ToComponent. To method is used to specify routing target path or component, ToComponent method is used to specify output component. These two methods both return a To type pointer.

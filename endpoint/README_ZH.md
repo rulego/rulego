@@ -30,6 +30,23 @@ router := endpoint.NewRouter().From("/api/v1/msg/").Transform(func(exchange *end
 })
 ```
 
+### 响应
+
+可以在转换或者处理函数使用Exchange的Out消息响应客户端
+```go
+//响应错误
+exchange.Out.SetStatusCode(http.StatusMethodNotAllowed)
+//响应头
+exchange.Out.Headers().Set("Content-Type", "application/json")
+//响应内容
+exchange.Out.SetBody([]byte("ok"))
+```
+注意：mqtt endpoint 调用SetBody() 会从使用指定topic 往broker public数据，指定topic使用以下方式
+
+```go
+exchange.Out.Headers().Set("topic", "your topic")
+```
+
 ### 设置输出端
 
 From类型有两个方法可以用来设置输出端：To和ToComponent。To方法用来指定流转目标路径或组件，ToComponent方法用来指定输出组件。这两个方法都返回一个To类型的指针。
