@@ -4,9 +4,7 @@
 
 <img src="doc/imgs/logo.png" width="100">  
 
-`RuleGo`是一个基于`Go`语言的轻量级、高性能、嵌入式的规则引擎。也一个灵活配置和高度定制化的事件处理框架。可以对输入消息进行聚合、分发、过滤、转换、丰富和执行各种动作。
-
-本项目很大程度受[thingsboard](https://github.com/thingsboard/thingsboard) 启发。
+`RuleGo`是一个基于`Go`语言的轻量级、高性能、嵌入式的编排式规则引擎。也一个灵活配置和高度定制化的事件处理框架。可以对输入消息进行聚合、分发、过滤、转换、丰富和执行各种动作。
 
 ## 特性
 
@@ -345,6 +343,12 @@ rulego.Registry.RegisterPlugin("test", "./plugin.so")
   <img src="doc/imgs/rulechain/img_4.png" style="height:50%;width:80%;">
 
 --------
+
+## 数据集成
+
+`RuleGo` 提供`Endpoint`模块对异构系统进行统一的数据集成和处理。     
+详细参考： [Endpoint](endpoint/README_ZH.md) 
+
 ## 性能
 
 `RuleGo` 大部分工作都在启动时完成，执行规则链时几乎不会额外增加系统开销，资源占用极低。因为使用了对象协程池和对象池，甚至比直接调用业务的方式性能还高，特别适合在边缘服务器运行。
@@ -356,7 +360,6 @@ rulego.Registry.RegisterPlugin("test", "./plugin.so")
 测试结果：100并发和500并发，内存占用变化不大都在19M左右
 
 ## 贡献
-
 
 欢迎任何形式的贡献，包括提交问题、建议、文档、测试或代码。请遵循以下步骤：
 

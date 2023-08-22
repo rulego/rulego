@@ -4,7 +4,7 @@ English| [中文](README_ZH.md)
 
 <img src="doc/imgs/logo.png" width="100">   
 
-`RuleGo` is a lightweight, high-performance, embedded rule engine based on `Go` language. It is also a flexible and highly customizable event processing framework. It can aggregate, distribute, filter, transform, enrich and execute various actions on input messages.
+`RuleGo` is a lightweight, high-performance, embedded orchestration rule engine based on `Go` language. It is also a flexible and highly customizable event processing framework. It can aggregate, distribute, filter, transform, enrich and execute various actions on input messages.
 
 This project is largely inspired by [thingsboard](https://github.com/thingsboard/thingsboard) .
 
@@ -343,6 +343,11 @@ Rule chain is a logical group of `rule nodes` and their `relationTypes`. It rece
   <img src="doc/imgs/rulechain/img_4.png" style="height:50%;width:80%;">
 
 --------
+
+## Data Integration
+
+`RuleGo` provides `Endpoint` module for unified data integration and processing of heterogeneous systems.       
+For more details, please refer to: [Endpoint](endpoint/README.md)
 
 ## Performance
 
