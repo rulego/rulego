@@ -66,9 +66,12 @@ type Process func(exchange *Exchange) bool
 
 //From from端
 type From struct {
-	router *Router
+	//Config 配置
+	Config types.Configuration
+	//Router router指针
+	Router *Router
 	//来源路径
-	from string
+	From string
 	//消息处理拦截器
 	processList []Process
 	//流转目标路径，例如"chain:{chainId}"，则是交给规则引擎处理数据
@@ -76,12 +79,7 @@ type From struct {
 }
 
 func (f *From) ToString() string {
-	return f.from
-}
-
-func (f *From) From(from string) *From {
-	f.from = from
-	return f
+	return f.From
 }
 
 //Transform from端转换msg
@@ -120,14 +118,14 @@ func (f *From) ExecuteProcess(exchange *Exchange) bool {
 //component:{nodeType} 执行在config.ComponentsRegistry 中注册的组件
 //可在DefaultExecutorFactory中注册自定义执行器组件类型
 //componentConfigs 组件配置参数
-func (f *From) To(to string, componentConfigs ...types.Configuration) *To {
-	var componentConfig = make(types.Configuration)
-	for _, item := range componentConfigs {
+func (f *From) To(to string, configs ...types.Configuration) *To {
+	var toConfig = make(types.Configuration)
+	for _, item := range configs {
 		for k, v := range item {
-			componentConfig[k] = v
+			toConfig[k] = v
 		}
 	}
-	f.to = &To{router: f.router, to: to, componentConfig: componentConfig}
+	f.to = &To{Router: f.Router, To: to, Config: toConfig}
 	//路径中是否有变量，如：chain:${userId}
 	if strings.Contains(to, "${") && strings.Contains(to, "}") {
 		f.to.HasVars = true
@@ -140,17 +138,17 @@ func (f *From) To(to string, componentConfigs ...types.Configuration) *To {
 		if f.to.HasVars && !executor.IsPathSupportVar() {
 			panic(fmt.Errorf("executor=%s, path not support variables", executorType))
 		}
-		f.to.toPath = strings.TrimSpace(to[len(executorType)+1:])
-		componentConfig[pathKey] = f.to.toPath
+		f.to.ToPath = strings.TrimSpace(to[len(executorType)+1:])
+		toConfig[pathKey] = f.to.ToPath
 		//初始化组件
-		err := executor.Init(f.router.config, componentConfig)
+		err := executor.Init(f.Router.config, toConfig)
 		if err != nil {
 			panic(err)
 		}
 		f.to.executor = executor
 	} else {
 		f.to.executor = &ChainExecutor{}
-		f.to.toPath = to
+		f.to.ToPath = to
 	}
 	return f.to
 }
@@ -162,30 +160,31 @@ func (f *From) GetTo() *To {
 //ToComponent to组件
 //参数是types.Node类型组件
 func (f *From) ToComponent(node types.Node) *To {
-	component := &ComponentExecutor{component: node, config: f.router.config}
-	f.to = &To{router: f.router, to: node.Type(), toPath: node.Type()}
+	component := &ComponentExecutor{component: node, config: f.Router.config}
+	f.to = &To{Router: f.Router, To: node.Type(), ToPath: node.Type()}
 	f.to.executor = component
 	return f.to
 }
 
 //End 结束返回*Router
 func (f *From) End() *Router {
-	return f.router
+	return f.Router
 }
 
 //To to端
 type To struct {
-	router *Router
+	//toPath是否有占位符变量
+	HasVars bool
+	//Config to组件配置
+	Config types.Configuration
+	//Router router指针
+	Router *Router
 	//流转目标路径，例如"chain:{chainId}"，则是交给规则引擎处理数据
-	to string
+	To string
 	//去掉to执行器标记的路径
-	toPath string
+	ToPath string
 	//消息处理拦截器
 	processList []Process
-	//是否有占位符变量
-	HasVars bool
-	//componentConfig Executor组件配置
-	componentConfig types.Configuration
 	//目标处理器，默认是规则链处理
 	executor Executor
 }
@@ -193,19 +192,19 @@ type To struct {
 //ToStringByDict 转换路径中的变量，并返回最终字符串
 func (t *To) ToStringByDict(dict map[string]string) string {
 	if t.HasVars {
-		return str.SprintfDict(t.toPath, dict)
+		return str.SprintfDict(t.ToPath, dict)
 	}
-	return t.toPath
+	return t.ToPath
 }
 
 func (t *To) ToString() string {
-	return t.toPath
+	return t.ToPath
 }
 
 //Execute 执行To端逻辑
 func (t *To) Execute(ctx context.Context, exchange *Exchange) {
 	if t.executor != nil {
-		t.executor.Execute(ctx, t.router, exchange)
+		t.executor.Execute(ctx, t.Router, exchange)
 	}
 }
 
@@ -228,7 +227,7 @@ func (t *To) GetProcessList() []Process {
 
 //End 结束返回*Router
 func (t *To) End() *Router {
-	return t.router
+	return t.Router
 }
 
 //Router 路由，抽象不同输入源数据路由
@@ -248,6 +247,7 @@ type Router struct {
 	from *From
 	//规则链池，默认使用rulego.DefaultRuleGo
 	ruleGo *rulego.RuleGo
+	//config ruleEngine config
 	config types.Config
 }
 
@@ -288,8 +288,15 @@ func (r *Router) FromToString() string {
 	}
 }
 
-func (r *Router) From(from string) *From {
-	r.from = &From{router: r, from: from}
+func (r *Router) From(from string, configs ...types.Configuration) *From {
+	var fromConfig = make(types.Configuration)
+	for _, item := range configs {
+		for k, v := range item {
+			fromConfig[k] = v
+		}
+	}
+	r.from = &From{Router: r, From: from, Config: fromConfig}
+
 	return r.from
 }
 
