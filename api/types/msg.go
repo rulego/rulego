@@ -64,6 +64,12 @@ func (md *Metadata) Copy() Metadata {
 	return BuildMetadata(md.data)
 }
 
+//Has 是否存在某个key
+func (md *Metadata) Has(key string) bool {
+	_, ok := md.data[key]
+	return ok
+}
+
 //GetValue 通过key获取值
 func (md *Metadata) GetValue(key string) string {
 	v, _ := md.data[key]
