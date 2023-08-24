@@ -23,6 +23,10 @@ import (
 	"strings"
 )
 
+func init() {
+	Registry.Add(&FieldFilterNode{})
+}
+
 //FieldFilterNodeConfiguration 节点配置
 type FieldFilterNodeConfiguration struct {
 	//是否是满足所有field key存在
