@@ -17,7 +17,7 @@
         "name": "过滤",
         "debugMode": true,
         "configuration": {
-          "jsScript": "var msg2=JSON.parse(msg);return msg2.temperature>10;"
+          "jsScript": "return msg.temperature>10;"
         }
       }
     ],
