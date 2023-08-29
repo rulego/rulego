@@ -82,7 +82,7 @@ func (x *JsFilterNode) Init(ruleConfig types.Config, configuration types.Configu
 func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	var data interface{} = msg.Data
 	if msg.DataType == types.JSON {
-		var dataMap = make(map[string]interface{})
+		var dataMap interface{}
 		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
 			data = dataMap
 		}

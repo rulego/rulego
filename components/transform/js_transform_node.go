@@ -84,7 +84,7 @@ func (x *JsTransformNode) Init(ruleConfig types.Config, configuration types.Conf
 func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	var data interface{} = msg.Data
 	if msg.DataType == types.JSON {
-		var dataMap = make(map[string]interface{})
+		var dataMap interface{}
 		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
 			data = dataMap
 		}
