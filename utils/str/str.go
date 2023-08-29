@@ -138,3 +138,20 @@ func ToStringMapString(input interface{}) map[string]string {
 		return output
 	}
 }
+
+//CheckHasVar 检查字符串是否有占位符
+func CheckHasVar(str string) bool {
+	return strings.Contains(str, "${") && strings.Contains(str, "}")
+}
+
+//ConvertDollarPlaceholder 转postgres风格占位符
+func ConvertDollarPlaceholder(sql, dbType string) string {
+	if dbType == "postgres" {
+		n := 1
+		for strings.Contains(sql, "?") {
+			sql = strings.Replace(sql, "?", fmt.Sprintf("$%d", n), 1)
+			n++
+		}
+	}
+	return sql
+}
