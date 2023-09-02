@@ -119,7 +119,19 @@ func (b *Client) RegisterHandler(handler Handler) {
 	b.Lock()
 	defer b.Unlock()
 	b.msgHandlerMap[handler.Topic] = handler
-	b.subscribe()
+	b.subscribeHandler(handler)
+}
+
+//UnregisterHandler 删除订阅数据处理器
+func (b *Client) UnregisterHandler(topic string) error {
+	if token := b.client.Unsubscribe(topic); token.Wait() && token.Error() != nil {
+		return token.Error()
+	} else {
+		b.Lock()
+		defer b.Unlock()
+		delete(b.msgHandlerMap, topic)
+		return nil
+	}
 }
 
 //GetHandlerByUpTopic 通过主题获取数据处理器
@@ -153,16 +165,21 @@ func (b *Client) onConnected(c paho.Client) {
 }
 
 func (b *Client) subscribe() {
-	for topic, handler := range b.msgHandlerMap {
-		for {
-			log.Printf("subscribing to topic,topic=%s,qos=%d", topic, int(handler.Qos))
-			if token := b.client.Subscribe(topic, handler.Qos, handler.Handle).(*paho.SubscribeToken); token.Wait() && (token.Error() != nil || is128Err(token, topic)) { //128 ACK错误
-				log.Printf("subscribe error,topic=%s,qos=%d", topic, int(handler.Qos))
-				time.Sleep(2 * time.Second)
-				continue
-			}
-			break
+	for _, handler := range b.msgHandlerMap {
+		b.subscribeHandler(handler)
+	}
+}
+
+func (b *Client) subscribeHandler(handler Handler) {
+	topic := handler.Topic
+	for {
+		log.Printf("subscribing to topic,topic=%s,qos=%d", topic, int(handler.Qos))
+		if token := b.client.Subscribe(topic, handler.Qos, handler.Handle).(*paho.SubscribeToken); token.Wait() && (token.Error() != nil || is128Err(token, topic)) { //128 ACK错误
+			log.Printf("subscribe error,topic=%s,qos=%d", topic, int(handler.Qos))
+			time.Sleep(2 * time.Second)
+			continue
 		}
+		break
 	}
 }
 
