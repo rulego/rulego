@@ -17,6 +17,8 @@
 package rulego
 
 import (
+	"github.com/rulego/rulego/utils/fs"
+	"strings"
 	"sync"
 )
 
@@ -27,6 +29,30 @@ type RuleGo struct {
 	ruleEngines sync.Map
 }
 
+//Load 加载文件夹所有规则链
+func (g *RuleGo) Load(folderPath string, opts ...RuleEngineOption) error {
+	if !strings.HasSuffix(folderPath, "*.json") && !strings.HasSuffix(folderPath, "*.JSON") {
+		if strings.HasSuffix(folderPath, "/") || strings.HasSuffix(folderPath, "\\") {
+			folderPath = folderPath + "*.json"
+		} else {
+			folderPath = folderPath + "/*.json"
+		}
+	}
+	paths, err := fs.GetFilePaths(folderPath)
+	if err != nil {
+		return err
+	}
+	for _, path := range paths {
+		b := fs.LoadFile(path)
+		if b != nil {
+			if _, err = g.New("", b, opts...); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // New creates a new RuleEngine and stores it in the RuleGo.
 func (g *RuleGo) New(id string, rootRuleChainSrc []byte, opts ...RuleEngineOption) (*RuleEngine, error) {
 	if v, ok := g.ruleEngines.Load(id); ok {
@@ -35,8 +61,10 @@ func (g *RuleGo) New(id string, rootRuleChainSrc []byte, opts ...RuleEngineOptio
 		if ruleEngine, err := newRuleEngine(id, rootRuleChainSrc, opts...); err != nil {
 			return nil, err
 		} else {
-			// Store the new RuleEngine in the ruleEngines map with the Id as the key.
-			g.ruleEngines.Store(ruleEngine.Id, ruleEngine)
+			if ruleEngine.Id != "" {
+				// Store the new RuleEngine in the ruleEngines map with the Id as the key.
+				g.ruleEngines.Store(ruleEngine.Id, ruleEngine)
+			}
 			return ruleEngine, err
 		}
 
@@ -73,6 +101,10 @@ func (g *RuleGo) Stop() {
 		g.ruleEngines.Delete(key)
 		return true
 	})
+}
+
+func Load(folderPath string, opts ...RuleEngineOption) error {
+	return DefaultRuleGo.Load(folderPath, opts...)
 }
 
 // New creates a new RuleEngine and stores it in the RuleGo.

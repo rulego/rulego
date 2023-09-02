@@ -219,8 +219,15 @@ func newRuleEngine(id string, def []byte, opts ...RuleEngineOption) (*RuleEngine
 	}
 	err := ruleEngine.ReloadSelf(def, opts...)
 	if err == nil && ruleEngine.rootRuleChainCtx != nil {
-		ruleEngine.rootRuleChainCtx.Id = types.RuleNodeId{Id: id, Type: types.CHAIN}
+		if id != "" {
+			ruleEngine.rootRuleChainCtx.Id = types.RuleNodeId{Id: id, Type: types.CHAIN}
+		} else {
+			//使用规则链ID
+			ruleEngine.Id = ruleEngine.rootRuleChainCtx.Id.Id
+		}
+
 	}
+
 	return ruleEngine, err
 }
 
