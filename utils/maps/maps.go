@@ -16,10 +16,26 @@
 
 package maps
 
-import "github.com/mitchellh/mapstructure"
+import (
+	"github.com/mitchellh/mapstructure"
+)
 
 // Map2Struct Decode takes an input structure and uses reflection to translate it to
 // the output structure. output must be a pointer to a map or struct.
 func Map2Struct(input interface{}, output interface{}) error {
-	return mapstructure.Decode(input, output)
+	cfg := &mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc()),
+		WeaklyTypedInput: true,
+		Metadata:         nil,
+		Result:           &output,
+	}
+	d, err := mapstructure.NewDecoder(cfg)
+	if err != nil {
+		return err
+	}
+	if err := d.Decode(input); err != nil {
+		return err
+	}
+	return nil
 }
