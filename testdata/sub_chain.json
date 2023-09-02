@@ -1,5 +1,6 @@
 {
   "ruleChain": {
+    "id":"sub_chain",
     "name": "子规则链",
     "root": false
   },

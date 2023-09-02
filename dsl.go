@@ -38,6 +38,8 @@ func ParserRuleChain(rootRuleChain []byte) (RuleChain, error) {
 
 //RuleChainBaseInfo 规则链基础信息定义
 type RuleChainBaseInfo struct {
+	//规则链ID
+	ID string `json:"id"`
 	//扩展字段
 	AdditionalInfo map[string]string `json:"additionalInfo"`
 	//Name 规则链的名称

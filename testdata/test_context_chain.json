@@ -1,5 +1,6 @@
 {
   "ruleChain": {
+    "id":"test_context_chain",
     "name": "测试数据共享规则链"
   },
   "metadata": {

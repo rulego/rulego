@@ -1,5 +1,6 @@
 {
   "ruleChain": {
+    "id":"chain_has_sub_chain",
     "name": "测试根规则链",
     "root": true
   },

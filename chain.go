@@ -69,6 +69,9 @@ func InitRuleChainCtx(config types.Config, ruleChainDef RuleChain) (*RuleChainCt
 		componentsRegistry: config.ComponentsRegistry,
 		initialized:        true,
 	}
+	if ruleChainDef.RuleChain.ID != "" {
+		ruleChainCtx.Id = types.RuleNodeId{Id: ruleChainDef.RuleChain.ID, Type: types.CHAIN}
+	}
 	nodeLen := len(ruleChainDef.Metadata.Nodes)
 	ruleChainCtx.nodeIds = make([]types.RuleNodeId, nodeLen)
 	//加载所有节点信息
