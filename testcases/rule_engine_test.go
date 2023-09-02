@@ -41,6 +41,7 @@ var (
 var ruleChainFile = `
 	{
 	  "ruleChain": {
+		"id":"test01",
 		"name": "testRuleChain01",
 		"root": true,
 		"debugMode": false
@@ -118,7 +119,7 @@ func testRuleEngine(t *testing.T, ruleChainFile string, modifyNodeId, modifyNode
 	config.OnEnd = func(msg types.RuleMsg, err error) {
 		config.Logger.Printf("OnEnd data=%s,metaData=%s,err=%s", msg.Data, msg.Metadata, err)
 	}
-	ruleEngine, err := rulego.New(str.RandomStr(10), []byte(ruleChainFile), rulego.WithConfig(config))
+	ruleEngine, err := rulego.New("rule01", []byte(ruleChainFile), rulego.WithConfig(config))
 	assert.Nil(t, err)
 	defer rulego.Del("rule01")
 
@@ -420,4 +421,49 @@ func TestWithContext(t *testing.T) {
 	}
 	wg.Wait()
 	fmt.Printf("total massages:%d,use times:%s \n", maxTimes, time.Since(start))
+}
+
+func TestSpecifyID(t *testing.T) {
+	config := rulego.NewConfig()
+	ruleEngine, err := rulego.New("", []byte(ruleChainFile), rulego.WithConfig(config))
+	assert.Nil(t, err)
+	assert.Equal(t, "test01", ruleEngine.Id)
+	_, ok := rulego.Get("test01")
+	assert.Equal(t, true, ok)
+
+	ruleEngine, err = rulego.New("rule01", []byte(ruleChainFile), rulego.WithConfig(config))
+	assert.Nil(t, err)
+	assert.Equal(t, "rule01", ruleEngine.Id)
+	ruleEngine, ok = rulego.Get("rule01")
+	assert.Equal(t, true, ok)
+}
+
+//TestLoadChain 测试加载规则链文件夹
+func TestLoadChain(t *testing.T) {
+	//注册自定义组件
+	rulego.Registry.Register(&UpperNode{})
+	rulego.Registry.Register(&TimeNode{})
+
+	config := rulego.NewConfig()
+	err := rulego.Load("../testdata/", rulego.WithConfig(config))
+	assert.Nil(t, err)
+
+	_, ok := rulego.Get("chain_call_rest_api")
+	assert.Equal(t, true, ok)
+
+	_, ok = rulego.Get("chain_has_sub_chain")
+	assert.Equal(t, true, ok)
+
+	_, ok = rulego.Get("chain_msg_type_switch")
+	assert.Equal(t, true, ok)
+
+	_, ok = rulego.Get("not_debug_mode_chain")
+	assert.Equal(t, true, ok)
+
+	_, ok = rulego.Get("sub_chain")
+	assert.Equal(t, true, ok)
+
+	_, ok = rulego.Get("test_context_chain")
+	assert.Equal(t, true, ok)
+
 }
