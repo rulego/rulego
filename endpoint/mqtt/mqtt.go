@@ -21,7 +21,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint"
-	"log"
+	"github.com/rulego/rulego/utils/maps"
 	"net/textproto"
 	"strconv"
 )
@@ -134,23 +134,29 @@ func (r *ResponseMessage) Response() paho.Client {
 //Mqtt MQTT 接收端端点
 type Mqtt struct {
 	endpoint.BaseEndpoint
-	Config mqtt.Config
-	client *mqtt.Client
+	RuleConfig types.Config
+	Config     mqtt.Config
+	client     *mqtt.Client
 }
 
-func (m *Mqtt) Start() error {
-	if m.client == nil {
-		if client, err := mqtt.NewClient(m.Config); err != nil {
-			return err
-		} else {
-			m.client = client
-			return nil
-		}
-	}
-	return nil
+//Type 组件类型
+func (m *Mqtt) Type() string {
+	return "mqtt"
 }
 
-func (m *Mqtt) Stop() {
+func (m *Mqtt) New() types.Node {
+	return &Mqtt{}
+}
+
+//Init 初始化
+func (m *Mqtt) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	err := maps.Map2Struct(configuration, &m.Config)
+	m.RuleConfig = ruleConfig
+	return err
+}
+
+//Destroy 销毁
+func (m *Mqtt) Destroy() {
 	_ = m.Close()
 }
 
@@ -161,27 +167,79 @@ func (m *Mqtt) Close() error {
 	return nil
 }
 
+func (m *Mqtt) Id() string {
+	return m.Config.Server
+}
+
+func (m *Mqtt) AddRouterWithParams(router *endpoint.Router, params ...interface{}) error {
+	m.AddRouter(router)
+	return nil
+}
+
+func (m *Mqtt) RemoveRouterWithParams(from string, params ...interface{}) error {
+	m.deleteRouter(from)
+	return m.client.UnregisterHandler(from)
+}
+
 //AddRouter 添加路由
 func (m *Mqtt) AddRouter(routers ...*endpoint.Router) *Mqtt {
-	if m.client == nil {
-		if client, err := mqtt.NewClient(m.Config); err != nil {
-			panic(err)
-		} else {
-			m.client = client
-		}
-	}
-
-	for _, router := range routers {
-		form := router.GetFrom()
-		if form != nil {
-			m.client.RegisterHandler(mqtt.Handler{
-				Topic:  form.ToString(),
-				Qos:    m.Config.QOS,
-				Handle: m.handler(router),
-			})
+	m.saveRouter(routers...)
+	//服务已经启动
+	if m.client != nil {
+		for _, router := range routers {
+			if form := router.GetFrom(); form != nil {
+				m.client.RegisterHandler(mqtt.Handler{
+					Topic:  form.ToString(),
+					Qos:    m.Config.QOS,
+					Handle: m.handler(router),
+				})
+			}
 		}
 	}
 	return m
+}
+
+func (m *Mqtt) Start() error {
+	if m.client == nil {
+		if client, err := mqtt.NewClient(m.Config); err != nil {
+			return err
+		} else {
+			m.client = client
+			for _, router := range m.RouterStorage {
+
+				if form := router.GetFrom(); form != nil {
+					m.client.RegisterHandler(mqtt.Handler{
+						Topic:  form.ToString(),
+						Qos:    m.Config.QOS,
+						Handle: m.handler(router),
+					})
+				}
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
+//存储路由
+func (m *Mqtt) saveRouter(routers ...*endpoint.Router) {
+	m.Lock()
+	defer m.Unlock()
+	if m.RouterStorage == nil {
+		m.RouterStorage = make(map[string]*endpoint.Router)
+	}
+	for _, item := range routers {
+		m.RouterStorage[item.FromToString()] = item
+	}
+}
+
+//从存储器中删除路由
+func (m *Mqtt) deleteRouter(from string) {
+	m.Lock()
+	defer m.Unlock()
+	if m.RouterStorage != nil {
+		delete(m.RouterStorage, from)
+	}
 }
 
 func (m *Mqtt) handler(router *endpoint.Router) func(c paho.Client, data paho.Message) {
@@ -189,7 +247,7 @@ func (m *Mqtt) handler(router *endpoint.Router) func(c paho.Client, data paho.Me
 		defer func() {
 			//捕捉异常
 			if e := recover(); e != nil {
-				log.Printf("rest handler err :%v", e)
+				m.RuleConfig.Logger.Printf("rest handler err :%v", e)
 			}
 		}()
 		exchange := &endpoint.Exchange{

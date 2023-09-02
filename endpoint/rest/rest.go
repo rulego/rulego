@@ -17,9 +17,13 @@
 package rest
 
 import (
+	"context"
+	"errors"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/str"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -146,19 +150,78 @@ type Config struct {
 type Rest struct {
 	endpoint.BaseEndpoint
 	//配置
-	Config Config
-	//路由器
+	Config     Config
+	RuleConfig types.Config
+	//http路由器
 	router *httprouter.Router
+	server *http.Server
+}
+
+//Type 组件类型
+func (rest *Rest) Type() string {
+	return "http"
+}
+
+func (rest *Rest) New() types.Node {
+	return &Rest{}
+}
+
+//Init 初始化
+func (rest *Rest) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	err := maps.Map2Struct(configuration, &rest.Config)
+	rest.RuleConfig = ruleConfig
+	return err
+}
+
+//Destroy 销毁
+func (rest *Rest) Destroy() {
+	_ = rest.Close()
+}
+
+func (rest *Rest) Close() error {
+	if nil != rest.server {
+		return rest.server.Shutdown(context.Background())
+	}
+	return nil
+}
+
+func (rest *Rest) Id() string {
+	return rest.Config.Addr
+}
+
+func (rest *Rest) AddRouterWithParams(router *endpoint.Router, params ...interface{}) error {
+	if len(params) <= 0 {
+		return errors.New("need to specify HTTP method")
+	} else {
+		for _, item := range params {
+			rest.AddRouter(str.ToString(item), router)
+		}
+		return nil
+	}
+}
+
+func (rest *Rest) RemoveRouterWithParams(from string, params ...interface{}) error {
+	if len(params) <= 0 {
+		return errors.New("need to specify HTTP method")
+	} else {
+		for _, item := range params {
+			if router, ok := rest.RouterStorage[rest.routerKey(str.ToString(item), from)]; ok {
+				router.Disable(true)
+			}
+		}
+		return nil
+	}
 }
 
 func (rest *Rest) Start() error {
 	var err error
+	rest.server = &http.Server{Addr: rest.Config.Addr, Handler: rest.router}
 	if rest.Config.CertKeyFile != "" && rest.Config.CertFile != "" {
 		log.Printf("starting server with TLS on :%s", rest.Config.Addr)
-		err = http.ListenAndServeTLS(rest.Config.Addr, rest.Config.CertFile, rest.Config.CertKeyFile, rest.router)
+		err = rest.server.ListenAndServeTLS(rest.Config.CertFile, rest.Config.CertKeyFile)
 	} else {
 		log.Printf("starting server on :%s", rest.Config.Addr)
-		err = http.ListenAndServe(rest.Config.Addr, rest.router)
+		err = rest.server.ListenAndServe()
 	}
 	return err
 
@@ -169,13 +232,29 @@ func (rest *Rest) Start() error {
 // For GET, POST, PUT, PATCH and DELETE requests the respective shortcut
 // functions can be used.
 func (rest *Rest) AddRouter(method string, routers ...*endpoint.Router) *Rest {
+
+	rest.Lock()
+	defer rest.Unlock()
 	if rest.router == nil {
 		rest.router = httprouter.New()
 	}
 
-	for _, rt := range routers {
-		rest.router.Handle(method, rt.FromToString(), rest.handler(rt))
+	if rest.RouterStorage == nil {
+		rest.RouterStorage = make(map[string]*endpoint.Router)
 	}
+	for _, item := range routers {
+		key := rest.routerKey(method, item.FromToString())
+		if old, ok := rest.RouterStorage[key]; ok {
+			//已经存储则，把路由设置可用
+			old.Disable(false)
+		} else {
+			//存储路由
+			rest.RouterStorage[key] = item
+			//添加到http路由器
+			rest.router.Handle(method, item.FromToString(), rest.handler(item))
+		}
+	}
+
 	return rest
 }
 
@@ -222,6 +301,9 @@ func (rest *Rest) Stop() {
 
 }
 
+func (rest *Rest) routerKey(method string, from string) string {
+	return method + " " + from
+}
 func (rest *Rest) handler(router *endpoint.Router) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		defer func() {
@@ -230,7 +312,11 @@ func (rest *Rest) handler(router *endpoint.Router) httprouter.Handle {
 				log.Printf("rest handler err :%v", e)
 			}
 		}()
-
+		if router.IsDisable() {
+			http.NotFound(w, r)
+			//w.WriteHeader(http.NotFound())
+			return
+		}
 		exchange := &endpoint.Exchange{
 			In: &RequestMessage{
 				request: r,

@@ -68,7 +68,6 @@ func TestRestEndPoint(t *testing.T) {
 
 	//注册路由,Get 方法
 	restEndpoint.GET(router1)
-
 	//路由2 采用配置方式调用规则链
 	router2 := endpoint.NewRouter().From("/api/v1/msg2Chain1/:msgType").To("chain:default").End()
 

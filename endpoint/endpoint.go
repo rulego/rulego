@@ -27,11 +27,25 @@ import (
 	"net/textproto"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 const (
 	pathKey = "_path"
 )
+
+type Endpoint interface {
+	//Node 继承node
+	types.Node
+	//Id 类型标识
+	Id() string
+	//Start 启动服务
+	Start() error
+	//AddRouterWithParams 添加路由，指定参数
+	AddRouterWithParams(router *Router, params ...interface{}) error
+	//RemoveRouterWithParams 删除路由，指定参数
+	RemoveRouterWithParams(from string, params ...interface{}) error
+}
 
 //Message 接收端点数据抽象接口
 //不同输入源数据统一接口
@@ -249,6 +263,8 @@ type Router struct {
 	ruleGo *rulego.RuleGo
 	//config ruleEngine config
 	config types.Config
+	//是否不可用 1:不可用;0:可以
+	disable uint32
 }
 
 //RouterOption 选项函数
@@ -304,11 +320,33 @@ func (r *Router) GetFrom() *From {
 	return r.from
 }
 
+//Disable 设置状态 true:不可用，false:可以
+func (r *Router) Disable(disable bool) *Router {
+	if disable {
+		atomic.StoreUint32(&r.disable, 1)
+	} else {
+		atomic.StoreUint32(&r.disable, 0)
+	}
+	return r
+}
+
+//IsDisable 是否是不可用状态 true:不可用，false:可以
+func (r *Router) IsDisable() bool {
+	return atomic.LoadUint32(&r.disable) == 1
+}
+
 //BaseEndpoint 基础端点
 //实现全局拦截器基础方法
 type BaseEndpoint struct {
 	//全局拦截器
 	interceptors []Process
+	//endpoint 路由存储器
+	RouterStorage map[string]*Router
+	sync.RWMutex
+}
+
+func (e *BaseEndpoint) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+	panic("not support this method")
 }
 
 //AddInterceptors 添加全局拦截器
@@ -333,6 +371,15 @@ func (e *BaseEndpoint) DoProcess(router *Router, exchange *Exchange) {
 	if router.GetFrom() != nil && router.GetFrom().GetTo() != nil {
 		router.GetFrom().GetTo().Execute(context.TODO(), exchange)
 	}
+}
+
+func (e *BaseEndpoint) baseAddRouter(from string, params ...interface{}) error {
+	e.Lock()
+	defer e.Unlock()
+	if e.RouterStorage != nil {
+		delete(e.RouterStorage, from)
+	}
+	return nil
 }
 
 //Executor to端执行器
