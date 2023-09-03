@@ -155,3 +155,34 @@ func ConvertDollarPlaceholder(sql, dbType string) string {
 	}
 	return sql
 }
+
+//RemoveBraces A function that takes a string with ${} and returns a string without them
+func RemoveBraces(s string) string {
+	// Create a new empty string
+	result := ""
+	// Loop through each character in the input string
+	for i := 0; i < len(s); i++ {
+		// Get the current character
+		c := s[i]
+		// If the character is $, check the next character
+		if c == '$' && i+1 < len(s) {
+			// If the next character is {, skip it and move to the next one
+			if s[i+1] == '{' {
+				i++
+				continue
+			}
+		}
+		// If the character is }, skip it and move to the next one
+		if c == '}' {
+			continue
+		}
+		// If the character is a space, skip it and move to the next one
+		if c == ' ' {
+			continue
+		}
+		// Otherwise, append the character to the result string
+		result += string(c)
+	}
+	// Return the result string
+	return result
+}
