@@ -6,6 +6,22 @@ import (
 	"path/filepath"
 )
 
+//SaveFile A function that saves a file to a given path, overwriting it if it exists
+func SaveFile(path string, data []byte) error {
+	// Open the file with write-only and create flags, and 0666 permission
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	// Write the data to the file
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 //LoadFile 加载文件
 func LoadFile(filePath string) []byte {
 	buf, err := os.ReadFile(filePath)
@@ -46,6 +62,7 @@ func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string,
 	})
 	return paths, err
 }
+
 func isMatch(d fs.DirEntry, patterns ...string) bool {
 	for _, item := range patterns {
 		if matched, _ := filepath.Match(item, d.Name()); matched {
