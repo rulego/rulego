@@ -78,7 +78,7 @@ func (md *Metadata) GetValue(key string) string {
 
 //PutValue 设置值
 func (md *Metadata) PutValue(key, value string) {
-	if key != "" && value != "" {
+	if key != "" {
 		if md.data == nil {
 			md.data = make(map[string]string)
 		}
