@@ -30,13 +30,13 @@ type RuleNodeCtx struct {
 	//组件实例
 	types.Node
 	//组件配置
-	SelfDefinition RuleNode
+	SelfDefinition *RuleNode
 	//规则引擎配置
 	Config types.Config
 }
 
 //InitRuleNodeCtx 初始化RuleNodeCtx
-func InitRuleNodeCtx(config types.Config, selfDefinition RuleNode) (*RuleNodeCtx, error) {
+func InitRuleNodeCtx(config types.Config, selfDefinition *RuleNode) (*RuleNodeCtx, error) {
 	node, err := config.ComponentsRegistry.NewNode(selfDefinition.Type)
 	if err != nil {
 		return &RuleNodeCtx{}, err
@@ -93,5 +93,10 @@ func (rn *RuleNodeCtx) DSL() []byte {
 // Copy 复制
 func (rn *RuleNodeCtx) Copy(newCtx *RuleNodeCtx) {
 	rn.Node = newCtx.Node
-	rn.SelfDefinition = newCtx.SelfDefinition
+
+	rn.SelfDefinition.AdditionalInfo = newCtx.SelfDefinition.AdditionalInfo
+	rn.SelfDefinition.Name = newCtx.SelfDefinition.Name
+	rn.SelfDefinition.Type = newCtx.SelfDefinition.Type
+	rn.SelfDefinition.DebugMode = newCtx.SelfDefinition.DebugMode
+	rn.SelfDefinition.Configuration = newCtx.SelfDefinition.Configuration
 }

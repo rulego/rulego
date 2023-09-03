@@ -28,21 +28,23 @@ type JsonParser struct {
 func (p *JsonParser) DecodeRuleChain(config types.Config, dsl []byte) (types.Node, error) {
 	if rootRuleChainDef, err := ParserRuleChain(dsl); err == nil {
 		//初始化
-		return InitRuleChainCtx(config, rootRuleChainDef)
+		return InitRuleChainCtx(config, &rootRuleChainDef)
 	} else {
 		return nil, err
 	}
 }
 func (p *JsonParser) DecodeRuleNode(config types.Config, dsl []byte) (types.Node, error) {
 	if node, err := ParserRuleNode(dsl); err == nil {
-		return InitRuleNodeCtx(config, node)
+		return InitRuleNodeCtx(config, &node)
 	} else {
 		return nil, err
 	}
 }
 func (p *JsonParser) EncodeRuleChain(def interface{}) ([]byte, error) {
-	return string2.Marshal(def)
+	//缩进符为两个空格
+	return string2.MarshalIndent(def, "", "  ")
 }
 func (p *JsonParser) EncodeRuleNode(def interface{}) ([]byte, error) {
-	return string2.Marshal(def)
+	//缩进符为两个空格
+	return string2.MarshalIndent(def, "", "  ")
 }

@@ -59,7 +59,7 @@ type RuleMetadata struct {
 	FirstNodeIndex int `json:"firstNodeIndex"`
 	//节点组件定义
 	//每个对象代表规则链中的一个规则节点
-	Nodes []RuleNode `json:"nodes"`
+	Nodes []*RuleNode `json:"nodes"`
 	//连接定义
 	//每个对象代表规则链中两个节点之间的连接
 	Connections []NodeConnection `json:"connections"`
