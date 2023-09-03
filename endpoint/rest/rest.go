@@ -332,6 +332,16 @@ func (rest *Rest) handler(router *endpoint.Router) httprouter.Handle {
 		for _, param := range params {
 			msg.Metadata.PutValue(param.Key, param.Value)
 		}
+
+		//把url?参数放到msg元数据中
+		for key, value := range r.URL.Query() {
+			if len(value) > 1 {
+				msg.Metadata.PutValue(key, str.ToString(value))
+			} else {
+				msg.Metadata.PutValue(key, value[0])
+			}
+
+		}
 		rest.DoProcess(router, exchange)
 	}
 }
