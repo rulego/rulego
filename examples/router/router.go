@@ -53,7 +53,7 @@ func main() {
 	_ = _mqttEndpoint.AddRouter(router).Start()
 
 	//创建http接收服务
-	_restEndpoint := &rest.Rest{Config: rest.Config{Addr: ":9090"}}
+	_restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}}
 	//添加全局拦截器
 	_restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		userId := exchange.In.Headers().Get("userId")

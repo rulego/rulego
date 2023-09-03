@@ -140,7 +140,7 @@ func (r *ResponseMessage) Response() http.ResponseWriter {
 
 //Config Rest 服务配置
 type Config struct {
-	Addr        string
+	Server      string
 	CertFile    string
 	CertKeyFile string
 }
@@ -185,7 +185,7 @@ func (rest *Rest) Close() error {
 }
 
 func (rest *Rest) Id() string {
-	return rest.Config.Addr
+	return rest.Config.Server
 }
 
 func (rest *Rest) AddRouterWithParams(router *endpoint.Router, params ...interface{}) error {
@@ -214,12 +214,12 @@ func (rest *Rest) RemoveRouterWithParams(from string, params ...interface{}) err
 
 func (rest *Rest) Start() error {
 	var err error
-	rest.server = &http.Server{Addr: rest.Config.Addr, Handler: rest.router}
+	rest.server = &http.Server{Addr: rest.Config.Server, Handler: rest.router}
 	if rest.Config.CertKeyFile != "" && rest.Config.CertFile != "" {
-		rest.RuleConfig.Logger.Printf("starting server with TLS on :%s", rest.Config.Addr)
+		rest.RuleConfig.Logger.Printf("starting server with TLS on :%s", rest.Config.Server)
 		err = rest.server.ListenAndServeTLS(rest.Config.CertFile, rest.Config.CertKeyFile)
 	} else {
-		rest.RuleConfig.Logger.Printf("starting server on :%s", rest.Config.Addr)
+		rest.RuleConfig.Logger.Printf("starting server on :%s", rest.Config.Server)
 		err = rest.server.ListenAndServe()
 	}
 	return err

@@ -144,7 +144,7 @@ func main() {
 func restServe(logger *log.Logger, addr string) {
 	logger.Print("server initialised.")
 	restEndpoint := &endpointRest.Rest{
-		Config: endpointRest.Config{Addr: addr},
+		Config: endpointRest.Config{Server: addr},
 	}
 	//处理请求，并转发到规则引擎
 	restEndpoint.POST(endpoint.NewRouter().From(msgPath).Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
