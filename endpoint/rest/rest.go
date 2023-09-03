@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/textproto"
+	"strings"
 )
 
 const (
@@ -231,7 +232,7 @@ func (rest *Rest) Start() error {
 // For GET, POST, PUT, PATCH and DELETE requests the respective shortcut
 // functions can be used.
 func (rest *Rest) AddRouter(method string, routers ...*endpoint.Router) *Rest {
-
+	method = strings.ToUpper(method)
 	rest.Lock()
 	defer rest.Unlock()
 	if rest.router == nil {
