@@ -33,12 +33,12 @@ func TestMqttEndpoint(t *testing.T) {
 		},
 	}
 	//添加全局拦截器
-	mqttEndpoint.AddInterceptors(func(exchange *endpoint.Exchange) bool {
+	mqttEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑
 		return true
 	})
 	//订阅所有主题路由，并转发到default规则链处理
-	router1 := endpoint.NewRouter().From("#").Transform(func(exchange *endpoint.Exchange) bool {
+	router1 := endpoint.NewRouter().From("#").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		t.Logf("receive data:%s,topic:%s", exchange.In.GetMsg().Data, exchange.In.GetMsg().Metadata.GetValue("topic"))
 		return true
 	}).To("chain:default").End()
@@ -67,7 +67,7 @@ func TestMqttEndpoint2(t *testing.T) {
 		},
 	}
 	//订阅所有主题路由，并转发到default规则链处理
-	router1 := endpoint.NewRouter().From("#").Transform(func(exchange *endpoint.Exchange) bool {
+	router1 := endpoint.NewRouter().From("#").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		assert.Equal(t, 1, len(exchange.In.Headers()))
 		assert.NotEqual(t, "", exchange.In.GetMsg().Data)
 		fmt.Println(exchange.In.GetMsg())

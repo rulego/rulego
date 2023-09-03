@@ -30,9 +30,9 @@ import (
 func main() {
 
 	//定义路由 采用配置方式调用node组件
-	router := endpoint.NewRouter().From("/api/v1/msg").Transform(func(exchange *endpoint.Exchange) bool {
+	router := endpoint.NewRouter().From("/api/v1/msg").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		return true
-	}).Process(func(exchange *endpoint.Exchange) bool {
+	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		return true
 	}).To("component:log", types.Configuration{"jsScript": `
 		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata)+'\n msgType='+msgType;
@@ -45,7 +45,7 @@ func main() {
 		},
 	}
 	//添加全局拦截器
-	_mqttEndpoint.AddInterceptors(func(exchange *endpoint.Exchange) bool {
+	_mqttEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑
 		return true
 	})
@@ -55,7 +55,7 @@ func main() {
 	//创建http接收服务
 	_restEndpoint := &rest.Rest{Config: rest.Config{Addr: ":9090"}}
 	//添加全局拦截器
-	_restEndpoint.AddInterceptors(func(exchange *endpoint.Exchange) bool {
+	_restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		userId := exchange.In.Headers().Get("userId")
 		if userId == "blacklist" {
 			//不允许访问

@@ -147,7 +147,7 @@ func restServe(logger *log.Logger, addr string) {
 		Config: endpointRest.Config{Addr: addr},
 	}
 	//处理请求，并转发到规则引擎
-	restEndpoint.POST(endpoint.NewRouter().From(msgPath).Transform(func(exchange *endpoint.Exchange) bool {
+	restEndpoint.POST(endpoint.NewRouter().From(msgPath).Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		//获取消息类型
 		msg.Type = msg.Metadata.GetValue("msgType")
@@ -159,18 +159,18 @@ func restServe(logger *log.Logger, addr string) {
 		}
 		msg.Metadata.PutValue("userId", userId)
 		return true
-	}).Process(func(exchange *endpoint.Exchange) bool {
+	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.Out.SetStatusCode(http.StatusOK)
 		return true
 	}).To("chain:${userId}").End())
 
 	//获取根规则链DSL
-	restEndpoint.GET(endpoint.NewRouter().From(rulePath).Process(func(exchange *endpoint.Exchange) bool {
+	restEndpoint.GET(endpoint.NewRouter().From(rulePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		getDsl("", exchange)
 		return true
 	}).End())
 	//获取某个节点DSL
-	restEndpoint.GET(endpoint.NewRouter().From(ruleNodePath).Process(func(exchange *endpoint.Exchange) bool {
+	restEndpoint.GET(endpoint.NewRouter().From(ruleNodePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		nodeId := msg.Metadata.GetValue("nodeId")
 		getDsl(nodeId, exchange)
@@ -178,12 +178,12 @@ func restServe(logger *log.Logger, addr string) {
 	}).End())
 
 	//修改根规则链DSL
-	restEndpoint.PUT(endpoint.NewRouter().From(rulePath).Process(func(exchange *endpoint.Exchange) bool {
+	restEndpoint.PUT(endpoint.NewRouter().From(rulePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		reloadDsl("", exchange)
 		return true
 	}).End())
 	//修改某个节点DSL
-	restEndpoint.PUT(endpoint.NewRouter().From(ruleNodePath).Process(func(exchange *endpoint.Exchange) bool {
+	restEndpoint.PUT(endpoint.NewRouter().From(ruleNodePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		nodeId := msg.Metadata.GetValue("nodeId")
 		reloadDsl(nodeId, exchange)

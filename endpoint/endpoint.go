@@ -76,7 +76,7 @@ type Exchange struct {
 
 //Process 处理函数
 //true:执行下一个处理器，否则不执行
-type Process func(exchange *Exchange) bool
+type Process func(router *Router, exchange *Exchange) bool
 
 //From from端
 type From struct {
@@ -115,10 +115,10 @@ func (f *From) GetProcessList() []Process {
 
 //ExecuteProcess 执行处理函数
 //true:执行To端逻辑，否则不执行
-func (f *From) ExecuteProcess(exchange *Exchange) bool {
+func (f *From) ExecuteProcess(router *Router, exchange *Exchange) bool {
 	result := true
 	for _, process := range f.GetProcessList() {
-		if !process(exchange) {
+		if !process(router, exchange) {
 			result = false
 			break
 		}
@@ -155,7 +155,7 @@ func (f *From) To(to string, configs ...types.Configuration) *To {
 		f.to.ToPath = strings.TrimSpace(to[len(executorType)+1:])
 		toConfig[pathKey] = f.to.ToPath
 		//初始化组件
-		err := executor.Init(f.Router.config, toConfig)
+		err := executor.Init(f.Router.Config, toConfig)
 		if err != nil {
 			panic(err)
 		}
@@ -174,7 +174,7 @@ func (f *From) GetTo() *To {
 //ToComponent to组件
 //参数是types.Node类型组件
 func (f *From) ToComponent(node types.Node) *To {
-	component := &ComponentExecutor{component: node, config: f.Router.config}
+	component := &ComponentExecutor{component: node, config: f.Router.Config}
 	f.to = &To{Router: f.Router, To: node.Type(), ToPath: node.Type()}
 	f.to.executor = component
 	return f.to
@@ -260,9 +260,9 @@ type Router struct {
 	//输入
 	from *From
 	//规则链池，默认使用rulego.DefaultRuleGo
-	ruleGo *rulego.RuleGo
-	//config ruleEngine config
-	config types.Config
+	RuleGo *rulego.RuleGo
+	//Config ruleEngine Config
+	Config types.Config
 	//是否不可用 1:不可用;0:可以
 	disable uint32
 }
@@ -273,7 +273,7 @@ type RouterOption func(*Router) error
 //WithRuleGo 更改规则链池，默认使用rulego.DefaultRuleGo
 func WithRuleGo(ruleGo *rulego.RuleGo) RouterOption {
 	return func(re *Router) error {
-		re.ruleGo = ruleGo
+		re.RuleGo = ruleGo
 		return nil
 	}
 }
@@ -281,14 +281,14 @@ func WithRuleGo(ruleGo *rulego.RuleGo) RouterOption {
 //WithRuleConfig 更改规则引擎配置
 func WithRuleConfig(config types.Config) RouterOption {
 	return func(re *Router) error {
-		re.config = config
+		re.Config = config
 		return nil
 	}
 }
 
 //NewRouter 创建新的路由
 func NewRouter(opts ...RouterOption) *Router {
-	router := &Router{ruleGo: rulego.DefaultRuleGo, config: rulego.NewConfig()}
+	router := &Router{RuleGo: rulego.DefaultRuleGo, Config: rulego.NewConfig()}
 	// 设置选项值
 	for _, opt := range opts {
 		_ = opt(router)
@@ -357,13 +357,13 @@ func (e *BaseEndpoint) AddInterceptors(interceptors ...Process) {
 func (e *BaseEndpoint) DoProcess(router *Router, exchange *Exchange) {
 	for _, item := range e.interceptors {
 		//执行全局拦截器
-		if !item(exchange) {
+		if !item(router, exchange) {
 			return
 		}
 	}
 	//执行from端逻辑
 	if fromFlow := router.GetFrom(); fromFlow != nil {
-		if !fromFlow.ExecuteProcess(exchange) {
+		if !fromFlow.ExecuteProcess(router, exchange) {
 			return
 		}
 	}
@@ -451,12 +451,12 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router *Router, exchange *
 		toChainId := toFlow.ToStringByDict(inMsg.Metadata.Values())
 
 		//查找规则链，并执行
-		if ruleEngine, ok := router.ruleGo.Get(toChainId); ok {
+		if ruleEngine, ok := router.RuleGo.Get(toChainId); ok {
 			ruleEngine.OnMsgWithOptions(*inMsg, types.WithContext(ctx),
 				types.WithEndFunc(func(msg types.RuleMsg, err error) {
 					exchange.Out.SetMsg(&msg)
 					for _, process := range toFlow.GetProcessList() {
-						if !process(exchange) {
+						if !process(router, exchange) {
 							break
 						}
 					}
@@ -508,7 +508,7 @@ func (ce *ComponentExecutor) Execute(ctx context.Context, router *Router, exchan
 			ruleCtx := rulego.NewRuleContext(ce.config, nil, nil, nil, ce.config.Pool, func(msg types.RuleMsg, err error) {
 				exchange.Out.SetMsg(&msg)
 				for _, process := range toFlow.GetProcessList() {
-					if !process(exchange) {
+					if !process(router, exchange) {
 						break
 					}
 				}

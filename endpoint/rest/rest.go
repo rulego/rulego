@@ -25,7 +25,6 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/textproto"
 )
@@ -217,10 +216,10 @@ func (rest *Rest) Start() error {
 	var err error
 	rest.server = &http.Server{Addr: rest.Config.Addr, Handler: rest.router}
 	if rest.Config.CertKeyFile != "" && rest.Config.CertFile != "" {
-		log.Printf("starting server with TLS on :%s", rest.Config.Addr)
+		rest.RuleConfig.Logger.Printf("starting server with TLS on :%s", rest.Config.Addr)
 		err = rest.server.ListenAndServeTLS(rest.Config.CertFile, rest.Config.CertKeyFile)
 	} else {
-		log.Printf("starting server on :%s", rest.Config.Addr)
+		rest.RuleConfig.Logger.Printf("starting server on :%s", rest.Config.Addr)
 		err = rest.server.ListenAndServe()
 	}
 	return err
@@ -309,7 +308,7 @@ func (rest *Rest) handler(router *endpoint.Router) httprouter.Handle {
 		defer func() {
 			//捕捉异常
 			if e := recover(); e != nil {
-				log.Printf("rest handler err :%v", e)
+				rest.RuleConfig.Logger.Printf("rest handler err :%v", e)
 			}
 		}()
 		if router.IsDisable() {
