@@ -29,7 +29,8 @@ type RuleGo struct {
 	ruleEngines sync.Map
 }
 
-//Load 加载文件夹所有规则链
+//Load 加载指定文件夹及其子文件夹所有规则链配置（与.json结尾文件），到规则引擎实例池
+//规则链ID，使用规则链文件配置的ruleChain.id
 func (g *RuleGo) Load(folderPath string, opts ...RuleEngineOption) error {
 	if !strings.HasSuffix(folderPath, "*.json") && !strings.HasSuffix(folderPath, "*.JSON") {
 		if strings.HasSuffix(folderPath, "/") || strings.HasSuffix(folderPath, "\\") {
@@ -55,7 +56,8 @@ func (g *RuleGo) Load(folderPath string, opts ...RuleEngineOption) error {
 	return nil
 }
 
-// New creates a new RuleEngine and stores it in the RuleGo.
+//New 创建一个新的RuleEngine并将其存储在RuleGo规则链池中
+//如果指定id="",则使用规则链文件的ruleChain.id
 func (g *RuleGo) New(id string, rootRuleChainSrc []byte, opts ...RuleEngineOption) (*RuleEngine, error) {
 	if v, ok := g.ruleEngines.Load(id); ok {
 		return v.(*RuleEngine), nil
@@ -105,11 +107,13 @@ func (g *RuleGo) Stop() {
 	})
 }
 
+//Load 加载指定文件夹及其子文件夹所有规则链配置（与.json结尾文件），到规则引擎实例池
+//规则链ID，使用文件配置的 ruleChain.id
 func Load(folderPath string, opts ...RuleEngineOption) error {
 	return DefaultRuleGo.Load(folderPath, opts...)
 }
 
-// New creates a new RuleEngine and stores it in the RuleGo.
+//New 创建一个新的RuleEngine并将其存储在RuleGo规则链池中
 func New(id string, rootRuleChainSrc []byte, opts ...RuleEngineOption) (*RuleEngine, error) {
 	return DefaultRuleGo.New(id, rootRuleChainSrc, opts...)
 }
