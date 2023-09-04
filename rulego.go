@@ -34,6 +34,8 @@ func (g *RuleGo) Load(folderPath string, opts ...RuleEngineOption) error {
 	if !strings.HasSuffix(folderPath, "*.json") && !strings.HasSuffix(folderPath, "*.JSON") {
 		if strings.HasSuffix(folderPath, "/") || strings.HasSuffix(folderPath, "\\") {
 			folderPath = folderPath + "*.json"
+		} else if folderPath == "" {
+			folderPath = "./*.json"
 		} else {
 			folderPath = folderPath + "/*.json"
 		}
