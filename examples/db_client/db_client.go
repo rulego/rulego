@@ -23,7 +23,9 @@ import (
 )
 
 //测试数据库操作组件dbClient
-//dbClient支持对数据库的增删修改查
+//dbClient支持对数据库的增、删、修改、查
+//dbClient组件查询的数据可以继续使用其它组件对数据进行处理，
+//例如：使用`jsTransform`组件对数据进行处理、把从数据库查询数据通过`restApiCall`组件和其他系统集成
 func main() {
 
 	config := rulego.NewConfig()
@@ -37,7 +39,7 @@ func main() {
 	metaData.PutValue("name", "test01")
 	metaData.PutValue("updateAge", "21")
 
-	//js处理后，并调用http推送
+	//加载规则链
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile), rulego.WithConfig(config))
 	if err != nil {
 		panic(err)
@@ -73,7 +75,7 @@ var chainJsonFile = `
      {
         "id": "s2",
         "type": "dbClient",
-        "name": "查询一条记录",
+        "name": "查询1条记录",
         "debugMode": true,
         "configuration": {
 			"dbType":"mysql",
@@ -86,7 +88,7 @@ var chainJsonFile = `
 	  {
         "id": "s3",
         "type": "dbClient",
-        "name": "查询多条记录，参数不适用占位符",
+        "name": "查询多条记录，参数不使用占位符",
         "debugMode": true,
         "configuration": {
 			"dbType":"mysql",
@@ -97,7 +99,7 @@ var chainJsonFile = `
 	  {
         "id": "s4",
         "type": "dbClient",
-        "name": "更新记录，参数不适用占位符",
+        "name": "更新记录，参数使用占位符",
         "debugMode": true,
         "configuration": {
 			"dbType":"mysql",
