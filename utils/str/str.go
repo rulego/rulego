@@ -22,10 +22,16 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const varPatternLeft = "${"
 const varPatternRight = "}"
+
+func init() {
+	//设置随机种子
+	rand.Seed(time.Now().UnixNano())
+}
 
 // SprintfDict formats a string according to a pattern and a dictionary of variables.
 //The pattern is a string that contains placeholders for the variables in the form of ${key}.
