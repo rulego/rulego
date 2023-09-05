@@ -247,7 +247,7 @@ func (m *Mqtt) handler(router *endpoint.Router) func(c paho.Client, data paho.Me
 		defer func() {
 			//捕捉异常
 			if e := recover(); e != nil {
-				m.RuleConfig.Logger.Printf("rest handler err :%v", e)
+				m.Printf("rest handler err :%v", e)
 			}
 		}()
 		exchange := &endpoint.Exchange{
@@ -260,5 +260,11 @@ func (m *Mqtt) handler(router *endpoint.Router) func(c paho.Client, data paho.Me
 			}}
 
 		m.DoProcess(router, exchange)
+	}
+}
+
+func (m *Mqtt) Printf(format string, v ...interface{}) {
+	if m.RuleConfig.Logger != nil {
+		m.RuleConfig.Logger.Printf(format, v...)
 	}
 }

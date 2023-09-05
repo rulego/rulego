@@ -217,10 +217,10 @@ func (rest *Rest) Start() error {
 	var err error
 	rest.server = &http.Server{Addr: rest.Config.Server, Handler: rest.router}
 	if rest.Config.CertKeyFile != "" && rest.Config.CertFile != "" {
-		rest.RuleConfig.Logger.Printf("starting server with TLS on :%s", rest.Config.Server)
+		rest.Printf("starting server with TLS on :%s", rest.Config.Server)
 		err = rest.server.ListenAndServeTLS(rest.Config.CertFile, rest.Config.CertKeyFile)
 	} else {
-		rest.RuleConfig.Logger.Printf("starting server on :%s", rest.Config.Server)
+		rest.Printf("starting server on :%s", rest.Config.Server)
 		err = rest.server.ListenAndServe()
 	}
 	return err
@@ -309,7 +309,7 @@ func (rest *Rest) handler(router *endpoint.Router) httprouter.Handle {
 		defer func() {
 			//捕捉异常
 			if e := recover(); e != nil {
-				rest.RuleConfig.Logger.Printf("rest handler err :%v", e)
+				rest.Printf("rest handler err :%v", e)
 			}
 		}()
 		if router.IsDisable() {
@@ -343,5 +343,11 @@ func (rest *Rest) handler(router *endpoint.Router) httprouter.Handle {
 
 		}
 		rest.DoProcess(router, exchange)
+	}
+}
+
+func (rest *Rest) Printf(format string, v ...interface{}) {
+	if rest.RuleConfig.Logger != nil {
+		rest.RuleConfig.Logger.Printf(format, v...)
 	}
 }
