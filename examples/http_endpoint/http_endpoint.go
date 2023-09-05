@@ -34,7 +34,7 @@ func main() {
 	_, _ = rulego.New("default", []byte(chainJsonFile), rulego.WithConfig(config))
 
 	//启动http接收服务
-	restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}}
+	restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}, RuleConfig: config}
 	//添加全局拦截器
 	restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		userId := exchange.In.Headers().Get("userId")

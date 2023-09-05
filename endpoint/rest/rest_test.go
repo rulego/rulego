@@ -24,7 +24,7 @@ func TestRestEndPoint(t *testing.T) {
 	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
 
 	//启动http接收服务
-	restEndpoint := &Rest{Config: Config{Server: ":9090"}}
+	restEndpoint := &Rest{Config: Config{Server: ":9090"}, RuleConfig: config}
 	//添加全局拦截器
 	restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑

@@ -31,6 +31,7 @@ func TestMqttEndpoint(t *testing.T) {
 		Config: mqtt.Config{
 			Server: "127.0.0.1:1883",
 		},
+		RuleConfig: config,
 	}
 	//添加全局拦截器
 	mqttEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
@@ -65,6 +66,7 @@ func TestMqttEndpoint2(t *testing.T) {
 		Config: mqtt.Config{
 			Server: "127.0.0.1:1883",
 		},
+		RuleConfig: config,
 	}
 	//订阅所有主题路由，并转发到default规则链处理
 	router1 := endpoint.NewRouter().From("#").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {

@@ -17,6 +17,7 @@
 package main
 
 import (
+	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint"
@@ -28,7 +29,7 @@ import (
 //HTTP POST http://127.0.0.1:9090/api/v1/msg
 //MQTT pub topic /api/v1/msg
 func main() {
-
+	config := rulego.NewConfig(types.WithDefaultPool())
 	//定义路由 采用配置方式调用node组件
 	router := endpoint.NewRouter().From("/api/v1/msg").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		return true
@@ -43,6 +44,7 @@ func main() {
 		Config: mqtt.Config{
 			Server: "127.0.0.1:1883",
 		},
+		RuleConfig: config,
 	}
 	//添加全局拦截器
 	_mqttEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
@@ -53,7 +55,7 @@ func main() {
 	_ = _mqttEndpoint.AddRouter(router).Start()
 
 	//创建http接收服务
-	_restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}}
+	_restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}, RuleConfig: config}
 	//添加全局拦截器
 	_restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		userId := exchange.In.Headers().Get("userId")
