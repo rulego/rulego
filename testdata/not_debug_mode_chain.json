@@ -2,7 +2,7 @@
   "ruleChain": {
     "id":"not_debug_mode_chain",
     "name": "测试规则链",
-    "root": false
+    "root": true
   },
   "metadata": {
     "nodes": [

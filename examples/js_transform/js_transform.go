@@ -65,9 +65,9 @@ func main() {
 var chainJsonFile1 = `
 {
   "ruleChain": {
+	"id":"rule01",
     "name": "测试规则链",
-    "root": false,
-    "debugMode": false
+    "root": true
   },
   "metadata": {
     "nodes": [
@@ -91,9 +91,9 @@ var chainJsonFile1 = `
 var chainJsonFile2 = `
 {
   "ruleChain": {
+    "id":"rule02",
     "name": "测试规则链",
-    "root": false,
-    "debugMode": false
+    "root": true
   },
   "metadata": {
     "nodes": [

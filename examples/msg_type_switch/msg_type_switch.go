@@ -51,9 +51,9 @@ func main() {
 var chainJsonFile = `
 {
   "ruleChain": {
+	"id":"rule01",
     "name": "测试规则链-msgTypeSwitch",
-    "root": false,
-    "debugMode": false
+    "root": true
   },
   "metadata": {
     "nodes": [

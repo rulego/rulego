@@ -52,9 +52,9 @@ func main() {
 var chainJsonFile = `
 {
   "ruleChain": {
+	"id":"rule01",
     "name": "测试规则链",
-    "root": false,
-    "debugMode": false
+    "root": true
   },
   "metadata": {
     "nodes": [
@@ -62,7 +62,6 @@ var chainJsonFile = `
         "id": "s1",
         "type": "jsTransform",
         "name": "转换",
-        "debugMode": true,
         "configuration": {
           "jsScript": "metadata['name']='test02';\n metadata['index']=22;\n msg['addField']='addValue2'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
         }
@@ -71,7 +70,6 @@ var chainJsonFile = `
         "id": "s2",
         "type": "restApiCall",
         "name": "调用restApi增强数据",
-        "debugMode": true,
         "configuration": {
           "restEndpointUrlPattern": "http://192.168.136.26:9099/api/msgHandle",
           "requestMethod": "POST",
@@ -82,7 +80,6 @@ var chainJsonFile = `
         "id": "s3",
         "type": "jsTransform",
         "name": "继续转换http响应数据",
-        "debugMode": true,
         "configuration": {
           "jsScript": "msg['addField2']='addValue22'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
         }
@@ -91,7 +88,6 @@ var chainJsonFile = `
         "id": "s4",
         "type": "log",
         "name": "请求错误记录日志",
-        "debugMode": true,
         "configuration": {
           "jsScript": "return '请求出错\\n Incoming message:\\n' + JSON.stringify(msg) + '\\nIncoming metadata:\\n' + JSON.stringify(metadata);"
         }

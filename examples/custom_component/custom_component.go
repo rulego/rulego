@@ -56,6 +56,7 @@ func main() {
 var chainJsonFile = `
 {
   "ruleChain": {
+	"id":"rule01",
     "name": "测试数据共享规则链"
   },
   "metadata": {

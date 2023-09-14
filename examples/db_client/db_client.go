@@ -55,7 +55,9 @@ func main() {
 var chainJsonFile = `
 {
   "ruleChain": {
-    "name": "测试规则链"
+	"id":"rule01",
+    "name": "测试规则链",
+	"root": true
   },
   "metadata": {
     "nodes": [
@@ -63,7 +65,6 @@ var chainJsonFile = `
         "id": "s1",
         "type": "dbClient",
         "name": "插入1条记录",
-        "debugMode": true,
         "configuration": {
 			"dbType":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
@@ -76,7 +77,6 @@ var chainJsonFile = `
         "id": "s2",
         "type": "dbClient",
         "name": "查询1条记录",
-        "debugMode": true,
         "configuration": {
 			"dbType":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
@@ -89,7 +89,6 @@ var chainJsonFile = `
         "id": "s3",
         "type": "dbClient",
         "name": "查询多条记录，参数不使用占位符",
-        "debugMode": true,
         "configuration": {
 			"dbType":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
@@ -100,7 +99,6 @@ var chainJsonFile = `
         "id": "s4",
         "type": "dbClient",
         "name": "更新记录，参数使用占位符",
-        "debugMode": true,
         "configuration": {
 			"dbType":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
@@ -112,7 +110,6 @@ var chainJsonFile = `
         "id": "s5",
         "type": "dbClient",
         "name": "删除记录",
-        "debugMode": true,
         "configuration": {
 			"dbType":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",

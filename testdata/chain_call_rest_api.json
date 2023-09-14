@@ -2,8 +2,7 @@
   "ruleChain": {
     "id":"chain_call_rest_api",
     "name": "测试规则链",
-    "root": false,
-    "debugMode": false
+    "root": true
   },
   "metadata": {
     "nodes": [
