@@ -45,11 +45,11 @@ const (
 
 // DbClientNodeConfiguration 节点配置
 type DbClientNodeConfiguration struct {
-	// Sql 操作语句，可以使用${}占位符
+	// Sql SQL语句，可以使用${metaKeyName} 替换元数据中的变量
 	Sql string
-	// Params 操作参数，可以是数组或对象
+	// Params SQL语句参数列表，可以使用${metaKeyName} 替换元数据中的变量
 	Params []interface{}
-	// GetOne 是否只返回一条记录，返回结构非slice结构
+	// GetOne 是否只返回一条记录，true:返回结构不是数组结构，false：返回数据是数组结构
 	GetOne bool
 	// PoolSize 连接池大小
 	PoolSize int

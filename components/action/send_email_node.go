@@ -38,13 +38,13 @@ func init() {
 
 //Email 邮件消息体
 type Email struct {
-	//From 发件人
+	//From 发件人邮箱
 	From string
-	//To 收件人，多个与`,`隔开
+	//To 收件人邮箱，多个与`,`隔开
 	To string
-	//Cc 抄送人，多个与`,`隔开
+	//Cc 抄送人邮箱，多个与`,`隔开
 	Cc string
-	//Bcc 密送人，多个与`,`隔开
+	//Bcc 密送人邮箱，多个与`,`隔开
 	Bcc string
 	//Subject 邮件主题，可以使用 ${metaKeyName} 替换元数据中的变量
 	Subject string
@@ -155,7 +155,7 @@ type SendEmailConfiguration struct {
 	SmtpPort int
 	//Username 用户名
 	Username string
-	//Password 密码
+	//Password 授权码
 	Password string
 	//EnableTls 是否是使用tls方式
 	EnableTls bool
