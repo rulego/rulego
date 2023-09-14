@@ -52,9 +52,9 @@ func main() {
 var chainJsonFile = `
 {
   "ruleChain": {
+	"id":"rule01",
     "name": "测试规则链",
-    "root": false,
-    "debugMode": false
+    "root": true
   },
   "metadata": {
     "nodes": [
@@ -62,7 +62,6 @@ var chainJsonFile = `
         "id": "s1",
         "type": "jsTransform",
         "name": "转换",
-        "debugMode": true,
         "configuration": {
           "jsScript": "metadata['name']='test02';\n metadata['deviceId']='id01';\n msg['addField']='addValue2'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
         }
@@ -71,7 +70,6 @@ var chainJsonFile = `
         "id": "s2",
         "type": "mqttClient",
         "name": "往mqtt Broker 推送数据",
-        "debugMode": true,
         "configuration": {
           "server": "127.0.0.1:1883",
           "topic": "/device/msg/${deviceId}"
