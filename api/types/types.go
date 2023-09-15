@@ -93,24 +93,26 @@ type ComponentRegistry interface {
 }
 
 // Node 规则引擎节点组件接口
-//把业务封或者常用工具装成组件，然后通过规则链配置方式调用该组件
+//把业务封或者通用逻辑装成组件，然后通过规则链配置方式调用该组件
 //实现方式参考`components`包
 //然后注册到`RuleGo`默认注册器
 //rulego.Registry.Register(&MyNode{})
 type Node interface {
 	//New 创建一个组件新实例
+	//每个规则链里的规则节点都会创建一个新的实例，数据是独立的
 	New() Node
 	//Type 组件类型，类型不能重复。
 	//用于规则链，node.type配置，初始化对应的组件
-	//建议使用`/`区分命名空间，防止冲突。例如：lala/httpClient
+	//建议使用`/`区分命名空间，防止冲突。例如：x/httpClient
 	Type() string
-	//Init 组件初始化
+	//Init 组件初始化，一般做一些组件参数配置或者客户端初始化操作
+	//规则链里的规则节点初始化会调用一次
 	Init(ruleConfig Config, configuration Configuration) error
-	//OnMsg 处理消息
+	//OnMsg 处理消息，每条流入组件的数据会经过该函数处理
 	//ctx:规则引擎处理消息上下文
 	//msg:消息
 	OnMsg(ctx RuleContext, msg RuleMsg) error
-	//Destroy 销毁
+	//Destroy 销毁，做一些资源释放操作
 	Destroy()
 }
 
