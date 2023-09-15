@@ -8,6 +8,10 @@ English| [中文](README_ZH.md)
 
 This project is largely inspired by [thingsboard](https://github.com/thingsboard/thingsboard) .
 
+## Documentation
+
+RuleGo documentation is hosted on: [rulego.cc](https://rulego.cc) .
+
 ## Features
 
 * Development language: Go 1.18
