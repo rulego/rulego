@@ -19,6 +19,7 @@ package rulego
 import (
 	"errors"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/str"
 )
 
 const (
@@ -44,7 +45,7 @@ func InitRuleNodeCtx(config types.Config, selfDefinition *RuleNode) (*RuleNodeCt
 		if selfDefinition.Configuration == nil {
 			selfDefinition.Configuration = make(types.Configuration)
 		}
-		if err = node.Init(config, selfDefinition.Configuration); err != nil {
+		if err = node.Init(config, processGlobalPlaceholders(config, selfDefinition.Configuration)); err != nil {
 			return &RuleNodeCtx{}, err
 		} else {
 			return &RuleNodeCtx{
@@ -99,4 +100,20 @@ func (rn *RuleNodeCtx) Copy(newCtx *RuleNodeCtx) {
 	rn.SelfDefinition.Type = newCtx.SelfDefinition.Type
 	rn.SelfDefinition.DebugMode = newCtx.SelfDefinition.DebugMode
 	rn.SelfDefinition.Configuration = newCtx.SelfDefinition.Configuration
+}
+
+// 使用全局配置替换节点占位符配置，例如：${global.propertyKey}
+func processGlobalPlaceholders(config types.Config, configuration types.Configuration) types.Configuration {
+	if config.Properties.Values() != nil {
+		var result = make(types.Configuration)
+		for key, value := range configuration {
+			if strV, ok := value.(string); ok {
+				result[key] = str.SprintfVar(strV, "global.", config.Properties.Values())
+			} else {
+				result[key] = value
+			}
+		}
+		return result
+	}
+	return configuration
 }

@@ -33,16 +33,27 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// SprintfDict formats a string according to a pattern and a dictionary of variables.
-//The pattern is a string that contains placeholders for the variables in the form of ${key}.
-//The dict is a map from keys to values that will replace the placeholders.
-//For example, SprintfDict(“Hello, ${name}!”, map[string]string{“name”: “Alice”}) returns “Hello, Alice!”.
-//If the pattern contains a key that is not in the dict, it will be left unchanged.
-//If the dict contains a key that is not in the pattern, it will be ignored.
+//SprintfDict 根据pattern和dict格式化字符串。
+//pattern是一个字符串，包含${key}形式的变量占位符。
+//dict map[string]string 被替换的变量。
+//例如，SprintfDict（“你好，$｛name｝！”，map[string]string｛“name”：“Alice”｝）返回“你好，Alice！”。
+//如果pattern包含一个不在dict中的key，它将保持不变。
+//如果dict包含一个不在pattern中的key，它将被忽略。
 func SprintfDict(pattern string, dict map[string]string) string {
+	return SprintfVar(pattern, "", dict)
+}
+
+//SprintfVar 根据pattern和dict格式化字符串。
+//pattern是一个字符串，包含${key}形式的变量占位符。
+//dict map[string]string 被替换的变量。
+//keyPrefix key前缀，dict所有key将会加上前缀keyPrefix再进行替换。
+//例如，SprintfDict（“你好，$｛name｝！”，map[string]string｛“name”：“Alice”｝）返回“你好，Alice！”。
+//如果pattern包含一个不在dict中的key，它将保持不变。
+//如果dict包含一个不在pattern中的key，它将被忽略。
+func SprintfVar(pattern string, keyPrefix string, dict map[string]string) string {
 	var result = pattern
 	for key, value := range dict {
-		result = ProcessVar(result, key, value)
+		result = ProcessVar(result, keyPrefix+key, value)
 	}
 	return result
 }

@@ -44,6 +44,10 @@ type Config struct {
 	Parser Parser
 	//Logger 日志记录接口，默认使用：`DefaultLogger()`
 	Logger Logger
+	//Properties 全局属性，key-value形式
+	//规则链节点配置可以通过${global.propertyKey}方式替换Properties值
+	//节点初始化时候替换，只替换一次
+	Properties Metadata
 }
 
 // Option is a function type that modifies the Config.
@@ -54,6 +58,7 @@ func NewConfig(opts ...Option) Config {
 	c := &Config{
 		JsMaxExecutionTime: time.Millisecond * 2000,
 		Logger:             DefaultLogger(),
+		Properties:         NewMetadata(),
 	}
 
 	// Apply the options to the Config.
