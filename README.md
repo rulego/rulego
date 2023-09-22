@@ -124,11 +124,11 @@ The following example defines 3 rule nodes, and the rule chain logic is as follo
 }
 ```
 Description:
-- `ruleChain`: The root object of the rule chain definition, which contains the following fields:
+- **`ruleChain`:** The root object of the rule chain definition, which contains the following fields:
   - `name`: The name of the rule chain, which can be any string.
   - `root`: A boolean value indicating whether this rule chain is the root rule chain or a sub-rule chain. Only one root rule chain is allowed per rule engine instance.
   - `debugMode`: A boolean value indicating whether this rule chain is in debug mode or not. If true, the debug callback function will be triggered when the rule chain processes messages.
-- `metadata`: An object that contains the information of the nodes and connections in the rule chain, which has the following fields:
+- **`metadata`:** An object that contains the information of the nodes and connections in the rule chain, which has the following fields:
   - `nodes`: An array of objects, each representing a rule node in the rule chain. Each node object has the following fields:
     - `id`: A unique identifier for the node, which can be any string.
     - `type`: The type of the node, which determines the logic and behavior of the node. It should match one of the registered node types in the rule engine.
@@ -163,28 +163,8 @@ metaData.PutValue("productType", "test01")
 msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
 
 //Give the message to the rule engine for processing
+//The engine will process data based on the configuration of the rule chain, which supports hot updates
 ruleEngine.OnMsg(msg)
-
-//with end callback call
-ruleEngine.OnMsgWithOptions(msg,types.WithEndFunc(func(msg types.RuleMsg, err error) {
-//Rule chain asynchronous callback result 
-//Note: If the rule chain has multiple branch endpoints, it will be called multiple times
-}))
-
-//whit context.Context call 
-//Used for sharing data between different component instances
-ruleEngine.OnMsgWithOptions(msg,types.WithContext(context.WithValue(context.Background(), "shareKey", "shareValue")))
-
-```
-
-Add sub-rule chains:
-
-```go
-//Create a rule engine instance and sub-rule chains together
-ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithAddSubChain("rule_chain_test", subRuleFile))
-//Or by creating or updating
-ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: "rule_chain_test", Type: types.CHAIN}, subRuleFile)
-
 ```
 
 Update rule chain
@@ -192,11 +172,8 @@ Update rule chain
 ```go
 //Update root rule chain
 err := ruleEngine.ReloadSelf([]byte(ruleFile))
-//Update sub-rule chain
-ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: "rule_chain_test", Type: types.CHAIN}, subRuleFile)
-//Update a node of the rule chain, see the following method for details
-ruleEngine.ReloadChild(chainId types.RuleNodeId, ruleNodeId types.RuleNodeId, dls []byte)
-
+//Update a node of the rule chain
+ruleEngine.ReloadChild("rule_chain_test", nodeFile)
 ```
 
 Rule engine instance management:
@@ -224,7 +201,7 @@ config.OnDebug = func (flowType string, nodeId string, msg types.RuleMsg, relati
 //Note: If the rule chain has multiple branch endpoints, it will be called multiple times
 config.OnEnd = func (msg types.RuleMsg, err error) {
 }
-//Configuration usage
+//Use Configuration 
 ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(config))
 ```
 
@@ -233,100 +210,11 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 ### Rule node
 
 Rule node is the basic component of the rule engine, it processes a single incoming message at a time and generates one or more outgoing messages. Rule node is the main logic unit of the rule engine. Rule nodes can filter, enrich, transform incoming messages, execute actions or communicate with external systems. You can easily encapsulate your business into `RuleGo`
-node components, and then flexibly configure and reuse them, like building blocks to achieve your business needs. Define `RuleGo` custom node component method:
+node components, and then flexibly configure and reuse them, like building blocks to achieve your business needs. 
 
-* Method 1: Implement the `types.Node` interface, refer to the examples in [components](components)
-  For example:
+- Custom node component reference: [examples/custom_component](examples/custom_component)  or [documentation](https://rulego.cc/pages/caed1b/)
+- `RuleGo` has a large number of [standard components](https://rulego.cc/pages/88fc3c/), and also provides [extension components](https://rulego.cc/pages/d7fc43/)
 
-```go
-//Define Node component
-//UpperNode A plugin that converts the message data to uppercase
-type UpperNode struct{}
-
-func (n *UpperNode) Type() string {
-return "test/upper"
-}
-func (n *UpperNode) New() types.Node {
-return &UpperNode{}
-}
-func (n *UpperNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-// Do some initialization work
-return nil
-}
-//Process message
-func (n *UpperNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
-msg.Data = strings.ToUpper(msg.Data)
-// Send the modified message to the next node
-ctx.TellSuccess(msg)
-return nil
-}
-
-func (n *UpperNode) Destroy() {
-// Do some cleanup work
-}
-//Register to rulego default registrar
-rulego.Registry.Register(&MyNode{})
-```
-
-* Method 2: Use `go plugin` to implement the interface `types.PluginRegistry` interface. And export the variable name: `Plugins`, refer to [testcases/plugin](testcases/plugin/)
-  For example:
-
-```go
-// plugin entry point
-var Plugins MyPlugins
-
-type MyPlugins struct{}
-
-func (p *MyPlugins) Init() error {
-return nil
-}
-func (p *MyPlugins) Components() []types.Node {
-//A plugin can provide multiple components
-return []types.Node{&UpperNode{}, &TimeNode{}, &FilterNode{}}
-}
-//go build -buildmode=plugin -o plugin.so plugin.go # Compile the plugin and generate the plugin.so file, need to compile in mac or linux environment
-//Register to rulego default registrar
-rulego.Registry.RegisterPlugin("test", "./plugin.so")
-```
-
-Then use your component in the rule chain DSL file
-
-```json
-{
-  "ruleChain": {
-    "name": "Test rule chain",
-    "root": true,
-    "debugMode": false
-  },
-  "metadata": {
-    "nodes": [
-      {
-        "id": "s1",
-        "type": "test/upper",
-        "name": "Name",
-        "debugMode": true,
-        "configuration": {
-          "field1": "Configuration parameters defined by the component",
-          "....": "..."
-        }
-      }
-    ],
-    "connections": [
-      {
-        "fromId": "s1",
-        "toId": "Connect to the next component ID",
-        "type": "The connection relationship with the component"
-      }
-    ],
-    "ruleChainConnections": null
-  }
-}
-```
-
-`RuleGo` built-in some common components are divided into the following types:
-* Filter component: Filter messages.
-* Transformation component: Transform and enhance messages.
-* Action component: Perform some actions or link with external systems.
 
 ### Rule chain
 

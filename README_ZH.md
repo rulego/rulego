@@ -125,25 +125,25 @@ go get github.com/rulego/rulego
 
 字段说明：
 
-- `ruleChain`: 规则链定义的根对象，包含以下字段：
-  - `name`: 规则链的名称，可以是任意字符串。
-  - `root`: 一个布尔值，表示这个规则链是根规则链还是子规则链。每个规则引擎实例只允许有一个根规则链。
-- `metadata`: 一个对象，包含了规则链中节点和连接的信息，有以下字段：
-  - `nodes`: 一个对象数组，每个对象代表规则链中的一个规则节点。每个节点对象有以下字段：
+- **`ruleChain`:** 规则链定义的根对象，包含以下字段：
+  - `id`: 类型：`string`，规则链ID，规则链的唯一标识。
+  - `name`: 类型：`string`，规则链的名称，可以是任意字符串。
+  - `root`: 类型：`boolean`，表示这个规则链是根规则链还是子规则链。每个规则引擎实例只允许有一个根规则链。
+- **`metadata`:** 类型：`object`，包含了规则链中节点和连接的信息，有以下字段：
+  - `nodes`: 类型：`node[]`，每个对象代表规则链中的一个规则节点。每个节点对象有以下字段：
     - `id`: 节点的唯一标识符，可以是任意字符串。
     - `type`: 节点的类型，决定了节点的逻辑和行为。它应该与规则引擎中注册的节点类型之一匹配。
     - `name`: 节点的名称，可以是任意字符串。
-    - `debugMode`: 一个布尔值，表示这个节点是否处于调试模式。如果为真，当节点处理消息时，会触发调试回调函数。
-    - `configuration`: 一个对象，包含了节点的配置参数，具体内容取决于节点类型。例如，一个JS过滤器节点可能有一个`jsScript`字段，定义了过滤逻辑，而一个REST API调用节点可能有一个`restEndpointUrlPattern`字段，定义了要调用的URL。
-  - `connections`: 一个对象数组，每个对象代表规则链中两个节点之间的连接。每个连接对象有以下字段：
+    - `debugMode`: 类型：`boolean`，表示这个节点是否处于调试模式。如果为真，当节点处理消息时，会触发调试回调函数。
+    - `configuration`: 类型：`object`，，包含了节点的配置参数，具体内容取决于节点类型。例如，一个JS过滤器节点可能有一个`jsScript`字段，定义了过滤逻辑，而一个REST API调用节点可能有一个`restEndpointUrlPattern`字段，定义了要调用的URL。
+  - `connections`: 类型：`connection[]`，每个对象代表规则链中两个节点之间的连接。每个连接对象有以下字段：
     - `fromId`: 连接的源节点的id，应该与nodes数组中的某个节点id匹配。
     - `toId`: 连接的目标节点的id，应该与nodes数组中的某个节点id匹配。
     - `type`: 连接的类型，决定了什么时候以及如何把消息从一个节点发送到另一个节点。它应该与源节点类型支持的连接类型之一匹配。例如，一个JS过滤器节点可能支持两种连接类型："True"和"False"，表示消息是否通过或者失败过滤条件。
-  - `ruleChainConnections`: 一个对象数组，每个对象代表规则链中一个节点和一个子规则链之间的连接。每个规则链连接对象有以下字段：
+  - `ruleChainConnections`: 类型：`ruleChainConnection[]`，，每个对象代表规则链中一个节点和一个子规则链之间的连接。每个规则链连接对象有以下字段：
     - `fromId`: 连接的源节点的id，应该与nodes数组中的某个节点id匹配。
     - `toId`: 连接的目标子规则链的id，应该与规则引擎中注册的子规则链之一匹配。
-    - `type`: 连接的类型，决定了什么时候以及如何把消息从一个节点发送到另一个节点。它应该与源节点类型支持的连接类型之一匹配。
-    
+    - `type`: 连接的类型，决定了什么时候以及如何把消息从一个节点发送到另一个节点。它应该与源节点类型支持的连接类型之一匹配。例如，一个JS过滤器节点可能支持两种连接类型："True"和"False"，表示消息是否通过或者失败过滤条件。
 
 导入`RuleGo`包并创建一个规则引擎实例：
 
@@ -164,27 +164,8 @@ metaData.PutValue("productType", "test01")
 msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
 
 //把消息交给规则引擎处理
+//引擎会根据规则链的配置处理数据，规则链配置支持热更新
 ruleEngine.OnMsg(msg)
-
-//需要得到结束回调的调用方式
-ruleEngine.OnMsgWithOptions(msg,types.WithEndFunc(func(msg types.RuleMsg, err error) {
-//规则链异步回调结果 
-//注意：规则链如果有多个分支结束点，会调用多次
-}))
-
-//带context.Context的调用方式,用于不同组件实例共享数据
-ruleEngine.OnMsgWithOptions(msg,types.WithContext(context.WithValue(context.Background(), "shareKey", "shareValue")))
-
-```
-
-添加子规则链：
-
-```go
-//规则引擎实例化时和子规则链一起创建
-ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithAddSubChain("rule_chain_test", subRuleFile))
-//或者通过创建或者更新的方式
-ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: "rule_chain_test", Type: types.CHAIN}, subRuleFile)
-
 ```
 
 更新规则链
@@ -192,11 +173,8 @@ ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: "rule_chain_t
 ```go
 //更新根规则链
 err := ruleEngine.ReloadSelf([]byte(ruleFile))
-//更新子规则链
-ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: "rule_chain_test", Type: types.CHAIN}, subRuleFile)
-//更新规则链某个节点,详情看以下方法
-ruleEngine.ReloadChild(chainId types.RuleNodeId, ruleNodeId types.RuleNodeId, dls []byte)
-
+//更新规则链下某个节点
+ruleEngine.ReloadChild("rule_chain_test", nodeFile)
 ```
 
 规则引擎实例管理：
@@ -224,7 +202,7 @@ config.OnDebug = func (flowType string, nodeId string, msg types.RuleMsg, relati
 //注意：规则链如果有多个分支结束点，会调用多次
 config.OnEnd = func (msg types.RuleMsg, err error) {
 }
-//配置使用
+//使用配置
 ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(config))
 ```
 
@@ -234,100 +212,10 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 ### 规则节点
 
 规则节点是规则引擎的基本组件，它一次处理单个传入消息并生成一个或多个传出消息。规则节点是规则引擎的主要逻辑单元。规则节点可以过滤，丰富，转换传入消息，执行操作或与外部系统通信。 你可以把业务很方便地封装成`RuleGo`
-节点组件，然后灵活配置和复用它们，像搭积木一样实现你的业务需求。 定义`RuleGo`自定义节点组件方式：
+节点组件，然后灵活配置和复用它们，像搭积木一样实现你的业务需求。 
 
-* 方式一：实现`types.Node` 接口，参考[components](components)例子 例如：
-
-```go
-//定义Node组件
-//UpperNode A plugin that converts the message data to uppercase
-type UpperNode struct{}
-
-func (n *UpperNode) Type() string {
-return "test/upper"
-}
-func (n *UpperNode) New() types.Node {
-return &UpperNode{}
-}
-func (n *UpperNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-// Do some initialization work
-return nil
-}
-//处理消息
-func (n *UpperNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
-msg.Data = strings.ToUpper(msg.Data)
-// Send the modified message to the next node
-ctx.TellSuccess(msg)
-return nil
-}
-
-func (n *UpperNode) Destroy() {
-// Do some cleanup work
-}
-//注册到rulego默认注册器
-rulego.Registry.Register(&MyNode{})
-```
-
-* 方式二：使用`go plugin` 实现接口 `types.PluginRegistry`接口。并导出变量名称:`Plugins`,参考[testcases/plugin](testcases/plugin/)
-  例如：
-
-```go
-// plugin entry point
-var Plugins MyPlugins
-
-type MyPlugins struct{}
-
-func (p *MyPlugins) Init() error {
-return nil
-}
-func (p *MyPlugins) Components() []types.Node {
-//一个插件可以提供多个组件
-return []types.Node{&UpperNode{}, &TimeNode{}, &FilterNode{}}
-}
-//go build -buildmode=plugin -o plugin.so plugin.go # 编译插件，生成plugin.so文件，需要在mac或者linux环境下编译
-//注册到rulego默认注册器
-rulego.Registry.RegisterPlugin("test", "./plugin.so")
-```
-
-然后在规则链DSL文件使用您的组件
-
-```json
-{
-  "ruleChain": {
-    "name": "测试规则链",
-    "root": true,
-    "debugMode": false
-  },
-  "metadata": {
-    "nodes": [
-      {
-        "id": "s1",
-        "type": "test/upper",
-        "name": "名称",
-        "debugMode": true,
-        "configuration": {
-          "field1": "组件定义的配置参数",
-          "....": "..."
-        }
-      }
-    ],
-    "connections": [
-      {
-        "fromId": "s1",
-        "toId": "连接下一个组件ID",
-        "type": "与组件的连接关系"
-      }
-    ],
-    "ruleChainConnections": null
-  }
-}
-```
-
-`RuleGo`内置部分常用组件分为以下几种：
-
-* 过滤组件：对消息进行过滤。
-* 转换组件：对消息进行转换和增强。
-* 动作组件：执行某些动作，或者和外部系统联动。
+- 自定义节点组件参考：[examples/custom_component](examples/custom_component) 或者[文档](https://rulego.cc/pages/caed1b/) 
+- `RuleGo`内置大量[标准组件](https://rulego.cc/pages/88fc3c/) ，另外提供[扩展组件](https://rulego.cc/pages/d7fc43/)
 
 ### 规则链
 
