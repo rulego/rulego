@@ -212,7 +212,8 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 Rule node is the basic component of the rule engine, it processes a single incoming message at a time and generates one or more outgoing messages. Rule node is the main logic unit of the rule engine. Rule nodes can filter, enrich, transform incoming messages, execute actions or communicate with external systems. You can easily encapsulate your business into `RuleGo`
 node components, and then flexibly configure and reuse them, like building blocks to achieve your business needs. 
 
-- Custom node component reference: [examples/custom_component](examples/custom_component)  or [documentation](https://rulego.cc/pages/caed1b/)
+- Custom node component: [examples/custom_component](examples/custom_component)  or [Documentation](https://rulego.cc/pages/caed1b/)
+- Provide custom components using the `go plugin` method: [examples/plugin](examples/custom_component) or [Documentation](https://rulego.cc/pages/caed1b/#go-plugin-%E6%96%B9%E5%BC%8F%E6%8F%90%E4%BE%9B%E7%BB%84%E4%BB%B6)
 - `RuleGo` has a large number of [standard components](https://rulego.cc/pages/88fc3c/), and also provides [extension components](https://rulego.cc/pages/d7fc43/)
 
 

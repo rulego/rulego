@@ -214,7 +214,8 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 规则节点是规则引擎的基本组件，它一次处理单个传入消息并生成一个或多个传出消息。规则节点是规则引擎的主要逻辑单元。规则节点可以过滤，丰富，转换传入消息，执行操作或与外部系统通信。 你可以把业务很方便地封装成`RuleGo`
 节点组件，然后灵活配置和复用它们，像搭积木一样实现你的业务需求。 
 
-- 自定义节点组件参考：[examples/custom_component](examples/custom_component) 或者[文档](https://rulego.cc/pages/caed1b/) 
+- 自定义节点组件：[examples/custom_component](examples/custom_component) 或者[文档](https://rulego.cc/pages/caed1b/) 
+- `go plugin`方式提供自定义组件：[examples/plugin](examples/custom_component) 或者[文档](https://rulego.cc/pages/caed1b/#go-plugin-%E6%96%B9%E5%BC%8F%E6%8F%90%E4%BE%9B%E7%BB%84%E4%BB%B6)
 - `RuleGo`内置大量[标准组件](https://rulego.cc/pages/88fc3c/) ，另外提供[扩展组件](https://rulego.cc/pages/d7fc43/)
 
 ### 规则链
