@@ -14,7 +14,7 @@ RuleGo documentation is hosted on: [rulego.cc](https://rulego.cc) .
 
 ## Features
 
-* Development language: Go 1.18
+* Development language: Go 1.18+
 * Lightweight: No external middleware dependencies, can efficiently process and link data on low-cost devices, suitable for IoT edge computing.
 * High performance: Thanks to the high-performance characteristics of `Go`, in addition, `RuleGo` adopts technologies such as coroutine pool and object pool. For 10W data processing `JS script filtering->JS script data processing->HTTP push`, the average time is 9 seconds.
 * Embedded: Support embedding `RuleGo` into existing projects, non-intrusively utilizing its features.
