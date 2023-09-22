@@ -214,7 +214,7 @@ func reloadDsl(nodeId string, exchange *endpoint.Exchange) {
 	if nodeId == "" {
 		err = ruleEngine.ReloadSelf(exchange.In.Body())
 	} else {
-		err = ruleEngine.ReloadChild(types.RuleNodeId{}, types.RuleNodeId{Id: nodeId, Type: types.NODE}, exchange.In.Body())
+		err = ruleEngine.ReloadChild(nodeId, exchange.In.Body())
 	}
 	if err != nil {
 		log.Print(err)

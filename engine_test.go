@@ -77,7 +77,7 @@ var rootRuleChain = `
 		"ruleChainConnections": [
  			{
 			"fromId": "s1",
-			"toRuleChainId": "subChain01",
+			"toId": "subChain01",
 			"type": "True"
 		  }
 		]
@@ -137,7 +137,10 @@ var s1NodeFile = `
 //TestEngine 测试规则引擎
 func TestEngine(t *testing.T) {
 	config := NewConfig()
-	ruleEngine, err := New("rule01", []byte(rootRuleChain), WithConfig(config), WithAddSubChain("subChain01", []byte(subRuleChain)))
+	//初始化子规则链
+	subRuleEngine, err := New("subChain01", []byte(subRuleChain), WithConfig(config))
+	//初始化根规则链
+	ruleEngine, err := New("rule01", []byte(rootRuleChain), WithConfig(config))
 	if err != nil {
 		t.Errorf("%v", err)
 	}
@@ -154,14 +157,15 @@ func TestEngine(t *testing.T) {
 
 	//获取子规则链
 	subChain01Id := types.RuleNodeId{Id: "subChain01", Type: types.CHAIN}
-	subChain01Node, ok := ruleEngine.rootRuleChainCtx.nodes[subChain01Id]
+	subChain01Node, ok := ruleEngine.rootRuleChainCtx.GetNodeById(subChain01Id)
 	assert.True(t, ok)
 	subChain01NodeCtx, ok := subChain01Node.(*RuleChainCtx)
 	assert.True(t, ok)
 	assert.Equal(t, "测试子规则链", subChain01NodeCtx.SelfDefinition.RuleChain.Name)
+	assert.Equal(t, subChain01NodeCtx, subRuleEngine.rootRuleChainCtx)
 
 	//修改根规则链节点
-	ruleEngine.ReloadChild(types.EmptyRuleNodeId, s1NodeId, []byte(s1NodeFile))
+	_ = ruleEngine.ReloadChild(s1NodeId.Id, []byte(s1NodeFile))
 	s1Node, ok = ruleEngine.rootRuleChainCtx.nodes[s1NodeId]
 	assert.True(t, ok)
 	s1RuleNodeCtx, ok = s1Node.(*RuleNodeCtx)
@@ -170,8 +174,9 @@ func TestEngine(t *testing.T) {
 	assert.Equal(t, "return msg!='bb';", s1RuleNodeCtx.SelfDefinition.Configuration["jsScript"])
 
 	//修改子规则链
-	ruleEngine.ReloadChild(types.EmptyRuleNodeId, subChain01Id, []byte(strings.Replace(subRuleChain, "测试子规则链", "测试子规则链-更改", -1)))
-	subChain01Node, ok = ruleEngine.rootRuleChainCtx.nodes[subChain01Id]
+	_ = subRuleEngine.ReloadSelf([]byte(strings.Replace(subRuleChain, "测试子规则链", "测试子规则链-更改", -1)))
+
+	subChain01Node, ok = ruleEngine.rootRuleChainCtx.GetNodeById(types.RuleNodeId{Id: "subChain01", Type: types.CHAIN})
 	assert.True(t, ok)
 	subChain01NodeCtx, ok = subChain01Node.(*RuleChainCtx)
 	assert.True(t, ok)

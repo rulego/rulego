@@ -9,7 +9,7 @@
       {
         "id": "s1",
         "type": "msgTypeSwitch",
-        "name": "过滤",
+        "name": "消息路由",
         "debugMode": true
       },
       {

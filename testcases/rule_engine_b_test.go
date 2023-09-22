@@ -47,7 +47,7 @@ func BenchmarkChainChangeMetadataAndMsg(b *testing.B) {
 		b.Error(err)
 	}
 	//modify s1 node content
-	ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: "s2"}, []byte(modifyMetadataAndMsgNode))
+	_ = ruleEngine.ReloadChild("s2", []byte(modifyMetadataAndMsgNode))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

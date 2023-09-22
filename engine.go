@@ -199,10 +199,12 @@ type RuleEngine struct {
 	Id string
 	//配置
 	Config types.Config
+	//子规则链池
+	RuleChainPool *RuleGo
 	//根规则链
 	rootRuleChainCtx *RuleChainCtx
-	//子规则链
-	subRuleChains map[string][]byte
+	////子规则链
+	//subRuleChains map[string][]byte
 }
 
 // RuleEngineOption is a function type that modifies the RuleEngine.
@@ -214,8 +216,9 @@ func newRuleEngine(id string, def []byte, opts ...RuleEngineOption) (*RuleEngine
 	}
 	// Create a new RuleEngine with the Id
 	ruleEngine := &RuleEngine{
-		Id:     id,
-		Config: NewConfig(),
+		Id:            id,
+		Config:        NewConfig(),
+		RuleChainPool: DefaultRuleGo,
 	}
 	err := ruleEngine.ReloadSelf(def, opts...)
 	if err == nil && ruleEngine.rootRuleChainCtx != nil {
@@ -246,43 +249,40 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...RuleEngineOption) error {
 			ctx.(*RuleChainCtx).Id = e.rootRuleChainCtx.Id
 		}
 		e.rootRuleChainCtx = ctx.(*RuleChainCtx)
-		//初始化子规则链
-		for key, value := range e.subRuleChains {
-			err := e.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: key, Type: types.CHAIN}, value)
-			if err != nil {
-				return err
-			}
-		}
+		//设置子规则链池
+		e.rootRuleChainCtx.SetRuleChainPool(e.RuleChainPool)
+
+		////初始化子规则链
+		//for key, value := range e.subRuleChains {
+		//	err := e.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: key, Type: types.CHAIN}, value)
+		//	if err != nil {
+		//		return err
+		//	}
+		//}
 		return nil
 	} else {
 		return err
 	}
 }
 
-// ReloadChild 更新节点,包括根规则链下子节点、子规则链、子规则链下的子节点
-//子规则链不存则添加否则更新，子节点不存在更新不成功
-//如果chainId和ruleNodeId为空更新根规则链
-//chainId 子规则链，如果空，则表示更新根规则链
-//ruleNodeId 要更新的子节点或者子规则链
-//dsl 子节点/子规则链配置
-func (e *RuleEngine) ReloadChild(chainId types.RuleNodeId, ruleNodeId types.RuleNodeId, dsl []byte) error {
-	if e.rootRuleChainCtx == nil {
+// ReloadChild 更新根规则链或者其下某个节点
+//如果ruleNodeId为空更新根规则链，否则中更新指定的子节点
+//dsl 根规则链/子节点配置
+func (e *RuleEngine) ReloadChild(ruleNodeId string, dsl []byte) error {
+	if len(dsl) == 0 {
+		return errors.New("dsl can not empty")
+	} else if e.rootRuleChainCtx == nil {
 		return errors.New("ReloadNode error.RuleEngine not initialized")
-	} else if chainId.Id == "" && ruleNodeId.Id == "" {
+	} else if ruleNodeId == "" {
 		//更新根规则链
 		return e.ReloadSelf(dsl)
-	} else if chainId.Id == "" && ruleNodeId.Id != "" {
+	} else {
 		//更新根规则链子节点
-		return e.rootRuleChainCtx.ReloadChild(ruleNodeId, dsl)
-	} else if chainId.Id != "" && ruleNodeId.Id != "" {
-		//更新指定子规则链节点
-		if chainNode, ok := e.rootRuleChainCtx.GetNodeById(chainId); ok {
-			return chainNode.ReloadChild(ruleNodeId, dsl)
-		}
+		return e.rootRuleChainCtx.ReloadChild(types.RuleNodeId{Id: ruleNodeId}, dsl)
 	}
-	return errors.New("ReloadNode error.not found this node")
 }
 
+//DSL 获取根规则链配置
 func (e *RuleEngine) DSL() []byte {
 	if e.rootRuleChainCtx != nil {
 		return e.rootRuleChainCtx.DSL()
@@ -291,6 +291,7 @@ func (e *RuleEngine) DSL() []byte {
 	}
 }
 
+//NodeDSL 获取规则链节点配置
 func (e *RuleEngine) NodeDSL(chainId types.RuleNodeId, childNodeId types.RuleNodeId) []byte {
 	if e.rootRuleChainCtx != nil {
 		if chainId.Id == "" {
@@ -375,13 +376,21 @@ func WithConfig(config types.Config) RuleEngineOption {
 	}
 }
 
-//WithAddSubChain 添加子规则链选项
-func WithAddSubChain(subChainId string, subChain []byte) RuleEngineOption {
+////WithAddSubChain 添加子规则链选项
+//func WithAddSubChain(subChainId string, subChain []byte) RuleEngineOption {
+//	return func(re *RuleEngine) error {
+//		if re.subRuleChains == nil {
+//			re.subRuleChains = make(map[string][]byte)
+//		}
+//		re.subRuleChains[subChainId] = subChain
+//		return nil
+//	}
+//}
+
+//WithRuleChainPool 子规则链池
+func WithRuleChainPool(ruleChainPool *RuleGo) RuleEngineOption {
 	return func(re *RuleEngine) error {
-		if re.subRuleChains == nil {
-			re.subRuleChains = make(map[string][]byte)
-		}
-		re.subRuleChains[subChainId] = subChain
+		re.RuleChainPool = ruleChainPool
 		return nil
 	}
 }

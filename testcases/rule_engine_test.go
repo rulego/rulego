@@ -135,7 +135,7 @@ func testRuleEngine(t *testing.T, ruleChainFile string, modifyNodeId, modifyNode
 	for j := 0; j < maxTimes; j++ {
 		if modifyNodeId != "" {
 			//modify the node
-			ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: modifyNodeId}, []byte(modifyNodeFile))
+			ruleEngine.ReloadChild(modifyNodeId, []byte(modifyNodeFile))
 		}
 		ruleEngine.OnMsg(msg)
 	}
@@ -168,7 +168,11 @@ func TestSubRuleChain(t *testing.T) {
 
 	ruleFile := loadFile("./chain_has_sub_chain.json")
 	subRuleFile := loadFile("./sub_chain.json")
-	ruleEngine, err := rulego.New("rule01", ruleFile, rulego.WithConfig(config), rulego.WithAddSubChain("sub_chain_01", subRuleFile))
+	//初始化子规则链实例
+	_, err := rulego.New("sub_chain_01", subRuleFile, rulego.WithConfig(config))
+
+	//初始化主规则链实例
+	ruleEngine, err := rulego.New("rule01", ruleFile, rulego.WithConfig(config))
 	assert.Nil(t, err)
 	defer rulego.Del("rule01")
 

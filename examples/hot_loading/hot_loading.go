@@ -51,7 +51,7 @@ func main() {
 	time.Sleep(time.Second)
 
 	//更新s1节点
-	_ = ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: "s1"}, []byte(s1Node))
+	_ = ruleEngine.ReloadChild("s1", []byte(s1Node))
 
 	//重新执行
 	ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
