@@ -208,23 +208,6 @@ func (rc *RuleChainCtx) GetNextNodes(id types.RuleNodeId, relationType string) (
 	return nodeCtxList, hasNextComponents
 }
 
-//// AddSubRuleChainCtx 添加/更新子规则链
-////如果存在则先销毁，再覆盖
-//func (rc *RuleChainCtx) AddSubRuleChainCtx(ruleChainId types.RuleNodeId, ctx *RuleChainCtx) {
-//	if node, ok := rc.GetNodeById(ruleChainId); ok {
-//		//先销毁
-//		node.Destroy()
-//	}
-//	rc.Lock()
-//	defer rc.Unlock()
-//	//设置子规则链ID
-//	ctx.Id = ruleChainId
-//	rc.nodes[ruleChainId] = ctx
-//
-//	//清除缓存
-//	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
-//}
-
 // Type 组件类型
 func (rc *RuleChainCtx) Type() string {
 	return "ruleChain"
@@ -288,12 +271,6 @@ func (rc *RuleChainCtx) ReloadSelf(def []byte) error {
 }
 
 func (rc *RuleChainCtx) ReloadChild(ruleNodeId types.RuleNodeId, def []byte) error {
-	//if ruleNodeId.Type == types.CHAIN {
-	//	//添加或者更新子规则链
-	//	if ctx, err := rc.Config.Parser.DecodeRuleChain(rc.Config, def); err == nil {
-	//		rc.AddSubRuleChainCtx(ruleNodeId, ctx.(*RuleChainCtx))
-	//	}
-	//} else
 	if node, ok := rc.GetNodeById(ruleNodeId); ok {
 		//更新子节点
 		if err := node.ReloadSelf(def); err != nil {

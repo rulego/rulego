@@ -203,8 +203,6 @@ type RuleEngine struct {
 	RuleChainPool *RuleGo
 	//根规则链
 	rootRuleChainCtx *RuleChainCtx
-	////子规则链
-	//subRuleChains map[string][]byte
 }
 
 // RuleEngineOption is a function type that modifies the RuleEngine.
@@ -252,13 +250,6 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...RuleEngineOption) error {
 		//设置子规则链池
 		e.rootRuleChainCtx.SetRuleChainPool(e.RuleChainPool)
 
-		////初始化子规则链
-		//for key, value := range e.subRuleChains {
-		//	err := e.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: key, Type: types.CHAIN}, value)
-		//	if err != nil {
-		//		return err
-		//	}
-		//}
 		return nil
 	} else {
 		return err
@@ -266,7 +257,7 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...RuleEngineOption) error {
 }
 
 // ReloadChild 更新根规则链或者其下某个节点
-//如果ruleNodeId为空更新根规则链，否则中更新指定的子节点
+//如果ruleNodeId为空更新根规则链，否则更新指定的子节点
 //dsl 根规则链/子节点配置
 func (e *RuleEngine) ReloadChild(ruleNodeId string, dsl []byte) error {
 	if len(dsl) == 0 {
@@ -375,17 +366,6 @@ func WithConfig(config types.Config) RuleEngineOption {
 		return nil
 	}
 }
-
-////WithAddSubChain 添加子规则链选项
-//func WithAddSubChain(subChainId string, subChain []byte) RuleEngineOption {
-//	return func(re *RuleEngine) error {
-//		if re.subRuleChains == nil {
-//			re.subRuleChains = make(map[string][]byte)
-//		}
-//		re.subRuleChains[subChainId] = subChain
-//		return nil
-//	}
-//}
 
 //WithRuleChainPool 子规则链池
 func WithRuleChainPool(ruleChainPool *RuleGo) RuleEngineOption {
