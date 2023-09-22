@@ -205,6 +205,7 @@ func getDsl(nodeId string, exchange *endpoint.Exchange) {
 			def = ruleEngine.NodeDSL(types.EmptyRuleNodeId, types.RuleNodeId{Id: nodeId, Type: types.CHAIN})
 		}
 	}
+	exchange.Out.Headers().Set("Content-Type", "application/json")
 	exchange.Out.SetBody(def)
 }
 
