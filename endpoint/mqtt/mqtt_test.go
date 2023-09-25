@@ -9,6 +9,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 	"os"
 	"os/signal"
+	"syscall"
 	"testing"
 )
 
@@ -16,7 +17,7 @@ var testdataFolder = "../../testdata"
 
 func TestMqttEndpoint(t *testing.T) {
 	c := make(chan os.Signal)
-	signal.Notify(c)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
 	buf, err := os.ReadFile(testdataFolder + "/chain_call_rest_api.json")
 	if err != nil {
