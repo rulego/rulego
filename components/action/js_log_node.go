@@ -23,7 +23,7 @@ package action
 //        "name": "记录日志",
 //        "debugMode": false,
 //        "configuration": {
-//          "jsScript": "return 'Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);"
+//          "jsScript": "return 'Incoming message:\\n' + JSON.stringify(msg) + '\\nIncoming metadata:\\n' + JSON.stringify(metadata);"
 //        }
 //  }
 import (
@@ -44,7 +44,7 @@ func init() {
 type LogNodeConfiguration struct {
 	//JsScript 只配置函数体脚本内容，对消息进行格式化，脚本返回值string
 	//例如
-	//return 'Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
+	//return 'Incoming message:\\n' + JSON.stringify(msg) + '\\nIncoming metadata:\\n' + JSON.stringify(metadata);
 	//完整脚本函数：
 	//"function ToString(msg, metadata, msgType) { ${JsScript} }"
 	//脚本返回值string
@@ -95,7 +95,7 @@ func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 			data = dataMap
 		}
 	}
-	out, err := x.jsEngine.Execute("ToString", data, msg.Metadata, msg.Type)
+	out, err := x.jsEngine.Execute("ToString", data, msg.Metadata.Values(), msg.Type)
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
