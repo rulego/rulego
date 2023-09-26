@@ -20,6 +20,7 @@ package endpoint
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
@@ -33,6 +34,8 @@ import (
 const (
 	pathKey = "_path"
 )
+
+var ChainNotFoundErr = errors.New("chain not found error")
 
 type Endpoint interface {
 	//Node 继承node
@@ -64,6 +67,10 @@ type Message interface {
 	SetStatusCode(statusCode int)
 	//SetBody 响应 body
 	SetBody(body []byte)
+	//SetError 设置错误
+	SetError(err error)
+	//GetError 获取错误
+	GetError() error
 }
 
 //Exchange 包含in 和out message
@@ -201,6 +208,9 @@ type To struct {
 	processList []Process
 	//目标处理器，默认是规则链处理
 	executor Executor
+	//等待规则链/组件执行结束，并恢复到父进程，同步得到规则链结果。
+	//用于需要等待规则链执行结果，并且要保留父进程的场景，否则不需要设置该字段。例如：http的响应。
+	wait bool
 }
 
 //ToStringByDict 转换路径中的变量，并返回最终字符串
@@ -222,15 +232,22 @@ func (t *To) Execute(ctx context.Context, exchange *Exchange) {
 	}
 }
 
-//Transform 执行To端逻辑 后转换
+//Transform 执行To端逻辑 后转换，如果规则链有多个结束点，则会执行多次
 func (t *To) Transform(transform Process) *To {
 	t.processList = append(t.processList, transform)
 	return t
 }
 
-//Process 执行To端逻辑 后处理
+//Process 执行To端逻辑 后处理，如果规则链有多个结束点，则会执行多次
 func (t *To) Process(process Process) *To {
 	t.processList = append(t.processList, process)
+	return t
+}
+
+//Wait 等待规则链/组件执行结束，并恢复到父进程。同步得到规则链结果。
+//用于需要等待规则链执行结果，并且要保留父进程的场景，否则不需要设置该字段。例如：http的响应。
+func (t *To) Wait() *To {
+	t.wait = true
 	return t
 }
 
@@ -452,15 +469,35 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router *Router, exchange *
 
 		//查找规则链，并执行
 		if ruleEngine, ok := router.RuleGo.Get(toChainId); ok {
-			ruleEngine.OnMsgWithOptions(*inMsg, types.WithContext(ctx),
-				types.WithEndFunc(func(msg types.RuleMsg, err error) {
+			//监听结束回调函数
+			endFunc := types.WithEndFunc(func(msg types.RuleMsg, err error) {
+				if err != nil {
+					exchange.Out.SetError(err)
+				} else {
 					exchange.Out.SetMsg(&msg)
-					for _, process := range toFlow.GetProcessList() {
-						if !process(router, exchange) {
-							break
-						}
+				}
+
+				for _, process := range toFlow.GetProcessList() {
+					if !process(router, exchange) {
+						break
 					}
-				}))
+				}
+			})
+			if toFlow.wait {
+				//同步
+				ruleEngine.OnMsgAndWait(*inMsg, types.WithContext(ctx), endFunc)
+			} else {
+				//异步
+				ruleEngine.OnMsgWithOptions(*inMsg, types.WithContext(ctx), endFunc)
+			}
+		} else {
+			//找不到规则链返回错误
+			for _, process := range toFlow.GetProcessList() {
+				exchange.Out.SetError(fmt.Errorf("chainId=%s not found error", toChainId))
+				if !process(router, exchange) {
+					break
+				}
+			}
 		}
 
 	}
@@ -506,7 +543,11 @@ func (ce *ComponentExecutor) Execute(ctx context.Context, router *Router, exchan
 		if toFlow := fromFlow.GetTo(); toFlow != nil && inMsg != nil {
 			//初始化的空上下文
 			ruleCtx := rulego.NewRuleContext(ce.config, nil, nil, nil, ce.config.Pool, func(msg types.RuleMsg, err error) {
-				exchange.Out.SetMsg(&msg)
+				if err != nil {
+					exchange.Out.SetError(err)
+				} else {
+					exchange.Out.SetMsg(&msg)
+				}
 				for _, process := range toFlow.GetProcessList() {
 					if !process(router, exchange) {
 						break
@@ -514,8 +555,14 @@ func (ce *ComponentExecutor) Execute(ctx context.Context, router *Router, exchan
 				}
 			}, ctx)
 
+			c := make(chan struct{})
+			ruleCtx.SetAllCompletedFunc(func() {
+				close(c)
+			})
 			//执行组件逻辑
 			_ = ce.component.OnMsg(ruleCtx, *inMsg)
+			//等待执行结束
+			<-c
 		}
 	}
 }

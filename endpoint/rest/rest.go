@@ -42,6 +42,7 @@ type RequestMessage struct {
 	//路径参数
 	Params httprouter.Params
 	msg    *types.RuleMsg
+	err    error
 }
 
 func (r *RequestMessage) Body() []byte {
@@ -90,6 +91,14 @@ func (r *RequestMessage) SetBody(body []byte) {
 	r.body = body
 }
 
+func (r *RequestMessage) SetError(err error) {
+	r.err = err
+}
+
+func (r *RequestMessage) GetError() error {
+	return r.err
+}
+
 func (r *RequestMessage) Request() *http.Request {
 	return r.request
 }
@@ -101,6 +110,7 @@ type ResponseMessage struct {
 	body     []byte
 	to       string
 	msg      *types.RuleMsg
+	err      error
 }
 
 func (r *ResponseMessage) Body() []byte {
@@ -133,6 +143,14 @@ func (r *ResponseMessage) SetStatusCode(statusCode int) {
 func (r *ResponseMessage) SetBody(body []byte) {
 	r.body = body
 	_, _ = r.response.Write(body)
+}
+
+func (r *ResponseMessage) SetError(err error) {
+	r.err = err
+}
+
+func (r *ResponseMessage) GetError() error {
+	return r.err
 }
 
 func (r *ResponseMessage) Response() http.ResponseWriter {

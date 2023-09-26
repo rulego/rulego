@@ -30,6 +30,7 @@ import (
 type RequestMessage struct {
 	request paho.Message
 	msg     *types.RuleMsg
+	err     error
 }
 
 func (r *RequestMessage) Body() []byte {
@@ -70,6 +71,14 @@ func (r *RequestMessage) SetStatusCode(statusCode int) {
 func (r *RequestMessage) SetBody(body []byte) {
 }
 
+func (r *RequestMessage) SetError(err error) {
+	r.err = err
+}
+
+func (r *RequestMessage) GetError() error {
+	return r.err
+}
+
 func (r *RequestMessage) Request() paho.Message {
 	return r.request
 }
@@ -81,6 +90,7 @@ type ResponseMessage struct {
 	body     []byte
 	msg      *types.RuleMsg
 	headers  textproto.MIMEHeader
+	err      error
 }
 
 func (r *ResponseMessage) Body() []byte {
@@ -125,6 +135,14 @@ func (r *ResponseMessage) SetBody(body []byte) {
 		}
 		r.response.Publish(topic, qos, false, r.body)
 	}
+}
+
+func (r *ResponseMessage) SetError(err error) {
+	r.err = err
+}
+
+func (r *ResponseMessage) GetError() error {
+	return r.err
 }
 
 func (r *ResponseMessage) Response() paho.Client {
