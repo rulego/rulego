@@ -478,9 +478,14 @@ func TestWait(t *testing.T) {
 
 	config := rulego.NewConfig()
 	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		//fmt.Println(flowType, nodeId)
 		wg.Done()
 	}
-	ruleEngine, err := rulego.New(str.RandomStr(10), loadFile("./chain_msg_type_switch.json"), rulego.WithConfig(config))
+	ruleEngine, err := rulego.New(str.RandomStr(10), loadFile("./test_wait.json"), rulego.WithConfig(config))
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = rulego.New("sub_chain", loadFile("./sub_chain.json"), rulego.WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}
@@ -488,7 +493,7 @@ func TestWait(t *testing.T) {
 	metaData.PutValue("productType", "test01")
 
 	//TEST_MSG_TYPE1 找到2条chains,4个nodes
-	wg.Add(6)
+	wg.Add(8)
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	var count int32
 	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {

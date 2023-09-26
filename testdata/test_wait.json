@@ -1,0 +1,78 @@
+{
+  "ruleChain": {
+    "id":"chain_msg_type_switch",
+    "name": "测试规则链-msgTypeSwitch",
+    "root": true
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "s1",
+        "type": "msgTypeSwitch",
+        "name": "消息路由",
+        "debugMode": true
+      },
+      {
+        "id": "s2",
+        "type": "log",
+        "name": "记录日志1",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msgType+':s2';"
+        }
+      },
+      {
+        "id": "s3",
+        "type": "log",
+        "name": "记录日志2",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msgType+':s3';"
+        }
+      },
+      {
+        "id": "s4",
+        "type": "log",
+        "name": "记录日志3",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msgType+':s4';"
+        }
+      },
+      {
+        "id": "s5",
+        "type": "log",
+        "name": "记录日志3",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msgType+':s4';"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "s1",
+        "toId": "s2",
+        "type": "TEST_MSG_TYPE1"
+      },
+      {
+        "fromId": "s1",
+        "toId": "s3",
+        "type": "TEST_MSG_TYPE1"
+      },
+      {
+        "fromId": "s1",
+        "toId": "s4",
+        "type": "TEST_MSG_TYPE2"
+      }
+
+    ],
+    "ruleChainConnections": [
+      {
+        "fromId": "s2",
+        "toId": "sub_chain",
+        "type": "Success"
+      }
+    ]
+  }
+}
