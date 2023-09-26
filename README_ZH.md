@@ -268,6 +268,8 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 QQ群号：**720103251**     
 <img src="doc/imgs/qq.png">
 
+[🎈加入社区讨论](https://rulego.cc/pages/257c28/)
+
 ## 许可
 
 `RuleGo`使用Apache 2.0许可证，详情请参见[LICENSE](LICENSE)文件。
