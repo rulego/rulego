@@ -237,6 +237,9 @@ func (rc *RuleChainCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	rootCtx := rc.rootRuleContext.(*DefaultRuleContext)
 	rootCtxCopy := NewRuleContext(rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, ctx.GetEndFunc(), ctx.GetContext())
 	rootCtxCopy.isFirst = rootCtx.isFirst
+	if fromCtx, ok := ctx.(*DefaultRuleContext); ok {
+		rootCtxCopy.parentRuleCtx = fromCtx
+	}
 
 	rootCtxCopy.TellNext(msg)
 	return nil
