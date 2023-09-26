@@ -471,3 +471,50 @@ func TestLoadChain(t *testing.T) {
 	assert.Equal(t, true, ok)
 
 }
+
+//TestWait 测试同步执行规则链
+func TestWait(t *testing.T) {
+	var wg sync.WaitGroup
+
+	config := rulego.NewConfig()
+	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		wg.Done()
+	}
+	ruleEngine, err := rulego.New(str.RandomStr(10), loadFile("./chain_msg_type_switch.json"), rulego.WithConfig(config))
+	if err != nil {
+		t.Error(err)
+	}
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+
+	//TEST_MSG_TYPE1 找到2条chains,4个nodes
+	wg.Add(6)
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
+	var count int32
+	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+		atomic.AddInt32(&count, 1)
+	}))
+	assert.Equal(t, int32(2), count)
+	wg.Wait()
+
+	//TEST_MSG_TYPE2 找到1条chain,2个nodes
+	wg.Add(4)
+	count = 0
+	msg = types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":41}")
+	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+		atomic.AddInt32(&count, 1)
+	}))
+
+	assert.Equal(t, int32(1), count)
+	wg.Wait()
+
+	//TEST_MSG_TYPE3 找到0条chain,1个node
+	wg.Add(2)
+	count = 0
+	msg = types.NewMsg(0, "TEST_MSG_TYPE3", types.JSON, metaData, "{\"temperature\":41}")
+	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+		atomic.AddInt32(&count, 1)
+	}))
+	assert.Equal(t, int32(1), count)
+	wg.Wait()
+}
