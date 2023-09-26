@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
+	"sync/atomic"
 	"time"
 )
 
@@ -42,6 +43,12 @@ type DefaultRuleContext struct {
 	onEnd func(msg types.RuleMsg, err error)
 	//用于不同组件共享信号量和数据的上下文
 	context context.Context
+	//当前节点下未执行完成的子节点数量
+	waitingCount int32
+	//父ruleContext
+	parentRuleCtx *DefaultRuleContext
+	//所有子节点处理完成事件，只执行一次
+	onAllNodeCompleted func()
 }
 
 //NewRuleContext 创建一个默认规则引擎消息处理上下文实例
@@ -54,6 +61,20 @@ func NewRuleContext(config types.Config, ruleChainCtx *RuleChainCtx, from types.
 		pool:         pool,
 		onEnd:        onEnd,
 		context:      context,
+	}
+}
+
+//NewNextNodeRuleContext 创建下一个节点的规则引擎消息处理上下文实例RuleContext
+func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *DefaultRuleContext {
+	return &DefaultRuleContext{
+		config:        ctx.config,
+		ruleChainCtx:  ctx.ruleChainCtx,
+		from:          ctx.self,
+		self:          nextNode,
+		pool:          ctx.pool,
+		onEnd:         ctx.onEnd,
+		context:       ctx.GetContext(),
+		parentRuleCtx: ctx,
 	}
 }
 
@@ -100,6 +121,11 @@ func (ctx *DefaultRuleContext) GetContext() context.Context {
 	return ctx.context
 }
 
+func (ctx *DefaultRuleContext) SetAllCompletedFunc(f func()) types.RuleContext {
+	ctx.onAllNodeCompleted = f
+	return ctx
+}
+
 func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 	if ctx.pool != nil {
 		if err := ctx.pool.Submit(task); err != nil {
@@ -107,6 +133,26 @@ func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 		}
 	} else {
 		go task()
+	}
+}
+
+//增加一个待执行子节点
+func (ctx *DefaultRuleContext) childReady() {
+	atomic.AddInt32(&ctx.waitingCount, 1)
+}
+
+//减少一个待执行子节点
+//如果返回数量0，表示该分支链条已经都执行完成，递归父节点，直到所有节点都处理完，则触发onAllNodeCompleted事件。
+func (ctx *DefaultRuleContext) childDone() {
+	if atomic.AddInt32(&ctx.waitingCount, -1) <= 0 {
+		//该节点已经执行完成，通知父节点
+		if ctx.parentRuleCtx != nil {
+			ctx.parentRuleCtx.childDone()
+		}
+		//完成回调
+		if ctx.onAllNodeCompleted != nil {
+			ctx.onAllNodeCompleted()
+		}
 	}
 }
 
@@ -155,7 +201,10 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 }
 
 func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCtx) {
-	nextCtx := NewRuleContext(ctx.config, ctx.ruleChainCtx, ctx.self, nextNode, ctx.pool, ctx.onEnd, ctx.GetContext())
+
+	nextCtx := ctx.NewNextNodeRuleContext(nextNode)
+	//增加一个待执行的子节点
+	ctx.childReady()
 	defer func() {
 		//捕捉异常
 		if e := recover(); e != nil {
@@ -163,6 +212,7 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 				//记录异常信息
 				ctx.onDebug(types.In, nextCtx.GetSelfId(), msg, "", fmt.Errorf("%v", e))
 			}
+			ctx.childDone()
 		}
 	}()
 	if nextCtx.self != nil && nextCtx.self.IsDebugMode() {
@@ -188,8 +238,12 @@ func (ctx *DefaultRuleContext) doOnEnd(msg types.RuleMsg, err error) {
 	if ctx.onEnd != nil {
 		ctx.SubmitTack(func() {
 			ctx.onEnd(msg, err)
+			ctx.childDone()
 		})
+	} else {
+		ctx.childDone()
 	}
+
 }
 
 // RuleEngine 规则引擎
@@ -333,6 +387,15 @@ func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc func(msg types.
 //context 用于不同组件实例数据共享
 //endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
 func (e *RuleEngine) OnMsgWithOptions(msg types.RuleMsg, opts ...types.RuleContextOption) {
+	e.onMsgAndWait(msg, false, opts...)
+}
+
+// OnMsgAndWait 把消息交给规则引擎处理，同步执行，等规则链所有节点执行完，返回
+func (e *RuleEngine) OnMsgAndWait(msg types.RuleMsg, opts ...types.RuleContextOption) {
+	e.onMsgAndWait(msg, true, opts...)
+}
+
+func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.RuleContextOption) {
 	if e.rootRuleChainCtx != nil {
 		rootCtx := e.rootRuleChainCtx.rootRuleContext.(*DefaultRuleContext)
 		rootCtxCopy := NewRuleContext(rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, rootCtx.onEnd, rootCtx.GetContext())
@@ -341,6 +404,16 @@ func (e *RuleEngine) OnMsgWithOptions(msg types.RuleMsg, opts ...types.RuleConte
 			opt(rootCtxCopy)
 		}
 		rootCtxCopy.TellNext(msg)
+
+		//同步方式调用，等规则链都执行完，才返回
+		if wait {
+			c := make(chan struct{})
+			rootCtxCopy.onAllNodeCompleted = func() {
+				close(c)
+			}
+			<-c
+		}
+
 	} else {
 		//沒有定义根则链或者没初始化
 		e.Config.Logger.Printf("onMsg error.RuleEngine not initialized")
