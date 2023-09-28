@@ -55,7 +55,8 @@ type JsFilterNodeConfiguration struct {
 //消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
 //消息类型可以通过`msgType`变量访问.
 type JsFilterNode struct {
-	config   JsFilterNodeConfiguration
+	//节点配置
+	Config   JsFilterNodeConfiguration
 	jsEngine types.JsEngine
 }
 
@@ -70,9 +71,9 @@ func (x *JsFilterNode) New() types.Node {
 
 //Init 初始化
 func (x *JsFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	err := maps.Map2Struct(configuration, &x.config)
+	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		jsScript := fmt.Sprintf("function Filter(msg, metadata, msgType) { %s }", x.config.JsScript)
+		jsScript := fmt.Sprintf("function Filter(msg, metadata, msgType) { %s }", x.Config.JsScript)
 		x.jsEngine = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
 	}
 	return err

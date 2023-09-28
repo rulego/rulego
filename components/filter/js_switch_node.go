@@ -51,7 +51,8 @@ type JsSwitchNodeConfiguration struct {
 //消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
 //消息类型可以通过`msgType`变量访问.
 type JsSwitchNode struct {
-	config   JsSwitchNodeConfiguration
+	//节点配置
+	Config   JsSwitchNodeConfiguration
 	jsEngine types.JsEngine
 }
 
@@ -65,9 +66,9 @@ func (x *JsSwitchNode) New() types.Node {
 
 //Init 初始化
 func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	err := maps.Map2Struct(configuration, &x.config)
+	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		jsScript := fmt.Sprintf("function Switch(msg, metadata, msgType) { %s }", x.config.JsScript)
+		jsScript := fmt.Sprintf("function Switch(msg, metadata, msgType) { %s }", x.Config.JsScript)
 		x.jsEngine = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
 	}
 	return err

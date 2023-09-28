@@ -94,7 +94,7 @@ func (e *Email) SendEmailWithTls(addr string, auth smtp.Auth, metadata map[strin
 	msg, sendTo := e.createEmailMsg(metadata)
 
 	host, _, _ := net.SplitHostPort(addr)
-	// TLS config
+	// TLS
 	tlsconfig := &tls.Config{
 		InsecureSkipVerify: true,
 		ServerName:         host,
@@ -167,7 +167,7 @@ type SendEmailConfiguration struct {
 //如果请求成功，发送消息到`Success`链, 否则发到`Failure`链，
 type SendEmailNode struct {
 	//节点配置
-	config   SendEmailConfiguration
+	Config   SendEmailConfiguration
 	smtpAddr string
 	smtpAuth smtp.Auth
 }
@@ -183,14 +183,14 @@ func (x *SendEmailNode) New() types.Node {
 
 //Init 初始化
 func (x *SendEmailNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	err := maps.Map2Struct(configuration, &x.config)
+	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		if x.config.Email.To == "" {
+		if x.Config.Email.To == "" {
 			return errors.New("to address can not empty")
 		}
-		x.smtpAddr = fmt.Sprintf("%s:%d", x.config.SmtpHost, x.config.SmtpPort)
+		x.smtpAddr = fmt.Sprintf("%s:%d", x.Config.SmtpHost, x.Config.SmtpPort)
 		// 创建一个PLAIN认证
-		x.smtpAuth = smtp.PlainAuth("", x.config.Username, x.config.Password, x.config.SmtpHost)
+		x.smtpAuth = smtp.PlainAuth("", x.Config.Username, x.Config.Password, x.Config.SmtpHost)
 	}
 	return err
 }
@@ -198,9 +198,9 @@ func (x *SendEmailNode) Init(ruleConfig types.Config, configuration types.Config
 //OnMsg 处理消息
 func (x *SendEmailNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	metaData := msg.Metadata.Values()
-	emailPojo := x.config.Email
+	emailPojo := x.Config.Email
 	var err error
-	if x.config.EnableTls {
+	if x.Config.EnableTls {
 		err = emailPojo.SendEmailWithTls(x.smtpAddr, x.smtpAuth, metaData)
 	} else {
 		err = emailPojo.SendEmail(x.smtpAddr, x.smtpAuth, metaData)

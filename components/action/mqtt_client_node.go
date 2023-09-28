@@ -70,7 +70,8 @@ func (x *MqttClientNodeConfiguration) ToMqttConfig() mqtt.Config {
 }
 
 type MqttClientNode struct {
-	config     MqttClientNodeConfiguration
+	//节点配置
+	Config     MqttClientNodeConfiguration
 	mqttClient *mqtt.Client
 }
 
@@ -85,17 +86,17 @@ func (x *MqttClientNode) New() types.Node {
 
 //Init 初始化
 func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	err := maps.Map2Struct(configuration, &x.config)
+	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		x.mqttClient, err = mqtt.NewClient(x.config.ToMqttConfig())
+		x.mqttClient, err = mqtt.NewClient(x.Config.ToMqttConfig())
 	}
 	return err
 }
 
 //OnMsg 处理消息
 func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
-	topic := str.SprintfDict(x.config.Topic, msg.Metadata.Values())
-	err := x.mqttClient.Publish(topic, x.config.QOS, []byte(msg.Data))
+	topic := str.SprintfDict(x.Config.Topic, msg.Metadata.Values())
+	err := x.mqttClient.Publish(topic, x.Config.QOS, []byte(msg.Data))
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {

@@ -60,7 +60,8 @@ type DbClientNodeConfiguration struct {
 }
 
 type DbClientNode struct {
-	config DbClientNodeConfiguration
+	//节点配置
+	Config DbClientNodeConfiguration
 	db     *sql.DB
 	//操作类型 SELECT\UPDATE\INSERT\DELETE
 	opType string
@@ -79,17 +80,17 @@ func (x *DbClientNode) New() types.Node {
 
 // Init 初始化组件
 func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	err := maps.Map2Struct(configuration, &x.config)
+	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		if x.config.DbType == "" {
-			x.config.DbType = "mysql"
+		if x.Config.DbType == "" {
+			x.Config.DbType = "mysql"
 		}
-		x.db, err = sql.Open(x.config.DbType, x.config.Dsn)
+		x.db, err = sql.Open(x.Config.DbType, x.Config.Dsn)
 		if err == nil {
-			x.db.SetMaxOpenConns(x.config.PoolSize)
-			x.db.SetMaxIdleConns(x.config.PoolSize / 2)
+			x.db.SetMaxOpenConns(x.Config.PoolSize)
+			x.db.SetMaxIdleConns(x.Config.PoolSize / 2)
 			err = x.db.Ping()
-			words := strings.Fields(x.config.Sql)
+			words := strings.Fields(x.Config.Sql)
 			// opType = SELECT\UPDATE\INSERT\DELETE
 			x.opType = strings.ToUpper(words[0])
 			//检查操作类型是否支持
@@ -97,11 +98,11 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 			case SELECT, UPDATE, INSERT, DELETE:
 				// do nothing
 			default:
-				err = fmt.Errorf("unsupported sql statement: %s", x.config.Sql)
+				err = fmt.Errorf("unsupported sql statement: %s", x.Config.Sql)
 			}
 
 			//检查是参数否有变量
-			for _, item := range x.config.Params {
+			for _, item := range x.Config.Params {
 				if v, ok := item.(string); ok && str.CheckHasVar(v) {
 					x.paramsHasVar = true
 					break
@@ -109,7 +110,7 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 			}
 
 			//检查是否需要转换成$1风格占位符
-			x.config.Sql = str.ConvertDollarPlaceholder(x.config.Sql, x.config.DbType)
+			x.Config.Sql = str.ConvertDollarPlaceholder(x.Config.Sql, x.Config.DbType)
 		}
 	}
 	return err
@@ -121,12 +122,12 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	var err error
 	var rowsAffected int64
 	var lastInsertId int64
-	sqlStr := str.SprintfDict(x.config.Sql, msg.Metadata.Values())
+	sqlStr := str.SprintfDict(x.Config.Sql, msg.Metadata.Values())
 
 	var params []interface{}
 	if x.paramsHasVar {
 		//转换参数变量
-		for _, item := range x.config.Params {
+		for _, item := range x.Config.Params {
 			if v, ok := item.(string); ok {
 				params = append(params, str.SprintfDict(v, msg.Metadata.Values()))
 			} else {
@@ -134,12 +135,12 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 			}
 		}
 	} else {
-		params = x.config.Params
+		params = x.Config.Params
 	}
 
 	switch x.opType {
 	case SELECT:
-		data, err = x.query(sqlStr, params, x.config.GetOne)
+		data, err = x.query(sqlStr, params, x.Config.GetOne)
 	case UPDATE:
 		rowsAffected, err = x.update(sqlStr, params)
 	case INSERT:

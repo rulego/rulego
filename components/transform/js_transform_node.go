@@ -57,7 +57,8 @@ type JsTransformNodeConfiguration struct {
 //法返回结构:return {'msg':msg,'metadata':metadata,'msgType':msgType};
 //脚本执行成功，发送信息到`Success`链, 否则发到`Failure`链。
 type JsTransformNode struct {
-	config   JsTransformNodeConfiguration
+	//节点配置
+	Config   JsTransformNodeConfiguration
 	jsEngine types.JsEngine
 }
 
@@ -72,9 +73,9 @@ func (x *JsTransformNode) New() types.Node {
 
 //Init 初始化
 func (x *JsTransformNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	err := maps.Map2Struct(configuration, &x.config)
+	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		jsScript := fmt.Sprintf("function Transform(msg, metadata, msgType) { %s }", x.config.JsScript)
+		jsScript := fmt.Sprintf("function Transform(msg, metadata, msgType) { %s }", x.Config.JsScript)
 		x.jsEngine = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
 	}
 	return err

@@ -59,7 +59,7 @@ type LogNodeConfiguration struct {
 //脚本执行成功，发送信息到`Success`链, 否则发到`Failure`链。
 type LogNode struct {
 	//节点配置
-	config LogNodeConfiguration
+	Config LogNodeConfiguration
 	//js脚本引擎
 	jsEngine types.JsEngine
 	//日志记录器
@@ -77,9 +77,9 @@ func (x *LogNode) New() types.Node {
 
 //Init 初始化
 func (x *LogNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	err := maps.Map2Struct(configuration, &x.config)
+	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		jsScript := fmt.Sprintf("function ToString(msg, metadata, msgType) { %s }", x.config.JsScript)
+		jsScript := fmt.Sprintf("function ToString(msg, metadata, msgType) { %s }", x.Config.JsScript)
 		x.jsEngine = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
 	}
 	x.logger = ruleConfig.Logger

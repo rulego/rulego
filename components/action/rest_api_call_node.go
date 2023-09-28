@@ -90,7 +90,7 @@ type RestApiCallNodeConfiguration struct {
 //metaData.status记录响应错误码和metaData.errorBody记录错误信息。
 type RestApiCallNode struct {
 	//节点配置
-	config RestApiCallNodeConfiguration
+	Config RestApiCallNodeConfiguration
 	//httpClient http客户端
 	httpClient *http.Client
 }
@@ -108,15 +108,15 @@ func (x *RestApiCallNode) New() types.Node {
 		ReadTimeoutMs:            2000,
 		Headers:                  headers,
 	}
-	return &RestApiCallNode{config: config}
+	return &RestApiCallNode{Config: config}
 }
 
 //Init 初始化
 func (x *RestApiCallNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	err := maps.Map2Struct(configuration, &x.config)
+	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		x.config.RequestMethod = strings.ToUpper(x.config.RequestMethod)
-		x.httpClient = NewHttpClient(x.config)
+		x.Config.RequestMethod = strings.ToUpper(x.Config.RequestMethod)
+		x.httpClient = NewHttpClient(x.Config)
 	}
 	return err
 }
@@ -124,13 +124,13 @@ func (x *RestApiCallNode) Init(ruleConfig types.Config, configuration types.Conf
 //OnMsg 处理消息
 func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	metaData := msg.Metadata.Values()
-	endpointUrl := str.SprintfDict(x.config.RestEndpointUrlPattern, metaData)
-	req, err := http.NewRequest(x.config.RequestMethod, endpointUrl, bytes.NewReader([]byte(msg.Data)))
+	endpointUrl := str.SprintfDict(x.Config.RestEndpointUrlPattern, metaData)
+	req, err := http.NewRequest(x.Config.RequestMethod, endpointUrl, bytes.NewReader([]byte(msg.Data)))
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	}
 	//设置header
-	for key, value := range x.config.Headers {
+	for key, value := range x.Config.Headers {
 		req.Header.Set(str.SprintfDict(key, metaData), str.SprintfDict(value, metaData))
 	}
 

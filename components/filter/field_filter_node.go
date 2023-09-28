@@ -40,7 +40,8 @@ type FieldFilterNodeConfiguration struct {
 //FieldFilterNode 过滤满足是否存在某个msg字段/metadata字段 消息
 //如果 `True`发送信息到`True`链, `False`发到`False`链。
 type FieldFilterNode struct {
-	config            FieldFilterNodeConfiguration
+	//节点配置
+	Config            FieldFilterNodeConfiguration
 	DataNamesList     []string
 	MetadataNamesList []string
 }
@@ -56,9 +57,9 @@ func (x *FieldFilterNode) New() types.Node {
 
 //Init 初始化
 func (x *FieldFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	err := maps.Map2Struct(configuration, &x.config)
-	x.DataNamesList = strings.Split(x.config.DataNames, ",")
-	x.MetadataNamesList = strings.Split(x.config.MetadataNames, ",")
+	err := maps.Map2Struct(configuration, &x.Config)
+	x.DataNamesList = strings.Split(x.Config.DataNames, ",")
+	x.MetadataNamesList = strings.Split(x.Config.MetadataNames, ",")
 	return err
 }
 
@@ -72,7 +73,7 @@ func (x *FieldFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error 
 		}
 	}
 
-	if x.config.CheckAllKeys {
+	if x.Config.CheckAllKeys {
 		if x.checkAllKeysMetadata(msg.Metadata) && x.checkAllKeysData(dataMap) {
 			ctx.TellNext(msg, types.True)
 		} else {
