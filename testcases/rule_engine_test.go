@@ -162,8 +162,8 @@ func TestSubRuleChain(t *testing.T) {
 		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 	}
 	config.OnEnd = func(msg types.RuleMsg, err error) {
-		group.Done()
 		atomic.AddInt32(&completed, 1)
+		group.Done()
 	}
 
 	ruleFile := loadFile("./chain_has_sub_chain.json")
@@ -485,7 +485,7 @@ func TestWait(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = rulego.New("sub_chain", loadFile("./sub_chain.json"), rulego.WithConfig(config))
+	_, err = rulego.New("sub_chain_02", loadFile("./sub_chain.json"), rulego.WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}

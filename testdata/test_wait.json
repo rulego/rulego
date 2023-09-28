@@ -70,7 +70,7 @@
     "ruleChainConnections": [
       {
         "fromId": "s2",
-        "toId": "sub_chain",
+        "toId": "sub_chain_02",
         "type": "Success"
       }
     ]
