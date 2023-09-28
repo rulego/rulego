@@ -23,6 +23,7 @@ import (
 	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/components/filter"
 	"github.com/rulego/rulego/components/transform"
+	"github.com/rulego/rulego/utils/reflect"
 	"plugin"
 	"sync"
 )
@@ -143,6 +144,17 @@ func (r *RuleComponentRegistry) GetComponents() map[string]types.Node {
 	var components = map[string]types.Node{}
 	for k, v := range r.components {
 		components[k] = v
+	}
+	return components
+}
+
+func (r *RuleComponentRegistry) GetComponentForms() types.ComponentFormList {
+	r.RLock()
+	defer r.RUnlock()
+
+	var components = make(types.ComponentFormList)
+	for _, component := range r.components {
+		components[component.Type()] = reflect.GetComponentForm(component)
 	}
 	return components
 }

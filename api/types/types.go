@@ -19,7 +19,6 @@ package types
 import (
 	"context"
 	"github.com/rulego/rulego/utils/str"
-	"sync"
 )
 
 // 关系 节点与节点连接的关系，以下是常用的关系，可以自定义
@@ -88,8 +87,10 @@ type ComponentRegistry interface {
 	Unregister(componentType string) error
 	//NewNode 通过nodeType创建一个新的node实例
 	NewNode(nodeType string) (Node, error)
-	//GetComponents 获取所有组件列表
+	//GetComponents 获取所有注册组件列表
 	GetComponents() map[string]Node
+	//GetComponentForms 获取所有注册组件配置表单，用于可视化配置
+	GetComponentForms() ComponentFormList
 }
 
 // Node 规则引擎节点组件接口
@@ -239,27 +240,4 @@ type RuleNodeRelation struct {
 	OutId RuleNodeId
 	//关系 如：True、False、Success、Failure 或者其他自定义关系
 	RelationType string
-}
-
-//SafeComponentSlice 安全的组件列表切片
-type SafeComponentSlice struct {
-	//组件列表
-	components []Node
-	sync.Mutex
-}
-
-//Add 线程安全地添加元素
-func (p *SafeComponentSlice) Add(nodes ...Node) {
-	p.Lock()
-	defer p.Unlock()
-	for _, node := range nodes {
-		p.components = append(p.components, node)
-	}
-}
-
-//Components 获取组件列表
-func (p *SafeComponentSlice) Components() []Node {
-	p.Lock()
-	defer p.Unlock()
-	return p.components
 }
