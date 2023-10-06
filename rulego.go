@@ -17,6 +17,7 @@
 package rulego
 
 import (
+	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/fs"
 	"strings"
 	"sync"
@@ -107,6 +108,17 @@ func (g *RuleGo) Stop() {
 	})
 }
 
+//OnMsg 调用所有规则引擎实例处理消息
+//规则引擎实例池所有规则链都会去尝试处理该消息
+func (g *RuleGo) OnMsg(msg types.RuleMsg) {
+	g.ruleEngines.Range(func(key, value any) bool {
+		if item, ok := value.(*RuleEngine); ok {
+			item.OnMsg(msg)
+		}
+		return true
+	})
+}
+
 //Load 加载指定文件夹及其子文件夹所有规则链配置（与.json结尾文件），到规则引擎实例池
 //规则链ID，使用文件配置的 ruleChain.id
 func Load(folderPath string, opts ...RuleEngineOption) error {
@@ -131,4 +143,10 @@ func Del(id string) {
 //Stop 释放所有规则引擎实例
 func Stop() {
 	DefaultRuleGo.Stop()
+}
+
+//OnMsg 调用所有规则引擎实例处理消息
+//规则引擎实例池所有规则链都会去尝试处理该消息
+func OnMsg(msg types.RuleMsg) {
+	DefaultRuleGo.OnMsg(msg)
 }

@@ -470,6 +470,10 @@ func TestLoadChain(t *testing.T) {
 	_, ok = rulego.Get("test_context_chain")
 	assert.Equal(t, true, ok)
 
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, types.NewMetadata(), "{\"temperature\":41}")
+
+	rulego.OnMsg(msg)
+
 }
 
 //TestWait 测试同步执行规则链
