@@ -50,6 +50,17 @@ func NewGojaJsEngine(config types.Config, jsScript string, vars map[string]inter
 				//atomic.AddInt64(&vmNum, 1)
 				//config.Logger.Printf("create new js vm%d", vmNum)
 				vm := goja.New()
+				if vars == nil {
+					vars = make(map[string]interface{})
+				}
+				if len(config.Properties.Values()) != 0 {
+					//增加全局Properties 到js运行时
+					vars["global"] = config.Properties.Values()
+				}
+				//增加全局自定义函数到js运行时
+				for k, v := range config.Udf {
+					vars[k] = vm.ToValue(v)
+				}
 				for k, v := range vars {
 					if err := vm.Set(k, v); err != nil {
 						config.Logger.Printf("set variable error,err:" + err.Error())
@@ -57,6 +68,7 @@ func NewGojaJsEngine(config types.Config, jsScript string, vars map[string]inter
 						panic(errors.New("set variable error,err:" + err.Error()))
 					}
 				}
+
 				state := make(chan int, 1)
 				state <- 0
 				time.AfterFunc(config.JsMaxExecutionTime, func() {

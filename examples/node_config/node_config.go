@@ -29,8 +29,26 @@ func main() {
 	config := rulego.NewConfig()
 	//设置全局属性参数，通过${global.transformJs} 方式替换内容
 	//节点初始化时候替换,只替换一次
-	config.Properties.PutValue("transformJs", "msg['addField2']='addValue22'; return {'msg':msg,'metadata':metadata,'msgType':msgType};")
+	config.Properties.PutValue("transformJs", `
+		var value=global.globalValue;
+		msg['addField2']=value;
+		msg['addValue']=add(1,5); 
+		msgType=handleMsg(msg,metadata,msgType);
+		return {'msg':msg,'metadata':metadata,'msgType':msgType};
+	`)
+	//在js脚本运行时获取全局变量：global.xx
+	config.Properties.PutValue("globalValue", "addValueFromConfig")
 
+	//注册自定义函数
+	config.RegisterUdf("add", func(a, b int) int {
+		return a + b
+	})
+	config.RegisterUdf("handleMsg", func(msg map[string]interface{}, metadata map[string]string, msgType string) string {
+		msg["returnFromGo"] = "returnFromGo"
+		_, ok := rulego.Get("aa")
+		msg["hasAaRuleChain"] = ok
+		return "returnFromGoMsgType"
+	})
 	//元数据
 	metaData := types.NewMetadata()
 	//通过${url}替换内容

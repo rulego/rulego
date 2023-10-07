@@ -17,7 +17,8 @@
 package js
 
 import (
-	"github.com/rulego/rulego"
+	"github.com/rulego/rulego/api/types"
+
 	"github.com/rulego/rulego/test/assert"
 	"sync"
 	"testing"
@@ -27,14 +28,33 @@ import (
 func TestJsEngine(t *testing.T) {
 	var jsScript = `
 	function Filter(msg, metadata, msgType) {
-         function result(){
-			return 'aa' 
+	    function result(){
+			return 'aa'
 		}
-		return msg==result() 
+		return msg==result()
 	}
-  	`
+	function GetValue(msg, metadata, msgType) {
+		return global.name 
+	}
+	function CallGolangFunc1(msg, metadata, msgType) {
+			return add(1,5) 
+	}
+	function CallGolangFunc2(msg, metadata, msgType) {
+			return handleMsg(msg, metadata, msgType) 
+	}
+	`
 	start := time.Now()
-	config := rulego.NewConfig()
+	config := types.NewConfig()
+	//注册全局配置参数
+	config.Properties.PutValue("name", "lala")
+	//注册自定义函数
+	config.RegisterUdf("add", func(a, b int) int {
+		return a + b
+	})
+	config.RegisterUdf("handleMsg", func(msg map[string]string, metadata map[string]string, msgType string) map[string]string {
+		msg["returnFromGo"] = "returnFromGo"
+		return msg
+	})
 	jsEngine := NewGojaJsEngine(config, jsScript, nil)
 	jsEngine.config.Logger.Printf("用时1：%s", time.Since(start))
 	var group sync.WaitGroup
@@ -46,15 +66,6 @@ func TestJsEngine(t *testing.T) {
 	}
 	group.Wait()
 
-	jsEngine.config.Logger.Printf("==========================")
-	var group2 sync.WaitGroup
-	group2.Add(10)
-	i = 0
-	for i < 10 {
-		go testExecuteJs(t, jsEngine, i, &group2)
-		i++
-	}
-	group2.Wait()
 }
 func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.WaitGroup) {
 	metadata := map[string]interface{}{
@@ -63,10 +74,22 @@ func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.
 	start := time.Now()
 	var response interface{}
 	var err error
-	if index == 5 || index == 7 {
+	if index == 3 || index == 5 {
 		response, err = jsEngine.Execute("Filter", "bb", metadata, "aa")
 		assert.Nil(t, err)
 		assert.Equal(t, false, response.(bool))
+	} else if index == 6 {
+		response, err = jsEngine.Execute("GetValue", "bb", metadata, "aa")
+		assert.Nil(t, err)
+		assert.Equal(t, "lala", response.(string))
+	} else if index == 7 {
+		response, err = jsEngine.Execute("CallGolangFunc1", "bb", metadata, "aa")
+		assert.Nil(t, err)
+		assert.Equal(t, int64(6), response.(int64))
+	} else if index == 8 {
+		response, err = jsEngine.Execute("CallGolangFunc2", metadata, metadata, "testMsgType")
+		assert.Nil(t, err)
+		assert.Equal(t, "returnFromGo", response.(map[string]string)["returnFromGo"])
 	} else {
 		response, err = jsEngine.Execute("Filter", "aa", metadata, "aa")
 		assert.Nil(t, err)

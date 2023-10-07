@@ -53,6 +53,16 @@ type Config struct {
 	//规则链节点配置可以通过${global.propertyKey}方式替换Properties值
 	//节点初始化时候替换，只替换一次
 	Properties Metadata
+	//Udf 注册自定义golang函数，js运行时可以通过x(param1,param2,...) 方式调用
+	Udf map[string]interface{}
+}
+
+//RegisterUdf 注册自定义函数
+func (c *Config) RegisterUdf(name string, value interface{}) {
+	if c.Udf == nil {
+		c.Udf = make(map[string]interface{})
+	}
+	c.Udf[name] = value
 }
 
 // Option is a function type that modifies the Config.
