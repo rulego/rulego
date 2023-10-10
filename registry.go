@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/action"
+	"github.com/rulego/rulego/components/external"
 	"github.com/rulego/rulego/components/filter"
 	"github.com/rulego/rulego/components/transform"
 	"github.com/rulego/rulego/utils/reflect"
@@ -40,6 +41,7 @@ func init() {
 	components = append(components, action.Registry.Components()...)
 	components = append(components, filter.Registry.Components()...)
 	components = append(components, transform.Registry.Components()...)
+	components = append(components, external.Registry.Components()...)
 
 	//把组件注册到默认组件库
 	for _, node := range components {

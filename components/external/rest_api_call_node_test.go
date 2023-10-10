@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package action
+package external
 
 import (
 	"github.com/rulego/rulego/api/types"
@@ -23,18 +23,19 @@ import (
 	"testing"
 )
 
-func TestMqttClientNodeOnMsg(t *testing.T) {
-	var node MqttClientNode
+func TestRestApiCallNodeOnMsg(t *testing.T) {
+	var node RestApiCallNode
 	var configuration = make(types.Configuration)
-	configuration["Server"] = "127.0.0.1:1883"
-	configuration["Topic"] = "/device/msg"
+	configuration["restEndpointUrlPattern"] = "https://gitee.com"
+	configuration["requestMethod"] = "POST"
 	config := types.NewConfig()
 	err := node.Init(config, configuration)
 	if err != nil {
 		t.Errorf("err=%s", err)
 	}
 	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
-		assert.Equal(t, types.Success, relationType)
+		code := msg.Metadata.GetValue(statusCode)
+		assert.Equal(t, "404", code)
 	})
 	metaData := types.BuildMetadata(make(map[string]string))
 	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "{\"test\":\"AA\"}")

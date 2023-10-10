@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package action
+package external
 
 import (
 	"database/sql"

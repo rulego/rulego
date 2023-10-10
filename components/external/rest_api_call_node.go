@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package action
+package external
 
 //规则链节点配置示例：
 // {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package action
+package external
 
 import (
 	"crypto/tls"

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package action
+package external
 
 import (
 	"github.com/rulego/rulego/api/types"

@@ -1,7 +1,49 @@
 [
   {
-    "Type": "dbClient",
+    "Type": "functions",
     "Pkg": "components/action",
+    "Fields": [
+      {
+        "Name": "FunctionName",
+        "Type": "string",
+        "DefaultValue": "",
+        "Label": "",
+        "Desc": "",
+        "Validate": "",
+        "Fields": null
+      }
+    ],
+    "Label": "FunctionsNode",
+    "Desc": "",
+    "RelationTypes": [
+      "Success",
+      "Failure"
+    ]
+  },
+  {
+    "Type": "log",
+    "Pkg": "components/action",
+    "Fields": [
+      {
+        "Name": "JsScript",
+        "Type": "string",
+        "DefaultValue": "",
+        "Label": "",
+        "Desc": "",
+        "Validate": "",
+        "Fields": null
+      }
+    ],
+    "Label": "LogNode",
+    "Desc": "",
+    "RelationTypes": [
+      "Success",
+      "Failure"
+    ]
+  },
+  {
+    "Type": "dbClient",
+    "Pkg": "components/external",
     "Fields": [
       {
         "Name": "Sql",
@@ -66,29 +108,8 @@
     ]
   },
   {
-    "Type": "log",
-    "Pkg": "components/action",
-    "Fields": [
-      {
-        "Name": "JsScript",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
-      }
-    ],
-    "Label": "LogNode",
-    "Desc": "",
-    "RelationTypes": [
-      "Success",
-      "Failure"
-    ]
-  },
-  {
     "Type": "mqttClient",
-    "Pkg": "components/action",
+    "Pkg": "components/external",
     "Fields": [
       {
         "Name": "Topic",
@@ -199,7 +220,7 @@
   },
   {
     "Type": "restApiCall",
-    "Pkg": "components/action",
+    "Pkg": "components/external",
     "Fields": [
       {
         "Name": "RestEndpointUrlPattern",
@@ -321,7 +342,7 @@
   },
   {
     "Type": "sendEmail",
-    "Pkg": "components/action",
+    "Pkg": "components/external",
     "Fields": [
       {
         "Name": "SmtpHost",
@@ -441,6 +462,63 @@
       }
     ],
     "Label": "SendEmailNode",
+    "Desc": "",
+    "RelationTypes": [
+      "Success",
+      "Failure"
+    ]
+  },
+  {
+    "Type": "ssh",
+    "Pkg": "components/external",
+    "Fields": [
+      {
+        "Name": "Host",
+        "Type": "string",
+        "DefaultValue": "",
+        "Label": "",
+        "Desc": "",
+        "Validate": "",
+        "Fields": null
+      },
+      {
+        "Name": "Port",
+        "Type": "int",
+        "DefaultValue": 22,
+        "Label": "",
+        "Desc": "",
+        "Validate": "",
+        "Fields": null
+      },
+      {
+        "Name": "Username",
+        "Type": "string",
+        "DefaultValue": "",
+        "Label": "",
+        "Desc": "",
+        "Validate": "",
+        "Fields": null
+      },
+      {
+        "Name": "Password",
+        "Type": "string",
+        "DefaultValue": "",
+        "Label": "",
+        "Desc": "",
+        "Validate": "",
+        "Fields": null
+      },
+      {
+        "Name": "Cmd",
+        "Type": "string",
+        "DefaultValue": "",
+        "Label": "",
+        "Desc": "",
+        "Validate": "",
+        "Fields": null
+      }
+    ],
+    "Label": "SshNode",
     "Desc": "",
     "RelationTypes": [
       "Success",
