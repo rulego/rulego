@@ -30,11 +30,20 @@ type NodeTestRuleContext struct {
 	config   types.Config
 	context  context.Context
 	callback func(msg types.RuleMsg, relationType string)
+	self     types.Node
 }
 
 func NewRuleContext(config types.Config, callback func(msg types.RuleMsg, relationType string)) types.RuleContext {
 	return &NodeTestRuleContext{
 		config:   config,
+		callback: callback,
+		context:  context.TODO(),
+	}
+}
+func NewRuleContextFull(config types.Config, self types.Node, callback func(msg types.RuleMsg, relationType string)) types.RuleContext {
+	return &NodeTestRuleContext{
+		config:   config,
+		self:     self,
 		callback: callback,
 		context:  context.TODO(),
 	}
@@ -53,7 +62,9 @@ func (ctx *NodeTestRuleContext) TellNext(msg types.RuleMsg, relationTypes ...str
 }
 func (ctx *NodeTestRuleContext) TellSelf(msg types.RuleMsg, delayMs int64) {
 	time.AfterFunc(time.Millisecond*time.Duration(delayMs), func() {
-		ctx.callback(msg, types.Success)
+		if ctx.self != nil {
+			ctx.self.OnMsg(ctx, msg)
+		}
 	})
 }
 func (ctx *NodeTestRuleContext) NewMsg(msgType string, metaData types.Metadata, data string) types.RuleMsg {

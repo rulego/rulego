@@ -89,7 +89,7 @@ func (ctx *DefaultRuleContext) TellNext(msg types.RuleMsg, relationTypes ...stri
 }
 func (ctx *DefaultRuleContext) TellSelf(msg types.RuleMsg, delayMs int64) {
 	time.AfterFunc(time.Millisecond*time.Duration(delayMs), func() {
-		ctx.tell(msg, nil, types.Success)
+		_ = ctx.self.OnMsg(ctx, msg)
 	})
 }
 func (ctx *DefaultRuleContext) NewMsg(msgType string, metaData types.Metadata, data string) types.RuleMsg {
