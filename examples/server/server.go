@@ -25,6 +25,7 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	endpointMqtt "github.com/rulego/rulego/endpoint/mqtt"
 	endpointRest "github.com/rulego/rulego/endpoint/rest"
+	"github.com/rulego/rulego/utils/json"
 	"log"
 	"net/http"
 	//_ "net/http/pprof"
@@ -38,46 +39,44 @@ const (
 	apiVersion  = "v1"
 	apiBasePath = "/api/" + apiVersion + "/"
 
-	// path to rule. /msg/{tenant_id}/{msg_type}
-	msgPath = apiBasePath + "msg/:msgType"
-	// /rule/{tenant_id}/{rule_id}
-	rulePath     = apiBasePath + "rule/"
-	ruleNodePath = apiBasePath + "rule/:nodeId"
-	// server version.
+	msgPath        = apiBasePath + "msg/:chainId/:msgType"
+	rulePath       = apiBasePath + "rule/:chainId"
+	componentsPath = apiBasePath + "components"
+
 	version = "1.0.0"
 )
 
 var (
-	httpAvailable bool
-	port          int
-	logfile       string
-	ver           bool
-	ruleFile      string
-	ruleEngine    *rulego.RuleEngine
+	port     int
+	logfile  string
+	ver      bool
+	ruleFile string
 
 	subscribeTopics  string
 	mqttClientConfig = mqtt.Config{}
 	mqttAvailable    bool
+	logger           *log.Logger
 )
 
 func init() {
-	flag.BoolVar(&mqttAvailable, "mqtt", true, "mqtt client available.")
-	flag.StringVar(&mqttClientConfig.Server, "server", "127.0.0.1:1883", "Server of the mqtt broker.")
-	flag.StringVar(&mqttClientConfig.Username, "username", "", "username of the mqtt client.")
-	flag.StringVar(&mqttClientConfig.Password, "password", "", "Password of the mqtt client.")
+	flag.StringVar(&ruleFile, "rule_file", "", "规则链文件夹路径")
+	flag.IntVar(&port, "port", 9090, "http端口")
+
+	flag.StringVar(&logfile, "log_file", "", "日志文件路径.")
+	flag.BoolVar(&ver, "version", false, "打印版本")
+
+	//以下是mqtt 订阅配置的参数
+	flag.BoolVar(&mqttAvailable, "mqtt", false, "是否开启mqtt订阅")
+	flag.StringVar(&mqttClientConfig.Server, "server", "127.0.0.1:1883", "mqtt broker服务地址")
+	flag.StringVar(&mqttClientConfig.Username, "username", "", "mqtt客户端用户名")
+	flag.StringVar(&mqttClientConfig.Password, "password", "", "mqtt客户端密码")
 	flag.DurationVar(&mqttClientConfig.MaxReconnectInterval, "max_reconnect_interval", 100000*100000*60, "max_reconnect_interval of reconnect the mqtt broker.")
 	flag.BoolVar(&mqttClientConfig.CleanSession, "clean-session", false, "cleanSession.")
 	flag.StringVar(&mqttClientConfig.ClientID, "client_id", "", "client_id of the client.")
 	flag.StringVar(&mqttClientConfig.CAFile, "ca_file", "", "ca_file of the client.")
 	flag.StringVar(&mqttClientConfig.CertFile, "cert_file", "", "cert_file of the client.")
 	flag.StringVar(&mqttClientConfig.CertKeyFile, "key_file", "", "key_file of the client.")
-	flag.StringVar(&subscribeTopics, "topics", "#", "subscribe the topics .")
-
-	flag.StringVar(&ruleFile, "rule_file", "", "Location of the rule_file.")
-
-	flag.IntVar(&port, "port", 9090, "The port to listen on.")
-	flag.StringVar(&logfile, "log_file", "", "Location of the log_file.")
-	flag.BoolVar(&ver, "version", false, "Print server version.")
+	flag.StringVar(&subscribeTopics, "topics", "#", "订阅的主题")
 
 }
 
@@ -90,135 +89,190 @@ func main() {
 		os.Exit(0)
 	}
 
-	var logger *log.Logger
+	//初始化日志
+	logger = initLogger()
 
+	if ruleFile == "" {
+		ruleFile = "./rules"
+	} else {
+		//初始化规则链文件夹
+		initRuleGo(logger, ruleFile)
+	}
+
+	if mqttAvailable && mqttClientConfig.Server != "" {
+		//开启mqtt订阅服务接收端点
+		mqttServe(logger)
+	}
+	strPort := ":" + strconv.Itoa(port)
+	//开启http服务接收端点
+	restServe(logger, strPort)
+
+}
+
+//初始化日志记录器
+func initLogger() *log.Logger {
 	if logfile == "" {
-		logger = log.New(os.Stdout, "", log.LstdFlags)
+		return log.New(os.Stdout, "", log.LstdFlags)
 	} else {
 		f, err := os.OpenFile(logfile, os.O_APPEND|os.O_WRONLY, 0600)
 		if err != nil {
 			panic(err)
 		}
-		logger = log.New(f, "", log.LstdFlags)
+		return log.New(f, "", log.LstdFlags)
+	}
+}
+
+//初始化规则链池
+func initRuleGo(logger *log.Logger, ruleFolder string) {
+
+	config := rulego.NewConfig(types.WithDefaultPool())
+	//调试模式回调信息
+	//debugMode=true 的节点会打印
+	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 	}
 
-	if ruleFile == "" {
-		fmt.Println("not the root rule file,set the flag of rule_file")
-		os.Exit(0)
-	} else {
-		buf, err := os.ReadFile(ruleFile)
-		if err != nil {
-			logger.Fatal("parser rule file error:", err)
-		}
-		config := rulego.NewConfig(types.WithDefaultPool())
-		//调试模式回调信息
-		//debugMode=true 的节点会打印
-		config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-			config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
-		}
-		ruleEngine, err = rulego.New("default", buf, rulego.WithConfig(config))
-		if err != nil {
-			logger.Fatal("parser rule file error:", err)
-		}
-	}
+	err := rulego.Load(ruleFolder, rulego.WithConfig(config))
 
-	if mqttClientConfig.Server != "" {
-		//mqtt 订阅服务 接收端点
-		mqttEndpoint := &endpointMqtt.Mqtt{
-			Config: mqttClientConfig,
-		}
-		for _, topic := range strings.Split(subscribeTopics, ",") {
-			router := endpoint.NewRouter().From(topic).To("chain:default").End()
-			mqttEndpoint.AddRouter(router)
-		}
-		if err := mqttEndpoint.Start(); err != nil {
-			logger.Fatal(err)
-		}
+	if err != nil {
+		logger.Fatal("parser rule file error:", err)
 	}
-	strPort := ":" + strconv.Itoa(port)
-	restServe(logger, strPort)
+}
 
+//mqtt 订阅服务
+func mqttServe(logger *log.Logger) {
+	//mqtt 订阅服务 接收端点
+	mqttEndpoint := &endpointMqtt.Mqtt{
+		Config: mqttClientConfig,
+	}
+	for _, topic := range strings.Split(subscribeTopics, ",") {
+		router := endpoint.NewRouter().From(topic).To("chain:default").End()
+		mqttEndpoint.AddRouter(router)
+	}
+	if err := mqttEndpoint.Start(); err != nil {
+		logger.Fatal(err)
+	}
 }
 
 //rest服务 接收端点
 func restServe(logger *log.Logger, addr string) {
-	logger.Print("server initialised.")
+	logger.Println("rest serve initialised.addr=" + addr)
 	restEndpoint := &endpointRest.Rest{
 		Config: endpointRest.Config{Server: addr},
 	}
+	//添加全局拦截器
+	restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Out.Headers().Set("Content-Type", "application/json")
+		exchange.Out.Headers().Set("Access-Control-Allow-Origin", "*")
+		return true
+	})
+	//创建获取所有组件列表路由
+	restEndpoint.GET(createComponentsRouter())
+	//获取规则链DSL
+	restEndpoint.GET(createGetDslRouter())
+	//新增/修改规则链DSL
+	restEndpoint.POST(createSaveDslRouter())
 	//处理请求，并转发到规则引擎
-	restEndpoint.POST(endpoint.NewRouter().From(msgPath).Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
-		msg := exchange.In.GetMsg()
-		//获取消息类型
-		msg.Type = msg.Metadata.GetValue("msgType")
-
-		//用户ID
-		userId := exchange.In.Headers().Get("userId")
-		if userId == "" {
-			userId = "default"
-		}
-		msg.Metadata.PutValue("userId", userId)
-		return true
-	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
-		exchange.Out.SetStatusCode(http.StatusOK)
-		return true
-	}).To("chain:${userId}").End())
-
-	//获取根规则链DSL
-	restEndpoint.GET(endpoint.NewRouter().From(rulePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
-		getDsl("", exchange)
-		return true
-	}).End())
-	//获取某个节点DSL
-	restEndpoint.GET(endpoint.NewRouter().From(ruleNodePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
-		msg := exchange.In.GetMsg()
-		nodeId := msg.Metadata.GetValue("nodeId")
-		getDsl(nodeId, exchange)
-		return true
-	}).End())
-
-	//修改根规则链DSL
-	restEndpoint.PUT(endpoint.NewRouter().From(rulePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
-		reloadDsl("", exchange)
-		return true
-	}).End())
-	//修改某个节点DSL
-	restEndpoint.PUT(endpoint.NewRouter().From(ruleNodePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
-		msg := exchange.In.GetMsg()
-		nodeId := msg.Metadata.GetValue("nodeId")
-		reloadDsl(nodeId, exchange)
-		return true
-	}).End())
+	restEndpoint.POST(createPostMsgRouter())
 
 	//注册路由
 	_ = restEndpoint.Start()
 }
 
-//获取DSL
-func getDsl(nodeId string, exchange *endpoint.Exchange) {
-	var def []byte
-	if nodeId == "" {
-		def = ruleEngine.DSL()
-	} else {
-		def = ruleEngine.NodeDSL(types.EmptyRuleNodeId, types.RuleNodeId{Id: nodeId, Type: types.NODE})
-		if def == nil {
-			def = ruleEngine.NodeDSL(types.EmptyRuleNodeId, types.RuleNodeId{Id: nodeId, Type: types.CHAIN})
+//处理请求，并转发到规则引擎
+func createPostMsgRouter() *endpoint.Router {
+	return endpoint.NewRouter().From(msgPath).Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		//获取消息类型
+		msg.Type = msg.Metadata.GetValue("msgType")
+		//交由哪个规则链ID机芯处理
+		chainId := msg.Metadata.GetValue("chainId")
+		msg.Metadata.PutValue("chainId", chainId)
+		return true
+	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Out.SetStatusCode(http.StatusOK)
+		return true
+	}).To("chain:${chainId}").End()
+}
+
+//创建获取指定规则链路由
+func createGetDslRouter() *endpoint.Router {
+	return endpoint.NewRouter().From(rulePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		chainId := msg.Metadata.GetValue("chainId")
+		nodeId := msg.Metadata.GetValue("nodeId")
+
+		getDsl(chainId, nodeId, exchange)
+		return true
+	}).End()
+}
+
+//创建保存/更新指定规则链路由
+func createSaveDslRouter() *endpoint.Router {
+	return endpoint.NewRouter().From(rulePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		chainId := msg.Metadata.GetValue("chainId")
+		nodeId := msg.Metadata.GetValue("nodeId")
+
+		saveDsl(chainId, nodeId, exchange)
+		return true
+	}).End()
+}
+
+//创建获取组件列表路由
+func createComponentsRouter() *endpoint.Router {
+	//路由1
+	return endpoint.NewRouter().From(componentsPath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		//响应组件配置表单列表
+		list, err := json.Marshal(rulego.Registry.GetComponentForms().Values())
+		if err != nil {
+			exchange.Out.SetStatusCode(400)
+			exchange.Out.SetBody([]byte(err.Error()))
+		} else {
+			exchange.Out.SetBody(list)
 		}
+		return true
+	}).End()
+}
+
+//获取DSL
+func getDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
+	var def []byte
+	if chainId != "" {
+		ruleEngine, ok := rulego.Get(chainId)
+		if ok {
+			if nodeId == "" {
+				def = ruleEngine.DSL()
+			} else {
+				def = ruleEngine.NodeDSL(types.EmptyRuleNodeId, types.RuleNodeId{Id: nodeId, Type: types.NODE})
+				if def == nil {
+					def = ruleEngine.NodeDSL(types.EmptyRuleNodeId, types.RuleNodeId{Id: nodeId, Type: types.CHAIN})
+				}
+			}
+		}
+
 	}
-	exchange.Out.Headers().Set("Content-Type", "application/json")
 	exchange.Out.SetBody(def)
 }
 
-//更新DSL
-func reloadDsl(nodeId string, exchange *endpoint.Exchange) {
+//保存或者更新DSL
+func saveDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 	var err error
-	if nodeId == "" {
-		err = ruleEngine.ReloadSelf(exchange.In.Body())
-	} else {
-		err = ruleEngine.ReloadChild(nodeId, exchange.In.Body())
+	if chainId != "" {
+		ruleEngine, ok := rulego.Get(chainId)
+		if ok {
+			if nodeId == "" {
+				err = ruleEngine.ReloadSelf(exchange.In.Body())
+			} else {
+				err = ruleEngine.ReloadChild(nodeId, exchange.In.Body())
+			}
+		} else {
+			_, err = rulego.New(chainId, exchange.In.Body())
+		}
 	}
+
 	if err != nil {
-		log.Print(err)
+		logger.Println(err)
 		exchange.Out.SetStatusCode(http.StatusInternalServerError)
 	} else {
 		exchange.Out.SetStatusCode(http.StatusCreated)

@@ -34,6 +34,8 @@ func main() {
 	restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}, RuleConfig: config}
 	//添加全局拦截器
 	restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Out.Headers().Set("Content-Type", "application/json")
+		exchange.Out.Headers().Set("Access-Control-Allow-Origin", "*")
 		userId := exchange.In.Headers().Get("userId")
 		if userId == "blacklist" {
 			//不允许访问
@@ -44,7 +46,7 @@ func main() {
 	})
 	//路由1
 	router1 := endpoint.NewRouter().From("/api/v1/components").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
-		exchange.Out.Headers().Set("Content-Type", "application/json")
+
 		//响应组件配置表单列表
 		list, err := json.Marshal(rulego.Registry.GetComponentForms().Values())
 		if err != nil {
