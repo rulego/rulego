@@ -58,3 +58,13 @@ func Marshal2(v interface{}, escapeHTML bool) ([]byte, error) {
 func Unmarshal(b []byte, m interface{}) error {
 	return json.Unmarshal(b, m)
 }
+
+//Format json格式化
+func Format(jsonStr []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	err := json.Indent(&buf, jsonStr, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
