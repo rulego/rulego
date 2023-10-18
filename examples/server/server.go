@@ -25,9 +25,12 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	endpointMqtt "github.com/rulego/rulego/endpoint/mqtt"
 	endpointRest "github.com/rulego/rulego/endpoint/rest"
+	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
 	"log"
 	"net/http"
+	"path/filepath"
+
 	//_ "net/http/pprof"
 	"os"
 	"strconv"
@@ -93,7 +96,7 @@ func main() {
 	logger = initLogger()
 
 	if ruleFile == "" {
-		ruleFile = "./rules"
+		ruleFile = "./rules/"
 	} else {
 		//初始化规则链文件夹
 		initRuleGo(logger, ruleFile)
@@ -166,6 +169,18 @@ func restServe(logger *log.Logger, addr string) {
 		exchange.Out.Headers().Set("Access-Control-Allow-Origin", "*")
 		return true
 	})
+	//设置跨域
+	restEndpoint.GlobalOPTIONS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Access-Control-Request-Method") != "" {
+			// 设置 CORS 相关的响应头
+			header := w.Header()
+			header.Set("Access-Control-Allow-Methods", r.Header.Get("Allow"))
+			header.Set("Access-Control-Allow-Headers", "*")
+			header.Set("Access-Control-Allow-Origin", "*")
+		}
+		// 返回 204 状态码
+		w.WriteHeader(http.StatusNoContent)
+	}))
 	//创建获取所有组件列表路由
 	restEndpoint.GET(createComponentsRouter())
 	//获取规则链DSL
@@ -267,7 +282,16 @@ func saveDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 				err = ruleEngine.ReloadChild(nodeId, exchange.In.Body())
 			}
 		} else {
-			_, err = rulego.New(chainId, exchange.In.Body())
+			body := exchange.In.Body()
+			//保存到文件
+			dir, _ := filepath.Split(ruleFile)
+			v, _ := json.Format(body)
+			//保存规则链到文件
+			err = fs.SaveFile(dir+chainId+".json", v)
+			if err == nil {
+				_, err = rulego.New(chainId, body)
+			}
+
 		}
 	}
 

@@ -311,6 +311,16 @@ func (rest *Rest) DELETE(routers ...*endpoint.Router) *Rest {
 	return rest
 }
 
+func (rest *Rest) GlobalOPTIONS(handler http.Handler) *Rest {
+	if rest.router == nil {
+		rest.router = httprouter.New()
+		rest.router.GlobalOPTIONS = handler
+	} else {
+		rest.router.GlobalOPTIONS = handler
+	}
+	return rest
+}
+
 func (rest *Rest) Router() *httprouter.Router {
 	return rest.router
 }
