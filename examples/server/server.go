@@ -96,11 +96,10 @@ func main() {
 	logger = initLogger()
 
 	if ruleFile == "" {
-		ruleFile = "./rules/"
-	} else {
-		//初始化规则链文件夹
-		initRuleGo(logger, ruleFile)
+		ruleFile = "d://rules/"
 	}
+	//初始化规则链文件夹
+	initRuleGo(logger, ruleFile)
 
 	if mqttAvailable && mqttClientConfig.Server != "" {
 		//开启mqtt订阅服务接收端点
@@ -264,16 +263,21 @@ func getDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 					def = ruleEngine.NodeDSL(types.EmptyRuleNodeId, types.RuleNodeId{Id: nodeId, Type: types.CHAIN})
 				}
 			}
+			exchange.Out.SetBody(def)
+		} else {
+			exchange.Out.SetStatusCode(404)
+			//exchange.Out.SetBody([]byte("not found"))
 		}
 
 	}
-	exchange.Out.SetBody(def)
+
 }
 
 //保存或者更新DSL
 func saveDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 	var err error
 	if chainId != "" {
+		body := exchange.In.Body()
 		ruleEngine, ok := rulego.Get(chainId)
 		if ok {
 			if nodeId == "" {
@@ -282,17 +286,13 @@ func saveDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 				err = ruleEngine.ReloadChild(nodeId, exchange.In.Body())
 			}
 		} else {
-			body := exchange.In.Body()
-			//保存到文件
-			dir, _ := filepath.Split(ruleFile)
-			v, _ := json.Format(body)
-			//保存规则链到文件
-			err = fs.SaveFile(dir+chainId+".json", v)
-			if err == nil {
-				_, err = rulego.New(chainId, body)
-			}
-
+			_, err = rulego.New(chainId, body)
 		}
+		//保存到文件
+		dir, _ := filepath.Split(ruleFile)
+		v, _ := json.Format(body)
+		//保存规则链到文件
+		err = fs.SaveFile(dir+chainId+".json", v)
 	}
 
 	if err != nil {

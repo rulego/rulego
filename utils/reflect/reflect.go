@@ -18,6 +18,7 @@ package reflect
 
 import (
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/str"
 	"reflect"
 	"strings"
 )
@@ -29,8 +30,8 @@ func GetComponentForm(component types.Node) types.ComponentForm {
 	t, configField, configValue := GetComponentConfig(component)
 	componentForm.Label = t.Name()
 	componentForm.Type = component.Type()
-	componentForm.Pkg = strings.Replace(t.PkgPath(), "github.com/rulego/rulego/", "", -1)
-	componentForm.Pkg = strings.Replace(componentForm.Pkg, "github.com/rulego/rulego-components/", "", -1)
+	componentForm.Category = strings.Replace(t.PkgPath(), "github.com/rulego/rulego/components/", "", -1)
+	componentForm.Category = strings.Replace(componentForm.Category, "github.com/rulego/rulego-components/", "", -1)
 	componentForm.Fields = GetFields(configField, configValue)
 	var relationTypes = []string{types.Success, types.Failure}
 
@@ -53,8 +54,8 @@ func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.Com
 	if def.Type != "" {
 		toComponentForm.Type = def.Type
 	}
-	if def.Pkg != "" {
-		toComponentForm.Pkg = def.Pkg
+	if def.Category != "" {
+		toComponentForm.Category = def.Category
 	}
 	if len(def.Fields) != 0 {
 		toComponentForm.Fields = def.Fields
@@ -110,9 +111,9 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 			if configValue.Field(i).CanInterface() {
 				defaultValue = configValue.Field(i).Interface()
 			}
-			label := field.Tag.Get("Label")
-			desc := field.Tag.Get("Desc")
-			validate := field.Tag.Get("Validate")
+			label := field.Tag.Get("label")
+			desc := field.Tag.Get("desc")
+			validate := field.Tag.Get("validate")
 			typeName := field.Type.Name()
 			var subFields []types.ComponentFormField
 			if field.Type.Kind() == reflect.Map {
@@ -127,7 +128,7 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 
 			fields = append(fields,
 				types.ComponentFormField{
-					Name:         field.Name,
+					Name:         str.ToLowerFirst(field.Name),
 					Type:         typeName,
 					DefaultValue: defaultValue,
 					Label:        label,

@@ -1,398 +1,443 @@
 [
   {
-    "Type": "functions",
-    "Pkg": "components/action",
-    "Fields": [
+    "type": "delay",
+    "category": "action",
+    "fields": [
       {
-        "Name": "FunctionName",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "periodInSeconds",
+        "type": "int",
+        "defaultValue": 60,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "maxPendingMsgs",
+        "type": "int",
+        "defaultValue": 1000,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "periodInSecondsPattern",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       }
     ],
-    "Label": "FunctionsNode",
-    "Desc": "",
-    "RelationTypes": [
+    "label": "DelayNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": [
       "Success",
       "Failure"
     ]
   },
   {
-    "Type": "log",
-    "Pkg": "components/action",
-    "Fields": [
+    "type": "functions",
+    "category": "action",
+    "fields": [
       {
-        "Name": "JsScript",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "functionName",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       }
     ],
-    "Label": "LogNode",
-    "Desc": "",
-    "RelationTypes": [
+    "label": "FunctionsNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": [
       "Success",
       "Failure"
     ]
   },
   {
-    "Type": "dbClient",
-    "Pkg": "components/external",
-    "Fields": [
+    "type": "log",
+    "category": "action",
+    "fields": [
       {
-        "Name": "Sql",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
-      },
-      {
-        "Name": "Params",
-        "Type": "array",
-        "DefaultValue": null,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
-      },
-      {
-        "Name": "GetOne",
-        "Type": "bool",
-        "DefaultValue": false,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
-      },
-      {
-        "Name": "PoolSize",
-        "Type": "int",
-        "DefaultValue": 0,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
-      },
-      {
-        "Name": "DbType",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
-      },
-      {
-        "Name": "Dsn",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "jsScript",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       }
     ],
-    "Label": "DbClientNode",
-    "Desc": "",
-    "RelationTypes": [
+    "label": "LogNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": [
       "Success",
       "Failure"
     ]
   },
   {
-    "Type": "mqttClient",
-    "Pkg": "components/external",
-    "Fields": [
+    "type": "dbClient",
+    "category": "external",
+    "fields": [
       {
-        "Name": "Topic",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "sql",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "Server",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "params",
+        "type": "array",
+        "defaultValue": null,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "Username",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "getOne",
+        "type": "bool",
+        "defaultValue": false,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "Password",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "poolSize",
+        "type": "int",
+        "defaultValue": 0,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "MaxReconnectInterval",
-        "Type": "Duration",
-        "DefaultValue": 0,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "dbType",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "QOS",
-        "Type": "uint8",
-        "DefaultValue": 0,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
-      },
-      {
-        "Name": "CleanSession",
-        "Type": "bool",
-        "DefaultValue": false,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
-      },
-      {
-        "Name": "ClientID",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
-      },
-      {
-        "Name": "CAFile",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
-      },
-      {
-        "Name": "CertFile",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
-      },
-      {
-        "Name": "CertKeyFile",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "dsn",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       }
     ],
-    "Label": "MqttClientNode",
-    "Desc": "",
-    "RelationTypes": [
+    "label": "DbClientNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": [
       "Success",
       "Failure"
     ]
   },
   {
-    "Type": "restApiCall",
-    "Pkg": "components/external",
-    "Fields": [
+    "type": "mqttClient",
+    "category": "external",
+    "fields": [
       {
-        "Name": "RestEndpointUrlPattern",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "topic",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "RequestMethod",
-        "Type": "string",
-        "DefaultValue": "POST",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "server",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "Headers",
-        "Type": "map",
-        "DefaultValue": {
+        "name": "username",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "password",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "maxReconnectInterval",
+        "type": "Duration",
+        "defaultValue": 0,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "qOS",
+        "type": "uint8",
+        "defaultValue": 0,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "cleanSession",
+        "type": "bool",
+        "defaultValue": false,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "clientID",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "cAFile",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "certFile",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "certKeyFile",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      }
+    ],
+    "label": "MqttClientNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": [
+      "Success",
+      "Failure"
+    ]
+  },
+  {
+    "type": "restApiCall",
+    "category": "external",
+    "fields": [
+      {
+        "name": "restEndpointUrlPattern",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "requestMethod",
+        "type": "string",
+        "defaultValue": "POST",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "headers",
+        "type": "map",
+        "defaultValue": {
           "Content-Type": "application/json"
         },
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "ReadTimeoutMs",
-        "Type": "int",
-        "DefaultValue": 2000,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "readTimeoutMs",
+        "type": "int",
+        "defaultValue": 2000,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "MaxParallelRequestsCount",
-        "Type": "int",
-        "DefaultValue": 200,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "maxParallelRequestsCount",
+        "type": "int",
+        "defaultValue": 200,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "EnableProxy",
-        "Type": "bool",
-        "DefaultValue": false,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "enableProxy",
+        "type": "bool",
+        "defaultValue": false,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "UseSystemProxyProperties",
-        "Type": "bool",
-        "DefaultValue": false,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "useSystemProxyProperties",
+        "type": "bool",
+        "defaultValue": false,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "ProxyHost",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "proxyHost",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "ProxyPort",
-        "Type": "int",
-        "DefaultValue": 0,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "proxyPort",
+        "type": "int",
+        "defaultValue": 0,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "ProxyUser",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "proxyUser",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "ProxyPassword",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "proxyPassword",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "ProxyScheme",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "proxyScheme",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       }
     ],
-    "Label": "RestApiCallNode",
-    "Desc": "",
-    "RelationTypes": [
+    "label": "RestApiCallNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": [
       "Success",
       "Failure"
     ]
   },
   {
-    "Type": "sendEmail",
-    "Pkg": "components/external",
-    "Fields": [
+    "type": "sendEmail",
+    "category": "external",
+    "fields": [
       {
-        "Name": "SmtpHost",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "smtpHost",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "SmtpPort",
-        "Type": "int",
-        "DefaultValue": 0,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "smtpPort",
+        "type": "int",
+        "defaultValue": 0,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "Username",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "username",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "Password",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "password",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "EnableTls",
-        "Type": "bool",
-        "DefaultValue": false,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "enableTls",
+        "type": "bool",
+        "defaultValue": false,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "Email",
-        "Type": "struct",
-        "DefaultValue": {
+        "name": "email",
+        "type": "struct",
+        "defaultValue": {
           "From": "",
           "To": "",
           "Cc": "",
@@ -400,236 +445,243 @@
           "Subject": "",
           "Body": ""
         },
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": [
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": [
           {
-            "Name": "From",
-            "Type": "string",
-            "DefaultValue": "",
-            "Label": "",
-            "Desc": "",
-            "Validate": "",
-            "Fields": null
+            "name": "from",
+            "type": "string",
+            "defaultValue": "",
+            "label": "",
+            "desc": "",
+            "validate": "",
+            "fields": null
           },
           {
-            "Name": "To",
-            "Type": "string",
-            "DefaultValue": "",
-            "Label": "",
-            "Desc": "",
-            "Validate": "",
-            "Fields": null
+            "name": "to",
+            "type": "string",
+            "defaultValue": "",
+            "label": "",
+            "desc": "",
+            "validate": "",
+            "fields": null
           },
           {
-            "Name": "Cc",
-            "Type": "string",
-            "DefaultValue": "",
-            "Label": "",
-            "Desc": "",
-            "Validate": "",
-            "Fields": null
+            "name": "cc",
+            "type": "string",
+            "defaultValue": "",
+            "label": "",
+            "desc": "",
+            "validate": "",
+            "fields": null
           },
           {
-            "Name": "Bcc",
-            "Type": "string",
-            "DefaultValue": "",
-            "Label": "",
-            "Desc": "",
-            "Validate": "",
-            "Fields": null
+            "name": "bcc",
+            "type": "string",
+            "defaultValue": "",
+            "label": "",
+            "desc": "",
+            "validate": "",
+            "fields": null
           },
           {
-            "Name": "Subject",
-            "Type": "string",
-            "DefaultValue": "",
-            "Label": "",
-            "Desc": "",
-            "Validate": "",
-            "Fields": null
+            "name": "subject",
+            "type": "string",
+            "defaultValue": "",
+            "label": "",
+            "desc": "",
+            "validate": "",
+            "fields": null
           },
           {
-            "Name": "Body",
-            "Type": "string",
-            "DefaultValue": "",
-            "Label": "",
-            "Desc": "",
-            "Validate": "",
-            "Fields": null
+            "name": "body",
+            "type": "string",
+            "defaultValue": "",
+            "label": "",
+            "desc": "",
+            "validate": "",
+            "fields": null
           }
         ]
       }
     ],
-    "Label": "SendEmailNode",
-    "Desc": "",
-    "RelationTypes": [
+    "label": "SendEmailNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": [
       "Success",
       "Failure"
     ]
   },
   {
-    "Type": "ssh",
-    "Pkg": "components/external",
-    "Fields": [
+    "type": "ssh",
+    "category": "external",
+    "fields": [
       {
-        "Name": "Host",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "host",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "Port",
-        "Type": "int",
-        "DefaultValue": 22,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "port",
+        "type": "int",
+        "defaultValue": 22,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "Username",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "username",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "Password",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "password",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "Cmd",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "cmd",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       }
     ],
-    "Label": "SshNode",
-    "Desc": "",
-    "RelationTypes": [
+    "label": "SshNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": [
       "Success",
       "Failure"
     ]
   },
   {
-    "Type": "fieldFilter",
-    "Pkg": "components/filter",
-    "Fields": [
+    "type": "fieldFilter",
+    "category": "filter",
+    "fields": [
       {
-        "Name": "CheckAllKeys",
-        "Type": "bool",
-        "DefaultValue": false,
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "checkAllKeys",
+        "type": "bool",
+        "defaultValue": false,
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "DataNames",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "dataNames",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       },
       {
-        "Name": "MetadataNames",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "metadataNames",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       }
     ],
-    "Label": "FieldFilterNode",
-    "Desc": "",
-    "RelationTypes": [
+    "label": "FieldFilterNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": [
       "True",
       "False",
       "Failure"
     ]
   },
   {
-    "Type": "jsFilter",
-    "Pkg": "components/filter",
-    "Fields": [
+    "type": "jsFilter",
+    "category": "filter",
+    "fields": [
       {
-        "Name": "JsScript",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "jsScript",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       }
     ],
-    "Label": "JsFilterNode",
-    "Desc": "",
-    "RelationTypes": [
+    "label": "JsFilterNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": [
       "True",
       "False",
       "Failure"
     ]
   },
   {
-    "Type": "jsSwitch",
-    "Pkg": "components/filter",
-    "Fields": [
+    "type": "jsSwitch",
+    "category": "filter",
+    "fields": [
       {
-        "Name": "JsScript",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "jsScript",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       }
     ],
-    "Label": "JsSwitchNode",
-    "Desc": "",
-    "RelationTypes": []
+    "label": "JsSwitchNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": []
   },
   {
-    "Type": "msgTypeSwitch",
-    "Pkg": "components/filter",
-    "Fields": null,
-    "Label": "MsgTypeSwitchNode",
-    "Desc": "",
-    "RelationTypes": []
+    "type": "msgTypeSwitch",
+    "category": "filter",
+    "fields": null,
+    "label": "MsgTypeSwitchNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": []
   },
   {
-    "Type": "jsTransform",
-    "Pkg": "components/transform",
-    "Fields": [
+    "type": "jsTransform",
+    "category": "transform",
+    "fields": [
       {
-        "Name": "JsScript",
-        "Type": "string",
-        "DefaultValue": "",
-        "Label": "",
-        "Desc": "",
-        "Validate": "",
-        "Fields": null
+        "name": "jsScript",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
       }
     ],
-    "Label": "JsTransformNode",
-    "Desc": "",
-    "RelationTypes": [
+    "label": "JsTransformNode",
+    "desc": "",
+    "icon": "",
+    "relationTypes": [
       "Success",
       "Failure"
     ]

@@ -47,8 +47,8 @@ func (c ComponentFormList) Values() []ComponentForm {
 	// 先按Pkg排序，再按Type排序
 	sort.Slice(values, func(i, j int) bool {
 		// 如果两个元素的Pkg不同，就按Pkg的字典序比较
-		if values[i].Pkg != values[j].Pkg {
-			return values[i].Pkg < values[j].Pkg
+		if values[i].Category != values[j].Category {
+			return values[i].Category < values[j].Category
 		}
 		// 否则，就按Type的字典序比较
 		return values[i].Type < values[j].Type
@@ -71,37 +71,39 @@ func (c ComponentFormFieldList) GetField(name string) (ComponentFormField, bool)
 //ComponentForm 组件表单，用于可视化加载组件表单
 type ComponentForm struct {
 	//Type 组件类型
-	Type string
-	//Pkg 组件包名，用于组件分类
-	Pkg string
+	Type string `json:"type"`
+	//Category 组件分类
+	Category string `json:"category"`
 	//配置字段,获取组件`Config`字段的所有公有字段
-	Fields ComponentFormFieldList
+	Fields ComponentFormFieldList `json:"fields"`
 	//Label 组件展示名称，预留，目前没值
-	Label string
+	Label string `json:"label"`
 	//Desc 组件说明，预留，目前没值
-	Desc string
+	Desc string `json:"desc"`
+	//Icon 图标，预留，如果没值则取type。
+	Icon string `json:"icon"`
 	//RelationTypes 和下一个节点能产生的连接名称列表，
 	//过滤器节点类型默认是：True/False/Failure；其他节点类型默认是Success/Failure
 	//如果是空，表示用户可以自定义连接关系
-	RelationTypes *[]string
+	RelationTypes *[]string `json:"relationTypes"`
 }
 
 //ComponentFormField 组件配置字段
 type ComponentFormField struct {
 	//Name 字段名称
-	Name string
+	Name string `json:"name"`
 	//Type 字段类型
-	Type string
+	Type string `json:"type"`
 	//默认值，组件实现的方法node.New(), Config对应的字段，提供了默认值会填充到该值
-	DefaultValue interface{}
-	//Label 字段展示名称，通过tag:Label获取
-	Label string
-	//Desc 字段说明，通过tag:Desc获取
-	Desc string
-	//Validate 校验规则，通过tag:Validate获取
-	Validate string
+	DefaultValue interface{} `json:"defaultValue"`
+	//Label 字段展示名称，通过tag:label获取
+	Label string `json:"label"`
+	//Desc 字段说明，通过tag:desc获取
+	Desc string `json:"desc"`
+	//Validate 校验规则，通过tag:validate获取
+	Validate string `json:"validate"`
 	//Fields 嵌套字段
-	Fields ComponentFormFieldList
+	Fields ComponentFormFieldList `json:"fields"`
 }
 
 //SafeComponentSlice 安全的组件列表切片
