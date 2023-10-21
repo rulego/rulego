@@ -203,3 +203,11 @@ func RemoveBraces(s string) string {
 	// Return the result string
 	return result
 }
+
+//ToLowerFirst 首字母转小写
+func ToLowerFirst(s string) string {
+	if s == "" {
+		return ""
+	}
+	return strings.ToLower(s[:1]) + s[1:]
+}
