@@ -71,7 +71,7 @@ type RuleMetadata struct {
 //RuleNode 规则链节点信息定义
 type RuleNode struct {
 	//节点的唯一标识符，可以是任意字符串
-	Id string `json:"Id"`
+	Id string `json:"id"`
 	//扩展字段
 	AdditionalInfo NodeAdditionalInfo `json:"additionalInfo"`
 	//节点的类型，决定了节点的逻辑和行为。它应该与规则引擎中注册的节点类型之一匹配。
