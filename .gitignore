@@ -42,3 +42,5 @@ vendor/
 
 # coverage file
 coverage.html
+
+rules
