@@ -63,6 +63,31 @@ func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string,
 	return paths, err
 }
 
+//IsExist 判断路径是否存在
+func IsExist(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsExist(err) {
+			return true
+		} else if os.IsNotExist(err) {
+			return false
+		} else {
+			return false
+		}
+	}
+	return true
+}
+
+//CreateDirs 创建文件夹
+func CreateDirs(path string) error {
+	if !IsExist(path) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 func isMatch(d fs.DirEntry, patterns ...string) bool {
 	for _, item := range patterns {
 		if matched, _ := filepath.Match(item, d.Name()); matched {

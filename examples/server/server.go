@@ -96,8 +96,10 @@ func main() {
 	logger = initLogger()
 
 	if ruleFile == "" {
-		ruleFile = "d://rules/"
+		ruleFile = "./rules/"
 	}
+	//创建文件夹
+	_ = fs.CreateDirs(ruleFile)
 	//初始化规则链文件夹
 	initRuleGo(logger, ruleFile)
 
@@ -299,6 +301,6 @@ func saveDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 		logger.Println(err)
 		exchange.Out.SetStatusCode(http.StatusInternalServerError)
 	} else {
-		exchange.Out.SetStatusCode(http.StatusCreated)
+		exchange.Out.SetStatusCode(http.StatusOK)
 	}
 }
