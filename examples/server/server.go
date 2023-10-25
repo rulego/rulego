@@ -25,11 +25,13 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	endpointMqtt "github.com/rulego/rulego/endpoint/mqtt"
 	endpointRest "github.com/rulego/rulego/endpoint/rest"
+	"github.com/rulego/rulego/examples/server/event"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
 	"log"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	//_ "net/http/pprof"
 	"os"
@@ -42,11 +44,16 @@ const (
 	apiVersion  = "v1"
 	apiBasePath = "/api/" + apiVersion + "/"
 
-	msgPath        = apiBasePath + "msg/:chainId/:msgType"
-	rulePath       = apiBasePath + "rule/:chainId"
+	//获取组件配置列表 POST /api/v1/msg/:chainId/:msgType
+	msgPath = apiBasePath + "msg/:chainId/:msgType"
+	//获取规则链描述文件 GET /api/v1/rule/:chainId
+	//保存或者修改规则链描述文件 POST /api/v1/rule/:chainId
+	rulePath = apiBasePath + "rule/:chainId"
+	//获取组件配置列表 /api/v1/components
 	componentsPath = apiBasePath + "components"
-
-	version = "1.0.0"
+	//获取规则链节点调试数据列表 /api/v1/event/debug?chainId=xx%nodeId=yy
+	eventPath = apiBasePath + "event/debug"
+	version   = "1.0.0"
 )
 
 var (
@@ -59,6 +66,9 @@ var (
 	mqttClientConfig = mqtt.Config{}
 	mqttAvailable    bool
 	logger           *log.Logger
+	//基于内存的节点调试数据管理器
+	//如果需要查询历史数据，请把调试日志数据存放数据库等可以持久化载体
+	ruleChainDebugData *event.RuleChainDebugData
 )
 
 func init() {
@@ -91,7 +101,8 @@ func main() {
 		fmt.Printf("RuleGo Server v%s", version)
 		os.Exit(0)
 	}
-
+	//基于内存的节点调试数据管理器
+	ruleChainDebugData = event.NewRuleChainDebugData(40)
 	//初始化日志
 	logger = initLogger()
 
@@ -131,8 +142,23 @@ func initRuleGo(logger *log.Logger, ruleFolder string) {
 
 	config := rulego.NewConfig(types.WithDefaultPool())
 	//调试模式回调信息
-	//debugMode=true 的节点会打印
-	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	//debugMode=true 的节点才会记录调试日志
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		//把日志记录到内存管理器，用于界面显示
+		ruleChainDebugData.Add(chainId, nodeId, event.DebugData{
+			Ts: time.Now().UnixMilli(),
+			//节点ID
+			NodeId: nodeId,
+			//流向OUT/IN
+			FlowType: flowType,
+			//消息
+			Msg: msg,
+			//关系
+			RelationType: relationType,
+			//Err 错误
+			Err: err,
+		})
+		//记录到日志文件
 		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 	}
 
@@ -188,8 +214,10 @@ func restServe(logger *log.Logger, addr string) {
 	restEndpoint.GET(createGetDslRouter())
 	//新增/修改规则链DSL
 	restEndpoint.POST(createSaveDslRouter())
-	//处理请求，并转发到规则引擎
+	//处理数据上报请求，并转发到规则引擎
 	restEndpoint.POST(createPostMsgRouter())
+	//获取节点调试数据
+	restEndpoint.GET(createGetDebugDataRouter())
 
 	//注册路由
 	_ = restEndpoint.Start()
@@ -246,6 +274,24 @@ func createComponentsRouter() *endpoint.Router {
 			exchange.Out.SetBody([]byte(err.Error()))
 		} else {
 			exchange.Out.SetBody(list)
+		}
+		return true
+	}).End()
+}
+
+//创建获取节点调试数据路由
+func createGetDebugDataRouter() *endpoint.Router {
+	//路由1
+	return endpoint.NewRouter().From(eventPath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		chainId := msg.Metadata.GetValue("chainId")
+		nodeId := msg.Metadata.GetValue("nodeId")
+		page := ruleChainDebugData.GetToPage(chainId, nodeId)
+		if v, err := json.Marshal(page); err != nil {
+			exchange.Out.SetStatusCode(500)
+			exchange.Out.SetBody([]byte(err.Error()))
+		} else {
+			exchange.Out.SetBody(v)
 		}
 		return true
 	}).End()
