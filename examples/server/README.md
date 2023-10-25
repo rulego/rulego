@@ -2,16 +2,16 @@
 
 ------
 
-This sample project demonstrates how to use RuleGo as a standalone rule chain engine service.
+This sample project demonstrates how to use RuleGo as a standalone rule engine service.
 
-The rule chain editor [RuleGoEditor](https://editor.rulego.cc/) has implemented all the interfaces of this project, and provides a visual configuration interface. After configuring the RuleGo backend HTTP API, you can manage and debug the rule chains.
+If you need visualization, you can use this tool: [RuleGoEditor](https://editor.rulego.cc/), configure the HTTP API of this project, and manage and debug the rule chain.
 
 The following features are provided:
 * Report data API, and pass it to the rule engine according to the rule chain definition.
 * Create rule chain API.
 * Update rule chain API.
-* Get node debug log API
-* Component list API
+* Get node debug log API.
+* Component list API.
 * Subscribe to MQTT data, and pass it to the rule engine according to the root rule chain definition.
 
 ## HTTP API
@@ -39,7 +39,7 @@ The following features are provided:
 * Get node debug log API
   - Get /api/v1/event/debug?&chainId={chainId}&nodeId={nodeId}
   - chainId: Rule chain ID
-  - nodeId: Specified node ID
+  - nodeId:  Node ID
 
 When the node `debugMode` is `true`, debug logs will be recorded. Currently, this interface logs are stored in memory, and each node saves the latest 40. If you need to get historical data, please implement the interface to store it in the database.
 
@@ -55,12 +55,12 @@ go build .
 ## server startup
 
 ```shell
-./server -rule_file="/home/pi/rulego/rules"
+./server -rule_file="./rules"
 ```
 
 Or start in the background
 ```shell
-nohup ./server -rule_file="/home/pi/rulego/rules" >> console.log &
+nohup ./server -rule_file="./rules" >> console.log &
 ```
 
 Startup parameters

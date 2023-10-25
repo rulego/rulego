@@ -2,16 +2,16 @@
 
 ------
 
-该示例工程演示如何把RuleGo作为一个独立运行规则链引擎服务。
+该示例工程演示如何把RuleGo作为一个独立运行的规则引擎服务。
 
-规则链编辑器[RuleGoEditor](https://editor.rulego.cc/) 已经实现该工程所有接口，并提供可视化配置界面，配置RuleGo后台HTTP API后，可以对规则链管理和调试。
+如果需要可视化，可以使用这个规则链编辑器工具：[RuleGoEditor](https://editor.rulego.cc/) ，配置该工程HTTP API，可以对规则链管理和调试。
 
 提供以下功能：
 * 上报数据API，并根据规则链定义交给规则引擎处理。
 * 创建规则链API。
 * 更新规则链API。
-* 获取节点调试日志API
-* 组件列表API
+* 获取节点调试日志API。
+* 组件列表API。
 * 订阅MQTT数据，并根据根规则链定义交给规则引擎处理。
 
 ## HTTP API
@@ -39,7 +39,8 @@
 * 获取节点调试日志API
   - Get /api/v1/event/debug?&chainId={chainId}&nodeId={nodeId}
   - chainId：规则链ID
-  - nodeId：指定节点ID
+  - nodeId：节点ID
+  
   当节点debugMode打开后，会记录调试日志。目前该接口日志存放在内存，每个节点保存最新的40条，如果需要获取历史数据，请实现接口存储到数据库。
 
 ## MQTT客户端订阅数据
@@ -54,16 +55,16 @@ go build .
 ## server启动
 
 ```shell
-./server -rule_file="/home/pi/rulego/rules"
+./server -rule_file="./rules"
 ```
 
 或者后台启动
 ```shell
-nohup ./server -rule_file="/home/pi/rulego/rules" >> console.log &
+nohup ./server -rule_file="./rules" >> console.log &
 ```
 
 启动参数    
-- rule_file: 规则链文件夹。默认:./rules/
+- rule_file: 规则链存储文件夹。默认:./rules/
 - port: http服务器端口。默认:9090
 - log_file: 日志存储文件路径。默认打印到控制台 
 - debug: "是否把节点调试日志打印到日志文件   
