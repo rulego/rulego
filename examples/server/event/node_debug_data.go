@@ -147,7 +147,7 @@ type DebugData struct {
 	//关系
 	RelationType string `json:"relationType"`
 	//Err 错误
-	Err error `json:"err"`
+	Err string `json:"err"`
 }
 
 //DebugDataPage 分页返回数据

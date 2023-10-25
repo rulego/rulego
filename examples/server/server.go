@@ -57,11 +57,11 @@ const (
 )
 
 var (
-	port     int
-	logfile  string
-	ver      bool
-	ruleFile string
-
+	port             int
+	logfile          string
+	ver              bool
+	ruleFile         string
+	debugToLog       bool
 	subscribeTopics  string
 	mqttClientConfig = mqtt.Config{}
 	mqttAvailable    bool
@@ -74,6 +74,7 @@ var (
 func init() {
 	flag.StringVar(&ruleFile, "rule_file", "", "规则链文件夹路径")
 	flag.IntVar(&port, "port", 9090, "http端口")
+	flag.BoolVar(&debugToLog, "debug", true, "是否把节点调试日志打印到日志文件")
 
 	flag.StringVar(&logfile, "log_file", "", "日志文件路径.")
 	flag.BoolVar(&ver, "version", false, "打印版本")
@@ -144,6 +145,10 @@ func initRuleGo(logger *log.Logger, ruleFolder string) {
 	//调试模式回调信息
 	//debugMode=true 的节点才会记录调试日志
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		var errStr = ""
+		if err != nil {
+			errStr = err.Error()
+		}
 		//把日志记录到内存管理器，用于界面显示
 		ruleChainDebugData.Add(chainId, nodeId, event.DebugData{
 			Ts: time.Now().UnixMilli(),
@@ -156,10 +161,12 @@ func initRuleGo(logger *log.Logger, ruleFolder string) {
 			//关系
 			RelationType: relationType,
 			//Err 错误
-			Err: err,
+			Err: errStr,
 		})
 		//记录到日志文件
-		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
+		if debugToLog {
+			config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
+		}
 	}
 
 	err := rulego.Load(ruleFolder, rulego.WithConfig(config))
