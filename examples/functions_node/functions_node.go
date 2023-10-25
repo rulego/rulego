@@ -45,7 +45,7 @@ func init() {
 	})
 
 	config := rulego.NewConfig()
-	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 	}
 	var err error

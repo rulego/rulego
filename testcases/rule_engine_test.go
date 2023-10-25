@@ -104,7 +104,7 @@ func loadFile(filePath string) []byte {
 
 func testRuleEngine(t *testing.T, ruleChainFile string, modifyNodeId, modifyNodeFile string) {
 	config := rulego.NewConfig()
-	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 		if flowType == types.Out && nodeId == modifyNodeId && modifyNodeId != "" {
 			indexStr := msg.Metadata.GetValue("index")
@@ -158,8 +158,8 @@ func TestSubRuleChain(t *testing.T) {
 	var group sync.WaitGroup
 	group.Add(maxTimes * 2)
 	config := rulego.NewConfig()
-	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		config.Logger.Printf("chainId=%s,flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", chainId, flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 	}
 	config.OnEnd = func(msg types.RuleMsg, err error) {
 		atomic.AddInt32(&completed, 1)
@@ -207,7 +207,7 @@ func TestRuleChainDebugMode(t *testing.T) {
 	config := rulego.NewConfig()
 	var inTimes int
 	var outTimes int
-	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		if flowType == types.In {
 			inTimes++
 		}
@@ -269,7 +269,7 @@ func TestRuleChainDebugMode(t *testing.T) {
 func TestNotDebugModel(t *testing.T) {
 	start := time.Now()
 	config := rulego.NewConfig()
-	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		assert.NotEqual(t, "s1", nodeId)
 		assert.NotEqual(t, "s2", nodeId)
 	}
@@ -326,7 +326,7 @@ func TestCallRestApi(t *testing.T) {
 	//wp, _ := ants.NewPool(math.MaxInt32)
 	//使用协程池
 	config := rulego.NewConfig(types.WithDefaultPool())
-	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		if err != nil {
 			config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 		}
@@ -357,7 +357,7 @@ func TestMsgTypeSwitch(t *testing.T) {
 	var wg sync.WaitGroup
 
 	config := rulego.NewConfig()
-	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		wg.Done()
 	}
 	ruleEngine, err := rulego.New(str.RandomStr(10), loadFile("./chain_msg_type_switch.json"), rulego.WithConfig(config))
@@ -481,7 +481,7 @@ func TestWait(t *testing.T) {
 	var wg sync.WaitGroup
 
 	config := rulego.NewConfig()
-	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		//fmt.Println(flowType, nodeId)
 		wg.Done()
 	}

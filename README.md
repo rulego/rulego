@@ -194,7 +194,7 @@ See `types.Config` for details
 config := rulego.NewConfig()
 //Debug node callback, the node configuration must be configured with debugMode:true to trigger the call
 //Both node input and output information will call this callback function
-config.OnDebug = func (flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+config.OnDebug = func (chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 }
 //Global rule chain end callback
 //If you just want to call for a single message, use the ruleEngine.OnMsgWithOptions method

@@ -166,7 +166,11 @@ func (ctx *DefaultRuleContext) getNextNodes(relationType string) ([]types.NodeCt
 
 func (ctx *DefaultRuleContext) onDebug(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 	if ctx.config.OnDebug != nil {
-		ctx.config.OnDebug(flowType, nodeId, msg.Copy(), relationType, err)
+		var chainId = ""
+		if ctx.ruleChainCtx != nil {
+			chainId = ctx.ruleChainCtx.Id.Id
+		}
+		ctx.config.OnDebug(chainId, flowType, nodeId, msg.Copy(), relationType, err)
 	}
 }
 

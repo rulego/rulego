@@ -52,7 +52,7 @@ func TestPlugin(t *testing.T) {
 	var group sync.WaitGroup
 	group.Add(maxTimes)
 	config := rulego.NewConfig()
-	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		config.Logger.Printf("flowType=%s,nodeId=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Data, msg.Metadata, relationType, err)
 	}
 	config.OnEnd = func(msg types.RuleMsg, err error) {
@@ -94,7 +94,7 @@ func TestReloadPlugin(t *testing.T) {
 	var group sync.WaitGroup
 	group.Add(maxTimes)
 	config := rulego.NewConfig()
-	config.OnDebug = func(flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		config.Logger.Printf("flowType=%s,nodeId=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Data, msg.Metadata, relationType, err)
 	}
 	config.OnEnd = func(msg types.RuleMsg, err error) {

@@ -25,12 +25,13 @@ import (
 // Config 规则引擎配置
 type Config struct {
 	//OnDebug 节点调试信息回调函数，只有节点debugMode=true才会调用
+	//ruleChainId 规则链ID
 	//flowType IN/OUT,流入(IN)该组件或者流出(OUT)该组件事件类型
 	//nodeId 节点ID
 	//msg 当前msg
 	//relationType 如果flowType=IN，则代表上一个节点和该节点的连接关系，例如(True/False);如果flowType=OUT，则代表该节点和下一个节点的连接关系，例如(True/False)
 	//err 错误信息
-	OnDebug func(flowType string, nodeId string, msg RuleMsg, relationType string, err error)
+	OnDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)
 	//OnEnd 规则链执行完成回调函数，如果有多个结束点，则执行多次
 	OnEnd func(msg RuleMsg, err error)
 	//JsMaxExecutionTime js脚本执行超时时间，默认2000毫秒
@@ -98,7 +99,7 @@ func WithComponentsRegistry(componentsRegistry ComponentRegistry) Option {
 }
 
 // WithOnDebug is an option that sets the on debug callback of the Config.
-func WithOnDebug(onDebug func(flowType string, nodeId string, msg RuleMsg, relationType string, err error)) Option {
+func WithOnDebug(onDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)) Option {
 	return func(c *Config) error {
 		c.OnDebug = onDebug
 		return nil

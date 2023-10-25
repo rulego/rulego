@@ -195,7 +195,7 @@ rulego.Del("rule01")
 config := rulego.NewConfig()
 //调试节点回调，节点配置必须配置debugMode:true 才会触发调用
 //节点入和出信息都会调用该回调函数
-config.OnDebug = func (flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+config.OnDebug = func (chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 }
 //全局的规则链结束回调
 //如果只是想要某一次消息调用，使用ruleEngine.OnMsgWithOptions方式
