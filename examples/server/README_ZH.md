@@ -1,11 +1,18 @@
 # server
 
 ------
-提供以下功能：
-* 提供通过HTTP方式上报数据，并根据规则链定义交给规则引擎处理。
-* 提供通过HTTP方式管理根规则链定义。
-* 提供MQTT 客户端，指定订阅指定主题数据，并根据根规则链定义交给规则引擎处理。
 
+该示例工程演示如何把RuleGo作为一个独立运行规则链引擎服务。
+
+规则链编辑器[RuleGoEditor](https://editor.rulego.cc/) 已经实现该工程所有接口，并提供可视化配置界面，配置RuleGo后台HTTP API后，可以对规则链管理和调试。
+
+提供以下功能：
+* 上报数据API，并根据规则链定义交给规则引擎处理。
+* 创建规则链API。
+* 更新规则链API。
+* 获取节点调试日志API
+* 组件列表API
+* 订阅MQTT数据，并根据根规则链定义交给规则引擎处理。
 
 ## HTTP API
 
@@ -29,6 +36,12 @@
   - nodeId：空则更新规则链定义，否则更新规则链指定节点ID节点定义
   - body：更新内容
 
+* 获取节点调试日志API
+  - Get /api/v1/event/debug?&chainId={chainId}&nodeId={nodeId}
+  - chainId：规则链ID
+  - nodeId：指定节点ID
+  当节点debugMode打开后，会记录调试日志。目前该接口日志存放在内存，每个节点保存最新的40条，如果需要获取历史数据，请实现接口存储到数据库。
+
 ## MQTT客户端订阅数据
 
 默认订阅所有主题数据，往该主题发布的数据都会根据`default`规则链定义交给规则引擎处理。
@@ -41,19 +54,22 @@ go build .
 ## server启动
 
 ```shell
-./server -server="127.0.0.1:1883" -rule_file="/home/pi/rulego/rules"
+./server -rule_file="/home/pi/rulego/rules"
 ```
 
 或者后台启动
 ```shell
-nohup ./server -server="127.0.0.1:1883" -rule_file="/home/pi/rulego/rules" >> console.log &
+nohup ./server -rule_file="/home/pi/rulego/rules" >> console.log &
 ```
 
 启动参数    
-server: 连接mqtt broker       
-username：连接mqtt broker 用户名    
-password：连接mqtt broker 密码    
-topics：连接mqtt broker 订阅消息主题，多个主题与`,`号隔开    
-rule_file: 规则链文件夹    
-port: http服务器端口  
-log_file: 日志存储文件路径     
+- rule_file: 规则链文件夹。默认:./rules/
+- port: http服务器端口。默认:9090
+- log_file: 日志存储文件路径。默认打印到控制台 
+- debug: "是否把节点调试日志打印到日志文件   
+- mqtt:mqtt 订阅是否开启。默认:false
+- server: 连接mqtt broker。默认:127.0.0.1:1883
+- username：连接mqtt broker 用户名    
+- password：连接mqtt broker 密码    
+- topics：连接mqtt broker 订阅消息主题，多个主题与`,`号隔开。默认:#
+ 
