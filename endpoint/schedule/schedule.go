@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-// Package scheduling 用于启动定时任务
-//路由from支持以下corn表达式
+// Package schedule 用于启动定时任务
+//路由from支持以下cron表达式
 
 //Field name   | Mandatory? | Allowed values  | Allowed special characters
 //----------   | ---------- | --------------  | --------------------------
@@ -204,7 +204,7 @@ func (schedule *Schedule) AddRouterWithParams(router *endpoint.Router, params ..
 	if schedule.cron == nil {
 		schedule.cron = cron.New(cron.WithSeconds())
 	}
-	//获取corn表达式
+	//获取cron表达式
 	from := router.GetFrom().From
 	//添加任务
 	id, err := schedule.cron.AddFunc(from, func() {
@@ -231,15 +231,6 @@ func (schedule *Schedule) Start() error {
 	}
 	schedule.cron.Start()
 	return nil
-}
-
-//从存储器中删除路由
-func (schedule *Schedule) deleteRouter(from string) {
-	schedule.Lock()
-	defer schedule.Unlock()
-	if schedule.RouterStorage != nil {
-		delete(schedule.RouterStorage, from)
-	}
 }
 
 func (schedule *Schedule) Printf(format string, v ...interface{}) {
