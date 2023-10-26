@@ -17,6 +17,7 @@
 package mqtt
 
 import (
+	"errors"
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/mqtt"
@@ -189,14 +190,17 @@ func (m *Mqtt) Id() string {
 	return m.Config.Server
 }
 
-func (m *Mqtt) AddRouterWithParams(router *endpoint.Router, params ...interface{}) error {
+func (m *Mqtt) AddRouterWithParams(router *endpoint.Router, params ...interface{}) (string, error) {
+	if router == nil {
+		return "", errors.New("router can not nil")
+	}
 	m.AddRouter(router)
-	return nil
+	return router.GetFrom().From, nil
 }
 
-func (m *Mqtt) RemoveRouterWithParams(from string, params ...interface{}) error {
-	m.deleteRouter(from)
-	return m.client.UnregisterHandler(from)
+func (m *Mqtt) RemoveRouterWithParams(routerId string, params ...interface{}) error {
+	m.deleteRouter(routerId)
+	return m.client.UnregisterHandler(routerId)
 }
 
 //AddRouter 添加路由

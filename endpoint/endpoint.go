@@ -45,9 +45,12 @@ type Endpoint interface {
 	//Start 启动服务
 	Start() error
 	//AddRouterWithParams 添加路由，指定参数
-	AddRouterWithParams(router *Router, params ...interface{}) error
+	//返回路由ID，路由ID一般是from值，但某些Endpoint允许from值重复，Endpoint会返回新的路由ID，
+	//路由ID用于路由删除
+	AddRouterWithParams(router *Router, params ...interface{}) (string, error)
 	//RemoveRouterWithParams 删除路由，指定参数
-	RemoveRouterWithParams(from string, params ...interface{}) error
+	//routerId:路由ID
+	RemoveRouterWithParams(routerId string, params ...interface{}) error
 }
 
 //Message 接收端点数据抽象接口

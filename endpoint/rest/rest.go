@@ -207,23 +207,25 @@ func (rest *Rest) Id() string {
 	return rest.Config.Server
 }
 
-func (rest *Rest) AddRouterWithParams(router *endpoint.Router, params ...interface{}) error {
+func (rest *Rest) AddRouterWithParams(router *endpoint.Router, params ...interface{}) (string, error) {
 	if len(params) <= 0 {
-		return errors.New("need to specify HTTP method")
+		return "", errors.New("need to specify HTTP method")
+	} else if router == nil {
+		return "", errors.New("router can not nil")
 	} else {
 		for _, item := range params {
 			rest.AddRouter(str.ToString(item), router)
 		}
-		return nil
+		return router.GetFrom().From, nil
 	}
 }
 
-func (rest *Rest) RemoveRouterWithParams(from string, params ...interface{}) error {
+func (rest *Rest) RemoveRouterWithParams(routerId string, params ...interface{}) error {
 	if len(params) <= 0 {
 		return errors.New("need to specify HTTP method")
 	} else {
 		for _, item := range params {
-			if router, ok := rest.RouterStorage[rest.routerKey(str.ToString(item), from)]; ok {
+			if router, ok := rest.RouterStorage[rest.routerKey(str.ToString(item), routerId)]; ok {
 				router.Disable(true)
 			}
 		}
