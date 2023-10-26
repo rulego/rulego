@@ -18,6 +18,7 @@ package event
 
 import (
 	"github.com/rulego/rulego/api/types"
+	"sort"
 	"sync"
 )
 
@@ -73,6 +74,10 @@ func (d *RuleChainDebugData) GetToPage(chainId string, nodeId string) DebugDataP
 	var page = DebugDataPage{}
 	if list != nil {
 		page.Total = list.Len()
+		//ts降序排序
+		sort.Slice(list.Items, func(i, j int) bool {
+			return list.Items[i].Ts > list.Items[j].Ts
+		})
 		page.Items = list.Items
 	}
 	return page
