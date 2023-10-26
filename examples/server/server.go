@@ -69,6 +69,8 @@ var (
 	//基于内存的节点调试数据管理器
 	//如果需要查询历史数据，请把调试日志数据存放数据库等可以持久化载体
 	ruleChainDebugData *event.RuleChainDebugData
+	//ruleGo 配置
+	config types.Config
 )
 
 func init() {
@@ -141,7 +143,7 @@ func initLogger() *log.Logger {
 //初始化规则链池
 func initRuleGo(logger *log.Logger, ruleFolder string) {
 
-	config := rulego.NewConfig(types.WithDefaultPool())
+	config = rulego.NewConfig(types.WithDefaultPool())
 	//调试模式回调信息
 	//debugMode=true 的节点才会记录调试日志
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
@@ -341,7 +343,7 @@ func saveDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 				err = ruleEngine.ReloadChild(nodeId, exchange.In.Body())
 			}
 		} else {
-			_, err = rulego.New(chainId, body)
+			_, err = rulego.New(chainId, body, rulego.WithConfig(config))
 		}
 		//保存到文件
 		dir, _ := filepath.Split(ruleFile)
