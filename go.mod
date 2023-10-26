@@ -3,7 +3,7 @@ module github.com/rulego/rulego
 go 1.18
 
 require (
-	github.com/dop251/goja v0.0.0-20230605162241-28ee0ee714f3
+	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/gofrs/uuid/v5 v5.0.0
