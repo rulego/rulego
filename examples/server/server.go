@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/rulego/rulego"
+	"github.com/rulego/rulego-components/external/redis"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint"
@@ -94,6 +95,8 @@ func init() {
 	flag.StringVar(&mqttClientConfig.CertKeyFile, "key_file", "", "key_file of the client.")
 	flag.StringVar(&subscribeTopics, "topics", "#", "订阅的主题")
 
+	//注册扩展组件库
+	_ = rulego.Registry.Register(&redis.ClientNode{})
 }
 
 func main() {
