@@ -66,7 +66,7 @@ var chainJsonFile = `
         "type": "dbClient",
         "name": "插入1条记录",
         "configuration": {
-			"dbType":"mysql",
+			"driverName":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
 			"poolSize":5,
 			"sql":"insert into users (id,name, age) values (?,?,?)",
@@ -78,7 +78,7 @@ var chainJsonFile = `
         "type": "dbClient",
         "name": "查询1条记录",
         "configuration": {
-			"dbType":"mysql",
+			"driverName":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
 			"sql":"select * from users where id = ?",
 			"params":["${id}"],
@@ -90,7 +90,7 @@ var chainJsonFile = `
         "type": "dbClient",
         "name": "查询多条记录，参数不使用占位符",
         "configuration": {
-			"dbType":"mysql",
+			"driverName":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
 			"sql":"select * from users where age >= ${age}"
         }
@@ -100,7 +100,7 @@ var chainJsonFile = `
         "type": "dbClient",
         "name": "更新记录，参数使用占位符",
         "configuration": {
-			"dbType":"mysql",
+			"driverName":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
 			"sql":"update users set age = ? where id = ?",
 			"params":["${updateAge}","${id}"]
@@ -111,7 +111,7 @@ var chainJsonFile = `
         "type": "dbClient",
         "name": "删除记录",
         "configuration": {
-			"dbType":"mysql",
+			"driverName":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
 			"sql":"delete from users"
         }

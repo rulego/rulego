@@ -36,7 +36,7 @@ func TestMysqlDbClientNodeOnMsg(t *testing.T) {
 func TestPgDbClientNodeOnMsg(t *testing.T) {
 	testDbClientNodeOnMsg(t, "postgres", "postgres://postgres:postgres@127.0.0.1:5432/test?sslmode=disable")
 }
-func testDbClientNodeOnMsg(t *testing.T, dbType, dsn string) {
+func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 
 	metaData := types.NewMetadata()
 	config := types.NewConfig()
@@ -46,7 +46,7 @@ func testDbClientNodeOnMsg(t *testing.T, dbType, dsn string) {
 	configuration["sql"] = "insert into users (id,name, age) values (?,?,?)"
 	configuration["params"] = []interface{}{"${id}", "${name}", "${age}"}
 	configuration["poolSize"] = 10
-	configuration["dbType"] = dbType
+	configuration["driverName"] = driverName
 	configuration["dsn"] = dsn
 
 	node := new(DbClientNode)
@@ -88,7 +88,7 @@ func testDbClientNodeOnMsg(t *testing.T, dbType, dsn string) {
 	configuration["params"] = []interface{}{"${id}"}
 	configuration["getOne"] = true
 	configuration["poolSize"] = 10
-	configuration["dbType"] = dbType
+	configuration["driverName"] = driverName
 	configuration["dsn"] = dsn
 
 	node = new(DbClientNode)
@@ -120,7 +120,7 @@ func testDbClientNodeOnMsg(t *testing.T, dbType, dsn string) {
 	configuration["params"] = nil
 	configuration["getOne"] = false
 	configuration["poolSize"] = 10
-	configuration["dbType"] = dbType
+	configuration["driverName"] = driverName
 	configuration["dsn"] = dsn
 
 	node = new(DbClientNode)
@@ -149,7 +149,7 @@ func testDbClientNodeOnMsg(t *testing.T, dbType, dsn string) {
 	configuration["sql"] = "update users set age = ? where id = ?"
 	configuration["params"] = []interface{}{"${age}", "${id}"}
 	configuration["poolSize"] = 10
-	configuration["dbType"] = dbType
+	configuration["driverName"] = driverName
 	configuration["dsn"] = dsn
 
 	node = new(DbClientNode)
@@ -177,7 +177,7 @@ func testDbClientNodeOnMsg(t *testing.T, dbType, dsn string) {
 	configuration["sql"] = "delete from users"
 	configuration["params"] = nil
 	configuration["poolSize"] = 10
-	configuration["dbType"] = dbType
+	configuration["driverName"] = driverName
 	configuration["dsn"] = dsn
 
 	node = new(DbClientNode)

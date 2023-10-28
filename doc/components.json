@@ -124,7 +124,7 @@
         "fields": null
       },
       {
-        "name": "dbType",
+        "name": "driverName",
         "type": "string",
         "defaultValue": "",
         "label": "",

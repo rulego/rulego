@@ -53,8 +53,8 @@ type DbClientNodeConfiguration struct {
 	GetOne bool
 	// PoolSize 连接池大小
 	PoolSize int
-	// DbType 数据库类型，mysql或postgres
-	DbType string
+	// DriverName 数据库驱动名称，mysql或postgres
+	DriverName string
 	// Dsn 数据库连接配置，参考sql.Open参数
 	Dsn string
 }
@@ -82,10 +82,10 @@ func (x *DbClientNode) New() types.Node {
 func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		if x.Config.DbType == "" {
-			x.Config.DbType = "mysql"
+		if x.Config.DriverName == "" {
+			x.Config.DriverName = "mysql"
 		}
-		x.db, err = sql.Open(x.Config.DbType, x.Config.Dsn)
+		x.db, err = sql.Open(x.Config.DriverName, x.Config.Dsn)
 		if err == nil {
 			x.db.SetMaxOpenConns(x.Config.PoolSize)
 			x.db.SetMaxIdleConns(x.Config.PoolSize / 2)
@@ -110,7 +110,7 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 			}
 
 			//检查是否需要转换成$1风格占位符
-			x.Config.Sql = str.ConvertDollarPlaceholder(x.Config.Sql, x.Config.DbType)
+			x.Config.Sql = str.ConvertDollarPlaceholder(x.Config.Sql, x.Config.DriverName)
 		}
 	}
 	return err
