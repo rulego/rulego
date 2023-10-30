@@ -1,3 +1,6 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
 name: Go
 
 on:
@@ -31,14 +34,13 @@ jobs:
             examples/server/rulego-server-linux-amd64
             examples/server/rulego-server-windows-amd64.exe
             examples/server/rulego-server-macos-amd64
-       - name: Create Release
-         uses: actions/create-release@v1
-         env:
-           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-         with:
-           tag_name: ${{ github.ref }}
-           release_name: Release ${{ github.ref }}
-           body: ${{ github.event.head_commit.message }}
-           draft: false
-           prerelease: false
-
+      - name: Create Release
+          uses: actions/create-release@v1
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          with:
+            tag_name: ${{ github.ref }}
+            release_name: Release ${{ github.ref }}
+            body: ${{ github.event.head_commit.message }}
+            draft: false
+            prerelease: false
