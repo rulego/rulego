@@ -11,10 +11,10 @@
 - feat:http endpoint增加global options handler
 - feat:增加作为中间件独立运行的规则引擎示例工程，并提供二进制文件 [examples/server](https://github.com/rulego/rulego/tree/main/examples/server)
 - feat:endpoint.AddRouterWithParams 返回 routerId
-- feat:可视化相关api返回的json字段改成首字母小写
-- feat:onDebug回调函数，可以得到规则链ID
+- feat:可视化相关api返回的json，字段首字母改成小写
+- feat:onDebug回调函数，可以得到规则链id
 - feat:完善ctx.TellSelf逻辑
-- fix:节点转换成功json Id 改成id
+- fix:规则链JSON文件，节点Id字段改成首字母小写：id
 - opt:upgraded github.com/dop251/goja v0.0.0-20230605162241-28ee0ee714f3 => v0.0.0-20231024180952-594410467bc6
 - opt:组件包结构调整
 - opt:dbClient节点dbType改成driverName
