@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## [v0.16.0] 2023/11/1
+
+- feat:提供规则链可视化编辑器RuleGo-Editor [在线使用](https://editor.rulego.cc/)
+- feat:增加ssh节点组件  [文档](https://rulego.cc/pages/fa62c1/)
+- feat:增加延迟节点组件 [文档](https://rulego.cc/pages/5f5612/)
+- feat:增加functions节点组件 [文档](https://rulego.cc/pages/b7edde/)
+- feat:dbClient节点组件支持手动导入数据库驱动，例如：TDengine
+- feat:增加schedule endpoint组件 [文档](https://rulego.cc/pages/4c4e4c/)
+- feat:http endpoint增加global options handler
+- feat:增加作为中间件独立运行的规则引擎示例工程，并提供二进制文件 [examples/server](https://github.com/rulego/rulego/tree/main/examples/server)
+- feat:endpoint.AddRouterWithParams 返回 routerId
+- feat:可视化相关api返回的json字段改成首字母小写
+- feat:onDebug回调函数，可以得到规则链ID
+- feat:完善ctx.TellSelf逻辑
+- fix:节点转换成功json Id 改成id
+- opt:upgraded github.com/dop251/goja v0.0.0-20230605162241-28ee0ee714f3 => v0.0.0-20231024180952-594410467bc6
+- opt:组件包结构调整
+- opt:dbClient节点dbType改成driverName
+- opt:完善文档
+
 ## [v0.15.0] 2023/10/7
 
 - feat:增加文档官网: [rulego.cc](https://rulego.cc/)
