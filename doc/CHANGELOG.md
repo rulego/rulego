@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## [v0.16.0] 2023/11/1
+## [v0.16.0] 2023/10/30
 
 - feat:提供规则链可视化编辑器RuleGo-Editor [在线使用](https://editor.rulego.cc/)
 - feat:增加ssh节点组件  [文档](https://rulego.cc/pages/fa62c1/)
