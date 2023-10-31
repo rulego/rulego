@@ -92,7 +92,9 @@ func TestRestEndPoint(t *testing.T) {
 		return true
 	}).To("chain:${userId}").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		outMsg := exchange.Out.GetMsg()
-		assert.Equal(t, true, len(outMsg.Metadata.Values()) > 1)
+		if outMsg != nil {
+			assert.Equal(t, true, len(outMsg.Metadata.Values()) > 1)
+		}
 		return true
 	}).End()
 

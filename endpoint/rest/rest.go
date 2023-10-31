@@ -74,12 +74,11 @@ func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
 }
 func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	if r.msg == nil {
-		ruleMsg := types.NewMsg(0, r.From(), types.JSON, types.NewMetadata(), "")
+		dataType := types.TEXT
 		if contentType := r.Headers().Get(ContentTypeKey); contentType == JsonContextType {
-			//如果Content-Type是application/json 类型，把body复制到msg.Data
-			ruleMsg.Data = string(r.Body())
+			dataType = types.JSON
 		}
-
+		ruleMsg := types.NewMsg(0, r.From(), dataType, types.NewMetadata(), string(r.Body()))
 		r.msg = &ruleMsg
 	}
 	return r.msg
