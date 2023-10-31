@@ -57,6 +57,7 @@ func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
 
 func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	if r.msg == nil {
+		//默认指定是JSON格式，如果不是该类型，请在process函数中修改
 		ruleMsg := types.NewMsg(0, r.From(), types.JSON, types.NewMetadata(), string(r.Body()))
 
 		ruleMsg.Metadata.PutValue("topic", r.From())
