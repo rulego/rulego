@@ -2,7 +2,10 @@ module examples/server
 
 go 1.18
 
-require github.com/rulego/rulego v0.15.1-0.20231027012310-0560d99791b4
+require (
+	github.com/rulego/rulego v0.15.1-0.20231027012310-0560d99791b4
+	github.com/rulego/rulego-components v0.14.1-0.20231009101748-8c00470d814d
+)
 
 require (
 	github.com/dlclark/regexp2 v1.7.0 // indirect
@@ -19,7 +22,6 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.29.0 // indirect
-	github.com/rulego/rulego-components v0.14.1-0.20231009101748-8c00470d814d // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
