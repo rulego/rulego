@@ -62,12 +62,103 @@ go get github.com/rulego/rulego
 
 ## 使用
 
-使用Json格式定义规则链DSL：      
+首先使用Json格式定义规则链。规则链的定义不需要学习特定的规则语法或者DSL，只要配置组件，并把他们通过一定的关系连接起来，即可实现你的功能需求。规则链定义：[参考规则链](https://rulego.cc/pages/6f46fc/)
 
-以下例子定义3个规则节点，规则链逻辑如下图：（更多例子参考[testcases/](testcases)）     
+RuleGo 使用极其简单和轻量级。只需以下2步：
 
-<img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;">
+1. 导入`RuleGo`包并创建一个规则引擎实例：
 
+```go
+import "github.com/rulego/rulego"
+
+//创建一个规则引擎实例，每个规则引擎实例有且只有一个根规则链
+ruleEngine, err := rulego.New("rule01", []byte(ruleFile))
+```
+
+2. 把消息、消息类型、消息元数据交给规则引擎实例处理，然后消息就会根据配置的规则链逻辑进行处理：
+
+```go
+//定义消息元数据
+metaData := types.NewMetadata()
+metaData.PutValue("productType", "test01")
+//定义消息内容和消息类型
+msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
+
+//把消息交给规则引擎处理
+ruleEngine.OnMsg(msg)
+
+```
+
+### 规则引擎管理API
+
+动态更新规则链
+
+```go
+//更新根规则链
+err := ruleEngine.ReloadSelf([]byte(ruleFile))
+//更新规则链下某个节点
+ruleEngine.ReloadChild("rule_chain_test", nodeFile)
+//获取规则链定义
+ruleEngine.DSL()
+
+```
+
+规则引擎实例管理：
+
+```go
+//加载文件夹所有规则链定义到规则引擎池
+rulego.Load("/rules", rulego.WithConfig(config))
+//通过ID获取已经创建的规则引擎实例
+ruleEngine, ok := rulego.Get("rule01")
+//删除已经创建的规则引擎实例
+rulego.Del("rule01")
+```
+
+配置：
+
+详见[文档](https://rulego.cc/pages/d59341/)
+
+```go
+//创建一个默认的配置
+config := rulego.NewConfig()
+//调试节点回调，节点配置必须配置debugMode:true 才会触发调用
+//节点入和出信息都会调用该回调函数
+config.OnDebug = func (chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+}
+//全局的规则链结束回调
+//如果只是想要某一次消息调用，使用ruleEngine.OnMsgWithOptions方式
+//注意：规则链如果有多个分支结束点，会调用多次
+config.OnEnd = func (msg types.RuleMsg, err error) {
+}
+//使用配置
+ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(config))
+```
+
+### 更多例子
+
+- 独立运行的示例工程：[server](examples/server)
+- 更多示例：[examples](examples)
+
+## 关于规则链
+
+### 规则节点
+
+[规则节点](https://rulego.cc/pages/83cba1/) 是规则链的基本组件，它是一个实现了特定业务逻辑的函数。规则节点可以对传入的消息进行过滤、转换、丰富或执行某些动作。规则节点可以通过配置参数来调整其行为和输出。
+你可以把业务很方便地封装成`RuleGo`节点组件，然后灵活配置和复用它们，像搭积木一样实现你的业务需求。 
+
+- 自定义节点组件：[examples/custom_component](examples/custom_component) 或者[文档](https://rulego.cc/pages/caed1b/) 
+- `go plugin`方式提供自定义组件：[examples/plugin](examples/custom_component) 或者[文档](https://rulego.cc/pages/caed1b/#go-plugin-%E6%96%B9%E5%BC%8F%E6%8F%90%E4%BE%9B%E7%BB%84%E4%BB%B6)
+- `RuleGo`内置大量[标准组件](https://rulego.cc/pages/88fc3c/) ，另外提供[扩展组件](https://rulego.cc/pages/d7fc43/)
+
+### 规则链
+
+[规则链](https://rulego.cc/pages/6f46fc/) 是 RuleGo 的核心概念，它是由多个规则节点组成的有向无环图，每个规则节点都是一个组件，可以实现不同的业务逻辑，节点与节点通过关系类型（relation type）进行连接。规则链可以动态配置和修改，支持嵌套和编排，实现复杂的业务流程。
+
+以下例子定义3个规则节点，分别是对数据进行过滤->转换->推送，规则链逻辑如下图：
+
+<img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;"/>
+
+规则链定义：
 ```json
 {
   "ruleChain": {
@@ -123,121 +214,25 @@ go get github.com/rulego/rulego
 }
 ```
 
-字段说明：
 
-- **`ruleChain`:** 规则链定义的根对象，包含以下字段：
-  - `id`: 类型：`string`，规则链ID，规则链的唯一标识。
-  - `name`: 类型：`string`，规则链的名称，可以是任意字符串。
-  - `root`: 类型：`boolean`，表示这个规则链是根规则链还是子规则链。每个规则引擎实例只允许有一个根规则链。
-- **`metadata`:** 类型：`object`，包含了规则链中节点和连接的信息，有以下字段：
-  - `nodes`: 类型：`node[]`，每个对象代表规则链中的一个规则节点。每个节点对象有以下字段：
-    - `id`: 节点的唯一标识符，可以是任意字符串。
-    - `type`: 节点的类型，决定了节点的逻辑和行为。它应该与规则引擎中注册的节点类型之一匹配。
-    - `name`: 节点的名称，可以是任意字符串。
-    - `debugMode`: 类型：`boolean`，表示这个节点是否处于调试模式。如果为真，当节点处理消息时，会触发调试回调函数。
-    - `configuration`: 类型：`object`，，包含了节点的配置参数，具体内容取决于节点类型。例如，一个JS过滤器节点可能有一个`jsScript`字段，定义了过滤逻辑，而一个REST API调用节点可能有一个`restEndpointUrlPattern`字段，定义了要调用的URL。
-  - `connections`: 类型：`connection[]`，每个对象代表规则链中两个节点之间的连接。每个连接对象有以下字段：
-    - `fromId`: 连接的源节点的id，应该与nodes数组中的某个节点id匹配。
-    - `toId`: 连接的目标节点的id，应该与nodes数组中的某个节点id匹配。
-    - `type`: 连接的类型，决定了什么时候以及如何把消息从一个节点发送到另一个节点。它应该与源节点类型支持的连接类型之一匹配。例如，一个JS过滤器节点可能支持两种连接类型："True"和"False"，表示消息是否通过或者失败过滤条件。
-  - `ruleChainConnections`: 类型：`ruleChainConnection[]`，，每个对象代表规则链中一个节点和一个子规则链之间的连接。每个规则链连接对象有以下字段：
-    - `fromId`: 连接的源节点的id，应该与nodes数组中的某个节点id匹配。
-    - `toId`: 连接的目标子规则链的id，应该与规则引擎中注册的子规则链之一匹配。
-    - `type`: 连接的类型，决定了什么时候以及如何把消息从一个节点发送到另一个节点。它应该与源节点类型支持的连接类型之一匹配。例如，一个JS过滤器节点可能支持两种连接类型："True"和"False"，表示消息是否通过或者失败过滤条件。
+其他规则链例子：
 
-导入`RuleGo`包并创建一个规则引擎实例：
+- 异步+顺序执行：  
 
-```go
-import "github.com/rulego/rulego"
-
-//创建一个规则引擎实例，每个规则引擎实例有且只有一个根规则链
-ruleEngine, err := rulego.New("rule01", []byte(ruleFile))
-```
-
-把消息、消息类型、消息元数据交给规则引擎实例处理：
-
-```go
-//定义消息元数据
-metaData := types.NewMetadata()
-metaData.PutValue("productType", "test01")
-//定义消息和消息类型
-msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
-
-//把消息交给规则引擎处理
-//引擎会根据规则链的配置处理数据，规则链配置支持热更新
-ruleEngine.OnMsg(msg)
-```
-
-更新规则链
-
-```go
-//更新根规则链
-err := ruleEngine.ReloadSelf([]byte(ruleFile))
-//更新规则链下某个节点
-ruleEngine.ReloadChild("rule_chain_test", nodeFile)
-```
-
-规则引擎实例管理：
-
-```go
-//通过ID获取已经创建的规则引擎实例
-ruleEngine, ok := rulego.Get("rule01")
-//删除已经创建的规则引擎实例
-rulego.Del("rule01")
-```
-
-### 配置
-
-详见`types.Config`
-
-```go
-//创建一个默认的配置
-config := rulego.NewConfig()
-//调试节点回调，节点配置必须配置debugMode:true 才会触发调用
-//节点入和出信息都会调用该回调函数
-config.OnDebug = func (chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-}
-//全局的规则链结束回调
-//如果只是想要某一次消息调用，使用ruleEngine.OnMsgWithOptions方式
-//注意：规则链如果有多个分支结束点，会调用多次
-config.OnEnd = func (msg types.RuleMsg, err error) {
-}
-//使用配置
-ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(config))
-```
-
-## 关于规则链
-
-
-### 规则节点
-
-规则节点是规则引擎的基本组件，它一次处理单个传入消息并生成一个或多个传出消息。规则节点是规则引擎的主要逻辑单元。规则节点可以过滤，丰富，转换传入消息，执行操作或与外部系统通信。 你可以把业务很方便地封装成`RuleGo`
-节点组件，然后灵活配置和复用它们，像搭积木一样实现你的业务需求。 
-
-- 自定义节点组件：[examples/custom_component](examples/custom_component) 或者[文档](https://rulego.cc/pages/caed1b/) 
-- `go plugin`方式提供自定义组件：[examples/plugin](examples/custom_component) 或者[文档](https://rulego.cc/pages/caed1b/#go-plugin-%E6%96%B9%E5%BC%8F%E6%8F%90%E4%BE%9B%E7%BB%84%E4%BB%B6)
-- `RuleGo`内置大量[标准组件](https://rulego.cc/pages/88fc3c/) ，另外提供[扩展组件](https://rulego.cc/pages/d7fc43/)
-
-### 规则链
-
-规则链是`规则节点`及其`关系`的逻辑组。接收来自节点的出站消息将其通过指定`关系`发送至下一个或多个节点。以下是一些常用的规则链例子：
-
-### 顺序执行：
-  <img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;">
+  <img src="doc/imgs/rulechain/img_2.png" style="height:50%;width:80%;"/>
 
 --------
-### 异步+顺序执行：  
-  <img src="doc/imgs/rulechain/img_2.png" style="height:50%;width:80%;">
+
+- 使用子规则链方式：
+
+  <img src="doc/imgs/rulechain/img_3.png" style="height:50%;width:80%;"/>
 
 --------
-### 使用子规则链方式：
-  <img src="doc/imgs/rulechain/img_3.png" style="height:50%;width:80%;">
 
---------
-### 一些复杂例子：
-  <img src="doc/imgs/rulechain/img_4.png" style="height:50%;width:80%;">
+- 一些复杂例子：
 
---------
+  <img src="doc/imgs/rulechain/img_4.png" style="height:50%;width:80%;"/>
+
 
 ## 数据集成
 

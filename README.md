@@ -63,24 +63,115 @@ go get github.com/rulego/rulego
 
 ## Usage
 
-Use Json format to define the rule chain DSL:     
-The following example defines 3 rule nodes, and the rule chain logic is as follows: (For more examples, refer to [testcases/](testcases))      
+First, define the rule chain in Json format. The rule chain definition does not require learning a specific rule syntax or DSL, just configure the components and connect them with certain relationships, and you can achieve your functional requirements. Rule chain definition: [Reference rule chain](https://rulego.cc/pages/6f46fc/)
 
-<img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;">
+RuleGo is extremely simple and lightweight. Just follow these 2 steps:
 
+1. Import the `RuleGo` package and create a rule engine instance:
+
+```go
+import "github.com/rulego/rulego"
+
+//Create a rule engine instance, each rule engine instance has only one root rule chain
+ruleEngine, err := rulego.New("rule01", []byte(ruleFile))
+```
+
+2. Pass the message, message type, message metadata to the rule engine instance for processing, and then the message will be processed according to the configured rule chain logic:
+
+```go
+//Define message metadata
+metaData := types.NewMetadata()
+metaData.PutValue("productType", "test01")
+//Define message content and message type
+msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
+
+//Pass the message to the rule engine for processing
+ruleEngine.OnMsg(msg)
+
+```
+
+### Rule engine management API
+
+Dynamically update the rule chain
+
+```go
+//Update the root rule chain
+err := ruleEngine.ReloadSelf([]byte(ruleFile))
+//Update a node under the rule chain
+ruleEngine.ReloadChild("rule_chain_test", nodeFile)
+//Get the rule chain definition
+ruleEngine.DSL()
+
+```
+
+Rule engine instance management:
+
+```go
+//Load all rule chain definitions in the folder to the rule engine pool
+rulego.Load("/rules", rulego.WithConfig(config))
+//Get a created rule engine instance by ID
+ruleEngine, ok := rulego.Get("rule01")
+//Delete a created rule engine instance
+rulego.Del("rule01")
+```
+
+Configuration:
+
+See [documentation](https://rulego.cc/pages/d59341/) for details
+
+```go
+//Create a default configuration
+config := rulego.NewConfig()
+//Debug node callback, node configuration must be configured debugMode:true to trigger call
+//Node entry and exit information will call this callback function
+config.OnDebug = func (chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+}
+//Global rule chain end callback
+//If you just want to call for a single message, use the ruleEngine.OnMsgWithOptions method
+//Note: If the rule chain has multiple branch endpoints, it will be called multiple times
+config.OnEnd = func (msg types.RuleMsg, err error) {
+}
+//Use configuration
+ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(config))
+```
+
+### More examples
+
+- Standalone example project: [server](examples/server)
+- More examples: [examples](examples)
+
+## About rule chain
+
+### Rule node
+
+[Rule nodes](https://rulego.cc/pages/83cba1/)  are the basic components of the rule chain, they are functions that implement specific business logic. Rule nodes can filter, transform, enrich or perform some actions on the incoming messages. Rule nodes can adjust their behavior and output by configuring parameters.
+You can easily encapsulate your business into `RuleGo` node components, and flexibly configure and reuse them, like building blocks to achieve your business requirements.
+
+- Custom node components: [examples/custom_component](examples/custom_component) or [documentation](https://rulego.cc/pages/caed1b/)
+- Provide custom components in `go plugin` way: [examples/plugin](examples/custom_component) or [documentation](https://rulego.cc/pages/caed1b/#go-plugin-%E6%96%B9%E5%BC%8F%E6%8F%90%E4%BE%9B%E7%BB%84%E4%BB%B6)
+- `RuleGo` provides a lot of [standard components](https://rulego.cc/pages/88fc3c/) , as well as [extended components](https://rulego.cc/pages/d7fc43/)
+
+### Rule chains
+
+[Rule chains](https://rulego.cc/pages/6f46fc/)  are the core concept of RuleGo, they are directed acyclic graphs composed of multiple rule nodes, each rule node is a component that can implement different business logic, nodes are connected by relationship types (relation type). Rule chains can be dynamically configured and modified, support nesting and orchestration, and implement complex business processes.
+
+The following example defines 3 rule nodes, which are to filter->transform->push data, the rule chain logic is as follows:
+
+<img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;"/>
+
+Rule chain definition:
 ```json
 {
   "ruleChain": {
     "name": "Test rule chain",
-    "root": true,
-    "debugMode": false
+    "root": true
   },
   "metadata": {
     "nodes": [
       {
         "id": "s1",
         "type": "jsFilter",
-        "name": "Filtering Data",
+        "name": "Filter",
         "debugMode": true,
         "configuration": {
           "jsScript": "return msg!='bb';"
@@ -89,7 +180,7 @@ The following example defines 3 rule nodes, and the rule chain logic is as follo
       {
         "id": "s2",
         "type": "jsTransform",
-        "name": "Transform Data",
+        "name": "Transform",
         "debugMode": true,
         "configuration": {
           "jsScript": "metadata['test']='test02';\n metadata['index']=50;\n msgType='TEST_MSG_TYPE2';\n var msg2=JSON.parse(msg);\n msg2['aa']=66;\n return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
@@ -98,7 +189,7 @@ The following example defines 3 rule nodes, and the rule chain logic is as follo
       {
         "id": "s3",
         "type": "restApiCall",
-        "name": "Call Rest Api Push Data",
+        "name": "Push data",
         "debugMode": true,
         "configuration": {
           "restEndpointUrlPattern": "http://192.168.216.21:9099/api/socket/msg",
@@ -123,117 +214,21 @@ The following example defines 3 rule nodes, and the rule chain logic is as follo
   }
 }
 ```
-Description:
-- **`ruleChain`:** The root object of the rule chain definition, which contains the following fields:
-  - `name`: The name of the rule chain, which can be any string.
-  - `root`: A boolean value indicating whether this rule chain is the root rule chain or a sub-rule chain. Only one root rule chain is allowed per rule engine instance.
-  - `debugMode`: A boolean value indicating whether this rule chain is in debug mode or not. If true, the debug callback function will be triggered when the rule chain processes messages.
-- **`metadata`:** An object that contains the information of the nodes and connections in the rule chain, which has the following fields:
-  - `nodes`: An array of objects, each representing a rule node in the rule chain. Each node object has the following fields:
-    - `id`: A unique identifier for the node, which can be any string.
-    - `type`: The type of the node, which determines the logic and behavior of the node. It should match one of the registered node types in the rule engine.
-    - `name`: The name of the node, which can be any string.
-    - `debugMode`: A boolean value indicating whether this node is in debug mode or not. If true, the debug callback function will be triggered when the node processes messages.
-    - `configuration`: An object that contains the configuration parameters for the node, which vary depending on the node type. For example, a JS filter node may have a `jsScript` field that defines the filtering logic, while a REST API call node may have a `restEndpointUrlPattern` field that defines the URL to call.
-  - `connections`: An array of objects, each representing a connection between two nodes in the rule chain. Each connection object has the following fields:
-    - `fromId`: The id of the source node of the connection, which should match one of the node ids in the nodes array.
-    - `toId`: The id of the destination node of the connection, which should match one of the node ids in the nodes array.
-    - `type`: The type of the connection, which determines when and how messages are sent from one node to another. It should match one of the supported connection types by the source node type. For example, a JS filter node may support two connection types: "True" and "False", indicating whether messages pass or fail the filter condition.
-  - `ruleChainConnections`: An array of objects, each representing a connection between a node and a sub-rule chain in the rule chain. Each rule chain connection object has the following fields:
-    - `fromId`: The id of the source node of the connection, which should match one of the node ids in the nodes array.
-    - `toId`: The id of the destination sub-rule chain of the connection, which should match one of the registered sub-rule chains in the rule engine.
-    - `type`: The type of the connection, which determines when and how messages are sent from one node to another. It should match one of the supported connection types by the source node type.
 
-Import the `RuleGo` package and create a rule engine instance:
+Other rule chain examples:
 
-```go
-import "github.com/rulego/rulego"
+- Asynchronous + sequential execution:
 
-//Create a rule engine instance, each rule engine instance has only one root rule chain
-ruleEngine, err := rulego.New("rule01", []byte(ruleFile))
-```
-
-Give the message, message type, and message metadata to the rule engine instance for processing:
-
-```go
-//Define message metadata
-metaData := types.NewMetadata()
-metaData.PutValue("productType", "test01")
-//Define message and message type
-msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
-
-//Give the message to the rule engine for processing
-//The engine will process data based on the configuration of the rule chain, which supports hot updates
-ruleEngine.OnMsg(msg)
-```
-
-Update rule chain
-
-```go
-//Update root rule chain
-err := ruleEngine.ReloadSelf([]byte(ruleFile))
-//Update a node of the rule chain
-ruleEngine.ReloadChild("rule_chain_test", nodeFile)
-```
-
-Rule engine instance management:
-
-```go
-//Get the created rule engine instance by ID
-ruleEngine, ok := rulego.Get("rule01")
-//Delete the created rule engine instance
-rulego.Del("rule01")
-```
-
-### Configuration
-
-See `types.Config` for details
-
-```go
-//Create a default configuration
-config := rulego.NewConfig()
-//Debug node callback, the node configuration must be configured with debugMode:true to trigger the call
-//Both node input and output information will call this callback function
-config.OnDebug = func (chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-}
-//Global rule chain end callback
-//If you just want to call for a single message, use the ruleEngine.OnMsgWithOptions method
-//Note: If the rule chain has multiple branch endpoints, it will be called multiple times
-config.OnEnd = func (msg types.RuleMsg, err error) {
-}
-//Use Configuration 
-ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(config))
-```
-
-## About rule chain
-
-### Rule node
-
-Rule node is the basic component of the rule engine, it processes a single incoming message at a time and generates one or more outgoing messages. Rule node is the main logic unit of the rule engine. Rule nodes can filter, enrich, transform incoming messages, execute actions or communicate with external systems. You can easily encapsulate your business into `RuleGo`
-node components, and then flexibly configure and reuse them, like building blocks to achieve your business needs. 
-
-- Custom node component: [examples/custom_component](examples/custom_component)  or [Documentation](https://rulego.cc/pages/caed1b/)
-- Provide custom components using the `go plugin` method: [examples/plugin](examples/custom_component) or [Documentation](https://rulego.cc/pages/caed1b/#go-plugin-%E6%96%B9%E5%BC%8F%E6%8F%90%E4%BE%9B%E7%BB%84%E4%BB%B6)
-- `RuleGo` has a large number of [standard components](https://rulego.cc/pages/88fc3c/), and also provides [extension components](https://rulego.cc/pages/d7fc43/)
-
-
-### Rule chain
-
-Rule chain is a logical group of `rule nodes` and their `relationTypes`. It receives outbound messages from nodes and sends them to the next node or nodes through a specified `relationship`. Here are some common rule chain examples:
-
-#### Sequential execution:
-  <img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;">
-
---------
-#### Asynchronous + sequential execution:
   <img src="doc/imgs/rulechain/img_2.png" style="height:50%;width:80%;">
 
 --------
-#### Using sub-rule chain method:
+- Using sub-rule chain method:
+
   <img src="doc/imgs/rulechain/img_3.png" style="height:50%;width:80%;">
 
 --------
-#### Some complex examples:
+- Some complex examples:
+
   <img src="doc/imgs/rulechain/img_4.png" style="height:50%;width:80%;">
 
 --------

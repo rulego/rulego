@@ -2,7 +2,7 @@
 
 ------
 
-该示例工程演示如何把RuleGo作为一个独立运行的规则引擎服务。
+该示例工程演示如何把RuleGo作为一个独立运行的规则引擎服务。你可以基于该工程进行二次开发，也可以直接下载可执行[二进制文件](https://github.com/rulego/rulego/releases)。
 
 如果需要可视化，可以使用这个规则链编辑器工具：[RuleGoEditor](https://editor.rulego.cc/) ，配置该工程HTTP API，可以对规则链管理和调试。
 

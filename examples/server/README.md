@@ -2,7 +2,7 @@
 
 ------
 
-This sample project demonstrates how to use RuleGo as a standalone rule engine service.
+This sample project demonstrates how to use RuleGo as a standalone rule engine service.You can do secondary development based on this project, or you can directly download the executable [binary file](https://github.com/rulego/rulego/releases) .
 
 If you need visualization, you can use this tool: [RuleGoEditor](https://editor.rulego.cc/), configure the HTTP API of this project, and manage and debug the rule chain.
 
