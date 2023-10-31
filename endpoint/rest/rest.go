@@ -326,10 +326,6 @@ func (rest *Rest) Router() *httprouter.Router {
 	return rest.router
 }
 
-func (rest *Rest) Stop() {
-
-}
-
 func (rest *Rest) routerKey(method string, from string) string {
 	return method + " " + from
 }
