@@ -160,9 +160,9 @@ type Schedule struct {
 }
 
 //New 创建一个新的Schedule Endpoint 实例
-func New() *Schedule {
+func New(ruleConfig types.Config) *Schedule {
 	uuId, _ := uuid.NewV4()
-	return &Schedule{cron: cron.New(cron.WithSeconds()), id: uuId.String()}
+	return &Schedule{RuleConfig: ruleConfig, cron: cron.New(cron.WithSeconds()), id: uuId.String()}
 }
 
 //Type 组件类型

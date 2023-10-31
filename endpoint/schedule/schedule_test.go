@@ -22,7 +22,7 @@ func TestScheduleEndPoint(t *testing.T) {
 	//注册规则链
 	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
 
-	scheduleEndpoint := New()
+	scheduleEndpoint := New(config)
 
 	//每隔1秒执行
 	router1 := endpoint.NewRouter().From("*/1 * * * * *").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
