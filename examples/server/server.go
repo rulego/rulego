@@ -17,27 +17,24 @@
 package main
 
 import (
+	"examples/server/event"
 	"flag"
 	"fmt"
 	"github.com/rulego/rulego"
-	"github.com/rulego/rulego-components/external/redis"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint"
 	endpointMqtt "github.com/rulego/rulego/endpoint/mqtt"
 	endpointRest "github.com/rulego/rulego/endpoint/rest"
-	"github.com/rulego/rulego/examples/server/event"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
 	"log"
 	"net/http"
-	"path/filepath"
-	"time"
-
-	//_ "net/http/pprof"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -95,8 +92,6 @@ func init() {
 	flag.StringVar(&mqttClientConfig.CertKeyFile, "key_file", "", "key_file of the client.")
 	flag.StringVar(&subscribeTopics, "topics", "#", "订阅的主题")
 
-	//注册扩展组件库
-	_ = rulego.Registry.Register(&redis.ClientNode{})
 }
 
 func main() {

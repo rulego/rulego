@@ -48,9 +48,19 @@ When the node `debugMode` is `true`, debug logs will be recorded. Currently, thi
 Subscribe to all topic data by default, and the data published to this topic will be passed to the rule engine according to the `default` rule chain definition.
 You can modify the subscription topic through `-topics`, separated by `,`
 
-## server compilation
+## Server compilation
 
+To save the size of the compiled file, the extension component [rulego-components](https://github.com/rulego/rulego-components) is not imported by default. The default compilation is:
+
+```shell
 go build .
+```
+
+If you need to import the extension component [rulego-components](https://github.com/rulego/rulego-components), use the `with_extend` tag to compile:
+
+```shell
+go build -tags with_extend .
+```
 
 ## server startup
 
