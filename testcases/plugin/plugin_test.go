@@ -54,13 +54,6 @@ func TestPlugin(t *testing.T) {
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		config.Logger.Printf("flowType=%s,nodeId=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Data, msg.Metadata, relationType, err)
 	}
-	config.OnEnd = func(msg types.RuleMsg, err error) {
-		assert.Equal(t, "AA", msg.Data)
-		v := msg.Metadata.GetValue("timestamp")
-		assert.True(t, v != "")
-		group.Done()
-		config.Logger.Printf("OnEnd data=%s,metaData=%s,err=%s", msg.Data, msg.Metadata, err)
-	}
 
 	ruleEngine, err := rulego.New(string2.RandomStr(10), []byte(testPluginRuleFile), rulego.WithConfig(config))
 	defer ruleEngine.Stop()
@@ -70,7 +63,13 @@ func TestPlugin(t *testing.T) {
 			metaData.PutValue("productType", "test01")
 			msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "aa")
 			//time.Sleep(time.Millisecond * 50)
-			ruleEngine.OnMsg(msg)
+			ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+				assert.Equal(t, "AA", msg.Data)
+				v := msg.Metadata.GetValue("timestamp")
+				assert.True(t, v != "")
+				group.Done()
+				config.Logger.Printf("OnEnd data=%s,metaData=%s,err=%s", msg.Data, msg.Metadata, err)
+			}))
 		}
 	}
 	group.Wait()
@@ -96,13 +95,6 @@ func TestReloadPlugin(t *testing.T) {
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		config.Logger.Printf("flowType=%s,nodeId=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Data, msg.Metadata, relationType, err)
 	}
-	config.OnEnd = func(msg types.RuleMsg, err error) {
-		assert.Equal(t, "AA", msg.Data)
-		v := msg.Metadata.GetValue("timestamp")
-		assert.True(t, v != "")
-		group.Done()
-		config.Logger.Printf("OnEnd data=%s,metaData=%s,err=%s", msg.Data, msg.Metadata, err)
-	}
 
 	ruleEngine, err := rulego.New(string2.RandomStr(10), []byte(testPluginRuleFile), rulego.WithConfig(config))
 	defer ruleEngine.Stop()
@@ -112,7 +104,13 @@ func TestReloadPlugin(t *testing.T) {
 			metaData.PutValue("productType", "test01")
 			msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "aa")
 			//time.Sleep(time.Millisecond * 50)
-			ruleEngine.OnMsg(msg)
+			ruleEngine.OnMsgWithEndFunc(msg, func(msg types.RuleMsg, err error) {
+				assert.Equal(t, "AA", msg.Data)
+				v := msg.Metadata.GetValue("timestamp")
+				assert.True(t, v != "")
+				group.Done()
+				config.Logger.Printf("OnEnd data=%s,metaData=%s,err=%s", msg.Data, msg.Metadata, err)
+			})
 
 		}
 	}
