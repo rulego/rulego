@@ -170,8 +170,7 @@ var chainJsonFile = `
         "toId": "s2",
         "type": "Success"
       }
-    ],
-    "ruleChainConnections": null
+    ]
   }
 }
 `

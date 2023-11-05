@@ -209,8 +209,7 @@ Rule chain definition:
         "toId": "s3",
         "type": "Success"
       }
-    ],
-    "ruleChainConnections": null
+    ]
   }
 }
 ```

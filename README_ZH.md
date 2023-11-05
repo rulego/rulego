@@ -208,8 +208,7 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
         "toId": "s3",
         "type": "Success"
       }
-    ],
-    "ruleChainConnections": null
+    ]
   }
 }
 ```

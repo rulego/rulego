@@ -101,8 +101,7 @@ var subRuleChain = `
 			"type": "True"
 		  }
  
-		],
-		"ruleChainConnections": null
+		]
 	  }
 	}
 `

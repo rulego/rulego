@@ -36,8 +36,7 @@ var testPluginRuleFile = `
 			"toId": "s2",
 			"type": "Success"
 		  }
-		],
-		"ruleChainConnections": null
+		]
 	  }
 	}
 `

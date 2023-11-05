@@ -47,6 +47,15 @@
         "configuration": {
           "jsScript": "return msgType+':s4';"
         }
+      },
+      {
+        "id": "sub_chain_02",
+        "type": "flow",
+        "name": "子规则链",
+        "debugMode": true,
+        "configuration": {
+          "targetId": "sub_chain_02"
+        }
       }
     ],
     "connections": [
@@ -64,10 +73,7 @@
         "fromId": "s1",
         "toId": "s4",
         "type": "TEST_MSG_TYPE2"
-      }
-
-    ],
-    "ruleChainConnections": [
+      },
       {
         "fromId": "s2",
         "toId": "sub_chain_02",

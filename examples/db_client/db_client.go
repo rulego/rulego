@@ -138,8 +138,7 @@ var chainJsonFile = `
 		"toId": "s5",
 		"type": "Success"
 	  }
-    ],
-    "ruleChainConnections": null
+    ]
   }
 }
 `

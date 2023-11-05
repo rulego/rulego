@@ -127,14 +127,8 @@ func InitRuleChainCtx(config types.Config, ruleChainDef *RuleChain) (*RuleChainC
 	}
 
 	if firstNode, ok := ruleChainCtx.GetFirstNode(); ok {
-		ruleChainCtx.rootRuleContext = &DefaultRuleContext{
-			config:       ruleChainCtx.Config,
-			ruleChainCtx: ruleChainCtx,
-			self:         firstNode,
-			isFirst:      true,
-			pool:         config.Pool,
-			context:      context.TODO(),
-		}
+		ruleChainCtx.rootRuleContext = NewRuleContext(context.TODO(), ruleChainCtx.Config, ruleChainCtx, nil,
+			firstNode, config.Pool, nil, nil)
 	}
 	return ruleChainCtx, nil
 }
@@ -234,14 +228,7 @@ func (rc *RuleChainCtx) Init(_ types.Config, configuration types.Configuration) 
 
 // OnMsg 处理消息
 func (rc *RuleChainCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
-	rootCtx := rc.rootRuleContext.(*DefaultRuleContext)
-	rootCtxCopy := NewRuleContext(rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, ctx.GetEndFunc(), ctx.GetContext())
-	rootCtxCopy.isFirst = rootCtx.isFirst
-	if fromCtx, ok := ctx.(*DefaultRuleContext); ok {
-		rootCtxCopy.parentRuleCtx = fromCtx
-	}
-
-	rootCtxCopy.TellNext(msg)
+	ctx.TellFlow(msg, rc.Id.Id, nil, nil)
 	return nil
 }
 
@@ -301,6 +288,7 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.nodes = newCtx.nodes
 	rc.nodeRoutes = newCtx.nodeRoutes
 	rc.rootRuleContext = newCtx.rootRuleContext
+	rc.ruleChainPool = newCtx.ruleChainPool
 	//清除缓存
 	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
 }

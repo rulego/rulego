@@ -153,6 +153,11 @@ type RuleContext interface {
 	TellNext(msg RuleMsg, relationTypes ...string)
 	//TellSelf 以指定的延迟（毫秒）向当前规则节点发送消息。
 	TellSelf(msg RuleMsg, delayMs int64)
+	//TellFlow 执行子规则链，ruleChainId 规则链ID
+	//onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次
+	//onAllNodeCompleted 所以节点执行完之后的回调，无结果返回
+	//如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
+	TellFlow(msg RuleMsg, ruleChainId string, endFunc func(msg RuleMsg, err error), onAllNodeCompleted func())
 	//NewMsg 创建新的消息实例
 	NewMsg(msgType string, metaData Metadata, data string) RuleMsg
 	//GetSelfId 获取当前节点ID
@@ -169,6 +174,8 @@ type RuleContext interface {
 	SetContext(c context.Context) RuleContext
 	//GetContext 获取用于不同组件实例共享信号量或者数据的上下文
 	GetContext() context.Context
+	//SetOnAllNodeCompleted 设置所有节点执行完回调
+	SetOnAllNodeCompleted(onAllNodeCompleted func())
 }
 
 // RuleContextOption 修改RuleContext选项的函数
@@ -183,6 +190,12 @@ func WithEndFunc(endFunc func(msg RuleMsg, err error)) RuleContextOption {
 func WithContext(c context.Context) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetContext(c)
+	}
+}
+
+func WithOnAllNodeCompleted(onAllNodeCompleted func()) RuleContextOption {
+	return func(rc RuleContext) {
+		rc.SetOnAllNodeCompleted(onAllNodeCompleted)
 	}
 }
 
