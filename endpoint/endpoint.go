@@ -545,7 +545,7 @@ func (ce *ComponentExecutor) Execute(ctx context.Context, router *Router, exchan
 		inMsg := exchange.In.GetMsg()
 		if toFlow := fromFlow.GetTo(); toFlow != nil && inMsg != nil {
 			//初始化的空上下文
-			ruleCtx := rulego.NewRuleContext(ce.config, nil, nil, nil, ce.config.Pool, func(msg types.RuleMsg, err error) {
+			ruleCtx := rulego.NewRuleContext(ctx, ce.config, nil, nil, nil, ce.config.Pool, func(msg types.RuleMsg, err error) {
 				if err != nil {
 					exchange.Out.SetError(err)
 				} else {
@@ -556,7 +556,7 @@ func (ce *ComponentExecutor) Execute(ctx context.Context, router *Router, exchan
 						break
 					}
 				}
-			}, ctx)
+			}, rulego.DefaultRuleGo)
 
 			c := make(chan struct{})
 			ruleCtx.SetAllCompletedFunc(func() {

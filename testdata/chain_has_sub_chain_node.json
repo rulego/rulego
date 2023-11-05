@@ -1,6 +1,6 @@
 {
   "ruleChain": {
-    "id":"chain_has_sub_chain",
+    "id":"chain_has_sub_chain_node",
     "name": "测试根规则链",
     "root": true
   },
@@ -23,6 +23,24 @@
         "configuration": {
           "jsScript": "metadata['test']='Modified by root chain';\n metadata['index']=51;\n msgType='TEST_MSG_TYPE1';var msg2={};\n  msg2['aa']=11\n return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
         }
+      },
+      {
+        "id": "root_flow_node_01",
+        "type": "flow",
+        "name": "子节点",
+        "debugMode": true,
+        "configuration": {
+          "targetId": "sub_chain_01"
+        }
+      },
+      {
+        "id": "root_s3",
+        "type": "log",
+        "name": "记录日志",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msgType+':root_s3';"
+        }
       }
     ],
     "connections": [
@@ -30,13 +48,16 @@
         "fromId": "root_s1",
         "toId": "root_s2",
         "type": "True"
-      }
-    ],
-    "ruleChainConnections": [
+      },
       {
         "fromId": "root_s1",
-        "toId": "sub_chain_01",
+        "toId": "root_flow_node_01",
         "type": "True"
+      },
+      {
+        "fromId": "root_flow_node_01",
+        "toId": "root_s3",
+        "type": "Success"
       }
     ]
   }

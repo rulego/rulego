@@ -107,8 +107,7 @@ var chainJsonFile = `
         "toId": "s4",
         "type": "TEST_MSG_TYPE2"
       }
-    ],
-    "ruleChainConnections": null
+    ]
   }
 }
 `

@@ -243,8 +243,7 @@ var defaultChain1 = `
         "toId": "s2",
         "type": "Success"
       }
-    ],
-    "ruleChainConnections": null
+    ]
   }
 }
 `
@@ -268,8 +267,7 @@ var defaultChain2 = `
       }
     ],
     "connections": [
-    ],
-    "ruleChainConnections": null
+    ]
   }
 }
 `

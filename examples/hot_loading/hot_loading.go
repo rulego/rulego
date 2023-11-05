@@ -106,8 +106,7 @@ var chainJsonFile1 = `
       }
     ],
     "connections": [
-    ],
-    "ruleChainConnections": null
+    ]
   }
 }
 `
@@ -148,8 +147,7 @@ var chainJsonFile2 = `
         "toId": "s2",
         "type": "Success"
       }
-    ],
-    "ruleChainConnections": null
+    ]
   }
 }
 `

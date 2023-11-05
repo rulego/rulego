@@ -18,6 +18,8 @@ package test
 
 import (
 	"context"
+	"fmt"
+	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"time"
 )
@@ -27,17 +29,19 @@ import (
 //无法把多个节点组成链式
 //callback 回调处理结果
 type NodeTestRuleContext struct {
-	config   types.Config
 	context  context.Context
+	config   types.Config
 	callback func(msg types.RuleMsg, relationType string)
 	self     types.Node
+	//所有子节点处理完成事件，只执行一次
+	onAllNodeCompleted func()
 }
 
 func NewRuleContext(config types.Config, callback func(msg types.RuleMsg, relationType string)) types.RuleContext {
 	return &NodeTestRuleContext{
+		context:  context.TODO(),
 		config:   config,
 		callback: callback,
-		context:  context.TODO(),
 	}
 }
 func NewRuleContextFull(config types.Config, self types.Node, callback func(msg types.RuleMsg, relationType string)) types.RuleContext {
@@ -97,4 +101,23 @@ func (ctx *NodeTestRuleContext) SetContext(c context.Context) types.RuleContext 
 
 func (ctx *NodeTestRuleContext) GetContext() context.Context {
 	return ctx.context
+}
+
+func (ctx *NodeTestRuleContext) GetRuleChainPool() *rulego.RuleGo {
+	return rulego.DefaultRuleGo
+}
+
+func (ctx *NodeTestRuleContext) TellFlow(msg types.RuleMsg, chainId string, endFunc func(msg types.RuleMsg, err error), onAllNodeCompleted func()) {
+
+	e, ok := ctx.GetRuleChainPool().Get(chainId)
+	if ok {
+		e.OnMsgWithOptions(msg, types.WithEndFunc(endFunc), types.WithOnAllNodeCompleted(onAllNodeCompleted))
+	} else {
+		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found", chainId))
+	}
+}
+
+//SetOnAllNodeCompleted 设置所有节点执行完回调
+func (ctx *NodeTestRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) {
+	ctx.onAllNodeCompleted = onAllNodeCompleted
 }

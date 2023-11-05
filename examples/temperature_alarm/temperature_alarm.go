@@ -112,8 +112,7 @@ var chainJsonFile = `
         "toId": "s4",
         "type": "Failure"
       }
-    ],
-    "ruleChainConnections": null
+    ]
   }
 }
 `

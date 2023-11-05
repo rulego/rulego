@@ -63,9 +63,12 @@ type RuleMetadata struct {
 	//连接定义
 	//每个对象代表规则链中两个节点之间的连接
 	Connections []NodeConnection `json:"connections"`
+
+	//Deprecated
+	//使用 Flow Node代替
 	//子规则链链接
 	//每个对象代表规则链中一个节点和一个子规则链之间的连接
-	RuleChainConnections []RuleChainConnection `json:"ruleChainConnections"`
+	RuleChainConnections []RuleChainConnection `json:"ruleChainConnections,omitempty"`
 }
 
 //RuleNode 规则链节点信息定义

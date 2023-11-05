@@ -73,8 +73,7 @@ var ruleChainFile = `
 			"toId": "s2",
 			"type": "True"
 		  }
-		],
-		"ruleChainConnections": null
+		]
 	  }
 	}
 `
@@ -161,12 +160,12 @@ func TestSubRuleChain(t *testing.T) {
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		config.Logger.Printf("chainId=%s,flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", chainId, flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 	}
-	config.OnEnd = func(msg types.RuleMsg, err error) {
-		atomic.AddInt32(&completed, 1)
-		group.Done()
-	}
+	//config.OnEnd = func(msg types.RuleMsg, err error) {
+	//	atomic.AddInt32(&completed, 1)
+	//	group.Done()
+	//}
 
-	ruleFile := loadFile("./chain_has_sub_chain.json")
+	ruleFile := loadFile("./chain_has_sub_chain_node.json")
 	subRuleFile := loadFile("./sub_chain.json")
 	//初始化子规则链实例
 	_, err := rulego.New("sub_chain_01", subRuleFile, rulego.WithConfig(config))
@@ -183,6 +182,10 @@ func TestSubRuleChain(t *testing.T) {
 
 		//处理消息并得到处理结果
 		ruleEngine.OnMsgWithEndFunc(msg, func(msg types.RuleMsg, err error) {
+
+			atomic.AddInt32(&completed, 1)
+			group.Done()
+
 			if msg.Type == "TEST_MSG_TYPE1" {
 				//root chain end
 				assert.Equal(t, msg.Data, "{\"aa\":11}")
@@ -199,6 +202,7 @@ func TestSubRuleChain(t *testing.T) {
 	}
 	group.Wait()
 	assert.Equal(t, int32(maxTimes*2), completed)
+	time.Sleep(time.Second * 1)
 	fmt.Printf("use times:%s \n", time.Since(start))
 }
 
@@ -455,7 +459,7 @@ func TestLoadChain(t *testing.T) {
 	_, ok := rulego.Get("chain_call_rest_api")
 	assert.Equal(t, true, ok)
 
-	_, ok = rulego.Get("chain_has_sub_chain")
+	_, ok = rulego.Get("chain_has_sub_chain_node")
 	assert.Equal(t, true, ok)
 
 	_, ok = rulego.Get("chain_msg_type_switch")
@@ -496,8 +500,8 @@ func TestWait(t *testing.T) {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 
-	//TEST_MSG_TYPE1 找到2条chains,4个nodes
-	wg.Add(8)
+	//TEST_MSG_TYPE1 找到2条chains,5个nodes
+	wg.Add(10)
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	var count int32
 	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {

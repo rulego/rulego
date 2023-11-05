@@ -28,7 +28,9 @@ import (
 // DefaultRuleContext 默认规则引擎消息处理上下文
 type DefaultRuleContext struct {
 	//id     string
-	config types.Config
+	//用于不同组件共享信号量和数据的上下文
+	context context.Context
+	config  types.Config
 	//根规则链上下文
 	ruleChainCtx *RuleChainCtx
 	//上一个节点上下文
@@ -41,26 +43,28 @@ type DefaultRuleContext struct {
 	pool types.Pool
 	//当前消息整条规则链处理结束回调函数
 	onEnd func(msg types.RuleMsg, err error)
-	//用于不同组件共享信号量和数据的上下文
-	context context.Context
 	//当前节点下未执行完成的子节点数量
 	waitingCount int32
 	//父ruleContext
 	parentRuleCtx *DefaultRuleContext
 	//所有子节点处理完成事件，只执行一次
 	onAllNodeCompleted func()
+	//子规则链池
+	ruleChainPool *RuleGo
 }
 
 //NewRuleContext 创建一个默认规则引擎消息处理上下文实例
-func NewRuleContext(config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd func(msg types.RuleMsg, err error), context context.Context) *DefaultRuleContext {
+func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd func(msg types.RuleMsg, err error), ruleChainPool *RuleGo) *DefaultRuleContext {
 	return &DefaultRuleContext{
-		config:       config,
-		ruleChainCtx: ruleChainCtx,
-		from:         from,
-		self:         self,
-		pool:         pool,
-		onEnd:        onEnd,
-		context:      context,
+		context:       context,
+		config:        config,
+		ruleChainCtx:  ruleChainCtx,
+		from:          from,
+		self:          self,
+		isFirst:       from == nil,
+		pool:          pool,
+		onEnd:         onEnd,
+		ruleChainPool: ruleChainPool,
 	}
 }
 
@@ -136,6 +140,37 @@ func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 	}
 }
 
+//TellFlow 执行子规则链，ruleChainId 规则链ID
+//onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次
+//onAllNodeCompleted 所以节点执行完之后的回调，无结果返回
+//如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
+func (ctx *DefaultRuleContext) TellFlow(msg types.RuleMsg, chainId string, onEndFunc func(msg types.RuleMsg, err error), onAllNodeCompleted func()) {
+	if e, ok := ctx.GetRuleChainPool().Get(chainId); ok {
+		e.OnMsgWithOptions(msg, types.WithEndFunc(onEndFunc), types.WithOnAllNodeCompleted(onAllNodeCompleted))
+	} else {
+		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found", chainId))
+	}
+}
+
+//SetRuleChainPool 设置子规则链池
+func (ctx *DefaultRuleContext) SetRuleChainPool(ruleChainPool *RuleGo) {
+	ctx.ruleChainPool = ruleChainPool
+}
+
+//GetRuleChainPool 获取子规则链池
+func (ctx *DefaultRuleContext) GetRuleChainPool() *RuleGo {
+	if ctx.ruleChainPool == nil {
+		return DefaultRuleGo
+	} else {
+		return ctx.ruleChainPool
+	}
+}
+
+//SetOnAllNodeCompleted 设置所有节点执行完回调
+func (ctx *DefaultRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) {
+	ctx.onAllNodeCompleted = onAllNodeCompleted
+}
+
 //增加一个待执行子节点
 func (ctx *DefaultRuleContext) childReady() {
 	atomic.AddInt32(&ctx.waitingCount, 1)
@@ -178,7 +213,11 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 	msgCopy := msg.Copy()
 	if ctx.isFirst {
 		ctx.SubmitTack(func() {
-			ctx.tellNext(msgCopy, ctx.self)
+			if ctx.self != nil {
+				ctx.tellNext(msgCopy, ctx.self)
+			} else {
+				ctx.doOnEnd(msgCopy, err)
+			}
 		})
 	} else {
 		for _, relationType := range relationTypes {
@@ -402,18 +441,24 @@ func (e *RuleEngine) OnMsgAndWait(msg types.RuleMsg, opts ...types.RuleContextOp
 func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.RuleContextOption) {
 	if e.rootRuleChainCtx != nil {
 		rootCtx := e.rootRuleChainCtx.rootRuleContext.(*DefaultRuleContext)
-		rootCtxCopy := NewRuleContext(rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, rootCtx.onEnd, rootCtx.GetContext())
+		rootCtxCopy := NewRuleContext(rootCtx.GetContext(), rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, rootCtx.onEnd, e.RuleChainPool)
 		rootCtxCopy.isFirst = rootCtx.isFirst
 		for _, opt := range opts {
 			opt(rootCtxCopy)
 		}
+
 		rootCtxCopy.TellNext(msg)
 
 		//同步方式调用，等规则链都执行完，才返回
 		if wait {
+			customFunc := rootCtxCopy.onAllNodeCompleted
 			c := make(chan struct{})
 			rootCtxCopy.onAllNodeCompleted = func() {
 				close(c)
+				if customFunc != nil {
+					//触发自定义回调
+					customFunc()
+				}
 			}
 			<-c
 		}
