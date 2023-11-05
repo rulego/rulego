@@ -115,9 +115,6 @@ func testRuleEngine(t *testing.T, ruleChainFile string, modifyNodeId, modifyNode
 			assert.Equal(t, "{\"temperature\":35}", msg.Data)
 		}
 	}
-	config.OnEnd = func(msg types.RuleMsg, err error) {
-		config.Logger.Printf("OnEnd data=%s,metaData=%s,err=%s", msg.Data, msg.Metadata, err)
-	}
 	ruleEngine, err := rulego.New("rule01", []byte(ruleChainFile), rulego.WithConfig(config))
 	assert.Nil(t, err)
 	defer rulego.Del("rule01")
@@ -160,10 +157,6 @@ func TestSubRuleChain(t *testing.T) {
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		config.Logger.Printf("chainId=%s,flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", chainId, flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 	}
-	//config.OnEnd = func(msg types.RuleMsg, err error) {
-	//	atomic.AddInt32(&completed, 1)
-	//	group.Done()
-	//}
 
 	ruleFile := loadFile("./chain_has_sub_chain_node.json")
 	subRuleFile := loadFile("./sub_chain.json")
@@ -218,8 +211,6 @@ func TestRuleChainDebugMode(t *testing.T) {
 		if flowType == types.Out {
 			outTimes++
 		}
-	}
-	config.OnEnd = func(msg types.RuleMsg, err error) {
 	}
 
 	ruleFile := loadFile("./sub_chain.json")
@@ -277,11 +268,6 @@ func TestNotDebugModel(t *testing.T) {
 		assert.NotEqual(t, "s1", nodeId)
 		assert.NotEqual(t, "s2", nodeId)
 	}
-	config.OnEnd = func(msg types.RuleMsg, err error) {
-		//已经被 s2 节点修改消息类型
-		assert.Equal(t, "TEST_MSG_TYPE2", msg.Type)
-		assert.Nil(t, err)
-	}
 	ruleEngine, err := rulego.New(str.RandomStr(10), loadFile("./not_debug_mode_chain.json"), rulego.WithConfig(config))
 	if err != nil {
 		t.Error(err)
@@ -295,6 +281,10 @@ func TestNotDebugModel(t *testing.T) {
 	for j := 0; j < maxTimes; j++ {
 		ruleEngine.OnMsgWithEndFunc(msg, func(msg types.RuleMsg, err error) {
 			wg.Done()
+
+			//已经被 s2 节点修改消息类型
+			assert.Equal(t, "TEST_MSG_TYPE2", msg.Type)
+			assert.Nil(t, err)
 		})
 	}
 	wg.Wait()
@@ -335,10 +325,6 @@ func TestCallRestApi(t *testing.T) {
 			config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 		}
 	}
-	config.OnEnd = func(msg types.RuleMsg, err error) {
-		group.Done()
-	}
-
 	ruleFile := loadFile("./chain_call_rest_api.json")
 	ruleEngine, err := rulego.New(str.RandomStr(10), []byte(ruleFile), rulego.WithConfig(config))
 	defer rulego.Stop()
@@ -348,7 +334,9 @@ func TestCallRestApi(t *testing.T) {
 			metaData := types.NewMetadata()
 			metaData.PutValue("productType", "productType01")
 			msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"aa\":\"aaaaaaaaaaaaaa\"}")
-			ruleEngine.OnMsg(msg)
+			ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+				group.Done()
+			}))
 
 		}
 	}
@@ -397,15 +385,7 @@ func TestWithContext(t *testing.T) {
 
 	start := time.Now()
 	config := rulego.NewConfig()
-	config.OnEnd = func(msg types.RuleMsg, err error) {
-		assert.Equal(t, "TEST_MSG_TYPE", msg.Type)
-		//v1, _ := msg.Metadata.GetValue(shareKey)
-		//assert.Equal(t, shareValue, v1)
 
-		v2 := msg.Metadata.GetValue(addShareKey)
-		assert.Equal(t, addShareValue, v2)
-		assert.Nil(t, err)
-	}
 	ruleEngine, err := rulego.New(str.RandomStr(10), loadFile("./test_context_chain.json"), rulego.WithConfig(config))
 	if err != nil {
 		t.Error(err)
@@ -423,6 +403,12 @@ func TestWithContext(t *testing.T) {
 				wg.Done()
 				v1 := msg.Metadata.GetValue(shareKey)
 				assert.Equal(t, shareValue+strconv.Itoa(index), v1)
+
+				assert.Equal(t, "TEST_MSG_TYPE", msg.Type)
+
+				v2 := msg.Metadata.GetValue(addShareKey)
+				assert.Equal(t, addShareValue, v2)
+				assert.Nil(t, err)
 			}))
 		}()
 
