@@ -18,8 +18,6 @@ package test
 
 import (
 	"context"
-	"fmt"
-	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"time"
 )
@@ -103,18 +101,8 @@ func (ctx *NodeTestRuleContext) GetContext() context.Context {
 	return ctx.context
 }
 
-func (ctx *NodeTestRuleContext) GetRuleChainPool() *rulego.RuleGo {
-	return rulego.DefaultRuleGo
-}
-
 func (ctx *NodeTestRuleContext) TellFlow(msg types.RuleMsg, chainId string, endFunc func(msg types.RuleMsg, err error), onAllNodeCompleted func()) {
 
-	e, ok := ctx.GetRuleChainPool().Get(chainId)
-	if ok {
-		e.OnMsgWithOptions(msg, types.WithEndFunc(endFunc), types.WithOnAllNodeCompleted(onAllNodeCompleted))
-	} else {
-		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found", chainId))
-	}
 }
 
 //SetOnAllNodeCompleted 设置所有节点执行完回调
