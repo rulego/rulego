@@ -42,8 +42,11 @@ func main() {
 		fmt.Println(err)
 		os.Exit(0)
 	}
-	//启动http接收服务
-	restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}, RuleConfig: config}
+	//创建http endpoint服务
+	restEndpoint, err := endpoint.New(rest.Type, config, rest.Config{
+		Server: ":9090",
+	})
+
 	//添加全局拦截器
 	restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		userId := exchange.In.Headers().Get("userId")
@@ -89,9 +92,6 @@ func main() {
 		exchange.Out.SetBody([]byte("s2 process" + "\n"))
 		return true
 	}).End()
-
-	//注册路由,Get 方法
-	restEndpoint.GET(router1)
 
 	//路由2 采用配置方式调用规则链
 	router2 := endpoint.NewRouter().From("/api/v1/msg2Chain1/:msgType").To("chain:default").End()
@@ -202,8 +202,16 @@ func main() {
 			return true
 		}).End()
 
+	//注册路由,Get 方法
+	_, _ = restEndpoint.AddRouter(router1, "GET")
 	//注册路由，POST方式
-	restEndpoint.POST(router2, router3, router4, router5, router6, router7)
+	_, _ = restEndpoint.AddRouter(router2, "POST")
+	_, _ = restEndpoint.AddRouter(router3, "POST")
+	_, _ = restEndpoint.AddRouter(router4, "POST")
+	_, _ = restEndpoint.AddRouter(router5, "POST")
+	_, _ = restEndpoint.AddRouter(router6, "POST")
+	_, _ = restEndpoint.AddRouter(router7, "POST")
+
 	//并启动服务
 	_ = restEndpoint.Start()
 }

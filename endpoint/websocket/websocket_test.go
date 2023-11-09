@@ -22,7 +22,7 @@ func TestWebSocketEndPoint(t *testing.T) {
 	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
 
 	//启动ws接收服务
-	wsEndpoint := &Websocket{Config: Config{Server: ":9090"}, RuleConfig: config}
+	wsEndpoint, err := endpoint.New(Type, config, Config{Server: ":9090"})
 	//添加全局拦截器
 	wsEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑
@@ -70,7 +70,7 @@ func TestWebSocketEndPoint(t *testing.T) {
 	}).End()
 
 	//注册路由
-	wsEndpoint.AddRouterWithParams(router1)
+	wsEndpoint.AddRouter(router1)
 
 	//并启动服务
 	_ = wsEndpoint.Start()

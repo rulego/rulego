@@ -67,7 +67,7 @@ func CallerInfo() []string {
 			filename := parts[len(parts)-1]
 			dir := parts[len(parts)-2]
 			if (dir != "assert" && dir != "mock" && dir != "require") || filename == "mock_test.go" {
-				callers = append(callers, fmt.Sprintf("%s:%d", file, line))
+				callers = append(callers, fmt.Sprintf("%s:%d", file, line)+"\n")
 			}
 		}
 
