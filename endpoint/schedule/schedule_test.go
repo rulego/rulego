@@ -22,7 +22,8 @@ func TestScheduleEndPoint(t *testing.T) {
 	//注册规则链
 	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
 
-	scheduleEndpoint := New(config)
+	//创建schedule endpoint服务
+	scheduleEndpoint, err := endpoint.New(Type, config, nil)
 
 	//每隔1秒执行
 	router1 := endpoint.NewRouter().From("*/1 * * * * *").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
@@ -34,7 +35,7 @@ func TestScheduleEndPoint(t *testing.T) {
 	}). //指定交给哪个规则链ID处理
 		To("chain:default").End()
 
-	routeId1, err := scheduleEndpoint.AddRouterWithParams(router1)
+	routeId1, err := scheduleEndpoint.AddRouter(router1)
 
 	//启动任务
 	err = scheduleEndpoint.Start()
@@ -49,14 +50,14 @@ func TestScheduleEndPoint(t *testing.T) {
 	}).To("chain:default").End()
 
 	//测试定时器已经启动，是否允许继续添加任务
-	routeId2, err := scheduleEndpoint.AddRouterWithParams(router2)
+	routeId2, err := scheduleEndpoint.AddRouter(router2)
 
 	time.Sleep(120 * time.Second)
 
 	//删除某个任务
-	_ = scheduleEndpoint.RemoveRouterWithParams(routeId1)
+	_ = scheduleEndpoint.RemoveRouter(routeId1)
 
-	_ = scheduleEndpoint.RemoveRouterWithParams(routeId2)
+	_ = scheduleEndpoint.RemoveRouter(routeId2)
 
 	fmt.Println("执行结束退出...")
 }

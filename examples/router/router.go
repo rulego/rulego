@@ -39,12 +39,12 @@ func main() {
 		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata)+'\n msgType='+msgType;
         `}).End()
 
-	//创建mqtt接收端服务
-	_mqttEndpoint := &mqttEndpoint.Mqtt{
-		Config: mqtt.Config{
-			Server: "127.0.0.1:1883",
-		},
-		RuleConfig: config,
+	//创建mqtt endpoint服务
+	_mqttEndpoint, err := endpoint.New(mqttEndpoint.Type, config, mqtt.Config{
+		Server: "127.0.0.1:1883",
+	})
+	if err != nil {
+		panic(err)
 	}
 	//添加全局拦截器
 	_mqttEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
@@ -52,10 +52,16 @@ func main() {
 		return true
 	})
 	//注册路由并启动服务
-	_ = _mqttEndpoint.AddRouter(router).Start()
+	_, _ = _mqttEndpoint.AddRouter(router)
 
+	err = _mqttEndpoint.Start()
+	if err != nil {
+		panic(err)
+	}
 	//创建http接收服务
-	_restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}, RuleConfig: config}
+	_restEndpoint, err := endpoint.New(rest.Type, config, mqtt.Config{
+		Server: ":9090",
+	})
 	//添加全局拦截器
 	_restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		userId := exchange.In.Headers().Get("userId")
@@ -68,7 +74,10 @@ func main() {
 	})
 
 	//注册路由，POST方式
-	_restEndpoint.POST(router)
+	_, _ = _restEndpoint.AddRouter(router, "POST")
 	//启动http服务
-	_ = _restEndpoint.Start()
+	err = _restEndpoint.Start()
+	if err != nil {
+		panic(err)
+	}
 }

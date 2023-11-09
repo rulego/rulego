@@ -32,6 +32,17 @@ import (
 	"strconv"
 )
 
+//Type 组件类型
+const Type = "ws"
+
+//Endpoint 别名
+type Endpoint = Websocket
+
+//注册组件
+func init() {
+	_ = endpoint.Registry.Register(&Endpoint{})
+}
+
 //RequestMessage websocket请求消息
 type RequestMessage struct {
 	//ws消息类型 TextMessage=1/BinaryMessage=2
@@ -179,7 +190,7 @@ type Websocket struct {
 
 //Type 组件类型
 func (ws *Websocket) Type() string {
-	return "ws"
+	return Type
 }
 
 func (ws *Websocket) New() types.Node {
@@ -209,16 +220,16 @@ func (ws *Websocket) Id() string {
 	return ws.Config.Server
 }
 
-func (ws *Websocket) AddRouterWithParams(router *endpoint.Router, params ...interface{}) (string, error) {
+func (ws *Websocket) AddRouter(router *endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
 	} else {
-		ws.AddRouter(router)
+		ws.addRouter(router)
 		return router.GetFrom().From, nil
 	}
 }
 
-func (ws *Websocket) RemoveRouterWithParams(routerId string, params ...interface{}) error {
+func (ws *Websocket) RemoveRouter(routerId string, params ...interface{}) error {
 	if router, ok := ws.RouterStorage[ws.routerKey("GET", routerId)]; ok {
 		router.Disable(true)
 	}
@@ -239,8 +250,8 @@ func (ws *Websocket) Start() error {
 
 }
 
-// AddRouter 注册1个或者多个路由
-func (ws *Websocket) AddRouter(routers ...*endpoint.Router) *Websocket {
+// addRouter 注册1个或者多个路由
+func (ws *Websocket) addRouter(routers ...*endpoint.Router) *Websocket {
 	ws.Lock()
 	defer ws.Unlock()
 	if ws.router == nil {

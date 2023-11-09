@@ -25,7 +25,7 @@ import (
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint"
 	endpointMqtt "github.com/rulego/rulego/endpoint/mqtt"
-	endpointRest "github.com/rulego/rulego/endpoint/rest"
+	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
 	"log"
@@ -179,12 +179,13 @@ func initRuleGo(logger *log.Logger, ruleFolder string) {
 //mqtt 订阅服务
 func mqttServe(logger *log.Logger) {
 	//mqtt 订阅服务 接收端点
-	mqttEndpoint := &endpointMqtt.Mqtt{
-		Config: mqttClientConfig,
+	mqttEndpoint, err := endpoint.New(endpointMqtt.Type, config, mqttClientConfig)
+	if err != nil {
+		logger.Fatal(err)
 	}
 	for _, topic := range strings.Split(subscribeTopics, ",") {
 		router := endpoint.NewRouter().From(topic).To("chain:default").End()
-		mqttEndpoint.AddRouter(router)
+		_, _ = mqttEndpoint.AddRouter(router)
 	}
 	if err := mqttEndpoint.Start(); err != nil {
 		logger.Fatal(err)
@@ -194,8 +195,8 @@ func mqttServe(logger *log.Logger) {
 //rest服务 接收端点
 func restServe(logger *log.Logger, addr string) {
 	logger.Println("rest serve initialised.addr=" + addr)
-	restEndpoint := &endpointRest.Rest{
-		Config: endpointRest.Config{Server: addr},
+	restEndpoint := &rest.Endpoint{
+		Config: rest.Config{Server: addr},
 	}
 	//添加全局拦截器
 	restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {

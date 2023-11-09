@@ -48,6 +48,17 @@ import (
 	"strconv"
 )
 
+//Type 组件类型
+const Type = "schedule"
+
+//Endpoint 别名
+type Endpoint = Schedule
+
+//注册组件
+func init() {
+	_ = endpoint.Registry.Register(&Endpoint{})
+}
+
 //RequestMessage http请求消息
 type RequestMessage struct {
 	headers textproto.MIMEHeader
@@ -167,7 +178,7 @@ func New(ruleConfig types.Config) *Schedule {
 
 //Type 组件类型
 func (schedule *Schedule) Type() string {
-	return "schedule"
+	return Type
 }
 
 func (schedule *Schedule) New() types.Node {
@@ -197,7 +208,7 @@ func (schedule *Schedule) Id() string {
 	return schedule.id
 }
 
-func (schedule *Schedule) AddRouterWithParams(router *endpoint.Router, params ...interface{}) (string, error) {
+func (schedule *Schedule) AddRouter(router *endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
 	}
@@ -214,7 +225,7 @@ func (schedule *Schedule) AddRouterWithParams(router *endpoint.Router, params ..
 	return strconv.Itoa(int(id)), err
 }
 
-func (schedule *Schedule) RemoveRouterWithParams(routeId string, params ...interface{}) error {
+func (schedule *Schedule) RemoveRouter(routeId string, params ...interface{}) error {
 	entryID, err := strconv.Atoi(routeId)
 	if err != nil {
 		return fmt.Errorf("%s it is an illegal routing id", routeId)
