@@ -2,178 +2,128 @@
 
 [English](README.md)| 中文
 
-endpoint是一个用来抽象不同输入源数据路由的包，它可以让你方便地创建和启动不同的接收服务，如HTTP或MQTT，实现对异构系统数据集成，然后根据不同的请求或消息，进行转换、处理、流转等操作，最终交给规则链或者组件处理。
+**Endpoint** 是一个用来抽象不同输入源数据路由的模块，针对不同协议提供**一致**的使用体验，它是`RuleGo`一个可选模块，能让RuleGo实现独立运行提供服务的能力。
 
-<img src="../doc/imgs/endpoint/endpoint.png" style="height:50%;width:80%;">
+它可以让你方便地创建和启动不同的接收服务，如http、mqtt、kafka、gRpc、websocket、schedule、tpc、udp等，实现对异构系统数据集成，然后根据不同的请求或消息，进行转换、处理、流转等操作，最终交给规则链或者组件处理。
+
+<img src="../doc/imgs/endpoint/endpoint.png">
+<div style="text-align: center;">Endpoint架构图</div>
 
 ## 使用
 
-### 创建Router
-
-Router是用来定义路由规则的类型，它可以指定输入端、转换函数、处理函数、输出端等。你可以使用NewRouter函数来创建一个Router类型的指针，然后使用From方法来指定输入端，返回一个From类型的指针。
+1. 首先定义路由，路由提供了流式的调用方式，包括输入端、处理函数和输出端。不同Endpoint其路由处理是`一致`的
 
 ```go
-router := endpoint.NewRouter().From("/api/v1/msg/")
-```
-
-### 添加处理函数
-
-From类型有两个方法可以用来添加处理函数：Transform和Process。Transform方法用来转换输入消息为RuleMsg类型，Process方法用来处理输入或输出消息。这两个方法都接收一个Process类型的函数作为参数，返回一个From类型的指针。Process类型的函数接收一个Exchange类型的指针作为参数，返回一个布尔值表示是否继续执行下一个处理函数。Exchange类型是一个结构体，包含了一个输入消息和一个输出消息，用来在处理函数中传递数据。
-
-```go
-router := endpoint.NewRouter().From("/api/v1/msg/").Transform(func(exchange *endpoint.Exchange) bool {
-    //转换逻辑
-    return true
-}).Process(func(exchange *endpoint.Exchange) bool {
-    //处理逻辑
-    return true
-})
-```
-
-### 响应
-
-可以在转换或者处理函数使用Exchange的Out消息响应客户端
-```go
-//响应错误
-exchange.Out.SetStatusCode(http.StatusMethodNotAllowed)
-//响应头
-exchange.Out.Headers().Set("Content-Type", "application/json")
-//响应内容
-exchange.Out.SetBody([]byte("ok"))
-```
-注意：mqtt endpoint 调用SetBody() 会从使用指定topic 往broker public数据，指定topic使用以下方式
-
-```go
-exchange.Out.Headers().Set("topic", "your topic")
-```
-
-### 设置输出端
-
-From类型有两个方法可以用来设置输出端：To和ToComponent。To方法用来指定流转目标路径或组件，ToComponent方法用来指定输出组件。这两个方法都返回一个To类型的指针。
-
-To方法的参数是一个字符串，表示组件路径，格式为{executorType}:{path}。executorType是执行器组件类型，path是组件路径。例如："chain:{chainId}"表示执行rulego中注册的规则链，"component:{nodeType}"表示执行在config.ComponentsRegistry中注册的组件。你可以在DefaultExecutorFactory中注册自定义执行器组件类型。To方法还可以接收一些组件配置参数作为可选参数。
-
-```go
-router := endpoint.NewRouter().From("/api/v1/msg/").Transform(func(exchange *endpoint.Exchange) bool {
-    //转换逻辑
-    return true
+router := endpoint.NewRouter().From("/api/v1/msg/").Process(func(exchange *endpoint.Exchange) bool {
+//处理逻辑
+return true
 }).To("chain:default")
 ```
+不同`Endpoint`类型，输入端`From`代表的含义会有不同，但最终会根据`From`值路由到该路由器：
+- http/websocket endpoint：代表路径路由，根据`From`值创建指定的http服务。例如：From("/api/v1/msg/")表示创建/api/v1/msg/ http服务。
+- mqtt/kafka endpoint：代表订阅的主题，根据`From`值订阅相关主题。例如：From("/api/v1/msg/")表示订阅/api/v1/msg/主题。
+- schedule endpoint：代表cron表达式，根据`From`值创建相关定时任务。例如：From("*/1 * * * * *")表示每隔1秒触发该路由器。
+- tpc/udp endpoint：代表正则表达式，根据`From`值把满足条件的消息转发到该路由。例如：From("^{.*")表示满足`{`开头的数据。
 
-ToComponent方法的参数是一个types.Node类型的组件，你可以自定义或使用已有的组件。
+2. 然后创建Endpoint服务，创建接口也是`一致`的：
 
 ```go
-router := endpoint.NewRouter().From("/api/v1/msg/").Transform(func(exchange *endpoint.Exchange) bool {
-    //转换逻辑
-    return true
-}).ToComponent(func() types.Node {
-        //定义日志组件，处理数据
-        var configuration = make(types.Configuration)
-        configuration["jsScript"] = `
-        return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
-        `
-        logNode := &action.LogNode{}
-        _ = logNode.Init(config, configuration)
-        return logNode
-}())
+//例如：创建http 服务
+restEndpoint, err := endpoint.New(rest.Type, config, rest.Config{Server: ":9090",})
+// 或者使用map方式设置配置
+restEndpoint, err := endpoint.New(rest.Type, config, types.Configuration{"server": ":9090",})
+
+//例如：创建mqtt订阅 服务
+mqttEndpoint, err := endpoint.New(mqtt.Type, config, mqtt.Config{Server: "127.0.0.1:1883",})
+// 或者使用map方式设置配置
+mqttEndpoint, err := endpoint.New(mqtt.Type, config, types.Configuration{"server": "127.0.0.1:1883",})
+
+//例如：创建ws服务
+wsEndpoint, err := endpoint.New(websocket.Type, config, websocket.Config{Server: ":9090"})
+
+//例如：创建tcp服务
+tcpEndpoint, err := endpoint.New(net.Type, config, Config{Protocol: "tcp", Server:   ":8888",})
+
+//例如： 创建schedule endpoint服务
+scheduleEndpoint, err := endpoint.New(schedule.Type, config, nil)
 ```
 
-也可以使用To方法调用组件
+3. 把路由注册到endpoint服务中，并启动服务
 ```go
-router := endpoint.NewRouter().From("/api/v1/msg/").Transform(func(exchange *endpoint.Exchange) bool {
-    //转换逻辑
-    return true
-}).To"component:log", types.Configuration{"jsScript": `
-		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
-`})
-```
-
-### 结束路由
-
-To类型有一个方法可以用来结束路由：End。End方法返回一个Router类型的指针。
-
-```go
-router := endpoint.NewRouter().From("/api/v1/msg/").Transform(func(exchange *endpoint.Exchange) bool {
-    //转换逻辑
-    return true
-}).To("chain:default").End()
-```
-
-### 创建RestEndPoint
-
-RestEndPoint是一个用来创建和启动HTTP接收服务的类型，它可以注册不同的路由来处理不同的请求。你可以创建一个Rest类型的指针，并指定服务的地址和其他配置。
-
-```go
-restEndpoint := &Rest{Config: Config{Addr: ":9090"}}
-```
-
-你可以使用restEndpoint.AddInterceptors方法添加全局拦截器，用来进行权限校验等逻辑。
-
-```go
-restEndpoint.AddInterceptors(func(exchange *endpoint.Exchange) bool {
-		//权限校验逻辑
-		return true
-})
-```
-
-你可以使用restEndpoint.GET或restEndpoint.POST方法注册路由，分别对应GET或POST请求方式。这些方法接收一个或多个Router类型的指针作为参数。
-
-```go
-restEndpoint.GET(router1, router2)
-restEndpoint.POST(router3, router4)
-```
-
-你可以使用restEndpoint.Start方法启动服务。
-
-```go
+//http endpoint注册路由
+_, err = restEndpoint.AddRouter(router1,"POST")
+_, err = restEndpoint.AddRouter(router2,"GET")
 _ = restEndpoint.Start()
-```
 
-### 创建MqttEndpoint
-
-MqttEndpoint是一个用来创建和启动MQTT接收服务的类型，它可以订阅不同的主题来处理不同的消息。你可以创建一个Mqtt类型的指针，并指定服务的地址和其他配置。
-
-```go
-mqttEndpoint := &Mqtt{
-		Config: mqtt.Config{
-			Server: "127.0.0.1:1883",
-		},
-}
-```
-
-你可以使用mqttEndpoint.AddInterceptors方法添加全局拦截器，用来进行权限校验等逻辑。
-
-```go
-mqttEndpoint.AddInterceptors(func(exchange *endpoint.Exchange) bool {
-		//权限校验逻辑
-		return true
-})
-```
-
-你可以使用mqttEndpoint.AddRouter方法注册路由，这个方法接收一个Router类型的指针作为参数。
-
-```go
-_ = mqttEndpoint.AddRouter(router1)
-```
-
-你可以使用mqttEndpoint.Start方法启动服务。
-
-```go
+//mqtt endpoint注册路由
+_, err = mqttEndpoint.AddRouter(router1)
+_, err = mqttEndpoint.AddRouter(router2)
 _ = mqttEndpoint.Start()
 ```
 
+4. Endpoint支持响应给调用方
+```go
+router5 := endpoint.NewRouter().From("/api/v1/msgToComponent2/:msgType").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+    //响应给客户端
+    exchange.Out.Headers().Set("Content-Type", "application/json")
+    exchange.Out.SetBody([]byte("ok"))
+    return true
+})
+//如果需要把规则链执行结果同步响应给客户端，则增加wait语义
+router5 := endpoint.NewRouter().From("/api/v1/msg2Chain4/:chainId").
+To("chain:${chainId}").
+//必须增加Wait，异步转同步，http才能正常响应，如果不响应同步响应，不要加这一句，会影响吞吐量
+Wait().
+Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+  err := exchange.Out.GetError()
+  if err != nil {
+    //错误
+    exchange.Out.SetStatusCode(400)
+    exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
+    } else {
+    //把处理结果响应给客户端，http endpoint 必须增加 Wait()，否则无法正常响应
+    outMsg := exchange.Out.GetMsg()
+    exchange.Out.Headers().Set("Content-Type", "application/json")
+    exchange.Out.SetBody([]byte(outMsg.Data))
+  }
+
+  return true
+}).End()
+```
+
+5.  添加全局拦截器，用来进行权限校验等逻辑
+```go
+restEndpoint.AddInterceptors(func(exchange *endpoint.Exchange) bool {
+  //权限校验逻辑
+  return true
+})
+```
+
+## Router
+
+参考[文档](https://rulego.cc/pages/45008b/) 
+
 ## 示例
 
-以下是一些使用endpoint包的示例代码：       
-[RestEndpoint](rest/rest_test.go)       
-[MqttEndpoint](mqtt/mqtt_test.go)      
+以下是使用endpoint的示例代码：
+- [RestEndpoint](/examples/http_endpoint/http_endpoint.go)
+- [WebsocketEndpoint](/endpoint/websocket/websocket_test.go)
+- [MqttEndpoint](/endpoint/mqtt/mqtt_test.go)
+- [ScheduleEndpoint](/endpoint/schedule/schedule_test.go)
+- [NetEndpoint](/endpoint/net/net_test.go)
+- [KafkaEndpoint](https://github.com/rulego/rulego-components/blob/main/endpoint/kafka/kafka_test.go) （扩展组件库）    
 
 ## 扩展endpoint
 
-endpoint包提供了一些内置的接收服务类型，如Rest和Mqtt，但是你也可以自定义或扩展其他类型的接收服务，例如Kafka。要实现这个功能，你需要遵循以下步骤：
+**Endpoint模块** 提供了一些内置的接收服务类型，但是你也可以自定义或扩展其他类型的接收服务。要实现这个功能，你需要遵循以下步骤：
 
-1. 实现Message接口。Message接口是一个用来抽象不同输入源数据的接口，它定义了一些方法来获取或设置消息的内容、头部、来源、参数、状态码等。你需要为你的接收服务类型实现这个接口，使得你的消息类型可以和endpoint包中的其他类型进行交互。
-2. 实现EndPoint接口。EndPoint接口是一个用来定义不同接收服务类型的接口，它定义了一些方法来启动、停止、添加路由和拦截器等。你需要为你的接收服务类型实现这个接口，使得你的服务类型可以和endpoint包中的其他类型进行交互。
-3. 注册Executor类型。Executor接口是一个用来定义不同输出端执行器的接口，它定义了一些方法来初始化、执行、获取路径等。你可以为你的输出端组件实现这个接口，并在DefaultExecutorFactory中注册你的Executor类型，使得你的组件可以被endpoint包中的其他类型调用。
+1. 实现[Message接口](/endpoint/endpoint.go#L62) 。Message接口是一个用来抽象不同输入源数据的接口，它定义了一些方法来获取或设置消息的内容、头部、来源、参数、状态码等。你需要为你的接收服务类型实现这个接口，使得你的消息类型可以和endpoint包中的其他类型进行交互。
+2. 实现[Endpoint接口](/endpoint/endpoint.go#L40) 。Endpoint接口是一个用来定义不同接收服务类型的接口，它定义了一些方法来启动、停止、添加路由和拦截器等。你需要为你的接收服务类型实现这个接口，使得你的服务类型可以和endpoint包中的其他类型进行交互。
 
-以上就是扩展endpoint包的基本步骤，你可以参考endpoint包中已有的[Rest](rest/rest.go)和[Mqtt](mqtt/mqtt.go)类型的实现来编写你自己的代码。
+以上就是扩展endpoint包的基本步骤，你可以参考已经有的endpoint类型实现来编写你自己的代码：
+- [rest](https://github.com/rulego/rulego/tree/main/endpoint/rest/rest.go)
+- [websocket](https://github.com/rulego/rulego/tree/main/endpoint/websocket/websocket.go)
+- [mqtt](https://github.com/rulego/rulego/tree/main/endpoint/mqtt/mqtt.go)
+- [schedule](https://github.com/rulego/rulego/tree/main/endpoint/schedule/schedule.go)
+- [tcp/udp](https://github.com/rulego/rulego/tree/main/endpoint/net/net.go)
+- [Kafka](https://github.com/rulego/rulego-components/blob/main/endpoint/kafka/kafka.go) （扩展组件库）
