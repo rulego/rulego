@@ -32,6 +32,14 @@ import (
 	"time"
 )
 
+//Type 组件类型
+const Type = "net"
+
+//注册组件
+func init() {
+	_ = endpoint.Registry.Register(&Endpoint{})
+}
+
 //RequestMessage 请求消息
 type RequestMessage struct {
 	conn net.Conn
@@ -148,7 +156,7 @@ type Config struct {
 	// 通信协议，可以是tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。默认tcp协议
 	Protocol string
 	// 服务器的地址，格式为host:port
-	Addr string
+	Server string
 	// 读取超时，用于设置读取数据的超时时间，单位为秒，可以为0表示不设置超时
 	ReadTimeout int
 }
@@ -162,6 +170,7 @@ type RegexpRouter struct {
 }
 
 // Endpoint net endpoint组件
+// 支持通过正则表达式把匹配的消息路由到指定路由
 type Endpoint struct {
 	// 嵌入endpoint.BaseEndpoint，继承其方法
 	endpoint.BaseEndpoint
@@ -177,7 +186,7 @@ type Endpoint struct {
 
 // Type 组件类型
 func (ep *Endpoint) Type() string {
-	return "net"
+	return Type
 }
 
 func (ep *Endpoint) New() types.Node {
@@ -210,10 +219,10 @@ func (ep *Endpoint) Close() error {
 }
 
 func (ep *Endpoint) Id() string {
-	return ep.Config.Addr
+	return ep.Config.Server
 }
 
-func (ep *Endpoint) AddRouterWithParams(router *endpoint.Router, params ...interface{}) (string, error) {
+func (ep *Endpoint) AddRouter(router *endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
 	} else {
@@ -247,7 +256,7 @@ func (ep *Endpoint) AddRouterWithParams(router *endpoint.Router, params ...inter
 	}
 }
 
-func (ep *Endpoint) RemoveRouterWithParams(routerId string, params ...interface{}) error {
+func (ep *Endpoint) RemoveRouter(routerId string, params ...interface{}) error {
 	ep.Lock()
 	defer ep.Unlock()
 	if ep.routers != nil {
@@ -259,12 +268,12 @@ func (ep *Endpoint) RemoveRouterWithParams(routerId string, params ...interface{
 func (ep *Endpoint) Start() error {
 	var err error
 	// 根据配置的协议和地址，创建一个服务器监听器
-	ep.listener, err = net.Listen(ep.Config.Protocol, ep.Config.Addr)
+	ep.listener, err = net.Listen(ep.Config.Protocol, ep.Config.Server)
 	if err != nil {
 		return err
 	}
 	// 打印服务器启动的信息
-	ep.Printf("starting server on :%s", ep.Config.Addr)
+	ep.Printf("starting server on :%s", ep.Config.Server)
 	// 循环接受客户端的连接请求
 	for {
 		// 从监听器中获取一个客户端连接，返回连接对象和错误信息

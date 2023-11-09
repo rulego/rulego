@@ -35,6 +35,17 @@ const (
 	JsonContextType = "application/json"
 )
 
+//Type 组件类型
+const Type = "http"
+
+//Endpoint 别名
+type Endpoint = Rest
+
+//注册组件
+func init() {
+	_ = endpoint.Registry.Register(&Endpoint{})
+}
+
 //RequestMessage http请求消息
 type RequestMessage struct {
 	request *http.Request
@@ -176,7 +187,7 @@ type Rest struct {
 
 //Type 组件类型
 func (rest *Rest) Type() string {
-	return "http"
+	return Type
 }
 
 func (rest *Rest) New() types.Node {
@@ -206,20 +217,20 @@ func (rest *Rest) Id() string {
 	return rest.Config.Server
 }
 
-func (rest *Rest) AddRouterWithParams(router *endpoint.Router, params ...interface{}) (string, error) {
+func (rest *Rest) AddRouter(router *endpoint.Router, params ...interface{}) (string, error) {
 	if len(params) <= 0 {
 		return "", errors.New("need to specify HTTP method")
 	} else if router == nil {
 		return "", errors.New("router can not nil")
 	} else {
 		for _, item := range params {
-			rest.AddRouter(str.ToString(item), router)
+			rest.addRouter(str.ToString(item), router)
 		}
 		return router.GetFrom().From, nil
 	}
 }
 
-func (rest *Rest) RemoveRouterWithParams(routerId string, params ...interface{}) error {
+func (rest *Rest) RemoveRouter(routerId string, params ...interface{}) error {
 	if len(params) <= 0 {
 		return errors.New("need to specify HTTP method")
 	} else {
@@ -246,11 +257,11 @@ func (rest *Rest) Start() error {
 
 }
 
-// AddRouter 注册1个或者多个路由
+// addRouter 注册1个或者多个路由
 //
 // For GET, POST, PUT, PATCH and DELETE requests the respective shortcut
 // functions can be used.
-func (rest *Rest) AddRouter(method string, routers ...*endpoint.Router) *Rest {
+func (rest *Rest) addRouter(method string, routers ...*endpoint.Router) *Rest {
 	method = strings.ToUpper(method)
 	rest.Lock()
 	defer rest.Unlock()
@@ -278,37 +289,37 @@ func (rest *Rest) AddRouter(method string, routers ...*endpoint.Router) *Rest {
 }
 
 func (rest *Rest) GET(routers ...*endpoint.Router) *Rest {
-	rest.AddRouter(http.MethodGet, routers...)
+	rest.addRouter(http.MethodGet, routers...)
 	return rest
 }
 
 func (rest *Rest) HEAD(routers ...*endpoint.Router) *Rest {
-	rest.AddRouter(http.MethodHead, routers...)
+	rest.addRouter(http.MethodHead, routers...)
 	return rest
 }
 
 func (rest *Rest) OPTIONS(routers ...*endpoint.Router) *Rest {
-	rest.AddRouter(http.MethodOptions, routers...)
+	rest.addRouter(http.MethodOptions, routers...)
 	return rest
 }
 
 func (rest *Rest) POST(routers ...*endpoint.Router) *Rest {
-	rest.AddRouter(http.MethodPost, routers...)
+	rest.addRouter(http.MethodPost, routers...)
 	return rest
 }
 
 func (rest *Rest) PUT(routers ...*endpoint.Router) *Rest {
-	rest.AddRouter(http.MethodPut, routers...)
+	rest.addRouter(http.MethodPut, routers...)
 	return rest
 }
 
 func (rest *Rest) PATCH(routers ...*endpoint.Router) *Rest {
-	rest.AddRouter(http.MethodPatch, routers...)
+	rest.addRouter(http.MethodPatch, routers...)
 	return rest
 }
 
 func (rest *Rest) DELETE(routers ...*endpoint.Router) *Rest {
-	rest.AddRouter(http.MethodDelete, routers...)
+	rest.addRouter(http.MethodDelete, routers...)
 	return rest
 }
 

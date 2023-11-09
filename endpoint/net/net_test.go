@@ -19,14 +19,17 @@ func TestEndpoint(t *testing.T) {
 	//注册规则链
 	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
 
-	//启动tpc服务
-	ep := &Endpoint{
-		Config: Config{
-			Protocol: "tcp",
-			Addr:     ":8888",
-		},
-		RuleConfig: config,
-	}
+	//创建tpc endpoint服务
+	ep, err := endpoint.New(Type, config, Config{
+		Protocol: "tcp",
+		Server:   ":8888",
+	})
+
+	//ep, err := endpoint.New(Type, config, types.Configuration{
+	//	"protocol": "tcp",
+	//	"addr":     ":8888",
+	//})
+
 	//添加全局拦截器
 	ep.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑
@@ -44,15 +47,19 @@ func TestEndpoint(t *testing.T) {
 		return true
 	}).To("chain:default").End()
 
-	//注册路由并启动服务
-	_, err = ep.AddRouterWithParams(router1)
+	//注册路由
+	_, err = ep.AddRouter(router1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ep.AddRouterWithParams(router2)
+	_, err = ep.AddRouter(router2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = ep.Start()
+	//启动服务
+	err = ep.Start()
 
+	if err != nil {
+		t.Fatal(err)
+	}
 }

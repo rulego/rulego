@@ -27,6 +27,17 @@ import (
 	"strconv"
 )
 
+//Type 组件类型
+const Type = "mqtt"
+
+//Endpoint 别名
+type Endpoint = Mqtt
+
+//注册组件
+func init() {
+	_ = endpoint.Registry.Register(&Endpoint{})
+}
+
 //RequestMessage http请求消息
 type RequestMessage struct {
 	request paho.Message
@@ -161,7 +172,7 @@ type Mqtt struct {
 
 //Type 组件类型
 func (m *Mqtt) Type() string {
-	return "mqtt"
+	return Type
 }
 
 func (m *Mqtt) New() types.Node {
@@ -191,35 +202,27 @@ func (m *Mqtt) Id() string {
 	return m.Config.Server
 }
 
-func (m *Mqtt) AddRouterWithParams(router *endpoint.Router, params ...interface{}) (string, error) {
+func (m *Mqtt) AddRouter(router *endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
 	}
-	m.AddRouter(router)
+	m.saveRouter(router)
+	//服务已经启动
+	if m.client != nil {
+		if form := router.GetFrom(); form != nil {
+			m.client.RegisterHandler(mqtt.Handler{
+				Topic:  form.ToString(),
+				Qos:    m.Config.QOS,
+				Handle: m.handler(router),
+			})
+		}
+	}
 	return router.GetFrom().From, nil
 }
 
-func (m *Mqtt) RemoveRouterWithParams(routerId string, params ...interface{}) error {
+func (m *Mqtt) RemoveRouter(routerId string, params ...interface{}) error {
 	m.deleteRouter(routerId)
 	return m.client.UnregisterHandler(routerId)
-}
-
-//AddRouter 添加路由
-func (m *Mqtt) AddRouter(routers ...*endpoint.Router) *Mqtt {
-	m.saveRouter(routers...)
-	//服务已经启动
-	if m.client != nil {
-		for _, router := range routers {
-			if form := router.GetFrom(); form != nil {
-				m.client.RegisterHandler(mqtt.Handler{
-					Topic:  form.ToString(),
-					Qos:    m.Config.QOS,
-					Handle: m.handler(router),
-				})
-			}
-		}
-	}
-	return m
 }
 
 func (m *Mqtt) Start() error {
