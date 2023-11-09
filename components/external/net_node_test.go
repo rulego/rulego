@@ -28,7 +28,7 @@ func TestNet(t *testing.T) {
 	var node NetNode
 	var configuration = make(types.Configuration)
 	configuration["protocol"] = "tcp"
-	configuration["addr"] = "127.0.0.1:8888"
+	configuration["server"] = "127.0.0.1:8888"
 
 	config := types.NewConfig()
 	err := node.Init(config, configuration)
