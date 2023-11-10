@@ -6,8 +6,6 @@ English| [中文](README_ZH.md)
 
 `RuleGo` is a lightweight, high-performance, embedded orchestration rule engine based on `Go` language. It is also a flexible and highly customizable event processing framework. It can aggregate, distribute, filter, transform, enrich and execute various actions on input messages.
 
-This project is largely inspired by [thingsboard](https://github.com/thingsboard/thingsboard) .
-
 ## Documentation
 
 RuleGo documentation is hosted on: [rulego.cc](https://rulego.cc) .
@@ -44,8 +42,8 @@ RuleGo documentation is hosted on: [rulego.cc](https://rulego.cc) .
 * **Edge computing:** For example: You can deploy `RuleGo` on the edge server, preprocess, filter, aggregate or calculate the data before reporting it to the cloud. The data processing rules and distribution rules can be dynamically configured and modified through the rule chain without restarting the system.
 * **Internet of Things:** For example: Collect device data reporting, and after the rule judgment of the rule chain, trigger one or more actions, such as: send email, send alarm, and link with other devices or systems.
 * **Data distribution:** For example: You can distribute data to different systems according to different message types, such as HTTP, MQTT or gRPC.
-* **Application integration:** Use `RuleGo` as a glue to various different systems or protocols, such as: kafka, message queue, database, chatGPT, third-party systems.
-* **Data processing from heterogeneous systems:** For example: Receive data from different data sources (such as MQTT, HTTP, etc.), and then filter, format conversion, and then distribute to databases, business systems or dashboards.
+* **Application integration:** Use `RuleGo` as a glue to various different systems or protocols, such as: ssh,webhook,kafka, message queue, database, chatGPT, third-party systems.
+* **Data processing from heterogeneous systems:** For example: Receive data from different data sources (such as MQTT, HTTP,WS,TCP/UDP etc.), and then filter, format conversion, and then distribute to databases, business systems or dashboards.
 * **Highly customized business:** For example: Decouple highly customized or frequently changed business and hand it over to `RuleGo` rule chain for management. Business requirements change without restarting the main program.
 * **Complex business orchestration:** For example: Encapsulate the business into custom components, and use `RuleGo` to orchestrate and drive these custom components, and support dynamic adjustment.
 * **Microservice orchestration:** For example: Use `RuleGo` to orchestrate and drive microservices, or dynamically call third-party services to process business and return results.
@@ -234,8 +232,7 @@ Other rule chain examples:
 
 ## Data Integration
 
-`RuleGo` provides `Endpoint` module for unified data integration and processing of heterogeneous systems.       
-For more details, please refer to: [Endpoint](endpoint/README.md)
+`RuleGo` provides `Endpoint` module for unified data integration and processing of heterogeneous systems.For more details, please refer to: [Endpoint](endpoint/README.md)
 
 ## Performance
 
