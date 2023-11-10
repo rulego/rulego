@@ -65,22 +65,22 @@ go get github.com/rulego/rulego
 
 RuleGo 使用极其简单和轻量级。只需以下2步：
 
-1. 导入`RuleGo`包并创建一个规则引擎实例：
+1. 导入`RuleGo`包，并使用规则链定义，创建一个规则引擎实例：
 
 ```go
 import "github.com/rulego/rulego"
 
-//创建一个规则引擎实例，每个规则引擎实例有且只有一个根规则链
+//使用规则链定义，创建一个规则引擎实例
 ruleEngine, err := rulego.New("rule01", []byte(ruleFile))
 ```
 
-2. 把消息、消息类型、消息元数据交给规则引擎实例处理，然后消息就会根据配置的规则链逻辑进行处理：
+2. 把消息负荷、消息类型、消息元数据交给规则引擎实例处理，然后规则引擎就会根据规则链的定义处理消息：
 
 ```go
 //定义消息元数据
 metaData := types.NewMetadata()
 metaData.PutValue("productType", "test01")
-//定义消息内容和消息类型
+//定义消息负荷和消息类型
 msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
 
 //把消息交给规则引擎处理
