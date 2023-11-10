@@ -17,6 +17,7 @@
 package external
 
 import (
+	"context"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/utils/maps"
@@ -88,7 +89,9 @@ func (x *MqttClientNode) New() types.Node {
 func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		x.mqttClient, err = mqtt.NewClient(x.Config.ToMqttConfig())
+		ctx, cancel := context.WithTimeout(context.TODO(), 16*time.Second)
+		defer cancel()
+		x.mqttClient, err = mqtt.NewClient(ctx, x.Config.ToMqttConfig())
 	}
 	return err
 }
