@@ -1,6 +1,6 @@
 # server
 
-------
+English| [中文](README_ZH.md)
 
 This sample project demonstrates how to use RuleGo as a standalone rule engine service.You can do secondary development based on this project, or you can directly download the executable [binary file](https://github.com/rulego/rulego/releases) .
 
