@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -38,15 +40,47 @@ func main() {
 		panic(err)
 	}
 
-	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
+	var i = 1
+	for i <= 5 {
+		go func(index int) {
+			msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":"+strconv.Itoa(index)+"}")
+			ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+				fmt.Println("msg处理结果=====")
+				//得到规则链处理结果
+				fmt.Println(msg, err)
+			}))
+		}(i)
 
-	ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
-		fmt.Println("msg处理结果=====")
-		//得到规则链处理结果
-		fmt.Println(msg, err)
-	}))
+		i++
+	}
 
 	time.Sleep(time.Second * 1)
+
+	//更新规则链节点配置，mqtt连接错误
+	updateChain := strings.Replace(chainJsonFile, "127.0.0.1:1883", "127.0.0.1:1885", -1)
+
+	err = ruleEngine.ReloadSelf([]byte(updateChain), rulego.WithConfig(config))
+
+	//更新失败
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	//继续使用之前的规则链发送
+	for i <= 10 {
+		go func(index int) {
+			msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":"+strconv.Itoa(index)+"}")
+			ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+				fmt.Println("msg处理结果=====")
+				//得到规则链处理结果
+				fmt.Println(msg, err)
+			}))
+		}(i)
+
+		i++
+	}
+
+	time.Sleep(time.Second * 2)
 }
 
 var chainJsonFile = `

@@ -17,6 +17,7 @@
 package mqtt
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	paho "github.com/eclipse/paho.mqtt.golang"
@@ -67,7 +68,7 @@ type Client struct {
 }
 
 // NewClient 创建一个MQTT客户端实例
-func NewClient(conf Config) (*Client, error) {
+func NewClient(ctx context.Context, conf Config) (*Client, error) {
 	var err error
 
 	b := Client{
@@ -102,10 +103,17 @@ func NewClient(conf Config) (*Client, error) {
 	}
 	log.Printf("connecting to mqtt broker,server=%s", conf.Server)
 	b.client = paho.NewClient(opts)
+
 	for {
 		if token := b.client.Connect(); token.Wait() && token.Error() != nil {
 			log.Printf("connecting to mqtt broker failed, will retry in 2s: %s", token.Error())
-			time.Sleep(2 * time.Second)
+			select {
+			case <-ctx.Done():
+				//context被取消或超时，返回错误
+				return nil, ctx.Err()
+			case <-time.After(2 * time.Second):
+				//定时器到期，继续重试
+			}
 		} else {
 			break
 		}

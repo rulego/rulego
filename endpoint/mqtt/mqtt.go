@@ -17,6 +17,7 @@
 package mqtt
 
 import (
+	"context"
 	"errors"
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/rulego/rulego/api/types"
@@ -25,6 +26,7 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 	"net/textproto"
 	"strconv"
+	"time"
 )
 
 //Type 组件类型
@@ -227,7 +229,9 @@ func (m *Mqtt) RemoveRouter(routerId string, params ...interface{}) error {
 
 func (m *Mqtt) Start() error {
 	if m.client == nil {
-		if client, err := mqtt.NewClient(m.Config); err != nil {
+		ctx, cancel := context.WithTimeout(context.TODO(), 16*time.Second)
+		defer cancel()
+		if client, err := mqtt.NewClient(ctx, m.Config); err != nil {
 			return err
 		} else {
 			m.client = client
