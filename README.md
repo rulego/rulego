@@ -65,22 +65,22 @@ First, define the rule chain in Json format. The rule chain definition does not 
 
 RuleGo is extremely simple and lightweight. Just follow these 2 steps:
 
-1. Import the `RuleGo` package and create a rule engine instance:
+1. Import the `RuleGo` package and use the rule chain definition to create a rule engine instance:
 
 ```go
 import "github.com/rulego/rulego"
 
-//Create a rule engine instance, each rule engine instance has only one root rule chain
+//Use the rule chain definition to create a rule engine instance
 ruleEngine, err := rulego.New("rule01", []byte(ruleFile))
 ```
 
-2. Pass the message, message type, message metadata to the rule engine instance for processing, and then the message will be processed according to the configured rule chain logic:
+2. Pass the message payload, message type, and message metadata to the rule engine instance, and the rule engine will process the message according to the rule chain definition:
 
 ```go
 //Define message metadata
 metaData := types.NewMetadata()
 metaData.PutValue("productType", "test01")
-//Define message content and message type
+//Define message payload and message type
 msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
 
 //Pass the message to the rule engine for processing
