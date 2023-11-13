@@ -175,7 +175,7 @@ func TestSubRuleChain(t *testing.T) {
 		msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "aa")
 
 		//处理消息并得到处理结果
-		ruleEngine.OnMsgWithEndFunc(msg, func(msg types.RuleMsg, err error) {
+		ruleEngine.OnMsgWithEndFunc(msg, func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 
 			atomic.AddInt32(&completed, 1)
 			group.Done()
@@ -279,7 +279,7 @@ func TestNotDebugModel(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(maxTimes)
 	for j := 0; j < maxTimes; j++ {
-		ruleEngine.OnMsgWithEndFunc(msg, func(msg types.RuleMsg, err error) {
+		ruleEngine.OnMsgWithEndFunc(msg, func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 			wg.Done()
 
 			//已经被 s2 节点修改消息类型
@@ -334,7 +334,7 @@ func TestCallRestApi(t *testing.T) {
 			metaData := types.NewMetadata()
 			metaData.PutValue("productType", "productType01")
 			msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"aa\":\"aaaaaaaaaaaaaa\"}")
-			ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+			ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 				group.Done()
 			}))
 
@@ -399,7 +399,7 @@ func TestWithContext(t *testing.T) {
 	for j := 0; j < maxTimes; j++ {
 		go func() {
 			index := j
-			ruleEngine.OnMsgWithOptions(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue+strconv.Itoa(index))), types.WithEndFunc(func(msg types.RuleMsg, err error) {
+			ruleEngine.OnMsgWithOptions(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue+strconv.Itoa(index))), types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 				wg.Done()
 				v1 := msg.Metadata.GetValue(shareKey)
 				assert.Equal(t, shareValue+strconv.Itoa(index), v1)
@@ -490,7 +490,7 @@ func TestWait(t *testing.T) {
 	wg.Add(10)
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	var count int32
-	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		atomic.AddInt32(&count, 1)
 	}))
 	assert.Equal(t, int32(2), count)
@@ -500,7 +500,7 @@ func TestWait(t *testing.T) {
 	wg.Add(4)
 	count = 0
 	msg = types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":41}")
-	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		atomic.AddInt32(&count, 1)
 	}))
 
@@ -511,7 +511,7 @@ func TestWait(t *testing.T) {
 	wg.Add(2)
 	count = 0
 	msg = types.NewMsg(0, "TEST_MSG_TYPE3", types.JSON, metaData, "{\"temperature\":41}")
-	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		atomic.AddInt32(&count, 1)
 	}))
 	assert.Equal(t, int32(1), count)

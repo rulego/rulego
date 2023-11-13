@@ -41,8 +41,8 @@ type DefaultRuleContext struct {
 	isFirst bool
 	//协程池
 	pool types.Pool
-	//当前消息整条规则链处理结束回调函数
-	onEnd func(msg types.RuleMsg, err error)
+	//规则链分支处理结束回调函数
+	onEnd types.OnEndFunc
 	//当前节点下未执行完成的子节点数量
 	waitingCount int32
 	//父ruleContext
@@ -54,7 +54,7 @@ type DefaultRuleContext struct {
 }
 
 //NewRuleContext 创建一个默认规则引擎消息处理上下文实例
-func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd func(msg types.RuleMsg, err error), ruleChainPool *RuleGo) *DefaultRuleContext {
+func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd types.OnEndFunc, ruleChainPool *RuleGo) *DefaultRuleContext {
 	return &DefaultRuleContext{
 		context:       context,
 		config:        config,
@@ -107,12 +107,12 @@ func (ctx *DefaultRuleContext) Config() types.Config {
 	return ctx.config
 }
 
-func (ctx *DefaultRuleContext) SetEndFunc(onEndFunc func(msg types.RuleMsg, err error)) types.RuleContext {
+func (ctx *DefaultRuleContext) SetEndFunc(onEndFunc types.OnEndFunc) types.RuleContext {
 	ctx.onEnd = onEndFunc
 	return ctx
 }
 
-func (ctx *DefaultRuleContext) GetEndFunc() func(msg types.RuleMsg, err error) {
+func (ctx *DefaultRuleContext) GetEndFunc() types.OnEndFunc {
 	return ctx.onEnd
 }
 
@@ -144,7 +144,7 @@ func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 //onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次
 //onAllNodeCompleted 所以节点执行完之后的回调，无结果返回
 //如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
-func (ctx *DefaultRuleContext) TellFlow(msg types.RuleMsg, chainId string, onEndFunc func(msg types.RuleMsg, err error), onAllNodeCompleted func()) {
+func (ctx *DefaultRuleContext) TellFlow(msg types.RuleMsg, chainId string, onEndFunc types.OnEndFunc, onAllNodeCompleted func()) {
 	if e, ok := ctx.GetRuleChainPool().Get(chainId); ok {
 		e.OnMsgWithOptions(msg, types.WithEndFunc(onEndFunc), types.WithOnAllNodeCompleted(onAllNodeCompleted))
 	} else {
@@ -280,7 +280,7 @@ func (ctx *DefaultRuleContext) doOnEnd(msg types.RuleMsg, err error) {
 	//通过OnMsgWithEndFunc(msg, endFunc)设置
 	if ctx.onEnd != nil {
 		ctx.SubmitTack(func() {
-			ctx.onEnd(msg, err)
+			ctx.onEnd(ctx, msg, err)
 			ctx.childDone()
 		})
 	} else {
@@ -421,7 +421,7 @@ func (e *RuleEngine) OnMsg(msg types.RuleMsg) {
 
 // OnMsgWithEndFunc 把消息交给规则引擎处理，异步执行
 //endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
-func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc func(msg types.RuleMsg, err error)) {
+func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc types.OnEndFunc) {
 	e.OnMsgWithOptions(msg, types.WithEndFunc(endFunc))
 }
 

@@ -39,7 +39,7 @@ func main() {
 
 	msg1 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 
-	ruleEngine.OnMsgWithOptions(msg1, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+	ruleEngine.OnMsgWithOptions(msg1, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		fmt.Println("msg1处理结果=====")
 		//得到规则链处理结果
 		fmt.Println(msg, err)
@@ -52,7 +52,7 @@ func main() {
 	}
 
 	msg2 := types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":30}")
-	ruleEngine2.OnMsgWithOptions(msg2, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+	ruleEngine2.OnMsgWithOptions(msg2, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		fmt.Println("msg2处理结果=====")
 		//得到规则链处理结果
 		//因为推送的url:http://192.168.136.26:9099/api/msg 是无效url，所以会返回超时错误
