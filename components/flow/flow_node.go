@@ -28,6 +28,7 @@ package flow
 import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/str"
 )
 
 //注册节点
@@ -43,7 +44,7 @@ type ChainNodeConfiguration struct {
 
 //ChainNode 子规则链
 //如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
-//子规则链分支执行完后，如果成功把该分支链最后执行结果消息通过`Success`关系发送到下一个节点，否则通过`Failure`关系发送到下一个节点，如果子规则链触发多个分支，则会执行多次
+//子规则链所有分支执行完后，把每个结束链消息合后通过`Success`关系发送到下一个节点。消息格式：[]WrapperMsg 转json
 type ChainNode struct {
 	//节点配置
 	Config ChainNodeConfiguration
@@ -65,17 +66,36 @@ func (x *ChainNode) Init(ruleConfig types.Config, configuration types.Configurat
 
 //OnMsg 处理消息
 func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+	var wrapperMsg = msg.Copy()
+	var msgs []WrapperMsg
 	ctx.TellFlow(msg, x.Config.TargetId, func(onEndMsg types.RuleMsg, err error) {
+		msgs = append(msgs, WrapperMsg{
+			Msg: onEndMsg,
+			Err: err,
+		})
 		if err == nil {
-			ctx.TellSuccess(onEndMsg)
-		} else {
-			ctx.TellFailure(onEndMsg, err)
+			for k, v := range onEndMsg.Metadata.Values() {
+				wrapperMsg.Metadata.PutValue(k, v)
+			}
 		}
-
-	}, nil)
+	}, func() {
+		wrapperMsg.DataType = types.JSON
+		wrapperMsg.Data = str.ToString(msgs)
+		ctx.TellSuccess(wrapperMsg)
+	})
 	return nil
 }
 
 //Destroy 销毁
 func (x *ChainNode) Destroy() {
+}
+
+//WrapperMsg 子规则链执行完的消息封装
+type WrapperMsg struct {
+	//Msg 消息
+	Msg types.RuleMsg `json:"msg"`
+	//Err 错误
+	Err error `json:"err"`
+	//NodeId 结束节点ID
+	NodeId string `json:"nodeId"`
 }
