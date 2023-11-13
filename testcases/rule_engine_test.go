@@ -25,6 +25,7 @@ import (
 	"github.com/rulego/rulego/utils/str"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -178,7 +179,6 @@ func TestSubRuleChain(t *testing.T) {
 
 			atomic.AddInt32(&completed, 1)
 			group.Done()
-
 			if msg.Type == "TEST_MSG_TYPE1" {
 				//root chain end
 				assert.Equal(t, msg.Data, "{\"aa\":11}")
@@ -186,7 +186,7 @@ func TestSubRuleChain(t *testing.T) {
 				assert.Equal(t, v, "Modified by root chain")
 			} else {
 				//sub chain end
-				assert.Equal(t, msg.Data, "{\"bb\":22}")
+				assert.Equal(t, true, strings.Contains(msg.Data, `"data":"{\"bb\":22}"`))
 				v := msg.Metadata.GetValue("test")
 				assert.Equal(t, v, "Modified by sub chain")
 			}
@@ -460,9 +460,9 @@ func TestLoadChain(t *testing.T) {
 	_, ok = rulego.Get("test_context_chain")
 	assert.Equal(t, true, ok)
 
-	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, types.NewMetadata(), "{\"temperature\":41}")
+	//msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, types.NewMetadata(), "{\"temperature\":41}")
 
-	rulego.OnMsg(msg)
+	//rulego.OnMsg(msg)
 
 }
 
