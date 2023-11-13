@@ -63,7 +63,7 @@ func TestPlugin(t *testing.T) {
 			metaData.PutValue("productType", "test01")
 			msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "aa")
 			//time.Sleep(time.Millisecond * 50)
-			ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(msg types.RuleMsg, err error) {
+			ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 				assert.Equal(t, "AA", msg.Data)
 				v := msg.Metadata.GetValue("timestamp")
 				assert.True(t, v != "")
@@ -104,7 +104,7 @@ func TestReloadPlugin(t *testing.T) {
 			metaData.PutValue("productType", "test01")
 			msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "aa")
 			//time.Sleep(time.Millisecond * 50)
-			ruleEngine.OnMsgWithEndFunc(msg, func(msg types.RuleMsg, err error) {
+			ruleEngine.OnMsgWithEndFunc(msg, func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 				assert.Equal(t, "AA", msg.Data)
 				v := msg.Metadata.GetValue("timestamp")
 				assert.True(t, v != "")

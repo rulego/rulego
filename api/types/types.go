@@ -37,6 +37,9 @@ const (
 	Out = "OUT"
 )
 
+//OnEndFunc 规则链分支执行完函数
+type OnEndFunc = func(ctx RuleContext, msg RuleMsg, err error)
+
 // Configuration 组件配置类型
 type Configuration map[string]interface{}
 
@@ -157,7 +160,7 @@ type RuleContext interface {
 	//onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次
 	//onAllNodeCompleted 所以节点执行完之后的回调，无结果返回
 	//如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
-	TellFlow(msg RuleMsg, ruleChainId string, endFunc func(msg RuleMsg, err error), onAllNodeCompleted func())
+	TellFlow(msg RuleMsg, ruleChainId string, endFunc func(ctx RuleContext, msg RuleMsg, err error), onAllNodeCompleted func())
 	//NewMsg 创建新的消息实例
 	NewMsg(msgType string, metaData Metadata, data string) RuleMsg
 	//GetSelfId 获取当前节点ID
@@ -167,9 +170,9 @@ type RuleContext interface {
 	//SubmitTack 异步执行任务
 	SubmitTack(task func())
 	//SetEndFunc 设置当前消息处理结束回调函数
-	SetEndFunc(f func(msg RuleMsg, err error)) RuleContext
+	SetEndFunc(f func(ctx RuleContext, msg RuleMsg, err error)) RuleContext
 	//GetEndFunc 获取当前消息处理结束回调函数
-	GetEndFunc() func(msg RuleMsg, err error)
+	GetEndFunc() func(ctx RuleContext, msg RuleMsg, err error)
 	//SetContext 设置用于不同组件实例共享信号量或者数据的上下文
 	SetContext(c context.Context) RuleContext
 	//GetContext 获取用于不同组件实例共享信号量或者数据的上下文
@@ -181,7 +184,7 @@ type RuleContext interface {
 // RuleContextOption 修改RuleContext选项的函数
 type RuleContextOption func(RuleContext)
 
-func WithEndFunc(endFunc func(msg RuleMsg, err error)) RuleContextOption {
+func WithEndFunc(endFunc func(ctx RuleContext, msg RuleMsg, err error)) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetEndFunc(endFunc)
 	}

@@ -43,8 +43,8 @@ type ChainNodeConfiguration struct {
 }
 
 //ChainNode 子规则链
-//如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
-//子规则链所有分支执行完后，把每个结束链消息合后通过`Success`关系发送到下一个节点。消息格式：[]WrapperMsg 转json
+//如果找不到规则链，则把消息通过`Failure`关系发送到下一个节点
+//子规则链所有分支执行完后，把每个结束节点处理的消息合后通过`Success`关系发送到下一个节点。消息格式：[]WrapperMsg
 type ChainNode struct {
 	//节点配置
 	Config ChainNodeConfiguration
@@ -68,10 +68,11 @@ func (x *ChainNode) Init(ruleConfig types.Config, configuration types.Configurat
 func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	var wrapperMsg = msg.Copy()
 	var msgs []WrapperMsg
-	ctx.TellFlow(msg, x.Config.TargetId, func(onEndMsg types.RuleMsg, err error) {
+	ctx.TellFlow(msg, x.Config.TargetId, func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error) {
 		msgs = append(msgs, WrapperMsg{
-			Msg: onEndMsg,
-			Err: err,
+			Msg:    onEndMsg,
+			Err:    err,
+			NodeId: nodeCtx.GetSelfId(),
 		})
 		if err == nil {
 			for k, v := range onEndMsg.Metadata.Values() {

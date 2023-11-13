@@ -84,11 +84,11 @@ func (ctx *NodeTestRuleContext) SubmitTack(task func()) {
 	go task()
 }
 
-func (ctx *NodeTestRuleContext) SetEndFunc(onEndFunc func(msg types.RuleMsg, err error)) types.RuleContext {
+func (ctx *NodeTestRuleContext) SetEndFunc(onEndFunc types.OnEndFunc) types.RuleContext {
 	return ctx
 }
 
-func (ctx *NodeTestRuleContext) GetEndFunc() func(msg types.RuleMsg, err error) {
+func (ctx *NodeTestRuleContext) GetEndFunc() types.OnEndFunc {
 	return nil
 }
 
@@ -101,7 +101,7 @@ func (ctx *NodeTestRuleContext) GetContext() context.Context {
 	return ctx.context
 }
 
-func (ctx *NodeTestRuleContext) TellFlow(msg types.RuleMsg, chainId string, endFunc func(msg types.RuleMsg, err error), onAllNodeCompleted func()) {
+func (ctx *NodeTestRuleContext) TellFlow(msg types.RuleMsg, chainId string, endFunc types.OnEndFunc, onAllNodeCompleted func()) {
 
 }
 
