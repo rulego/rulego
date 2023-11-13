@@ -37,63 +37,49 @@ const (
 )
 
 //Metadata 规则引擎消息元数据
-type Metadata struct {
-	data map[string]string
-}
+type Metadata map[string]string
 
 //NewMetadata 创建一个新的规则引擎消息元数据实例
 func NewMetadata() Metadata {
-	return Metadata{
-		data: make(map[string]string),
-	}
+	return make(Metadata)
 }
 
 //BuildMetadata 通过map，创建一个新的规则引擎消息元数据实例
-func BuildMetadata(data map[string]string) Metadata {
-	metadata := Metadata{
-		data: make(map[string]string),
-	}
+func BuildMetadata(data Metadata) Metadata {
+	metadata := make(Metadata)
 	for k, v := range data {
-		metadata.data[k] = v
+		metadata[k] = v
 	}
 	return metadata
 }
 
 //Copy 复制
-func (md *Metadata) Copy() Metadata {
-	return BuildMetadata(md.data)
+func (md Metadata) Copy() Metadata {
+	return BuildMetadata(md)
 }
 
 //Has 是否存在某个key
-func (md *Metadata) Has(key string) bool {
-	_, ok := md.data[key]
+func (md Metadata) Has(key string) bool {
+	_, ok := md[key]
 	return ok
 }
 
 //GetValue 通过key获取值
-func (md *Metadata) GetValue(key string) string {
-	v, _ := md.data[key]
+func (md Metadata) GetValue(key string) string {
+	v, _ := md[key]
 	return v
 }
 
 //PutValue 设置值
-func (md *Metadata) PutValue(key, value string) {
+func (md Metadata) PutValue(key, value string) {
 	if key != "" {
-		if md.data == nil {
-			md.data = make(map[string]string)
-		}
-		md.data[key] = value
+		md[key] = value
 	}
 }
 
 //Values 获取所有值
-func (md *Metadata) Values() map[string]string {
-	data := make(map[string]string)
-	for k, v := range md.data {
-		data[k] = v
-	}
-
-	return data
+func (md Metadata) Values() map[string]string {
+	return md
 }
 
 //RuleMsg 规则引擎消息
@@ -112,7 +98,7 @@ type RuleMsg struct {
 	//消息内容
 	Data string `json:"data"`
 	//消息元数据
-	Metadata Metadata
+	Metadata Metadata `json:"metadata"`
 }
 
 //NewMsg 创建一个新的消息实例，并通过uuid生成消息ID
