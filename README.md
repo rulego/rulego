@@ -51,6 +51,11 @@ RuleGo documentation is hosted on: [rulego.cc](https://rulego.cc) .
 * **Flexible configuration and highly customized event processing framework:** For example: Asynchronously or synchronously process different message types.
 * **Automation:** For example, process automation systems, marketing automation systems.
 
+## Architecture Diagram
+
+<img src="doc/imgs/architecture.png" width="100%">  
+<p align="center"> RuleGo Architecture Diagram</p>
+
 ## Installation
 
 Use the `go get` command to install `RuleGo`:
@@ -243,6 +248,13 @@ Machine: Raspberry Pi 2 (900MHz Cortex-A7*4,1GB LPDDR2)
 Data size: 260B   
 Rule chain: JS script filtering->JS complex transformation->HTTP push   
 Test results: 100 concurrent and 500 concurrent, memory consumption does not change much around 19M
+
+## Ecosystem
+
+- [RuleGo-Editor](https://app.rulego.cc) :Rule chain visual editor
+- [rulego-components](https://github.com/rulego/rulego-components) :Extension component library:
+- [examples/server](examples/server): A standalone example project
+- [examples](examples): More examples
 
 ## Contribution
 
