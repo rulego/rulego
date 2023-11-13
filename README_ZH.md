@@ -51,6 +51,11 @@
 * **自动化：** 例如：流程自动化系统、营销自动化系统、对接`大模型`提取用户意图，然后触发规则链与其他系统进行联动或者进行业务处理。
 * **灵活配置和高度定制化的事件处理框架：** 对不同的消息类型，进行异步或者同步的处理。
 
+## 架构图
+
+<img src="doc/imgs/architecture_zh.png" width="100%">  
+<p align="center">RuleGo架构图</p>
+
 ## 安装
 
 使用`go get`命令安装`RuleGo`：
@@ -245,6 +250,13 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 数据大小：260B   
 规则链：JS脚本过滤->JS复杂转换->HTTP推送   
 测试结果：100并发和500并发，内存占用变化不大都在19M左右
+
+## 生态
+
+- [RuleGo-Editor](https://app.rulego.cc) ：规则链可视化编辑器
+- [rulego-components](https://gitee.com/rulego/rulego-components) ：扩展组件库
+- [examples/server](examples/server) ：独立运行的示例工程
+- [examples](examples) : 更多示例
 
 ## 贡献
 
