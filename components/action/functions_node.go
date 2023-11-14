@@ -104,7 +104,9 @@ func (x *FunctionsNode) Type() string {
 }
 
 func (x *FunctionsNode) New() types.Node {
-	return &FunctionsNode{}
+	return &FunctionsNode{Config: FunctionsNodeConfiguration{
+		FunctionName: "test",
+	}}
 }
 
 //Init 初始化

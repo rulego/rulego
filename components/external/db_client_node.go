@@ -75,7 +75,11 @@ func (x *DbClientNode) Type() string {
 }
 
 func (x *DbClientNode) New() types.Node {
-	return &DbClientNode{}
+	return &DbClientNode{Config: DbClientNodeConfiguration{
+		Sql:        "select * from test",
+		DriverName: "mysql",
+		Dsn:        "root:root@tcp(127.0.0.1:3306)/test",
+	}}
 }
 
 // Init 初始化组件

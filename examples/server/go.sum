@@ -93,6 +93,8 @@ github.com/rulego/rulego v0.16.1-0.20231031134311-ad9798c4fed3 h1:J1LWykpLI4wuNn
 github.com/rulego/rulego v0.16.1-0.20231031134311-ad9798c4fed3/go.mod h1:lcDhSmNxCmx93QoxJQksJsjPRYjcx2bEtOEH/ujw5IU=
 github.com/rulego/rulego-components v0.14.1-0.20231102073313-def946a9a867 h1:Y1GlHEETpsNikDn8Nbc/1v0y3qWJQSp0SHlwZFCU2SM=
 github.com/rulego/rulego-components v0.14.1-0.20231102073313-def946a9a867/go.mod h1:RgYQ+VRMcpTVexDjQY2YkJKlxg2Y9NZljqxUZWKO4jE=
+github.com/rulego/rulego-components v0.14.1-0.20231114022950-abaeeeb69448 h1:nj6FYErV9+5IYs8gokrkeLJM96Hu/9IhVpUsY/4xm5g=
+github.com/rulego/rulego-components v0.14.1-0.20231114022950-abaeeeb69448/go.mod h1:1rl0TKxSQ9hGLD3qoJkSqI6g4kA8cxIR9fHkZDksoSo=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=

@@ -68,7 +68,9 @@ func (x *JsTransformNode) Type() string {
 }
 
 func (x *JsTransformNode) New() types.Node {
-	return &JsTransformNode{}
+	return &JsTransformNode{Config: JsTransformNodeConfiguration{
+		JsScript: "return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+	}}
 }
 
 //Init 初始化

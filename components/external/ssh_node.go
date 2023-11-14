@@ -71,7 +71,12 @@ func (x *SshNode) Type() string {
 
 // New 方法用来创建一个 SshNode 的新实例
 func (x *SshNode) New() types.Node {
-	return &SshNode{Config: SshConfiguration{Port: 22}}
+	return &SshNode{Config: SshConfiguration{
+		Host:     "127.0.0.1",
+		Port:     22,
+		Username: "root",
+		Password: "password",
+	}}
 }
 
 // Init 方法用来初始化组件，一般做一些组件参数配置或者客户端初始化操作
