@@ -66,7 +66,9 @@ func (x *JsFilterNode) Type() string {
 }
 
 func (x *JsFilterNode) New() types.Node {
-	return &JsFilterNode{}
+	return &JsFilterNode{Config: JsFilterNodeConfiguration{
+		JsScript: "return msg.temperature > 50;",
+	}}
 }
 
 //Init 初始化

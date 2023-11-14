@@ -72,7 +72,9 @@ func (x *LogNode) Type() string {
 }
 
 func (x *LogNode) New() types.Node {
-	return &LogNode{}
+	return &LogNode{Config: LogNodeConfiguration{
+		JsScript: `return 'Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);`,
+	}}
 }
 
 //Init 初始化
