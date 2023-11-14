@@ -59,20 +59,22 @@ const (
 
 //RestApiCallNodeConfiguration rest配置
 type RestApiCallNodeConfiguration struct {
-	//RestEndpointUrlPattern HTTP URL地址目标,可以使用 ${metaKeyName} 替换元数据中的变量
+	//RestEndpointUrlPattern HTTP URL地址,可以使用 ${metaKeyName} 替换元数据中的变量
 	RestEndpointUrlPattern string
-	//RequestMethod 请求方法
+	//RequestMethod 请求方法，默认POST
 	RequestMethod string
 	//Headers 请求头,可以使用 ${metaKeyName} 替换元数据中的变量
 	Headers map[string]string
-	//ReadTimeoutMs 超时，单位毫秒
+	//ReadTimeoutMs 超时，单位毫秒，默认0:不限制
 	ReadTimeoutMs int
-	//MaxParallelRequestsCount 连接池大小，默认200
+	//MaxParallelRequestsCount 连接池大小，默认200。0代表不限制
 	MaxParallelRequestsCount int
 	//EnableProxy 是否开启代理
 	EnableProxy bool
 	//UseSystemProxyProperties 使用系统配置代理
 	UseSystemProxyProperties bool
+	//ProxyScheme 代理协议
+	ProxyScheme string
 	//ProxyHost 代理主机
 	ProxyHost string
 	//ProxyPort 代理端口
@@ -81,11 +83,9 @@ type RestApiCallNodeConfiguration struct {
 	ProxyUser string
 	//ProxyPassword 代理密码
 	ProxyPassword string
-	//ProxyScheme
-	ProxyScheme string
 }
 
-//RestApiCallNode 将通过REST API调用<code> GET | POST | PUT | DELETE </ code>到外部REST服务。
+//RestApiCallNode 将通过REST API调用GET | POST | PUT | DELETE到外部REST服务。
 //如果请求成功，把HTTP响应消息发送到`Success`链, 否则发到`Failure`链，
 //metaData.status记录响应错误码和metaData.errorBody记录错误信息。
 type RestApiCallNode struct {
@@ -105,7 +105,7 @@ func (x *RestApiCallNode) New() types.Node {
 	config := RestApiCallNodeConfiguration{
 		RequestMethod:            "POST",
 		MaxParallelRequestsCount: 200,
-		ReadTimeoutMs:            2000,
+		ReadTimeoutMs:            0,
 		Headers:                  headers,
 	}
 	return &RestApiCallNode{Config: config}

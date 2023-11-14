@@ -61,7 +61,9 @@ func (x *JsSwitchNode) Type() string {
 	return "jsSwitch"
 }
 func (x *JsSwitchNode) New() types.Node {
-	return &JsSwitchNode{}
+	return &JsSwitchNode{Config: JsSwitchNodeConfiguration{
+		JsScript: `return ['msgType1','msgType2'];`,
+	}}
 }
 
 //Init 初始化
