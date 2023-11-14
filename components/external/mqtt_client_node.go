@@ -42,11 +42,12 @@ func init() {
 
 type MqttClientNodeConfiguration struct {
 	//publish topic
-	Topic                string
-	Server               string
-	Username             string
-	Password             string
-	MaxReconnectInterval time.Duration
+	Topic    string
+	Server   string
+	Username string
+	Password string
+	//MaxReconnectInterval 重连间隔 单位秒
+	MaxReconnectInterval int
 	QOS                  uint8
 	CleanSession         bool
 	ClientID             string
@@ -56,12 +57,15 @@ type MqttClientNodeConfiguration struct {
 }
 
 func (x *MqttClientNodeConfiguration) ToMqttConfig() mqtt.Config {
+	if x.MaxReconnectInterval < 0 {
+		x.MaxReconnectInterval = 60
+	}
 	return mqtt.Config{
 		Server:               x.Server,
 		Username:             x.Username,
 		Password:             x.Password,
 		QOS:                  x.QOS,
-		MaxReconnectInterval: x.MaxReconnectInterval,
+		MaxReconnectInterval: time.Duration(x.MaxReconnectInterval) * time.Second,
 		CleanSession:         x.CleanSession,
 		ClientID:             x.ClientID,
 		CAFile:               x.CAFile,
@@ -82,7 +86,12 @@ func (x *MqttClientNode) Type() string {
 }
 
 func (x *MqttClientNode) New() types.Node {
-	return &MqttClientNode{}
+	return &MqttClientNode{Config: MqttClientNodeConfiguration{
+		Topic:                "/device/msg",
+		Server:               "127.0.0.1:1883",
+		QOS:                  0,
+		MaxReconnectInterval: 60,
+	}}
 }
 
 //Init 初始化
