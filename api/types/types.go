@@ -37,6 +37,13 @@ const (
 	Out = "OUT"
 )
 
+// 脚本类型
+const (
+	Js     = "Js"
+	Lua    = "Lua"
+	Python = "Python"
+)
+
 //OnEndFunc 规则链分支执行完函数
 type OnEndFunc = func(ctx RuleContext, msg RuleMsg, err error)
 
@@ -256,4 +263,12 @@ type RuleNodeRelation struct {
 	OutId RuleNodeId
 	//关系 如：True、False、Success、Failure 或者其他自定义关系
 	RelationType string
+}
+
+//Script 脚本 用于注册原生UDF
+type Script struct {
+	//Type 脚本类型，默认Js
+	Type string
+	//Content 脚本内容
+	Content string
 }

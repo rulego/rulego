@@ -59,16 +59,20 @@ func NewGojaJsEngine(config types.Config, jsScript string, vars map[string]inter
 				}
 				//增加全局自定义函数到js运行时
 				for k, v := range config.Udf {
+					var err error
 					if jsFuncStr, ok := v.(string); ok {
 						// parse  JS script
-						_, err := vm.RunString(jsFuncStr)
-						if err != nil {
-							config.Logger.Printf("parse js script=" + k + " error,err:" + err.Error())
-						}
+						_, err = vm.RunString(jsFuncStr)
+					} else if script, scriptOk := v.(types.Script); scriptOk && (script.Type == types.Js || script.Type == "") {
+						// parse  JS script
+						_, err = vm.RunString(script.Content)
 					} else {
+						// parse go func
 						vars[k] = vm.ToValue(v)
 					}
-
+					if err != nil {
+						config.Logger.Printf("parse js script=" + k + " error,err:" + err.Error())
+					}
 				}
 				for k, v := range vars {
 					if err := vm.Set(k, v); err != nil {

@@ -56,7 +56,7 @@ type Config struct {
 	//规则链节点配置可以通过${global.propertyKey}方式替换Properties值
 	//节点初始化时候替换，只替换一次
 	Properties Metadata
-	//Udf 注册自定义golang函数，js运行时可以通过x(param1,param2,...) 方式调用
+	//Udf 注册自定义Golang函数和原生脚本，js等脚本引擎运行时可以调用
 	Udf map[string]interface{}
 }
 
