@@ -186,6 +186,8 @@ type RuleContext interface {
 	GetContext() context.Context
 	//SetOnAllNodeCompleted 设置所有节点执行完回调
 	SetOnAllNodeCompleted(onAllNodeCompleted func())
+	//ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
+	ExecuteNode(chanCtx context.Context, nodeId string, msg RuleMsg, callback func(msg RuleMsg, err error, relationTypes ...string))
 }
 
 // RuleContextOption 修改RuleContext选项的函数
