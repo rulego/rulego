@@ -51,6 +51,8 @@ type DefaultRuleContext struct {
 	onAllNodeCompleted func()
 	//子规则链池
 	ruleChainPool *RuleGo
+	//tellNext的拦截器，再触发下一个节点前调用
+	interceptor func(msg types.RuleMsg, err error, relationTypes ...string)
 }
 
 //NewRuleContext 创建一个默认规则引擎消息处理上下文实例
@@ -79,6 +81,7 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		onEnd:         ctx.onEnd,
 		context:       ctx.GetContext(),
 		parentRuleCtx: ctx,
+		interceptor:   ctx.interceptor,
 	}
 }
 
@@ -171,6 +174,19 @@ func (ctx *DefaultRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) 
 	ctx.onAllNodeCompleted = onAllNodeCompleted
 }
 
+//ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
+func (ctx *DefaultRuleContext) ExecuteNode(chanCtx context.Context, nodeId string, msg types.RuleMsg, callback func(msg types.RuleMsg, err error, relationTypes ...string)) {
+	if nodeCtx, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
+		rootCtxCopy := NewRuleContext(chanCtx, ctx.config, ctx.ruleChainCtx, nil, nodeCtx, ctx.pool, nil, ctx.ruleChainPool)
+		rootCtxCopy.interceptor = callback
+		if err := nodeCtx.OnMsg(rootCtxCopy, msg); err != nil {
+			callback(msg, err, types.Failure)
+		}
+	} else {
+		callback(msg, errors.New("node id not found nodeId="+nodeId), types.Failure)
+	}
+}
+
 //增加一个待执行子节点
 func (ctx *DefaultRuleContext) childReady() {
 	atomic.AddInt32(&ctx.waitingCount, 1)
@@ -220,6 +236,10 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 			}
 		})
 	} else {
+		//回调
+		if ctx.interceptor != nil {
+			ctx.interceptor(msgCopy, err, relationTypes...)
+		}
 		for _, relationType := range relationTypes {
 			if ctx.self != nil && ctx.self.IsDebugMode() {
 				//记录调试信息

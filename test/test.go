@@ -109,3 +109,8 @@ func (ctx *NodeTestRuleContext) TellFlow(msg types.RuleMsg, chainId string, endF
 func (ctx *NodeTestRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) {
 	ctx.onAllNodeCompleted = onAllNodeCompleted
 }
+
+//ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
+func (ctx *NodeTestRuleContext) ExecuteNode(context context.Context, nodeId string, msg types.RuleMsg, callback func(msg types.RuleMsg, err error, relationTypes ...string)) {
+
+}
