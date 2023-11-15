@@ -63,9 +63,12 @@ func NewGojaJsEngine(config types.Config, jsScript string, vars map[string]inter
 					if jsFuncStr, ok := v.(string); ok {
 						// parse  JS script
 						_, err = vm.RunString(jsFuncStr)
-					} else if script, scriptOk := v.(types.Script); scriptOk && (script.Type == types.Js || script.Type == "") {
-						// parse  JS script
-						_, err = vm.RunString(script.Content)
+					} else if script, scriptOk := v.(types.Script); scriptOk {
+						if script.Type == types.Js || script.Type == "" {
+							// parse  JS script
+							_, err = vm.RunString(script.Content)
+						}
+
 					} else {
 						// parse go func
 						vars[k] = vm.ToValue(v)
@@ -84,7 +87,7 @@ func NewGojaJsEngine(config types.Config, jsScript string, vars map[string]inter
 
 				state := make(chan int, 1)
 				state <- 0
-				time.AfterFunc(config.JsMaxExecutionTime, func() {
+				time.AfterFunc(config.ScriptMaxExecutionTime, func() {
 					if <-state == 0 {
 						state <- 2
 						vm.Interrupt("execution timeout")
@@ -121,7 +124,7 @@ func (g *GojaJsEngine) Execute(functionName string, argumentList ...interface{})
 	vm := g.vmPool.Get().(*goja.Runtime)
 	state := make(chan int, 1)
 	state <- 0
-	time.AfterFunc(g.config.JsMaxExecutionTime, func() {
+	time.AfterFunc(g.config.ScriptMaxExecutionTime, func() {
 		if <-state == 0 {
 			state <- 2
 			vm.Interrupt("execution timeout")

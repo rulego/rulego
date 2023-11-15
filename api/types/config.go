@@ -36,8 +36,8 @@ type Config struct {
 	//使用types.WithEndFunc方式代替
 	//OnEnd 规则链执行完成回调函数，如果有多个结束点，则执行多次
 	OnEnd func(msg RuleMsg, err error)
-	//JsMaxExecutionTime js脚本执行超时时间，默认2000毫秒
-	JsMaxExecutionTime time.Duration
+	//ScriptMaxExecutionTime 脚本执行超时时间，默认2000毫秒
+	ScriptMaxExecutionTime time.Duration
 	//Pool 协程池接口
 	//如果不配置，则使用 go func 方式
 	//默认使用`pool.WorkerPool`。兼容ants协程池，可以使用ants协程池实现
@@ -74,9 +74,9 @@ type Option func(*Config) error
 func NewConfig(opts ...Option) Config {
 	// Create a new Config with default values.
 	c := &Config{
-		JsMaxExecutionTime: time.Millisecond * 2000,
-		Logger:             DefaultLogger(),
-		Properties:         NewMetadata(),
+		ScriptMaxExecutionTime: time.Millisecond * 2000,
+		Logger:                 DefaultLogger(),
+		Properties:             NewMetadata(),
 	}
 
 	// Apply the options to the Config.
@@ -125,10 +125,10 @@ func WithDefaultPool() Option {
 	}
 }
 
-// WithJsMaxExecutionTime is an option that sets the js max execution time of the Config.
-func WithJsMaxExecutionTime(jsMaxExecutionTime time.Duration) Option {
+// WithScriptMaxExecutionTime is an option that sets the js max execution time of the Config.
+func WithScriptMaxExecutionTime(scriptMaxExecutionTime time.Duration) Option {
 	return func(c *Config) error {
-		c.JsMaxExecutionTime = jsMaxExecutionTime
+		c.ScriptMaxExecutionTime = scriptMaxExecutionTime
 		return nil
 	}
 }
