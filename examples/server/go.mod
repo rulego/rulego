@@ -3,8 +3,8 @@ module examples/server
 go 1.18
 
 require (
-	github.com/rulego/rulego v0.16.1-0.20231113130321-bbe8e1206841
-	github.com/rulego/rulego-components v0.14.1-0.20231114022950-abaeeeb69448
+	github.com/rulego/rulego v0.16.1-0.20231116101547-c1aaef3b4fec
+	github.com/rulego/rulego-components v0.14.1-0.20231116102118-011f4f521937
 )
 
 require (
@@ -47,4 +47,5 @@ require (
 )
 
 replace github.com/rulego/rulego => ../../../rulego
+
 //replace github.com/rulego/rulego-components => ../../../rulego-components
