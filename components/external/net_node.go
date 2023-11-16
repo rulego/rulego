@@ -15,7 +15,7 @@
  */
 
 // Package external 把msg负荷发送到指定协议网络服务器（不支持读取数据），支持协议：tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。
-//每条消息在内容最后增加结束符：'\n'
+// 每条消息在内容最后增加结束符：'\n'
 package external
 
 import (
@@ -26,10 +26,10 @@ import (
 	"time"
 )
 
-//EndSign 结束符
+// EndSign 结束符
 const EndSign = '\n'
 
-//注册节点
+// 注册节点
 func init() {
 	Registry.Add(&NetNode{})
 }
@@ -64,7 +64,7 @@ type NetNode struct {
 	disconnected int32
 }
 
-//Type 组件类型
+// Type 组件类型
 func (x *NetNode) Type() string {
 	return "net"
 }
@@ -77,7 +77,7 @@ func (x *NetNode) New() types.Node {
 	}}
 }
 
-//Init 初始化
+// Init 初始化
 func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	x.ruleConfig = ruleConfig
 	x.stop = make(chan struct{}, 1)
@@ -105,16 +105,16 @@ func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	return err
 }
 
-//OnMsg 处理消息
-func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+// OnMsg 处理消息
+func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	// 将消息的数据转换为字节数组
 	data := []byte(msg.Data)
 	// 在数据的末尾加上结束符
 	data = append(data, EndSign)
-	return x.onWrite(ctx, msg, data)
+	x.onWrite(ctx, msg, data)
 }
 
-//Destroy 销毁
+// Destroy 销毁
 func (x *NetNode) Destroy() {
 	// 发送一个空结构体到chain
 	x.stop <- struct{}{}
@@ -194,7 +194,7 @@ func (x *NetNode) onPing() {
 	}
 }
 
-func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte) error {
+func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
 	// 向服务器发送数据
 	_, err := x.conn.Write(data)
 	if err != nil {
@@ -207,7 +207,6 @@ func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte)
 		//发送到下一个阶段
 		ctx.TellSuccess(msg)
 	}
-	return err
 }
 
 func (x *NetNode) onDisconnect() {

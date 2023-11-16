@@ -37,7 +37,7 @@ func (n *TimeNode) Init(ruleConfig types.Config, configuration types.Configurati
 	return nil
 }
 
-func (n *TimeNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+func (n *TimeNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	msg.Metadata.PutValue("timestamp", time.Now().Format(time.RFC3339))
 	v1 := ctx.GetContext().Value(shareKey)
 	if v1 != nil {

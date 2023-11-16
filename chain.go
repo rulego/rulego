@@ -31,8 +31,8 @@ type RelationCache struct {
 }
 
 // RuleChainCtx 规则链实例定义
-//初始化所有节点
-//记录规则链，所有节点路由关系
+// 初始化所有节点
+// 记录规则链，所有节点路由关系
 type RuleChainCtx struct {
 	//节点ID
 	Id types.RuleNodeId
@@ -60,7 +60,7 @@ type RuleChainCtx struct {
 	sync.RWMutex
 }
 
-//InitRuleChainCtx 初始化RuleChainCtx
+// InitRuleChainCtx 初始化RuleChainCtx
 func InitRuleChainCtx(config types.Config, ruleChainDef *RuleChain) (*RuleChainCtx, error) {
 	var ruleChainCtx = &RuleChainCtx{
 		Config:             config,
@@ -157,7 +157,7 @@ func (rc *RuleChainCtx) GetNodeByIndex(index int) (types.NodeCtx, bool) {
 	return rc.GetNodeById(rc.nodeIds[index])
 }
 
-//GetFirstNode 获取第一个节点，消息从该节点开始流转。默认是index=0的节点
+// GetFirstNode 获取第一个节点，消息从该节点开始流转。默认是index=0的节点
 func (rc *RuleChainCtx) GetFirstNode() (types.NodeCtx, bool) {
 	var firstNodeIndex = rc.SelfDefinition.Metadata.FirstNodeIndex
 	return rc.GetNodeByIndex(firstNodeIndex)
@@ -227,9 +227,8 @@ func (rc *RuleChainCtx) Init(_ types.Config, configuration types.Configuration) 
 }
 
 // OnMsg 处理消息
-func (rc *RuleChainCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+func (rc *RuleChainCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	ctx.TellFlow(msg, rc.Id.Id, nil, nil)
-	return nil
 }
 
 func (rc *RuleChainCtx) Destroy() {
@@ -293,12 +292,12 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
 }
 
-//SetRuleChainPool 设置子规则链池
+// SetRuleChainPool 设置子规则链池
 func (rc *RuleChainCtx) SetRuleChainPool(ruleChainPool *RuleGo) {
 	rc.ruleChainPool = ruleChainPool
 }
 
-//GetRuleChainPool 获取子规则链池
+// GetRuleChainPool 获取子规则链池
 func (rc *RuleChainCtx) GetRuleChainPool() *RuleGo {
 	if rc.ruleChainPool == nil {
 		return DefaultRuleGo

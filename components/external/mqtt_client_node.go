@@ -25,17 +25,18 @@ import (
 	"time"
 )
 
-//规则链节点配置示例：
-// {
-//        "id": "s3",
-//        "type": "mqttClient",
-//        "name": "mqtt推送数据",
-//        "debugMode": false,
-//        "configuration": {
-//          "Server": "127.0.0.1:1883",
-//          "Topic": "/device/msg"
-//        }
-//      }
+// 规则链节点配置示例：
+//
+//	{
+//	       "id": "s3",
+//	       "type": "mqttClient",
+//	       "name": "mqtt推送数据",
+//	       "debugMode": false,
+//	       "configuration": {
+//	         "Server": "127.0.0.1:1883",
+//	         "Topic": "/device/msg"
+//	       }
+//	     }
 func init() {
 	Registry.Add(&MqttClientNode{})
 }
@@ -80,7 +81,7 @@ type MqttClientNode struct {
 	mqttClient *mqtt.Client
 }
 
-//Type 组件类型
+// Type 组件类型
 func (x *MqttClientNode) Type() string {
 	return "mqttClient"
 }
@@ -94,7 +95,7 @@ func (x *MqttClientNode) New() types.Node {
 	}}
 }
 
-//Init 初始化
+// Init 初始化
 func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
@@ -105,8 +106,8 @@ func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Confi
 	return err
 }
 
-//OnMsg 处理消息
-func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+// OnMsg 处理消息
+func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	topic := str.SprintfDict(x.Config.Topic, msg.Metadata.Values())
 	err := x.mqttClient.Publish(topic, x.Config.QOS, []byte(msg.Data))
 	if err != nil {
@@ -114,10 +115,9 @@ func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	} else {
 		ctx.TellSuccess(msg)
 	}
-	return err
 }
 
-//Destroy 销毁
+// Destroy 销毁
 func (x *MqttClientNode) Destroy() {
 	if x.mqttClient != nil {
 		_ = x.mqttClient.Close()

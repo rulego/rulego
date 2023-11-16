@@ -55,7 +55,7 @@ func TestSendEmailNode(t *testing.T) {
 	}
 	var group sync.WaitGroup
 	group.Add(1)
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 
 	})
 	ctx.SetEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
@@ -66,10 +66,7 @@ func TestSendEmailNode(t *testing.T) {
 	})
 	metaData := types.BuildMetadata(make(map[string]string))
 	msg := ctx.NewMsg("TEST_MSG_TYPE", metaData, "aa")
-	err = node.OnMsg(ctx, msg)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg)
 	group.Wait()
 }
 func TestSendEmailNodeWithTls(t *testing.T) {
@@ -103,7 +100,7 @@ func TestSendEmailNodeWithTls(t *testing.T) {
 	}
 	var group sync.WaitGroup
 	group.Add(1)
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 
 	})
 	ctx.SetEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
@@ -114,9 +111,6 @@ func TestSendEmailNodeWithTls(t *testing.T) {
 	})
 	metaData := types.BuildMetadata(make(map[string]string))
 	msg := ctx.NewMsg("TEST_MSG_TYPE", metaData, "aa")
-	err = node.OnMsg(ctx, msg)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg)
 	group.Wait()
 }

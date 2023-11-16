@@ -37,7 +37,7 @@ func TestDelayNodeOnMsg(t *testing.T) {
 	}
 
 	var count int64
-	ctx := test.NewRuleContextFull(config, &node, func(msg types.RuleMsg, relationType string) {
+	ctx := test.NewRuleContextFull(config, &node, func(msg types.RuleMsg, relationType string, err2 error) {
 		atomic.AddInt64(&count, 1)
 		if count == 1 {
 			assert.Equal(t, types.Failure, relationType)
@@ -51,18 +51,18 @@ func TestDelayNodeOnMsg(t *testing.T) {
 
 	//第1条消息
 	msg := ctx.NewMsg("ACTIVITY_EVENT", metaData, "AA")
-	_ = node.OnMsg(ctx, msg)
+	node.OnMsg(ctx, msg)
 
 	time.Sleep(time.Millisecond * 200)
 	//第2条消息，因为队列已经满，报错
 	msg = ctx.NewMsg("ACTIVITY_EVENT", metaData, "BB")
-	_ = node.OnMsg(ctx, msg)
+	node.OnMsg(ctx, msg)
 
 	time.Sleep(time.Second * 1)
 
 	//第3条消息，因为队列已经消费，成功
 	msg = ctx.NewMsg("ACTIVITY_EVENT", metaData, "CC")
-	_ = node.OnMsg(ctx, msg)
+	node.OnMsg(ctx, msg)
 
 	time.Sleep(time.Second * 1)
 
@@ -79,7 +79,7 @@ func TestDelayNodeByPattern(t *testing.T) {
 		t.Errorf("err=%s", err)
 	}
 
-	ctx := test.NewRuleContextFull(config, &node, func(msg types.RuleMsg, relationType string) {
+	ctx := test.NewRuleContextFull(config, &node, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, types.Success, relationType)
 	})
 	metaData := types.BuildMetadata(make(map[string]string))
@@ -87,7 +87,7 @@ func TestDelayNodeByPattern(t *testing.T) {
 	metaData.PutValue("period", "2")
 
 	msg := ctx.NewMsg("ACTIVITY_EVENT", metaData, "AA")
-	_ = node.OnMsg(ctx, msg)
+	node.OnMsg(ctx, msg)
 
 	time.Sleep(3)
 }

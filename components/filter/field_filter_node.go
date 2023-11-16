@@ -27,7 +27,7 @@ func init() {
 	Registry.Add(&FieldFilterNode{})
 }
 
-//FieldFilterNodeConfiguration 节点配置
+// FieldFilterNodeConfiguration 节点配置
 type FieldFilterNodeConfiguration struct {
 	//是否是满足所有field key存在
 	CheckAllKeys bool
@@ -37,8 +37,8 @@ type FieldFilterNodeConfiguration struct {
 	MetadataNames string
 }
 
-//FieldFilterNode 过滤满足是否存在某个msg字段/metadata字段 消息
-//如果 `True`发送信息到`True`链, `False`发到`False`链。
+// FieldFilterNode 过滤满足是否存在某个msg字段/metadata字段 消息
+// 如果 `True`发送信息到`True`链, `False`发到`False`链。
 type FieldFilterNode struct {
 	//节点配置
 	Config            FieldFilterNodeConfiguration
@@ -46,7 +46,7 @@ type FieldFilterNode struct {
 	MetadataNamesList []string
 }
 
-//Type 组件类型
+// Type 组件类型
 func (x *FieldFilterNode) Type() string {
 	return "fieldFilter"
 }
@@ -55,7 +55,7 @@ func (x *FieldFilterNode) New() types.Node {
 	return &FieldFilterNode{}
 }
 
-//Init 初始化
+// Init 初始化
 func (x *FieldFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	x.DataNamesList = strings.Split(x.Config.DataNames, ",")
@@ -63,13 +63,13 @@ func (x *FieldFilterNode) Init(ruleConfig types.Config, configuration types.Conf
 	return err
 }
 
-//OnMsg 处理消息
-func (x *FieldFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+// OnMsg 处理消息
+func (x *FieldFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var dataMap = make(map[string]interface{})
 	if msg.DataType == types.JSON {
 		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err != nil {
 			ctx.TellFailure(msg, err)
-			return err
+			return
 		}
 	}
 
@@ -86,10 +86,9 @@ func (x *FieldFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error 
 			ctx.TellNext(msg, types.False)
 		}
 	}
-	return nil
 }
 
-//Destroy 销毁
+// Destroy 销毁
 func (x *FieldFilterNode) Destroy() {
 }
 

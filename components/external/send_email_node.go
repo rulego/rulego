@@ -29,14 +29,14 @@ import (
 	"strings"
 )
 
-//分隔符
+// 分隔符
 const splitUserSep = ","
 
 func init() {
 	Registry.Add(&SendEmailNode{})
 }
 
-//Email 邮件消息体
+// Email 邮件消息体
 type Email struct {
 	//From 发件人邮箱
 	From string
@@ -147,7 +147,7 @@ func (e *Email) SendEmailWithTls(addr string, auth smtp.Auth, metadata map[strin
 
 }
 
-//SendEmailConfiguration 配置
+// SendEmailConfiguration 配置
 type SendEmailConfiguration struct {
 	//SmtpHost Smtp主机地址
 	SmtpHost string
@@ -163,8 +163,8 @@ type SendEmailConfiguration struct {
 	Email Email
 }
 
-//SendEmailNode 通过SMTP服务器发送邮消息
-//如果请求成功，发送消息到`Success`链, 否则发到`Failure`链，
+// SendEmailNode 通过SMTP服务器发送邮消息
+// 如果请求成功，发送消息到`Success`链, 否则发到`Failure`链，
 type SendEmailNode struct {
 	//节点配置
 	Config   SendEmailConfiguration
@@ -172,7 +172,7 @@ type SendEmailNode struct {
 	smtpAuth smtp.Auth
 }
 
-//Type 组件类型
+// Type 组件类型
 func (x *SendEmailNode) Type() string {
 	return "sendEmail"
 }
@@ -181,7 +181,7 @@ func (x *SendEmailNode) New() types.Node {
 	return &SendEmailNode{}
 }
 
-//Init 初始化
+// Init 初始化
 func (x *SendEmailNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
@@ -195,8 +195,8 @@ func (x *SendEmailNode) Init(ruleConfig types.Config, configuration types.Config
 	return err
 }
 
-//OnMsg 处理消息
-func (x *SendEmailNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+// OnMsg 处理消息
+func (x *SendEmailNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	metaData := msg.Metadata.Values()
 	emailPojo := x.Config.Email
 	var err error
@@ -210,10 +210,8 @@ func (x *SendEmailNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	} else {
 		ctx.TellSuccess(msg)
 	}
-
-	return nil
 }
 
-//Destroy 销毁
+// Destroy 销毁
 func (x *SendEmailNode) Destroy() {
 }

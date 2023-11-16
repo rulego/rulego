@@ -36,7 +36,10 @@ func TestJsFilterNodeOnMsg(t *testing.T) {
 		t.Errorf("err=%s", err)
 	}
 
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+		if err2 != nil {
+			t.Errorf("err=%s", err)
+		}
 		if msg.Type == "TEST_MSG_TYPE_AA" {
 			assert.Equal(t, "True", relationType)
 		} else if msg.Type == "TEST_MSG_TYPE_BB" {
@@ -46,14 +49,8 @@ func TestJsFilterNodeOnMsg(t *testing.T) {
 	})
 	metaData := types.BuildMetadata(make(map[string]string))
 	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "AA")
-	err = node.OnMsg(ctx, msg)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg)
 
 	msg2 := ctx.NewMsg("TEST_MSG_TYPE_BB", metaData, "BB")
-	err = node.OnMsg(ctx, msg2)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg2)
 }

@@ -38,7 +38,7 @@ func init() {
 	Registry.Add(&JsFilterNode{})
 }
 
-//JsFilterNodeConfiguration 节点配置
+// JsFilterNodeConfiguration 节点配置
 type JsFilterNodeConfiguration struct {
 	//JsScript 配置函数体脚本内容
 	// 使用js脚本进行过滤
@@ -48,19 +48,19 @@ type JsFilterNodeConfiguration struct {
 	JsScript string
 }
 
-//JsFilterNode 使用js脚本过滤传入信息
-//如果 `True`发送信息到`True`链, `False`发到`False`链。
-//如果 脚本执行失败则发送到`Failure`链
-//消息体可以通过`msg`变量访问，msg 是string类型。例如:`return msg.temperature > 50;`
-//消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
-//消息类型可以通过`msgType`变量访问.
+// JsFilterNode 使用js脚本过滤传入信息
+// 如果 `True`发送信息到`True`链, `False`发到`False`链。
+// 如果 脚本执行失败则发送到`Failure`链
+// 消息体可以通过`msg`变量访问，msg 是string类型。例如:`return msg.temperature > 50;`
+// 消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
+// 消息类型可以通过`msgType`变量访问.
 type JsFilterNode struct {
 	//节点配置
 	Config   JsFilterNodeConfiguration
 	jsEngine types.JsEngine
 }
 
-//Type 组件类型
+// Type 组件类型
 func (x *JsFilterNode) Type() string {
 	return "jsFilter"
 }
@@ -71,7 +71,7 @@ func (x *JsFilterNode) New() types.Node {
 	}}
 }
 
-//Init 初始化
+// Init 初始化
 func (x *JsFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
@@ -81,8 +81,8 @@ func (x *JsFilterNode) Init(ruleConfig types.Config, configuration types.Configu
 	return err
 }
 
-//OnMsg 处理消息
-func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+// OnMsg 处理消息
+func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var data interface{} = msg.Data
 	if msg.DataType == types.JSON {
 		var dataMap interface{}
@@ -94,18 +94,16 @@ func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	out, err := x.jsEngine.Execute("Filter", data, msg.Metadata.Values(), msg.Type)
 	if err != nil {
 		ctx.TellFailure(msg, err)
-		return err
 	} else {
 		if formatData, ok := out.(bool); ok && formatData {
 			ctx.TellNext(msg, types.True)
 		} else {
 			ctx.TellNext(msg, types.False)
 		}
-		return nil
 	}
 }
 
-//Destroy 销毁
+// Destroy 销毁
 func (x *JsFilterNode) Destroy() {
 	x.jsEngine.Stop()
 }

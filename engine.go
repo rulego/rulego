@@ -55,7 +55,7 @@ type DefaultRuleContext struct {
 	interceptor func(msg types.RuleMsg, err error, relationTypes ...string)
 }
 
-//NewRuleContext 创建一个默认规则引擎消息处理上下文实例
+// NewRuleContext 创建一个默认规则引擎消息处理上下文实例
 func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd types.OnEndFunc, ruleChainPool *RuleGo) *DefaultRuleContext {
 	return &DefaultRuleContext{
 		context:       context,
@@ -70,7 +70,7 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 	}
 }
 
-//NewNextNodeRuleContext 创建下一个节点的规则引擎消息处理上下文实例RuleContext
+// NewNextNodeRuleContext 创建下一个节点的规则引擎消息处理上下文实例RuleContext
 func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *DefaultRuleContext {
 	return &DefaultRuleContext{
 		config:        ctx.config,
@@ -96,7 +96,7 @@ func (ctx *DefaultRuleContext) TellNext(msg types.RuleMsg, relationTypes ...stri
 }
 func (ctx *DefaultRuleContext) TellSelf(msg types.RuleMsg, delayMs int64) {
 	time.AfterFunc(time.Millisecond*time.Duration(delayMs), func() {
-		_ = ctx.self.OnMsg(ctx, msg)
+		ctx.self.OnMsg(ctx, msg)
 	})
 }
 func (ctx *DefaultRuleContext) NewMsg(msgType string, metaData types.Metadata, data string) types.RuleMsg {
@@ -143,10 +143,10 @@ func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 	}
 }
 
-//TellFlow 执行子规则链，ruleChainId 规则链ID
-//onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次
-//onAllNodeCompleted 所以节点执行完之后的回调，无结果返回
-//如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
+// TellFlow 执行子规则链，ruleChainId 规则链ID
+// onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次
+// onAllNodeCompleted 所以节点执行完之后的回调，无结果返回
+// 如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
 func (ctx *DefaultRuleContext) TellFlow(msg types.RuleMsg, chainId string, onEndFunc types.OnEndFunc, onAllNodeCompleted func()) {
 	if e, ok := ctx.GetRuleChainPool().Get(chainId); ok {
 		e.OnMsgWithOptions(msg, types.WithEndFunc(onEndFunc), types.WithOnAllNodeCompleted(onAllNodeCompleted))
@@ -155,12 +155,12 @@ func (ctx *DefaultRuleContext) TellFlow(msg types.RuleMsg, chainId string, onEnd
 	}
 }
 
-//SetRuleChainPool 设置子规则链池
+// SetRuleChainPool 设置子规则链池
 func (ctx *DefaultRuleContext) SetRuleChainPool(ruleChainPool *RuleGo) {
 	ctx.ruleChainPool = ruleChainPool
 }
 
-//GetRuleChainPool 获取子规则链池
+// GetRuleChainPool 获取子规则链池
 func (ctx *DefaultRuleContext) GetRuleChainPool() *RuleGo {
 	if ctx.ruleChainPool == nil {
 		return DefaultRuleGo
@@ -169,31 +169,29 @@ func (ctx *DefaultRuleContext) GetRuleChainPool() *RuleGo {
 	}
 }
 
-//SetOnAllNodeCompleted 设置所有节点执行完回调
+// SetOnAllNodeCompleted 设置所有节点执行完回调
 func (ctx *DefaultRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) {
 	ctx.onAllNodeCompleted = onAllNodeCompleted
 }
 
-//ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
+// ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
 func (ctx *DefaultRuleContext) ExecuteNode(chanCtx context.Context, nodeId string, msg types.RuleMsg, callback func(msg types.RuleMsg, err error, relationTypes ...string)) {
 	if nodeCtx, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
 		rootCtxCopy := NewRuleContext(chanCtx, ctx.config, ctx.ruleChainCtx, nil, nodeCtx, ctx.pool, nil, ctx.ruleChainPool)
 		rootCtxCopy.interceptor = callback
-		if err := nodeCtx.OnMsg(rootCtxCopy, msg); err != nil {
-			callback(msg, err, types.Failure)
-		}
+		nodeCtx.OnMsg(rootCtxCopy, msg)
 	} else {
 		callback(msg, errors.New("node id not found nodeId="+nodeId), types.Failure)
 	}
 }
 
-//增加一个待执行子节点
+// 增加一个待执行子节点
 func (ctx *DefaultRuleContext) childReady() {
 	atomic.AddInt32(&ctx.waitingCount, 1)
 }
 
-//减少一个待执行子节点
-//如果返回数量0，表示该分支链条已经都执行完成，递归父节点，直到所有节点都处理完，则触发onAllNodeCompleted事件。
+// 减少一个待执行子节点
+// 如果返回数量0，表示该分支链条已经都执行完成，递归父节点，直到所有节点都处理完，则触发onAllNodeCompleted事件。
 func (ctx *DefaultRuleContext) childDone() {
 	if atomic.AddInt32(&ctx.waitingCount, -1) <= 0 {
 		//该节点已经执行完成，通知父节点
@@ -282,12 +280,10 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 		//记录调试信息
 		ctx.onDebug(types.In, nextCtx.GetSelfId(), msg, "", nil)
 	}
-	if err := nextNode.OnMsg(nextCtx, msg); err != nil {
-		ctx.config.Logger.Printf("tellNext error.node type:%s error: %s", nextCtx.self.Type(), err)
-	}
+	nextNode.OnMsg(nextCtx, msg)
 }
 
-//规则链执行完成回调函数
+// 规则链执行完成回调函数
 func (ctx *DefaultRuleContext) doOnEnd(msg types.RuleMsg, err error) {
 	//全局回调
 	//通过`Config.OnEnd`设置
@@ -310,7 +306,7 @@ func (ctx *DefaultRuleContext) doOnEnd(msg types.RuleMsg, err error) {
 }
 
 // RuleEngine 规则引擎
-//每个规则引擎实例只有一个根规则链，如果没设置规则链则无法处理数据
+// 每个规则引擎实例只有一个根规则链，如果没设置规则链则无法处理数据
 type RuleEngine struct {
 	//规则引擎实例标识
 	Id string
@@ -374,8 +370,8 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...RuleEngineOption) error {
 }
 
 // ReloadChild 更新根规则链或者其下某个节点
-//如果ruleNodeId为空更新根规则链，否则更新指定的子节点
-//dsl 根规则链/子节点配置
+// 如果ruleNodeId为空更新根规则链，否则更新指定的子节点
+// dsl 根规则链/子节点配置
 func (e *RuleEngine) ReloadChild(ruleNodeId string, dsl []byte) error {
 	if len(dsl) == 0 {
 		return errors.New("dsl can not empty")
@@ -390,7 +386,7 @@ func (e *RuleEngine) ReloadChild(ruleNodeId string, dsl []byte) error {
 	}
 }
 
-//DSL 获取根规则链配置
+// DSL 获取根规则链配置
 func (e *RuleEngine) DSL() []byte {
 	if e.rootRuleChainCtx != nil {
 		return e.rootRuleChainCtx.DSL()
@@ -399,7 +395,7 @@ func (e *RuleEngine) DSL() []byte {
 	}
 }
 
-//NodeDSL 获取规则链节点配置
+// NodeDSL 获取规则链节点配置
 func (e *RuleEngine) NodeDSL(chainId types.RuleNodeId, childNodeId types.RuleNodeId) []byte {
 	if e.rootRuleChainCtx != nil {
 		if chainId.Id == "" {
@@ -421,7 +417,7 @@ func (e *RuleEngine) Initialized() bool {
 	return e.rootRuleChainCtx != nil
 }
 
-//RootRuleChainCtx 获取根规则链
+// RootRuleChainCtx 获取根规则链
 func (e *RuleEngine) RootRuleChainCtx() *RuleChainCtx {
 	return e.rootRuleChainCtx
 }
@@ -434,21 +430,21 @@ func (e *RuleEngine) Stop() {
 }
 
 // OnMsg 把消息交给规则引擎处理，异步执行
-//根据规则链节点配置和连接关系处理消息
+// 根据规则链节点配置和连接关系处理消息
 func (e *RuleEngine) OnMsg(msg types.RuleMsg) {
 	e.OnMsgWithOptions(msg)
 }
 
 // OnMsgWithEndFunc 把消息交给规则引擎处理，异步执行
-//endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
+// endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
 func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc types.OnEndFunc) {
 	e.OnMsgWithOptions(msg, types.WithEndFunc(endFunc))
 }
 
 // OnMsgWithOptions 把消息交给规则引擎处理，异步执行
-//可以携带context选项和结束回调选项
-//context 用于不同组件实例数据共享
-//endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
+// 可以携带context选项和结束回调选项
+// context 用于不同组件实例数据共享
+// endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
 func (e *RuleEngine) OnMsgWithOptions(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	e.onMsgAndWait(msg, false, opts...)
 }
@@ -509,7 +505,7 @@ func WithConfig(config types.Config) RuleEngineOption {
 	}
 }
 
-//WithRuleChainPool 子规则链池
+// WithRuleChainPool 子规则链池
 func WithRuleChainPool(ruleChainPool *RuleGo) RuleEngineOption {
 	return func(re *RuleEngine) error {
 		re.RuleChainPool = ruleChainPool

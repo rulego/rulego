@@ -33,15 +33,15 @@ import (
 	"sync"
 )
 
-//Functions 自定义函数注册器
+// Functions 自定义函数注册器
 var Functions = &FunctionsRegistry{}
 
-//注册节点
+// 注册节点
 func init() {
 	Registry.Add(&FunctionsNode{})
 }
 
-//FunctionsRegistry 函数注册器
+// FunctionsRegistry 函数注册器
 type FunctionsRegistry struct {
 	//函数列表
 	//ctx 上下文
@@ -55,7 +55,7 @@ type FunctionsRegistry struct {
 	sync.RWMutex
 }
 
-//Register 注册函数
+// Register 注册函数
 func (x *FunctionsRegistry) Register(functionName string, f func(ctx types.RuleContext, msg types.RuleMsg)) {
 	x.Lock()
 	defer x.Unlock()
@@ -65,7 +65,7 @@ func (x *FunctionsRegistry) Register(functionName string, f func(ctx types.RuleC
 	x.functions[functionName] = f
 }
 
-//UnRegister 删除函数
+// UnRegister 删除函数
 func (x *FunctionsRegistry) UnRegister(functionName string) {
 	x.Lock()
 	defer x.Unlock()
@@ -74,7 +74,7 @@ func (x *FunctionsRegistry) UnRegister(functionName string) {
 	}
 }
 
-//Get 获取函数
+// Get 获取函数
 func (x *FunctionsRegistry) Get(functionName string) (func(ctx types.RuleContext, msg types.RuleMsg), bool) {
 	x.RLock()
 	defer x.RUnlock()
@@ -85,20 +85,20 @@ func (x *FunctionsRegistry) Get(functionName string) (func(ctx types.RuleContext
 	return f, ok
 }
 
-//FunctionsNodeConfiguration 节点配置
+// FunctionsNodeConfiguration 节点配置
 type FunctionsNodeConfiguration struct {
 	//FunctionName 调用的函数名称
 	FunctionName string
 }
 
-//FunctionsNode 通过方法名调用注册在Functions的处理函数
-//如果没找到函数，则TellFailure
+// FunctionsNode 通过方法名调用注册在Functions的处理函数
+// 如果没找到函数，则TellFailure
 type FunctionsNode struct {
 	//节点配置
 	Config FunctionsNodeConfiguration
 }
 
-//Type 组件类型
+// Type 组件类型
 func (x *FunctionsNode) Type() string {
 	return "functions"
 }
@@ -109,22 +109,21 @@ func (x *FunctionsNode) New() types.Node {
 	}}
 }
 
-//Init 初始化
+// Init 初始化
 func (x *FunctionsNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	return maps.Map2Struct(configuration, &x.Config)
 }
 
-//OnMsg 处理消息
-func (x *FunctionsNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+// OnMsg 处理消息
+func (x *FunctionsNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if f, ok := Functions.Get(x.Config.FunctionName); ok {
 		//调用函数
 		f(ctx, msg)
 	} else {
 		ctx.TellFailure(msg, fmt.Errorf("can not found the function=%s", x.Config.FunctionName))
 	}
-	return nil
 }
 
-//Destroy 销毁
+// Destroy 销毁
 func (x *FunctionsNode) Destroy() {
 }

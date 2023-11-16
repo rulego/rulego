@@ -30,7 +30,7 @@ func init() {
 	Registry.Add(&GroupFilterNode{})
 }
 
-//GroupFilterNodeConfiguration 节点配置
+// GroupFilterNodeConfiguration 节点配置
 type GroupFilterNodeConfiguration struct {
 	//AllMatches 是否要求所有节点都匹配才发送到True链，如果为false，则只要有任何一个节点匹配就发送到True链
 	AllMatches bool
@@ -40,10 +40,10 @@ type GroupFilterNodeConfiguration struct {
 	Timeout int
 }
 
-//GroupFilterNode 把多个filter节点组成一个分组，
-//如果所有节点都是True，则把数据到`True`链, 否则发到`False`链。
-//AllMatches=false，则只要有任何一个节点返回是True，则发送到`True`链
-//nodeIds为空或者执行超时，发送到`Failure`链
+// GroupFilterNode 把多个filter节点组成一个分组，
+// 如果所有节点都是True，则把数据到`True`链, 否则发到`False`链。
+// AllMatches=false，则只要有任何一个节点返回是True，则发送到`True`链
+// nodeIds为空或者执行超时，发送到`Failure`链
 type GroupFilterNode struct {
 	//节点配置
 	Config     GroupFilterNodeConfiguration
@@ -51,7 +51,7 @@ type GroupFilterNode struct {
 	Length     int32
 }
 
-//Type 组件类型
+// Type 组件类型
 func (x *GroupFilterNode) Type() string {
 	return "groupFilter"
 }
@@ -60,7 +60,7 @@ func (x *GroupFilterNode) New() types.Node {
 	return &GroupFilterNode{Config: GroupFilterNodeConfiguration{AllMatches: false}}
 }
 
-//Init 初始化
+// Init 初始化
 func (x *GroupFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	nodeIds := strings.Split(x.Config.NodeIds, ",")
@@ -73,11 +73,11 @@ func (x *GroupFilterNode) Init(ruleConfig types.Config, configuration types.Conf
 	return err
 }
 
-//OnMsg 处理消息
-func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+// OnMsg 处理消息
+func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if x.Length == 0 {
 		ctx.TellFailure(msg, errors.New("nodeIds is empty"))
-		return nil
+		return
 	}
 	var endCount int32
 	var completed int32
@@ -133,9 +133,8 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error 
 			ctx.TellNext(msg, types.False)
 		}
 	}
-	return nil
 }
 
-//Destroy 销毁
+// Destroy 销毁
 func (x *GroupFilterNode) Destroy() {
 }

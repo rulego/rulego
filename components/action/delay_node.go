@@ -37,12 +37,12 @@ import (
 
 var DelayNodeMsgType = "DELAY_NODE_MSG_TYPE"
 
-//注册节点
+// 注册节点
 func init() {
 	Registry.Add(&DelayNode{})
 }
 
-//DelayNodeConfiguration 节点配置
+// DelayNodeConfiguration 节点配置
 type DelayNodeConfiguration struct {
 	//延迟时间，单位秒
 	PeriodInSeconds int
@@ -64,7 +64,7 @@ type DelayNode struct {
 	mu          sync.Mutex
 }
 
-//Type 组件类型
+// Type 组件类型
 func (x *DelayNode) Type() string {
 	return "delay"
 }
@@ -73,14 +73,14 @@ func (x *DelayNode) New() types.Node {
 	return &DelayNode{Config: DelayNodeConfiguration{PeriodInSeconds: 60, MaxPendingMsgs: 1000}}
 }
 
-//Init 初始化
+// Init 初始化
 func (x *DelayNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	x.PendingMsgs = make(map[string]types.RuleMsg)
 	return maps.Map2Struct(configuration, &x.Config)
 }
 
-//OnMsg 处理消息
-func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+// OnMsg 处理消息
+func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	if msg.Type == DelayNodeMsgType {
 		x.mu.Lock()
@@ -105,7 +105,7 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 			if x.Config.PeriodInSecondsPattern != "" {
 				if v, err := strconv.Atoi(str.SprintfDict(x.Config.PeriodInSecondsPattern, msg.Metadata.Values())); err != nil {
 					ctx.TellFailure(msg, err)
-					return err
+					return
 				} else {
 					periodInSeconds = v
 				}
@@ -121,13 +121,11 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 		} else {
 			ctx.TellFailure(msg, fmt.Errorf("max limit of pending messages"))
 		}
-
 	}
 
-	return nil
 }
 
-//Destroy 销毁
+// Destroy 销毁
 func (x *DelayNode) Destroy() {
 	x.PendingMsgs = make(map[string]types.RuleMsg)
 }

@@ -27,7 +27,7 @@ import (
 	"strings"
 )
 
-//注册节点
+// 注册节点
 func init() {
 	Registry.Add(&DbClientNode{})
 }
@@ -121,7 +121,7 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 }
 
 // OnMsg 处理消息
-func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var data interface{}
 	var err error
 	var rowsAffected int64
@@ -169,7 +169,6 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 		}
 		ctx.TellSuccess(msg)
 	}
-	return err
 }
 
 // query 查询数据并返回map或slice类型

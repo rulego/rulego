@@ -36,7 +36,10 @@ func TestJsSwitchNodeOnMsg(t *testing.T) {
 		t.Errorf("err=%s", err)
 	}
 	var i = 0
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+		if err2 != nil {
+			t.Errorf("err=%s", err)
+		}
 		if i == 0 {
 			assert.Equal(t, "one", relationType)
 		} else if i == 1 {
@@ -47,9 +50,5 @@ func TestJsSwitchNodeOnMsg(t *testing.T) {
 	})
 	metaData := types.BuildMetadata(make(map[string]string))
 	msg := ctx.NewMsg("ACTIVITY_EVENT", metaData, "AA")
-	err = node.OnMsg(ctx, msg)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-
+	node.OnMsg(ctx, msg)
 }

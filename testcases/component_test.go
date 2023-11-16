@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-//UpperNode A plugin that converts the message data to uppercase
+// UpperNode A plugin that converts the message data to uppercase
 type UpperNode struct{}
 
 func (n *UpperNode) Type() string {
@@ -37,7 +37,7 @@ func (n *UpperNode) Init(ruleConfig types.Config, configuration types.Configurat
 	return nil
 }
 
-func (n *UpperNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+func (n *UpperNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	msg.Data = strings.ToUpper(msg.Data)
 	v := ctx.GetContext().Value(shareKey)
 	if v != nil {
@@ -48,7 +48,6 @@ func (n *UpperNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	ctx.SetContext(modifyCtx)
 	// Send the modified message to the next node
 	ctx.TellSuccess(msg)
-	return nil
 }
 
 func (n *UpperNode) Destroy() {
@@ -71,7 +70,7 @@ func (n *TimeNode) Init(ruleConfig types.Config, configuration types.Configurati
 	return nil
 }
 
-func (n *TimeNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+func (n *TimeNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	msg.Metadata.PutValue("timestamp", time.Now().Format(time.RFC3339))
 	v1 := ctx.GetContext().Value(shareKey)
 	if v1 != nil {
@@ -83,7 +82,6 @@ func (n *TimeNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 	}
 	// Send the modified message to the next node
 	ctx.TellSuccess(msg)
-	return nil
 }
 
 func (n *TimeNode) Destroy() {
