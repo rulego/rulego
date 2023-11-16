@@ -27,12 +27,12 @@ import (
 	"time"
 )
 
-//测试mysql增删修改查
+// 测试mysql增删修改查
 func TestMysqlDbClientNodeOnMsg(t *testing.T) {
 	testDbClientNodeOnMsg(t, "mysql", "root:root@tcp(127.0.0.1:3306)/test")
 }
 
-//测试postgres增删修改查
+// 测试postgres增删修改查
 func TestPgDbClientNodeOnMsg(t *testing.T) {
 	testDbClientNodeOnMsg(t, "postgres", "postgres://postgres:postgres@127.0.0.1:5432/test?sslmode=disable")
 }
@@ -56,7 +56,7 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 		t.Errorf("err=%s", err)
 	}
 
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, types.Success, relationType)
 		assert.Equal(t, "1", msg.Metadata.GetValue(rowsAffectedKey))
 	})
@@ -64,13 +64,10 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 	metaData.PutValue("name", "test01")
 	metaData.PutValue("age", "18")
 	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "")
-	err = node.OnMsg(ctx, msg)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg)
 	time.Sleep(time.Second)
 	//插入第二条
-	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, types.Success, relationType)
 		assert.Equal(t, "1", msg.Metadata.GetValue(rowsAffectedKey))
 	})
@@ -78,10 +75,7 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 	metaData.PutValue("name", "test02")
 	metaData.PutValue("age", "35")
 	msg = ctx.NewMsg("TEST_MSG_TYPE_BB", metaData, "")
-	err = node.OnMsg(ctx, msg)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg)
 
 	// 测试查询一条记录的操作
 	configuration["sql"] = "select * from users where id = ?"
@@ -97,7 +91,7 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 		t.Errorf("err=%s", err)
 	}
 
-	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		// 检查查询结果是否正确
 		assert.Equal(t, types.Success, relationType)
 		var result map[string]interface{}
@@ -109,10 +103,7 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 
 	metaData.PutValue("id", "1")
 	msg = ctx.NewMsg("TEST_MSG_TYPE_CC", metaData, "")
-	err = node.OnMsg(ctx, msg)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg)
 
 	// 测试查询多条记录的操作
 	//不使用占位符参数
@@ -129,7 +120,7 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 		t.Errorf("err=%s", err)
 	}
 
-	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		// 检查查询结果是否正确
 		assert.Equal(t, types.Success, relationType)
 		var result []map[string]interface{}
@@ -140,10 +131,7 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 
 	metaData.PutValue("age", "10")
 	msg = ctx.NewMsg("TEST_MSG_TYPE_DD", metaData, "")
-	err = node.OnMsg(ctx, msg)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg)
 
 	// 测试修改数据的操作
 	configuration["sql"] = "update users set age = ? where id = ?"
@@ -158,7 +146,7 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 		t.Errorf("err=%s", err)
 	}
 
-	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		// 检查查询结果是否正确
 		assert.Equal(t, types.Success, relationType)
 		assert.Equal(t, "1", msg.Metadata.GetValue(rowsAffectedKey))
@@ -168,10 +156,7 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 	metaData.PutValue("age", "21")
 
 	msg = ctx.NewMsg("TEST_MSG_TYPE_EE", metaData, "")
-	err = node.OnMsg(ctx, msg)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg)
 
 	// 测试删除数据的操作
 	configuration["sql"] = "delete from users"
@@ -186,7 +171,7 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 		t.Errorf("err=%s", err)
 	}
 
-	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		// 检查查询结果是否正确
 		assert.Equal(t, types.Success, relationType)
 		assert.Equal(t, "2", msg.Metadata.GetValue(rowsAffectedKey))
@@ -196,10 +181,7 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 	metaData.PutValue("age", "21")
 
 	msg = ctx.NewMsg("TEST_MSG_TYPE_EE", metaData, "")
-	err = node.OnMsg(ctx, msg)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg)
 
 	time.Sleep(time.Second * 2)
 }

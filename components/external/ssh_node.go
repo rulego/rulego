@@ -39,7 +39,7 @@ func init() {
 	Registry.Add(&SshNode{})
 }
 
-//SshConfiguration 配置
+// SshConfiguration 配置
 type SshConfiguration struct {
 	//Host ssh 主机地址
 	Host string
@@ -54,9 +54,9 @@ type SshConfiguration struct {
 }
 
 // SshNode shell 组件
-//通过ssh协议执行远程shell脚本
-//脚本执行结果返回到msg,交给下一个节点
-//DataType 会强制转成TEXT
+// 通过ssh协议执行远程shell脚本
+// 脚本执行结果返回到msg,交给下一个节点
+// DataType 会强制转成TEXT
 type SshNode struct {
 	//节点配置
 	Config SshConfiguration
@@ -104,19 +104,19 @@ func (x *SshNode) Init(ruleConfig types.Config, configuration types.Configuratio
 }
 
 // OnMsg 方法用来处理消息，每条流入组件的数据会经过该函数处理
-func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var err error
 	if x.client == nil {
 		err = fmt.Errorf("ssh client is empty")
 		ctx.TellFailure(msg, err)
-		return err
+		return
 	}
 	// 获取shell 命令
 	cmd := x.Config.Cmd
 	if cmd == "" {
 		err = fmt.Errorf("cmd is empty")
 		ctx.TellFailure(msg, err)
-		return err
+		return
 	}
 	metaData := msg.Metadata.Values()
 	cmd = str.SprintfDict(cmd, metaData)
@@ -132,16 +132,12 @@ func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
 
 		if err != nil {
 			ctx.TellFailure(msg, err)
-			return err
 		} else {
 			// 将输出结果作为新的消息发送到下一个组件
 			ctx.TellSuccess(msg)
-			return nil
 		}
-
 	} else {
 		ctx.TellFailure(msg, err)
-		return err
 	}
 
 }

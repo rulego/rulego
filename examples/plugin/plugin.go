@@ -9,7 +9,7 @@ import (
 //go build -buildmode=plugin -o plugin.so plugin.go # Compile the plugin and generate the plugin.so file
 //need to compile in mac or linux environment
 
-//Plugins plugin entry point
+// Plugins plugin entry point
 var Plugins MyPlugins
 
 type MyPlugins struct{}
@@ -21,7 +21,7 @@ func (p *MyPlugins) Components() []types.Node {
 	return []types.Node{&UpperNode{}, &TimeNode{}, &FilterNode{}}
 }
 
-//UpperNode A plugin that converts the message data to uppercase
+// UpperNode A plugin that converts the message data to uppercase
 type UpperNode struct{}
 
 func (n *UpperNode) Type() string {
@@ -35,18 +35,17 @@ func (n *UpperNode) Init(ruleConfig types.Config, configuration types.Configurat
 	return nil
 }
 
-func (n *UpperNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+func (n *UpperNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	msg.Data = strings.ToUpper(msg.Data)
 	// Send the modified message to the next node
 	ctx.TellSuccess(msg)
-	return nil
 }
 
 func (n *UpperNode) Destroy() {
 	// Do some cleanup work
 }
 
-//TimeNode A plugin that adds a timestamp to the message metadata
+// TimeNode A plugin that adds a timestamp to the message metadata
 type TimeNode struct{}
 
 func (n *TimeNode) Type() string {
@@ -62,11 +61,10 @@ func (n *TimeNode) Init(ruleConfig types.Config, configuration types.Configurati
 	return nil
 }
 
-func (n *TimeNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+func (n *TimeNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	msg.Metadata.PutValue("timestamp", time.Now().Format(time.RFC3339))
 	// Send the modified message to the next node
 	ctx.TellSuccess(msg)
-	return nil
 }
 
 func (n *TimeNode) Destroy() {
@@ -88,14 +86,13 @@ func (n *FilterNode) Init(ruleConfig types.Config, configuration types.Configura
 	return nil
 }
 
-func (n *FilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
+func (n *FilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if n.blacklist[msg.Type] || n.blacklist[string(msg.DataType)] {
 		// Skip the message and do not send it to the next node
-		return nil
+		return
 	}
 	// Send the message to the next node
 	ctx.TellNext(msg)
-	return nil
 }
 
 func (n *FilterNode) Destroy() {

@@ -30,7 +30,10 @@ func TestMsgTypeSwitchNodeOnMsg(t *testing.T) {
 	if err != nil {
 		t.Errorf("err=%s", err)
 	}
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+		if err2 != nil {
+			t.Errorf("err=%s", err)
+		}
 		if msg.Type == "ACTIVITY_EVENT" {
 			assert.Equal(t, "ACTIVITY_EVENT", relationType)
 		} else if msg.Type == "INACTIVITY_EVENT" {
@@ -40,14 +43,8 @@ func TestMsgTypeSwitchNodeOnMsg(t *testing.T) {
 	})
 	metaData := types.BuildMetadata(make(map[string]string))
 	msg := ctx.NewMsg("ACTIVITY_EVENT", metaData, "AA")
-	err = node.OnMsg(ctx, msg)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg)
 
 	msg2 := ctx.NewMsg("INACTIVITY_EVENT", metaData, "BB")
-	err = node.OnMsg(ctx, msg2)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg2)
 }

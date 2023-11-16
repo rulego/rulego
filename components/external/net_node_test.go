@@ -35,19 +35,17 @@ func TestNet(t *testing.T) {
 	if err != nil {
 		t.Errorf("err=%s", err)
 	}
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string) {
+	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, types.Success, relationType)
 	})
 	metaData := types.BuildMetadata(make(map[string]string))
 	msg1 := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "{\"test\":\"AA\"}")
-	err = node.OnMsg(ctx, msg1)
+	node.OnMsg(ctx, msg1)
 	msg2 := ctx.NewMsg("TEST_MSG_TYPE_BB", metaData, "{\"test\":\"BB\"}")
-	err = node.OnMsg(ctx, msg2)
+	node.OnMsg(ctx, msg2)
 	msg3 := ctx.NewMsg("TEST_MSG_TYPE_CC", metaData, "\"test\":\"CC\\n aa\"")
-	err = node.OnMsg(ctx, msg3)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+	node.OnMsg(ctx, msg3)
+
 	time.Sleep(time.Second * 5)
 	//销毁并 断开连接
 	node.Destroy()

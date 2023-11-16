@@ -63,14 +63,13 @@ func (n *BaseNode) Init(ruleConfig types.Config, configuration types.Configurati
 	return nil
 }
 
-func (n *BaseNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) error {
-	return nil
+func (n *BaseNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 }
 
 func (n *BaseNode) Destroy() {
 }
 
-//没配置节点
+// 没配置节点
 type NoConfigNode struct {
 	BaseNode
 }
@@ -82,7 +81,7 @@ func (n *NoConfigNode) New() types.Node {
 	return &NoConfigNode{}
 }
 
-//有指针配置
+// 有指针配置
 type ConfigHasPtrConfig struct {
 	Num *int
 	Url string
@@ -100,7 +99,7 @@ func (n *ConfigHasPtrNode) New() types.Node {
 	return &ConfigHasPtrNode{}
 }
 
-//config 大写
+// config 大写
 type ConfigHasPtrNode2 struct {
 	BaseNode
 	Config ConfigHasPtrConfig
@@ -113,7 +112,7 @@ func (n *ConfigHasPtrNode2) New() types.Node {
 	return &ConfigHasPtrNode2{}
 }
 
-//有默认值配置
+// 有默认值配置
 type DefaultValueConfig struct {
 	Num    int
 	Url    string `Label:"服务器地址" Desc:"broker服务器地址" Validate:"required" `

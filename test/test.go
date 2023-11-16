@@ -22,27 +22,27 @@ import (
 	"time"
 )
 
-//NodeTestRuleContext
-//只为测试单节点，临时创建的上下文
-//无法把多个节点组成链式
-//callback 回调处理结果
+// NodeTestRuleContext
+// 只为测试单节点，临时创建的上下文
+// 无法把多个节点组成链式
+// callback 回调处理结果
 type NodeTestRuleContext struct {
 	context  context.Context
 	config   types.Config
-	callback func(msg types.RuleMsg, relationType string)
+	callback func(msg types.RuleMsg, relationType string, err error)
 	self     types.Node
 	//所有子节点处理完成事件，只执行一次
 	onAllNodeCompleted func()
 }
 
-func NewRuleContext(config types.Config, callback func(msg types.RuleMsg, relationType string)) types.RuleContext {
+func NewRuleContext(config types.Config, callback func(msg types.RuleMsg, relationType string, err error)) types.RuleContext {
 	return &NodeTestRuleContext{
 		context:  context.TODO(),
 		config:   config,
 		callback: callback,
 	}
 }
-func NewRuleContextFull(config types.Config, self types.Node, callback func(msg types.RuleMsg, relationType string)) types.RuleContext {
+func NewRuleContextFull(config types.Config, self types.Node, callback func(msg types.RuleMsg, relationType string, err error)) types.RuleContext {
 	return &NodeTestRuleContext{
 		config:   config,
 		self:     self,
@@ -51,14 +51,14 @@ func NewRuleContextFull(config types.Config, self types.Node, callback func(msg 
 	}
 }
 func (ctx *NodeTestRuleContext) TellSuccess(msg types.RuleMsg) {
-	ctx.callback(msg, types.Success)
+	ctx.callback(msg, types.Success, nil)
 }
 func (ctx *NodeTestRuleContext) TellFailure(msg types.RuleMsg, err error) {
-	ctx.callback(msg, types.Failure)
+	ctx.callback(msg, types.Failure, err)
 }
 func (ctx *NodeTestRuleContext) TellNext(msg types.RuleMsg, relationTypes ...string) {
 	for _, relationType := range relationTypes {
-		ctx.callback(msg, relationType)
+		ctx.callback(msg, relationType, nil)
 	}
 
 }
@@ -105,12 +105,12 @@ func (ctx *NodeTestRuleContext) TellFlow(msg types.RuleMsg, chainId string, endF
 
 }
 
-//SetOnAllNodeCompleted 设置所有节点执行完回调
+// SetOnAllNodeCompleted 设置所有节点执行完回调
 func (ctx *NodeTestRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) {
 	ctx.onAllNodeCompleted = onAllNodeCompleted
 }
 
-//ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
+// ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
 func (ctx *NodeTestRuleContext) ExecuteNode(context context.Context, nodeId string, msg types.RuleMsg, callback func(msg types.RuleMsg, err error, relationTypes ...string)) {
 
 }

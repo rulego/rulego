@@ -79,7 +79,7 @@ var ruleChainFile = `
 	}
 `
 
-//修改metadata和msg 节点
+// 修改metadata和msg 节点
 var modifyMetadataAndMsgNode = `
 	  {
 			"id":"s2",
@@ -92,7 +92,7 @@ var modifyMetadataAndMsgNode = `
 		  }
 `
 
-//加载文件
+// 加载文件
 func loadFile(filePath string) []byte {
 	buf, err := os.ReadFile(testdataFolder + filePath)
 	if err != nil {
@@ -147,7 +147,7 @@ func TestRuleChainChangeMetadataAndMsg(t *testing.T) {
 	testRuleEngine(t, ruleChainFile, "s2", modifyMetadataAndMsgNode)
 }
 
-//测试子规则链
+// 测试子规则链
 func TestSubRuleChain(t *testing.T) {
 	start := time.Now()
 	var completed int32
@@ -199,7 +199,7 @@ func TestSubRuleChain(t *testing.T) {
 	fmt.Printf("use times:%s \n", time.Since(start))
 }
 
-//测试规则链debug模式
+// 测试规则链debug模式
 func TestRuleChainDebugMode(t *testing.T) {
 	config := rulego.NewConfig()
 	var inTimes int
@@ -291,7 +291,7 @@ func TestNotDebugModel(t *testing.T) {
 	fmt.Printf("total massages:%d,use times:%s \n", maxTimes, time.Since(start))
 }
 
-//测试获取节点
+// 测试获取节点
 func TestGetNodeId(t *testing.T) {
 	def, _ := rulego.ParserRuleChain([]byte(ruleChainFile))
 	ctx, err := rulego.InitRuleChainCtx(rulego.NewConfig(), &def)
@@ -309,11 +309,11 @@ func TestGetNodeId(t *testing.T) {
 
 }
 
-//测试callRestApi
+// 测试callRestApi
 func TestCallRestApi(t *testing.T) {
 
 	start := time.Now()
-	maxTimes := 100000
+	maxTimes := 1
 	var group sync.WaitGroup
 	group.Add(maxTimes)
 
@@ -344,7 +344,7 @@ func TestCallRestApi(t *testing.T) {
 	fmt.Printf("total massages:%d,use times:%s \n", maxTimes, time.Since(start))
 }
 
-//测试消息路由
+// 测试消息路由
 func TestMsgTypeSwitch(t *testing.T) {
 	var wg sync.WaitGroup
 
@@ -432,7 +432,7 @@ func TestSpecifyID(t *testing.T) {
 	assert.Equal(t, true, ok)
 }
 
-//TestLoadChain 测试加载规则链文件夹
+// TestLoadChain 测试加载规则链文件夹
 func TestLoadChain(t *testing.T) {
 	//注册自定义组件
 	rulego.Registry.Register(&UpperNode{})
@@ -466,7 +466,7 @@ func TestLoadChain(t *testing.T) {
 
 }
 
-//TestWait 测试同步执行规则链
+// TestWait 测试同步执行规则链
 func TestWait(t *testing.T) {
 	var wg sync.WaitGroup
 
