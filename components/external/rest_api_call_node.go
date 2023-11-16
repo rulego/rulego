@@ -35,7 +35,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -144,7 +144,7 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	if err != nil {
 		ctx.TellFailure(msg, err)
-	} else if b, err := ioutil.ReadAll(response.Body); err != nil {
+	} else if b, err := io.ReadAll(response.Body); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
 		msg.Metadata.PutValue(status, response.Status)
