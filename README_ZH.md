@@ -129,11 +129,6 @@ config := rulego.NewConfig()
 //节点入和出信息都会调用该回调函数
 config.OnDebug = func (chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 }
-//全局的规则链结束回调
-//如果只是想要某一次消息调用，使用ruleEngine.OnMsgWithOptions方式
-//注意：规则链如果有多个分支结束点，会调用多次
-config.OnEnd = func (msg types.RuleMsg, err error) {
-}
 //使用配置
 ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(config))
 ```
