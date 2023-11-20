@@ -129,11 +129,6 @@ config := rulego.NewConfig()
 //Node entry and exit information will call this callback function
 config.OnDebug = func (chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 }
-//Global rule chain end callback
-//If you just want to call for a single message, use the ruleEngine.OnMsgWithOptions method
-//Note: If the rule chain has multiple branch endpoints, it will be called multiple times
-config.OnEnd = func (msg types.RuleMsg, err error) {
-}
 //Use configuration
 ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(config))
 ```
