@@ -213,6 +213,7 @@ func WithContext(c context.Context) RuleContextOption {
 	}
 }
 
+//WithOnAllNodeCompleted 规则链执行完回调函数
 func WithOnAllNodeCompleted(onAllNodeCompleted func()) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetOnAllNodeCompleted(onAllNodeCompleted)
