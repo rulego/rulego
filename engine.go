@@ -149,7 +149,7 @@ func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 // 如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
 func (ctx *DefaultRuleContext) TellFlow(msg types.RuleMsg, chainId string, onEndFunc types.OnEndFunc, onAllNodeCompleted func()) {
 	if e, ok := ctx.GetRuleChainPool().Get(chainId); ok {
-		e.OnMsgWithOptions(msg, types.WithEndFunc(onEndFunc), types.WithOnAllNodeCompleted(onAllNodeCompleted))
+		e.OnMsg(msg, types.WithEndFunc(onEndFunc), types.WithOnAllNodeCompleted(onAllNodeCompleted))
 	} else {
 		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found", chainId))
 	}
@@ -430,28 +430,33 @@ func (e *RuleEngine) Stop() {
 }
 
 // OnMsg 把消息交给规则引擎处理，异步执行
-// 根据规则链节点配置和连接关系处理消息
-func (e *RuleEngine) OnMsg(msg types.RuleMsg) {
-	e.OnMsgWithOptions(msg)
+// 提供可选参数types.RuleContextOption
+func (e *RuleEngine) OnMsg(msg types.RuleMsg, opts ...types.RuleContextOption) {
+	e.onMsgAndWait(msg, false, opts...)
+}
+
+// OnMsgAndWait 把消息交给规则引擎处理，同步执行
+// 等规则链所有节点执行完后返回
+func (e *RuleEngine) OnMsgAndWait(msg types.RuleMsg, opts ...types.RuleContextOption) {
+	e.onMsgAndWait(msg, true, opts...)
 }
 
 // OnMsgWithEndFunc 把消息交给规则引擎处理，异步执行
 // endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
+// Deprecated
+// 使用OnMsg代替
 func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc types.OnEndFunc) {
-	e.OnMsgWithOptions(msg, types.WithEndFunc(endFunc))
+	e.OnMsg(msg, types.WithEndFunc(endFunc))
 }
 
 // OnMsgWithOptions 把消息交给规则引擎处理，异步执行
 // 可以携带context选项和结束回调选项
 // context 用于不同组件实例数据共享
 // endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
+// Deprecated
+// 使用OnMsg代替
 func (e *RuleEngine) OnMsgWithOptions(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	e.onMsgAndWait(msg, false, opts...)
-}
-
-// OnMsgAndWait 把消息交给规则引擎处理，同步执行，等规则链所有节点执行完，返回
-func (e *RuleEngine) OnMsgAndWait(msg types.RuleMsg, opts ...types.RuleContextOption) {
-	e.onMsgAndWait(msg, true, opts...)
 }
 
 func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.RuleContextOption) {

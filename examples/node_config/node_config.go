@@ -115,7 +115,7 @@ func main() {
 	}
 
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
-	ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		//得到规则链处理结果
 		fmt.Println("第一次执行", msg, err)
 	}))
@@ -128,7 +128,7 @@ func main() {
 	//运行时替换
 	metaData.PutValue("postUrl", "http://127.0.0.1:8080/api/msg2")
 	msg = types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":42}")
-	ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		//得到规则链处理结果
 		fmt.Println("第二次执行", msg, err)
 	}))

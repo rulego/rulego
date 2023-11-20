@@ -196,12 +196,17 @@ type RuleContext interface {
 // RuleContextOption 修改RuleContext选项的函数
 type RuleContextOption func(RuleContext)
 
+// WithEndFunc 结束回调函数
+// 数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
 func WithEndFunc(endFunc func(ctx RuleContext, msg RuleMsg, err error)) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetEndFunc(endFunc)
 	}
 }
 
+//WithContext 上下文
+//用于不同组件实例数据或者信号量共享
+//用于超时取消
 func WithContext(c context.Context) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetContext(c)

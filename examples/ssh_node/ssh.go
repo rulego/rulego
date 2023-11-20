@@ -47,7 +47,7 @@ func main() {
 
 	msg1 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 
-	ruleEngine.OnMsgWithOptions(msg1)
+	ruleEngine.OnMsg(msg1)
 
 	time.Sleep(time.Second * 1)
 }
