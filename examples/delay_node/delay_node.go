@@ -54,7 +54,7 @@ func main() {
 	wg.Add(1)
 	start := time.Now()
 	//第1条,走Success链
-	ruleEngine.OnMsgWithOptions(msg1, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg1, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		fmt.Println("用时:" + time.Since(start).String())
 		useTime := time.Since(start)
 		if useTime < time.Second {
@@ -68,7 +68,7 @@ func main() {
 
 	//fmt.Println("msg2 id=" + msg2.Id)
 	//第2条，因为队列已经满，走Failure链
-	ruleEngine.OnMsgWithOptions(msg2)
+	ruleEngine.OnMsg(msg2)
 
 	wg.Wait()
 	//	i++

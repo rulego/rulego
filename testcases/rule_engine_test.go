@@ -175,7 +175,7 @@ func TestSubRuleChain(t *testing.T) {
 		msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "aa")
 
 		//处理消息并得到处理结果
-		ruleEngine.OnMsgWithEndFunc(msg, func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+		ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 
 			atomic.AddInt32(&completed, 1)
 			group.Done()
@@ -190,7 +190,7 @@ func TestSubRuleChain(t *testing.T) {
 				v := msg.Metadata.GetValue("test")
 				assert.Equal(t, v, "Modified by sub chain")
 			}
-		})
+		}))
 
 	}
 	group.Wait()
@@ -279,13 +279,13 @@ func TestNotDebugModel(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(maxTimes)
 	for j := 0; j < maxTimes; j++ {
-		ruleEngine.OnMsgWithEndFunc(msg, func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+		ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 			wg.Done()
 
 			//已经被 s2 节点修改消息类型
 			assert.Equal(t, "TEST_MSG_TYPE2", msg.Type)
 			assert.Nil(t, err)
-		})
+		}))
 	}
 	wg.Wait()
 	fmt.Printf("total massages:%d,use times:%s \n", maxTimes, time.Since(start))
@@ -334,7 +334,7 @@ func TestCallRestApi(t *testing.T) {
 			metaData := types.NewMetadata()
 			metaData.PutValue("productType", "productType01")
 			msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"aa\":\"aaaaaaaaaaaaaa\"}")
-			ruleEngine.OnMsgWithOptions(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+			ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 				group.Done()
 			}))
 
@@ -399,7 +399,7 @@ func TestWithContext(t *testing.T) {
 	for j := 0; j < maxTimes; j++ {
 		go func() {
 			index := j
-			ruleEngine.OnMsgWithOptions(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue+strconv.Itoa(index))), types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+			ruleEngine.OnMsg(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue+strconv.Itoa(index))), types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 				wg.Done()
 				v1 := msg.Metadata.GetValue(shareKey)
 				assert.Equal(t, shareValue+strconv.Itoa(index), v1)

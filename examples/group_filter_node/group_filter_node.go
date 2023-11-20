@@ -44,19 +44,19 @@ func main() {
 	msg1 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
 
 	fmt.Println("第一次执行，allMatches=false：")
-	ruleEngine.OnMsgWithOptions(msg1)
+	ruleEngine.OnMsg(msg1)
 	time.Sleep(time.Second * 1)
 
 	fmt.Println("第二次执行，allMatches=true：")
 	//更新规则链，groupFilter必须所有节点都满足True,才走True链
 	_ = ruleEngine.ReloadSelf([]byte(strings.Replace(chainJsonFile1, `"allMatches":false`, `"allMatches":true`, -1)))
 
-	ruleEngine.OnMsgWithOptions(msg1)
+	ruleEngine.OnMsg(msg1)
 	time.Sleep(time.Second * 1)
 
 	fmt.Println("第三次次执行，allMatches=true：")
 	msg2 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":51,\"humidity\":90}")
-	ruleEngine.OnMsgWithOptions(msg2)
+	ruleEngine.OnMsg(msg2)
 	time.Sleep(time.Second * 1)
 }
 

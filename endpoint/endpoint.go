@@ -495,7 +495,7 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router *Router, exchange *
 				ruleEngine.OnMsgAndWait(*inMsg, types.WithContext(ctx), endFunc)
 			} else {
 				//异步
-				ruleEngine.OnMsgWithOptions(*inMsg, types.WithContext(ctx), endFunc)
+				ruleEngine.OnMsg(*inMsg, types.WithContext(ctx), endFunc)
 			}
 		} else {
 			//找不到规则链返回错误
