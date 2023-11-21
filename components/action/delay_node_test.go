@@ -91,3 +91,47 @@ func TestDelayNodeByPattern(t *testing.T) {
 
 	time.Sleep(3)
 }
+
+// TestDelayNodeOverlay 覆盖模式
+func TestDelayNodeOverlay(t *testing.T) {
+	var node DelayNode
+	var configuration = make(types.Configuration)
+	configuration["periodInSeconds"] = 5
+	configuration["overwrite"] = true
+	config := types.NewConfig()
+	err := node.Init(config, configuration)
+	if err != nil {
+		t.Errorf("err=%s", err)
+	}
+
+	var count int64
+	ctx := test.NewRuleContextFull(config, &node, func(msg types.RuleMsg, relationType string, err2 error) {
+		atomic.AddInt64(&count, 1)
+		if count == 1 {
+			assert.Equal(t, "BB", msg.Data)
+		} else {
+			assert.Equal(t, "CC", msg.Data)
+		}
+
+	})
+	metaData := types.BuildMetadata(make(map[string]string))
+	metaData.PutValue("productType", "test")
+
+	//第1条消息
+	msg := ctx.NewMsg("ACTIVITY_EVENT", metaData, "AA")
+	node.OnMsg(ctx, msg)
+
+	time.Sleep(time.Millisecond * 200)
+
+	//第2条消息，覆盖上一条
+	msg = ctx.NewMsg("ACTIVITY_EVENT", metaData, "BB")
+	node.OnMsg(ctx, msg)
+
+	time.Sleep(time.Second * 7)
+
+	msg = ctx.NewMsg("ACTIVITY_EVENT", metaData, "CC")
+	node.OnMsg(ctx, msg)
+
+	time.Sleep(time.Second * 7)
+
+}

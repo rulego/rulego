@@ -33,6 +33,7 @@ import (
 	"github.com/rulego/rulego/utils/str"
 	"strconv"
 	"sync"
+	"sync/atomic"
 )
 
 var DelayNodeMsgType = "DELAY_NODE_MSG_TYPE"
@@ -50,18 +51,25 @@ type DelayNodeConfiguration struct {
 	MaxPendingMsgs int
 	//通过${metadataKey}方式从metadata变量中获取，延迟时间，如果该值有值，优先取该值。
 	PeriodInSecondsPattern string
+	//是否覆盖周期内的消息
+	//true：周期内只保留一条消息，新的消息会覆盖之前的消息。直到队列里的消息被处理后，才会再次进入延迟队列。
+	//false：周期内保留所有消息，直到达到最大挂起消息限制后，才会进入失败链路。
+	Overwrite bool
 }
 
-//DelayNode
-//当特定传入消息的延迟期达到后，该消息将从挂起队列中删除，并通过成功链路(`Success`)路由到下一个节点。
-//如果已经达到了最大挂起消息限制，则每个下一条消息都会通过失败链路(`Failure`)路由。
-
+// DelayNode
+// 当消息的延迟期达到后，该消息将从挂起队列中删除，并通过成功链路(`Success`)路由到下一个节点。
+// 如果已经达到了最大挂起消息限制，则每个下一条消息都会通过失败链路(`Failure`)路由。
+// 如果overwrite为true，则消息会被覆盖，直到队列里的消息被处理后，才会再次进入延迟队列。
 type DelayNode struct {
 	//节点配置
 	Config DelayNodeConfiguration
 	//消息队列
 	PendingMsgs map[string]types.RuleMsg
-	mu          sync.Mutex
+	//上一条pending msg id
+	LastPendingMsgId atomic.Value
+	//锁
+	mu sync.Mutex
 }
 
 // Type 组件类型
@@ -76,7 +84,12 @@ func (x *DelayNode) New() types.Node {
 // Init 初始化
 func (x *DelayNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	x.PendingMsgs = make(map[string]types.RuleMsg)
-	return maps.Map2Struct(configuration, &x.Config)
+	err := maps.Map2Struct(configuration, &x.Config)
+	if x.Config.MaxPendingMsgs <= 0 {
+		x.Config.MaxPendingMsgs = 1000
+	}
+	x.LastPendingMsgId.Store("")
+	return err
 }
 
 // OnMsg 处理消息
@@ -87,12 +100,22 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		defer x.mu.Unlock()
 		pendingMsg, ok := x.PendingMsgs[msg.Id]
 		if ok {
+			//清除周期内的消息
+			if x.Config.Overwrite {
+				x.LastPendingMsgId.Store("")
+			}
+
 			delete(x.PendingMsgs, msg.Id)
 			ctx.TellSuccess(pendingMsg)
 		} else {
 			ctx.TellFailure(msg, fmt.Errorf("msg not found"))
 		}
 
+	} else if x.LastPendingMsgId.Load().(string) != "" {
+		//如果是覆盖模式，替换队列里的消息
+		x.mu.Lock()
+		x.PendingMsgs[x.LastPendingMsgId.Load().(string)] = msg
+		defer x.mu.Unlock()
 	} else {
 		//获取队列长度
 		x.mu.Lock()
@@ -110,7 +133,10 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 					periodInSeconds = v
 				}
 			}
-
+			//如果是覆盖模式
+			if x.Config.Overwrite {
+				x.LastPendingMsgId.Store(msg.Id)
+			}
 			x.mu.Lock()
 			x.PendingMsgs[msg.Id] = msg
 			defer x.mu.Unlock()
@@ -127,5 +153,4 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy 销毁
 func (x *DelayNode) Destroy() {
-	x.PendingMsgs = make(map[string]types.RuleMsg)
 }
