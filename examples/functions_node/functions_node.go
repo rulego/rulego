@@ -26,7 +26,7 @@ import (
 
 var ruleEngine *rulego.RuleEngine
 
-//初始化自定义函数、规则引擎实例和配置
+// 初始化自定义函数、规则引擎实例和配置
 func init() {
 	action.Functions.Register("add", func(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.TellSuccess(msg)
@@ -55,12 +55,13 @@ func init() {
 	}
 }
 
-//测试使用占位符替换配置
+// 测试使用占位符替换配置
 func main() {
 
 	//元数据
 	metaData := types.NewMetadata()
 	metaData.PutValue("postUrl", "http://127.0.0.1:8080/api/msg")
+	metaData.PutValue("functionName", "add")
 
 	//处理数据
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
@@ -70,6 +71,7 @@ func main() {
 	}))
 
 	time.Sleep(time.Second * 5)
+
 }
 
 var chainJsonFile = `
@@ -107,6 +109,15 @@ var chainJsonFile = `
         "configuration": {
 			"functionName": "handleMsg"
         }
+      },     
+      {
+        "id": "s4",
+        "type": "functions",
+        "name": "动态获取函数名",
+		"debugMode": true,
+        "configuration": {
+          "functionName": "${functionName}"
+        }
       }
     ],
     "connections": [
@@ -118,6 +129,11 @@ var chainJsonFile = `
       {
         "fromId": "s2",
         "toId": "s3",
+        "type": "True"
+      },
+	 {
+        "fromId": "s2",
+        "toId": "s4",
         "type": "True"
       }
     ]
