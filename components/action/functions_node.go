@@ -30,6 +30,8 @@ import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/str"
+	"strings"
 	"sync"
 )
 
@@ -87,7 +89,7 @@ func (x *FunctionsRegistry) Get(functionName string) (func(ctx types.RuleContext
 
 // FunctionsNodeConfiguration 节点配置
 type FunctionsNodeConfiguration struct {
-	//FunctionName 调用的函数名称
+	//FunctionName 调用的函数名称，支持通过${metadataKey}方式从metadata动态获取函数名称值
 	FunctionName string
 }
 
@@ -96,6 +98,8 @@ type FunctionsNodeConfiguration struct {
 type FunctionsNode struct {
 	//节点配置
 	Config FunctionsNodeConfiguration
+	//functionName是否有占位符变量
+	HasVars bool
 }
 
 // Type 组件类型
@@ -111,19 +115,36 @@ func (x *FunctionsNode) New() types.Node {
 
 // Init 初始化
 func (x *FunctionsNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	return maps.Map2Struct(configuration, &x.Config)
+	err := maps.Map2Struct(configuration, &x.Config)
+
+	if strings.Contains(x.Config.FunctionName, "${") {
+		x.HasVars = true
+	}
+	return err
 }
 
 // OnMsg 处理消息
 func (x *FunctionsNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	if f, ok := Functions.Get(x.Config.FunctionName); ok {
+	funcName := x.getFunctionName(msg)
+	if f, ok := Functions.Get(funcName); ok {
 		//调用函数
 		f(ctx, msg)
 	} else {
-		ctx.TellFailure(msg, fmt.Errorf("can not found the function=%s", x.Config.FunctionName))
+		ctx.TellFailure(msg, fmt.Errorf("can not found the function=%s", funcName))
 	}
 }
 
 // Destroy 销毁
 func (x *FunctionsNode) Destroy() {
+}
+
+// 获取函数名称
+// 如果有占位符变量，则使用占位符变量替换
+// 如果没有占位符变量，则直接返回函数名称
+func (x *FunctionsNode) getFunctionName(msg types.RuleMsg) string {
+	if x.HasVars {
+		return str.SprintfDict(x.Config.FunctionName, msg.Metadata.Values())
+	} else {
+		return x.Config.FunctionName
+	}
 }
