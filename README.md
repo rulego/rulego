@@ -4,7 +4,8 @@ English| [中文](README_ZH.md)
 
 <img src="doc/imgs/logo.png" width="100">   
 
-`RuleGo` is a lightweight, high-performance, embedded orchestration rule engine based on `Go` language. It is also a flexible and highly customizable event processing framework. It can aggregate, distribute, filter, transform, enrich and execute various actions on input messages.
+`RuleGo` is a lightweight, high-performance, embedded, orchestrable component-based rule engine based on `Go` language. 
+It is also a flexible and highly customizable event processing framework. Support heterogeneous system data integration. It can aggregate, distribute, filter, transform, enrich and execute various actions on input messages.
 
 ## Documentation
 
@@ -12,18 +13,17 @@ RuleGo documentation is hosted on: [rulego.cc](https://rulego.cc) .
 
 ## Features
 
-* Development language: Go 1.18+
-* Lightweight: No external middleware dependencies, can efficiently process and link data on low-cost devices, suitable for IoT edge computing.
-* High performance: Thanks to the high-performance characteristics of `Go`, in addition, `RuleGo` adopts technologies such as coroutine pool and object pool. For 10W data processing `JS script filtering->JS script data processing->HTTP push`, the average time is 9 seconds.
-* Embedded: Support embedding `RuleGo` into existing projects, non-intrusively utilizing its features.
-* Componentized: All business logic is componentized and can be flexibly configured and reused.
-* Rule chain: You can flexibly combine and reuse different components to achieve highly customizable and scalable business processes.
-* Process orchestration: Support dynamic orchestration of rule chains, you can encapsulate your business into `RuleGo` components, and then achieve your highly changing business needs by building blocks.
-* Easy to extend: Provide rich and flexible extension interfaces and hooks, such as: custom components, component registration management, rule chain DSL parser, coroutine pool, rule node message inflow/outflow callback, rule chain processing end callback.
-* Dynamic loading: Support dynamic loading of components and extension components through `Go plugin`.
-* Built-in common components: `Message type Switch`,`JavaScript Switch`,`JavaScript filter`,`JavaScript converter`,`HTTP push`,`MQTT push`,`Send email`,`Log record` and other components. You can extend other components by yourself.
-* Context isolation mechanism: Reliable context isolation mechanism, no need to worry about data streaming in high concurrency situations.
-
+* **Lightweight:** No external middleware dependencies, can efficiently process and link data on low-cost devices, suitable for IoT edge computing.
+* **High performance:** Thanks to the high-performance characteristics of `Go`, in addition, `RuleGo` adopts technologies such as coroutine pool and object pool. For 10W data processing `JS script filtering->JS script data processing->HTTP push`, the average time is 9 seconds.
+* **Embedded:** Support embedding `RuleGo` into existing projects, non-intrusively utilizing its features.
+* **Componentized:** All business logic is componentized and can be flexibly configured and reused.
+* **Rule chain:** You can flexibly combine and reuse different components to achieve highly customizable and scalable business processes.
+* **Process orchestration:** Support dynamic orchestration of rule chain components, replace or add business logic without restarting the application.
+* **Easy to extend:** Provide rich and flexible extension interfaces, you can easily implement custom components or introduce third-party components.
+* **Dynamic loading:** Support dynamic loading of components and extension components through `Go plugin`.
+* **Rule chain nesting:** Support sub-rule chain nesting, realize process reuse.
+* **Built-in common components:** `Message type Switch`,`JavaScript Switch`,`JavaScript filter`,`JavaScript converter`,`HTTP push`,`MQTT push`,`Send email`,`Log record` and other components. You can extend other components by yourself.
+* **Context isolation mechanism:** Reliable context isolation mechanism, no need to worry about data streaming in high concurrency situations.
 
 ## Use Cases
 
