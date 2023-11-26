@@ -1,5 +1,37 @@
 # CHANGELOG
 
+## [v0.17.0] 2023/11/27
+
+- feat:增加websocket endpoint组件 [文档](https://rulego.cc/pages/e36f41/)
+- feat:增加tcp/udp endpoint组件 [文档](https://rulego.cc/pages/b7050c/)
+- feat:增加kafka endpoint组件(扩展组件库) [文档](https://rulego.cc/pages/07ad50/)
+- feat:增加tcp/udp 节点组件[文档](https://rulego.cc/pages/c1af87/)
+- feat:endpoint组件使用统一的创建方式[文档](https://rulego.cc/pages/5a3227/)
+- feat:增加过滤器组节点组件[文档](https://rulego.cc/pages/b14e3b/)
+- feat:增加子规则链节点组件（原子规则链配置方式废弃）[文档](https://rulego.cc/pages/e27cec/)
+- feat:允许子规则链接其它节点
+- feat:functions节点组件，支持动态指定函数名
+- feat:delay节点组件，增加覆盖模式
+- feat:支持加载JavaScript脚本文件
+- feat:onEnd回调函数，支持获取ctx
+- feat:examples/server 使用独立的go.mod
+- feat:examples/server 支持是否引入扩展组件库的build tags
+- feat:mqtt client 允许重连被取消
+- fix:http endpoint 如果不是application/json无法获取body
+- fix:mqtt client 节点组件，没有重试次数限制
+- opt:Metadata修改实现方式
+- opt:rest node  ReadTimeoutMs 默认值改成 0
+- opt:mqtt client config MaxReconnectInterval改成int
+- opt:Node接口OnMsg取消返回值error
+- opt:config.JsMaxExecutionTime->ScriptMaxExecutionTime
+- opt:Endpoint.AddRouterWithParams->Endpoint.AddRouter
+- opt:Endpoint.RemoveRouterWithParams->Endpoint.RemoveRouter
+- opt:RuleMetadata.RuleChainConnections标记弃用
+- opt:config.OnEnd标记弃用
+- opt:RuleEngine.OnMsgWithEndFunc标记弃用
+- opt:RuleEngine.OnMsgWithOptions标记弃用
+- opt:添加doc overview
+
 ## [v0.16.0] 2023/10/30
 
 - feat:提供规则链可视化编辑器RuleGo-Editor [在线使用](https://editor.rulego.cc/)
