@@ -24,6 +24,7 @@ RuleGo documentation is hosted on: [rulego.cc](https://rulego.cc) .
 * **Rule chain nesting:** Support sub-rule chain nesting, realize process reuse.
 * **Built-in common components:** `Message type Switch`,`JavaScript Switch`,`JavaScript filter`,`JavaScript converter`,`HTTP push`,`MQTT push`,`Send email`,`Log record` and other components. You can extend other components by yourself.
 * **Context isolation mechanism:** Reliable context isolation mechanism, no need to worry about data streaming in high concurrency situations.
+* **AOP:** Allows adding extra behavior to the execution of the rule chain, or directly replacing the original rule chain or node logic, without modifying the original logic of the rule chain or node.
 
 ## Use Cases
 

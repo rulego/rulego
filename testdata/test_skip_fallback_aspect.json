@@ -1,0 +1,52 @@
+{
+  "ruleChain": {
+    "id":"test_skip_fallback_aspect",
+    "name": "测试规则链"
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "s1",
+        "type": "restApiCall",
+        "name": "推送数据",
+        "debugMode": true,
+        "configuration": {
+          "restEndpointUrlPattern": "http://192.168.136.26:9099/api/msg",
+          "requestMethod": "POST",
+          "maxParallelRequestsCount": 200,
+          "readTimeoutMs": 2000
+        }
+      },
+      {
+        "id": "s2",
+        "type": "log",
+        "name": "记录日志Success",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msgType+':Success';"
+        }
+      },
+      {
+        "id": "s3",
+        "type": "log",
+        "name": "记录日志Failure",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msgType+':Failure';"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "s1",
+        "toId": "s2",
+        "type": "Success"
+      },
+      {
+        "fromId": "s1",
+        "toId": "s3",
+        "type": "Failure"
+      }
+    ]
+  }
+}

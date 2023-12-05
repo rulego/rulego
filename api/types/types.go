@@ -175,6 +175,12 @@ type RuleContext interface {
 	NewMsg(msgType string, metaData Metadata, data string) RuleMsg
 	//GetSelfId 获取当前节点ID
 	GetSelfId() string
+	//Self 获取当前节点实例
+	Self() NodeCtx
+	//From 获取消息流入该节点的节点实例
+	From() NodeCtx
+	//RuleChain 获取当前节点所在的规则链实例
+	RuleChain() NodeCtx
 	//Config 获取规则引擎配置
 	Config() Config
 	//SubmitTack 异步执行任务
@@ -191,6 +197,8 @@ type RuleContext interface {
 	SetOnAllNodeCompleted(onAllNodeCompleted func())
 	//ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
 	ExecuteNode(chanCtx context.Context, nodeId string, msg RuleMsg, callback func(msg RuleMsg, err error, relationTypes ...string))
+	//DoOnEnd 结束规则链分支执行，触发 OnEnd 回调函数
+	DoOnEnd(msg RuleMsg, err error)
 }
 
 // RuleContextOption 修改RuleContext选项的函数
@@ -204,16 +212,16 @@ func WithEndFunc(endFunc func(ctx RuleContext, msg RuleMsg, err error)) RuleCont
 	}
 }
 
-//WithContext 上下文
-//用于不同组件实例数据或者信号量共享
-//用于超时取消
+// WithContext 上下文
+// 用于不同组件实例数据或者信号量共享
+// 用于超时取消
 func WithContext(c context.Context) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetContext(c)
 	}
 }
 
-//WithOnAllNodeCompleted 规则链执行完回调函数
+// WithOnAllNodeCompleted 规则链执行完回调函数
 func WithOnAllNodeCompleted(onAllNodeCompleted func()) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetOnAllNodeCompleted(onAllNodeCompleted)

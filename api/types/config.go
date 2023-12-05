@@ -19,6 +19,7 @@ package types
 import (
 	"github.com/rulego/rulego/pool"
 	"math"
+	"sort"
 	"time"
 )
 
@@ -58,14 +59,96 @@ type Config struct {
 	Properties Metadata
 	//Udf 注册自定义Golang函数和原生脚本，js等脚本引擎运行时可以调用
 	Udf map[string]interface{}
+	//Aspects AOP切面列表
+	Aspects []Aspect
 }
 
-//RegisterUdf 注册自定义函数
+// RegisterUdf 注册自定义函数
 func (c *Config) RegisterUdf(name string, value interface{}) {
 	if c.Udf == nil {
 		c.Udf = make(map[string]interface{})
 	}
 	c.Udf[name] = value
+}
+
+// GetNodeAspects 获取节点执行类型增强点切面列表
+func (c *Config) GetNodeAspects() ([]AroundAspect, []BeforeAspect, []AfterAspect) {
+
+	//从小到大排序
+	sort.Slice(c.Aspects, func(i, j int) bool {
+		return c.Aspects[i].Order() < c.Aspects[j].Order()
+	})
+
+	var aroundAspects []AroundAspect
+	var beforeAspects []BeforeAspect
+	var afterAspects []AfterAspect
+
+	for _, item := range c.Aspects {
+		if a, ok := item.(AroundAspect); ok {
+			aroundAspects = append(aroundAspects, a)
+		}
+		if a, ok := item.(BeforeAspect); ok {
+			beforeAspects = append(beforeAspects, a)
+		}
+		if a, ok := item.(AfterAspect); ok {
+			afterAspects = append(afterAspects, a)
+		}
+	}
+
+	return aroundAspects, beforeAspects, afterAspects
+}
+
+// GetChainAspects 获取规则链执行类型增强点切面列表
+func (c *Config) GetChainAspects() ([]StartAspect, []EndAspect, []CompletedAspect) {
+
+	//从小到大排序
+	sort.Slice(c.Aspects, func(i, j int) bool {
+		return c.Aspects[i].Order() < c.Aspects[j].Order()
+	})
+
+	var startAspects []StartAspect
+	var endAspects []EndAspect
+	var completedAspects []CompletedAspect
+	for _, item := range c.Aspects {
+		if a, ok := item.(StartAspect); ok {
+			startAspects = append(startAspects, a)
+		}
+		if a, ok := item.(EndAspect); ok {
+			endAspects = append(endAspects, a)
+		}
+		if a, ok := item.(CompletedAspect); ok {
+			completedAspects = append(completedAspects, a)
+		}
+	}
+
+	return startAspects, endAspects, completedAspects
+}
+
+// GetEngineAspects 获取规则引擎类型增强点切面列表
+func (c *Config) GetEngineAspects() ([]OnCreatedAspect, []OnReloadAspect, []OnDestroyAspect) {
+
+	//从小到大排序
+	sort.Slice(c.Aspects, func(i, j int) bool {
+		return c.Aspects[i].Order() < c.Aspects[j].Order()
+	})
+
+	var createdAspects []OnCreatedAspect
+	var reloadAspects []OnReloadAspect
+	var destroyAspects []OnDestroyAspect
+
+	for _, item := range c.Aspects {
+		if a, ok := item.(OnCreatedAspect); ok {
+			createdAspects = append(createdAspects, a)
+		}
+		if a, ok := item.(OnReloadAspect); ok {
+			reloadAspects = append(reloadAspects, a)
+		}
+		if a, ok := item.(OnDestroyAspect); ok {
+			destroyAspects = append(destroyAspects, a)
+		}
+	}
+
+	return createdAspects, reloadAspects, destroyAspects
 }
 
 // Option is a function type that modifies the Config.
@@ -145,6 +228,14 @@ func WithParser(parser Parser) Option {
 func WithLogger(logger Logger) Option {
 	return func(c *Config) error {
 		c.Logger = logger
+		return nil
+	}
+}
+
+// WithAspects is an option that sets the aspects of the Config.
+func WithAspects(aspects ...Aspect) Option {
+	return func(c *Config) error {
+		c.Aspects = aspects
 		return nil
 	}
 }
