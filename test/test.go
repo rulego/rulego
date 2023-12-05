@@ -75,7 +75,16 @@ func (ctx *NodeTestRuleContext) NewMsg(msgType string, metaData types.Metadata, 
 func (ctx *NodeTestRuleContext) GetSelfId() string {
 	return ""
 }
+func (ctx *NodeTestRuleContext) Self() types.NodeCtx {
+	return nil
+}
 
+func (ctx *NodeTestRuleContext) From() types.NodeCtx {
+	return nil
+}
+func (ctx *NodeTestRuleContext) RuleChain() types.NodeCtx {
+	return nil
+}
 func (ctx *NodeTestRuleContext) Config() types.Config {
 	return ctx.config
 }
@@ -112,5 +121,9 @@ func (ctx *NodeTestRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func())
 
 // ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
 func (ctx *NodeTestRuleContext) ExecuteNode(context context.Context, nodeId string, msg types.RuleMsg, callback func(msg types.RuleMsg, err error, relationTypes ...string)) {
+
+}
+
+func (ctx *NodeTestRuleContext) DoOnEnd(msg types.RuleMsg, err error) {
 
 }

@@ -79,6 +79,58 @@ var ruleChainFile = `
 	}
 `
 
+var updateRuleChainFile = `
+	{
+	  "ruleChain": {
+		"id":"test01",
+		"name": "testRuleChain01"
+	  },
+	  "metadata": {
+		"nodes": [
+		  {
+			"id":"s1",
+			"type": "jsFilter",
+			"name": "过滤",
+			"debugMode": true,
+			"configuration": {
+			  "jsScript": "return msg.temperature>10;"
+			}
+		  },
+		  {
+			"id":"s3",
+			"type": "jsTransform",
+			"name": "转换2",
+			"debugMode": true,
+			"configuration": {
+			  "jsScript": "metadata['productType']='product02';msgType='TEST_MSG_TYPE';var msg2={};\n  msg2['aa']=77\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+			}
+		  },
+		  {
+			"id":"s4",
+			"type": "jsTransform",
+			"name": "转换4",
+			"debugMode": true,
+			"configuration": {
+			  "jsScript": "metadata['name']='productName'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+			}
+		  }
+		],
+		"connections": [
+		  {
+			"fromId": "s1",
+			"toId": "s3",
+			"type": "True"
+		  },
+		  {
+			"fromId": "s3",
+			"toId": "s4",
+			"type": "Success"
+		  }
+		]
+	  }
+	}
+`
+
 // 修改metadata和msg 节点
 var modifyMetadataAndMsgNode = `
 	  {
@@ -120,11 +172,6 @@ func testRuleEngine(t *testing.T, ruleChainFile string, modifyNodeId, modifyNode
 	assert.Nil(t, err)
 	defer rulego.Del("rule01")
 
-	//if modifyNodeId != "" {
-	//	//modify the node
-	//	ruleEngine.ReloadChild(types.EmptyRuleNodeId, types.RuleNodeId{Id: modifyNodeId}, []byte(modifyNodeFile))
-	//}
-
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
@@ -145,6 +192,47 @@ func TestRuleChain(t *testing.T) {
 
 func TestRuleChainChangeMetadataAndMsg(t *testing.T) {
 	testRuleEngine(t, ruleChainFile, "s2", modifyMetadataAndMsgNode)
+}
+
+// test reload rule chain
+func TestReloadRuleChain(t *testing.T) {
+	config1 := rulego.NewConfig()
+	config1.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		config1.Logger.Printf("before reload : flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
+		if flowType == types.Out && nodeId == "s2" {
+			productType := msg.Metadata.GetValue("productType")
+			assert.Equal(t, "test01", productType)
+		}
+	}
+
+	ruleEngine, err := rulego.New("rule01", []byte(ruleChainFile), rulego.WithConfig(config1))
+	assert.Nil(t, err)
+	defer rulego.Del("rule01")
+
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
+
+	ruleEngine.OnMsg(msg)
+
+	time.Sleep(time.Second)
+
+	config1.Logger.Printf("reload rule chain......")
+	config2 := rulego.NewConfig()
+	config2.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		config2.Logger.Printf("before after : flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
+		if flowType == types.Out && nodeId == "s3" {
+			productType := msg.Metadata.GetValue("productType")
+			assert.Equal(t, "product02", productType)
+		}
+	}
+	//更新规则链
+	err = ruleEngine.ReloadSelf([]byte(updateRuleChainFile), rulego.WithConfig(config2))
+	assert.Nil(t, err)
+
+	ruleEngine.OnMsg(msg)
+
+	time.Sleep(time.Second)
 }
 
 // 测试子规则链

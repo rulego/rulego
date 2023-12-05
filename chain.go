@@ -57,6 +57,10 @@ type RuleChainCtx struct {
 	rootRuleContext types.RuleContext
 	//子规则链池
 	ruleChainPool *RuleGo
+	//重新加载增强点切面
+	reloadAspects []types.OnReloadAspect
+	//销毁增强点切面
+	destroyAspects []types.OnDestroyAspect
 	sync.RWMutex
 }
 
@@ -130,6 +134,11 @@ func InitRuleChainCtx(config types.Config, ruleChainDef *RuleChain) (*RuleChainC
 		ruleChainCtx.rootRuleContext = NewRuleContext(context.TODO(), ruleChainCtx.Config, ruleChainCtx, nil,
 			firstNode, config.Pool, nil, nil)
 	}
+
+	//get aspects
+	_, reloadAspects, destroyAspects := config.GetEngineAspects()
+	ruleChainCtx.reloadAspects = reloadAspects
+	ruleChainCtx.destroyAspects = destroyAspects
 	return ruleChainCtx, nil
 }
 
@@ -238,6 +247,10 @@ func (rc *RuleChainCtx) Destroy() {
 		temp := v
 		temp.Destroy()
 	}
+	//执行销毁切面逻辑
+	for _, aop := range rc.destroyAspects {
+		aop.OnDestroy(rc)
+	}
 }
 
 func (rc *RuleChainCtx) IsDebugMode() bool {
@@ -249,22 +262,28 @@ func (rc *RuleChainCtx) GetNodeId() types.RuleNodeId {
 }
 
 func (rc *RuleChainCtx) ReloadSelf(def []byte) error {
-	if ctx, err := rc.Config.Parser.DecodeRuleChain(rc.Config, def); err == nil {
+	var err error
+	var ctx types.Node
+	if ctx, err = rc.Config.Parser.DecodeRuleChain(rc.Config, def); err == nil {
 		rc.Destroy()
 		rc.Copy(ctx.(*RuleChainCtx))
-
-	} else {
-		return err
 	}
-	return nil
+	//执行reload切面
+	for _, aop := range rc.reloadAspects {
+		aop.OnReload(rc, rc, err)
+	}
+	return err
 }
 
 func (rc *RuleChainCtx) ReloadChild(ruleNodeId types.RuleNodeId, def []byte) error {
 	if node, ok := rc.GetNodeById(ruleNodeId); ok {
 		//更新子节点
-		if err := node.ReloadSelf(def); err != nil {
-			return err
+		err := node.ReloadSelf(def)
+		//执行reload切面
+		for _, aop := range rc.reloadAspects {
+			aop.OnReload(rc, node, err)
 		}
+		return err
 	}
 	return nil
 }
@@ -288,6 +307,8 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.nodeRoutes = newCtx.nodeRoutes
 	rc.rootRuleContext = newCtx.rootRuleContext
 	rc.ruleChainPool = newCtx.ruleChainPool
+	rc.reloadAspects = newCtx.reloadAspects
+	rc.destroyAspects = newCtx.destroyAspects
 	//清除缓存
 	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
 }
