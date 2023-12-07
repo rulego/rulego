@@ -91,13 +91,13 @@ func TestSkipFallbackAspect(t *testing.T) {
 
 	start = time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
-		//进入故障降级，跳过该组件
+		//故障恢复，执行该组件
 		fmt.Printf("第6次耗时:%s", time.Since(start).String())
 		fmt.Println()
-		assert.True(t, time.Since(start) < time.Second)
+		assert.True(t, time.Since(start) > time.Second)
 	}))
 
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Second * 3)
 	ruleEngine.Stop()
 
 }
