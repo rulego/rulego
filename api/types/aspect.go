@@ -91,7 +91,7 @@ type EndAspect interface {
 	NodeAspect
 	// End is the advice that executes after the rule engine OnMsg method and the branch chain execution ends. The returned Msg will be used as the input for the next advice.
 	// End 规则引擎 OnMsg 方法执行之后，分支链执行结束的增强点。返回的Msg将作为下一个增强点的入参。
-	End(ctx RuleContext, msg RuleMsg, err error) RuleMsg
+	End(ctx RuleContext, msg RuleMsg, err error, relationType string) RuleMsg
 }
 
 // CompletedAspect is the interface for rule engine all branch execution end advice

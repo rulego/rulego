@@ -68,7 +68,7 @@ func (x *ChainNode) Init(ruleConfig types.Config, configuration types.Configurat
 func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var wrapperMsg = msg.Copy()
 	var msgs []WrapperMsg
-	ctx.TellFlow(msg, x.Config.TargetId, func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error) {
+	ctx.TellFlow(msg, x.Config.TargetId, func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
 		msgs = append(msgs, WrapperMsg{
 			Msg:    onEndMsg,
 			Err:    err,

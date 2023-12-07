@@ -261,7 +261,7 @@ func (aspect *ChainAspect) Start(ctx types.RuleContext, msg types.RuleMsg) types
 	return msg
 }
 
-func (aspect *ChainAspect) End(ctx types.RuleContext, msg types.RuleMsg, err error) types.RuleMsg {
+func (aspect *ChainAspect) End(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) types.RuleMsg {
 	msg.Metadata.PutValue("key2", "addValueOnEnd")
 	return msg
 }

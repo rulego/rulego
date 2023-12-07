@@ -45,7 +45,7 @@ const (
 )
 
 // OnEndFunc 规则链分支执行完函数
-type OnEndFunc = func(ctx RuleContext, msg RuleMsg, err error)
+type OnEndFunc = func(ctx RuleContext, msg RuleMsg, err error, relationType string)
 
 // Configuration 组件配置类型
 type Configuration map[string]interface{}
@@ -161,16 +161,17 @@ type RuleContext interface {
 	TellSuccess(msg RuleMsg)
 	//TellFailure 通知规则引擎处理当前消息处理失败，并把消息通过`Failure`关系发送到下一个节点
 	TellFailure(msg RuleMsg, err error)
-	//TellNext 使用指定的relationTypes，发送消息到下一个节点
+	//TellNext 使用指定的relationTypes，把消息发送到下一个节点
 	//Send the message to the next node
 	TellNext(msg RuleMsg, relationTypes ...string)
-	//TellSelf 以指定的延迟（毫秒）向当前规则节点发送消息。
+	//TellSelf 以指定的延迟（毫秒）向当前节点发送消息。
 	TellSelf(msg RuleMsg, delayMs int64)
-	//TellFlow 执行子规则链，ruleChainId 规则链ID
+	//TellFlow 执行子规则链
+	//ruleChainId 规则链ID
 	//onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次
 	//onAllNodeCompleted 所以节点执行完之后的回调，无结果返回
 	//如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
-	TellFlow(msg RuleMsg, ruleChainId string, endFunc func(ctx RuleContext, msg RuleMsg, err error), onAllNodeCompleted func())
+	TellFlow(msg RuleMsg, ruleChainId string, endFunc OnEndFunc, onAllNodeCompleted func())
 	//NewMsg 创建新的消息实例
 	NewMsg(msgType string, metaData Metadata, data string) RuleMsg
 	//GetSelfId 获取当前节点ID
@@ -186,27 +187,38 @@ type RuleContext interface {
 	//SubmitTack 异步执行任务
 	SubmitTack(task func())
 	//SetEndFunc 设置当前消息处理结束回调函数
-	SetEndFunc(f func(ctx RuleContext, msg RuleMsg, err error)) RuleContext
+	SetEndFunc(f OnEndFunc) RuleContext
 	//GetEndFunc 获取当前消息处理结束回调函数
-	GetEndFunc() func(ctx RuleContext, msg RuleMsg, err error)
+	GetEndFunc() OnEndFunc
 	//SetContext 设置用于不同组件实例共享信号量或者数据的上下文
 	SetContext(c context.Context) RuleContext
 	//GetContext 获取用于不同组件实例共享信号量或者数据的上下文
 	GetContext() context.Context
 	//SetOnAllNodeCompleted 设置所有节点执行完回调
 	SetOnAllNodeCompleted(onAllNodeCompleted func())
-	//ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
-	ExecuteNode(chanCtx context.Context, nodeId string, msg RuleMsg, callback func(msg RuleMsg, err error, relationTypes ...string))
-	//DoOnEnd 结束规则链分支执行，触发 OnEnd 回调函数
-	DoOnEnd(msg RuleMsg, err error)
+	//ExecuteNode 从指定节点开始执行，如果 skipTellNext=true 则只执行当前节点，不通知下一个节点。
+	//onEnd 查看获得最终执行结果
+	ExecuteNode(chanCtx context.Context, nodeId string, msg RuleMsg, skipTellNext bool, onEnd OnEndFunc)
+	//DoOnEnd 触发 OnEnd 回调函数
+	DoOnEnd(msg RuleMsg, err error, relationType string)
 }
 
 // RuleContextOption 修改RuleContext选项的函数
 type RuleContextOption func(RuleContext)
 
-// WithEndFunc 结束回调函数
-// 数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
+// WithEndFunc 规则链分支链执行完回调函数
+// 注意：如果规则链有多个结束点，回调函数则会执行多次
 func WithEndFunc(endFunc func(ctx RuleContext, msg RuleMsg, err error)) RuleContextOption {
+	return func(rc RuleContext) {
+		rc.SetEndFunc(func(ctx RuleContext, msg RuleMsg, err error, relationType string) {
+			endFunc(ctx, msg, err)
+		})
+	}
+}
+
+// WithOnEnd 规则链分支链执行完回调函数
+// 注意：如果规则链有多个结束点，回调函数则会执行多次
+func WithOnEnd(endFunc func(ctx RuleContext, msg RuleMsg, err error, relationType string)) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetEndFunc(endFunc)
 	}
