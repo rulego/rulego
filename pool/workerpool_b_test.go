@@ -51,16 +51,16 @@ func BenchmarkGoroutine(b *testing.B) {
 	wg.Wait()
 }
 
-//func BenchmarkAntsPoolTimeLifeSetTimes(b *testing.B) {
-//	for i := 0; i < 100000; i++ {
-//		wg.Add(1)
-//		ants.Submit(func() {
-//			demoTask2()
-//		})
-//	}
+//	func BenchmarkAntsPoolTimeLifeSetTimes(b *testing.B) {
+//		for i := 0; i < 100000; i++ {
+//			wg.Add(1)
+//			ants.Submit(func() {
+//				demoTask2()
+//			})
+//		}
 //
-//	wg.Wait()
-//}
+//		wg.Wait()
+//	}
 func BenchmarkWorkPoolTimeLifeSetTimes(b *testing.B) {
 	wp := &WorkerPool{MaxWorkersCount: math.MaxInt32}
 	wp.Start()

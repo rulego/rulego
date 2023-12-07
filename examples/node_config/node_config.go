@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-//测试使用占位符替换配置
+// 测试使用占位符替换配置
 func main() {
 
 	config := rulego.NewConfig()

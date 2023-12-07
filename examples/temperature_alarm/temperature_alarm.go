@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-//处理规则链，如果温度大于50，则温度异常调用api推送告警，否则记录日志
+// 处理规则链，如果温度大于50，则温度异常调用api推送告警，否则记录日志
 func main() {
 	//创建rule config
 	config := rulego.NewConfig()

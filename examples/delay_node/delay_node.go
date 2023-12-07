@@ -26,7 +26,7 @@ import (
 
 var ruleEngine *rulego.RuleEngine
 
-//初始化规则引擎实例和配置
+// 初始化规则引擎实例和配置
 func init() {
 	config := rulego.NewConfig()
 	//config.OnDebug = func(chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
@@ -39,7 +39,7 @@ func init() {
 	}
 }
 
-//测试延迟组件
+// 测试延迟组件
 func main() {
 	//var i = 0
 	//for i < 20 {

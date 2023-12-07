@@ -32,15 +32,15 @@ import (
 	"time"
 )
 
-//Type 组件类型
+// Type 组件类型
 const Type = "net"
 
-//注册组件
+// 注册组件
 func init() {
 	_ = endpoint.Registry.Register(&Endpoint{})
 }
 
-//RequestMessage 请求消息
+// RequestMessage 请求消息
 type RequestMessage struct {
 	conn net.Conn
 	body []byte
@@ -58,7 +58,7 @@ func (r *RequestMessage) Headers() textproto.MIMEHeader {
 	return make(textproto.MIMEHeader)
 }
 
-//From 返回客户端Addr
+// From 返回客户端Addr
 func (r RequestMessage) From() string {
 	return r.conn.RemoteAddr().String()
 }
@@ -99,7 +99,7 @@ func (r *RequestMessage) Conn() net.Conn {
 	return r.conn
 }
 
-//ResponseMessage 响应消息
+// ResponseMessage 响应消息
 type ResponseMessage struct {
 	conn net.Conn
 	log  func(format string, v ...interface{})
@@ -161,7 +161,7 @@ type Config struct {
 	ReadTimeout int
 }
 
-//RegexpRouter 正则表达式路由
+// RegexpRouter 正则表达式路由
 type RegexpRouter struct {
 	//路由
 	router *endpoint.Router

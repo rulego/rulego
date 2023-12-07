@@ -125,7 +125,7 @@ func main() {
 
 }
 
-//初始化日志记录器
+// 初始化日志记录器
 func initLogger() *log.Logger {
 	if logfile == "" {
 		return log.New(os.Stdout, "", log.LstdFlags)
@@ -138,7 +138,7 @@ func initLogger() *log.Logger {
 	}
 }
 
-//初始化规则链池
+// 初始化规则链池
 func initRuleGo(logger *log.Logger, ruleFolder string) {
 
 	config = rulego.NewConfig(types.WithDefaultPool())
@@ -176,7 +176,7 @@ func initRuleGo(logger *log.Logger, ruleFolder string) {
 	}
 }
 
-//mqtt 订阅服务
+// mqtt 订阅服务
 func mqttServe(logger *log.Logger) {
 	//mqtt 订阅服务 接收端点
 	mqttEndpoint, err := endpoint.New(endpointMqtt.Type, config, mqttClientConfig)
@@ -192,7 +192,7 @@ func mqttServe(logger *log.Logger) {
 	}
 }
 
-//rest服务 接收端点
+// rest服务 接收端点
 func restServe(logger *log.Logger, addr string) {
 	logger.Println("rest serve initialised.addr=" + addr)
 	restEndpoint := &rest.Endpoint{
@@ -231,7 +231,7 @@ func restServe(logger *log.Logger, addr string) {
 	_ = restEndpoint.Start()
 }
 
-//处理请求，并转发到规则引擎
+// 处理请求，并转发到规则引擎
 func createPostMsgRouter() *endpoint.Router {
 	return endpoint.NewRouter().From(msgPath).Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -247,7 +247,7 @@ func createPostMsgRouter() *endpoint.Router {
 	}).To("chain:${chainId}").End()
 }
 
-//创建获取指定规则链路由
+// 创建获取指定规则链路由
 func createGetDslRouter() *endpoint.Router {
 	return endpoint.NewRouter().From(rulePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -259,7 +259,7 @@ func createGetDslRouter() *endpoint.Router {
 	}).End()
 }
 
-//创建保存/更新指定规则链路由
+// 创建保存/更新指定规则链路由
 func createSaveDslRouter() *endpoint.Router {
 	return endpoint.NewRouter().From(rulePath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -271,7 +271,7 @@ func createSaveDslRouter() *endpoint.Router {
 	}).End()
 }
 
-//创建获取组件列表路由
+// 创建获取组件列表路由
 func createComponentsRouter() *endpoint.Router {
 	//路由1
 	return endpoint.NewRouter().From(componentsPath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
@@ -287,7 +287,7 @@ func createComponentsRouter() *endpoint.Router {
 	}).End()
 }
 
-//创建获取节点调试数据路由
+// 创建获取节点调试数据路由
 func createGetDebugDataRouter() *endpoint.Router {
 	//路由1
 	return endpoint.NewRouter().From(eventPath).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
@@ -305,7 +305,7 @@ func createGetDebugDataRouter() *endpoint.Router {
 	}).End()
 }
 
-//获取DSL
+// 获取DSL
 func getDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 	var def []byte
 	if chainId != "" {
@@ -329,7 +329,7 @@ func getDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 
 }
 
-//保存或者更新DSL
+// 保存或者更新DSL
 func saveDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 	var err error
 	if chainId != "" {

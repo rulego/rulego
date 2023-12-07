@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-//js处理msg payload和元数据
+// js处理msg payload和元数据
 func main() {
 
 	config := rulego.NewConfig()

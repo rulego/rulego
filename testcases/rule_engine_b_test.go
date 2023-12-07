@@ -78,16 +78,16 @@ func BenchmarkCallRestApiNodeWorkerPool(b *testing.B) {
 	}
 }
 
-//func BenchmarkCallRestApiNodeAnts(b *testing.B) {
-//	defaultAntsPool, _ := ants.NewPool(200000)
-//	//使用协程池
-//	config := rulego.NewConfig(types.WithPool(defaultAntsPool))
-//	ruleEngine, _ := rulego.New(str.RandomStr(10), loadFile("./chain_call_rest_api.json"), rulego.WithConfig(config))
-//	b.ResetTimer()
-//	for i := 0; i < b.N; i++ {
-//		callRestApiNode(ruleEngine)
+//	func BenchmarkCallRestApiNodeAnts(b *testing.B) {
+//		defaultAntsPool, _ := ants.NewPool(200000)
+//		//使用协程池
+//		config := rulego.NewConfig(types.WithPool(defaultAntsPool))
+//		ruleEngine, _ := rulego.New(str.RandomStr(10), loadFile("./chain_call_rest_api.json"), rulego.WithConfig(config))
+//		b.ResetTimer()
+//		for i := 0; i < b.N; i++ {
+//			callRestApiNode(ruleEngine)
+//		}
 //	}
-//}
 func callRestApiNode(ruleEngine *rulego.RuleEngine) {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")

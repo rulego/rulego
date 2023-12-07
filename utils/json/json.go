@@ -22,13 +22,13 @@ import (
 )
 
 // Marshal marshals the struct to json data.
-//escapeHTML=false
-//disables this behavior.escape &, <, and > to \u0026, \u003c, and \u003e
+// escapeHTML=false
+// disables this behavior.escape &, <, and > to \u0026, \u003c, and \u003e
 func Marshal(v interface{}) ([]byte, error) {
 	return Marshal2(v, false)
 }
 
-//MarshalIndent see json.MarshalIndent
+// MarshalIndent see json.MarshalIndent
 func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
 	b, err := Marshal2(v, false)
 	if err != nil {
@@ -59,7 +59,7 @@ func Unmarshal(b []byte, m interface{}) error {
 	return json.Unmarshal(b, m)
 }
 
-//Format json格式化
+// Format json格式化
 func Format(jsonStr []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	err := json.Indent(&buf, jsonStr, "", "  ")

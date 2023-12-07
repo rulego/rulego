@@ -23,7 +23,7 @@ import (
 	"strings"
 )
 
-//GetComponentForm 获取组件的表单结构
+// GetComponentForm 获取组件的表单结构
 func GetComponentForm(component types.Node) types.ComponentForm {
 	var componentForm types.ComponentForm
 
@@ -48,7 +48,7 @@ func GetComponentForm(component types.Node) types.ComponentForm {
 	return componentForm
 }
 
-//使用ComponentDefGetter接口定义的覆盖
+// 使用ComponentDefGetter接口定义的覆盖
 func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.ComponentForm) types.ComponentForm {
 	def := from.Def()
 	if def.Type != "" {
@@ -72,7 +72,7 @@ func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.Com
 	return toComponentForm
 }
 
-//GetComponentConfig 获取组件配置字段和默认值
+// GetComponentConfig 获取组件配置字段和默认值
 func GetComponentConfig(component types.Node) (reflect.Type, reflect.StructField, reflect.Value) {
 	component = component.New()
 	t := reflect.TypeOf(component)
@@ -101,7 +101,7 @@ func GetComponentConfig(component types.Node) (reflect.Type, reflect.StructField
 	return t, configField, configValue
 }
 
-//GetFields 获取组件config字段
+// GetFields 获取组件config字段
 func GetFields(configField reflect.StructField, configValue reflect.Value) []types.ComponentFormField {
 	var fields []types.ComponentFormField
 	if configField.Type != nil {

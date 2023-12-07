@@ -21,13 +21,13 @@ import (
 	"sync"
 )
 
-//ComponentDefGetter 该接口是可选的，组件可以实现该接口，提供可视化需要的信息，
-//例如：Label,Desc,RelationTypes。否则使用约定规则提供可视化表单定义
+// ComponentDefGetter 该接口是可选的，组件可以实现该接口，提供可视化需要的信息，
+// 例如：Label,Desc,RelationTypes。否则使用约定规则提供可视化表单定义
 type ComponentDefGetter interface {
 	Def() ComponentForm
 }
 
-//ComponentFormList 组件表单类别类型
+// ComponentFormList 组件表单类别类型
 type ComponentFormList map[string]ComponentForm
 
 func (c ComponentFormList) GetComponent(name string) (ComponentForm, bool) {
@@ -56,7 +56,7 @@ func (c ComponentFormList) Values() []ComponentForm {
 	return values
 }
 
-//ComponentFormFieldList 字段列表类型
+// ComponentFormFieldList 字段列表类型
 type ComponentFormFieldList []ComponentFormField
 
 func (c ComponentFormFieldList) GetField(name string) (ComponentFormField, bool) {
@@ -68,7 +68,7 @@ func (c ComponentFormFieldList) GetField(name string) (ComponentFormField, bool)
 	return ComponentFormField{}, false
 }
 
-//ComponentForm 组件表单，用于可视化加载组件表单
+// ComponentForm 组件表单，用于可视化加载组件表单
 type ComponentForm struct {
 	//Type 组件类型
 	Type string `json:"type"`
@@ -88,7 +88,7 @@ type ComponentForm struct {
 	RelationTypes *[]string `json:"relationTypes"`
 }
 
-//ComponentFormField 组件配置字段
+// ComponentFormField 组件配置字段
 type ComponentFormField struct {
 	//Name 字段名称
 	Name string `json:"name"`
@@ -106,14 +106,14 @@ type ComponentFormField struct {
 	Fields ComponentFormFieldList `json:"fields"`
 }
 
-//SafeComponentSlice 安全的组件列表切片
+// SafeComponentSlice 安全的组件列表切片
 type SafeComponentSlice struct {
 	//组件列表
 	components []Node
 	sync.Mutex
 }
 
-//Add 线程安全地添加元素
+// Add 线程安全地添加元素
 func (p *SafeComponentSlice) Add(nodes ...Node) {
 	p.Lock()
 	defer p.Unlock()
@@ -122,7 +122,7 @@ func (p *SafeComponentSlice) Add(nodes ...Node) {
 	}
 }
 
-//Components 获取组件列表
+// Components 获取组件列表
 func (p *SafeComponentSlice) Components() []Node {
 	p.Lock()
 	defer p.Unlock()

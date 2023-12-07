@@ -32,18 +32,18 @@ import (
 	"strconv"
 )
 
-//Type 组件类型
+// Type 组件类型
 const Type = "ws"
 
-//Endpoint 别名
+// Endpoint 别名
 type Endpoint = Websocket
 
-//注册组件
+// 注册组件
 func init() {
 	_ = endpoint.Registry.Register(&Endpoint{})
 }
 
-//RequestMessage websocket请求消息
+// RequestMessage websocket请求消息
 type RequestMessage struct {
 	//ws消息类型 TextMessage=1/BinaryMessage=2
 	messageType int
@@ -115,7 +115,7 @@ func (r *RequestMessage) Request() *http.Request {
 	return r.request
 }
 
-//ResponseMessage websocket响应消息
+// ResponseMessage websocket响应消息
 type ResponseMessage struct {
 	//ws消息类型 TextMessage/BinaryMessage
 	messageType int
@@ -169,14 +169,14 @@ func (r *ResponseMessage) GetError() error {
 	return r.err
 }
 
-//Config Websocket 服务配置
+// Config Websocket 服务配置
 type Config struct {
 	Server      string
 	CertFile    string
 	CertKeyFile string
 }
 
-//Websocket 接收端端点
+// Websocket 接收端端点
 type Websocket struct {
 	endpoint.BaseEndpoint
 	//配置
@@ -188,7 +188,7 @@ type Websocket struct {
 	upgrader websocket.Upgrader
 }
 
-//Type 组件类型
+// Type 组件类型
 func (ws *Websocket) Type() string {
 	return Type
 }
@@ -197,14 +197,14 @@ func (ws *Websocket) New() types.Node {
 	return &Websocket{}
 }
 
-//Init 初始化
+// Init 初始化
 func (ws *Websocket) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &ws.Config)
 	ws.RuleConfig = ruleConfig
 	return err
 }
 
-//Destroy 销毁
+// Destroy 销毁
 func (ws *Websocket) Destroy() {
 	_ = ws.Close()
 }

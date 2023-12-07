@@ -48,18 +48,18 @@ import (
 	"strconv"
 )
 
-//Type 组件类型
+// Type 组件类型
 const Type = "schedule"
 
-//Endpoint 别名
+// Endpoint 别名
 type Endpoint = Schedule
 
-//注册组件
+// 注册组件
 func init() {
 	_ = endpoint.Registry.Register(&Endpoint{})
 }
 
-//RequestMessage http请求消息
+// RequestMessage http请求消息
 type RequestMessage struct {
 	headers textproto.MIMEHeader
 	body    []byte
@@ -112,7 +112,7 @@ func (r *RequestMessage) GetError() error {
 	return r.err
 }
 
-//ResponseMessage 响应消息
+// ResponseMessage 响应消息
 type ResponseMessage struct {
 	body    []byte
 	msg     *types.RuleMsg
@@ -162,7 +162,7 @@ func (r *ResponseMessage) GetError() error {
 	return r.err
 }
 
-//Schedule 定时任务端点
+// Schedule 定时任务端点
 type Schedule struct {
 	id string
 	endpoint.BaseEndpoint
@@ -170,13 +170,13 @@ type Schedule struct {
 	cron       *cron.Cron
 }
 
-//New 创建一个新的Schedule Endpoint 实例
+// New 创建一个新的Schedule Endpoint 实例
 func New(ruleConfig types.Config) *Schedule {
 	uuId, _ := uuid.NewV4()
 	return &Schedule{RuleConfig: ruleConfig, cron: cron.New(cron.WithSeconds()), id: uuId.String()}
 }
 
-//Type 组件类型
+// Type 组件类型
 func (schedule *Schedule) Type() string {
 	return Type
 }
@@ -186,13 +186,13 @@ func (schedule *Schedule) New() types.Node {
 	return &Schedule{cron: cron.New(cron.WithSeconds()), id: uuId.String()}
 }
 
-//Init 初始化
+// Init 初始化
 func (schedule *Schedule) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	schedule.RuleConfig = ruleConfig
 	return nil
 }
 
-//Destroy 销毁
+// Destroy 销毁
 func (schedule *Schedule) Destroy() {
 	_ = schedule.Close()
 }
@@ -250,7 +250,7 @@ func (schedule *Schedule) Printf(format string, v ...interface{}) {
 	}
 }
 
-//处理定时任务
+// 处理定时任务
 func (schedule *Schedule) handler(router *endpoint.Router) {
 	defer func() {
 		//捕捉异常

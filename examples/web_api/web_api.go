@@ -26,7 +26,7 @@ import (
 	"github.com/rulego/rulego/utils/json"
 )
 
-//使用router开发web应用
+// 使用router开发web应用
 func main() {
 
 	config := rulego.NewConfig(types.WithDefaultPool())

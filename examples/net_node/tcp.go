@@ -24,7 +24,7 @@ import (
 
 var ruleEngine *rulego.RuleEngine
 
-//初始化规则引擎实例和配置
+// 初始化规则引擎实例和配置
 func init() {
 	config := rulego.NewConfig()
 	var err error
@@ -34,7 +34,7 @@ func init() {
 	}
 }
 
-//测试tcp节点
+// 测试tcp节点
 func main() {
 
 	metaData := types.NewMetadata()

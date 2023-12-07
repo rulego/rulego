@@ -24,8 +24,8 @@ import (
 	"testing"
 )
 
-//CallerInfo This function is inspired by:
-//https://github.com/stretchr/testify/blob/master/assert/assertions.go
+// CallerInfo This function is inspired by:
+// https://github.com/stretchr/testify/blob/master/assert/assertions.go
 func CallerInfo() []string {
 	var pc uintptr
 	var ok bool
