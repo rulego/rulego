@@ -26,7 +26,7 @@ import (
 //每个节点只保留一定的条数，最旧的数据会被自动删除
 //如果需要查询历史数据，请把调试日志数据存放数据库等可以持久化载体
 
-//RuleChainDebugData 规则链下节点调试数据
+// RuleChainDebugData 规则链下节点调试数据
 type RuleChainDebugData struct {
 	//Data 规则链ID->节点列表调试数据
 	Data map[string]*NodeDebugData
@@ -58,7 +58,7 @@ func (d *RuleChainDebugData) Add(chainId string, nodeId string, data DebugData) 
 	ruleChainData.Add(nodeId, data)
 }
 
-//Get 获取指定规则链的节点调试数据列表
+// Get 获取指定规则链的节点调试数据列表
 func (d *RuleChainDebugData) Get(chainId string, nodeId string) *FixedQueue {
 	d.mu.RLock()
 	ruleChainData, ok := d.Data[chainId]
@@ -88,7 +88,7 @@ func (d *RuleChainDebugData) Clear(chainId string) {
 	delete(d.Data, chainId)
 }
 
-//NodeDebugData 节点调试数据
+// NodeDebugData 节点调试数据
 type NodeDebugData struct {
 	Data map[string]*FixedQueue
 	// MaxSize 每个节点允许的最大数量
@@ -119,7 +119,7 @@ func (d *NodeDebugData) Add(nodeId string, data DebugData) {
 	list.Push(data)
 }
 
-//Get 获取自定节点列表数据
+// Get 获取自定节点列表数据
 func (d *NodeDebugData) Get(nodeId string) *FixedQueue {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -138,8 +138,8 @@ func (d *NodeDebugData) Clear(nodeId string) {
 	delete(d.Data, nodeId)
 }
 
-//DebugData 调试数据
-//OnDebug 回调函数提供的数据
+// DebugData 调试数据
+// OnDebug 回调函数提供的数据
 type DebugData struct {
 	//debug数据发生时间
 	Ts int64 `json:"ts"`
@@ -155,7 +155,7 @@ type DebugData struct {
 	Err string `json:"err"`
 }
 
-//DebugDataPage 分页返回数据
+// DebugDataPage 分页返回数据
 type DebugDataPage struct {
 	//每页多少条，默认读取所有
 	Size int `json:"Size"`

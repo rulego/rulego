@@ -16,9 +16,9 @@
 
 // Package pool
 // Note: This file is inspired by:
-//Valyala, A. (2023) workerpool.go (Version 1.48.0)
-//[Source code]. https://github.com/valyala/fasthttp/blob/master/workerpool.go
-//1.Change the Serve(c net.Conn) method to Submit(fn func()) error method
+// Valyala, A. (2023) workerpool.go (Version 1.48.0)
+// [Source code]. https://github.com/valyala/fasthttp/blob/master/workerpool.go
+// 1.Change the Serve(c net.Conn) method to Submit(fn func()) error method
 package pool
 
 import (

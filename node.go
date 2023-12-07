@@ -36,7 +36,7 @@ type RuleNodeCtx struct {
 	Config types.Config
 }
 
-//InitRuleNodeCtx 初始化RuleNodeCtx
+// InitRuleNodeCtx 初始化RuleNodeCtx
 func InitRuleNodeCtx(config types.Config, selfDefinition *RuleNode) (*RuleNodeCtx, error) {
 	node, err := config.ComponentsRegistry.NewNode(selfDefinition.Type)
 	if err != nil {

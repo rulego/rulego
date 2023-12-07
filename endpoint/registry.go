@@ -24,17 +24,17 @@ import (
 	"sync"
 )
 
-//Registry endpoint组件默认注册器
+// Registry endpoint组件默认注册器
 var Registry = new(ComponentRegistry)
 
-//ComponentRegistry 组件注册器
+// ComponentRegistry 组件注册器
 type ComponentRegistry struct {
 	//endpoint组件
 	components map[string]Endpoint
 	sync.RWMutex
 }
 
-//Register 注册规则引擎节点组件
+// Register 注册规则引擎节点组件
 func (r *ComponentRegistry) Register(endpoint Endpoint) error {
 	r.Lock()
 	defer r.Unlock()
@@ -60,7 +60,7 @@ func (r *ComponentRegistry) Unregister(componentType string) error {
 	}
 }
 
-//New 创建一个新的endpoint实例
+// New 创建一个新的endpoint实例
 func (r *ComponentRegistry) New(componentType string, ruleConfig types.Config, configuration interface{}) (Endpoint, error) {
 	r.RLock()
 	defer r.RUnlock()
@@ -93,10 +93,10 @@ func (r *ComponentRegistry) New(componentType string, ruleConfig types.Config, c
 	}
 }
 
-//New 创建指定类型的endpoint实例
-//componentType endpoint类型
-//ruleConfig rulego配置
-//configuration endpoint配置参数，可以是types.Configuration和endpoint对应Config的类型
+// New 创建指定类型的endpoint实例
+// componentType endpoint类型
+// ruleConfig rulego配置
+// configuration endpoint配置参数，可以是types.Configuration和endpoint对应Config的类型
 func New(componentType string, ruleConfig types.Config, configuration interface{}) (Endpoint, error) {
 	return Registry.New(componentType, ruleConfig, configuration)
 }

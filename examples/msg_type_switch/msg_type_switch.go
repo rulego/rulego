@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-//根据不同消息类型，路由到不同节点处理
+// 根据不同消息类型，路由到不同节点处理
 func main() {
 
 	config := rulego.NewConfig()

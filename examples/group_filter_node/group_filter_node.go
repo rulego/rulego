@@ -26,7 +26,7 @@ import (
 
 var ruleEngine *rulego.RuleEngine
 
-//初始化规则引擎实例和配置
+// 初始化规则引擎实例和配置
 func init() {
 	config := rulego.NewConfig()
 	var err error
@@ -60,7 +60,7 @@ func main() {
 	time.Sleep(time.Second * 1)
 }
 
-//注意：规则链从第三个节点开始触发。firstNodeIndex=2
+// 注意：规则链从第三个节点开始触发。firstNodeIndex=2
 var chainJsonFile1 = `
 {
   "ruleChain": {

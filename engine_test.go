@@ -117,7 +117,7 @@ var s1NodeFile = `
 		  }
 `
 
-//TestEngine 测试规则引擎
+// TestEngine 测试规则引擎
 func TestEngine(t *testing.T) {
 	config := NewConfig()
 	//初始化子规则链

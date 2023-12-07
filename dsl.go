@@ -21,7 +21,7 @@ import (
 	"github.com/rulego/rulego/utils/json"
 )
 
-//RuleChain 规则链定义
+// RuleChain 规则链定义
 type RuleChain struct {
 	//规则链基础信息定义
 	RuleChain RuleChainBaseInfo `json:"ruleChain"`
@@ -29,14 +29,14 @@ type RuleChain struct {
 	Metadata RuleMetadata `json:"metadata"`
 }
 
-//ParserRuleChain 通过json解析规则链结构体
+// ParserRuleChain 通过json解析规则链结构体
 func ParserRuleChain(rootRuleChain []byte) (RuleChain, error) {
 	var def RuleChain
 	err := json.Unmarshal(rootRuleChain, &def)
 	return def, err
 }
 
-//RuleChainBaseInfo 规则链基础信息定义
+// RuleChainBaseInfo 规则链基础信息定义
 type RuleChainBaseInfo struct {
 	//规则链ID
 	ID string `json:"id"`
@@ -53,7 +53,7 @@ type RuleChainBaseInfo struct {
 	Configuration types.Configuration `json:"configuration"`
 }
 
-//RuleMetadata 规则链元数据定义，包含了规则链中节点和连接的信息
+// RuleMetadata 规则链元数据定义，包含了规则链中节点和连接的信息
 type RuleMetadata struct {
 	//数据流转的第一个节点，默认:0
 	FirstNodeIndex int `json:"firstNodeIndex"`
@@ -71,7 +71,7 @@ type RuleMetadata struct {
 	RuleChainConnections []RuleChainConnection `json:"ruleChainConnections,omitempty"`
 }
 
-//RuleNode 规则链节点信息定义
+// RuleNode 规则链节点信息定义
 type RuleNode struct {
 	//节点的唯一标识符，可以是任意字符串
 	Id string `json:"id"`
@@ -89,22 +89,22 @@ type RuleNode struct {
 	Configuration types.Configuration `json:"configuration"`
 }
 
-//ParserRuleNode 通过json解析节点结构体
+// ParserRuleNode 通过json解析节点结构体
 func ParserRuleNode(rootRuleChain []byte) (RuleNode, error) {
 	var def RuleNode
 	err := json.Unmarshal(rootRuleChain, &def)
 	return def, err
 }
 
-//NodeAdditionalInfo 用于可视化位置信息(预留字段)
+// NodeAdditionalInfo 用于可视化位置信息(预留字段)
 type NodeAdditionalInfo struct {
 	Description string `json:"description"`
 	LayoutX     int    `json:"layoutX"`
 	LayoutY     int    `json:"layoutY"`
 }
 
-//NodeConnection 规则链节点连接定义
-//每个对象代表规则链中两个节点之间的连接
+// NodeConnection 规则链节点连接定义
+// 每个对象代表规则链中两个节点之间的连接
 type NodeConnection struct {
 	//连接的源节点的id，应该与nodes数组中的某个节点id匹配。
 	FromId string `json:"fromId"`
@@ -115,8 +115,8 @@ type NodeConnection struct {
 	Type string `json:"type"`
 }
 
-//RuleChainConnection 子规则链连接定义
-//每个对象代表规则链中一个节点和一个子规则链之间的连接
+// RuleChainConnection 子规则链连接定义
+// 每个对象代表规则链中一个节点和一个子规则链之间的连接
 type RuleChainConnection struct {
 	//连接的源节点的id，应该与nodes数组中的某个节点id匹配。
 	FromId string `json:"fromId"`

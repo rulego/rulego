@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-//TimeNode A plugin that adds a timestamp to the message metadata
+// TimeNode A plugin that adds a timestamp to the message metadata
 type TimeNode struct{}
 
 func (n *TimeNode) Type() string {

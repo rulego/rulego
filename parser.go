@@ -21,7 +21,7 @@ import (
 	string2 "github.com/rulego/rulego/utils/json"
 )
 
-//JsonParser Json
+// JsonParser Json
 type JsonParser struct {
 }
 

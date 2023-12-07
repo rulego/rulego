@@ -14,9 +14,9 @@ var (
 	shareValue = "shareValue"
 )
 
-//测试插件，需要在linux运行
-//先编译plugin.go
-//go build -buildmode=plugin -o plugin.so plugin.go
+// 测试插件，需要在linux运行
+// 先编译plugin.go
+// go build -buildmode=plugin -o plugin.so plugin.go
 func main() {
 	_ = rulego.Registry.Unregister("test")
 	//注册插件组件

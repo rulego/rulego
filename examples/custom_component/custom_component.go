@@ -31,7 +31,7 @@ var (
 	addShareValue = "addShareValue"
 )
 
-//演示自定义组件
+// 演示自定义组件
 func main() {
 
 	//注册自定义组件

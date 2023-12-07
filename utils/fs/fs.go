@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-//SaveFile A function that saves a file to a given path, overwriting it if it exists
+// SaveFile A function that saves a file to a given path, overwriting it if it exists
 func SaveFile(path string, data []byte) error {
 	// Open the file with write-only and create flags, and 0666 permission
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
@@ -22,7 +22,7 @@ func SaveFile(path string, data []byte) error {
 	return nil
 }
 
-//LoadFile 加载文件
+// LoadFile 加载文件
 func LoadFile(filePath string) []byte {
 	buf, err := os.ReadFile(filePath)
 	if err != nil {
@@ -32,7 +32,7 @@ func LoadFile(filePath string) []byte {
 	}
 }
 
-//GetFilePaths 返回匹配的文件路径列表
+// GetFilePaths 返回匹配的文件路径列表
 func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string, error) {
 	// 分割输入参数为目录和文件名
 	dir, file := filepath.Split(loadFilePattern)
@@ -63,7 +63,7 @@ func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string,
 	return paths, err
 }
 
-//IsExist 判断路径是否存在
+// IsExist 判断路径是否存在
 func IsExist(path string) bool {
 	_, err := os.Stat(path)
 	if err != nil {
@@ -78,7 +78,7 @@ func IsExist(path string) bool {
 	return true
 }
 
-//CreateDirs 创建文件夹
+// CreateDirs 创建文件夹
 func CreateDirs(path string) error {
 	if !IsExist(path) {
 		err := os.MkdirAll(path, os.ModePerm)

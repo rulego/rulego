@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-// Package external 把msg负荷发送到指定协议网络服务器（不支持读取数据），支持协议：tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。
-// 每条消息在内容最后增加结束符：'\n'
 package external
+
+// 把msg负荷发送到指定协议网络服务器（不支持读取数据），支持协议：tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。
+// 每条消息在内容最后增加结束符：'\n'
 
 import (
 	"github.com/rulego/rulego/api/types"
@@ -47,6 +48,7 @@ type NetNodeConfiguration struct {
 }
 
 // NetNode 用于网络协议的数据读取和发送，支持协议：tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。
+// 每条消息在内容最后增加结束符：'\n'
 type NetNode struct {
 	// 节点配置
 	Config NetNodeConfiguration

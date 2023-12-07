@@ -27,7 +27,7 @@ import (
 	"os"
 )
 
-//处理http路由
+// 处理http路由
 func main() {
 
 	config := rulego.NewConfig(types.WithDefaultPool())
