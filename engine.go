@@ -26,6 +26,8 @@ import (
 	"time"
 )
 
+var _ types.RuleContext = (*DefaultRuleContext)(nil)
+
 // DefaultRuleContext 默认规则引擎消息处理上下文
 type DefaultRuleContext struct {
 	//id     string
@@ -52,9 +54,8 @@ type DefaultRuleContext struct {
 	onAllNodeCompleted func()
 	//子规则链池
 	ruleChainPool *RuleGo
-	//当前节点执行完的回调
-	callback func(msg types.RuleMsg, err error, relationTypes ...string)
-
+	//是否跳过执行子节点，默认是不跳过
+	skipTellNext bool
 	//环绕切面列表
 	aroundAspects []types.AroundAspect
 	//前置切面列表
@@ -99,7 +100,7 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		onEnd:         ctx.onEnd,
 		context:       ctx.GetContext(),
 		parentRuleCtx: ctx,
-		callback:      ctx.callback,
+		skipTellNext:  ctx.skipTellNext,
 		aroundAspects: ctx.aroundAspects,
 		beforeAspects: ctx.beforeAspects,
 		afterAspects:  ctx.afterAspects,
@@ -179,7 +180,7 @@ func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 // 如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
 func (ctx *DefaultRuleContext) TellFlow(msg types.RuleMsg, chainId string, onEndFunc types.OnEndFunc, onAllNodeCompleted func()) {
 	if e, ok := ctx.GetRuleChainPool().Get(chainId); ok {
-		e.OnMsg(msg, types.WithEndFunc(onEndFunc), types.WithOnAllNodeCompleted(onAllNodeCompleted))
+		e.OnMsg(msg, types.WithOnEnd(onEndFunc), types.WithOnAllNodeCompleted(onAllNodeCompleted))
 	} else {
 		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found", chainId))
 	}
@@ -204,19 +205,22 @@ func (ctx *DefaultRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) 
 	ctx.onAllNodeCompleted = onAllNodeCompleted
 }
 
-// ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
-func (ctx *DefaultRuleContext) ExecuteNode(chanCtx context.Context, nodeId string, msg types.RuleMsg, callback func(msg types.RuleMsg, err error, relationTypes ...string)) {
+// ExecuteNode 从指定节点开始执行，如果 skipTellNext=true 则只执行当前节点，不通知下一个节点。
+// onEnd 查看获得最终执行结果
+func (ctx *DefaultRuleContext) ExecuteNode(chanCtx context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc) {
 	if nodeCtx, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
 		rootCtxCopy := NewRuleContext(chanCtx, ctx.config, ctx.ruleChainCtx, nil, nodeCtx, ctx.pool, nil, ctx.ruleChainPool)
-		rootCtxCopy.callback = callback
-		nodeCtx.OnMsg(rootCtxCopy, msg)
+		rootCtxCopy.onEnd = onEnd
+		//只执行当前节点
+		rootCtxCopy.skipTellNext = skipTellNext
+		rootCtxCopy.tell(msg, nil, "")
 	} else {
-		callback(msg, errors.New("node id not found nodeId="+nodeId), types.Failure)
+		onEnd(ctx, msg, errors.New("node id not found nodeId="+nodeId), types.Failure)
 	}
 }
 
 // DoOnEnd  结束规则链分支执行，触发 OnEnd 回调函数
-func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error) {
+func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationType string) {
 	//全局回调
 	//通过`Config.OnEnd`设置
 	if ctx.config.OnEnd != nil {
@@ -228,7 +232,7 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error) {
 	//通过OnMsgWithEndFunc(msg, endFunc)设置
 	if ctx.onEnd != nil {
 		ctx.SubmitTack(func() {
-			ctx.onEnd(ctx, msg, err)
+			ctx.onEnd(ctx, msg, err, relationType)
 			ctx.childDone()
 		})
 	} else {
@@ -265,7 +269,7 @@ func (ctx *DefaultRuleContext) getNextNodes(relationType string) ([]types.NodeCt
 	return ctx.ruleChainCtx.GetNextNodes(ctx.self.GetNodeId(), relationType)
 }
 
-// tellNext 当前节点已经执行完成，通知执行子节点
+// tellNext 通知执行子节点，如果是当前第一个节点则执行当前节点
 func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes ...string) {
 	msgCopy := msg.Copy()
 	if ctx.isFirst {
@@ -273,16 +277,11 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 			if ctx.self != nil {
 				ctx.tellNext(msgCopy, ctx.self, "")
 			} else {
-				ctx.DoOnEnd(msgCopy, err)
+				ctx.DoOnEnd(msgCopy, err, "")
 			}
 		})
 	} else {
-		//回调
-		if ctx.callback != nil {
-			ctx.callback(msgCopy, err, relationTypes...)
-		}
 		for _, relationType := range relationTypes {
-
 			// after aop
 			for _, aop := range ctx.afterAspects {
 				if aop.PointCut(ctx, msgCopy, relationType) {
@@ -291,7 +290,7 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 			}
 
 			//查找子节点
-			if nodes, ok := ctx.getNextNodes(relationType); ok {
+			if nodes, ok := ctx.getNextNodes(relationType); ok && !ctx.skipTellNext {
 				for _, item := range nodes {
 					tmp := item
 					ctx.SubmitTack(func() {
@@ -300,7 +299,7 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 				}
 			} else {
 				//找不到子节点，则执行结束回调
-				ctx.DoOnEnd(msgCopy, err)
+				ctx.DoOnEnd(msgCopy, err, relationType)
 			}
 		}
 	}
@@ -527,7 +526,7 @@ func (e *RuleEngine) OnMsgAndWait(msg types.RuleMsg, opts ...types.RuleContextOp
 // Deprecated
 // 使用OnMsg代替
 func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc types.OnEndFunc) {
-	e.OnMsg(msg, types.WithEndFunc(endFunc))
+	e.OnMsg(msg, types.WithOnEnd(endFunc))
 }
 
 // OnMsgWithOptions 把消息交给规则引擎处理，异步执行
@@ -553,10 +552,10 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 
 		//用户自定义结束回调
 		customOnEndFunc := rootCtxCopy.onEnd
-		rootCtxCopy.onEnd = func(ctx types.RuleContext, msg types.RuleMsg, err error) {
-			msg = e.onEnd(rootCtxCopy, msg, err)
+		rootCtxCopy.onEnd = func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			msg = e.onEnd(rootCtxCopy, msg, err, relationType)
 			if customOnEndFunc != nil {
-				customOnEndFunc(ctx, msg, err)
+				customOnEndFunc(ctx, msg, err, relationType)
 			}
 
 		}
@@ -610,10 +609,10 @@ func (e *RuleEngine) onStart(ctx types.RuleContext, msg types.RuleMsg) types.Rul
 }
 
 // 执行规则链分支链执行结束切面列表
-func (e *RuleEngine) onEnd(ctx types.RuleContext, msg types.RuleMsg, err error) types.RuleMsg {
+func (e *RuleEngine) onEnd(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) types.RuleMsg {
 	for _, aop := range e.endAspects {
-		if aop.PointCut(ctx, msg, "") {
-			msg = aop.End(ctx, msg, err)
+		if aop.PointCut(ctx, msg, relationType) {
+			msg = aop.End(ctx, msg, err, relationType)
 		}
 	}
 	return msg

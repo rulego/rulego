@@ -22,6 +22,8 @@ import (
 	"time"
 )
 
+var _ types.RuleContext = (*NodeTestRuleContext)(nil)
+
 // NodeTestRuleContext
 // 只为测试单节点，临时创建的上下文
 // 无法把多个节点组成链式
@@ -120,10 +122,10 @@ func (ctx *NodeTestRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func())
 }
 
 // ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
-func (ctx *NodeTestRuleContext) ExecuteNode(context context.Context, nodeId string, msg types.RuleMsg, callback func(msg types.RuleMsg, err error, relationTypes ...string)) {
+func (ctx *NodeTestRuleContext) ExecuteNode(context context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, callback types.OnEndFunc) {
 
 }
 
-func (ctx *NodeTestRuleContext) DoOnEnd(msg types.RuleMsg, err error) {
+func (ctx *NodeTestRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationType string) {
 
 }
