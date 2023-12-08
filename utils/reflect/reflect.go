@@ -74,7 +74,7 @@ func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.Com
 
 // GetComponentConfig 获取组件配置字段和默认值
 func GetComponentConfig(component types.Node) (reflect.Type, reflect.StructField, reflect.Value) {
-	component = component.New()
+	//component = component.New()
 	t := reflect.TypeOf(component)
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem() // 解引用指针，获取指向的值
