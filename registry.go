@@ -158,7 +158,7 @@ func (r *RuleComponentRegistry) GetComponentForms() types.ComponentFormList {
 
 	var components = make(types.ComponentFormList)
 	for _, component := range r.components {
-		components[component.Type()] = reflect.GetComponentForm(component)
+		components[component.Type()] = reflect.GetComponentForm(component.New())
 	}
 	return components
 }
