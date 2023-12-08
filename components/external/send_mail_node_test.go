@@ -58,7 +58,7 @@ func TestSendEmailNode(t *testing.T) {
 	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 
 	})
-	ctx.SetEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ctx.SetEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		group.Done()
 		if err != nil {
 			t.Errorf("err=%s", err)
@@ -103,7 +103,7 @@ func TestSendEmailNodeWithTls(t *testing.T) {
 	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 
 	})
-	ctx.SetEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ctx.SetEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		group.Done()
 		if err != nil {
 			t.Errorf("err=%s", err)
