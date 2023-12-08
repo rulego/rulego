@@ -294,7 +294,7 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 				for _, item := range nodes {
 					tmp := item
 					ctx.SubmitTack(func() {
-						ctx.tellNext(msgCopy, tmp, relationType)
+						ctx.tellNext(msgCopy.Copy(), tmp, relationType)
 					})
 				}
 			} else {
