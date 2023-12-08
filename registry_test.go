@@ -37,14 +37,14 @@ func TestGetComponentsFields(t *testing.T) {
 	for _, item := range items {
 		if item.Type == "test/defaultConfig" {
 			assert.Equal(t, 10, len(item.Fields))
-			urlField, ok := item.Fields.GetField("Url")
+			urlField, ok := item.Fields.GetField("url")
 			assert.Equal(t, true, ok)
 			assert.Equal(t, "string", urlField.Type)
 			assert.Equal(t, "required", urlField.Validate)
 			assert.Equal(t, "服务器地址", urlField.Label)
 			assert.Equal(t, "broker服务器地址", urlField.Desc)
 
-			structField, ok := item.Fields.GetField("E")
+			structField, ok := item.Fields.GetField("e")
 
 			assert.Equal(t, true, ok)
 			assert.Equal(t, "struct", structField.Type)
@@ -115,7 +115,7 @@ func (n *ConfigHasPtrNode2) New() types.Node {
 // 有默认值配置
 type DefaultValueConfig struct {
 	Num    int
-	Url    string `Label:"服务器地址" Desc:"broker服务器地址" Validate:"required" `
+	Url    string `label:"服务器地址" desc:"broker服务器地址" validate:"required" `
 	IsSsl  bool
 	Params []string
 	A      int32
