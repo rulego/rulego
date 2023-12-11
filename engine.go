@@ -98,6 +98,7 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		self:          nextNode,
 		pool:          ctx.pool,
 		onEnd:         ctx.onEnd,
+		ruleChainPool: ctx.ruleChainPool,
 		context:       ctx.GetContext(),
 		parentRuleCtx: ctx,
 		skipTellNext:  ctx.skipTellNext,
