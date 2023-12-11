@@ -41,7 +41,7 @@ type RuleChainBaseInfo struct {
 	//规则链ID
 	ID string `json:"id"`
 	//扩展字段
-	AdditionalInfo map[string]string `json:"additionalInfo"`
+	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
 	//Name 规则链的名称
 	Name string `json:"name"`
 	//表示这个节点是否处于调试模式。如果为真，当节点处理消息时，会触发调试回调函数。
@@ -50,7 +50,7 @@ type RuleChainBaseInfo struct {
 	//Root 表示这个规则链是根规则链还是子规则链。(只做标记使用，非应用在实际逻辑)
 	Root bool `json:"root"`
 	//Configuration 规则链配置信息
-	Configuration types.Configuration `json:"configuration"`
+	Configuration types.Configuration `json:"configuration,omitempty"`
 }
 
 // RuleMetadata 规则链元数据定义，包含了规则链中节点和连接的信息
@@ -76,7 +76,7 @@ type RuleNode struct {
 	//节点的唯一标识符，可以是任意字符串
 	Id string `json:"id"`
 	//扩展字段
-	AdditionalInfo NodeAdditionalInfo `json:"additionalInfo"`
+	AdditionalInfo NodeAdditionalInfo `json:"additionalInfo,omitempty"`
 	//节点的类型，决定了节点的逻辑和行为。它应该与规则引擎中注册的节点类型之一匹配。
 	Type string `json:"type"`
 	//节点的名称，可以是任意字符串
