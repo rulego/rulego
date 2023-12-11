@@ -159,6 +159,7 @@ func (g *RuleGo) New(id string, rootRuleChainSrc []byte, opts ...RuleEngineOptio
 				// Store the new RuleEngine in the ruleEngines map with the Id as the key.
 				g.ruleEngines.Store(ruleEngine.Id, ruleEngine)
 			}
+			ruleEngine.RuleChainPool = g
 			return ruleEngine, err
 		}
 
