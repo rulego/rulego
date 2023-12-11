@@ -530,7 +530,10 @@ func (ce *ComponentExecutor) Init(config types.Config, configuration types.Confi
 	if configuration == nil {
 		return fmt.Errorf("nodeType can't empty")
 	}
-	nodeType := configuration.GetToString(pathKey)
+	var nodeType = ""
+	if v, ok := configuration[pathKey]; ok {
+		nodeType = str.ToString(v)
+	}
 	node, err := config.ComponentsRegistry.NewNode(nodeType)
 	if err == nil {
 		ce.component = node

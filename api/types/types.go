@@ -18,7 +18,6 @@ package types
 
 import (
 	"context"
-	"github.com/rulego/rulego/utils/str"
 )
 
 // 关系 节点与节点连接的关系，以下是常用的关系，可以自定义
@@ -49,13 +48,6 @@ type OnEndFunc = func(ctx RuleContext, msg RuleMsg, err error, relationType stri
 
 // Configuration 组件配置类型
 type Configuration map[string]interface{}
-
-func (c Configuration) GetToString(key string) string {
-	if v, ok := c[key]; ok {
-		return str.ToString(v)
-	}
-	return ""
-}
 
 // ComponentType 组件类型：规则节点或者子规则链
 type ComponentType int
