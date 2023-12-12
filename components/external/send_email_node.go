@@ -23,10 +23,10 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/maps"
 	string2 "github.com/rulego/rulego/utils/str"
-	"log"
 	"net"
 	"net/smtp"
 	"strings"
+	"time"
 )
 
 // 分隔符
@@ -83,29 +83,31 @@ func (e *Email) createEmailMsg(metadata map[string]string) ([]byte, []string) {
 		body)
 	return msg, sendTo
 }
-func (e *Email) SendEmail(addr string, auth smtp.Auth, metadata map[string]string) error {
+
+func (e *Email) SendEmail(addr string, auth smtp.Auth, metadata map[string]string, connectTimeout time.Duration) error {
 	msg, sendTo := e.createEmailMsg(metadata)
 	// 调用SendMail函数发送邮件
 	return smtp.SendMail(addr, auth, e.From, sendTo, msg)
 }
 
-func (e *Email) SendEmailWithTls(addr string, auth smtp.Auth, metadata map[string]string) error {
+func (e *Email) SendEmailWithTls(addr string, auth smtp.Auth, metadata map[string]string, connectTimeout time.Duration) error {
 
 	msg, sendTo := e.createEmailMsg(metadata)
 
 	host, _, _ := net.SplitHostPort(addr)
+
+	conn, err := net.DialTimeout("tcp", addr, connectTimeout)
+	if err != nil {
+		return err
+	}
 	// TLS
-	tlsconfig := &tls.Config{
+	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
 		ServerName:         host,
 	}
-
-	// Here is the key, you need to call tls.Dial instead of smtp.Dial
-	// for smtp servers running on 465 that require an ssl connection
-	// from the very beginning (no starttls)
-	conn, err := tls.Dial("tcp", addr, tlsconfig)
+	conn = tls.Client(conn, tlsConfig)
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
 
 	c, err := smtp.NewClient(conn, host)
@@ -123,8 +125,8 @@ func (e *Email) SendEmailWithTls(addr string, auth smtp.Auth, metadata map[strin
 		return err
 	}
 
-	for _, addr := range sendTo {
-		if err = c.Rcpt(addr); err != nil {
+	for _, item := range sendTo {
+		if err = c.Rcpt(item); err != nil {
 			return err
 		}
 	}
@@ -144,7 +146,6 @@ func (e *Email) SendEmailWithTls(addr string, auth smtp.Auth, metadata map[strin
 	}
 
 	return c.Quit()
-
 }
 
 // SendEmailConfiguration 配置
@@ -161,15 +162,18 @@ type SendEmailConfiguration struct {
 	EnableTls bool
 	//Email 邮件内容配置
 	Email Email
+	//ConnectTimeout 连接超时，单位秒
+	ConnectTimeout int
 }
 
 // SendEmailNode 通过SMTP服务器发送邮消息
 // 如果请求成功，发送消息到`Success`链, 否则发到`Failure`链，
 type SendEmailNode struct {
 	//节点配置
-	Config   SendEmailConfiguration
-	smtpAddr string
-	smtpAuth smtp.Auth
+	Config                 SendEmailConfiguration
+	ConnectTimeoutDuration time.Duration
+	smtpAddr               string
+	smtpAuth               smtp.Auth
 }
 
 // Type 组件类型
@@ -178,7 +182,11 @@ func (x *SendEmailNode) Type() string {
 }
 
 func (x *SendEmailNode) New() types.Node {
-	return &SendEmailNode{}
+	return &SendEmailNode{
+		Config: SendEmailConfiguration{
+			ConnectTimeout: 10,
+		},
+	}
 }
 
 // Init 初始化
@@ -191,6 +199,10 @@ func (x *SendEmailNode) Init(ruleConfig types.Config, configuration types.Config
 		x.smtpAddr = fmt.Sprintf("%s:%d", x.Config.SmtpHost, x.Config.SmtpPort)
 		// 创建一个PLAIN认证
 		x.smtpAuth = smtp.PlainAuth("", x.Config.Username, x.Config.Password, x.Config.SmtpHost)
+		if x.Config.ConnectTimeout <= 0 {
+			x.Config.ConnectTimeout = 10
+		}
+		x.ConnectTimeoutDuration = time.Duration(x.Config.ConnectTimeout) * time.Second
 	}
 	return err
 }
@@ -201,9 +213,10 @@ func (x *SendEmailNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	emailPojo := x.Config.Email
 	var err error
 	if x.Config.EnableTls {
-		err = emailPojo.SendEmailWithTls(x.smtpAddr, x.smtpAuth, metaData)
+		err = emailPojo.SendEmailWithTls(x.smtpAddr, x.smtpAuth, metaData, x.ConnectTimeoutDuration)
 	} else {
-		err = emailPojo.SendEmail(x.smtpAddr, x.smtpAuth, metaData)
+		err = emailPojo.SendEmail(x.smtpAddr, x.smtpAuth, metaData, x.ConnectTimeoutDuration)
+
 	}
 	if err != nil {
 		ctx.TellFailure(msg, err)
