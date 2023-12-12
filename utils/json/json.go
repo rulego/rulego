@@ -28,20 +28,6 @@ func Marshal(v interface{}) ([]byte, error) {
 	return Marshal2(v, false)
 }
 
-// MarshalIndent see json.MarshalIndent
-func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
-	b, err := Marshal2(v, false)
-	if err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	err = json.Indent(&buf, b, prefix, indent)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
 func Marshal2(v interface{}, escapeHTML bool) ([]byte, error) {
 	var byteBuf bytes.Buffer
 	encoder := json.NewEncoder(&byteBuf)

@@ -18,7 +18,7 @@ package rulego
 
 import (
 	"github.com/rulego/rulego/api/types"
-	string2 "github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/utils/json"
 )
 
 // JsonParser Json
@@ -42,9 +42,19 @@ func (p *JsonParser) DecodeRuleNode(config types.Config, dsl []byte) (types.Node
 }
 func (p *JsonParser) EncodeRuleChain(def interface{}) ([]byte, error) {
 	//缩进符为两个空格
-	return string2.MarshalIndent(def, "", "  ")
+	v, err := json.Marshal(def)
+	if err != nil {
+		return nil, err
+	} else {
+		return json.Format(v)
+	}
 }
 func (p *JsonParser) EncodeRuleNode(def interface{}) ([]byte, error) {
 	//缩进符为两个空格
-	return string2.MarshalIndent(def, "", "  ")
+	v, err := json.Marshal(def)
+	if err != nil {
+		return nil, err
+	} else {
+		return json.Format(v)
+	}
 }
