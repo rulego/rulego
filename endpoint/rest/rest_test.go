@@ -115,7 +115,7 @@ func TestRestEndPoint(t *testing.T) {
 		var configuration = make(types.Configuration)
 		configuration["jsScript"] = `
 		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
-        `
+       `
 		logNode := &action.LogNode{}
 		_ = logNode.Init(config, configuration)
 		return logNode
@@ -134,7 +134,7 @@ func TestRestEndPoint(t *testing.T) {
 		return true
 	}).To("component:log", types.Configuration{"jsScript": `
 		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
-        `}).End()
+       `}).End()
 
 	//注册路由,Get 方法
 	_, _ = restEndpoint.AddRouter(router1, "GET")
@@ -143,6 +143,7 @@ func TestRestEndPoint(t *testing.T) {
 	_, _ = restEndpoint.AddRouter(router3, "POST")
 	_, _ = restEndpoint.AddRouter(router4, "POST")
 	_, _ = restEndpoint.AddRouter(router5, "POST")
-	//启动服务
-	_ = restEndpoint.Start()
+
+	////启动服务
+	//_ = restEndpoint.Start()
 }

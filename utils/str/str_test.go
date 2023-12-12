@@ -17,10 +17,16 @@
 package str
 
 import (
+	"errors"
 	"github.com/rulego/rulego/test/assert"
 	"reflect"
 	"testing"
 )
+
+func TestProcessVar(t *testing.T) {
+	s := ProcessVar("Hello, Alice. You are ${age} years old.", "age", "18")
+	assert.Equal(t, "Hello, Alice. You are 18 years old.", s)
+}
 
 func TestSprintfDict(t *testing.T) {
 	// 创建一个字典
@@ -44,40 +50,122 @@ func TestSprintfVar(t *testing.T) {
 	assert.Equal(t, "Hello, Alice. You are 18 years old.", s)
 }
 
-func TestToString(t *testing.T) {
-	var x interface{}
-	x = 123 // 赋值为整数
-	assert.Equal(t, "123", ToString(x))
-	x = "this is test"
-	assert.Equal(t, "this is test", ToString(x))
-	x = []byte("this is test")
-	assert.Equal(t, "this is test", ToString(x))
-
-	x = User{Username: "lala", Age: 25}
-	assert.Equal(t, "{\"Username\":\"lala\",\"Age\":25,\"Address\":{\"Detail\":\"\"}}", ToString(x))
-
-	x = map[string]string{
-		"name": "lala",
-	}
-	assert.Equal(t, "{\"name\":\"lala\"}", ToString(x))
-
+type Stringer struct {
+	Value string
 }
-func TestToStringMapString(t *testing.T) {
-	var x interface{}
-	x = map[string]interface{}{
-		"name": "lala",
-		"age":  5,
-		"user": User{},
-	}
-	strMap := ToStringMapString(x)
-	ageV := strMap["age"]
-	ageType := reflect.TypeOf(&ageV).Elem()
-	assert.Equal(t, reflect.String, ageType.Kind())
 
-	strMap2 := ToStringMapString(strMap)
-	ageV = strMap2["age"]
-	ageType = reflect.TypeOf(&ageV).Elem()
-	assert.Equal(t, reflect.String, ageType.Kind())
+func (s *Stringer) String() string {
+	return s.Value
+}
+func TestToString(t *testing.T) {
+
+	// Test cases
+	testCases := []struct {
+		want  string
+		input interface{}
+	}{
+		{"123", int(123)},
+		{"123", uint(123)},
+		{"123", int8(123)},
+		{"123", uint8(123)},
+		{"123", int16(123)},
+		{"123", uint16(123)},
+		{"123", int32(123)},
+		{"123", uint32(123)},
+		{"123", int64(123)},
+		{"123", uint64(123)},
+		{"3.14", float32(3.14)},
+		{"3.14", float64(3.14)},
+		{"true", true},
+		{"hello", &Stringer{"hello"}},
+		{"hello", []byte("hello")},
+		{"", nil},
+		{"", ""},
+		{"hello", "hello"},
+		{"error", errors.New("error")},
+		{"{\"Username\":\"lala\",\"Age\":25,\"Address\":{\"Detail\":\"\"}}", User{Username: "lala", Age: 25}},
+		{"{\"name\":\"lala\"}", map[string]string{
+			"name": "lala",
+		}},
+	}
+
+	for _, tc := range testCases {
+		s := ToString(tc.input)
+		assert.Equal(t, tc.want, s)
+	}
+}
+
+func TestToStringMapString(t *testing.T) {
+	// Test cases
+	testCases := []struct {
+		input interface{}
+	}{
+		{map[string]interface{}{
+			"name": "lala",
+			"age":  5,
+			"user": User{},
+		}},
+		{map[interface{}]string{
+			"name": "lala",
+		}},
+		{map[string]string{
+			"name": "lala",
+		}},
+		{map[interface{}]interface{}{
+			"name": "lala",
+		}},
+		{"{\"name\":\"lala\"}"},
+	}
+
+	for _, tc := range testCases {
+		strMap := ToStringMapString(tc.input)
+		nameV := strMap["name"]
+		nameType := reflect.TypeOf(&nameV).Elem()
+		assert.Equal(t, reflect.String, nameType.Kind())
+		assert.Equal(t, "lala", nameV)
+	}
+
+	strMap := ToStringMapString(&User{})
+	assert.Equal(t, 0, len(strMap))
+}
+
+func TestRandomStr(t *testing.T) {
+	v1 := RandomStr(10)
+	assert.Equal(t, 10, len(v1))
+	v2 := RandomStr(10)
+	assert.Equal(t, 10, len(v2))
+	v3 := RandomStr(4)
+	assert.Equal(t, 4, len(v3))
+	assert.True(t, v1 != v2)
+}
+
+func TestCheckHasVar(t *testing.T) {
+	assert.True(t, CheckHasVar("${ddd}"))
+	assert.False(t, CheckHasVar("${ddd"))
+	assert.True(t, CheckHasVar("${ ddd }"))
+	assert.False(t, CheckHasVar("ddd"))
+}
+
+func TestConvertDollarPlaceholder(t *testing.T) {
+	sql := "select * from user where name=? and age=?"
+	assert.Equal(t, "select * from user where name=$1 and age=$2", ConvertDollarPlaceholder(sql, "postgres"))
+	assert.Equal(t, sql, ConvertDollarPlaceholder(sql, "mysql"))
+}
+
+func TestToLowerFirst(t *testing.T) {
+	assert.Equal(t, "", ToLowerFirst(""))
+	assert.Equal(t, "hello", ToLowerFirst("Hello"))
+	assert.Equal(t, "hello", ToLowerFirst("hello"))
+	assert.Equal(t, "hELLO", ToLowerFirst("HELLO"))
+}
+
+func TestRemoveBraces(t *testing.T) {
+	assert.Equal(t, "", RemoveBraces(""))
+	assert.Equal(t, "hello", RemoveBraces("hello"))
+	assert.Equal(t, "hello_lala", RemoveBraces("${hello_lala}"))
+	assert.Equal(t, "hello", RemoveBraces("hello}"))
+	assert.Equal(t, "hello", RemoveBraces("${hello}"))
+	assert.Equal(t, "helloage", RemoveBraces("${hello} ${age}"))
 }
 
 type User struct {

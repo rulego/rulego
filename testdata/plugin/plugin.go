@@ -1,33 +1,31 @@
-/*
- * Copyright 2023 The RuleGo Authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package testcases
+package main
 
 import (
-	"context"
 	"github.com/rulego/rulego/api/types"
 	"strings"
 	"time"
 )
 
+//go build -buildmode=plugin -o plugin.so plugin.go # Compile the plugin and generate the plugin.so file
+//need to compile in mac or linux environment
+
+// Plugins plugin entry point
+var Plugins MyPlugins
+
+type MyPlugins struct{}
+
+func (p *MyPlugins) Init() error {
+	return nil
+}
+func (p *MyPlugins) Components() []types.Node {
+	return []types.Node{&UpperNode{}, &TimeNode{}, &FilterNode{}}
+}
+
 // UpperNode A plugin that converts the message data to uppercase
 type UpperNode struct{}
 
 func (n *UpperNode) Type() string {
-	return "test/upper"
+	return "myPlugins/upper"
 }
 func (n *UpperNode) New() types.Node {
 	return &UpperNode{}
@@ -39,13 +37,6 @@ func (n *UpperNode) Init(ruleConfig types.Config, configuration types.Configurat
 
 func (n *UpperNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	msg.Data = strings.ToUpper(msg.Data)
-	v := ctx.GetContext().Value(shareKey)
-	if v != nil {
-		msg.Metadata.PutValue(shareKey, v.(string))
-	}
-	//增加新的共享数据
-	modifyCtx := context.WithValue(ctx.GetContext(), addShareKey, addShareValue)
-	ctx.SetContext(modifyCtx)
 	// Send the modified message to the next node
 	ctx.TellSuccess(msg)
 }
@@ -58,7 +49,7 @@ func (n *UpperNode) Destroy() {
 type TimeNode struct{}
 
 func (n *TimeNode) Type() string {
-	return "test/time"
+	return "myPlugins/time"
 }
 
 func (n *TimeNode) New() types.Node {
@@ -72,18 +63,37 @@ func (n *TimeNode) Init(ruleConfig types.Config, configuration types.Configurati
 
 func (n *TimeNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	msg.Metadata.PutValue("timestamp", time.Now().Format(time.RFC3339))
-	v1 := ctx.GetContext().Value(shareKey)
-	if v1 != nil {
-		msg.Metadata.PutValue(shareKey, v1.(string))
-	}
-	v2 := ctx.GetContext().Value(addShareKey)
-	if v2 != nil {
-		msg.Metadata.PutValue(addShareKey, v2.(string))
-	}
 	// Send the modified message to the next node
 	ctx.TellSuccess(msg)
 }
 
 func (n *TimeNode) Destroy() {
+	// Do some cleanup work
+}
+
+type FilterNode struct {
+	blacklist map[string]bool
+}
+
+func (n *FilterNode) Type() string {
+	return "test/filter"
+}
+func (n *FilterNode) New() types.Node {
+	return &FilterNode{}
+}
+func (n *FilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	// Do some initialization work
+	return nil
+}
+
+func (n *FilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	if n.blacklist[msg.Type] || n.blacklist[string(msg.DataType)] {
+		// Skip the message and do not send it to the next node
+	}
+	// Send the message to the next node
+	ctx.TellNext(msg)
+}
+
+func (n *FilterNode) Destroy() {
 	// Do some cleanup work
 }

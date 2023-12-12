@@ -14,29 +14,29 @@
       },
       {
         "id": "s2",
-        "type": "log",
-        "name": "记录日志1",
+        "type": "jsTransform",
+        "name": "s2-transform",
         "debugMode": true,
         "configuration": {
-          "jsScript": "return msgType+':s2';"
+          "jsScript": "metadata['addFrom']='s2';\n msgType='s2';return {'msg':msg,'metadata':metadata,'msgType':msgType};"
         }
       },
       {
         "id": "s3",
-        "type": "log",
-        "name": "记录日志2",
+        "type": "jsTransform",
+        "name": "s3-transform",
         "debugMode": true,
         "configuration": {
-          "jsScript": "return msgType+':s3';"
+          "jsScript": "metadata['addFrom']='s3';\n msgType='s3';return {'msg':msg,'metadata':metadata,'msgType':msgType};"
         }
       },
       {
         "id": "s4",
-        "type": "log",
-        "name": "记录日志3",
+        "type": "jsTransform",
+        "name": "s4-transform",
         "debugMode": true,
         "configuration": {
-          "jsScript": "return msgType+':s4';"
+          "jsScript": "metadata['addFrom']='s4';\n msgType='s4';return {'msg':msg,'metadata':metadata,'msgType':msgType};"
         }
       }
     ],

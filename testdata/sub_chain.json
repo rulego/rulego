@@ -1,7 +1,7 @@
 {
   "ruleChain": {
     "id":"sub_chain",
-    "name": "子规则链"
+    "name": "测试子规则链"
   },
   "metadata": {
     "nodes": [

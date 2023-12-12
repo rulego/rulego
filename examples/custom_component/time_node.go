@@ -49,7 +49,6 @@ func (n *TimeNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 	// Send the modified message to the next node
 	ctx.TellSuccess(msg)
-	return nil
 }
 
 func (n *TimeNode) Destroy() {

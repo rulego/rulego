@@ -14,7 +14,7 @@ RuleGo documentation is hosted on: [rulego.cc](https://rulego.cc) .
 ## Features
 
 * **Lightweight:** No external middleware dependencies, can efficiently process and link data on low-cost devices, suitable for IoT edge computing.
-* **High performance:** Thanks to the high-performance characteristics of `Go`, in addition, `RuleGo` adopts technologies such as coroutine pool and object pool. For 10W data processing `JS script filtering->JS script data processing->HTTP push`, the average time is 9 seconds.
+* **High performance:** Thanks to the high-performance characteristics of `Go`, in addition, `RuleGo` adopts technologies such as coroutine pool and object pool.
 * **Embedded:** Support embedding `RuleGo` into existing projects, non-intrusively utilizing its features.
 * **Componentized:** All business logic is componentized and can be flexibly configured and reused.
 * **Rule chain:** You can flexibly combine and reuse different components to achieve highly customizable and scalable business processes.

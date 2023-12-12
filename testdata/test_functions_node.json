@@ -1,0 +1,64 @@
+{
+  "ruleChain": {
+    "id":"test_functions_node",
+    "name": "测试规则链",
+    "root": true
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "s1",
+        "type": "functions",
+        "name": "调用函数1",
+        "debugMode": true,
+        "configuration": {
+          "functionName": "modifyMetadata"
+        }
+      },
+      {
+        "id": "s2",
+        "type": "functions",
+        "name": "调用函数2",
+        "debugMode": true,
+        "configuration": {
+          "functionName": "modifyMetadata"
+        }
+      },
+      {
+        "id": "s3",
+        "type": "functions",
+        "name": "调用函数3",
+        "debugMode": true,
+        "configuration": {
+          "functionName": "modifyMetadata"
+        }
+      },
+      {
+        "id": "s4",
+        "type": "functions",
+        "name": "调用函数4",
+        "debugMode": true,
+        "configuration": {
+          "functionName": "modifyMetadata"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "s1",
+        "toId": "s2",
+        "type": "Success"
+      },
+      {
+        "fromId": "s1",
+        "toId": "s3",
+        "type": "Success"
+      },
+      {
+        "fromId": "s1",
+        "toId": "s4",
+        "type": "Success"
+      }
+    ]
+  }
+}

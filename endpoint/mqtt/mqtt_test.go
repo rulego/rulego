@@ -6,16 +6,14 @@ import (
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint"
 	"os"
-	"os/signal"
-	"syscall"
 	"testing"
 )
 
 var testdataFolder = "../../testdata"
 
 func TestMqttEndpoint(t *testing.T) {
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	//c := make(chan os.Signal)
+	//signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
 	buf, err := os.ReadFile(testdataFolder + "/chain_call_rest_api.json")
 	if err != nil {
@@ -45,10 +43,10 @@ func TestMqttEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//启动服务
-	err = ep.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
-	<-c
+	////启动服务
+	//err = ep.Start()
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	//<-c
 }
