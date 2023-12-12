@@ -52,6 +52,8 @@ type DefaultRuleContext struct {
 	parentRuleCtx *DefaultRuleContext
 	//所有子节点处理完成事件，只执行一次
 	onAllNodeCompleted func()
+	//是否已经执行了onAllNodeCompleted函数
+	onAllNodeCompletedDone int32
 	//子规则链池
 	ruleChainPool *RuleGo
 	//是否跳过执行子节点，默认是不跳过
@@ -255,8 +257,10 @@ func (ctx *DefaultRuleContext) childDone() {
 		if ctx.parentRuleCtx != nil {
 			ctx.parentRuleCtx.childDone()
 		}
+
 		//完成回调
-		if ctx.onAllNodeCompleted != nil {
+		if ctx.onAllNodeCompleted != nil && atomic.LoadInt32(&ctx.onAllNodeCompletedDone) != 1 {
+			atomic.StoreInt32(&ctx.onAllNodeCompletedDone, 1)
 			ctx.onAllNodeCompleted()
 		}
 	}
@@ -270,62 +274,63 @@ func (ctx *DefaultRuleContext) getNextNodes(relationType string) ([]types.NodeCt
 	return ctx.ruleChainCtx.GetNextNodes(ctx.self.GetNodeId(), relationType)
 }
 
+// tellFirst 执行第一个节点
+func (ctx *DefaultRuleContext) tellFirst(msg types.RuleMsg, err error, relationTypes ...string) {
+	ctx.SubmitTack(func() {
+		if ctx.self != nil {
+			ctx.tellNext(msg, ctx.self, "")
+		} else {
+			ctx.DoOnEnd(msg, err, "")
+		}
+	})
+}
+
 // tellNext 通知执行子节点，如果是当前第一个节点则执行当前节点
 func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes ...string) {
 	msgCopy := msg.Copy()
 	if ctx.isFirst {
-		ctx.SubmitTack(func() {
-			if ctx.self != nil {
-				ctx.tellNext(msgCopy, ctx.self, "")
-			} else {
-				ctx.DoOnEnd(msgCopy, err, "")
-			}
-		})
+		ctx.tellFirst(msgCopy, err, relationTypes...)
 	} else {
-		for _, relationType := range relationTypes {
-			// after aop
-			for _, aop := range ctx.afterAspects {
-				if aop.PointCut(ctx, msgCopy, relationType) {
-					msgCopy = aop.After(ctx, msgCopy, err, relationType)
+		if relationTypes == nil {
+			//找不到子节点，则执行结束回调
+			ctx.DoOnEnd(msgCopy, err, "")
+		} else {
+			for _, relationType := range relationTypes {
+				//执行After aop
+				msgCopy = ctx.executeAfterAop(msgCopy, err, relationType)
+				//根据relationType查找子节点列表
+				if nodes, ok := ctx.getNextNodes(relationType); ok && !ctx.skipTellNext {
+					for _, item := range nodes {
+						tmp := item
+						//增加一个待执行的子节点
+						ctx.childReady()
+						//通知执行子节点
+						ctx.SubmitTack(func() {
+							ctx.tellNext(msgCopy.Copy(), tmp, relationType)
+						})
+					}
+				} else {
+					//找不到子节点，则执行结束回调
+					ctx.DoOnEnd(msgCopy, err, relationType)
 				}
-			}
-
-			//查找子节点
-			if nodes, ok := ctx.getNextNodes(relationType); ok && !ctx.skipTellNext {
-				for _, item := range nodes {
-					tmp := item
-					ctx.SubmitTack(func() {
-						ctx.tellNext(msgCopy.Copy(), tmp, relationType)
-					})
-				}
-			} else {
-				//找不到子节点，则执行结束回调
-				ctx.DoOnEnd(msgCopy, err, relationType)
 			}
 		}
 	}
-
 }
 
 // 执行下一个节点
 func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCtx, relationType string) {
 
-	nextCtx := ctx.NewNextNodeRuleContext(nextNode)
-	//增加一个待执行的子节点
-	ctx.childReady()
 	defer func() {
 		//捕捉异常
 		if e := recover(); e != nil {
-
-			// after aop
-			for _, aop := range nextCtx.afterAspects {
-				if aop.PointCut(nextCtx, msg, "") {
-					msg = aop.After(nextCtx, msg, fmt.Errorf("%v", e), relationType)
-				}
-			}
+			//执行After aop
+			msg = ctx.executeAfterAop(msg, fmt.Errorf("%v", e), relationType)
 			ctx.childDone()
 		}
 	}()
+
+	nextCtx := ctx.NewNextNodeRuleContext(nextNode)
 
 	//环绕aop
 	if !nextCtx.executeAroundAop(msg, relationType) {
@@ -356,10 +361,20 @@ func (ctx *DefaultRuleContext) executeAroundAop(msg types.RuleMsg, relationType 
 			if !showTellNext {
 				tellNext = false
 			}
-
 		}
 	}
 	return tellNext
+}
+
+// 执行After aop
+func (ctx *DefaultRuleContext) executeAfterAop(msg types.RuleMsg, err error, relationType string) types.RuleMsg {
+	// after aop
+	for _, aop := range ctx.afterAspects {
+		if aop.PointCut(ctx, msg, relationType) {
+			msg = aop.After(ctx, msg, err, relationType)
+		}
+	}
+	return msg
 }
 
 // RuleEngine 规则引擎
@@ -560,25 +575,23 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 			}
 
 		}
-		//执行规则链
-		rootCtxCopy.TellNext(msg)
 
 		customFunc := rootCtxCopy.onAllNodeCompleted
 		//同步方式调用，等规则链都执行完，才返回
 		if wait {
 			c := make(chan struct{})
 			rootCtxCopy.onAllNodeCompleted = func() {
+				defer close(c)
 				//执行切面
 				e.onAllNodeCompleted(rootCtxCopy, msg)
-
-				//结束
-				close(c)
 
 				//触发自定义回调
 				if customFunc != nil {
 					customFunc()
 				}
 			}
+			//执行规则链
+			rootCtxCopy.TellNext(msg)
 			//阻塞
 			<-c
 		} else {
@@ -590,6 +603,8 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 					customFunc()
 				}
 			}
+			//执行规则链
+			rootCtxCopy.TellNext(msg)
 		}
 
 	} else {
@@ -645,14 +660,6 @@ func NewConfig(opts ...types.Option) types.Config {
 func WithConfig(config types.Config) RuleEngineOption {
 	return func(re *RuleEngine) error {
 		re.Config = config
-		return nil
-	}
-}
-
-// WithRuleChainPool 子规则链池
-func WithRuleChainPool(ruleChainPool *RuleGo) RuleEngineOption {
-	return func(re *RuleEngine) error {
-		re.RuleChainPool = ruleChainPool
 		return nil
 	}
 }
