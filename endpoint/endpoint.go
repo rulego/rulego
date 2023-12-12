@@ -565,15 +565,18 @@ func (ce *ComponentExecutor) Execute(ctx context.Context, router *Router, exchan
 				}
 			}, rulego.DefaultRuleGo)
 
-			//执行组件逻辑
-			ce.component.OnMsg(ruleCtx, *inMsg)
 			if toFlow.wait {
 				c := make(chan struct{})
 				ruleCtx.SetAllCompletedFunc(func() {
 					close(c)
 				})
+				//执行组件逻辑
+				ce.component.OnMsg(ruleCtx, *inMsg)
 				//等待执行结束
 				<-c
+			} else {
+				//执行组件逻辑
+				ce.component.OnMsg(ruleCtx, *inMsg)
 			}
 		}
 	}
