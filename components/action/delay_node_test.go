@@ -25,113 +25,153 @@ import (
 	"time"
 )
 
-func TestDelayNodeOnMsg(t *testing.T) {
-	var node DelayNode
-	var configuration = make(types.Configuration)
-	configuration["periodInSeconds"] = 1
-	configuration["maxPendingMsgs"] = 1
-	config := types.NewConfig()
-	err := node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+func TestDelayNode(t *testing.T) {
 
-	var count int64
-	ctx := test.NewRuleContextFull(config, &node, func(msg types.RuleMsg, relationType string, err2 error) {
-		atomic.AddInt64(&count, 1)
-		if count == 1 {
-			assert.Equal(t, types.Failure, relationType)
-		} else {
+	var targetNodeType = "delay"
+
+	t.Run("NewNode", func(t *testing.T) {
+		test.NodeNew(t, targetNodeType, &DelayNode{}, types.Configuration{
+			"periodInSeconds": 60,
+			"maxPendingMsgs":  1000,
+		}, Registry)
+	})
+
+	t.Run("InitNode", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{
+			"periodInSeconds": 1,
+			"maxPendingMsgs":  1,
+		}, types.Configuration{
+			"periodInSeconds": 1,
+			"maxPendingMsgs":  1,
+		}, Registry)
+	})
+
+	t.Run("DefaultConfig", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{
+			"periodInSeconds": 1,
+			"maxPendingMsgs":  -1,
+		}, types.Configuration{
+			"periodInSeconds": 1,
+			"maxPendingMsgs":  1000,
+		}, Registry)
+	})
+
+	t.Run("OnMsg", func(t *testing.T) {
+		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"periodInSeconds": 1,
+			"maxPendingMsgs":  1,
+		}, Registry)
+		assert.Nil(t, err)
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "test")
+		//第2条消息，因为队列已经满，报错
+		//第3条消息，因为队列已经消费，成功
+		var msgList = []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "AA",
+				AfterSleep: time.Millisecond * 200,
+			},
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "BB",
+				AfterSleep: time.Second * 1,
+			},
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "CC",
+				AfterSleep: time.Second * 1,
+			},
+		}
+		var count int64
+		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+			atomic.AddInt64(&count, 1)
+			if count == 1 {
+				assert.Equal(t, types.Failure, relationType)
+			} else {
+				assert.Equal(t, types.Success, relationType)
+			}
+		})
+	})
+
+	t.Run("ByPattern", func(t *testing.T) {
+		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"PeriodInSecondsPattern": "${period}",
+			"maxPendingMsgs":         1,
+		}, Registry)
+		assert.Nil(t, err)
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "test")
+		metaData.PutValue("period", "2")
+		var msgList = []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "AA",
+				AfterSleep: time.Second * 3,
+			},
+		}
+		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
 			assert.Equal(t, types.Success, relationType)
+		})
+
+		//测试错误
+		metaData.PutValue("period", "aa")
+		msgList = []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "AA",
+				AfterSleep: time.Second * 3,
+			},
 		}
-
+		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+			assert.Equal(t, types.Failure, relationType)
+		})
 	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	metaData.PutValue("productType", "test")
 
-	//第1条消息
-	msg := ctx.NewMsg("ACTIVITY_EVENT", metaData, "AA")
-	node.OnMsg(ctx, msg)
+	//覆盖模式
+	t.Run("Overlay", func(t *testing.T) {
+		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"periodInSeconds": 5,
+			"overwrite":       true,
+		}, Registry)
+		assert.Nil(t, err)
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "test")
 
-	time.Sleep(time.Millisecond * 200)
-	//第2条消息，因为队列已经满，报错
-	msg = ctx.NewMsg("ACTIVITY_EVENT", metaData, "BB")
-	node.OnMsg(ctx, msg)
-
-	time.Sleep(time.Second * 1)
-
-	//第3条消息，因为队列已经消费，成功
-	msg = ctx.NewMsg("ACTIVITY_EVENT", metaData, "CC")
-	node.OnMsg(ctx, msg)
-
-	time.Sleep(time.Second * 1)
-
-}
-
-func TestDelayNodeByPattern(t *testing.T) {
-	var node DelayNode
-	var configuration = make(types.Configuration)
-	configuration["PeriodInSecondsPattern"] = "${period}"
-	configuration["maxPendingMsgs"] = 1
-	config := types.NewConfig()
-	err := node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-
-	ctx := test.NewRuleContextFull(config, &node, func(msg types.RuleMsg, relationType string, err2 error) {
-		assert.Equal(t, types.Success, relationType)
-	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	metaData.PutValue("productType", "test")
-	metaData.PutValue("period", "2")
-
-	msg := ctx.NewMsg("ACTIVITY_EVENT", metaData, "AA")
-	node.OnMsg(ctx, msg)
-
-	time.Sleep(3)
-}
-
-// TestDelayNodeOverlay 覆盖模式
-func TestDelayNodeOverlay(t *testing.T) {
-	var node DelayNode
-	var configuration = make(types.Configuration)
-	configuration["periodInSeconds"] = 5
-	configuration["overwrite"] = true
-	config := types.NewConfig()
-	err := node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-
-	var count int64
-	ctx := test.NewRuleContextFull(config, &node, func(msg types.RuleMsg, relationType string, err2 error) {
-		atomic.AddInt64(&count, 1)
-		if count == 1 {
-			assert.Equal(t, "BB", msg.Data)
-		} else {
-			assert.Equal(t, "CC", msg.Data)
+		//第2条消息，覆盖上一条
+		var msgList = []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "AA",
+				AfterSleep: time.Millisecond * 200,
+			},
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "BB",
+				AfterSleep: time.Second * 7,
+			},
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "CC",
+				AfterSleep: time.Second * 7,
+			},
 		}
-
+		var count int64
+		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+			atomic.AddInt64(&count, 1)
+			if count == 1 {
+				assert.Equal(t, "BB", msg.Data)
+			} else {
+				assert.Equal(t, "CC", msg.Data)
+			}
+		})
 	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	metaData.PutValue("productType", "test")
-
-	//第1条消息
-	msg := ctx.NewMsg("ACTIVITY_EVENT", metaData, "AA")
-	node.OnMsg(ctx, msg)
-
-	time.Sleep(time.Millisecond * 200)
-
-	//第2条消息，覆盖上一条
-	msg = ctx.NewMsg("ACTIVITY_EVENT", metaData, "BB")
-	node.OnMsg(ctx, msg)
-
-	time.Sleep(time.Second * 7)
-
-	msg = ctx.NewMsg("ACTIVITY_EVENT", metaData, "CC")
-	node.OnMsg(ctx, msg)
-
-	time.Sleep(time.Second * 7)
-
 }

@@ -1,0 +1,70 @@
+{
+  "ruleChain": {
+    "id": "test_group_filter_node",
+    "name": "测试规则链",
+    "root": true
+  },
+  "metadata": {
+    "firstNodeIndex": 2,
+    "nodes": [
+      {
+        "id": "s1",
+        "type": "jsFilter",
+        "name": "过滤1",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msg.temperature > 50;"
+        }
+      },
+      {
+        "id": "s2",
+        "type": "jsFilter",
+        "name": "过滤2",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msg.humidity > 80;"
+        }
+      },
+      {
+        "id": "group1",
+        "type": "groupFilter",
+        "name": "过滤组",
+        "debugMode": true,
+        "configuration": {
+          "allMatches": false,
+          "nodeIds": "s1,s2"
+        }
+      },
+      {
+        "id": "s3",
+        "type": "jsTransform",
+        "name": "jsTransform-True",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "metadata['result']='true';return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+        }
+      },
+      {
+        "id": "s4",
+        "type": "jsTransform",
+        "name": "jsTransform-false",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "metadata['result']='false';return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "group1",
+        "toId": "s3",
+        "type": "True"
+      },
+      {
+        "fromId": "group1",
+        "toId": "s4",
+        "type": "False"
+      }
+    ]
+  }
+}

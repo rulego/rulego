@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-package testcases
+package rulego
 
 import (
-	"fmt"
-	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/aspect"
 	"github.com/rulego/rulego/test/assert"
@@ -31,13 +29,13 @@ import (
 // 测试故障降级切面
 func TestSkipFallbackAspect(t *testing.T) {
 	//如果10s内出现3次错误，则跳过当前节点，继续执行下一个节点，10s后恢复
-	config := rulego.NewConfig(types.WithAspects(&aspect.SkipFallbackAspect{ErrorCountLimit: 3, LimitDuration: time.Second * 10}))
+	config := NewConfig(types.WithAspects(&aspect.SkipFallbackAspect{ErrorCountLimit: 3, LimitDuration: time.Second * 10}))
 
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		//config.Logger.Printf("chainId=%s,flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", chainId, flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 	}
 
-	ruleEngine, err := rulego.New(str.RandomStr(10), loadFile("./test_skip_fallback_aspect.json"), rulego.WithConfig(config))
+	ruleEngine, err := New(str.RandomStr(10), loadFile("./test_skip_fallback_aspect.json"), WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}
@@ -52,8 +50,8 @@ func TestSkipFallbackAspect(t *testing.T) {
 	start := time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		//没达到错误降级阈值，执行该组件
-		fmt.Printf("第2次耗时:%s", time.Since(start).String())
-		fmt.Println()
+		//fmt.Printf("第2次耗时:%s", time.Since(start).String())
+		//fmt.Println()
 		assert.True(t, time.Since(start) > time.Second)
 	}))
 
@@ -67,8 +65,8 @@ func TestSkipFallbackAspect(t *testing.T) {
 	start = time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		//进入故障降级，跳过该组件
-		fmt.Printf("第4次耗时:%s", time.Since(start).String())
-		fmt.Println()
+		//fmt.Printf("第4次耗时:%s", time.Since(start).String())
+		//fmt.Println()
 		assert.True(t, time.Since(start) < time.Second)
 	}))
 
@@ -78,8 +76,8 @@ func TestSkipFallbackAspect(t *testing.T) {
 	start = time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		//故障恢复，执行该组件
-		fmt.Printf("第5次耗时:%s", time.Since(start).String())
-		fmt.Println()
+		//fmt.Printf("第5次耗时:%s", time.Since(start).String())
+		//fmt.Println()
 		assert.True(t, time.Since(start) > time.Second)
 	}))
 
@@ -92,8 +90,8 @@ func TestSkipFallbackAspect(t *testing.T) {
 	start = time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		//故障恢复，执行该组件
-		fmt.Printf("第6次耗时:%s", time.Since(start).String())
-		fmt.Println()
+		//fmt.Printf("第6次耗时:%s", time.Since(start).String())
+		//fmt.Println()
 		assert.True(t, time.Since(start) > time.Second)
 	}))
 
@@ -103,7 +101,7 @@ func TestSkipFallbackAspect(t *testing.T) {
 }
 
 func TestAspectOrder(t *testing.T) {
-	config := rulego.NewConfig(types.WithAspects(&NodeAspect2{Name: "NodeAspect2"}, &NodeAspect1{Name: "NodeAspect1"}, &ChainAspect{Name: "ChainAspect"}, &EngineAspect{Name: "EngineAspect"}))
+	config := NewConfig(types.WithAspects(&NodeAspect2{Name: "NodeAspect2"}, &NodeAspect1{Name: "NodeAspect1"}, &ChainAspect{Name: "ChainAspect"}, &EngineAspect{Name: "EngineAspect"}))
 	onCreated, onReload, onDestroy := config.GetEngineAspects()
 	assert.Equal(t, len(onCreated), 1)
 	assert.Equal(t, len(onReload), 1)
@@ -112,7 +110,7 @@ func TestAspectOrder(t *testing.T) {
 	onStart, onEnd, onCompleted := config.GetChainAspects()
 	assert.Equal(t, len(onStart), 1)
 	assert.Equal(t, len(onEnd), 1)
-	assert.Equal(t, len(onCompleted), 0)
+	assert.Equal(t, len(onCompleted), 1)
 
 	around, before, after := config.GetNodeAspects()
 	assert.Equal(t, len(around), 1)
@@ -122,7 +120,7 @@ func TestAspectOrder(t *testing.T) {
 }
 
 func TestEngineAspect(t *testing.T) {
-	chainId := "test_skip_fallback_aspect"
+	chainId := "test01"
 	var count int32
 	callback := &CallbackTest{}
 	callback.OnCreated = func(ctx types.NodeCtx) {
@@ -141,9 +139,13 @@ func TestEngineAspect(t *testing.T) {
 		assert.Equal(t, types.CHAIN, ctx.GetNodeId().Type)
 		atomic.AddInt32(&count, 1)
 	}
-	config := rulego.NewConfig(types.WithAspects(&NodeAspect2{Name: "NodeAspect2"}, &NodeAspect1{Name: "NodeAspect1"},
+	var onCompleted = false
+	callback.OnCompleted = func(ctx types.RuleContext, msg types.RuleMsg) {
+		onCompleted = true
+	}
+	config := NewConfig(types.WithAspects(&NodeAspect2{Name: "NodeAspect2"}, &NodeAspect1{Name: "NodeAspect1"},
 		&ChainAspect{Name: "ChainAspect"}, &EngineAspect{Name: "EngineAspect", Callback: callback}))
-	ruleEngine, err := rulego.New(chainId, loadFile("./test_skip_fallback_aspect.json"), rulego.WithConfig(config))
+	ruleEngine, err := New(chainId, []byte(ruleChainFile), WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}
@@ -153,7 +155,7 @@ func TestEngineAspect(t *testing.T) {
 
 	ruleEngine.OnMsg(msg)
 	//重新加载规则链，会同时触发Reload 和 OnDestroy
-	err = ruleEngine.ReloadSelf(loadFile("./test_skip_fallback_aspect.json"))
+	err = ruleEngine.ReloadSelf([]byte(ruleChainFile))
 	if err != nil {
 		t.Error(err)
 	}
@@ -175,10 +177,11 @@ func TestEngineAspect(t *testing.T) {
 	}
 	//销毁
 	ruleEngine.Stop()
-
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond * 200)
 
 	assert.Equal(t, int32(5), count)
+	assert.True(t, onCompleted)
+
 }
 
 func TestChainAspect(t *testing.T) {
@@ -186,14 +189,14 @@ func TestChainAspect(t *testing.T) {
 
 	callback := &CallbackTest{}
 
-	config := rulego.NewConfig(types.WithAspects(
+	config := NewConfig(types.WithAspects(
 		&NodeAspect2{Name: "NodeAspect2"},
 		&NodeAspect1{Name: "NodeAspect1"},
 		&ChainAspect{Name: "ChainAspect"},
 		&EngineAspect{Name: "EngineAspect", Callback: callback},
 	))
 
-	ruleEngine, err := rulego.New(chainId, loadFile("./test_skip_fallback_aspect.json"), rulego.WithConfig(config))
+	ruleEngine, err := New(chainId, loadFile("./test_skip_fallback_aspect.json"), WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}
@@ -208,13 +211,14 @@ func TestChainAspect(t *testing.T) {
 		assert.Equal(t, "addValueOnEnd", v2)
 	}))
 
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond * 200)
 }
 
 type CallbackTest struct {
-	OnCreated func(ctx types.NodeCtx)
-	OnReload  func(parentCtx types.NodeCtx, ctx types.NodeCtx, err error)
-	OnDestroy func(ctx types.NodeCtx)
+	OnCreated   func(ctx types.NodeCtx)
+	OnReload    func(parentCtx types.NodeCtx, ctx types.NodeCtx, err error)
+	OnDestroy   func(ctx types.NodeCtx)
+	OnCompleted func(ctx types.RuleContext, msg types.RuleMsg)
 }
 type EngineAspect struct {
 	Name     string
@@ -225,8 +229,12 @@ func (aspect *EngineAspect) Order() int {
 	return 1
 }
 
+func (aspect *EngineAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
+	return true
+}
+
 func (aspect *EngineAspect) OnCreated(ctx types.NodeCtx) {
-	fmt.Println("OnCreated:" + ctx.GetNodeId().Id)
+	//fmt.Println("OnCreated:" + ctx.GetNodeId().Id)
 	if aspect.Callback != nil && aspect.Callback.OnCreated != nil {
 		aspect.Callback.OnCreated(ctx)
 	}
@@ -234,16 +242,23 @@ func (aspect *EngineAspect) OnCreated(ctx types.NodeCtx) {
 }
 
 func (aspect *EngineAspect) OnReload(parentCtx types.NodeCtx, ctx types.NodeCtx, err error) {
-	fmt.Println("OnReload:" + ctx.GetNodeId().Id)
+	//fmt.Println("OnReload:" + ctx.GetNodeId().Id)
 	if aspect.Callback != nil && aspect.Callback.OnReload != nil {
 		aspect.Callback.OnReload(parentCtx, ctx, err)
 	}
 }
 func (aspect *EngineAspect) OnDestroy(ctx types.NodeCtx) {
-	fmt.Println("OnDestroy:" + ctx.GetNodeId().Id)
+	//fmt.Println("OnDestroy:" + ctx.GetNodeId().Id)
 	if aspect.Callback != nil && aspect.Callback.OnDestroy != nil {
 		aspect.Callback.OnDestroy(ctx)
 	}
+}
+
+func (aspect *EngineAspect) Completed(ctx types.RuleContext, msg types.RuleMsg) types.RuleMsg {
+	if aspect.Callback != nil && aspect.Callback.OnCompleted != nil {
+		aspect.Callback.OnCompleted(ctx, msg)
+	}
+	return msg
 }
 
 type ChainAspect struct {

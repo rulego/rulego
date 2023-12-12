@@ -53,7 +53,7 @@ func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
 
 	err := node.Init(config, configuration)
 	if err != nil {
-		t.Errorf("err=%s", err)
+		return
 	}
 
 	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {

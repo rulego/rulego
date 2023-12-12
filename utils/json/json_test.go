@@ -17,8 +17,9 @@
 package json
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
+	"github.com/rulego/rulego/test/assert"
 	"testing"
 )
 
@@ -35,8 +36,37 @@ func TestMarshal(t *testing.T) {
 	var user = User{
 		Username: "test",
 	}
+	v1, _ := json.Marshal(user)
+
+	v2, _ := Marshal(user)
+	assert.Equal(t, string(v1), string(v2))
+}
+
+func TestUnMarshal(t *testing.T) {
+	var user = User{
+		Username: "test",
+	}
+
 	v, _ := json.Marshal(user)
-	fmt.Println(string(v))
-	v, _ = Marshal(user)
-	fmt.Println(string(v))
+
+	var user1 = User{}
+	_ = json.Unmarshal(v, &user1)
+	var user2 = User{}
+	err := Unmarshal(v, &user2)
+	assert.Nil(t, err)
+	assert.Equal(t, user1.Username, user2.Username)
+}
+
+func TestFormat(t *testing.T) {
+	var user = User{
+		Username: "test",
+	}
+
+	v, _ := json.Marshal(user)
+
+	var buf bytes.Buffer
+	_ = json.Indent(&buf, v, "", "  ")
+	result, _ := Format(v)
+
+	assert.Equal(t, buf.Bytes(), result)
 }

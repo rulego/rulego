@@ -35,6 +35,7 @@ type NodeTestRuleContext struct {
 	self     types.Node
 	//所有子节点处理完成事件，只执行一次
 	onAllNodeCompleted func()
+	onEndFunc          types.OnEndFunc
 }
 
 func NewRuleContext(config types.Config, callback func(msg types.RuleMsg, relationType string, err error)) types.RuleContext {
@@ -54,13 +55,22 @@ func NewRuleContextFull(config types.Config, self types.Node, callback func(msg 
 }
 func (ctx *NodeTestRuleContext) TellSuccess(msg types.RuleMsg) {
 	ctx.callback(msg, types.Success, nil)
+	if ctx.onEndFunc != nil {
+		ctx.onEndFunc(ctx, msg, nil, types.Success)
+	}
 }
 func (ctx *NodeTestRuleContext) TellFailure(msg types.RuleMsg, err error) {
 	ctx.callback(msg, types.Failure, err)
+	if ctx.onEndFunc != nil {
+		ctx.onEndFunc(ctx, msg, err, types.Failure)
+	}
 }
 func (ctx *NodeTestRuleContext) TellNext(msg types.RuleMsg, relationTypes ...string) {
 	for _, relationType := range relationTypes {
 		ctx.callback(msg, relationType, nil)
+		if ctx.onEndFunc != nil {
+			ctx.onEndFunc(ctx, msg, nil, relationType)
+		}
 	}
 
 }
@@ -96,11 +106,12 @@ func (ctx *NodeTestRuleContext) SubmitTack(task func()) {
 }
 
 func (ctx *NodeTestRuleContext) SetEndFunc(onEndFunc types.OnEndFunc) types.RuleContext {
+	ctx.onEndFunc = onEndFunc
 	return ctx
 }
 
 func (ctx *NodeTestRuleContext) GetEndFunc() types.OnEndFunc {
-	return nil
+	return ctx.onEndFunc
 }
 
 func (ctx *NodeTestRuleContext) SetContext(c context.Context) types.RuleContext {

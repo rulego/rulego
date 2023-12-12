@@ -1,0 +1,36 @@
+{
+  "ruleChain": {
+    "id":"test_functions_node2",
+    "name": "测试规则链",
+    "root": true
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "s1",
+        "type": "functions",
+        "name": "调用函数1",
+        "debugMode": true,
+        "configuration": {
+          "functionName": "tellNextRelationTypeEmpty"
+        }
+      },
+      {
+        "id": "s2",
+        "type": "functions",
+        "name": "调用函数2",
+        "debugMode": true,
+        "configuration": {
+          "functionName": "tellNextRelationTypeEmpty"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "s1",
+        "toId": "s2",
+        "type": "Success"
+      }
+    ]
+  }
+}

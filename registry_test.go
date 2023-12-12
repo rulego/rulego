@@ -52,6 +52,9 @@ func TestGetComponentsFields(t *testing.T) {
 			assert.Equal(t, "测试", structField.Fields[0].DefaultValue)
 		}
 	}
+
+	nodes := Registry.GetComponents()
+	assert.True(t, len(nodes) > 0)
 }
 
 //以下是测试组件

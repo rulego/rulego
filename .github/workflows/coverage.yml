@@ -5,9 +5,9 @@ name: coverage
 
 on:
   push:
-    branches: [ "add_test_cases" ]
+    branches: [ "main","add_test_cases" ]
   pull_request:
-    branches: [ "add_test_cases" ]
+    branches: [ "main","add_test_cases" ]
 
 jobs:
   build:
@@ -21,8 +21,10 @@ jobs:
           cache-dependency-path: go.sum
       - name: Install dependencies
         run: go get .
+      - name: Build plugin
+        run: go build -buildmode=plugin -o plugin.so testdata/plugin/plugin.go
       - name: Run unit tests and integrated tests
-        run: go test -v ./... -coverprofile="codecov.report"
+        run: go test -v --tags=test_plugin ./... -coverprofile="codecov.report"
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         env:

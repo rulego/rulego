@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-package testcases
+package rulego
 
 import (
-	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/str"
 	"testing"
@@ -25,8 +24,8 @@ import (
 
 func BenchmarkChainNotChangeMetadata(b *testing.B) {
 	b.ResetTimer()
-	config := rulego.NewConfig()
-	ruleEngine, err := rulego.New(str.RandomStr(10), []byte(ruleChainFile), rulego.WithConfig(config))
+	config := NewConfig()
+	ruleEngine, err := New(str.RandomStr(10), []byte(ruleChainFile), WithConfig(config))
 	if err != nil {
 		b.Error(err)
 	}
@@ -40,9 +39,9 @@ func BenchmarkChainNotChangeMetadata(b *testing.B) {
 
 func BenchmarkChainChangeMetadataAndMsg(b *testing.B) {
 
-	config := rulego.NewConfig()
+	config := NewConfig()
 
-	ruleEngine, err := rulego.New(str.RandomStr(10), []byte(ruleChainFile), rulego.WithConfig(config))
+	ruleEngine, err := New(str.RandomStr(10), []byte(ruleChainFile), WithConfig(config))
 	if err != nil {
 		b.Error(err)
 	}
@@ -60,8 +59,8 @@ func BenchmarkChainChangeMetadataAndMsg(b *testing.B) {
 
 func BenchmarkCallRestApiNodeGo(b *testing.B) {
 	//不使用协程池
-	config := rulego.NewConfig()
-	ruleEngine, _ := rulego.New(str.RandomStr(10), loadFile("./chain_call_rest_api.json"), rulego.WithConfig(config))
+	config := NewConfig()
+	ruleEngine, _ := New(str.RandomStr(10), loadFile("./chain_call_rest_api.json"), WithConfig(config))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		callRestApiNode(ruleEngine)
@@ -70,8 +69,8 @@ func BenchmarkCallRestApiNodeGo(b *testing.B) {
 
 func BenchmarkCallRestApiNodeWorkerPool(b *testing.B) {
 	//使用协程池
-	config := rulego.NewConfig(types.WithDefaultPool())
-	ruleEngine, _ := rulego.New(str.RandomStr(10), loadFile("./chain_call_rest_api.json"), rulego.WithConfig(config))
+	config := NewConfig(types.WithDefaultPool())
+	ruleEngine, _ := New(str.RandomStr(10), loadFile("./chain_call_rest_api.json"), WithConfig(config))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		callRestApiNode(ruleEngine)
@@ -81,14 +80,14 @@ func BenchmarkCallRestApiNodeWorkerPool(b *testing.B) {
 //	func BenchmarkCallRestApiNodeAnts(b *testing.B) {
 //		defaultAntsPool, _ := ants.NewPool(200000)
 //		//使用协程池
-//		config := rulego.NewConfig(types.WithPool(defaultAntsPool))
-//		ruleEngine, _ := rulego.New(str.RandomStr(10), loadFile("./chain_call_rest_api.json"), rulego.WithConfig(config))
+//		config := NewConfig(types.WithPool(defaultAntsPool))
+//		ruleEngine, _ := New(str.RandomStr(10), loadFile("./chain_call_rest_api.json"), WithConfig(config))
 //		b.ResetTimer()
 //		for i := 0; i < b.N; i++ {
 //			callRestApiNode(ruleEngine)
 //		}
 //	}
-func callRestApiNode(ruleEngine *rulego.RuleEngine) {
+func callRestApiNode(ruleEngine *RuleEngine) {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"aa\":\"aaaaaaaaaaaaaa\"}")

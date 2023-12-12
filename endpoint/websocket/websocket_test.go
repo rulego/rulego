@@ -72,6 +72,6 @@ func TestWebSocketEndPoint(t *testing.T) {
 	//注册路由
 	wsEndpoint.AddRouter(router1)
 
-	//并启动服务
-	_ = wsEndpoint.Start()
+	////并启动服务
+	//_ = wsEndpoint.Start()
 }

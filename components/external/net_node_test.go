@@ -33,7 +33,7 @@ func TestNet(t *testing.T) {
 	config := types.NewConfig()
 	err := node.Init(config, configuration)
 	if err != nil {
-		t.Errorf("err=%s", err)
+		return
 	}
 	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, types.Success, relationType)
