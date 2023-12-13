@@ -68,6 +68,9 @@ func (r *RequestMessage) Body() []byte {
 	return r.body
 }
 func (r *RequestMessage) Headers() textproto.MIMEHeader {
+	if r.request == nil {
+		return nil
+	}
 	return textproto.MIMEHeader(r.request.Header)
 }
 

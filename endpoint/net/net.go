@@ -42,10 +42,11 @@ func init() {
 
 // RequestMessage 请求消息
 type RequestMessage struct {
-	conn net.Conn
-	body []byte
-	msg  *types.RuleMsg
-	err  error
+	headers textproto.MIMEHeader
+	conn    net.Conn
+	body    []byte
+	msg     *types.RuleMsg
+	err     error
 }
 
 func (r *RequestMessage) Body() []byte {
@@ -53,13 +54,20 @@ func (r *RequestMessage) Body() []byte {
 }
 
 func (r *RequestMessage) Headers() textproto.MIMEHeader {
-	headers := make(textproto.MIMEHeader)
-	headers.Set("remoteAddr", r.conn.RemoteAddr().String())
-	return make(textproto.MIMEHeader)
+	if r.headers == nil {
+		r.headers = make(map[string][]string)
+	}
+	if r.conn != nil {
+		r.headers.Set("remoteAddr", r.conn.RemoteAddr().String())
+	}
+	return r.headers
 }
 
 // From 返回客户端Addr
 func (r RequestMessage) From() string {
+	if r.conn == nil {
+		return ""
+	}
 	return r.conn.RemoteAddr().String()
 }
 
@@ -101,11 +109,12 @@ func (r *RequestMessage) Conn() net.Conn {
 
 // ResponseMessage 响应消息
 type ResponseMessage struct {
-	conn net.Conn
-	log  func(format string, v ...interface{})
-	body []byte
-	msg  *types.RuleMsg
-	err  error
+	headers textproto.MIMEHeader
+	conn    net.Conn
+	log     func(format string, v ...interface{})
+	body    []byte
+	msg     *types.RuleMsg
+	err     error
 }
 
 func (r *ResponseMessage) Body() []byte {
@@ -113,12 +122,19 @@ func (r *ResponseMessage) Body() []byte {
 }
 
 func (r *ResponseMessage) Headers() textproto.MIMEHeader {
-	headers := make(textproto.MIMEHeader)
-	headers.Set("remoteAddr", r.conn.RemoteAddr().String())
-	return make(textproto.MIMEHeader)
+	if r.headers == nil {
+		r.headers = make(map[string][]string)
+	}
+	if r.conn != nil {
+		r.headers.Set("remoteAddr", r.conn.RemoteAddr().String())
+	}
+	return r.headers
 }
 
 func (r *ResponseMessage) From() string {
+	if r.conn == nil {
+		return ""
+	}
 	return r.conn.RemoteAddr().String()
 }
 
@@ -137,6 +153,11 @@ func (r *ResponseMessage) SetStatusCode(statusCode int) {
 }
 
 func (r *ResponseMessage) SetBody(body []byte) {
+	r.body = body
+	if r.conn == nil {
+		log.Println("write err: conn is nil")
+		return
+	}
 	_, err := r.conn.Write(body)
 	if err != nil {
 		log.Println("write err:", err)
