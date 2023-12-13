@@ -18,14 +18,26 @@ package test
 
 import (
 	"context"
+	"errors"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
 	reflect2 "github.com/rulego/rulego/utils/reflect"
+	"net/textproto"
 	"reflect"
 	"strings"
 	"time"
 
 	"testing"
+)
+
+var (
+	shareKey       = "shareKey"
+	shareValue     = "shareValue"
+	addShareKey    = "addShareKey"
+	addShareValue  = "addShareValue"
+	testdataFolder = "./testdata/"
+	contentType    = "Content-Type"
+	content        = "application/json"
 )
 
 // CreateAndInitNode 创建并初始化一个节点实例
@@ -115,13 +127,50 @@ func NodeOnMsg(t *testing.T, node types.Node, msgList []Msg, callback func(msg t
 	}
 }
 
-var (
-	shareKey       = "shareKey"
-	shareValue     = "shareValue"
-	addShareKey    = "addShareKey"
-	addShareValue  = "addShareValue"
-	testdataFolder = "./testdata/"
-)
+// EndpointMessage 测试endpoint请求、响应消息
+func EndpointMessage(t *testing.T, m interface{}) {
+	message, ok := m.(interface {
+		//Body message body
+		Body() []byte
+		Headers() textproto.MIMEHeader
+		From() string
+		//GetParam http.Request#FormValue
+		GetParam(key string) string
+		//SetMsg set RuleMsg
+		SetMsg(msg *types.RuleMsg)
+		//GetMsg 把接收数据转换成 RuleMsg
+		GetMsg() *types.RuleMsg
+		//SetStatusCode 响应 code
+		SetStatusCode(statusCode int)
+		//SetBody 响应 body
+		SetBody(body []byte)
+		//SetError 设置错误
+		SetError(err error)
+		//GetError 获取错误
+		GetError() error
+	})
+	assert.True(t, ok)
+	if message.Headers() != nil {
+		message.Headers().Set(contentType, content)
+		assert.Equal(t, content, message.Headers().Get(contentType))
+	}
+
+	message.SetBody([]byte("123"))
+	assert.Equal(t, "123", string(message.Body()))
+	assert.Equal(t, "", message.From())
+	assert.Equal(t, "", message.GetParam("aa"))
+	if message.GetMsg() != nil {
+		assert.Equal(t, "123", message.GetMsg().Data)
+	}
+
+	msg := types.NewMsg(int64(1), "aa", types.TEXT, nil, "123")
+	message.SetMsg(&msg)
+	assert.Equal(t, "aa", message.GetMsg().Type)
+
+	message.SetStatusCode(200)
+	message.SetError(errors.New("error"))
+	assert.Equal(t, "error", message.GetError().Error())
+}
 
 // UpperNode A plugin that converts the message data to uppercase
 type UpperNode struct{}

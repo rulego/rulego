@@ -69,14 +69,23 @@ func (r *RequestMessage) Body() []byte {
 	return r.body
 }
 func (r *RequestMessage) Headers() textproto.MIMEHeader {
+	if r.request == nil {
+		return nil
+	}
 	return textproto.MIMEHeader(r.request.Header)
 }
 
 func (r RequestMessage) From() string {
+	if r.request == nil {
+		return ""
+	}
 	return r.request.URL.String()
 }
 
 func (r *RequestMessage) GetParam(key string) string {
+	if r.request == nil {
+		return ""
+	}
 	return r.request.FormValue(key)
 }
 
@@ -128,14 +137,23 @@ func (r *ResponseMessage) Body() []byte {
 }
 
 func (r *ResponseMessage) Headers() textproto.MIMEHeader {
+	if r.response == nil {
+		return nil
+	}
 	return textproto.MIMEHeader(r.response.Header())
 }
 
 func (r *ResponseMessage) From() string {
+	if r.request == nil {
+		return ""
+	}
 	return r.request.URL.String()
 }
 
 func (r *ResponseMessage) GetParam(key string) string {
+	if r.request == nil {
+		return ""
+	}
 	return r.request.FormValue(key)
 }
 
@@ -147,12 +165,16 @@ func (r *ResponseMessage) GetMsg() *types.RuleMsg {
 }
 
 func (r *ResponseMessage) SetStatusCode(statusCode int) {
-	r.response.WriteHeader(statusCode)
+	if r.response != nil {
+		r.response.WriteHeader(statusCode)
+	}
 }
 
 func (r *ResponseMessage) SetBody(body []byte) {
 	r.body = body
-	_, _ = r.response.Write(body)
+	if r.response != nil {
+		_, _ = r.response.Write(body)
+	}
 }
 
 func (r *ResponseMessage) SetError(err error) {

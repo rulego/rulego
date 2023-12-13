@@ -42,21 +42,33 @@ func init() {
 
 // RequestMessage http请求消息
 type RequestMessage struct {
+	headers textproto.MIMEHeader
 	request paho.Message
 	msg     *types.RuleMsg
 	err     error
 }
 
 func (r *RequestMessage) Body() []byte {
+	if r.request == nil {
+		return nil
+	}
 	return r.request.Payload()
 }
+
 func (r *RequestMessage) Headers() textproto.MIMEHeader {
-	header := make(map[string][]string)
-	header["topic"] = []string{r.request.Topic()}
-	return header
+	if r.headers == nil {
+		r.headers = make(map[string][]string)
+	}
+	if r.request != nil {
+		r.headers["topic"] = []string{r.request.Topic()}
+	}
+	return r.headers
 }
 
 func (r *RequestMessage) From() string {
+	if r.request == nil {
+		return ""
+	}
 	return r.request.Topic()
 }
 
@@ -100,11 +112,11 @@ func (r *RequestMessage) Request() paho.Message {
 
 // ResponseMessage http响应消息
 type ResponseMessage struct {
+	headers  textproto.MIMEHeader
 	request  paho.Message
 	response paho.Client
 	body     []byte
 	msg      *types.RuleMsg
-	headers  textproto.MIMEHeader
 	err      error
 }
 

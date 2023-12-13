@@ -114,9 +114,9 @@ func (r *RequestMessage) GetError() error {
 
 // ResponseMessage 响应消息
 type ResponseMessage struct {
+	headers textproto.MIMEHeader
 	body    []byte
 	msg     *types.RuleMsg
-	headers textproto.MIMEHeader
 	err     error
 }
 
@@ -211,6 +211,9 @@ func (schedule *Schedule) Id() string {
 func (schedule *Schedule) AddRouter(router *endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
+	}
+	if router.GetFrom() == nil {
+		return "", errors.New("from can not nil")
 	}
 	if schedule.cron == nil {
 		schedule.cron = cron.New(cron.WithSeconds())

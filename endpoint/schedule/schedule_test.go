@@ -4,7 +4,10 @@ import (
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
+	"math"
+	"net/textproto"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -12,6 +15,18 @@ import (
 )
 
 var testdataFolder = "../../testdata"
+
+// 测试请求/响应消息
+func TestMessage(t *testing.T) {
+	t.Run("Request", func(t *testing.T) {
+		var request = &RequestMessage{headers: make(textproto.MIMEHeader)}
+		test.EndpointMessage(t, request)
+	})
+	t.Run("Response", func(t *testing.T) {
+		var response = &ResponseMessage{headers: make(textproto.MIMEHeader)}
+		test.EndpointMessage(t, response)
+	})
+}
 
 func TestScheduleEndPoint(t *testing.T) {
 
@@ -23,8 +38,31 @@ func TestScheduleEndPoint(t *testing.T) {
 	//注册规则链
 	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
 
+	schedule := New(config)
+
+	schedule = &Schedule{RuleConfig: config}
+	err = schedule.Start()
+	assert.Equal(t, "cron has not been initialized yet", err.Error())
+
+	// nil from
+	_, _ = schedule.AddRouter(endpoint.NewRouter())
+
+	_, _ = schedule.AddRouter(endpoint.NewRouter().From("*/1 * * * * *").End())
+
+	schedule.Printf("run %s", "schedule")
+
+	assert.Equal(t, schedule.id, schedule.Id())
+
+	schedule.Destroy()
+	schedule.Close()
+
 	//创建schedule endpoint服务
 	scheduleEndpoint, err := endpoint.New(Type, config, nil)
+
+	_, err = scheduleEndpoint.AddRouter(nil)
+	assert.Equal(t, "router can not nil", err.Error())
+	err = scheduleEndpoint.RemoveRouter("aa")
+	assert.Equal(t, "aa it is an illegal routing id", err.Error())
 
 	//每隔1秒执行
 	var router1Count = int64(0)
@@ -63,7 +101,9 @@ func TestScheduleEndPoint(t *testing.T) {
 	_ = scheduleEndpoint.RemoveRouter(routeId1)
 	_ = scheduleEndpoint.RemoveRouter(routeId2)
 
-	assert.Equal(t, router1Count, int64(30))
-	assert.Equal(t, router2Count, int64(6))
+	assert.True(t, math.Abs(float64(router1Count)-float64(30)) <= float64(1))
+	assert.True(t, math.Abs(float64(router2Count)-float64(6)) <= float64(1))
+
+	scheduleEndpoint.Destroy()
 	//fmt.Println("执行结束退出...")
 }

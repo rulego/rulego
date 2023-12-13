@@ -4,11 +4,24 @@ import (
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/test"
 	"os"
 	"testing"
 )
 
 var testdataFolder = "../../testdata"
+
+// 测试请求/响应消息
+func TestMessage(t *testing.T) {
+	t.Run("Request", func(t *testing.T) {
+		var request = &RequestMessage{}
+		test.EndpointMessage(t, request)
+	})
+	t.Run("Response", func(t *testing.T) {
+		var response = &ResponseMessage{}
+		test.EndpointMessage(t, response)
+	})
+}
 
 func TestEndpoint(t *testing.T) {
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
