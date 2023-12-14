@@ -44,15 +44,17 @@ func init() {
 type RequestMessage struct {
 	headers textproto.MIMEHeader
 	request paho.Message
+	body    []byte
 	msg     *types.RuleMsg
 	err     error
 }
 
+// Body 获取请求体
 func (r *RequestMessage) Body() []byte {
-	if r.request == nil {
-		return nil
+	if r.body == nil && r.request != nil {
+		r.body = r.request.Payload()
 	}
-	return r.request.Payload()
+	return r.body
 }
 
 func (r *RequestMessage) Headers() textproto.MIMEHeader {
@@ -65,6 +67,7 @@ func (r *RequestMessage) Headers() textproto.MIMEHeader {
 	return r.headers
 }
 
+// From 获取主题
 func (r *RequestMessage) From() string {
 	if r.request == nil {
 		return ""
@@ -72,6 +75,7 @@ func (r *RequestMessage) From() string {
 	return r.request.Topic()
 }
 
+// GetParam 不提供获取参数
 func (r *RequestMessage) GetParam(key string) string {
 	return ""
 }
@@ -92,10 +96,13 @@ func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	return r.msg
 }
 
+// SetStatusCode 不提供设置状态码
 func (r *RequestMessage) SetStatusCode(statusCode int) {
 }
 
+// SetBody 设置消息体
 func (r *RequestMessage) SetBody(body []byte) {
+	r.body = body
 }
 
 func (r *RequestMessage) SetError(err error) {
@@ -132,9 +139,13 @@ func (r *ResponseMessage) Headers() textproto.MIMEHeader {
 }
 
 func (r *ResponseMessage) From() string {
+	if r.request == nil {
+		return ""
+	}
 	return r.request.Topic()
 }
 
+// GetParam 不提供获取参数
 func (r *ResponseMessage) GetParam(key string) string {
 	return ""
 }

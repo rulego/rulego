@@ -35,7 +35,12 @@ const (
 	pathKey = "_path"
 )
 
-var ChainNotFoundErr = errors.New("chain not found error")
+var (
+	//ChainNotFoundErr 规则链不存在错误
+	ChainNotFoundErr = errors.New("chain not found error")
+	//EndpointStopErr endpoint服务停止错误
+	EndpointStopErr = errors.New("endpoint stop")
+)
 
 type Endpoint interface {
 	//Node 继承node

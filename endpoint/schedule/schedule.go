@@ -70,6 +70,7 @@ type RequestMessage struct {
 func (r *RequestMessage) Body() []byte {
 	return r.body
 }
+
 func (r *RequestMessage) Headers() textproto.MIMEHeader {
 	if r.headers == nil {
 		r.headers = make(map[string][]string)
@@ -77,10 +78,12 @@ func (r *RequestMessage) Headers() textproto.MIMEHeader {
 	return r.headers
 }
 
+// From 不提供获取来源
 func (r *RequestMessage) From() string {
 	return ""
 }
 
+// GetParam 不提供获取参数
 func (r *RequestMessage) GetParam(key string) string {
 	return ""
 }
@@ -97,6 +100,7 @@ func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	return r.msg
 }
 
+// SetStatusCode 不提供设置状态码
 func (r *RequestMessage) SetStatusCode(statusCode int) {
 }
 
@@ -131,10 +135,12 @@ func (r *ResponseMessage) Headers() textproto.MIMEHeader {
 	return r.headers
 }
 
+// From 不提供获取来源
 func (r *ResponseMessage) From() string {
 	return ""
 }
 
+// GetParam 不提供获取参数
 func (r *ResponseMessage) GetParam(key string) string {
 	return ""
 }
@@ -146,12 +152,12 @@ func (r *ResponseMessage) GetMsg() *types.RuleMsg {
 	return r.msg
 }
 
+// SetStatusCode 不提供设置状态码
 func (r *ResponseMessage) SetStatusCode(statusCode int) {
 }
 
 func (r *ResponseMessage) SetBody(body []byte) {
 	r.body = body
-
 }
 
 func (r *ResponseMessage) SetError(err error) {
