@@ -6,7 +6,6 @@ import (
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/test"
-	"net/textproto"
 	"os"
 	"testing"
 )
@@ -14,13 +13,13 @@ import (
 var testdataFolder = "../../testdata"
 
 // 测试请求/响应消息
-func TestMessage(t *testing.T) {
+func TestMqttMessage(t *testing.T) {
 	t.Run("Request", func(t *testing.T) {
 		var request = &RequestMessage{}
 		test.EndpointMessage(t, request)
 	})
 	t.Run("Response", func(t *testing.T) {
-		var response = &ResponseMessage{headers: make(textproto.MIMEHeader)}
+		var response = &ResponseMessage{}
 		test.EndpointMessage(t, response)
 	})
 }
@@ -57,8 +56,8 @@ func TestMqttEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	////启动服务
-	//err = ep.Start()
+	//启动服务
+	_ = ep.Start()
 	//if err != nil {
 	//	t.Fatal(err)
 	//}

@@ -7,7 +7,6 @@ import (
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"math"
-	"net/textproto"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -19,11 +18,11 @@ var testdataFolder = "../../testdata"
 // 测试请求/响应消息
 func TestMessage(t *testing.T) {
 	t.Run("Request", func(t *testing.T) {
-		var request = &RequestMessage{headers: make(textproto.MIMEHeader)}
+		var request = &RequestMessage{}
 		test.EndpointMessage(t, request)
 	})
 	t.Run("Response", func(t *testing.T) {
-		var response = &ResponseMessage{headers: make(textproto.MIMEHeader)}
+		var response = &ResponseMessage{}
 		test.EndpointMessage(t, response)
 	})
 }

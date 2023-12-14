@@ -25,7 +25,6 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/textproto"
@@ -56,17 +55,9 @@ type RequestMessage struct {
 }
 
 func (r *RequestMessage) Body() []byte {
-	if r.body == nil {
-		defer func() {
-			if r.request.Body != nil {
-				_ = r.request.Body.Close()
-			}
-		}()
-		entry, _ := ioutil.ReadAll(r.request.Body)
-		r.body = entry
-	}
 	return r.body
 }
+
 func (r *RequestMessage) Headers() textproto.MIMEHeader {
 	if r.request == nil {
 		return nil
@@ -75,10 +66,16 @@ func (r *RequestMessage) Headers() textproto.MIMEHeader {
 }
 
 func (r RequestMessage) From() string {
+	if r.request == nil {
+		return ""
+	}
 	return r.request.URL.String()
 }
 
 func (r *RequestMessage) GetParam(key string) string {
+	if r.request == nil {
+		return ""
+	}
 	return r.request.FormValue(key)
 }
 
@@ -120,6 +117,7 @@ func (r *RequestMessage) Request() *http.Request {
 
 // ResponseMessage websocket响应消息
 type ResponseMessage struct {
+	headers textproto.MIMEHeader
 	//ws消息类型 TextMessage/BinaryMessage
 	messageType int
 	log         func(format string, v ...interface{})
@@ -136,31 +134,45 @@ func (r *ResponseMessage) Body() []byte {
 }
 
 func (r *ResponseMessage) Headers() textproto.MIMEHeader {
-	return make(textproto.MIMEHeader)
+	if r.headers == nil {
+		r.headers = make(map[string][]string)
+	}
+	return r.headers
 }
 
 func (r *ResponseMessage) From() string {
+	if r.request == nil {
+		return ""
+	}
 	return r.request.URL.String()
 }
 
 func (r *ResponseMessage) GetParam(key string) string {
+	if r.request == nil {
+		return ""
+	}
 	return r.request.FormValue(key)
 }
 
 func (r *ResponseMessage) SetMsg(msg *types.RuleMsg) {
 	r.msg = msg
 }
+
 func (r *ResponseMessage) GetMsg() *types.RuleMsg {
 	return r.msg
 }
 
+// SetStatusCode 不提供设置状态码
 func (r *ResponseMessage) SetStatusCode(statusCode int) {
 }
 
 func (r *ResponseMessage) SetBody(body []byte) {
-	err := r.conn.WriteMessage(r.messageType, body)
-	if err != nil {
-		log.Println("write:", err)
+	r.body = body
+	if r.conn != nil {
+		err := r.conn.WriteMessage(r.messageType, body)
+		if err != nil {
+			log.Println("write:", err)
+		}
 	}
 }
 
@@ -317,7 +329,7 @@ func (ws *Websocket) handler(router *endpoint.Router) httprouter.Handle {
 			if mt != websocket.BinaryMessage && mt != websocket.TextMessage {
 				continue
 			}
-			ws.Printf("recv:", string(message))
+			//ws.Printf("recv:", string(message))
 			exchange := &endpoint.Exchange{
 				In: &RequestMessage{
 					request:     r,

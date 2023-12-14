@@ -24,7 +24,7 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/textproto"
 	"strings"
@@ -57,17 +57,18 @@ type RequestMessage struct {
 }
 
 func (r *RequestMessage) Body() []byte {
-	if r.body == nil {
+	if r.body == nil && r.request != nil {
 		defer func() {
 			if r.request.Body != nil {
 				_ = r.request.Body.Close()
 			}
 		}()
-		entry, _ := ioutil.ReadAll(r.request.Body)
+		entry, _ := io.ReadAll(r.request.Body)
 		r.body = entry
 	}
 	return r.body
 }
+
 func (r *RequestMessage) Headers() textproto.MIMEHeader {
 	if r.request == nil {
 		return nil

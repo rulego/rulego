@@ -32,8 +32,14 @@ import (
 	"time"
 )
 
-// Type 组件类型
-const Type = "net"
+const (
+	// Type 组件类型
+	Type = "net"
+	// RemoteAddrKey 远程地址键
+	RemoteAddrKey = "remoteAddr"
+	// PingData 心跳数据
+	PingData = "ping"
+)
 
 // 注册组件
 func init() {
@@ -58,7 +64,7 @@ func (r *RequestMessage) Headers() textproto.MIMEHeader {
 		r.headers = make(map[string][]string)
 	}
 	if r.conn != nil {
-		r.headers.Set("remoteAddr", r.conn.RemoteAddr().String())
+		r.headers.Set(RemoteAddrKey, r.conn.RemoteAddr().String())
 	}
 	return r.headers
 }
@@ -68,6 +74,7 @@ func (r RequestMessage) From() string {
 	if r.conn == nil {
 		return ""
 	}
+	r.conn.RemoteAddr().Network()
 	return r.conn.RemoteAddr().String()
 }
 
@@ -88,6 +95,7 @@ func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	return r.msg
 }
 
+// SetStatusCode 不提供设置响应状态码
 func (r *RequestMessage) SetStatusCode(statusCode int) {
 }
 
@@ -126,7 +134,7 @@ func (r *ResponseMessage) Headers() textproto.MIMEHeader {
 		r.headers = make(map[string][]string)
 	}
 	if r.conn != nil {
-		r.headers.Set("remoteAddr", r.conn.RemoteAddr().String())
+		r.headers.Set(RemoteAddrKey, r.conn.RemoteAddr().String())
 	}
 	return r.headers
 }
@@ -234,7 +242,9 @@ func (ep *Endpoint) Destroy() {
 
 func (ep *Endpoint) Close() error {
 	if nil != ep.listener {
-		return ep.listener.Close()
+		err := ep.listener.Close()
+		ep.listener = nil
+		return err
 	}
 	return nil
 }
@@ -300,12 +310,17 @@ func (ep *Endpoint) Start() error {
 		// 从监听器中获取一个客户端连接，返回连接对象和错误信息
 		conn, err := ep.listener.Accept()
 		if err != nil {
-			ep.Printf("accept:", err)
-			continue
+			if opError, ok := err.(*net.OpError); ok && opError.Err == net.ErrClosed {
+				ep.Printf("net endpoint stop")
+				return endpoint.EndpointStopErr
+			} else {
+				ep.Printf("accept:", err)
+				continue
+			}
 		}
 		// 打印客户端连接的信息
 		ep.Printf("new connection from:", conn.RemoteAddr().String())
-		// 启动一个协程处理客户端连接
+		// 启动一个协端处理客户端连接
 		go ep.handler(conn)
 	}
 }
@@ -380,7 +395,7 @@ func (x *ClientHandler) handler() {
 		if x.endpoint.Config.ReadTimeout > 0 {
 			x.readTimeoutTimer.Reset(readTimeoutDuration)
 		}
-		if string(data) == "ping" {
+		if string(data) == PingData {
 			continue
 		}
 		// 创建一个交换对象，用于存储输入和输出的消息
@@ -398,7 +413,7 @@ func (x *ClientHandler) handler() {
 
 		msg := exchange.In.GetMsg()
 		// 把客户端连接的地址放到msg元数据中
-		msg.Metadata.PutValue("remoteAddr", x.conn.RemoteAddr().String())
+		msg.Metadata.PutValue(RemoteAddrKey, x.conn.RemoteAddr().String())
 
 		// 匹配符合的路由，处理消息
 		for _, v := range x.endpoint.routers {
@@ -419,8 +434,3 @@ func (x *ClientHandler) onDisconnect() {
 	}
 	x.endpoint.Printf("onDisconnect:" + x.conn.RemoteAddr().String())
 }
-
-//func (x *ClientHandler) onStop() {
-//	// 发送一个空结构体到chain
-//	x.stop <- struct{}{}
-//}

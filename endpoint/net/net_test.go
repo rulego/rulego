@@ -5,14 +5,28 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/test"
+	"github.com/rulego/rulego/test/assert"
 	"os"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
-var testdataFolder = "../../testdata"
+var (
+	testdataFolder   = "../../testdata"
+	testServer       = "127.0.0.1:8888"
+	testConfigServer = "127.0.0.1:8889"
+	msgContent1      = "{\"test\":\"AA\"}"
+	msgContent2      = "{\"test\":\"BB\"}"
+	msgContent3      = "\"test\":\"CC\\n aa\""
+	msgContent4      = "{\"test\":\"DD\"}"
+	msgContent5      = "{\"test\":\"FF\"}"
+)
 
 // 测试请求/响应消息
-func TestMessage(t *testing.T) {
+func TestNetMessage(t *testing.T) {
 	t.Run("Request", func(t *testing.T) {
 		var request = &RequestMessage{}
 		test.EndpointMessage(t, request)
@@ -23,7 +37,133 @@ func TestMessage(t *testing.T) {
 	})
 }
 
-func TestEndpoint(t *testing.T) {
+func TestNetEndpoint(t *testing.T) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	stop := make(chan struct{})
+	//启动服务
+	go startServer(t, stop, &wg)
+	//等待服务器启动完毕
+	time.Sleep(time.Millisecond * 200)
+	//启动客户端
+	node := createNetClient(t)
+	config := types.NewConfig()
+	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+		assert.Equal(t, types.Success, relationType)
+	})
+	//发送消息
+	metaData := types.BuildMetadata(make(map[string]string))
+	msg1 := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, msgContent1)
+	node.OnMsg(ctx, msg1)
+	msg2 := ctx.NewMsg("TEST_MSG_TYPE_BB", metaData, msgContent2)
+	node.OnMsg(ctx, msg2)
+	msg3 := ctx.NewMsg("TEST_MSG_TYPE_CC", metaData, msgContent3)
+	node.OnMsg(ctx, msg3)
+	//因为服务器与\n或者\t\n分割，这里会收到2条消息
+	msg4 := ctx.NewMsg("TEST_MSG_TYPE_DD", metaData, msgContent4+"\n"+msgContent5)
+	node.OnMsg(ctx, msg4)
+	//ping消息
+	msg5 := ctx.NewMsg(PingData, metaData, PingData)
+	node.OnMsg(ctx, msg5)
+	//等待发送心跳
+	time.Sleep(time.Second * 6)
+	//销毁并 断开连接
+	node.Destroy()
+	//停止服务器
+	stop <- struct{}{}
+	wg.Wait()
+}
+
+func TestNetEndpointConfig(t *testing.T) {
+	config := rulego.NewConfig(types.WithDefaultPool())
+	//创建tpc endpoint服务
+	epStarted, _ := endpoint.New(Type, config, Config{
+		Protocol: "tcp",
+		Server:   testConfigServer,
+		//1秒超时
+		ReadTimeout: 1,
+	})
+	assert.Equal(t, testConfigServer, epStarted.Id())
+
+	go func() {
+		err := epStarted.Start()
+		assert.Equal(t, "endpoint stop", err.Error())
+	}()
+
+	time.Sleep(time.Millisecond * 200)
+
+	epErr, _ := endpoint.New(Type, config, types.Configuration{
+		"server": testConfigServer,
+		//1秒超时
+		"readTimeout": 1,
+	})
+	netEndpoint := epErr.(*Endpoint)
+	assert.Equal(t, "tcp", netEndpoint.Config.Protocol)
+
+	//启动失败，端口已经占用
+	err := epErr.Start()
+	assert.NotNil(t, err)
+
+	netEndpoint = &Endpoint{}
+
+	err = netEndpoint.Init(types.NewConfig(), types.Configuration{
+		"server": testConfigServer,
+		//1秒超时
+		"readTimeout": 1,
+	})
+	assert.Equal(t, "tcp", netEndpoint.Config.Protocol)
+
+	ep, _ := endpoint.New(Type, config, types.Configuration{
+		"protocol": "tcp",
+		"server":   testConfigServer,
+		//1秒超时
+		"readTimeout": 1,
+	})
+
+	assert.Equal(t, testConfigServer, ep.Id())
+	_, err = ep.AddRouter(nil)
+	assert.Equal(t, "router can not nil", err.Error())
+
+	router := endpoint.NewRouter().From("^{.*").End()
+	routerId, err := ep.AddRouter(router)
+	assert.Nil(t, err)
+
+	//重复
+	router = endpoint.NewRouter().From("^{.*").End()
+	_, err = ep.AddRouter(router)
+	assert.Equal(t, "duplicate router ^{.*", err.Error())
+
+	//删除路由
+	ep.RemoveRouter(routerId)
+
+	router = endpoint.NewRouter().From("^{.*").End()
+	_, err = ep.AddRouter(router)
+	assert.Nil(t, err)
+
+	//错误的表达式
+	router = endpoint.NewRouter().From("[a-z{1,5}").End()
+	_, err = ep.AddRouter(router)
+	assert.NotNil(t, err)
+
+	epStarted.Destroy()
+	epErr.Destroy()
+}
+
+func createNetClient(t *testing.T) types.Node {
+	node, _ := rulego.Registry.NewNode("net")
+	var configuration = make(types.Configuration)
+	configuration["protocol"] = "tcp"
+	configuration["server"] = testServer
+
+	config := types.NewConfig()
+	err := node.Init(config, configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return node
+}
+
+func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
 	if err != nil {
 		t.Fatal(err)
@@ -35,28 +175,67 @@ func TestEndpoint(t *testing.T) {
 	//创建tpc endpoint服务
 	ep, err := endpoint.New(Type, config, Config{
 		Protocol: "tcp",
-		Server:   ":8888",
+		Server:   testServer,
+		//1秒超时
+		ReadTimeout: 1,
 	})
-
-	//ep, err := endpoint.New(Type, config, types.Configuration{
-	//	"protocol": "tcp",
-	//	"addr":     ":8888",
-	//})
-
+	go func() {
+		for {
+			select {
+			case <-stop:
+				// 接收到中断信号，退出循环
+				ep.Destroy()
+				return
+			default:
+			}
+		}
+	}()
 	//添加全局拦截器
 	ep.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑
 		return true
 	})
+	var router1Count = int32(0)
+	var router2Count = int32(0)
 	//匹配所有消息，转发到该路由处理
 	router1 := endpoint.NewRouter().From("").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
-		t.Logf("router1 receive data:%s,from:%s", exchange.In.GetMsg().Data, exchange.In.From())
+		from := exchange.In.From()
+
+		requestMessage, ok := exchange.In.(*RequestMessage)
+		assert.True(t, ok)
+		assert.True(t, requestMessage.Conn() != nil)
+		assert.Equal(t, from, requestMessage.From())
+
+		exchange.In.GetMsg().Type = "TEST_MSG_TYPE2"
+		receiveData := exchange.In.GetMsg().Data
+		if receiveData != msgContent1 && receiveData != msgContent2 && receiveData != msgContent3 && receiveData != msgContent4 && receiveData != msgContent5 {
+			t.Fatalf("receive data:%s,expect data:%s,%s,%s,%s,%s", receiveData, msgContent1, msgContent2, msgContent3, msgContent4, msgContent5)
+		}
+
+		assert.True(t, strings.Contains(from, "127.0.0.1"))
+		assert.Equal(t, from, exchange.In.Headers().Get(RemoteAddrKey))
+		assert.Equal(t, exchange.In.Headers().Get(RemoteAddrKey), exchange.In.GetMsg().Metadata.GetValue(RemoteAddrKey))
+
+		atomic.AddInt32(&router1Count, 1)
 		return true
-	}).To("chain:default").End()
+	}).To("chain:default").
+		Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+			assert.Equal(t, exchange.Out.From(), exchange.Out.Headers().Get(RemoteAddrKey))
+			v := exchange.Out.GetMsg().Metadata.GetValue("addFrom")
+			assert.True(t, v != "")
+			//发送响应
+			exchange.Out.SetBody([]byte("response"))
+			return true
+		}).End()
 
 	//匹配与{开头的消息，转发到该路由处理
 	router2 := endpoint.NewRouter().From("^{.*").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
-		t.Logf("router2 receive data:%s,from:%s", exchange.In.GetMsg().Data, exchange.In.From())
+		exchange.In.GetMsg().Type = "TEST_MSG_TYPE2"
+		receiveData := exchange.In.GetMsg().Data
+		if strings.HasSuffix(receiveData, "{") {
+			t.Fatalf("receive data:%s,not match data:%s", receiveData, "^{.*")
+		}
+		atomic.AddInt32(&router2Count, 1)
 		return true
 	}).To("chain:default").End()
 
@@ -69,9 +248,13 @@ func TestEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	////启动服务
-	//err = ep.Start()
-	//if err != nil {
-	//	t.Fatal(err)
-	//}
+	//启动服务
+	err = ep.Start()
+
+	if err != nil && err != endpoint.EndpointStopErr {
+		t.Fatal(err)
+	}
+	assert.Equal(t, int32(5), router1Count)
+	assert.Equal(t, int32(4), router2Count)
+	wg.Done()
 }
