@@ -41,20 +41,18 @@ func (p *JsonParser) DecodeRuleNode(config types.Config, dsl []byte) (types.Node
 	}
 }
 func (p *JsonParser) EncodeRuleChain(def interface{}) ([]byte, error) {
-	//缩进符为两个空格
-	v, err := json.Marshal(def)
-	if err != nil {
+	if v, err := json.Marshal(def); err != nil {
 		return nil, err
 	} else {
+		//格式化Json
 		return json.Format(v)
 	}
 }
 func (p *JsonParser) EncodeRuleNode(def interface{}) ([]byte, error) {
-	//缩进符为两个空格
-	v, err := json.Marshal(def)
-	if err != nil {
+	if v, err := json.Marshal(def); err != nil {
 		return nil, err
 	} else {
+		//格式化Json
 		return json.Format(v)
 	}
 }

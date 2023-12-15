@@ -30,11 +30,9 @@ func Map2Struct(input interface{}, output interface{}) error {
 		Metadata:         nil,
 		Result:           &output,
 	}
-	d, err := mapstructure.NewDecoder(cfg)
-	if err != nil {
+	if d, err := mapstructure.NewDecoder(cfg); err != nil {
 		return err
-	}
-	if err := d.Decode(input); err != nil {
+	} else if err := d.Decode(input); err != nil {
 		return err
 	}
 	return nil
