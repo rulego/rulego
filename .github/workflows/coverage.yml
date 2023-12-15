@@ -21,6 +21,11 @@ jobs:
           cache-dependency-path: go.sum
       - name: Install dependencies
         run: go get .
+      - name: Start Mosquitto
+        uses: namoshek/mosquitto-github-action@v1
+        with:
+          version: '1.6'
+          ports: '1883:1883'
       - name: Build plugin
         run: go build -buildmode=plugin -o plugin.so testdata/plugin/plugin.go
       - name: Run unit tests and integrated tests
