@@ -18,6 +18,7 @@ package external
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -88,6 +89,9 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 	if err == nil {
 		if x.Config.DriverName == "" {
 			x.Config.DriverName = "mysql"
+		}
+		if x.Config.Sql == "" {
+			return errors.New("sql can not empty")
 		}
 		x.db, err = sql.Open(x.Config.DriverName, x.Config.Dsn)
 		if err == nil {

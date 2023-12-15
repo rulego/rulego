@@ -28,11 +28,18 @@ package external
 //}
 
 import (
+	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"golang.org/x/crypto/ssh"
+)
+
+var (
+	SshConfigEmptyErr   = errors.New("ssh config can not empty")
+	SshClientNotInitErr = errors.New("ssh client not initialized")
+	SshCmdEmptyErr      = errors.New("cmd can not empty")
 )
 
 func init() {
@@ -96,7 +103,7 @@ func (x *SshNode) Init(ruleConfig types.Config, configuration types.Configuratio
 			}
 			x.client, err = ssh.Dial("tcp", fmt.Sprintf("%s:%d", sshConfig.Host, sshConfig.Port), config)
 		} else {
-			return fmt.Errorf("ssh client is empty")
+			return SshConfigEmptyErr
 		}
 	}
 	return err
@@ -107,15 +114,13 @@ func (x *SshNode) Init(ruleConfig types.Config, configuration types.Configuratio
 func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var err error
 	if x.client == nil {
-		err = fmt.Errorf("ssh client is empty")
-		ctx.TellFailure(msg, err)
+		ctx.TellFailure(msg, SshClientNotInitErr)
 		return
 	}
 	// 获取shell 命令
 	cmd := x.Config.Cmd
 	if cmd == "" {
-		err = fmt.Errorf("cmd is empty")
-		ctx.TellFailure(msg, err)
+		ctx.TellFailure(msg, SshCmdEmptyErr)
 		return
 	}
 	metaData := msg.Metadata.Values()
