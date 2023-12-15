@@ -24,41 +24,63 @@ import (
 	"time"
 )
 
-func TestJsLogNode(t *testing.T) {
-	var targetNodeType = "log"
+func TestFunctionsNode(t *testing.T) {
+
+	//not init
+	_, ok := Functions.Get("add2")
+	assert.False(t, ok)
+
+	Functions.Register("add", func(ctx types.RuleContext, msg types.RuleMsg) {
+		msg.Metadata.PutValue("addFrom", "addFunction")
+		ctx.TellNext(msg, "fromAdd")
+	})
+
+	Functions.Register("add2", func(ctx types.RuleContext, msg types.RuleMsg) {
+		msg.Metadata.PutValue("addFrom", "addFunction2")
+		ctx.TellNext(msg, "fromAdd2")
+	})
+
+	_, ok = Functions.Get("add2")
+	assert.True(t, ok)
+	Functions.UnRegister("add2")
+
+	_, ok = Functions.Get("add2")
+	assert.False(t, ok)
+
+	var targetNodeType = "functions"
 
 	t.Run("NewNode", func(t *testing.T) {
-		test.NodeNew(t, targetNodeType, &LogNode{}, types.Configuration{
-			"jsScript": `return 'Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);`,
+		test.NodeNew(t, targetNodeType, &FunctionsNode{}, types.Configuration{
+			"functionName": "test",
 		}, Registry)
 	})
 
 	t.Run("InitNode", func(t *testing.T) {
 		test.NodeInit(t, targetNodeType, types.Configuration{
-			"jsScript": `return 'Incoming message1:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);`,
+			"functionName": "add",
 		}, types.Configuration{
-			"jsScript": `return 'Incoming message1:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);`,
+			"functionName": "add",
 		}, Registry)
 	})
 
 	t.Run("DefaultConfig", func(t *testing.T) {
 		test.NodeInit(t, targetNodeType, types.Configuration{
-			"jsScript": `return 'Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);`,
+			"functionName": "test",
 		}, types.Configuration{
-			"jsScript": `return 'Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);`,
+			"functionName": "test",
 		}, Registry)
 	})
 
 	t.Run("OnMsg", func(t *testing.T) {
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"jsScript": `return 'Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);`,
+			"functionName": "add",
 		}, Registry)
 		assert.Nil(t, err)
 		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"jsScript": `return true`,
+			"functionName": "${functionName}",
 		}, Registry)
 		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"jsScript": `return a`,
+			"functionName": "aa",
 		}, Registry)
 
 		var nodeList = []types.Node{node1, node2, node3}
@@ -66,6 +88,7 @@ func TestJsLogNode(t *testing.T) {
 		for _, node := range nodeList {
 			metaData := types.BuildMetadata(make(map[string]string))
 			metaData.PutValue("productType", "test")
+			metaData.PutValue("functionName", "add")
 			var msgList = []test.Msg{
 				{
 					MetaData:   metaData,
@@ -73,20 +96,13 @@ func TestJsLogNode(t *testing.T) {
 					Data:       "AA",
 					AfterSleep: time.Millisecond * 200,
 				},
-				{
-					MetaData:   metaData,
-					MsgType:    "ACTIVITY_EVENT",
-					Data:       "{\"name\":\"lala\"}",
-					AfterSleep: time.Millisecond * 200,
-				},
 			}
 			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
-				if node.(*LogNode).Config.JsScript == `return true` {
-					assert.Equal(t, JsLogReturnFormatErr.Error(), err2.Error())
-				} else if node.(*LogNode).Config.JsScript == `return a` {
-					assert.NotNil(t, err2)
+				if node.(*FunctionsNode).Config.FunctionName == "aa" {
+					assert.Equal(t, "can not found the function=aa", err2.Error())
 				} else {
-					assert.Equal(t, "test", msg.Metadata.GetValue("productType"))
+					assert.Equal(t, "addFunction", msg.Metadata.GetValue("addFrom"))
+					assert.Equal(t, "fromAdd", relationType)
 				}
 
 			})

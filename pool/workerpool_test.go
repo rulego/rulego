@@ -25,7 +25,10 @@ import (
 func TestWorkerPool(t *testing.T) {
 	wp := &WorkerPool{MaxWorkersCount: 200000}
 	wp.Start()
-	defer wp.Stop()
+	defer func() {
+		wp.Stop()
+		wp.Start()
+	}()
 	var n int32
 	fn := func() {
 		atomic.AddInt32(&n, 1)
@@ -41,5 +44,38 @@ func TestWorkerPool(t *testing.T) {
 
 	if n != 10000 {
 		t.Fatalf("unexpected number of served functions: %d. Expecting %d", n, 100)
+	}
+	wp.Release()
+	if wp.Submit(fn) != nil {
+		t.Fatalf("cannot submit")
+	}
+}
+
+func TestWorkerPoolWithMaxIdleWorkerD(t *testing.T) {
+	wp := &WorkerPool{MaxWorkersCount: 200000, MaxIdleWorkerDuration: time.Second * 10}
+	wp.Start()
+	defer func() {
+		wp.Stop()
+		wp.Start()
+	}()
+	var n int32
+	fn := func() {
+		atomic.AddInt32(&n, 1)
+	}
+
+	for i := 0; i < 10000; i++ {
+		if wp.Submit(fn) != nil {
+			t.Fatalf("cannot submit function #%d", i)
+		}
+	}
+
+	time.Sleep(time.Second)
+
+	if n != 10000 {
+		t.Fatalf("unexpected number of served functions: %d. Expecting %d", n, 100)
+	}
+	wp.Release()
+	if wp.Submit(fn) != nil {
+		t.Fatalf("cannot submit")
 	}
 }

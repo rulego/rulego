@@ -21,22 +21,98 @@ import (
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"testing"
+	"time"
 )
 
-func TestMqttClientNodeOnMsg(t *testing.T) {
-	var node MqttClientNode
-	var configuration = make(types.Configuration)
-	configuration["Server"] = "127.0.0.1:1883"
-	configuration["Topic"] = "/device/msg"
-	config := types.NewConfig()
-	err := node.Init(config, configuration)
-	if err != nil {
-		return
-	}
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		assert.Equal(t, types.Success, relationType)
+func TestMqttClientNode(t *testing.T) {
+	var targetNodeType = "mqttClient"
+
+	t.Run("NewNode", func(t *testing.T) {
+		test.NodeNew(t, targetNodeType, &MqttClientNode{}, types.Configuration{
+			"topic":                "/device/msg",
+			"server":               "127.0.0.1:1883",
+			"qOS":                  uint8(0),
+			"maxReconnectInterval": 60,
+		}, Registry)
 	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "{\"test\":\"AA\"}")
-	node.OnMsg(ctx, msg)
+
+	t.Run("InitNode", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{
+			"topic":                "/device/msg",
+			"server":               "127.0.0.1:1883",
+			"qOS":                  uint8(1),
+			"MaxReconnectInterval": 60,
+		}, types.Configuration{
+			"topic":                "/device/msg",
+			"server":               "127.0.0.1:1883",
+			"qOS":                  uint8(1),
+			"maxReconnectInterval": 60,
+		}, Registry)
+	})
+
+	t.Run("DefaultConfig", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{
+			"topic":                "/device/msg",
+			"server":               "127.0.0.1:1883",
+			"qOS":                  uint8(1),
+			"MaxReconnectInterval": 60,
+		}, types.Configuration{
+			"topic":                "/device/msg",
+			"server":               "127.0.0.1:1883",
+			"qOS":                  uint8(1),
+			"maxReconnectInterval": 60,
+		}, Registry)
+	})
+
+	t.Run("OnMsg", func(t *testing.T) {
+		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"topic":                "/device/msg",
+			"server":               "127.0.0.1:1883",
+			"maxReconnectInterval": -1,
+		}, Registry)
+		assert.Nil(t, err)
+
+		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"topic":  "/device/msg",
+			"server": "127.0.0.1:1884",
+		}, Registry)
+		assert.NotNil(t, err)
+
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "test")
+		msgList := []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT1",
+				Data:       "AA",
+				AfterSleep: time.Millisecond * 200,
+			},
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT2",
+				Data:       "{\"temperature\":60}",
+				AfterSleep: time.Millisecond * 200,
+			},
+		}
+
+		var nodeList = []test.NodeAndCallback{
+			{
+				Node:    node1,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+				},
+			},
+			{
+				Node:    node2,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Failure, relationType)
+				},
+			},
+		}
+		for _, item := range nodeList {
+			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
+		}
+	})
 }

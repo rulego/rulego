@@ -104,6 +104,13 @@ func NodeInit(t *testing.T, targetNodeType string, initConfig types.Configuratio
 	assert.Equal(t, len(expected), count)
 }
 
+type NodeAndCallback struct {
+	Node          types.Node
+	MsgList       []Msg
+	ChildrenNodes map[string]types.Node
+	Callback      func(msg types.RuleMsg, relationType string, err error)
+}
+
 type Msg struct {
 	MetaData types.Metadata
 	MsgType  string
@@ -114,10 +121,15 @@ type Msg struct {
 
 // NodeOnMsg 发送消息
 func NodeOnMsg(t *testing.T, node types.Node, msgList []Msg, callback func(msg types.RuleMsg, relationType string, err error)) {
+	NodeOnMsgWithChildren(t, node, msgList, nil, callback)
+}
+
+// NodeOnMsgWithChildren 发送消息
+func NodeOnMsgWithChildren(t *testing.T, node types.Node, msgList []Msg, childrenNodes map[string]types.Node, callback func(msg types.RuleMsg, relationType string, err error)) {
 
 	defer node.Destroy()
 
-	ctx := NewRuleContextFull(types.NewConfig(), node, callback)
+	ctx := NewRuleContextFull(types.NewConfig(), node, childrenNodes, callback)
 	for _, item := range msgList {
 		msg := ctx.NewMsg(item.MsgType, item.MetaData, item.Data)
 		node.OnMsg(ctx, msg)

@@ -20,71 +20,108 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
+	"os"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
 
-func TestRestApiCallNode(t *testing.T) {
-	var targetNodeType = "restApiCall"
-	headers := map[string]string{"Content-Type": "application/json"}
+func TestSshNode(t *testing.T) {
+	var targetNodeType = "ssh"
+
+	serverIp := os.Getenv("TEST_SERVER_IP")
+	serverPort := os.Getenv("TEST_SERVER_PORT")
+	if serverPort == "" {
+		serverPort = "22"
+	}
+	serverUsername := os.Getenv("TEST_SERVER_USERNAME")
+	serverPassword := os.Getenv("TEST_SERVER_PASSWORD")
+
 	t.Run("NewNode", func(t *testing.T) {
-		test.NodeNew(t, targetNodeType, &RestApiCallNode{}, types.Configuration{
-			"requestMethod":            "POST",
-			"maxParallelRequestsCount": 200,
-			"readTimeoutMs":            0,
-			"headers":                  headers,
+		test.NodeNew(t, targetNodeType, &SshNode{}, types.Configuration{
+			"host":     "127.0.0.1",
+			"port":     22,
+			"username": "root",
+			"password": "password",
 		}, Registry)
 	})
 
+	port, err := strconv.Atoi(serverPort)
+	if err != nil {
+		port = 22
+	}
 	t.Run("InitNode", func(t *testing.T) {
+		if serverIp == "" {
+			return
+		}
 		test.NodeInit(t, targetNodeType, types.Configuration{
-			"requestMethod":            "GET",
-			"maxParallelRequestsCount": 100,
-			"readTimeoutMs":            0,
-			"headers":                  headers,
+			"host":     serverIp,
+			"port":     port,
+			"username": serverUsername,
+			"password": serverPassword,
 		}, types.Configuration{
-			"requestMethod":            "GET",
-			"maxParallelRequestsCount": 100,
-			"readTimeoutMs":            0,
-			"headers":                  headers,
+			"host":     serverIp,
+			"port":     22,
+			"username": serverUsername,
+			"password": serverPassword,
 		}, Registry)
 	})
 
 	t.Run("DefaultConfig", func(t *testing.T) {
+		if serverIp == "" {
+			return
+		}
 		test.NodeInit(t, targetNodeType, types.Configuration{
-			"requestMethod":            "POST",
-			"maxParallelRequestsCount": 200,
-			"readTimeoutMs":            0,
-			"headers":                  headers,
+			"host":     serverIp,
+			"port":     22,
+			"username": serverUsername,
+			"password": serverPassword,
 		}, types.Configuration{
-			"requestMethod":            "POST",
-			"maxParallelRequestsCount": 200,
-			"readTimeoutMs":            0,
-			"headers":                  headers,
+			"host":     serverIp,
+			"port":     22,
+			"username": serverUsername,
+			"password": serverPassword,
 		}, Registry)
 	})
 
 	t.Run("OnMsg", func(t *testing.T) {
+		if serverIp == "" {
+			return
+		}
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"restEndpointUrlPattern": "https://gitee.com",
-			"requestMethod":          "POST",
+			"host":     serverIp,
+			"port":     port,
+			"username": serverUsername,
+			"password": serverPassword,
+			"cmd":      "echo \"hello world\"",
 		}, Registry)
 		assert.Nil(t, err)
 
 		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"restEndpointUrlPattern": "https://rulego.cc/",
-			"requestMethod":          "GET",
+			"host":     "127.0.0.1",
+			"Port":     22,
+			"username": "root",
+			"password": "password",
+		}, Registry)
+		assert.NotNil(t, err)
+
+		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"host":     serverIp,
+			"port":     port,
+			"username": serverUsername,
+			"password": serverPassword,
+			"cmd":      "",
 		}, Registry)
 		assert.Nil(t, err)
 
-		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"restEndpointUrlPattern": "https://rulego.xx/",
-			"requestMethod":          "GET",
-			"enableProxy":            true,
-			"proxyScheme":            "http",
-			"proxyHost":              "127.0.0.1",
-			"proxyPor":               "10809",
-		}, Registry)
+		node4 := &SshNode{}
+		err = node4.Init(types.NewConfig(), types.Configuration{})
+		assert.Equal(t, SshConfigEmptyErr.Error(), err.Error())
+		ctx := test.NewRuleContextFull(types.NewConfig(), node4, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, SshClientNotInitErr.Error(), err.Error())
+		})
+		node4.OnMsg(ctx, types.RuleMsg{})
 
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
@@ -102,22 +139,23 @@ func TestRestApiCallNode(t *testing.T) {
 				Node:    node1,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					code := msg.Metadata.GetValue(statusCode)
-					assert.Equal(t, "404", code)
+
+					assert.True(t, strings.Contains(msg.Data, "hello world"))
+					assert.Equal(t, types.Success, relationType)
 				},
 			},
 			{
 				Node:    node2,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Success, relationType)
+					assert.Equal(t, types.Failure, relationType)
 				},
 			},
 			{
 				Node:    node3,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Failure, relationType)
+					assert.Equal(t, SshCmdEmptyErr.Error(), err.Error())
 				},
 			},
 		}

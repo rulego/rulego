@@ -17,171 +17,197 @@
 package external
 
 import (
-	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
-	"github.com/rulego/rulego/utils/json"
-	"github.com/rulego/rulego/utils/str"
+	"net"
 	"testing"
 	"time"
 )
 
-// 测试mysql增删修改查
-func TestMysqlDbClientNodeOnMsg(t *testing.T) {
-	testDbClientNodeOnMsg(t, "mysql", "root:root@tcp(127.0.0.1:3306)/test")
-}
+func TestDbClientNode(t *testing.T) {
+	var targetNodeType = "dbClient"
 
-// 测试postgres增删修改查
-func TestPgDbClientNodeOnMsg(t *testing.T) {
-	testDbClientNodeOnMsg(t, "postgres", "postgres://postgres:postgres@127.0.0.1:5432/test?sslmode=disable")
-}
-func testDbClientNodeOnMsg(t *testing.T, driverName, dsn string) {
-
-	metaData := types.NewMetadata()
-	config := types.NewConfig()
-
-	var configuration = make(types.Configuration)
-	// 测试插入数据的操作
-	configuration["sql"] = "insert into users (id,name, age) values (?,?,?)"
-	configuration["params"] = []interface{}{"${id}", "${name}", "${age}"}
-	configuration["poolSize"] = 10
-	configuration["driverName"] = driverName
-	configuration["dsn"] = dsn
-
-	node := new(DbClientNode)
-
-	err := node.Init(config, configuration)
-	if err != nil {
-		return
-	}
-
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		assert.Equal(t, types.Success, relationType)
-		assert.Equal(t, "1", msg.Metadata.GetValue(rowsAffectedKey))
+	t.Run("NewNode", func(t *testing.T) {
+		test.NodeNew(t, targetNodeType, &DbClientNode{}, types.Configuration{
+			"sql":        "select * from test",
+			"driverName": "mysql",
+			"dsn":        "root:root@tcp(127.0.0.1:3306)/test",
+		}, Registry)
 	})
+	t.Run("defaultConfig", func(t *testing.T) {
+		node := &DbClientNode{}
+		err := node.Init(types.NewConfig(), types.Configuration{})
+		assert.NotNil(t, err)
+		assert.Equal(t, "mysql", node.Config.DriverName)
+
+		node2 := &DbClientNode{}
+		err = node2.Init(types.NewConfig(), types.Configuration{"sql": "xx"})
+		assert.Equal(t, "unsupported sql statement: xx", err.Error())
+	})
+
+	t.Run("OnMsgMysql", func(t *testing.T) {
+		testDbClientNodeOnMsg(t, targetNodeType, "mysql", "root:root@tcp(127.0.1.1:3306)/test")
+	})
+	t.Run("OnMsgPostgres", func(t *testing.T) {
+		testDbClientNodeOnMsg(t, targetNodeType, "postgres", "postgres://postgres:postgres@127.0.1.1:5432/test?sslmode=disable")
+	})
+}
+
+func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string) {
+
+	node1 := &DbClientNode{}
+	err := node1.Init(types.NewConfig(), types.Configuration{})
+	assert.NotNil(t, err)
+	assert.Equal(t, "mysql", node1.Config.DriverName)
+
+	node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "insert into users (id,name, age) values (?,?,?)",
+		"params":     []interface{}{"${id}", "${name}", 18},
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+
+	node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "update users set age = ? where id = ?",
+		"params":     []interface{}{"${age}", "${id}"},
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+
+	node4, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "select id,name,age from users",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+
+	node5, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "select * from users where id = ?",
+		"params":     []interface{}{"${id}"},
+		"getOne":     true,
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	node6, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "delete from users",
+		"params":     nil,
+		"poolSize":   10,
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+
+	metaData := types.BuildMetadata(make(map[string]string))
 	metaData.PutValue("id", "1")
 	metaData.PutValue("name", "test01")
 	metaData.PutValue("age", "18")
-	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "")
-	node.OnMsg(ctx, msg)
-	time.Sleep(time.Second)
-	//插入第二条
-	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		assert.Equal(t, types.Success, relationType)
-		assert.Equal(t, "1", msg.Metadata.GetValue(rowsAffectedKey))
-	})
-	metaData.PutValue("id", "2")
-	metaData.PutValue("name", "test02")
-	metaData.PutValue("age", "35")
-	msg = ctx.NewMsg("TEST_MSG_TYPE_BB", metaData, "")
-	node.OnMsg(ctx, msg)
 
-	// 测试查询一条记录的操作
-	configuration["sql"] = "select * from users where id = ?"
-	configuration["params"] = []interface{}{"${id}"}
-	configuration["getOne"] = true
-	configuration["poolSize"] = 10
-	configuration["driverName"] = driverName
-	configuration["dsn"] = dsn
+	updateMetaData := types.BuildMetadata(make(map[string]string))
+	updateMetaData.PutValue("id", "1")
+	updateMetaData.PutValue("name", "test01")
+	updateMetaData.PutValue("age", "21")
 
-	node = new(DbClientNode)
-	err = node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
+	msgList := []test.Msg{
+		{
+			MetaData:   metaData,
+			MsgType:    "ACTIVITY_EVENT2",
+			Data:       "{\"temperature\":60}",
+			AfterSleep: time.Millisecond * 200,
+		},
 	}
 
-	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		// 检查查询结果是否正确
-		assert.Equal(t, types.Success, relationType)
-		var result map[string]interface{}
-		_ = json.Unmarshal([]byte(msg.Data), &result)
-		assert.Equal(t, "1", str.ToString(result["id"]))
-		assert.Equal(t, "test01", result["name"])
-		fmt.Println(msg.Data)
-	})
-
-	metaData.PutValue("id", "1")
-	msg = ctx.NewMsg("TEST_MSG_TYPE_CC", metaData, "")
-	node.OnMsg(ctx, msg)
-
-	// 测试查询多条记录的操作
-	//不使用占位符参数
-	configuration["sql"] = "select * from users where age >= ${age}"
-	configuration["params"] = nil
-	configuration["getOne"] = false
-	configuration["poolSize"] = 10
-	configuration["driverName"] = driverName
-	configuration["dsn"] = dsn
-
-	node = new(DbClientNode)
-	err = node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
+	var nodeList = []test.NodeAndCallback{
+		{
+			Node:    node1,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				assert.Equal(t, types.Failure, relationType)
+				assert.Equal(t, "unsupported sql statement: ", err.Error())
+			},
+		},
+		{
+			Node:    node2,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				if err != nil {
+					if _, ok := err.(*net.OpError); ok {
+						// skip test
+					} else {
+						t.Fatal("bad", err.Error())
+					}
+				} else {
+					assert.Equal(t, "1", msg.Metadata.GetValue(rowsAffectedKey))
+				}
+			},
+		},
+		{
+			Node: node3,
+			MsgList: []test.Msg{
+				{
+					MetaData:   updateMetaData,
+					MsgType:    "ACTIVITY_EVENT2",
+					Data:       "{\"temperature\":60}",
+					AfterSleep: time.Millisecond * 200,
+				},
+			},
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				if err != nil {
+					if _, ok := err.(*net.OpError); ok {
+						// skip test
+					} else {
+						t.Fatal("bad", err.Error())
+					}
+				} else {
+					assert.Equal(t, "1", msg.Metadata.GetValue(rowsAffectedKey))
+				}
+			},
+		},
+		{
+			Node:    node4,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				if err != nil {
+					if _, ok := err.(*net.OpError); ok {
+						// skip test
+					} else {
+						t.Fatal("bad", err.Error())
+					}
+				} else {
+					assert.Equal(t, "[{\"age\":\"21\",\"id\":\"1\",\"name\":\"test01\"}]", msg.Data)
+				}
+			},
+		},
+		{
+			Node:    node5,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				if err != nil {
+					if _, ok := err.(*net.OpError); ok {
+						// skip test
+					} else {
+						t.Fatal("bad", err.Error())
+					}
+				} else {
+					assert.Equal(t, "{\"age\":21,\"id\":1,\"name\":\"test01\"}", msg.Data)
+				}
+			},
+		},
+		{
+			Node:    node6,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				if err != nil {
+					if _, ok := err.(*net.OpError); ok {
+						// skip test
+					} else {
+						t.Fatal("bad", err.Error())
+					}
+				} else {
+					assert.Equal(t, "1", msg.Metadata.GetValue(rowsAffectedKey))
+				}
+			},
+		},
 	}
-
-	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		// 检查查询结果是否正确
-		assert.Equal(t, types.Success, relationType)
-		var result []map[string]interface{}
-		_ = json.Unmarshal([]byte(msg.Data), &result)
-		assert.Equal(t, 2, len(result))
-		fmt.Println(msg.Data)
-	})
-
-	metaData.PutValue("age", "10")
-	msg = ctx.NewMsg("TEST_MSG_TYPE_DD", metaData, "")
-	node.OnMsg(ctx, msg)
-
-	// 测试修改数据的操作
-	configuration["sql"] = "update users set age = ? where id = ?"
-	configuration["params"] = []interface{}{"${age}", "${id}"}
-	configuration["poolSize"] = 10
-	configuration["driverName"] = driverName
-	configuration["dsn"] = dsn
-
-	node = new(DbClientNode)
-	err = node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
+	for _, item := range nodeList {
+		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 	}
-
-	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		// 检查查询结果是否正确
-		assert.Equal(t, types.Success, relationType)
-		assert.Equal(t, "1", msg.Metadata.GetValue(rowsAffectedKey))
-	})
-
-	metaData.PutValue("id", "1")
-	metaData.PutValue("age", "21")
-
-	msg = ctx.NewMsg("TEST_MSG_TYPE_EE", metaData, "")
-	node.OnMsg(ctx, msg)
-
-	// 测试删除数据的操作
-	configuration["sql"] = "delete from users"
-	configuration["params"] = nil
-	configuration["poolSize"] = 10
-	configuration["driverName"] = driverName
-	configuration["dsn"] = dsn
-
-	node = new(DbClientNode)
-	err = node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-
-	ctx = test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		// 检查查询结果是否正确
-		assert.Equal(t, types.Success, relationType)
-		assert.Equal(t, "2", msg.Metadata.GetValue(rowsAffectedKey))
-	})
-
-	metaData.PutValue("id", "1")
-	metaData.PutValue("age", "21")
-
-	msg = ctx.NewMsg("TEST_MSG_TYPE_EE", metaData, "")
-	node.OnMsg(ctx, msg)
-
-	time.Sleep(time.Second * 2)
 }

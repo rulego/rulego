@@ -73,6 +73,9 @@ func TestPlugin(t *testing.T) {
 	err = Registry.RegisterPlugin("test", testPluginFile)
 	assert.Nil(t, err)
 
+	err = Registry.RegisterPlugin("test_not_found", "not found")
+	assert.NotNil(t, err)
+
 	maxTimes := 1
 	var group sync.WaitGroup
 	group.Add(maxTimes)

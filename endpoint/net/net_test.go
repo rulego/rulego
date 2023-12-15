@@ -251,7 +251,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	//启动服务
 	err = ep.Start()
 
-	if err != nil && err != endpoint.EndpointStopErr {
+	if err != nil && err != endpoint.StopErr {
 		t.Fatal(err)
 	}
 	assert.Equal(t, int32(5), router1Count)

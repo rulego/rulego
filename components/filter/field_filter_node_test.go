@@ -21,105 +21,157 @@ import (
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"testing"
+	"time"
 )
 
-func TestFieldFilterOnMsg1(t *testing.T) {
+func TestFieldFilterNode(t *testing.T) {
+	var targetNodeType = "fieldFilter"
 
-	var node FieldFilterNode
-	var configuration = make(types.Configuration)
-	configuration["checkAllKeys"] = true
-	configuration["dataNames"] = "temperature"
-	configuration["metadataNames"] = "productType,name"
-	config := types.NewConfig()
-	err := node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		if err2 != nil {
-			t.Errorf("err=%s", err)
-		}
-		assert.Equal(t, types.True, relationType)
+	t.Run("NewNode", func(t *testing.T) {
+		test.NodeNew(t, targetNodeType, &FieldFilterNode{}, types.Configuration{}, Registry)
 	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	metaData.PutValue("productType", "A001")
-	metaData.PutValue("name", "A001")
-	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, `{"temperature":56}`)
-	node.OnMsg(ctx, msg)
-}
-func TestFieldFilterOnMsg2(t *testing.T) {
 
-	var node FieldFilterNode
-	var configuration = make(types.Configuration)
-	configuration["checkAllKeys"] = true
-	configuration["dataNames"] = "temperature"
-	configuration["metadataNames"] = "productType,name,location"
-	config := types.NewConfig()
-	err := node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		if err2 != nil {
-			t.Errorf("err=%s", err)
-		}
-		assert.Equal(t, types.False, relationType)
+	t.Run("InitNode", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{}, types.Configuration{}, Registry)
 	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	metaData.PutValue("productType", "A001")
-	metaData.PutValue("name", "A001")
-	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, `{"temperature":56}`)
-	node.OnMsg(ctx, msg)
-}
 
-func TestFieldFilterOnMsg3(t *testing.T) {
-
-	var node FieldFilterNode
-	var configuration = make(types.Configuration)
-	configuration["checkAllKeys"] = false
-	configuration["dataNames"] = "temperature"
-	configuration["metadataNames"] = "productType,name,location"
-	config := types.NewConfig()
-	err := node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		if err2 != nil {
-			t.Errorf("err=%s", err)
-		}
-		assert.Equal(t, types.True, relationType)
+	t.Run("DefaultConfig", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{}, types.Configuration{}, Registry)
 	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	metaData.PutValue("productType", "A001")
-	metaData.PutValue("name", "A001")
-	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, `{"temperature":56}`)
-	node.OnMsg(ctx, msg)
-}
 
-func TestFieldFilterOnMsg4(t *testing.T) {
-
-	var node FieldFilterNode
-	var configuration = make(types.Configuration)
-	configuration["checkAllKeys"] = false
-	configuration["dataNames"] = "temperature"
-	configuration["metadataNames"] = "productType,name,location"
-	config := types.NewConfig()
-	err := node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		if err2 != nil {
-			t.Errorf("err=%s", err)
-		}
-		assert.Equal(t, types.True, relationType)
+	t.Run("Check", func(t *testing.T) {
+		node, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"checkAllKeys":  false,
+			"dataNames":     "temperature,temp",
+			"metadataNames": "productType,name,location",
+		}, Registry)
+		assert.False(t, node.(*FieldFilterNode).checkAllKeysData(nil))
+		assert.False(t, node.(*FieldFilterNode).checkAllKeysData(map[string]interface{}{
+			"temp": 40,
+		}))
+		assert.False(t, node.(*FieldFilterNode).checkAtLeastOneData(nil))
+		assert.True(t, node.(*FieldFilterNode).checkAtLeastOneData(map[string]interface{}{
+			"temp": 40,
+		}))
 	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, `{"temperature":56}`)
-	node.OnMsg(ctx, msg)
+
+	t.Run("OnMsg1", func(t *testing.T) {
+		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"checkAllKeys":  true,
+			"dataNames":     "temperature",
+			"metadataNames": "productType,name",
+		}, Registry)
+		assert.Nil(t, err)
+
+		var nodeList = []types.Node{node1}
+
+		for _, node := range nodeList {
+			metaData := types.BuildMetadata(make(map[string]string))
+			metaData.PutValue("productType", "A001")
+			metaData.PutValue("name", "A001")
+
+			var msgList = []test.Msg{
+				{
+					MetaData:   metaData,
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "{\"temperature\":40}",
+					AfterSleep: time.Millisecond * 200,
+				},
+			}
+			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+				assert.Equal(t, types.True, relationType)
+			})
+		}
+	})
+
+	t.Run("OnMsg2", func(t *testing.T) {
+
+		node2, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"checkAllKeys":  true,
+			"dataNames":     "temperature",
+			"metadataNames": "productType,name,location",
+		}, Registry)
+
+		var nodeList = []types.Node{node2}
+
+		for _, node := range nodeList {
+			metaData := types.BuildMetadata(make(map[string]string))
+			metaData.PutValue("productType", "A001")
+			metaData.PutValue("name", "A001")
+
+			var msgList = []test.Msg{
+				{
+					MetaData:   metaData,
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "{\"temperature\":40}",
+					AfterSleep: time.Millisecond * 200,
+				},
+			}
+			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+				assert.Equal(t, types.False, relationType)
+			})
+		}
+	})
+
+	t.Run("OnMsg3", func(t *testing.T) {
+		node3, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"checkAllKeys":  false,
+			"dataNames":     "temperature",
+			"metadataNames": "productType,name,location",
+		}, Registry)
+
+		var nodeList = []types.Node{node3}
+
+		for _, node := range nodeList {
+			metaData := types.BuildMetadata(make(map[string]string))
+			metaData.PutValue("productType", "A001")
+			metaData.PutValue("name", "A001")
+
+			var msgList = []test.Msg{
+				{
+					MetaData:   metaData,
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "{\"temperature2\":40}",
+					AfterSleep: time.Millisecond * 200,
+				},
+			}
+			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+				assert.Equal(t, types.True, relationType)
+			})
+		}
+	})
+
+	t.Run("OnMsg4", func(t *testing.T) {
+		node3, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"checkAllKeys":  false,
+			"dataNames":     "temperature",
+			"metadataNames": "productType,name,location",
+		}, Registry)
+
+		var nodeList = []types.Node{node3}
+
+		for _, node := range nodeList {
+			var msgList = []test.Msg{
+				{
+					MetaData:   types.BuildMetadata(make(map[string]string)),
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "aa",
+					AfterSleep: time.Millisecond * 200,
+				},
+				{
+					MetaData:   types.BuildMetadata(make(map[string]string)),
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "{\"temperature2\":40}",
+					AfterSleep: time.Millisecond * 200,
+				},
+			}
+			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+				if msg.Data == "aa" {
+					assert.Equal(t, types.Failure, relationType)
+				} else {
+					assert.Equal(t, types.False, relationType)
+				}
+			})
+		}
+	})
 }

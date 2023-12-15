@@ -18,7 +18,9 @@ package test
 
 import (
 	"context"
+	"errors"
 	"github.com/rulego/rulego/api/types"
+	"sync"
 	"time"
 )
 
@@ -36,6 +38,8 @@ type NodeTestRuleContext struct {
 	//所有子节点处理完成事件，只执行一次
 	onAllNodeCompleted func()
 	onEndFunc          types.OnEndFunc
+
+	childrenNodes sync.Map
 }
 
 func NewRuleContext(config types.Config, callback func(msg types.RuleMsg, relationType string, err error)) types.RuleContext {
@@ -45,14 +49,20 @@ func NewRuleContext(config types.Config, callback func(msg types.RuleMsg, relati
 		callback: callback,
 	}
 }
-func NewRuleContextFull(config types.Config, self types.Node, callback func(msg types.RuleMsg, relationType string, err error)) types.RuleContext {
-	return &NodeTestRuleContext{
+
+func NewRuleContextFull(config types.Config, self types.Node, childrenNodes map[string]types.Node, callback func(msg types.RuleMsg, relationType string, err error)) types.RuleContext {
+	ctx := &NodeTestRuleContext{
 		config:   config,
 		self:     self,
 		callback: callback,
 		context:  context.TODO(),
 	}
+	for k, v := range childrenNodes {
+		ctx.childrenNodes.Store(k, v)
+	}
+	return ctx
 }
+
 func (ctx *NodeTestRuleContext) TellSuccess(msg types.RuleMsg) {
 	ctx.callback(msg, types.Success, nil)
 	if ctx.onEndFunc != nil {
@@ -125,6 +135,12 @@ func (ctx *NodeTestRuleContext) GetContext() context.Context {
 
 func (ctx *NodeTestRuleContext) TellFlow(msg types.RuleMsg, chainId string, endFunc types.OnEndFunc, onAllNodeCompleted func()) {
 
+	if chainId == "" {
+		endFunc(ctx, msg, errors.New("chainId can not nil"), types.Failure)
+	} else {
+		endFunc(ctx, msg, nil, types.Success)
+		onAllNodeCompleted()
+	}
 }
 
 // SetOnAllNodeCompleted 设置所有节点执行完回调
@@ -134,7 +150,14 @@ func (ctx *NodeTestRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func())
 
 // ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
 func (ctx *NodeTestRuleContext) ExecuteNode(context context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, callback types.OnEndFunc) {
-
+	if v, ok := ctx.childrenNodes.Load(nodeId); ok {
+		subCtx := NewRuleContext(ctx.config, func(msg types.RuleMsg, relationType string, err error) {
+			callback(ctx, msg, err, relationType)
+		})
+		v.(types.Node).OnMsg(subCtx, msg)
+	} else {
+		callback(ctx, msg, errors.New("not found nodeId="+nodeId), types.Failure)
+	}
 }
 
 func (ctx *NodeTestRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationType string) {
