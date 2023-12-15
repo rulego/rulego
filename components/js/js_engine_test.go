@@ -55,7 +55,65 @@ func TestJsEngine(t *testing.T) {
 		msg["returnFromGo"] = "returnFromGo"
 		return msg
 	})
+	config.RegisterUdf("timeoutFunc", func(msg map[string]string, metadata map[string]string, msgType string) map[string]string {
+		time.Sleep(3 * time.Second)
+		return msg
+	})
+	//注册原生JS脚本
+	//使用 isNumber(xx)
+	config.RegisterUdf("isNumberScript", `function isNumber(value){
+			return typeof value === "number";
+		}
+	`)
+	// 使用：utilsFunc.dateFormat(new Date(), "yyyyMMddhh")
+	config.RegisterUdf(
+		"utilsFunScript", types.Script{
+			Type: types.Js,
+			Content: `var utilsFunc={
+						dateFormat:function(date,fmt){
+						   var o = {
+							 "M+": date.getMonth() + 1,
+							 /*月份*/ "d+": date.getDate(),
+							 /*日*/ "h+": date.getHours(),
+							 /*小时*/ "m+": date.getMinutes(),
+							 /*分*/ "s+": date.getSeconds(),
+							 /*秒*/ "q+": Math.floor((date.getMonth() + 3) / 3),
+							 /*季度*/ S: date.getMilliseconds() /*毫秒*/,
+						   };
+						   fmt = fmt.replace(/(y+)/, function(match, group) {
+							 return (date.getFullYear() + "").substr(4 - group.length); 
+						   });
+						   for (var k in o) {
+							 fmt = fmt.replace(new RegExp("(" + k + ")"), function(match, group) { 
+							   return group.length == 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length); 
+							 });
+						   }
+						   return fmt;
+						},
+						isArray:function(arg){
+						  if (typeof Array.isArray === 'undefined') {
+							return Object.prototype.toString.call(arg) === '[object Array]'
+							}
+							return Array.isArray(arg)
+						},
+						isObject: function(value){
+							if (!data || this.isArray(data)) {
+							  return false;
+							}
+							return data instanceof Object;
+						},
+						isNumber: function(value){
+							return typeof value === "number";
+						},
+					}
+				`,
+		},
+	)
 	jsEngine := NewGojaJsEngine(config, jsScript, nil)
+	assert.NotNil(t, jsEngine)
+
+	jsEngine = NewGojaJsEngine(config, jsScript, map[string]interface{}{"username": "lala"})
+	defer jsEngine.Stop()
 	jsEngine.config.Logger.Printf("用时1：%s", time.Since(start))
 	var group sync.WaitGroup
 	group.Add(10)
@@ -66,7 +124,9 @@ func TestJsEngine(t *testing.T) {
 	}
 	group.Wait()
 
+	_ = NewGojaJsEngine(config, jsScript, nil)
 }
+
 func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.WaitGroup) {
 	metadata := map[string]interface{}{
 		"aa": "test",
@@ -90,6 +150,12 @@ func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.
 		response, err = jsEngine.Execute("CallGolangFunc2", metadata, metadata, "testMsgType")
 		assert.Nil(t, err)
 		assert.Equal(t, "returnFromGo", response.(map[string]string)["returnFromGo"])
+
+		response, err = jsEngine.Execute("timeoutFunc", metadata, metadata, "testMsgType")
+
+		response, err = jsEngine.Execute("aa", metadata, metadata, "testMsgType")
+		assert.NotNil(t, err)
+
 	} else {
 		response, err = jsEngine.Execute("Filter", "aa", metadata, "aa")
 		assert.Nil(t, err)

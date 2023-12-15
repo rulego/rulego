@@ -54,7 +54,12 @@ func TestGetComponentsFields(t *testing.T) {
 	}
 
 	nodes := Registry.GetComponents()
+	length := len(nodes)
 	assert.True(t, len(nodes) > 0)
+
+	Registry.Unregister("test/configHasPtr")
+	lengthNew := len(Registry.GetComponents())
+	assert.Equal(t, length-1, lengthNew)
 }
 
 //以下是测试组件

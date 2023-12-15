@@ -26,11 +26,18 @@ import (
 
 // TestRuleGo 测试加载规则链文件夹
 func TestRuleGo(t *testing.T) {
+
 	//注册自定义组件
 	_ = Registry.Register(&test.UpperNode{})
 	_ = Registry.Register(&test.TimeNode{})
-	myRuleGo := &RuleGo{}
 
+	err := Load("./api/")
+	_, err = New("aa", []byte(ruleChainFile))
+	assert.Nil(t, err)
+	_, err = New("aa", []byte(ruleChainFile))
+	assert.Nil(t, err)
+
+	myRuleGo := &RuleGo{}
 	config := NewConfig()
 	chainHasSubChainNodeDone := false
 	chainMsgTypeSwitchDone := false
@@ -42,7 +49,7 @@ func TestRuleGo(t *testing.T) {
 			chainMsgTypeSwitchDone = true
 		}
 	}
-	err := myRuleGo.Load("./testdata/aa.txt", WithConfig(config))
+	err = myRuleGo.Load("./testdata/aa.txt", WithConfig(config))
 	assert.NotNil(t, err)
 	err = myRuleGo.Load("./testdata/aa", WithConfig(config))
 	assert.NotNil(t, err)

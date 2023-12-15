@@ -51,6 +51,11 @@ func main() {
 			return typeof value === "number";
 		}
 	`)
+
+	config.RegisterUdf("err", `function err(value){
+			return a;
+		}
+	`)
 	// 使用：utilsFunc.dateFormat(new Date(), "yyyyMMddhh")
 	config.RegisterUdf(
 		"utilsFunScript", types.Script{

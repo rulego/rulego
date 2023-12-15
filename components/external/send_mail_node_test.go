@@ -19,87 +19,146 @@ package external
 import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
-	"github.com/rulego/rulego/utils/maps"
-	"sync"
+	"github.com/rulego/rulego/test/assert"
 	"testing"
+	"time"
 )
 
-func TestSendEmailNodeWithTls(t *testing.T) {
-	var sendEmailNode SendEmailNode
-	node := sendEmailNode.New()
-	email := Email{
-		From:    "xx@163.com",
-		To:      "xx@163.com",
-		Cc:      "",
-		Subject: "测试邮件4",
-		Body:    "<b>测试内容4</b>",
+func TestSendEmailNode(t *testing.T) {
+	var targetNodeType = "sendEmail"
+	email := types.Configuration{
+		"from":    "xx@163.com",
+		"to":      "xx@163.com",
+		"cc":      "xx@163.com",
+		"bcc":     "xx@163.com",
+		"subject": "测试邮件4",
+		"body":    "<b>测试内容4</b>",
 	}
-	mailConfig := SendEmailConfiguration{
-		SmtpHost:  "smtp.163.com",
-		SmtpPort:  465,
-		Username:  "xx@163.com",
-		Password:  "xx",
-		EnableTls: true,
-		Email:     email,
+	mailConfigWithTls := types.Configuration{
+		"smtpHost":  "smtp.163.com",
+		"smtpPort":  465,
+		"username":  "xx@163.com",
+		"password":  "xx",
+		"enableTls": true,
+		"email":     email,
 	}
-	var configuration = make(types.Configuration)
+	mailConfigWithNotTls := types.Configuration{
+		"smtpHost":  "smtp.163.com",
+		"smtpPort":  25,
+		"username":  "xx@163.com",
+		"password":  "xx",
+		"enableTls": false,
+		"email":     email,
+	}
 
-	err := maps.Map2Struct(&mailConfig, &configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-	config := types.NewConfig()
-	err = node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-	var group sync.WaitGroup
-	group.Add(1)
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		group.Done()
+	t.Run("NewNode", func(t *testing.T) {
+		test.NodeNew(t, targetNodeType, &SendEmailNode{}, types.Configuration{
+			"connectTimeout": 10,
+		}, Registry)
 	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	msg := ctx.NewMsg("TEST_MSG_TYPE", metaData, "aa")
-	node.OnMsg(ctx, msg)
-	group.Wait()
-}
 
-//func TestSendEmailNode(t *testing.T) {
-//	var sendEmailNode SendEmailNode
-//	node := sendEmailNode.New()
-//	email := Email{
-//		From:    "xx@163.com",
-//		To:      "xx@163.com",
-//		Cc:      "",
-//		Subject: "测试邮件3",
-//		Body:    "<b>测试内容3</b>",
-//	}
-//	mailConfig := SendEmailConfiguration{
-//		SmtpHost:  "smtp.163.com",
-//		SmtpPort:  25,
-//		Username:  "xx@163.com",
-//		Password:  "xx",
-//		EnableTls: false,
-//		Email:     email,
-//	}
-//	var configuration = make(types.Configuration)
-//
-//	err := maps.Map2Struct(&mailConfig, &configuration)
-//	if err != nil {
-//		t.Errorf("err=%s", err)
-//	}
-//	config := types.NewConfig()
-//	err = node.Init(config, configuration)
-//	if err != nil {
-//		t.Errorf("err=%s", err)
-//	}
-//	var group sync.WaitGroup
-//	group.Add(1)
-//	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-//		group.Done()
-//	})
-//	metaData := types.BuildMetadata(make(map[string]string))
-//	msg := ctx.NewMsg("TEST_MSG_TYPE", metaData, "aa")
-//	node.OnMsg(ctx, msg)
-//	group.Wait()
-//}
+	t.Run("InitNode", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, mailConfigWithTls, types.Configuration{
+			"smtpHost":  "smtp.163.com",
+			"smtpPort":  465,
+			"username":  "xx@163.com",
+			"password":  "xx",
+			"enableTls": true,
+			"email": Email{
+				From:    "xx@163.com",
+				To:      "xx@163.com",
+				Cc:      "xx@163.com",
+				Bcc:     "xx@163.com",
+				Subject: "测试邮件4",
+				Body:    "<b>测试内容4</b>",
+			},
+		}, Registry)
+	})
+
+	t.Run("DefaultConfig", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{
+			"connectTimeout": 10,
+			"email":          email,
+		}, types.Configuration{
+			"connectTimeout": 10,
+			"email": Email{
+				From:    "xx@163.com",
+				To:      "xx@163.com",
+				Cc:      "xx@163.com",
+				Bcc:     "xx@163.com",
+				Subject: "测试邮件4",
+				Body:    "<b>测试内容4</b>",
+			},
+		}, Registry)
+	})
+
+	t.Run("OnMsg", func(t *testing.T) {
+		node1, err := test.CreateAndInitNode(targetNodeType, mailConfigWithTls, Registry)
+		assert.Nil(t, err)
+
+		node2, err := test.CreateAndInitNode(targetNodeType, mailConfigWithNotTls, Registry)
+		assert.Nil(t, err)
+		mailConfigHostErr := types.Configuration{
+			"smtpHost":  "smtp.xx.com",
+			"smtpPort":  25,
+			"username":  "xx@163.com",
+			"password":  "xx",
+			"enableTls": false,
+			"email":     email,
+		}
+		node3, err := test.CreateAndInitNode(targetNodeType, mailConfigHostErr, Registry)
+
+		_, err = test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"smtpHost":  "smtp.163.com",
+			"smtpPort":  25,
+			"username":  "xx@163.com",
+			"password":  "xx",
+			"enableTls": false,
+		}, Registry)
+		assert.NotNil(t, err)
+
+		node4 := SendEmailNode{
+			Config: SendEmailConfiguration{ConnectTimeout: -1},
+		}
+		node4.Init(types.NewConfig(), mailConfigWithTls)
+		assert.Equal(t, 10, node4.Config.ConnectTimeout)
+
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "test")
+		msgList := []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT2",
+				Data:       "{\"temperature\":60}",
+				AfterSleep: time.Millisecond * 200,
+			},
+		}
+
+		var nodeList = []test.NodeAndCallback{
+			{
+				Node:    node1,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Failure, relationType)
+				},
+			},
+			{
+				Node:    node2,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Failure, relationType)
+				},
+			},
+			{
+				Node:    node3,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Failure, relationType)
+				},
+			},
+		}
+		for _, item := range nodeList {
+			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
+		}
+	})
+}

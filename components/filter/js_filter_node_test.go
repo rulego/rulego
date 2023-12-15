@@ -21,36 +21,84 @@ import (
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"testing"
+	"time"
 )
 
-func TestJsFilterNodeOnMsg(t *testing.T) {
-	var node JsFilterNode
-	var configuration = make(types.Configuration)
-	configuration["jsScript"] = `
-		//测试注释
-		return msg=='AA';
-  	`
-	config := types.NewConfig()
-	err := node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
+func TestJsFilterNode(t *testing.T) {
+	var targetNodeType = "jsFilter"
 
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		if err2 != nil {
-			t.Errorf("err=%s", err)
-		}
-		if msg.Type == "TEST_MSG_TYPE_AA" {
-			assert.Equal(t, "True", relationType)
-		} else if msg.Type == "TEST_MSG_TYPE_BB" {
-			assert.Equal(t, "False", relationType)
-		}
-
+	t.Run("NewNode", func(t *testing.T) {
+		test.NodeNew(t, targetNodeType, &JsFilterNode{}, types.Configuration{
+			"jsScript": "return msg.temperature > 50;",
+		}, Registry)
 	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "AA")
-	node.OnMsg(ctx, msg)
 
-	msg2 := ctx.NewMsg("TEST_MSG_TYPE_BB", metaData, "BB")
-	node.OnMsg(ctx, msg2)
+	t.Run("InitNode", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{
+			"jsScript": "return msg.temperature > 50;",
+		}, types.Configuration{
+			"jsScript": "return msg.temperature > 50;",
+		}, Registry)
+	})
+
+	t.Run("DefaultConfig", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{
+			"jsScript": "return msg.temperature > 50;",
+		}, types.Configuration{
+			"jsScript": "return msg.temperature > 50;",
+		}, Registry)
+	})
+
+	t.Run("OnMsg", func(t *testing.T) {
+		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"jsScript": "return msg.temperature > 50;",
+		}, Registry)
+		assert.Nil(t, err)
+		node2, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"jsScript": `return 1`,
+		}, Registry)
+		node3, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"jsScript": `return a`,
+		}, Registry)
+
+		var nodeList = []types.Node{node1, node2, node3}
+
+		for _, node := range nodeList {
+			metaData := types.BuildMetadata(make(map[string]string))
+			metaData.PutValue("productType", "test")
+			var msgList = []test.Msg{
+				{
+					MetaData:   metaData,
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "AA",
+					AfterSleep: time.Millisecond * 200,
+				},
+				{
+					MetaData:   metaData,
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "{\"temperature\":60}",
+					AfterSleep: time.Millisecond * 200,
+				},
+				{
+					MetaData:   metaData,
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "{\"temperature\":40}",
+					AfterSleep: time.Millisecond * 200,
+				},
+			}
+			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+				if node.(*JsFilterNode).Config.JsScript == `return 1` {
+					assert.Equal(t, "False", relationType)
+				} else if node.(*JsFilterNode).Config.JsScript == `return a` {
+					assert.NotNil(t, err2)
+				} else if msg.Data == "{\"temperature\":60}" {
+
+					assert.Equal(t, "True", relationType)
+				} else {
+					assert.Equal(t, "False", relationType)
+				}
+
+			})
+		}
+	})
 }

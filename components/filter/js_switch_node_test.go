@@ -21,34 +21,75 @@ import (
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"testing"
+	"time"
 )
 
-func TestJsSwitchNodeOnMsg(t *testing.T) {
-	var node JsSwitchNode
-	var configuration = make(types.Configuration)
-	configuration["jsScript"] = `
-		//测试注释
-		return ['one','two'];
-  	`
-	config := types.NewConfig()
-	err := node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-	var i = 0
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		if err2 != nil {
-			t.Errorf("err=%s", err)
-		}
-		if i == 0 {
-			assert.Equal(t, "one", relationType)
-		} else if i == 1 {
-			assert.Equal(t, "two", relationType)
-		}
-		i++
+func TestJsSwitchNode(t *testing.T) {
+	var targetNodeType = "jsSwitch"
 
+	t.Run("NewNode", func(t *testing.T) {
+		test.NodeNew(t, targetNodeType, &JsSwitchNode{}, types.Configuration{
+			"jsScript": `return ['msgType1','msgType2'];`,
+		}, Registry)
 	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	msg := ctx.NewMsg("ACTIVITY_EVENT", metaData, "AA")
-	node.OnMsg(ctx, msg)
+
+	t.Run("InitNode", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{
+			"jsScript": `return ['msgType1','msgType2'];`,
+		}, types.Configuration{
+			"jsScript": `return ['msgType1','msgType2'];`,
+		}, Registry)
+	})
+
+	t.Run("DefaultConfig", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{
+			"jsScript": `return ['msgType1','msgType2'];`,
+		}, types.Configuration{
+			"jsScript": `return ['msgType1','msgType2'];`,
+		}, Registry)
+	})
+
+	t.Run("OnMsg", func(t *testing.T) {
+		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"jsScript": "return ['one','two'];",
+		}, Registry)
+		assert.Nil(t, err)
+		node2, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"jsScript": `return 1`,
+		}, Registry)
+		node3, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"jsScript": `return a`,
+		}, Registry)
+
+		var nodeList = []types.Node{node1, node2, node3}
+
+		for _, node := range nodeList {
+			metaData := types.BuildMetadata(make(map[string]string))
+			metaData.PutValue("productType", "test")
+			var msgList = []test.Msg{
+				{
+					MetaData:   metaData,
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "AA",
+					AfterSleep: time.Millisecond * 200,
+				},
+				{
+					MetaData:   metaData,
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "{\"temperature\":60}",
+					AfterSleep: time.Millisecond * 200,
+				},
+			}
+			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+				if node.(*JsSwitchNode).Config.JsScript == `return 1` {
+					assert.Equal(t, JsSwitchReturnFormatErr.Error(), err2.Error())
+				} else if node.(*JsSwitchNode).Config.JsScript == `return a` {
+					assert.NotNil(t, err2)
+				} else {
+					assert.True(t, relationType == "one" || relationType == "two")
+				}
+
+			})
+		}
+	})
 }

@@ -21,31 +21,77 @@ import (
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"testing"
+	"time"
 )
 
-func TestJsTransformNodeOnMsg(t *testing.T) {
-	var node JsTransformNode
-	var configuration = make(types.Configuration)
-	configuration["jsScript"] = `
-		metadata['test']='test02';
-		metadata['index']=52;
-		msgType='TEST_MSG_TYPE2';
-		var msg2={};
-		msg2['bb']=22
-		return {'msg':msg2,'metadata':metadata,'msgType':msgType};
-  	`
-	config := types.NewConfig()
-	err := node.Init(config, configuration)
-	if err != nil {
-		t.Errorf("err=%s", err)
-	}
-	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		assert.Equal(t, "{\"bb\":22}", msg.Data)
-		assert.Equal(t, "TEST_MSG_TYPE2", msg.Type)
-		assert.Equal(t, types.Success, relationType)
-	})
-	metaData := types.BuildMetadata(make(map[string]string))
-	msg := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "AA")
-	node.OnMsg(ctx, msg)
+func TestJsTransformNode(t *testing.T) {
+	var targetNodeType = "jsTransform"
 
+	t.Run("NewNode", func(t *testing.T) {
+		test.NodeNew(t, targetNodeType, &JsTransformNode{}, types.Configuration{
+			"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+		}, Registry)
+	})
+
+	t.Run("InitNode", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{
+			"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+		}, types.Configuration{
+			"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+		}, Registry)
+	})
+
+	t.Run("DefaultConfig", func(t *testing.T) {
+		test.NodeInit(t, targetNodeType, types.Configuration{
+			"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+		}, types.Configuration{
+			"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+		}, Registry)
+	})
+
+	t.Run("OnMsg", func(t *testing.T) {
+		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"jsScript": "metadata['test']='addFromJs';msgType='MSG_TYPE_MODIFY_BY_JS';return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+		}, Registry)
+		assert.Nil(t, err)
+		node2, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"jsScript": `return true`,
+		}, Registry)
+		node3, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"jsScript": `return a`,
+		}, Registry)
+
+		var nodeList = []types.Node{node1, node2, node3}
+
+		for _, node := range nodeList {
+			metaData := types.BuildMetadata(make(map[string]string))
+			metaData.PutValue("productType", "test")
+			var msgList = []test.Msg{
+				{
+					MetaData:   metaData,
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "AA",
+					AfterSleep: time.Millisecond * 200,
+				},
+				{
+					MetaData:   metaData,
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "{\"name\":\"lala\"}",
+					AfterSleep: time.Millisecond * 200,
+				},
+			}
+			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+				if node.(*JsTransformNode).Config.JsScript == `return true` {
+					assert.Equal(t, JsTransformReturnFormatErr.Error(), err2.Error())
+				} else if node.(*JsTransformNode).Config.JsScript == `return a` {
+					assert.NotNil(t, err2)
+				} else {
+					assert.Equal(t, "test", msg.Metadata.GetValue("productType"))
+					assert.Equal(t, "addFromJs", msg.Metadata.GetValue("test"))
+					assert.Equal(t, "MSG_TYPE_MODIFY_BY_JS", msg.Type)
+				}
+
+			})
+		}
+	})
 }

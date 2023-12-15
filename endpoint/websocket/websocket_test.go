@@ -50,15 +50,11 @@ func TestWsEndpointConfig(t *testing.T) {
 		"server": testConfigServer,
 	})
 
-	//err := epErr.Start()
-	//assert.NotNil(t, err)
 	ep, _ := endpoint.New(Type, config, types.Configuration{
 		"server": testConfigServer,
 	})
 
 	assert.Equal(t, testConfigServer, ep.Id())
-	//_, err := ep.AddRouter(nil)
-	//assert.Equal(t, "router can not nil", err.Error())
 	testUrl := "/api/test"
 	router := endpoint.NewRouter().From(testUrl).End()
 	routerId, _ := ep.AddRouter(router, "GET")
@@ -106,7 +102,7 @@ func sendMsg(t *testing.T, url string) {
 	defer conn.Close()
 
 	// 发送消息
-	err = conn.WriteMessage(websocket.TextMessage, []byte("Hello, world!"))
+	err = conn.WriteMessage(websocket.BinaryMessage, []byte("Hello, world!"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -120,7 +116,7 @@ func sendMsg(t *testing.T, url string) {
 
 }
 
-// 启动rest服务
+// 启动服务
 func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
 	if err != nil {
