@@ -62,7 +62,7 @@ func (r *RequestMessage) Headers() textproto.MIMEHeader {
 		r.headers = make(map[string][]string)
 	}
 	if r.request != nil {
-		r.headers["topic"] = []string{r.request.Topic()}
+		r.headers.Set("topic", r.request.Topic())
 	}
 	return r.headers
 }
