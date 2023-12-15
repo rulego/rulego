@@ -133,7 +133,7 @@ func (g *GojaJsEngine) Execute(functionName string, argumentList ...interface{})
 
 	f, ok := goja.AssertFunction(vm.Get(functionName))
 	if !ok {
-		return nil, errors.New(functionName + "is not a function")
+		return nil, errors.New(functionName + " is not a function")
 	}
 	var params []goja.Value
 	for _, v := range argumentList {

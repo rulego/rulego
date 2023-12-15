@@ -27,6 +27,7 @@ package transform
 //        }
 //      }
 import (
+	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/js"
@@ -34,6 +35,9 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 	string2 "github.com/rulego/rulego/utils/str"
 )
+
+// JsTransformReturnFormatErr 如果脚本返回值这个格式错误：return {'msg':msg,'metadata':metadata,'msgType':msgType}
+var JsTransformReturnFormatErr = errors.New("return the value is not a map")
 
 func init() {
 	Registry.Add(&JsTransformNode{})
@@ -100,7 +104,6 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	} else {
 		formatData, ok := out.(map[string]interface{})
 		if ok {
-			var errResult error
 			if formatMsgType, ok := formatData[types.MsgTypeKey]; ok {
 				msg.Type = string2.ToString(formatMsgType)
 			}
@@ -113,12 +116,9 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				msg.Data = string2.ToString(formatMsgData)
 			}
 
-			//ctx.Config().Logger.Printf("jsTransform用时：%s", time.Since(start))
-			if errResult == nil {
-				ctx.TellNext(msg, types.Success)
-			} else {
-				ctx.TellNext(msg, types.Failure)
-			}
+			ctx.TellNext(msg, types.Success)
+		} else {
+			ctx.TellFailure(msg, JsTransformReturnFormatErr)
 		}
 	}
 

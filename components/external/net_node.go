@@ -20,6 +20,7 @@ package external
 // 每条消息在内容最后增加结束符：'\n'
 
 import (
+	"errors"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/maps"
 	"net"
@@ -29,6 +30,9 @@ import (
 
 // EndSign 结束符
 const EndSign = '\n'
+
+// NetNotInitErr net 未初始化错误
+var NetNotInitErr = errors.New("net not init error")
 
 // 注册节点
 func init() {
@@ -89,10 +93,10 @@ func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuratio
 		if x.Config.Protocol == "" {
 			x.Config.Protocol = "tcp"
 		}
-		if x.Config.ConnectTimeout == 0 {
+		if x.Config.ConnectTimeout <= 0 {
 			x.Config.ConnectTimeout = 60
 		}
-		if x.Config.HeartbeatInterval == 0 {
+		if x.Config.HeartbeatInterval <= 0 {
 			x.Config.HeartbeatInterval = 60
 		}
 		x.heartbeatDuration = time.Duration(x.Config.HeartbeatInterval) * time.Second
@@ -198,8 +202,9 @@ func (x *NetNode) onPing() {
 
 func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
 	// 向服务器发送数据
-	_, err := x.conn.Write(data)
-	if err != nil {
+	if x.conn == nil {
+		ctx.TellFailure(msg, NetNotInitErr)
+	} else if _, err := x.conn.Write(data); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
 		//重置心跳发送间隔
