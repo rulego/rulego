@@ -38,8 +38,8 @@ const (
 var (
 	//ChainNotFoundErr 规则链不存在错误
 	ChainNotFoundErr = errors.New("chain not found error")
-	//EndpointStopErr endpoint服务停止错误
-	EndpointStopErr = errors.New("endpoint stop")
+	//StopErr endpoint服务停止错误
+	StopErr = errors.New("endpoint stop")
 )
 
 type Endpoint interface {

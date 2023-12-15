@@ -312,7 +312,7 @@ func (ep *Endpoint) Start() error {
 		if err != nil {
 			if opError, ok := err.(*net.OpError); ok && opError.Err == net.ErrClosed {
 				ep.Printf("net endpoint stop")
-				return endpoint.EndpointStopErr
+				return endpoint.StopErr
 			} else {
 				ep.Printf("accept:", err)
 				continue

@@ -18,6 +18,7 @@ package external
 
 import (
 	"context"
+	"errors"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/utils/maps"
@@ -37,6 +38,10 @@ import (
 //	         "Topic": "/device/msg"
 //	       }
 //	     }
+
+// MqttClientNotInitErr mqttClient 未初始化错误
+var MqttClientNotInitErr = errors.New("mqtt client not initialized")
+
 func init() {
 	Registry.Add(&MqttClientNode{})
 }
@@ -109,8 +114,9 @@ func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Confi
 // OnMsg 处理消息
 func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	topic := str.SprintfDict(x.Config.Topic, msg.Metadata.Values())
-	err := x.mqttClient.Publish(topic, x.Config.QOS, []byte(msg.Data))
-	if err != nil {
+	if x.mqttClient == nil {
+		ctx.TellFailure(msg, MqttClientNotInitErr)
+	} else if err := x.mqttClient.Publish(topic, x.Config.QOS, []byte(msg.Data)); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
 		ctx.TellSuccess(msg)
