@@ -36,6 +36,9 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
+// JsSwitchReturnFormatErr 如果脚本返回不是数组错误
+var JsSwitchReturnFormatErr = errors.New("return the value is not an array")
+
 func init() {
 	Registry.Add(&JsSwitchNode{})
 }
@@ -97,7 +100,7 @@ func (x *JsSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				ctx.TellNext(msg, str.ToString(relationType))
 			}
 		} else {
-			ctx.TellFailure(msg, errors.New("return the value is not []interface{}"))
+			ctx.TellFailure(msg, JsSwitchReturnFormatErr)
 		}
 	}
 }

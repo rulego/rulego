@@ -35,6 +35,9 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
+// JsLogReturnFormatErr 如果脚本返回值不是string错误
+var JsLogReturnFormatErr = errors.New("return the value is not a string")
+
 // 注册节点
 func init() {
 	Registry.Add(&LogNode{})
@@ -105,7 +108,7 @@ func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			x.logger.Printf(formatData)
 			ctx.TellSuccess(msg)
 		} else {
-			ctx.TellFailure(msg, errors.New("return the value is not string"))
+			ctx.TellFailure(msg, JsLogReturnFormatErr)
 		}
 	}
 }
