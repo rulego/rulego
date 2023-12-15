@@ -30,6 +30,10 @@ jobs:
         run: go build -buildmode=plugin -o plugin.so testdata/plugin/plugin.go
       - name: Run unit tests and integrated tests
         run: go test -v --tags=test_plugin ./... -coverprofile="codecov.report"
+        env:
+          TEST_SERVER_IP: ${{ secrets.TEST_SERVER_IP }}
+          TEST_SERVER_USERNAME: ${{ secrets.TEST_SERVER_USERNAME }}
+          TEST_SERVER_PASSWORD: ${{ secrets.TEST_SERVER_PASSWORD }}
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         env:
