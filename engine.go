@@ -276,42 +276,44 @@ func (ctx *DefaultRuleContext) getNextNodes(relationType string) ([]types.NodeCt
 
 // tellFirst 执行第一个节点
 func (ctx *DefaultRuleContext) tellFirst(msg types.RuleMsg, err error, relationTypes ...string) {
+	msgCopy := msg.Copy()
 	ctx.SubmitTack(func() {
 		if ctx.self != nil {
-			ctx.tellNext(msg, ctx.self, "")
+			ctx.tellNext(msgCopy, ctx.self, "")
 		} else {
-			ctx.DoOnEnd(msg, err, "")
+			ctx.DoOnEnd(msgCopy, err, "")
 		}
 	})
 }
 
 // tellNext 通知执行子节点，如果是当前第一个节点则执行当前节点
 func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes ...string) {
-	msgCopy := msg.Copy()
+	//msgCopy := msg.Copy()
 	if ctx.isFirst {
-		ctx.tellFirst(msgCopy, err, relationTypes...)
+		ctx.tellFirst(msg, err, relationTypes...)
 	} else {
 		if relationTypes == nil {
 			//找不到子节点，则执行结束回调
-			ctx.DoOnEnd(msgCopy, err, "")
+			ctx.DoOnEnd(msg, err, "")
 		} else {
 			for _, relationType := range relationTypes {
 				//执行After aop
-				msgCopy = ctx.executeAfterAop(msgCopy, err, relationType)
+				msg = ctx.executeAfterAop(msg, err, relationType)
 				//根据relationType查找子节点列表
 				if nodes, ok := ctx.getNextNodes(relationType); ok && !ctx.skipTellNext {
 					for _, item := range nodes {
 						tmp := item
 						//增加一个待执行的子节点
 						ctx.childReady()
+						msgCopy := msg.Copy()
 						//通知执行子节点
 						ctx.SubmitTack(func() {
-							ctx.tellNext(msgCopy.Copy(), tmp, relationType)
+							ctx.tellNext(msgCopy, tmp, relationType)
 						})
 					}
 				} else {
 					//找不到子节点，则执行结束回调
-					ctx.DoOnEnd(msgCopy, err, relationType)
+					ctx.DoOnEnd(msg, err, relationType)
 				}
 			}
 		}
