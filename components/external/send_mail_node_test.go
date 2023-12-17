@@ -20,35 +20,75 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 )
 
 func TestSendEmailNode(t *testing.T) {
 	var targetNodeType = "sendEmail"
-	email := types.Configuration{
-		"from":    "xx@163.com",
-		"to":      "xx@163.com",
-		"cc":      "xx@163.com",
-		"bcc":     "xx@163.com",
-		"subject": "测试邮件4",
-		"body":    "<b>测试内容4</b>",
+	smtpHost := os.Getenv("TEST_SMTP_HOST")
+	if smtpHost == "" {
+		smtpHost = "smtp.163.com"
+	}
+	smtpTlsPortEnv := os.Getenv("TEST_SMTP_TLS_PORT")
+	if smtpTlsPortEnv == "" {
+		smtpTlsPortEnv = "465"
+	}
+	smtpTlsPort, err := strconv.Atoi(smtpTlsPortEnv)
+	if err != nil {
+		smtpTlsPort = 465
+	}
+	smtpPortEnv := os.Getenv("TEST_SMTP_TLS_PORT")
+	if smtpPortEnv == "" {
+		smtpPortEnv = "25"
+	}
+
+	smtpPort, err := strconv.Atoi(smtpPortEnv)
+	if err != nil {
+		smtpPort = 22
+	}
+	username := os.Getenv("TEST_SMTP_USERNAME")
+	if username == "" {
+		username = "xx@163.com"
+	}
+	password := os.Getenv("TEST_SMTP_PASSWORD")
+	if password == "" {
+		password = "xx"
+	}
+
+	emailWithTls := types.Configuration{
+		"from":    username,
+		"to":      username,
+		"cc":      username,
+		"bcc":     username,
+		"subject": "测试邮件WithTls",
+		"body":    "<b>测试内容WithTls</b>",
 	}
 	mailConfigWithTls := types.Configuration{
-		"smtpHost":  "smtp.163.com",
-		"smtpPort":  465,
-		"username":  "xx@163.com",
-		"password":  "xx",
+		"smtpHost":  smtpHost,
+		"smtpPort":  smtpTlsPort,
+		"username":  username,
+		"password":  password,
 		"enableTls": true,
-		"email":     email,
+		"email":     emailWithTls,
+	}
+	emailWithNotTls := types.Configuration{
+		"from":    username,
+		"to":      username,
+		"cc":      username,
+		"bcc":     username,
+		"subject": "测试邮件WithNotTls",
+		"body":    "<b>测试内容WithNotTls</b>",
 	}
 	mailConfigWithNotTls := types.Configuration{
-		"smtpHost":  "smtp.163.com",
-		"smtpPort":  25,
-		"username":  "xx@163.com",
-		"password":  "xx",
+		"smtpHost":  smtpHost,
+		"smtpPort":  smtpPort,
+		"username":  username,
+		"password":  password,
 		"enableTls": false,
-		"email":     email,
+		"email":     emailWithNotTls,
 	}
 
 	t.Run("NewNode", func(t *testing.T) {
@@ -59,18 +99,18 @@ func TestSendEmailNode(t *testing.T) {
 
 	t.Run("InitNode", func(t *testing.T) {
 		test.NodeInit(t, targetNodeType, mailConfigWithTls, types.Configuration{
-			"smtpHost":  "smtp.163.com",
-			"smtpPort":  465,
-			"username":  "xx@163.com",
-			"password":  "xx",
+			"smtpHost":  smtpHost,
+			"smtpPort":  smtpTlsPort,
+			"username":  username,
+			"password":  password,
 			"enableTls": true,
 			"email": Email{
-				From:    "xx@163.com",
-				To:      "xx@163.com",
-				Cc:      "xx@163.com",
-				Bcc:     "xx@163.com",
-				Subject: "测试邮件4",
-				Body:    "<b>测试内容4</b>",
+				From:    username,
+				To:      username,
+				Cc:      username,
+				Bcc:     username,
+				Subject: "测试邮件WithTls",
+				Body:    "<b>测试内容WithTls</b>",
 			},
 		}, Registry)
 	})
@@ -78,16 +118,16 @@ func TestSendEmailNode(t *testing.T) {
 	t.Run("DefaultConfig", func(t *testing.T) {
 		test.NodeInit(t, targetNodeType, types.Configuration{
 			"connectTimeout": 10,
-			"email":          email,
+			"email":          emailWithTls,
 		}, types.Configuration{
 			"connectTimeout": 10,
 			"email": Email{
-				From:    "xx@163.com",
-				To:      "xx@163.com",
-				Cc:      "xx@163.com",
-				Bcc:     "xx@163.com",
-				Subject: "测试邮件4",
-				Body:    "<b>测试内容4</b>",
+				From:    username,
+				To:      username,
+				Cc:      username,
+				Bcc:     username,
+				Subject: "测试邮件WithTls",
+				Body:    "<b>测试内容WithTls</b>",
 			},
 		}, Registry)
 	})
@@ -100,11 +140,11 @@ func TestSendEmailNode(t *testing.T) {
 		assert.Nil(t, err)
 		mailConfigHostErr := types.Configuration{
 			"smtpHost":  "smtp.xx.com",
-			"smtpPort":  25,
+			"smtpPort":  emailWithTls,
 			"username":  "xx@163.com",
 			"password":  "xx",
-			"enableTls": false,
-			"email":     email,
+			"enableTls": true,
+			"email":     emailWithNotTls,
 		}
 		node3, err := test.CreateAndInitNode(targetNodeType, mailConfigHostErr, Registry)
 
@@ -139,14 +179,22 @@ func TestSendEmailNode(t *testing.T) {
 				Node:    node1,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Failure, relationType)
+					if username == "xx@163.com" {
+						assert.Equal(t, types.Failure, relationType)
+					} else {
+						assert.Equal(t, types.Success, relationType)
+					}
 				},
 			},
 			{
 				Node:    node2,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Failure, relationType)
+					if username == "xx@163.com" {
+						assert.Equal(t, types.Failure, relationType)
+					} else {
+						assert.Equal(t, types.Success, relationType)
+					}
 				},
 			},
 			{

@@ -402,15 +402,6 @@ func (e *BaseEndpoint) DoProcess(router *Router, exchange *Exchange) {
 	}
 }
 
-func (e *BaseEndpoint) baseAddRouter(from string, params ...interface{}) error {
-	e.Lock()
-	defer e.Unlock()
-	if e.RouterStorage != nil {
-		delete(e.RouterStorage, from)
-	}
-	return nil
-}
-
 // Executor to端执行器
 type Executor interface {
 	//New 创建新的实例

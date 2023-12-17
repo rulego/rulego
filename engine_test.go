@@ -857,31 +857,67 @@ func TestRuleContext(t *testing.T) {
 
 	}
 	ruleEngine, _ := New("testEngine", []byte(ruleChainFile), WithConfig(config))
-
-	ctx := NewRuleContext(context.Background(), config, ruleEngine.rootRuleChainCtx, nil, nil, nil, nil, nil)
-	assert.Nil(t, ctx.From())
-
-	ctx.SetRuleChainPool(DefaultRuleGo)
-	assert.Equal(t, ctx.ruleChainPool, DefaultRuleGo)
-
-	ctx.SetAllCompletedFunc(func() {
-
-	})
-
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
-
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
-	ruleEngine.OnMsg(msg)
-	err := ruleEngine.ReloadChild("s1", []byte(""))
-	assert.NotNil(t, err)
-	err = ruleEngine.ReloadChild("", []byte("{"))
-	assert.NotNil(t, err)
 
-	ruleEngine.Stop()
+	t.Run("hasOnEnd", func(t *testing.T) {
+		ctx := NewRuleContext(context.Background(), config, ruleEngine.rootRuleChainCtx, nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 
-	err = ruleEngine.ReloadChild("", []byte("{"))
-	assert.Equal(t, "ReloadNode error.RuleEngine not initialized", err.Error())
-	assert.Equal(t, 0, len(ruleEngine.DSL()))
-	time.Sleep(time.Millisecond * 100)
+		}, nil)
+		assert.Nil(t, ctx.From())
+
+		ctx.SetRuleChainPool(DefaultRuleGo)
+		assert.Equal(t, ctx.ruleChainPool, DefaultRuleGo)
+
+		ctx.SetAllCompletedFunc(func() {
+
+		})
+		assert.NotNil(t, ctx.GetEndFunc())
+
+		ruleEngine.OnMsg(msg)
+		err := ruleEngine.ReloadChild("s1", []byte(""))
+		assert.NotNil(t, err)
+		err = ruleEngine.ReloadChild("", []byte("{"))
+		assert.NotNil(t, err)
+
+		ruleEngine.Stop()
+
+		err = ruleEngine.ReloadChild("", []byte("{"))
+		assert.Equal(t, "ReloadNode error.RuleEngine not initialized", err.Error())
+		assert.Equal(t, 0, len(ruleEngine.DSL()))
+		time.Sleep(time.Millisecond * 100)
+	})
+	t.Run("notEnd", func(t *testing.T) {
+		ctx := NewRuleContext(context.Background(), config, ruleEngine.rootRuleChainCtx, nil, nil, nil, nil, nil)
+		ctx.DoOnEnd(msg, nil, types.Success)
+	})
+	t.Run("notSelf", func(t *testing.T) {
+		ctx := NewRuleContext(context.Background(), config, ruleEngine.rootRuleChainCtx, nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			assert.Equal(t, "", relationType)
+		}, nil)
+		ctx.tellFirst(msg, nil, types.Success)
+	})
+	t.Run("notRuleChainCtx", func(t *testing.T) {
+		ctx := NewRuleContext(context.Background(), config, nil, nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			assert.Equal(t, "", relationType)
+		}, nil)
+		_, ok := ctx.getNextNodes(types.Success)
+		assert.False(t, ok)
+	})
+
+	t.Run("tellSelf", func(t *testing.T) {
+		selfDefinition := RuleNode{
+			Id:   "s1",
+			Type: "log",
+		}
+		nodeCtx, _ := InitRuleNodeCtx(NewConfig(), &selfDefinition)
+		ctx := NewRuleContext(context.Background(), config, ruleEngine.rootRuleChainCtx, nil, nodeCtx, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			//assert.Equal(t, "", relationType)
+		}, nil)
+
+		ctx.TellSelf(msg, 1000)
+		ctx.tellFirst(msg, nil, types.Success)
+	})
+
 }

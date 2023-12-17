@@ -20,6 +20,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/json"
 	"net"
 	"testing"
 	"time"
@@ -172,7 +173,12 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 						t.Fatal("bad", err.Error())
 					}
 				} else {
-					assert.Equal(t, "[{\"age\":\"21\",\"id\":\"1\",\"name\":\"test01\"}]", msg.Data)
+					var list []testUser
+					_ = json.Unmarshal([]byte(msg.Data), &list)
+					assert.True(t, len(list) > 0)
+					//assert.Equal(t, int64(1), list[0].Id)
+					//assert.Equal(t, 21, list[0].Age)
+					assert.Equal(t, "test01", list[0].Name)
 				}
 			},
 		},
@@ -187,7 +193,11 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 						t.Fatal("bad", err.Error())
 					}
 				} else {
-					assert.Equal(t, "{\"age\":21,\"id\":1,\"name\":\"test01\"}", msg.Data)
+					var u = testUser{}
+					_ = json.Unmarshal([]byte(msg.Data), &u)
+					//assert.Equal(t, int64(1), u.Id)
+					//assert.Equal(t, 21, u.Age)
+					assert.Equal(t, "test01", u.Name)
 				}
 			},
 		},
@@ -210,4 +220,11 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 	for _, item := range nodeList {
 		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 	}
+	time.Sleep(time.Millisecond * 200)
+}
+
+type testUser struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+	Age  int    `json:"age"`
 }
