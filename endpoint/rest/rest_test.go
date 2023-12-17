@@ -48,7 +48,8 @@ func TestRestEndpointConfig(t *testing.T) {
 	epErr, _ := endpoint.New(Type, config, types.Configuration{
 		"server": testConfigServer,
 	})
-
+	_, err := epErr.AddRouter(nil, "POST")
+	assert.Equal(t, "router can not nil", err.Error())
 	//err := epErr.Start()
 	//assert.NotNil(t, err)
 	ep, _ := endpoint.New(Type, config, types.Configuration{
@@ -60,7 +61,7 @@ func TestRestEndpointConfig(t *testing.T) {
 	//assert.Equal(t, "router can not nil", err.Error())
 	testUrl := "/api/test"
 	router := endpoint.NewRouter().From(testUrl).End()
-	_, err := ep.AddRouter(router)
+	_, err = ep.AddRouter(router)
 	assert.Equal(t, "need to specify HTTP method", err.Error())
 
 	router = endpoint.NewRouter().From(testUrl).End()

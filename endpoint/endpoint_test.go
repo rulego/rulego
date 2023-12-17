@@ -24,21 +24,19 @@ import (
 	"github.com/rulego/rulego/components/transform"
 	"github.com/rulego/rulego/test/assert"
 	"os"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestEndpoint(t *testing.T) {
-	buf, err := os.ReadFile("../testdata/chain_call_rest_api.json")
+	buf, err := os.ReadFile("../testdata/sub_chain.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	config := rulego.NewConfig(types.WithDefaultPool())
 	//注册规则链
 	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
-
-	exchange := &Exchange{
-		In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
-		Out: &testResponseMessage{}}
 
 	var from = "aa"
 	var toAa = "chain:aa"
@@ -68,13 +66,26 @@ func TestEndpoint(t *testing.T) {
 	}
 
 	t.Run("ExecutorFactory", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
 		executor, ok := DefaultExecutorFactory.New("chain")
 		assert.True(t, ok)
 		assert.True(t, executor.IsPathSupportVar())
 
+		router := Router{}
+		executor.Execute(context.TODO(), &router, exchange)
+
 		executor, ok = DefaultExecutorFactory.New("component")
 		assert.True(t, ok)
 		assert.False(t, executor.IsPathSupportVar())
+		err = executor.Init(config, types.Configuration{pathKey: "log"})
+		assert.Nil(t, err)
+		executor.Execute(context.TODO(), &router, exchange)
+
+		//not nodeType
+		err = executor.Init(config, nil)
+		assert.Equal(t, "nodeType can't empty", err.Error())
 
 		_, ok = DefaultExecutorFactory.New("nothing")
 		assert.False(t, ok)
@@ -83,6 +94,10 @@ func TestEndpoint(t *testing.T) {
 
 	//测试新建路由
 	t.Run("NewRouter", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
+
 		router := NewRouter(WithRuleConfig(config), WithRuleGo(rulego.DefaultRuleGo)).
 			From(from, configuration).End()
 		assert.NotNil(t, router)
@@ -132,22 +147,65 @@ func TestEndpoint(t *testing.T) {
 			return false
 		})
 		assert.Equal(t, 2, len(testEp.interceptors))
-		err = testEp.baseAddRouter(from)
-		assert.Nil(t, err)
 		testEp.DoProcess(router, exchange)
 
 		//测试from process中断
+		var firstDone = false
+		var secondDone = false
 		testEp = &testEndpoint{}
 		testEp.AddInterceptors(func(router *Router, exchange *Exchange) bool {
 			return true
 		})
 		router.GetFrom().Process(func(router *Router, exchange *Exchange) bool {
-			return true
+			firstDone = true
+			return false
+		}).Process(func(router *Router, exchange *Exchange) bool {
+			secondDone = true
+			return false
 		})
 		testEp.DoProcess(router, exchange)
+		time.Sleep(time.Millisecond * 100)
+		assert.True(t, firstDone)
+		assert.False(t, secondDone)
+
+		//测试to process中断
+		firstDone = false
+		secondDone = false
+		testEp = &testEndpoint{}
+		testEp.AddInterceptors(func(router *Router, exchange *Exchange) bool {
+			return true
+		})
+		router = NewRouter(WithRuleConfig(config), WithRuleGo(rulego.DefaultRuleGo)).From(from).
+			Process(transformFunc).
+			To("chain:${chainId}").
+			Process(func(router *Router, exchange *Exchange) bool {
+				firstDone = true
+				return false
+			}).Process(func(router *Router, exchange *Exchange) bool {
+			secondDone = true
+			return false
+		}).End()
+
+		testEp.DoProcess(router, exchange)
+		time.Sleep(time.Millisecond * 100)
+		assert.True(t, firstDone)
+		assert.False(t, secondDone)
+	})
+
+	t.Run("EndpointOnMsg", func(t *testing.T) {
+		defer func() {
+			if caught := recover(); caught != nil {
+				assert.Equal(t, "not support this method", fmt.Sprintf("%s", caught))
+			}
+		}()
+		testEp := &testEndpoint{}
+		testEp.OnMsg(nil, types.RuleMsg{})
 	})
 
 	t.Run("ExecuteToComponent", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
 		end := false
 		router := NewRouter(WithRuleConfig(config), WithRuleGo(rulego.DefaultRuleGo)).From(from).Process(transformFunc).Process(processFunc).ToComponent(func() types.Node {
 			node := &transform.JsTransformNode{}
@@ -163,6 +221,9 @@ func TestEndpoint(t *testing.T) {
 		assert.True(t, end)
 	})
 	t.Run("ExecuteComponent", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
 		end := false
 		router := NewRouter()
 		router.From(from).
@@ -194,6 +255,7 @@ func TestEndpoint(t *testing.T) {
 		}()
 		_ = NewRouter().From(from).To("component:${componentType}", configuration).End()
 	})
+
 	//测试组件不存在
 	t.Run("ExecuteComponentNotFount", func(t *testing.T) {
 		defer func() {
@@ -207,6 +269,9 @@ func TestEndpoint(t *testing.T) {
 	})
 
 	t.Run("ExecuteComponentAndWait", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
 		end := false
 		router := NewRouter()
 		router.From(from).Transform(transformFunc).Process(processFunc).To("component:jsTransform", configuration).Wait().Process(func(router *Router, exchange *Exchange) bool {
@@ -220,21 +285,69 @@ func TestEndpoint(t *testing.T) {
 		assert.True(t, end)
 	})
 
+	t.Run("ExecuteComponentErr", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
+		router := NewRouter().From(from).
+			To("component:jsTransform", types.Configuration{
+				"jsScript": "return a",
+			}).
+			Wait().
+			Process(func(router *Router, exchange *Exchange) bool {
+				assert.NotNil(t, exchange.Out.GetError())
+				return true
+			}).End()
+
+		executeRouterTest(router, exchange)
+	})
+
 	t.Run("ExecuteChain", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
 		end := false
 		router2 := NewRouter()
 		router2.From(from).Transform(transformFunc).Process(processFunc).To(toDefault).Process(func(router *Router, exchange *Exchange) bool {
-			assert.NotNil(t, exchange.Out.GetError())
+			assert.Nil(t, exchange.Out.GetError())
 			end = true
 			return true
 		})
 		//执行路由
 		executeRouterTest(router2, exchange)
-		//同步
+		//异步
 		assert.False(t, end)
+		time.Sleep(time.Millisecond * 200)
+	})
+
+	t.Run("ExecuteChainErr", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
+		errChain := strings.Replace(string(buf), "\"jsScript\": \"return msg=='aa';\"", "\"jsScript\": \"return a;\"", -1)
+
+		//注册规则链
+		_, err = rulego.New("errChainId", []byte(errChain), rulego.WithConfig(config))
+
+		end := false
+		router2 := NewRouter()
+		router2.From(from).Transform(transformFunc).Process(processFunc).To("chain:errChainId").
+			Process(func(router *Router, exchange *Exchange) bool {
+				assert.NotNil(t, exchange.Out.GetError())
+				end = true
+				return true
+			})
+		//执行路由
+		executeRouterTest(router2, exchange)
+		//异步
+		assert.False(t, end)
+		time.Sleep(time.Millisecond * 100)
 	})
 
 	t.Run("ExecuteChainFromBroker", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
 		router2 := NewRouter()
 		var done = false
 		router2.From(from).Transform(transformFunc).Process(func(router *Router, exchange *Exchange) bool {
@@ -247,10 +360,14 @@ func TestEndpoint(t *testing.T) {
 		})
 		//执行路由
 		executeRouterTest(router2, exchange)
-		//同步
+		//异步
 		assert.False(t, done)
+		time.Sleep(time.Millisecond * 100)
 	})
 	t.Run("ExecuteChainToBroker", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
 		router2 := NewRouter()
 		var done = false
 		router2.From(from).Transform(transformFunc).Process(func(router *Router, exchange *Exchange) bool {
@@ -268,12 +385,18 @@ func TestEndpoint(t *testing.T) {
 	})
 
 	t.Run("ExecuteChainAndWait", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
 		end := false
 		router2 := NewRouter()
-		router2.From(from).Transform(transformFunc).Process(processFunc).To(toDefault).Wait().Process(func(router *Router, exchange *Exchange) bool {
-			assert.NotNil(t, exchange.Out.GetError())
-			end = true
-			return true
+		router2.From(from).Transform(transformFunc).Process(processFunc).To(toDefault).Wait().
+			Process(func(router *Router, exchange *Exchange) bool {
+				assert.Nil(t, exchange.Out.GetError())
+				end = true
+				return true
+			}).Process(func(router *Router, exchange *Exchange) bool {
+			return false
 		})
 		//执行路由
 		executeRouterTest(router2, exchange)
@@ -282,6 +405,9 @@ func TestEndpoint(t *testing.T) {
 	})
 
 	t.Run("ExecuteChainVar", func(t *testing.T) {
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
 		router2 := NewRouter()
 		router2.From(from).Process(transformFunc).To("chain:${chainId}").Wait().Process(func(router *Router, exchange *Exchange) bool {
 			assert.Equal(t, "chainId=aa not found error", exchange.Out.GetError().Error())
