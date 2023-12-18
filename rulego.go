@@ -21,16 +21,20 @@
 // Implement your business requirements by configuring components in the rule chain, and support dynamic modification. Rule chain definition format:
 //
 //	{
-//		"ruleChain": {
+//		  "ruleChain": {
 //			"id":"rule01"
-//		},
-//		"metadata": {
-//			"nodes": [
-//			],
+//		  },
+//		  "metadata": {
+//		    "nodes": [
+//		    ],
 //			"connections": [
 //			]
-//		}
+//		 }
 //	}
+//
+// nodes:configure components. You can use built-in components and third-party extension components without writing any code.
+//
+// connections:configure the relation type between components. Determine the data flow.
 //
 // Example:
 //
@@ -49,7 +53,7 @@
 //			"name": "transform",
 //			"debugMode": true,
 //			"configuration": {
-//				"jsScript": "metadata['name']='test02';\n metadata['index']=22;\n msg['addField']='addValue2'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+//				"jsScript": "metadata['state']='modify by js';\n msg['addField']='addValueFromJs'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
 //				}
 //			},
 //			{
@@ -58,9 +62,8 @@
 //				"name": "push data",
 //				"debugMode": true,
 //				"configuration": {
-//					"restEndpointUrlPattern": "http://192.168.1.1:9099/api/msg",
+//					"restEndpointUrlPattern": "http://127.0.0.1:9090/api/msg",
 //					"requestMethod": "POST",
-//					"maxParallelRequestsCount": 200
 //				}
 //			}
 //		],
@@ -96,7 +99,7 @@
 //
 //	err := ruleEngine.ReloadSelf([]byte(ruleFile))
 //
-// Load Rule Chain Folder
+// Load All Rule Chain
 //
 //	err := ruleEngine.Load("./rulechains")
 //
