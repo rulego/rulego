@@ -1,5 +1,11 @@
 # RuleGo
 
+[![GoDoc](https://pkg.go.dev/badge/github.com/rulego/rulego)](https://pkg.go.dev/github.com/rulego/rulego)
+[![Go Report](https://goreportcard.com/badge/github.com/rulego/rulego)](https://goreportcard.com/report/github.com/rulego/rulego)
+[![codecov](https://codecov.io/gh/rulego/rulego/graph/badge.svg?token=G6XCGY7KVN)](https://codecov.io/gh/rulego/rulego)
+[![test](https://github.com/rulego/rulego/workflows/test/badge.svg)](https://github.com/rulego/rulego/actions/workflows/test.yml)
+[![build](https://github.com/rulego/rulego/workflows/build/badge.svg)](https://github.com/rulego/rulego/actions/workflows/build.yml)
+
 [English](README.md)| 中文
 
 <img src="doc/imgs/logo.png" width="100">  
