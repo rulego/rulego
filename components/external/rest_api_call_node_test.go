@@ -20,6 +20,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
+	"os"
 	"testing"
 	"time"
 )
@@ -102,7 +103,7 @@ func TestRestApiCallNode(t *testing.T) {
 				Node:    node1,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					code := msg.Metadata.GetValue(statusCode)
+					code := msg.Metadata.GetValue(statusCodeMetadataKey)
 					assert.Equal(t, "404", code)
 				},
 			},
@@ -124,5 +125,69 @@ func TestRestApiCallNode(t *testing.T) {
 		for _, item := range nodeList {
 			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
+	})
+
+	//SSE(Server-Sent Events)流式请求
+	t.Run("SSEOnMsg", func(t *testing.T) {
+		sseServer := os.Getenv("TEST_SSE_SERVER")
+		if sseServer == "" {
+			return
+		}
+		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"headers":                map[string]string{"Content-Type": "application/json", "Accept": "text/event-stream"},
+			"restEndpointUrlPattern": sseServer,
+			"requestMethod":          "POST",
+		}, Registry)
+		assert.Nil(t, err)
+
+		//404
+		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"headers":                map[string]string{"Content-Type": "application/json", "Accept": "text/event-stream"},
+			"restEndpointUrlPattern": sseServer + "/nothings/",
+			"requestMethod":          "POST",
+		}, Registry)
+		assert.Nil(t, err)
+
+		done := false
+
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "test")
+
+		msgList := []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "chat",
+				Data:       "{\"model\": \"chatglm3-6b-32k\", \"messages\": [{\"role\": \"system\", \"content\": \"You are ChatGLM3, a large language model trained by Zhipu.AI. Follow the user's instructions carefully. Respond using markdown.\"}, {\"role\": \"user\", \"content\": \"你好，给我讲一个故事，大概100字\"}], \"stream\": true, \"max_tokens\": 100, \"temperature\": 0.8, \"top_p\": 0.8}",
+				AfterSleep: time.Millisecond * 200,
+			},
+		}
+		var nodeList = []test.NodeAndCallback{
+			{
+				Node:    node1,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+					assert.Equal(t, "200", msg.Metadata.GetValue(statusCodeMetadataKey))
+					if msg.Data == "[DONE]" {
+						done = true
+						assert.Equal(t, "data", msg.Metadata.GetValue(eventTypeMetadataKey))
+					}
+				},
+			},
+			{
+				Node:    node2,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Failure, relationType)
+					assert.Equal(t, "404", msg.Metadata.GetValue(statusCodeMetadataKey))
+				},
+			},
+		}
+		for _, item := range nodeList {
+			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
+		}
+
+		time.Sleep(time.Second * 1)
+		assert.True(t, done)
 	})
 }

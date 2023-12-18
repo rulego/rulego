@@ -29,6 +29,7 @@ package external
 //        }
 //      }
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"fmt"
@@ -49,12 +50,18 @@ func init() {
 
 // 存在到metadata key
 const (
-	//http响应状态
-	status = "status"
-	//http响应状态码
-	statusCode = "statusCode"
-	//http响应错误信息
-	errorBody = "errorBody"
+	//http响应状态，Metadata Key
+	statusMetadataKey = "status"
+	//http响应状态码，Metadata Key
+	statusCodeMetadataKey = "statusCode"
+	//http响应错误信息，Metadata Key
+	errorBodyMetadataKey = "errorBody"
+	//sso事件类型Metadata Key：data/event/id/retry
+	eventTypeMetadataKey = "eventType"
+
+	contentTypeKey  = "Content-Type"
+	acceptKey       = "Accept"
+	eventStreamMime = "text/event-stream"
 )
 
 // RestApiCallNodeConfiguration rest配置
@@ -93,6 +100,8 @@ type RestApiCallNode struct {
 	Config RestApiCallNodeConfiguration
 	//httpClient http客户端
 	httpClient *http.Client
+	//是否是SSE（Server-Send Events）流式响应
+	isStream bool
 }
 
 // Type 组件类型
@@ -117,6 +126,10 @@ func (x *RestApiCallNode) Init(ruleConfig types.Config, configuration types.Conf
 	if err == nil {
 		x.Config.RequestMethod = strings.ToUpper(x.Config.RequestMethod)
 		x.httpClient = NewHttpClient(x.Config)
+		//Server-Send Events 流式响应
+		if strings.HasPrefix(x.Config.Headers[acceptKey], eventStreamMime) || strings.HasPrefix(x.Config.Headers[contentTypeKey], eventStreamMime) {
+			x.isStream = true
+		}
 	}
 	return err
 }
@@ -144,16 +157,27 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	if err != nil {
 		ctx.TellFailure(msg, err)
+	} else if x.isStream {
+		msg.Metadata.PutValue(statusMetadataKey, response.Status)
+		msg.Metadata.PutValue(statusCodeMetadataKey, strconv.Itoa(response.StatusCode))
+		if response.StatusCode == 200 {
+			readFromStream(ctx, msg, response)
+		} else {
+			b, _ := io.ReadAll(response.Body)
+			msg.Metadata.PutValue(errorBodyMetadataKey, string(b))
+			ctx.TellNext(msg, types.Failure)
+		}
+
 	} else if b, err := io.ReadAll(response.Body); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
-		msg.Metadata.PutValue(status, response.Status)
-		msg.Metadata.PutValue(statusCode, strconv.Itoa(response.StatusCode))
+		msg.Metadata.PutValue(statusMetadataKey, response.Status)
+		msg.Metadata.PutValue(statusCodeMetadataKey, strconv.Itoa(response.StatusCode))
 		if response.StatusCode == 200 {
 			msg.Data = string(b)
 			ctx.TellSuccess(msg)
 		} else {
-			msg.Metadata.PutValue(errorBody, string(b))
+			msg.Metadata.PutValue(errorBodyMetadataKey, string(b))
 			ctx.TellNext(msg, types.Failure)
 		}
 
@@ -180,4 +204,35 @@ func NewHttpClient(config RestApiCallNodeConfiguration) *http.Client {
 	}
 	return &http.Client{Transport: transport,
 		Timeout: time.Duration(config.ReadTimeoutMs) * time.Millisecond}
+}
+
+// SSE 流式数据读取
+func readFromStream(ctx types.RuleContext, msg types.RuleMsg, resp *http.Response) {
+	// 从响应的Body中读取数据，使用bufio.Scanner按行读取
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		// 获取一行数据
+		line := scanner.Text()
+		// 如果是空行，表示一个事件结束，继续读取下一个事件
+		if line == "" {
+			continue
+		}
+		// 如果是注释行，忽略
+		if strings.HasPrefix(line, ":") {
+			continue
+		}
+		// 解析数据，根据不同的事件类型和数据内容进行处理
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		eventType := strings.TrimSpace(parts[0])
+		eventData := strings.TrimSpace(parts[1])
+		msg.Metadata.PutValue(eventTypeMetadataKey, eventType)
+		msg.Data = eventData
+		ctx.TellSuccess(msg)
+	}
+	if err := scanner.Err(); err != nil && err != io.EOF {
+		ctx.TellFailure(msg, err)
+	}
 }
