@@ -36,6 +36,7 @@ jobs:
           TEST_SERVER_PASSWORD: ${{ secrets.TEST_SERVER_PASSWORD }}
           TEST_SMTP_USERNAME: ${{ secrets.TEST_SMTP_USERNAME }}
           TEST_SMTP_PASSWORD: ${{ secrets.TEST_SMTP_PASSWORD }}
+          TEST_SSE_SERVER: ${{ secrets.TEST_SSE_SERVER }}
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         env:
