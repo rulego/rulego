@@ -23,7 +23,8 @@ package action
 //        "name": "延迟节点",
 //        "debugMode": false,
 //        "configuration": {
-//          "jsScript": "return 'Incoming message:\\n' + JSON.stringify(msg) + '\\nIncoming metadata:\\n' + JSON.stringify(metadata);"
+//          "periodInSeconds": 1,
+//          "maxPendingMsgs": 1000
 //        }
 //  }
 import (
