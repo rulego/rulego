@@ -110,6 +110,7 @@ func main() {
 	if ruleFile == "" {
 		ruleFile = "./rules/"
 	}
+	log.Println("ruleFile:", ruleFile)
 	//创建文件夹
 	_ = fs.CreateDirs(ruleFile)
 	//初始化规则链文件夹
@@ -345,10 +346,10 @@ func saveDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 			_, err = rulego.New(chainId, body, rulego.WithConfig(config))
 		}
 		//保存到文件
-		dir, _ := filepath.Split(ruleFile)
+		dir := filepath.Dir(ruleFile)
 		v, _ := json.Format(body)
 		//保存规则链到文件
-		err = fs.SaveFile(dir+chainId+".json", v)
+		err = fs.SaveFile(filepath.Join(dir, chainId+".json"), v)
 	}
 
 	if err != nil {
