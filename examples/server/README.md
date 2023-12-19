@@ -65,12 +65,12 @@ go build -tags with_extend .
 ## server startup
 
 ```shell
-./server -rule_file="./rules"
+./server -rule_file="./rules/"
 ```
 
 Or start in the background
 ```shell
-nohup ./server -rule_file="./rules" >> console.log &
+nohup ./server -rule_file="./rules/" >> console.log &
 ```
 
 Startup parameters
