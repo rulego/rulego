@@ -65,13 +65,13 @@ go build -tags with_extend .
 ## server启动
 
 ```shell
-./server -rule_file="./rules"
+./server -rule_file="./rules/"
 ```
 
 或者后台启动
 
 ```shell
-nohup ./server -rule_file="./rules" >> console.log &
+nohup ./server -rule_file="./rules/" >> console.log &
 ```
 
 启动参数
@@ -80,7 +80,7 @@ nohup ./server -rule_file="./rules" >> console.log &
 - port: http服务器端口。默认:9090
 - log_file: 日志存储文件路径。默认打印到控制台
 - debug: "是否把节点调试日志打印到日志文件
-- mqtt:mqtt 订阅是否开启。默认:false
+- mqtt: mqtt订阅是否开启。默认:false
 - server: 连接mqtt broker。默认:127.0.0.1:1883
 - username：连接mqtt broker 用户名
 - password：连接mqtt broker 密码
