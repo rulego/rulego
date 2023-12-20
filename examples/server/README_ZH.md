@@ -46,7 +46,9 @@
 
 ## MQTT客户端订阅数据
 
-默认订阅所有主题数据，往该主题发布的数据都会根据`default`规则链定义交给规则引擎处理。 可以通过`-topics`修改订阅主题，多个以`,`号隔开
+默认订阅所有主题数据，然后把订阅的数据交给规则链(chainId=`default`)处理。 
+- 通过`-topics`修改订阅主题，多个以`,`号隔开。
+- 通过`-chain_id`修改处理的规则链Id。
 
 ## server编译
 
@@ -65,18 +67,20 @@ go build -tags with_extend .
 ## server启动
 
 ```shell
-./server -rule_file="./rules/"
+./server -rules="./rules/"
 ```
 
 或者后台启动
 
 ```shell
-nohup ./server -rule_file="./rules/" >> console.log &
+nohup ./server -rules="./rules/" >> console.log &
 ```
 
 启动参数
 
-- rule_file: 规则链存储文件夹。默认:./rules/
+- rules: 规则链存储路径。默认:./rules/
+- js: 预加载js文件路径。默认:./js/
+- plugins: 组件插件路径，只支持linux系统。默认:./plugins/
 - port: http服务器端口。默认:9090
 - log_file: 日志存储文件路径。默认打印到控制台
 - debug: "是否把节点调试日志打印到日志文件
@@ -85,4 +89,5 @@ nohup ./server -rule_file="./rules/" >> console.log &
 - username：连接mqtt broker 用户名
 - password：连接mqtt broker 密码
 - topics：连接mqtt broker 订阅消息主题，多个主题与`,`号隔开。默认:#
+- chain_id：rule chainId for processing mqtt subscription data。默认:chain:default
  
