@@ -43,4 +43,6 @@ vendor/
 # coverage file
 coverage.html
 
-rules
+examples/server/rules/
+examples/server/js/
+examples/server/plugins/
