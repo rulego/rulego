@@ -31,6 +31,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -55,15 +56,24 @@ const (
 )
 
 var (
-	port             int
-	logfile          string
-	ver              bool
-	ruleFile         string
+	port    int
+	logfile string
+	ver     bool
+	//规则链存储路径，弃用，请使用rules
+	ruleFile string
+	//规则链存储路径
+	rules string
+	//预加载js文件路径
+	js string
+	//plugins
+	plugins          string
 	debugToLog       bool
 	subscribeTopics  string
 	mqttClientConfig = mqtt.Config{}
 	mqttAvailable    bool
-	logger           *log.Logger
+	//mqtt 数据交给哪个规则链处理，默认是default
+	mqtt2ChainId string
+	logger       *log.Logger
 	//基于内存的节点调试数据管理器
 	//如果需要查询历史数据，请把调试日志数据存放数据库等可以持久化载体
 	ruleChainDebugData *event.RuleChainDebugData
@@ -72,7 +82,12 @@ var (
 )
 
 func init() {
-	flag.StringVar(&ruleFile, "rule_file", "", "规则链文件夹路径")
+	//弃用
+	flag.StringVar(&ruleFile, "rule_file", "", "规则链文件存储路径，弃用。请使用-rules")
+	flag.StringVar(&rules, "rules", "./rules/", "规则链文件存储路径")
+	flag.StringVar(&js, "js", "./js/", "预加载js文件路径")
+	flag.StringVar(&plugins, "plugins", "./plugins/", "组件插件路径")
+
 	flag.IntVar(&port, "port", 9090, "http端口")
 	flag.BoolVar(&debugToLog, "debug", true, "是否把节点调试日志打印到日志文件")
 
@@ -91,6 +106,7 @@ func init() {
 	flag.StringVar(&mqttClientConfig.CertFile, "cert_file", "", "cert_file of the client.")
 	flag.StringVar(&mqttClientConfig.CertKeyFile, "key_file", "", "key_file of the client.")
 	flag.StringVar(&subscribeTopics, "topics", "#", "订阅的主题")
+	flag.StringVar(&mqtt2ChainId, "chain_id", "chain:default", "订阅数据处理规则链Id")
 
 }
 
@@ -107,14 +123,20 @@ func main() {
 	//初始化日志
 	logger = initLogger()
 
-	if ruleFile == "" {
-		ruleFile = "./rules/"
+	if ruleFile != "" {
+		rules = ruleFile
 	}
-	log.Println("ruleFile:", ruleFile)
+
+	log.Println("rules:", rules)
+	log.Println("js:", js)
+	log.Println("plugins:", plugins)
+	log.Println("mqtt2ChainId:", mqtt2ChainId)
 	//创建文件夹
-	_ = fs.CreateDirs(ruleFile)
+	_ = fs.CreateDirs(rules)
+	_ = fs.CreateDirs(js)
+	_ = fs.CreateDirs(plugins)
 	//初始化规则链文件夹
-	initRuleGo(logger, ruleFile)
+	initRuleGo(logger, rules)
 
 	if mqttAvailable && mqttClientConfig.Server != "" {
 		//开启mqtt订阅服务接收端点
@@ -170,11 +192,71 @@ func initRuleGo(logger *log.Logger, ruleFolder string) {
 		}
 	}
 
-	err := rulego.Load(ruleFolder, rulego.WithConfig(config))
-
+	//加载js
+	err := loadJs(js)
+	if err != nil {
+		logger.Fatal("parser js file error:", err)
+	}
+	//加载组件插件
+	err = loadPlugins(plugins)
+	if err != nil {
+		logger.Fatal("parser plugin file error:", err)
+	}
+	//加载规则链
+	err = loadRules(rules)
 	if err != nil {
 		logger.Fatal("parser rule file error:", err)
 	}
+}
+
+// 加载js
+func loadJs(folderPath string) error {
+	//创建文件夹
+	_ = fs.CreateDirs(folderPath)
+	//遍历所有文件
+	paths, err := fs.GetFilePaths(folderPath + "/*.js")
+	if err != nil {
+		return err
+	}
+	for _, file := range paths {
+		if b := fs.LoadFile(file); b != nil {
+			config.RegisterUdf(path.Base(file), types.Script{
+				Type:    types.Js,
+				Content: string(b),
+			})
+		}
+	}
+	return nil
+}
+
+// 加载组件插件
+func loadPlugins(folderPath string) error {
+	//创建文件夹
+	_ = fs.CreateDirs(folderPath)
+	//遍历所有文件
+	paths, err := fs.GetFilePaths(folderPath + "/*.so")
+	if err != nil {
+		return err
+	}
+	for _, file := range paths {
+		if err := rulego.Registry.RegisterPlugin(path.Base(file), file); err != nil {
+			logger.Printf("load plugin=%s error=%s", file, err.Error())
+		}
+	}
+	return nil
+
+}
+
+// 加载规则链
+func loadRules(folderPath string) error {
+	//创建文件夹
+	_ = fs.CreateDirs(folderPath)
+	//遍历所有文件
+	err := rulego.Load(folderPath, rulego.WithConfig(config))
+	if err != nil {
+		logger.Fatal("parser rule file error:", err)
+	}
+	return err
 }
 
 // mqtt 订阅服务
@@ -185,7 +267,7 @@ func mqttServe(logger *log.Logger) {
 		logger.Fatal(err)
 	}
 	for _, topic := range strings.Split(subscribeTopics, ",") {
-		router := endpoint.NewRouter().From(topic).To("chain:default").End()
+		router := endpoint.NewRouter().From(topic).To(mqtt2ChainId).End()
 		_, _ = mqttEndpoint.AddRouter(router)
 	}
 	if err := mqttEndpoint.Start(); err != nil {
@@ -346,7 +428,7 @@ func saveDsl(chainId, nodeId string, exchange *endpoint.Exchange) {
 			_, err = rulego.New(chainId, body, rulego.WithConfig(config))
 		}
 		//保存到文件
-		dir := filepath.Dir(ruleFile)
+		dir := filepath.Dir(rules)
 		v, _ := json.Format(body)
 		//保存规则链到文件
 		err = fs.SaveFile(filepath.Join(dir, chainId+".json"), v)

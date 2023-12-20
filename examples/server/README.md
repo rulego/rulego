@@ -45,8 +45,9 @@ When the node `debugMode` is `true`, debug logs will be recorded. Currently, thi
 
 ## MQTT client subscription data
 
-Subscribe to all topic data by default, and the data published to this topic will be passed to the rule engine according to the `default` rule chain definition.
-You can modify the subscription topic through `-topics`, separated by `,`
+Subscribe to all topic data by default, and then hand over the subscribed data to the rule chain (chainId=default) for processing. 
+- Modify the subscription topic through `-topics`, separated by `,`. 
+- Modify the rule chainId to be processed through `-chain_id`.
 
 ## Server compilation
 
@@ -65,16 +66,18 @@ go build -tags with_extend .
 ## server startup
 
 ```shell
-./server -rule_file="./rules/"
+./server -rules="./rules/"
 ```
 
 Or start in the background
 ```shell
-nohup ./server -rule_file="./rules/" >> console.log &
+nohup ./server -rules="./rules/" >> console.log &
 ```
 
 Startup parameters
-- rule_file: Rule chain folder. default: ./rules/
+- rules: The storage path of the rule chain. Default: ./rules/
+- js: The preloaded js file path. Default: ./js/
+- plugins: The component plugin path, only supports linux system. Default: ./plugins/
 - port: http server port. default: 9090
 - log_file: Log storage file path. default: print to console
 - debug: Whether to print node debug logs to log file
@@ -83,3 +86,4 @@ Startup parameters
 - username: Connect to mqtt broker username
 - password: Connect to mqtt broker password
 - topics: Connect to mqtt broker subscription message topic, multiple topics separated by `,`. default: #
+- chain_id: mqtt receive data, process rule chain id. Default: chain:default
