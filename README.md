@@ -243,13 +243,18 @@ Other rule chain examples:
 
 ## Performance
 
-`RuleGo` almost does not increase system overhead, resource consumption is extremely low, because it uses object coroutine pool and object pool, even higher performance than directly calling business methods, especially suitable for running on edge servers.
+`RuleGo` almost does not increase system overhead, resource consumption is extremely low, especially suitable for running on edge servers.
+In addition, RuleGo uses a directed acyclic graph to represent the rule chain, and each input message only needs to be processed along the path in the graph, without matching all the rules, This greatly improves the efficiency and speed of message processing, and also saves resources and time. The routing algorithm can achieve: no matter how many nodes the rule chain has, it will not affect the node routing performance.
 
---------
+Performance test cases:
+```
 Machine: Raspberry Pi 2 (900MHz Cortex-A7*4,1GB LPDDR2)  
 Data size: 260B   
 Rule chain: JS script filtering->JS complex transformation->HTTP push   
 Test results: 100 concurrent and 500 concurrent, memory consumption does not change much around 19M
+```
+
+[More performance test cases](https://rulego.cc/en/pages/f60381/)
 
 ## Ecosystem
 
