@@ -320,9 +320,6 @@ func createPostMsgRouter() *endpoint.Router {
 		msg := exchange.In.GetMsg()
 		//获取消息类型
 		msg.Type = msg.Metadata.GetValue("msgType")
-		//交由哪个规则链ID机芯处理
-		chainId := msg.Metadata.GetValue("chainId")
-		msg.Metadata.PutValue("chainId", chainId)
 		return true
 	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.Out.SetStatusCode(http.StatusOK)
