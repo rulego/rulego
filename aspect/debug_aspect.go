@@ -53,15 +53,15 @@ func (aspect *Debug) After(ctx types.RuleContext, msg types.RuleMsg, err error, 
 }
 
 func (aspect *Debug) onDebug(ctx types.RuleContext, flowType string, msg types.RuleMsg, relationType string, err error) {
-	msgCopy := msg.Copy()
-	ctx.SubmitTack(func() {
+	if ctx.Self() != nil && ctx.Self().IsDebugMode() {
+		msgCopy := msg.Copy()
 		//异步记录日志
-		if ctx.Self() != nil && ctx.Self().IsDebugMode() {
+		ctx.SubmitTack(func() {
 			var chainId = ""
 			if ctx.RuleChain() != nil {
 				chainId = ctx.RuleChain().GetNodeId().Id
 			}
 			ctx.Config().OnDebug(chainId, flowType, ctx.Self().GetNodeId().Id, msgCopy, relationType, err)
-		}
-	})
+		})
+	}
 }
