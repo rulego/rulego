@@ -9,7 +9,7 @@ import (
 // SaveFile A function that saves a file to a given path, overwriting it if it exists
 func SaveFile(path string, data []byte) error {
 	// Open the file with write-only and create flags, and 0666 permission
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, 0666)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return err
 	}
