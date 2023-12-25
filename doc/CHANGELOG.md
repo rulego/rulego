@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## [v0.18.0] 2023/12/27
+
+- feat:增加AOP模块，它允许在不修改规则链或节点的原有逻辑的情况下，对规则链的执行添加额外的行为，或者直接替换原规则链或者节点逻辑。 提供以下增强点：Before Advice、After Advice、Around Advice、Start Advice、End Advice、Completed Advice、OnCreated Advice、OnReload Advice、OnDestroy Advice。[文档](https://rulego.cc/pages/a1ed6c/)
+- feat:restApiCall节点组件，增加SSE(Server-Sent Events)流式请求模式，支持对接大模型接口。
+- feat:增加CI自动化测试流程。
+- feat:增加大量单元测试，覆盖率达到92%。
+- feat:增加性能[测试用例](https://rulego.cc/pages/f60381/) 。
+- feat:sendEmail节点组件，增加ConnectTimeout配置。
+- feat:/examples/server示例工程，增加 -js -plugins -chain_id flags，支持启动加载js原生文件、插件和指定mqtt订阅处理规则链ID。
+- fix:/examples/server示例工程，规则链文件夹多层路径无法正常解析。
+- fix:/examples/server示例工程，保存规则链，可能会出现旧规则链文件数据无法正确覆盖。
+- fix:metadata可能会出现并发读写问题。
+- fix:规则引擎同步处理数据，有几率无法正确调用onCompleted回调函数。
+- fix:RuleChainPool nil问题。
+- fix:mqtt endpoint，无法通过header得到主题。
+- refactor:onEnd回调函数允许得到relationType。
+- refactor:删除函数Configuration.GetToString。
+- opt:部分组件，增强nil检查。
+- opt:dsl AdditionalInfo字段 增加omitempty json tag。
+- opt:run go fmt。
+
 ## [v0.17.0] 2023/11/27
 
 - feat:增加websocket endpoint组件 [文档](https://rulego.cc/pages/e36f41/)
