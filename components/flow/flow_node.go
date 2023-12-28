@@ -29,6 +29,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
+	"sync"
 )
 
 // 注册节点
@@ -67,18 +68,28 @@ func (x *ChainNode) Init(ruleConfig types.Config, configuration types.Configurat
 // OnMsg 处理消息
 func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var wrapperMsg = msg.Copy()
-	var msgs []WrapperMsg
+	var msgs []types.WrapperMsg
+	//使用一个互斥锁来保护对msgs切片的并发写入
+	var mu sync.Mutex
 	ctx.TellFlow(msg, x.Config.TargetId, func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
-		msgs = append(msgs, WrapperMsg{
-			Msg:    onEndMsg,
-			Err:    err,
-			NodeId: nodeCtx.GetSelfId(),
-		})
+		errStr := ""
 		if err == nil {
 			for k, v := range onEndMsg.Metadata.Values() {
 				wrapperMsg.Metadata.PutValue(k, v)
 			}
+		} else {
+			errStr = err.Error()
 		}
+		selfId := nodeCtx.GetSelfId()
+		//使用互斥锁来保证对msgs切片的原子操作
+		mu.Lock()
+		defer mu.Unlock()
+		msgs = append(msgs, types.WrapperMsg{
+			Msg:    onEndMsg,
+			Err:    errStr,
+			NodeId: selfId,
+		})
+
 	}, func() {
 		wrapperMsg.DataType = types.JSON
 		wrapperMsg.Data = str.ToString(msgs)
@@ -88,14 +99,4 @@ func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy 销毁
 func (x *ChainNode) Destroy() {
-}
-
-// WrapperMsg 子规则链执行完的消息封装
-type WrapperMsg struct {
-	//Msg 消息
-	Msg types.RuleMsg `json:"msg"`
-	//Err 错误
-	Err error `json:"err"`
-	//NodeId 结束节点ID
-	NodeId string `json:"nodeId"`
 }
