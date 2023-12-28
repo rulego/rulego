@@ -129,3 +129,13 @@ func newMsg(id string, ts int64, msgType string, dataType DataType, metaData Met
 func (m *RuleMsg) Copy() RuleMsg {
 	return newMsg(m.Id, m.Ts, m.Type, m.DataType, m.Metadata.Copy(), m.Data)
 }
+
+// WrapperMsg 节点执行结果封装，用于封装多个节点执行结果
+type WrapperMsg struct {
+	//Msg 消息
+	Msg RuleMsg `json:"msg"`
+	//Err 错误
+	Err string `json:"err"`
+	//NodeId 结束节点ID
+	NodeId string `json:"nodeId"`
+}
