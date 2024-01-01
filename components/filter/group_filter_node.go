@@ -100,20 +100,15 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				atomic.AddInt32(&endCount, 1)
 
 				if x.Config.AllMatches {
-					if firstRelationType != types.True {
-						atomic.StoreInt32(&completed, 1)
+					if firstRelationType != types.True && atomic.CompareAndSwapInt32(&completed, 0, 1) {
 						c <- false
-					} else if atomic.LoadInt32(&endCount) >= x.Length {
-						atomic.StoreInt32(&completed, 1)
+					} else if atomic.LoadInt32(&endCount) >= x.Length && atomic.CompareAndSwapInt32(&completed, 0, 1) {
 						c <- true
 					}
-
 				} else if !x.Config.AllMatches {
-					if firstRelationType == types.True {
-						atomic.StoreInt32(&completed, 1)
+					if firstRelationType == types.True && atomic.CompareAndSwapInt32(&completed, 0, 1) {
 						c <- true
-					} else if atomic.LoadInt32(&endCount) >= x.Length {
-						atomic.StoreInt32(&completed, 1)
+					} else if atomic.LoadInt32(&endCount) >= x.Length && atomic.CompareAndSwapInt32(&completed, 0, 1) {
 						c <- false
 					}
 				}
