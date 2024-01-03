@@ -18,6 +18,7 @@ package maps
 
 import (
 	"github.com/mitchellh/mapstructure"
+	"strings"
 )
 
 // Map2Struct Decode takes an input structure and uses reflection to translate it to
@@ -36,4 +37,27 @@ func Map2Struct(input interface{}, output interface{}) error {
 		return err
 	}
 	return nil
+}
+
+// Get 获取map中的字段，支持嵌套结构获取，例如fieldName.subFieldName.xx
+// 嵌套类型必须是map[string]interface{}
+// 如果字段不存在，返回nil
+func Get(input interface{}, fieldName string) interface{} {
+	// 按照"."分割fieldName
+	fields := strings.Split(fieldName, ".")
+	var result interface{}
+	result = input
+	// 遍历每个子字段
+	for _, field := range fields {
+		if mapValue, ok := result.(map[string]interface{}); ok {
+			if v, ok := mapValue[field]; ok {
+				result = v
+			} else {
+				return nil
+			}
+		} else {
+			return nil
+		}
+	}
+	return result
 }

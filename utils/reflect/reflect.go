@@ -35,7 +35,9 @@ func GetComponentForm(component types.Node) types.ComponentForm {
 	componentForm.Fields = GetFields(configField, configValue)
 	var relationTypes = []string{types.Success, types.Failure}
 
-	if strings.Contains(strings.ToLower(componentForm.Label), "filter") {
+	if component.Type() == "iterator" {
+		relationTypes = []string{types.True, types.False, types.Success, types.Failure}
+	} else if strings.Contains(strings.ToLower(componentForm.Label), "filter") {
 		relationTypes = []string{types.True, types.False, types.Failure}
 	} else if strings.Contains(strings.ToLower(componentForm.Label), "switch") {
 		relationTypes = []string{}
