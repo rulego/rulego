@@ -42,3 +42,35 @@ func TestMap2Struct(t *testing.T) {
 	assert.Equal(t, "lala", user.Username)
 	assert.Equal(t, "test", user.Address.Detail)
 }
+
+// TestGet 测试Get函数
+func TestGet(t *testing.T) {
+	// 定义一个map，包含嵌套结构
+	value := map[string]interface{}{
+		"name": "Alice",
+		"age":  25,
+		"address": map[string]interface{}{
+			"city":    "Beijing",
+			"country": "China",
+		},
+		"friends": []string{"Bob", "Charlie"},
+	}
+	// 定义一些测试用例，包含字段名和期望的值
+	cases := []struct {
+		fieldName string
+		expected  interface{}
+	}{
+		{"name", "Alice"},
+		{"age", 25},
+		{"address.city", "Beijing"},
+		{"address.country", "China"},
+		{"friends", []string{"Bob", "Charlie"}},
+		{"hobbies", nil},
+		{"address.zipcode", nil},
+	}
+	// 遍历每个测试用例，调用GetFieldValue函数，断言结果是否与期望的值相等
+	for _, c := range cases {
+		actual := Get(value, c.fieldName)
+		assert.Equal(t, c.expected, actual)
+	}
+}
