@@ -42,16 +42,16 @@ type GojaJsEngine struct {
 }
 
 // NewGojaJsEngine 创建一个新的js引擎实例
-func NewGojaJsEngine(config types.Config, jsScript string, vars map[string]interface{}) *GojaJsEngine {
-	//defaultAntsPool, _ := ants.NewPool(config.MaxTaskPool)
+func NewGojaJsEngine(config types.Config, jsScript string, fromVars map[string]interface{}) *GojaJsEngine {
 	jsEngine := &GojaJsEngine{
 		vmPool: sync.Pool{
 			New: func() interface{} {
-				//atomic.AddInt64(&vmNum, 1)
-				//config.Logger.Printf("create new js vm%d", vmNum)
 				vm := goja.New()
-				if vars == nil {
-					vars = make(map[string]interface{})
+				vars := make(map[string]interface{})
+				if fromVars != nil {
+					for k, v := range fromVars {
+						vars[k] = v
+					}
 				}
 				if len(config.Properties.Values()) != 0 {
 					//增加全局Properties 到js运行时
