@@ -75,53 +75,59 @@ func RandomStr(num int) string {
 	return builder.String()
 }
 
-// ToString input的值转成字符串
+// ToString input的值转成字符串,忽略错误
 func ToString(input interface{}) string {
+	v, _ := ToStringMaybeErr(input)
+	return v
+}
+
+// ToStringMaybeErr input的值转成字符串
+func ToStringMaybeErr(input interface{}) (string, error) {
 	if input == nil {
-		return ""
+		return "", nil
 	}
 	switch v := input.(type) {
 	case string:
-		return v
+		return v, nil
 	case bool:
-		return strconv.FormatBool(v)
+		return strconv.FormatBool(v), nil
 	case float64:
 		ft := input.(float64)
-		return strconv.FormatFloat(ft, 'f', -1, 64)
+		return strconv.FormatFloat(ft, 'f', -1, 64), nil
 	case float32:
 		ft := input.(float32)
-		return strconv.FormatFloat(float64(ft), 'f', -1, 32)
+		return strconv.FormatFloat(float64(ft), 'f', -1, 32), nil
 	case int:
-		return strconv.Itoa(v)
+		return strconv.Itoa(v), nil
 	case uint:
-		return strconv.Itoa(int(v))
+		return strconv.Itoa(int(v)), nil
 	case int8:
-		return strconv.Itoa(int(v))
+		return strconv.Itoa(int(v)), nil
 	case uint8:
-		return strconv.Itoa(int(v))
+		return strconv.Itoa(int(v)), nil
 	case int16:
-		return strconv.Itoa(int(v))
+		return strconv.Itoa(int(v)), nil
 	case uint16:
-		return strconv.Itoa(int(v))
+		return strconv.Itoa(int(v)), nil
 	case int32:
-		return strconv.Itoa(int(v))
+		return strconv.Itoa(int(v)), nil
 	case uint32:
-		return strconv.Itoa(int(v))
+		return strconv.Itoa(int(v)), nil
 	case int64:
-		return strconv.FormatInt(v, 10)
+		return strconv.FormatInt(v, 10), nil
 	case uint64:
-		return strconv.FormatUint(v, 10)
+		return strconv.FormatUint(v, 10), nil
 	case []byte:
-		return string(v)
+		return string(v), nil
 	case fmt.Stringer:
-		return v.String()
+		return v.String(), nil
 	case error:
-		return v.Error()
+		return v.Error(), nil
 	default:
 		if newValue, err := json.Marshal(input); err == nil {
-			return string(newValue)
+			return string(newValue), nil
 		} else {
-			return ""
+			return "", err
 		}
 	}
 }

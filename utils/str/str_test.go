@@ -17,8 +17,11 @@
 package str
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/rulego/rulego/test/assert"
+	"math"
 	"reflect"
 	"testing"
 )
@@ -26,6 +29,26 @@ import (
 func TestProcessVar(t *testing.T) {
 	s := ProcessVar("Hello, Alice. You are ${age} years old.", "age", "18")
 	assert.Equal(t, "Hello, Alice. You are 18 years old.", s)
+}
+func TestProcessVar2(t *testing.T) {
+	var input interface{}
+	input = float64(5)
+	newValue, _ := json.Marshal(input)
+	fmt.Println(string(newValue))
+	fmt.Println(ToString(input))
+	input = true
+	newValue, _ = json.Marshal(input)
+	fmt.Println(string(newValue))
+	fmt.Println(ToString(input))
+	input = "aa"
+	newValue, _ = json.Marshal(input)
+	fmt.Println(string(newValue))
+	fmt.Println(ToString(input))
+	input = []byte("bb")
+	newValue, _ = json.Marshal(input)
+	fmt.Println(string(newValue))
+	fmt.Println(ToString(input))
+
 }
 
 func TestSprintfDict(t *testing.T) {
@@ -57,8 +80,8 @@ type Stringer struct {
 func (s *Stringer) String() string {
 	return s.Value
 }
-func TestToString(t *testing.T) {
 
+func TestToString(t *testing.T) {
 	// Test cases
 	testCases := []struct {
 		want  string
@@ -95,6 +118,49 @@ func TestToString(t *testing.T) {
 	}
 }
 
+func TestToStringMaybeErr(t *testing.T) {
+	// Test cases
+	testCases := []struct {
+		want  string
+		input interface{}
+	}{
+		{"123", int(123)},
+		{"123", uint(123)},
+		{"123", int8(123)},
+		{"123", uint8(123)},
+		{"123", int16(123)},
+		{"123", uint16(123)},
+		{"123", int32(123)},
+		{"123", uint32(123)},
+		{"123", int64(123)},
+		{"123", uint64(123)},
+		{"3.14", float32(3.14)},
+		{"3.14", float64(3.14)},
+		{"true", true},
+		{"hello", &Stringer{"hello"}},
+		{"hello", []byte("hello")},
+		{"", nil},
+		{"", ""},
+		{"hello", "hello"},
+		{"error", errors.New("error")},
+		{"{\"Username\":\"lala\",\"Age\":25,\"Address\":{\"Detail\":\"\"}}", User{Username: "lala", Age: 25}},
+		{"{\"name\":\"lala\"}", map[string]string{
+			"name": "lala",
+		}},
+		{"json: unsupported value: NaN", map[string]interface{}{
+			"name": math.Sqrt(-1),
+		}},
+	}
+
+	for _, tc := range testCases {
+		s, err := ToStringMaybeErr(tc.input)
+		if err != nil {
+			assert.Equal(t, tc.want, err.Error())
+		} else {
+			assert.Equal(t, tc.want, s)
+		}
+	}
+}
 func TestToStringMapString(t *testing.T) {
 	// Test cases
 	testCases := []struct {

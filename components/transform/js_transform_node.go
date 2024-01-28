@@ -94,6 +94,8 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		var dataMap interface{}
 		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
 			data = dataMap
+		} else {
+			data = make(map[string]interface{})
 		}
 	}
 
@@ -113,9 +115,13 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			}
 
 			if formatMsgData, ok := formatData[types.MsgKey]; ok {
-				msg.Data = string2.ToString(formatMsgData)
+				if newValue, err := string2.ToStringMaybeErr(formatMsgData); err == nil {
+					msg.Data = newValue
+				} else {
+					ctx.TellFailure(msg, err)
+					return
+				}
 			}
-
 			ctx.TellNext(msg, types.Success)
 		} else {
 			ctx.TellFailure(msg, JsTransformReturnFormatErr)
