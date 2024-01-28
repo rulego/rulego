@@ -94,4 +94,24 @@ func TestJsTransformNode(t *testing.T) {
 			})
 		}
 	})
+	t.Run("OnMsgError", func(t *testing.T) {
+		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"jsScript": "msg['add']=5+msg['test'];return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+		}, Registry)
+		assert.Nil(t, err)
+
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "test")
+		var msgList = []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "AA",
+				AfterSleep: time.Millisecond * 200,
+			},
+		}
+		test.NodeOnMsg(t, node1, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+			assert.Equal(t, types.Failure, relationType)
+		})
+	})
 }
