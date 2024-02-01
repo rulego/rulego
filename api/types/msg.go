@@ -34,6 +34,7 @@ const (
 	MsgKey      = "msg"
 	MetadataKey = "metadata"
 	MsgTypeKey  = "msgType"
+	DataTypeKey = "dataType"
 )
 
 // Metadata 规则引擎消息元数据

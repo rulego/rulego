@@ -113,6 +113,7 @@ type NodeAndCallback struct {
 
 type Msg struct {
 	MetaData types.Metadata
+	DataType types.DataType
 	MsgType  string
 	Data     string
 	//发之后暂停间隔
@@ -131,6 +132,11 @@ func NodeOnMsgWithChildren(t *testing.T, node types.Node, msgList []Msg, childre
 
 	ctx := NewRuleContextFull(types.NewConfig(), node, childrenNodes, callback)
 	for _, item := range msgList {
+		dataType := types.JSON
+		if item.DataType != "" {
+			dataType = item.DataType
+		}
+		types.NewMsg(time.Now().UnixMilli(), item.MsgType, dataType, item.MetaData, item.Data)
 		msg := ctx.NewMsg(item.MsgType, item.MetaData, item.Data)
 		node.OnMsg(ctx, msg)
 		if item.AfterSleep > 0 {
