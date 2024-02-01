@@ -50,7 +50,7 @@ type JsSwitchNodeConfiguration struct {
 
 // JsSwitchNode 节点执行已配置的JS脚本。脚本应返回消息应路由到的下一个链名称的数组。
 // 如果数组为空-消息不路由到下一个节点。
-// 消息体可以通过`msg`变量访问，msg 是string类型。例如:`msg.temperature > 50;`
+// 消息体可以通过`msg`变量访问，如果消息的dataType是json类型，可以通过 `msg.XX`方式访问msg的字段。例如:`msg.temperature > 50;`
 // 消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
 // 消息类型可以通过`msgType`变量访问.
 type JsSwitchNode struct {
