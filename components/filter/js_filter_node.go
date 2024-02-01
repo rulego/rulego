@@ -51,7 +51,7 @@ type JsFilterNodeConfiguration struct {
 // JsFilterNode 使用js脚本过滤传入信息
 // 如果 `True`发送信息到`True`链, `False`发到`False`链。
 // 如果 脚本执行失败则发送到`Failure`链
-// 消息体可以通过`msg`变量访问，msg 是string类型。例如:`return msg.temperature > 50;`
+// 消息体可以通过`msg`变量访问，如果消息的dataType是json类型，可以通过 `msg.XX`方式访问msg的字段。例如:`return msg.temperature > 50;`
 // 消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
 // 消息类型可以通过`msgType`变量访问.
 type JsFilterNode struct {
