@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## [v0.19.0] 2024/02/18
+
+- feat:增加表达式过滤器节点组件。[文档](https://rulego.cc/pages/c8fe75/)
+- feat:增加表达式转换节点组件。[文档](https://rulego.cc/pages/3769cc/)
+  表达式示例：
+  使用函数：upper(msg.name)
+  判断：(msg.temperature+10)>50
+  三元运算：upper(msg.name==nil?'no':msg.name)
+  截取字符串：msg.name[:4]
+  替换字符串：replace("Hello World", "World", "Universe") == "Hello Universe"
+
+- feat:增加groupAction节点组件，把多个节点组成一个分组，异步执行所有节点，等待所有节点执行完成后，把所有节点结果合并，发送到下一个节点。[文档](https://rulego.cc/pages/bf06e2/)
+- feat:增加迭代器节点组件。遍历msg或者msg中指定字段每一项值到下一个节。[文档](https://rulego.cc/pages/5898a0/)
+- fix:修复子规则结果合并，并发问题。
+- fix:onEnd某些原因可能会重复调用问题。
+- fix:metadata可能会出现并发读写问题。
+- fix:js引擎初始化增加并发保护。
+- fix:jsTransform 遇到NaN值，流转到TellFailure分支。
+
 ## [v0.18.0] 2023/12/27
 
 - feat:增加AOP模块，它允许在不修改规则链或节点的原有逻辑的情况下，对规则链的执行添加额外的行为，或者直接替换原规则链或者节点逻辑。 提供以下增强点：Before Advice、After Advice、Around Advice、Start Advice、End Advice、Completed Advice、OnCreated Advice、OnReload Advice、OnDestroy Advice。[文档](https://rulego.cc/pages/a1ed6c/)
