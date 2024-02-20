@@ -109,6 +109,13 @@ func TestJsEngine(t *testing.T) {
 				`,
 		},
 	)
+	config.RegisterUdf(
+		"add2", types.Script{
+			Type: types.Js,
+			Content: func(a, b int) int {
+				return a + b
+			},
+		})
 	jsEngine := NewGojaJsEngine(config, jsScript, nil)
 	assert.NotNil(t, jsEngine)
 
@@ -161,6 +168,9 @@ func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.
 		assert.Nil(t, err)
 		assert.Equal(t, true, response.(bool))
 	}
+	response, err = jsEngine.Execute("add2", 5, 4)
+	assert.Nil(t, err)
+	assert.Equal(t, int64(9), response.(int64))
 
 	group.Done()
 	jsEngine.config.Logger.Printf("index:%d,响应:%s,用时：%s", index, response, time.Since(start))

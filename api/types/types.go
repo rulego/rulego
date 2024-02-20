@@ -288,10 +288,13 @@ type RuleNodeRelation struct {
 	RelationType string
 }
 
-// Script 脚本 用于注册原生UDF
+// ScriptFuncSeparator 脚本函数名分割符
+const ScriptFuncSeparator = "#"
+
+// Script 脚本 用于注册原生函数或者使用go定义的自定义函数
 type Script struct {
 	//Type 脚本类型，默认Js
 	Type string
-	//Content 脚本内容
-	Content string
+	//Content 脚本内容或者自定义函数
+	Content interface{}
 }

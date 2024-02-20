@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/dop251/goja"
 	"github.com/rulego/rulego/api/types"
+	"strings"
 	"sync"
 	"time"
 )
@@ -66,9 +67,13 @@ func NewGojaJsEngine(config types.Config, jsScript string, fromVars map[string]i
 					} else if script, scriptOk := v.(types.Script); scriptOk {
 						if script.Type == types.Js || script.Type == "" {
 							// parse  JS script
-							_, err = vm.RunString(script.Content)
+							if c, ok := script.Content.(string); ok {
+								_, err = vm.RunString(c)
+							} else {
+								funcName := strings.Replace(k, types.Js+types.ScriptFuncSeparator, "", 1)
+								vars[funcName] = vm.ToValue(script.Content)
+							}
 						}
-
 					} else {
 						// parse go func
 						vars[k] = vm.ToValue(v)
