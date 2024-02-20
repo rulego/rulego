@@ -58,15 +58,21 @@ type Config struct {
 	//节点初始化时候替换，只替换一次
 	Properties Metadata
 	//Udf 注册自定义Golang函数和原生脚本，js等脚本引擎运行时可以调用
+	//不同脚本类型函数名可以重复
 	Udf map[string]interface{}
 	//Aspects AOP切面列表
 	Aspects []Aspect
 }
 
 // RegisterUdf 注册自定义函数
+// 不同脚本类型函数名可以重复
 func (c *Config) RegisterUdf(name string, value interface{}) {
 	if c.Udf == nil {
 		c.Udf = make(map[string]interface{})
+	}
+	if c, ok := value.(Script); ok {
+		//解决不同类型脚本的函数名冲突
+		name = c.Type + ScriptFuncSeparator + name
 	}
 	c.Udf[name] = value
 }
