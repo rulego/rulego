@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/rulego/rulego"
+	luaEngine "github.com/rulego/rulego-components/pkg/lua_engine"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint"
@@ -165,6 +166,8 @@ func initLogger() *log.Logger {
 func initRuleGo(logger *log.Logger, ruleFolder string) {
 
 	config = rulego.NewConfig(types.WithDefaultPool())
+	//加载lua第三方库
+	config.Properties.PutValue(luaEngine.LoadLuaLibs, "true")
 	//初始化RuleGo日志
 	config.Logger = logger
 	//调试模式回调信息
