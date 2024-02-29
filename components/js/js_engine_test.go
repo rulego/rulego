@@ -18,8 +18,8 @@ package js
 
 import (
 	"github.com/rulego/rulego/api/types"
-
 	"github.com/rulego/rulego/test/assert"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -32,6 +32,14 @@ func TestJsEngine(t *testing.T) {
 			return 'aa'
 		}
 		return msg==result()
+	}
+	function Transform(msg, metadata, msgType) {
+		var msg ={}
+		msg.isNumber=isNumber(5)
+		msg.today=utilsFunc.dateFormat(new Date(),'yyyyMMdd')
+		msg.add=add2(5,3)
+		msg.add2=add2(5,3)
+		return msg
 	}
 	function GetValue(msg, metadata, msgType) {
 		return global.name 
@@ -55,10 +63,7 @@ func TestJsEngine(t *testing.T) {
 		msg["returnFromGo"] = "returnFromGo"
 		return msg
 	})
-	config.RegisterUdf("timeoutFunc", func(msg map[string]string, metadata map[string]string, msgType string) map[string]string {
-		time.Sleep(3 * time.Second)
-		return msg
-	})
+
 	//注册原生JS脚本
 	//使用 isNumber(xx)
 	config.RegisterUdf("isNumberScript", `function isNumber(value){
@@ -116,10 +121,26 @@ func TestJsEngine(t *testing.T) {
 				return a + b
 			},
 		})
-	jsEngine := NewGojaJsEngine(config, jsScript, nil)
-	assert.NotNil(t, jsEngine)
+	config.RegisterUdf(
+		"timeoutFunc", types.Script{
+			Type: types.Js,
+			Content: `
+			function sleep(ms) {
+				var start = Date.now();
+				while (Date.now() < start + ms);
+			}
+			function timeoutFunc(value){
+			  sleep(3000); // 休眠3秒
+			}
+		`,
+		},
+	)
 
-	jsEngine = NewGojaJsEngine(config, jsScript, map[string]interface{}{"username": "lala"})
+	jsEngine, err := NewGojaJsEngine(config, jsScript, nil)
+	assert.NotNil(t, jsEngine)
+	assert.Nil(t, err)
+
+	jsEngine, err = NewGojaJsEngine(config, jsScript, map[string]interface{}{"username": "lala"})
 	defer jsEngine.Stop()
 	jsEngine.config.Logger.Printf("用时1：%s", time.Since(start))
 	var group sync.WaitGroup
@@ -131,7 +152,7 @@ func TestJsEngine(t *testing.T) {
 	}
 	group.Wait()
 
-	_ = NewGojaJsEngine(config, jsScript, nil)
+	_, err = NewGojaJsEngine(config, jsScript, nil)
 }
 
 func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.WaitGroup) {
@@ -145,6 +166,13 @@ func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.
 		response, err = jsEngine.Execute("Filter", "bb", metadata, "aa")
 		assert.Nil(t, err)
 		assert.Equal(t, false, response.(bool))
+		response, err = jsEngine.Execute("Transform", "bb", metadata, "aa")
+		r, ok := response.(map[string]interface{})
+		assert.True(t, ok)
+		assert.Equal(t, int64(8), r["add"])
+		assert.Equal(t, int64(8), r["add2"])
+		assert.Equal(t, true, r["isNumber"])
+		assert.Equal(t, time.Now().Format("20060102"), r["today"])
 	} else if index == 6 {
 		response, err = jsEngine.Execute("GetValue", "bb", metadata, "aa")
 		assert.Nil(t, err)
@@ -159,6 +187,7 @@ func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.
 		assert.Equal(t, "returnFromGo", response.(map[string]string)["returnFromGo"])
 
 		response, err = jsEngine.Execute("timeoutFunc", metadata, metadata, "testMsgType")
+		assert.Equal(t, true, strings.HasPrefix(err.Error(), "execution timeout"))
 
 		response, err = jsEngine.Execute("aa", metadata, metadata, "testMsgType")
 		assert.NotNil(t, err)

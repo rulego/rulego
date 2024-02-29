@@ -82,7 +82,7 @@ func (x *JsTransformNode) Init(ruleConfig types.Config, configuration types.Conf
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
 		jsScript := fmt.Sprintf("function Transform(msg, metadata, msgType) { %s }", x.Config.JsScript)
-		x.jsEngine = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
+		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
 	}
 	return err
 }
@@ -98,9 +98,7 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			data = make(map[string]interface{})
 		}
 	}
-
 	out, err := x.jsEngine.Execute("Transform", data, msg.Metadata.Values(), msg.Type)
-
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {

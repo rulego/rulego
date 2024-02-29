@@ -74,7 +74,7 @@ func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configu
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
 		jsScript := fmt.Sprintf("function Switch(msg, metadata, msgType) { %s }", x.Config.JsScript)
-		x.jsEngine = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
+		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
 	}
 	return err
 }

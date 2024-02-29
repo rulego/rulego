@@ -85,7 +85,7 @@ func (x *LogNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
 		jsScript := fmt.Sprintf("function ToString(msg, metadata, msgType) { %s }", x.Config.JsScript)
-		x.jsEngine = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
+		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
 	}
 	x.logger = ruleConfig.Logger
 	return err

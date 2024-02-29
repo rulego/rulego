@@ -68,7 +68,7 @@ func (x *IteratorNode) Init(ruleConfig types.Config, configuration types.Configu
 	x.Config.FieldName = strings.TrimSpace(x.Config.FieldName)
 	if err == nil && x.Config.JsScript != "" {
 		jsScript := fmt.Sprintf("function ItemFilter(item,index,metadata) { %s }", x.Config.JsScript)
-		x.jsEngine = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
+		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
 	}
 	return err
 }
