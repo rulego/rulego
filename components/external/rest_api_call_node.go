@@ -90,6 +90,8 @@ type RestApiCallNodeConfiguration struct {
 	ProxyUser string
 	//ProxyPassword 代理密码
 	ProxyPassword string
+	// Without request body
+	WithoutRequestBody bool
 }
 
 // RestApiCallNode 将通过REST API调用GET | POST | PUT | DELETE到外部REST服务。
@@ -138,7 +140,14 @@ func (x *RestApiCallNode) Init(ruleConfig types.Config, configuration types.Conf
 func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	metaData := msg.Metadata.Values()
 	endpointUrl := str.SprintfDict(x.Config.RestEndpointUrlPattern, metaData)
-	req, err := http.NewRequest(x.Config.RequestMethod, endpointUrl, bytes.NewReader([]byte(msg.Data)))
+	var req *http.Request
+	var err error
+
+	if x.Config.WithoutRequestBody {
+		req, err = http.NewRequest(x.Config.RequestMethod, endpointUrl, nil)
+	} else {
+		req, err = http.NewRequest(x.Config.RequestMethod, endpointUrl, bytes.NewReader([]byte(msg.Data)))
+	}
 	if err != nil {
 		ctx.TellFailure(msg, err)
 		return

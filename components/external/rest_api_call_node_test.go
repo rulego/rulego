@@ -42,11 +42,13 @@ func TestRestApiCallNode(t *testing.T) {
 			"requestMethod":            "GET",
 			"maxParallelRequestsCount": 100,
 			"readTimeoutMs":            0,
+			"withoutRequestBody":       true,
 			"headers":                  headers,
 		}, types.Configuration{
 			"requestMethod":            "GET",
 			"maxParallelRequestsCount": 100,
 			"readTimeoutMs":            0,
+			"withoutRequestBody":       true,
 			"headers":                  headers,
 		}, Registry)
 	})
@@ -87,6 +89,12 @@ func TestRestApiCallNode(t *testing.T) {
 			"proxyPor":               "10809",
 		}, Registry)
 
+		node4, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"restEndpointUrlPattern": "https://rulego.cc/",
+			"requestMethod":          "GET",
+			"withoutRequestBody":     true,
+		}, Registry)
+
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
 		msgList := []test.Msg{
@@ -119,6 +127,13 @@ func TestRestApiCallNode(t *testing.T) {
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Failure, relationType)
+				},
+			},
+			{
+				Node:    node4,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
 				},
 			},
 		}
