@@ -1,0 +1,92 @@
+{
+  "ruleChain": {
+    "id": "chain_call_rest_api",
+    "additionalInfo": null,
+    "name": "测试规则链",
+    "debugMode": false,
+    "root": true,
+    "configuration": null
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "s1",
+        "additionalInfo": {
+          "description": "ddd",
+          "layoutX": 440,
+          "layoutY": 280
+        },
+        "type": "jsFilter",
+        "name": "过滤",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msg!='bb';"
+        }
+      },
+      {
+        "id": "s2",
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 670,
+          "layoutY": 280
+        },
+        "type": "jsTransform",
+        "name": "转换",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "metadata['test']='test02';\nmetadata['index']=52;\nmsgType='TEST_MSG_TYPE2';\nmsg['aa']=66;\nreturn {'msg':msg,'metadata':metadata,'msgType':msgType};"
+        }
+      },
+      {
+        "id": "s3",
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 930,
+          "layoutY": 190
+        },
+        "type": "restApiCall",
+        "name": "推送数据",
+        "debugMode": true,
+        "configuration": {
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "maxParallelRequestsCount": 200,
+          "requestMethod": "POST",
+          "restEndpointUrlPattern": "http://192.168.136.26:9099/api/msg"
+        }
+      },
+      {
+        "id": "node_5",
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 930,
+          "layoutY": 370
+        },
+        "type": "log",
+        "name": "记录错误日志",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "return 'Incoming message:\\\\n' + JSON.stringify(msg) +\n  '\\\\nIncoming metadata:\\\\n' + JSON.stringify(metadata);"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "s1",
+        "toId": "s2",
+        "type": "True"
+      },
+      {
+        "fromId": "s2",
+        "toId": "s3",
+        "type": "Success"
+      },
+      {
+        "fromId": "s2",
+        "toId": "node_5",
+        "type": "Failure"
+      }
+    ]
+  }
+}
