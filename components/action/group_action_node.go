@@ -114,8 +114,7 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var wrapperMsg = msg.Copy()
 	//每个节点执行结果列表
 	var msgs = make([]types.WrapperMsg, len(x.NodeIdList))
-	////使用一个互斥锁来保护对msgs切片的并发写入
-	//var mu sync.Mutex
+
 	//执行节点列表逻辑
 	for i, nodeId := range x.NodeIdList {
 		//创建一个局部变量，避免闭包引用问题
@@ -123,11 +122,7 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.ExecuteNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
 			if atomic.LoadInt32(&completed) == 0 {
 				errStr := ""
-				if err == nil {
-					for k, v := range onEndMsg.Metadata.Values() {
-						wrapperMsg.Metadata.PutValue(k, v)
-					}
-				} else {
+				if err != nil {
 					errStr = err.Error()
 				}
 				selfId := callbackCtx.GetSelfId()
@@ -147,11 +142,13 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				if atomic.LoadInt32(&currentMatchedCount) >= int32(x.Config.MatchNum) {
 					if atomic.CompareAndSwapInt32(&completed, 0, 1) {
 						wrapperMsg.Data = str.ToString(filterEmpty(msgs))
+						mergeMetadata(msgs, &wrapperMsg)
 						c <- true
 					}
 				} else if atomic.LoadInt32(&endCount) >= x.Length {
 					if atomic.CompareAndSwapInt32(&completed, 0, 1) {
 						wrapperMsg.Data = str.ToString(filterEmpty(msgs))
+						mergeMetadata(msgs, &wrapperMsg)
 						c <- false
 					}
 				}
@@ -187,4 +184,15 @@ func filterEmpty(msgs []types.WrapperMsg) []types.WrapperMsg {
 		}
 	}
 	return result
+}
+
+// 合并metadata
+func mergeMetadata(msgs []types.WrapperMsg, wrapperMsg *types.RuleMsg) {
+	for _, msg := range msgs {
+		if msg.NodeId != "" && msg.Err == "" {
+			for k, v := range msg.Msg.Metadata.Values() {
+				wrapperMsg.Metadata.PutValue(k, v)
+			}
+		}
+	}
 }
