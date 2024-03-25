@@ -20,12 +20,15 @@ import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/str"
+	"strings"
 	"testing"
 )
 
 func TestChainCtx(t *testing.T) {
 
-	ruleChainDef := RuleChain{}
+	ruleChainDef := types.RuleChain{}
 
 	t.Run("New", func(t *testing.T) {
 		defer func() {
@@ -34,7 +37,7 @@ func TestChainCtx(t *testing.T) {
 				assert.Equal(t, "not support this func", fmt.Sprintf("%s", e))
 			}
 		}()
-		ruleChainDef.Metadata.RuleChainConnections = []RuleChainConnection{
+		ruleChainDef.Metadata.RuleChainConnections = []types.RuleChainConnection{
 			{
 				FromId: "s1",
 				ToId:   "s2",
@@ -47,12 +50,12 @@ func TestChainCtx(t *testing.T) {
 
 	t.Run("Init", func(t *testing.T) {
 		ctx, _ := InitRuleChainCtx(NewConfig(), &ruleChainDef)
-		newRuleChainDef := RuleChain{}
+		newRuleChainDef := types.RuleChain{}
 		err := ctx.Init(NewConfig(), types.Configuration{"selfDefinition": &newRuleChainDef})
 		assert.Nil(t, err)
 
-		newRuleChainDef = RuleChain{}
-		ruleNode := RuleNode{Type: "notFound"}
+		newRuleChainDef = types.RuleChain{}
+		ruleNode := types.RuleNode{Type: "notFound"}
 		newRuleChainDef.Metadata.Nodes = append(newRuleChainDef.Metadata.Nodes, &ruleNode)
 		err = ctx.Init(NewConfig(), types.Configuration{"selfDefinition": &newRuleChainDef})
 		assert.Equal(t, "component not found.componentType=notFound", err.Error())
@@ -60,11 +63,87 @@ func TestChainCtx(t *testing.T) {
 
 	t.Run("ReloadChildNotFound", func(t *testing.T) {
 		ctx, _ := InitRuleChainCtx(NewConfig(), &ruleChainDef)
-		newRuleChainDef := RuleChain{}
+		newRuleChainDef := types.RuleChain{}
 		err := ctx.Init(NewConfig(), types.Configuration{"selfDefinition": &newRuleChainDef})
 		assert.Nil(t, err)
 		err = ctx.ReloadChild(types.RuleNodeId{}, []byte(""))
 		assert.Nil(t, err)
+	})
+
+	t.Run("ChildParser", func(t *testing.T) {
+		var ruleChainFile = `{
+          "ruleChain": {
+            "id": "test01",
+            "name": "testRuleChain01",
+            "debugMode": true,
+            "root": true,
+             "configuration": {
+                 "vars": {
+						"ip":"127.0.0.1"
+					},
+  				  "secrets": {
+						"bb":"xx"
+					}
+                }
+          },
+           "metadata": {
+            "firstNodeIndex": 0,
+            "nodes": [
+              {
+                "id": "s1",
+                "additionalInfo": {
+                  "description": "",
+                  "layoutX": 0,
+                  "layoutY": 0
+                },
+                "type": "groupFilter",
+                "name": "分组",
+                "debugMode": true,
+                "configuration": {
+                  "nodeIds": "${vars.ip}"
+                }
+              }
+              
+            ],
+            "connections": [
+            ]
+          }
+        }`
+		config := NewConfig()
+		jsonParser := JsonParser{}
+		chainNode, err := jsonParser.DecodeRuleChain(config, []byte(ruleChainFile))
+		assert.Nil(t, err)
+		ruleChainCtx, _ := chainNode.(*RuleChainCtx)
+		nodeDsl := []byte(`
+ 			{
+                "id": "s1",
+                "additionalInfo": {
+                  "description": "",
+                  "layoutX": 0,
+                  "layoutY": 0
+                },
+                "type": "groupFilter",
+                "name": "分组",
+                "debugMode": true,
+                "configuration": {
+                  "nodeIds": "${vars.ip}"
+                }
+              }
+`)
+		nodeCtx := ruleChainCtx.nodes[types.RuleNodeId{Id: "s1"}]
+		err = nodeCtx.ReloadSelf(nodeDsl)
+		assert.Nil(t, err)
+		var output = make(map[string]interface{})
+		maps.Map2Struct(nodeCtx, output)
+		nodeStr := str.ToString(output["Node"])
+		assert.True(t, strings.Contains(nodeStr, "127.0.0.1"))
+		ruleChainFile = strings.Replace(ruleChainFile, "127.0.0.1", "192.168.1.1", -1)
+		err = ruleChainCtx.ReloadSelf([]byte(ruleChainFile))
+		assert.Nil(t, err)
+		nodeCtx = ruleChainCtx.nodes[types.RuleNodeId{Id: "s1"}]
+		maps.Map2Struct(nodeCtx, output)
+		nodeStr = str.ToString(output["Node"])
+		assert.True(t, strings.Contains(nodeStr, "192.168.1.1"))
 	})
 
 }

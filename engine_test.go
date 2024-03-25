@@ -856,7 +856,7 @@ func TestRuleContext(t *testing.T) {
 	config.OnEnd = func(msg types.RuleMsg, err error) {
 
 	}
-	ruleEngine, _ := New("testEngine", []byte(ruleChainFile), WithConfig(config))
+	ruleEngine, _ := New("TestRuleContext", []byte(ruleChainFile), WithConfig(config))
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
@@ -907,12 +907,15 @@ func TestRuleContext(t *testing.T) {
 	})
 
 	t.Run("tellSelf", func(t *testing.T) {
-		selfDefinition := RuleNode{
-			Id:   "s1",
-			Type: "log",
+		selfDefinition := types.RuleNode{
+			Id:            "s1",
+			Type:          "log",
+			Configuration: map[string]interface{}{"Add": "add"},
 		}
-		nodeCtx, _ := InitRuleNodeCtx(NewConfig(), &selfDefinition)
-		ctx := NewRuleContext(context.Background(), config, ruleEngine.rootRuleChainCtx, nil, nodeCtx, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		nodeCtx, _ := InitRuleNodeCtx(NewConfig(), nil, &selfDefinition)
+		ruleEngine2, _ := New("TestRuleContextTellSelf", []byte(ruleChainFile), WithConfig(config))
+
+		ctx := NewRuleContext(context.Background(), config, ruleEngine2.rootRuleChainCtx, nil, nodeCtx, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			//assert.Equal(t, "", relationType)
 		}, nil)
 
@@ -920,4 +923,97 @@ func TestRuleContext(t *testing.T) {
 		ctx.tellFirst(msg, nil, types.Success)
 	})
 
+}
+
+func TestOnDebug(t *testing.T) {
+	var onDebugConfigWg sync.WaitGroup
+	onDebugConfigWg.Add(8)
+	config := NewConfig(types.WithDefaultPool())
+	config.OnDebug = func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		if nodeId == "s1" && flowType == types.Out {
+			assert.Equal(t, types.True, relationType)
+		}
+		if nodeId == "s2" && flowType == types.Out {
+			assert.Equal(t, types.Success, relationType)
+		}
+		onDebugConfigWg.Done()
+	}
+	ruleEngine, _ := New("testOnDebug", []byte(ruleChainFile), WithConfig(config))
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
+
+	t.Run("hasOnDebug", func(t *testing.T) {
+		var snapshotWg sync.WaitGroup
+		snapshotWg.Add(2)
+		var onDebugWg sync.WaitGroup
+		onDebugWg.Add(8)
+		ruleEngine.OnMsg(msg, types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
+			assert.Equal(t, "testOnDebug", ctx.RuleChain().GetNodeId().Id)
+			assert.Equal(t, "s1", ctx.GetSelfId())
+			assert.Equal(t, 2, len(snapshot.Logs))
+			for _, item := range snapshot.Logs {
+				if item.Id == "s1" {
+					assert.Equal(t, types.True, item.RelationType)
+				}
+				if item.Id == "s2" {
+					assert.Equal(t, types.Success, item.RelationType)
+				}
+			}
+			snapshotWg.Done()
+		}), types.WithOnNodeCompleted(func(ctx types.RuleContext, nodeRunLog types.RuleNodeRunLog) {
+			assert.Equal(t, "testOnDebug", ctx.RuleChain().GetNodeId().Id)
+			if nodeRunLog.Id == "s1" {
+				assert.Equal(t, "s1", ctx.GetSelfId())
+				assert.Equal(t, types.True, nodeRunLog.RelationType)
+			}
+			if nodeRunLog.Id == "s2" {
+				assert.Equal(t, "s2", ctx.GetSelfId())
+				assert.Equal(t, types.Success, nodeRunLog.RelationType)
+			}
+		}), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			if nodeId == "s1" && flowType == types.Out {
+				assert.Equal(t, types.True, relationType)
+			}
+			if nodeId == "s2" && flowType == types.Out {
+				assert.Equal(t, types.Success, relationType)
+			}
+			onDebugWg.Done()
+		}))
+
+		ruleEngine.OnMsg(msg, types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
+			assert.Equal(t, "testOnDebug", ctx.RuleChain().GetNodeId().Id)
+			assert.Equal(t, "s1", ctx.GetSelfId())
+			assert.Equal(t, 2, len(snapshot.Logs))
+			for _, item := range snapshot.Logs {
+				if item.Id == "s1" {
+					assert.Equal(t, types.True, item.RelationType)
+				}
+				if item.Id == "s2" {
+					assert.Equal(t, types.Success, item.RelationType)
+				}
+			}
+			snapshotWg.Done()
+		}), types.WithOnNodeCompleted(func(ctx types.RuleContext, nodeRunLog types.RuleNodeRunLog) {
+			assert.Equal(t, "testOnDebug", ctx.RuleChain().GetNodeId().Id)
+			if nodeRunLog.Id == "s1" {
+				assert.Equal(t, types.True, nodeRunLog.RelationType)
+			}
+			if nodeRunLog.Id == "s2" {
+				assert.Equal(t, "s2", ctx.GetSelfId())
+				assert.Equal(t, types.Success, nodeRunLog.RelationType)
+			}
+		}), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			if nodeId == "s1" && flowType == types.Out {
+				assert.Equal(t, types.True, relationType)
+			}
+			if nodeId == "s2" && flowType == types.Out {
+				assert.Equal(t, types.Success, relationType)
+			}
+			onDebugWg.Done()
+		}))
+		snapshotWg.Wait()
+		onDebugWg.Wait()
+		onDebugConfigWg.Wait()
+	})
 }

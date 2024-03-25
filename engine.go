@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/aspect"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -64,17 +65,17 @@ type DefaultRuleContext struct {
 	beforeAspects []types.BeforeAspect
 	//后置切面列表
 	afterAspects []types.AfterAspect
+	//运行时快照
+	runSnapshot *RunSnapshot
 }
 
 // NewRuleContext 创建一个默认规则引擎消息处理上下文实例
 func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd types.OnEndFunc, ruleChainPool *RuleGo) *DefaultRuleContext {
 	aroundAspects, beforeAspects, afterAspects := config.GetNodeAspects()
-	if config.OnDebug != nil {
-		//添加before日志切面
-		beforeAspects = append(beforeAspects, &aspect.Debug{})
-		//添加after日志切面
-		afterAspects = append(afterAspects, &aspect.Debug{})
-	}
+	//添加before日志切面
+	beforeAspects = append(beforeAspects, &aspect.Debug{})
+	//添加after日志切面
+	afterAspects = append(afterAspects, &aspect.Debug{})
 	return &DefaultRuleContext{
 		context:       context,
 		config:        config,
@@ -88,6 +89,96 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 		aroundAspects: aroundAspects,
 		beforeAspects: beforeAspects,
 		afterAspects:  afterAspects,
+	}
+}
+
+type RunSnapshot struct {
+	msgId                    string
+	chainCtx                 *RuleChainCtx
+	startTs                  int64
+	onRuleChainCompletedFunc func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot)
+	onNodeCompletedFunc      func(ctx types.RuleContext, nodeRunLog types.RuleNodeRunLog)
+	// Logs 每个节点的日志
+	logs map[string]*types.RuleNodeRunLog
+	//onDebugCustomFunc 自定义debug回调
+	onDebugCustomFunc func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error)
+	lock              sync.RWMutex
+}
+
+func NewRunSnapshot(msgId string, chainCtx *RuleChainCtx, startTs int64) *RunSnapshot {
+	runSnapshot := &RunSnapshot{
+		msgId:    msgId,
+		chainCtx: chainCtx,
+		startTs:  startTs,
+	}
+	runSnapshot.logs = make(map[string]*types.RuleNodeRunLog)
+	return runSnapshot
+}
+
+func (r *RunSnapshot) needCollectRunSnapshot() bool {
+	return r.onRuleChainCompletedFunc != nil || r.onNodeCompletedFunc != nil
+}
+
+func (r *RunSnapshot) collectRunSnapshot(ctx types.RuleContext, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	if !r.needCollectRunSnapshot() {
+		return
+	}
+	r.lock.RLock()
+	nodeLog, ok := r.logs[nodeId]
+	r.lock.RUnlock()
+	if !ok {
+		nodeLog = &types.RuleNodeRunLog{
+			Id: nodeId,
+		}
+		r.lock.Lock()
+		r.logs[nodeId] = nodeLog
+		r.lock.Unlock()
+	}
+	if flowType == types.In {
+		nodeLog.InMsg = msg
+		nodeLog.StartTs = time.Now().UnixMilli()
+	}
+	if flowType == types.Out {
+		nodeLog.OutMsg = msg
+		nodeLog.RelationType = relationType
+		if err != nil {
+			nodeLog.Err = err.Error()
+		}
+		nodeLog.EndTs = time.Now().UnixMilli()
+		if r.onNodeCompletedFunc != nil {
+			r.onNodeCompletedFunc(ctx, *nodeLog)
+		}
+	}
+	if flowType == types.Log {
+		nodeLog.LogItems = append(nodeLog.LogItems, msg.Data)
+	}
+}
+
+func (r *RunSnapshot) onDebugCustom(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	if r.onDebugCustomFunc != nil {
+		r.onDebugCustomFunc(ruleChainId, flowType, nodeId, msg, relationType, err)
+	}
+}
+
+func (r *RunSnapshot) createRuleChainRunLog(endTs int64) types.RuleChainRunSnapshot {
+	var logs []types.RuleNodeRunLog
+	for _, item := range r.logs {
+		logs = append(logs, *item)
+	}
+	ruleChainRunLog := types.RuleChainRunSnapshot{
+		RuleChain: *r.chainCtx.SelfDefinition,
+		Id:        r.msgId,
+		StartTs:   r.startTs,
+		EndTs:     endTs,
+		Logs:      logs,
+	}
+	return ruleChainRunLog
+
+}
+
+func (r *RunSnapshot) onRuleChainCompleted(ctx types.RuleContext) {
+	if r.onRuleChainCompletedFunc != nil {
+		r.onRuleChainCompletedFunc(ctx, r.createRuleChainRunLog(time.Now().UnixMilli()))
 	}
 }
 
@@ -107,6 +198,7 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		aroundAspects: ctx.aroundAspects,
 		beforeAspects: ctx.beforeAspects,
 		afterAspects:  ctx.afterAspects,
+		runSnapshot:   ctx.runSnapshot,
 	}
 }
 
@@ -240,6 +332,61 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 		})
 	} else {
 		ctx.childDone()
+	}
+
+}
+
+func (ctx *DefaultRuleContext) SetCallbackFunc(functionName string, f interface{}) {
+	if ctx.runSnapshot != nil {
+		switch functionName {
+		case types.CallbackFuncOnRuleChainCompleted:
+			if targetFunc, ok := f.(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot)); ok {
+				ctx.runSnapshot.onRuleChainCompletedFunc = targetFunc
+			}
+		case types.CallbackFuncOnNodeCompleted:
+			if targetFunc, ok := f.(func(ctx types.RuleContext, nodeRunLog types.RuleNodeRunLog)); ok {
+				ctx.runSnapshot.onNodeCompletedFunc = targetFunc
+			}
+		case types.CallbackFuncDebug:
+			if targetFunc, ok := f.(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error)); ok {
+				ctx.runSnapshot.onDebugCustomFunc = targetFunc
+			}
+		}
+	}
+}
+
+func (ctx *DefaultRuleContext) GetCallbackFunc(functionName string) interface{} {
+	if ctx.runSnapshot != nil {
+		switch functionName {
+		case types.CallbackFuncOnRuleChainCompleted:
+			return ctx.runSnapshot.onRuleChainCompletedFunc
+		case types.CallbackFuncOnNodeCompleted:
+			return ctx.runSnapshot.onNodeCompletedFunc
+		case types.CallbackFuncDebug:
+			return ctx.runSnapshot.onDebugCustomFunc
+		default:
+			return nil
+		}
+	}
+	return nil
+}
+
+func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+	msgCopy := msg.Copy()
+	if ctx.Self() != nil && ctx.Self().IsDebugMode() {
+		//异步记录日志
+		ctx.SubmitTack(func() {
+			if ctx.config.OnDebug != nil {
+				ctx.config.OnDebug(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
+			}
+			if ctx.runSnapshot != nil {
+				ctx.runSnapshot.onDebugCustom(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
+			}
+		})
+	}
+	if ctx.runSnapshot != nil {
+		//记录快照
+		ctx.runSnapshot.collectRunSnapshot(ctx, flowType, nodeId, msgCopy, relationType, err)
 	}
 
 }
@@ -523,7 +670,6 @@ func (e *RuleEngine) RootRuleChainCtx() *RuleChainCtx {
 func (e *RuleEngine) Stop() {
 	if e.rootRuleChainCtx != nil {
 		e.rootRuleChainCtx.Destroy()
-		e.rootRuleChainCtx = nil
 	}
 }
 
@@ -557,11 +703,27 @@ func (e *RuleEngine) OnMsgWithOptions(msg types.RuleMsg, opts ...types.RuleConte
 	e.onMsgAndWait(msg, false, opts...)
 }
 
+func (e *RuleEngine) doOnAllNodeCompleted(rootCtxCopy *DefaultRuleContext, msg types.RuleMsg, customFunc func()) {
+	//执行切面
+	e.onAllNodeCompleted(rootCtxCopy, msg)
+
+	if rootCtxCopy.runSnapshot != nil {
+		//等待所有日志执行完
+		rootCtxCopy.runSnapshot.onRuleChainCompleted(rootCtxCopy)
+	}
+	//触发自定义回调
+	if customFunc != nil {
+		customFunc()
+	}
+
+}
+
 func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.RuleContextOption) {
 	if e.rootRuleChainCtx != nil {
 		rootCtx := e.rootRuleChainCtx.rootRuleContext.(*DefaultRuleContext)
 		rootCtxCopy := NewRuleContext(rootCtx.GetContext(), rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, rootCtx.onEnd, e.RuleChainPool)
 		rootCtxCopy.isFirst = rootCtx.isFirst
+		rootCtxCopy.runSnapshot = NewRunSnapshot(msg.Id, rootCtxCopy.ruleChainCtx, time.Now().UnixMilli())
 		for _, opt := range opts {
 			opt(rootCtxCopy)
 		}
@@ -584,13 +746,7 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 			c := make(chan struct{})
 			rootCtxCopy.onAllNodeCompleted = func() {
 				defer close(c)
-				//执行切面
-				e.onAllNodeCompleted(rootCtxCopy, msg)
-
-				//触发自定义回调
-				if customFunc != nil {
-					customFunc()
-				}
+				e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 			}
 			//执行规则链
 			rootCtxCopy.TellNext(msg)
@@ -598,12 +754,7 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 			<-c
 		} else {
 			rootCtxCopy.onAllNodeCompleted = func() {
-				//执行切面
-				e.onAllNodeCompleted(rootCtxCopy, msg)
-				//触发自定义回调
-				if customFunc != nil {
-					customFunc()
-				}
+				e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 			}
 			//执行规则链
 			rootCtxCopy.TellNext(msg)

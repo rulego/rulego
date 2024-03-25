@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2024 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,7 @@
  * limitations under the License.
  */
 
-package rulego
-
-import (
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/utils/json"
-)
+package types
 
 // RuleChain 规则链定义
 type RuleChain struct {
@@ -29,19 +24,10 @@ type RuleChain struct {
 	Metadata RuleMetadata `json:"metadata"`
 }
 
-// ParserRuleChain 通过json解析规则链结构体
-func ParserRuleChain(rootRuleChain []byte) (RuleChain, error) {
-	var def RuleChain
-	err := json.Unmarshal(rootRuleChain, &def)
-	return def, err
-}
-
 // RuleChainBaseInfo 规则链基础信息定义
 type RuleChainBaseInfo struct {
 	//规则链ID
 	ID string `json:"id"`
-	//扩展字段
-	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
 	//Name 规则链的名称
 	Name string `json:"name"`
 	//表示这个节点是否处于调试模式。如果为真，当节点处理消息时，会触发调试回调函数。
@@ -50,7 +36,9 @@ type RuleChainBaseInfo struct {
 	//Root 表示这个规则链是根规则链还是子规则链。(只做标记使用，非应用在实际逻辑)
 	Root bool `json:"root"`
 	//Configuration 规则链配置信息
-	Configuration types.Configuration `json:"configuration,omitempty"`
+	Configuration Configuration `json:"configuration,omitempty"`
+	//扩展字段
+	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
 }
 
 // RuleMetadata 规则链元数据定义，包含了规则链中节点和连接的信息
@@ -86,14 +74,7 @@ type RuleNode struct {
 	//包含了节点的配置参数，具体内容取决于节点类型。
 	//例如，一个JS过滤器节点可能有一个`jsScript`字段，定义了过滤逻辑，
 	//而一个REST API调用节点可能有一个`restEndpointUrlPattern`字段，定义了要调用的URL。
-	Configuration types.Configuration `json:"configuration"`
-}
-
-// ParserRuleNode 通过json解析节点结构体
-func ParserRuleNode(rootRuleChain []byte) (RuleNode, error) {
-	var def RuleNode
-	err := json.Unmarshal(rootRuleChain, &def)
-	return def, err
+	Configuration Configuration `json:"configuration"`
 }
 
 // NodeAdditionalInfo 用于可视化位置信息(预留字段)
@@ -124,4 +105,39 @@ type RuleChainConnection struct {
 	ToId string `json:"toId"`
 	//连接的类型，决定了什么时候以及如何把消息从一个节点发送到另一个节点。它应该与源节点类型支持的连接类型之一匹配。
 	Type string `json:"type"`
+}
+
+// RuleChainRunSnapshot 规则链运行日志快照
+type RuleChainRunSnapshot struct {
+	RuleChain
+	// Id 执行ID
+	Id string `json:"Id"`
+	// StartTs 执行开始时间
+	StartTs int64 `json:"startTs"`
+	// EndTs 执行结束时间
+	EndTs int64 `json:"endTs"`
+	// Logs 每个节点的日志
+	Logs []RuleNodeRunLog `json:"logs"`
+	//扩展字段
+	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
+}
+
+// RuleNodeRunLog 节点日志
+type RuleNodeRunLog struct {
+	// Id 节点ID
+	Id string `json:"nodeId"`
+	// InMsg 输入消息
+	InMsg RuleMsg `json:"inMsg"`
+	// OutMsg 输出消息
+	OutMsg RuleMsg `json:"outMsg"`
+	// RelationType 和下一个节点连接类型
+	RelationType string `json:"relationType"`
+	// Err 错误信息
+	Err string `json:"err"`
+	// LogItems 执行过程中的日志
+	LogItems []string `json:"logItems"`
+	// StartTs 执行开始时间
+	StartTs int64 `json:"startTs"`
+	// EndTs 执行结束时间
+	EndTs int64 `json:"endTs"`
 }

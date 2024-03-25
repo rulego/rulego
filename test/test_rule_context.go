@@ -165,3 +165,17 @@ func (ctx *NodeTestRuleContext) ExecuteNode(context context.Context, nodeId stri
 func (ctx *NodeTestRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationType string) {
 
 }
+
+// SetCallbackFunc 设置回调函数
+func (ctx *NodeTestRuleContext) SetCallbackFunc(functionName string, f interface{}) {
+
+}
+
+// GetCallbackFunc 获取回调函数
+func (ctx *NodeTestRuleContext) GetCallbackFunc(functionName string) interface{} {
+	return nil
+}
+
+// OnDebug 调用配置的OnDebug回调函数
+func (ctx *NodeTestRuleContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+}
