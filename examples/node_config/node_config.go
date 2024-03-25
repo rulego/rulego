@@ -23,6 +23,11 @@ import (
 	"time"
 )
 
+type MyEntity struct {
+	Id   string
+	Name string
+}
+
 // 测试使用占位符替换配置
 func main() {
 
@@ -34,6 +39,7 @@ func main() {
 		msg['addField2']=value;
 		msg['addValue']=add(1,5); 
 		msg['isNumber']=isNumber(5); 
+		msg['entity']=getEntity(5); 
 		msg['today']=utilsFunc.dateFormat(new Date(), "yyyyMMddhh"); 
 		msgType=handleMsg(msg,metadata,msgType);
 		return {'msg':msg,'metadata':metadata,'msgType':msgType};
@@ -44,6 +50,10 @@ func main() {
 	//注册自定义函数
 	config.RegisterUdf("add", func(a, b int) int {
 		return a + b
+	})
+	//模拟通过缓存获取实体函数，返回复杂结构体
+	config.RegisterUdf("getEntity", func(id string) MyEntity {
+		return MyEntity{Id: id, Name: "entity name"}
 	})
 	//注册原生JS脚本
 	//使用 isNumber(xx)

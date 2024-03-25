@@ -37,7 +37,7 @@ type RuleChainCtx struct {
 	//节点ID
 	Id types.RuleNodeId
 	//规则链定义
-	SelfDefinition *RuleChain
+	SelfDefinition *types.RuleChain
 	//规则引擎配置
 	Config types.Config
 	//是否已经初始化
@@ -65,7 +65,7 @@ type RuleChainCtx struct {
 }
 
 // InitRuleChainCtx 初始化RuleChainCtx
-func InitRuleChainCtx(config types.Config, ruleChainDef *RuleChain) (*RuleChainCtx, error) {
+func InitRuleChainCtx(config types.Config, ruleChainDef *types.RuleChain) (*RuleChainCtx, error) {
 	var ruleChainCtx = &RuleChainCtx{
 		Config:             config,
 		SelfDefinition:     ruleChainDef,
@@ -87,7 +87,7 @@ func InitRuleChainCtx(config types.Config, ruleChainDef *RuleChain) (*RuleChainC
 		}
 		ruleNodeId := types.RuleNodeId{Id: item.Id, Type: types.NODE}
 		ruleChainCtx.nodeIds[index] = ruleNodeId
-		ruleNodeCtx, err := InitRuleNodeCtx(config, item)
+		ruleNodeCtx, err := InitRuleNodeCtx(config, ruleChainCtx, item)
 		if err != nil {
 			return nil, err
 		}
@@ -223,7 +223,7 @@ func (rc *RuleChainCtx) New() types.Node {
 // Init 初始化
 func (rc *RuleChainCtx) Init(_ types.Config, configuration types.Configuration) error {
 	if rootRuleChainDef, ok := configuration["selfDefinition"]; ok {
-		if v, ok := rootRuleChainDef.(*RuleChain); ok {
+		if v, ok := rootRuleChainDef.(*types.RuleChain); ok {
 			if ruleChainCtx, err := InitRuleChainCtx(rc.Config, v); err == nil {
 				rc.Copy(ruleChainCtx)
 			} else {
