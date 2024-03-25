@@ -23,6 +23,8 @@ import (
 	"time"
 )
 
+var OnDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)
+
 // Config 规则引擎配置
 type Config struct {
 	//OnDebug 节点调试信息回调函数，只有节点debugMode=true才会调用
