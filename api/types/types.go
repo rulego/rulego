@@ -34,6 +34,7 @@ const (
 const (
 	In  = "IN"
 	Out = "OUT"
+	Log = "Log"
 )
 
 // 脚本类型
@@ -193,6 +194,12 @@ type RuleContext interface {
 	ExecuteNode(chanCtx context.Context, nodeId string, msg RuleMsg, skipTellNext bool, onEnd OnEndFunc)
 	//DoOnEnd 触发 OnEnd 回调函数
 	DoOnEnd(msg RuleMsg, err error, relationType string)
+	//SetCallbackFunc 设置回调函数
+	SetCallbackFunc(functionName string, f interface{})
+	//GetCallbackFunc 获取回调函数
+	GetCallbackFunc(functionName string) interface{}
+	//OnDebug 调用配置的OnDebug回调函数
+	OnDebug(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)
 }
 
 // RuleContextOption 修改RuleContext选项的函数
@@ -232,6 +239,18 @@ func WithOnAllNodeCompleted(onAllNodeCompleted func()) RuleContextOption {
 	}
 }
 
+func WithRunSnapshot(onRunSnapshot func(snapshot RuleChainRunSnapshot)) RuleContextOption {
+	return func(rc RuleContext) {
+		rc.SetCallbackFunc(CallbackFuncRunSnapshot, onRunSnapshot)
+	}
+}
+
+func WithRunOnDebug(onDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)) RuleContextOption {
+	return func(rc RuleContext) {
+		rc.SetCallbackFunc(CallbackFuncDebug, onDebug)
+	}
+}
+
 // JsEngine JavaScript脚本引擎
 type JsEngine interface {
 	//Execute 执行js脚本指定函数，js脚本在JsEngine实例化的时候进行初始化
@@ -251,7 +270,7 @@ type Parser interface {
 	DecodeRuleChain(config Config, dsl []byte) (Node, error)
 	// DecodeRuleNode 从描述文件解析规则节点结构体
 	//parses a node from an input source.
-	DecodeRuleNode(config Config, dsl []byte) (Node, error)
+	DecodeRuleNode(config Config, dsl []byte, chainCtx Node) (Node, error)
 	//EncodeRuleChain 把规则链结构体转换成描述文件
 	EncodeRuleChain(def interface{}) ([]byte, error)
 	//EncodeRuleNode 把规则节点结构体转换成描述文件
