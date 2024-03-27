@@ -104,5 +104,66 @@ func TestRuleGo(t *testing.T) {
 	myRuleGo.Stop()
 	_, ok = myRuleGo.Get("test_context_chain")
 	assert.Equal(t, false, ok)
+}
 
+func TestRuleGoReload(t *testing.T) {
+	myRuleGo := &RuleGo{}
+	var ruleChainFile = `{
+          "ruleChain": {
+            "id": "test01",
+            "root": true
+          },
+          "metadata": {
+            "firstNodeIndex": 0,
+            "nodes": [
+              {
+                "id": "s1",
+                "type": "jsTransform",
+                "name": "转换",
+                "debugMode": true,
+                "configuration": {
+                  "jsScript": "msgType='TEST_MSG_TYPE';\n  metadata['test']=global.test; metadata['add']=add(4,5)\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+                }
+              }
+            ]
+          }
+        }`
+	config1 := NewConfig()
+	config1.Properties.PutValue("test", "test1")
+	config1.RegisterUdf("add", func(a, b int) int {
+		return a + b
+	})
+	engine, _ := myRuleGo.New("testRuleGoReload", []byte(ruleChainFile), WithConfig(config1))
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
+	engine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+		assert.Equal(t, "test1", msg.Metadata.GetValue("test"))
+		assert.Equal(t, "9", msg.Metadata.GetValue("add"))
+	}))
+	time.Sleep(time.Millisecond * 200)
+
+	config2 := NewConfig()
+	config2.Properties.PutValue("test", "test2")
+	config2.RegisterUdf("add", func(a, b int) int {
+		return a + b + 10
+	})
+	_ = engine.Reload(WithConfig(config2))
+	engine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+		assert.Equal(t, "test2", msg.Metadata.GetValue("test"))
+		assert.Equal(t, "19", msg.Metadata.GetValue("add"))
+	}))
+	time.Sleep(time.Millisecond * 200)
+
+	config3 := NewConfig()
+	config3.Properties.PutValue("test", "test3")
+	config3.RegisterUdf("add", func(a, b int) int {
+		return a + b + 20
+	})
+	myRuleGo.Reload(WithConfig(config3))
+	engine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+		assert.Equal(t, "test3", msg.Metadata.GetValue("test"))
+		assert.Equal(t, "29", msg.Metadata.GetValue("add"))
+	}))
+	time.Sleep(time.Millisecond * 200)
 }

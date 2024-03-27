@@ -364,13 +364,11 @@ func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, node
 		//记录快照
 		ctx.runSnapshot.CollectRunSnapshot(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
 	}
-
 }
 
 // 增加一个待执行子节点
 func (ctx *DefaultRuleContext) childReady() {
 	atomic.AddInt32(&ctx.waitingCount, 1)
-	//ctx.wg.Wait()
 }
 
 // 减少一个待执行子节点
@@ -552,6 +550,10 @@ func newRuleEngine(id string, def []byte, opts ...RuleEngineOption) (*RuleEngine
 	ruleEngine.completedAspects = completedAspects
 
 	return ruleEngine, err
+}
+
+func (e *RuleEngine) Reload(opts ...RuleEngineOption) error {
+	return e.ReloadSelf(nil, opts...)
 }
 
 // ReloadSelf 重新加载规则链

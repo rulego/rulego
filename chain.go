@@ -261,9 +261,26 @@ func (rc *RuleChainCtx) GetNodeId() types.RuleNodeId {
 	return rc.Id
 }
 
+func (rc *RuleChainCtx) Reload() error {
+	rc.RLock()
+	defer rc.RUnlock()
+	for _, v := range rc.nodes {
+		temp := v
+		if err := temp.ReloadSelf(nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (rc *RuleChainCtx) ReloadSelf(def []byte) error {
 	var err error
 	var ctx types.Node
+	if def == nil || len(def) == 0 {
+		if err = rc.Reload(); err != nil {
+			return err
+		}
+	}
 	if ctx, err = rc.Config.Parser.DecodeRuleChain(rc.Config, def); err == nil {
 		rc.Destroy()
 		rc.Copy(ctx.(*RuleChainCtx))

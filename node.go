@@ -73,7 +73,30 @@ func (rn *RuleNodeCtx) GetNodeId() types.RuleNodeId {
 	return types.RuleNodeId{Id: rn.SelfDefinition.Id, Type: types.NODE}
 }
 
+func (rn *RuleNodeCtx) Reload() error {
+	if rn.ChainCtx != nil {
+		rn.Config = rn.ChainCtx.Config
+	}
+	if ruleNodeCtx, err := InitRuleNodeCtx(rn.Config, rn.ChainCtx, rn.SelfDefinition); err == nil {
+		//先销毁
+		rn.Destroy()
+		//重新加载
+		rn.Copy(ruleNodeCtx)
+		return nil
+	} else {
+		return err
+	}
+}
+
 func (rn *RuleNodeCtx) ReloadSelf(def []byte) error {
+	if def == nil || len(def) == 0 {
+		if err := rn.Reload(); err != nil {
+			return err
+		}
+	}
+	if rn.ChainCtx != nil {
+		rn.Config = rn.ChainCtx.Config
+	}
 	if ruleNodeCtx, err := rn.Config.Parser.DecodeRuleNode(rn.Config, def, rn.ChainCtx); err == nil {
 		//先销毁
 		rn.Destroy()

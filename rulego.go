@@ -199,6 +199,14 @@ func (g *RuleGo) Stop() {
 	})
 }
 
+// Reload 重新加载所有规则引擎实例
+func (g *RuleGo) Reload(opts ...RuleEngineOption) {
+	g.ruleEngines.Range(func(key, value any) bool {
+		_ = value.(*RuleEngine).ReloadSelf(nil, opts...)
+		return true
+	})
+}
+
 // OnMsg 调用所有规则引擎实例处理消息
 // 规则引擎实例池所有规则链都会去尝试处理该消息
 func (g *RuleGo) OnMsg(msg types.RuleMsg) {
@@ -234,6 +242,14 @@ func Del(id string) {
 // Stop 释放所有规则引擎实例
 func Stop() {
 	DefaultRuleGo.Stop()
+}
+
+// Reload 重新加载所有规则引擎实例
+func Reload(opts ...RuleEngineOption) {
+	DefaultRuleGo.ruleEngines.Range(func(key, value any) bool {
+		_ = value.(*RuleEngine).Reload(opts...)
+		return true
+	})
 }
 
 // OnMsg 调用所有规则引擎实例处理消息

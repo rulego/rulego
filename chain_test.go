@@ -28,7 +28,16 @@ import (
 
 func TestChainCtx(t *testing.T) {
 
-	ruleChainDef := types.RuleChain{}
+	ruleChainDef := types.RuleChain{
+		Metadata: types.RuleMetadata{
+			Nodes: []*types.RuleNode{
+				{
+					Id:   "s1",
+					Type: "jsFilter",
+				},
+			},
+		},
+	}
 
 	t.Run("New", func(t *testing.T) {
 		defer func() {
@@ -145,5 +154,25 @@ func TestChainCtx(t *testing.T) {
 		nodeStr = str.ToString(output["Node"])
 		assert.True(t, strings.Contains(nodeStr, "192.168.1.1"))
 	})
+	t.Run("Reload", func(t *testing.T) {
+		config := NewConfig()
+		value := "test1"
+		config.Properties.PutValue("add", value)
+		ctx, _ := InitRuleChainCtx(config, &ruleChainDef)
+		assert.Equal(t, value, ctx.Config.Properties.GetValue("add"))
+		nodeCtx, _ := ctx.GetNodeById(types.RuleNodeId{Id: "s1"})
+		ruleNodeCtx := nodeCtx.(*RuleNodeCtx)
+		assert.Equal(t, value, ruleNodeCtx.Config.Properties.GetValue("add"))
 
+		value = "test2"
+		config2 := NewConfig()
+		config2.Properties.PutValue("add", value)
+		ctx.Config = config2
+		_ = ctx.ReloadSelf(nil)
+
+		assert.Equal(t, value, ctx.Config.Properties.GetValue("add"))
+		nodeCtx, _ = ctx.GetNodeById(types.RuleNodeId{Id: "s1"})
+		ruleNodeCtx = nodeCtx.(*RuleNodeCtx)
+		assert.Equal(t, value, ruleNodeCtx.Config.Properties.GetValue("add"))
+	})
 }
