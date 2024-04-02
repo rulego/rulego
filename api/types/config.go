@@ -64,6 +64,8 @@ type Config struct {
 	Udf map[string]interface{}
 	//Aspects AOP切面列表
 	Aspects []Aspect
+	// SecretKey AES-256 32长度密钥，用于解密规则链`Secrets`配置
+	SecretKey string
 }
 
 // RegisterUdf 注册自定义函数
@@ -244,6 +246,14 @@ func WithLogger(logger Logger) Option {
 func WithAspects(aspects ...Aspect) Option {
 	return func(c *Config) error {
 		c.Aspects = aspects
+		return nil
+	}
+}
+
+// WithSecretKey is an option that sets the secret key of the Config.
+func WithSecretKey(secretKey string) Option {
+	return func(c *Config) error {
+		c.SecretKey = secretKey
 		return nil
 	}
 }

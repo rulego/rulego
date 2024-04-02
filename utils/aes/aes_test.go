@@ -14,16 +14,26 @@
  * limitations under the License.
  */
 
-package types
+package aes
 
-const (
-	CallbackFuncOnRuleChainCompleted = "onRuleChainCompleted"
-	CallbackFuncOnNodeCompleted      = "onNodeCompleted"
-	CallbackFuncDebug                = "onDebug"
+import (
+	"github.com/rulego/rulego/test/assert"
+	"testing"
 )
 
-const (
-	Global  = "global"
-	Vars    = "vars"
-	Secrets = "secrets"
-)
+func TestAes(t *testing.T) {
+	key := "secret"
+	plaintext := "Hello, World!"
+
+	encrypted, err := Encrypt(plaintext, []byte(key))
+	if err != nil {
+		panic(err)
+	}
+
+	decrypted, err := Decrypt(encrypted, []byte(key))
+	if err != nil {
+		panic(err)
+	}
+	assert.Equal(t, plaintext, decrypted)
+
+}

@@ -81,7 +81,7 @@ func TestChainCtx(t *testing.T) {
                  "vars": {
 						"ip":"127.0.0.1"
 					},
-  				  "secrets": {
+  				  "decryptSecrets": {
 						"bb":"xx"
 					}
                 }
