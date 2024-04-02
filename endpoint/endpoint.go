@@ -223,6 +223,8 @@ type To struct {
 	//等待规则链/组件执行结束，并恢复到父进程，同步得到规则链结果。
 	//用于需要等待规则链执行结果，并且要保留父进程的场景，否则不需要设置该字段。例如：http的响应。
 	wait bool
+	//规则上下文配置，如果配置了	`types.WithOnEnd` 需要接管`ChainExecutor`结果响应逻辑
+	opts []types.RuleContextOption
 }
 
 // ToStringByDict 转换路径中的变量，并返回最终字符串
@@ -260,6 +262,12 @@ func (t *To) Process(process Process) *To {
 // 用于需要等待规则链执行结果，并且要保留父进程的场景，否则不需要设置该字段。例如：http的响应。
 func (t *To) Wait() *To {
 	t.wait = true
+	return t
+}
+
+// RuleContextOption 规则上下文配置
+func (t *To) RuleContextOption(opts ...types.RuleContextOption) *To {
+	t.opts = opts
 	return t
 }
 
@@ -472,8 +480,9 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router *Router, exchange *
 
 		//查找规则链，并执行
 		if ruleEngine, ok := router.RuleGo.Get(toChainId); ok {
+			opts := toFlow.opts
 			//监听结束回调函数
-			endFunc := types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+			endFunc := types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 				if err != nil {
 					exchange.Out.SetError(err)
 				} else {
@@ -486,12 +495,14 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router *Router, exchange *
 					}
 				}
 			})
+			opts = append(opts, types.WithContext(ctx))
+			opts = append(opts, endFunc)
 			if toFlow.wait {
 				//同步
-				ruleEngine.OnMsgAndWait(*inMsg, types.WithContext(ctx), endFunc)
+				ruleEngine.OnMsgAndWait(*inMsg, opts...)
 			} else {
 				//异步
-				ruleEngine.OnMsg(*inMsg, types.WithContext(ctx), endFunc)
+				ruleEngine.OnMsg(*inMsg, opts...)
 			}
 		} else {
 			//找不到规则链返回错误
