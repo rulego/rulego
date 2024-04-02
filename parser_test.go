@@ -57,17 +57,17 @@ func TestParser(t *testing.T) {
 	_, err = jsonParser.EncodeRuleChain(ruleChainCtx)
 	assert.NotNil(t, err)
 
-	node, err := jsonParser.DecodeRuleNode(config, []byte(modifyMetadataAndMsgNode))
+	node, err := jsonParser.DecodeRuleNode(config, []byte(modifyMetadataAndMsgNode), nil)
 	assert.Nil(t, err)
 	nodeCtx, ok := node.(*RuleNodeCtx)
 	assert.True(t, ok)
 	assert.True(t, nodeCtx.IsDebugMode())
 
-	_, err = jsonParser.DecodeRuleNode(config, []byte("{"))
+	_, err = jsonParser.DecodeRuleNode(config, []byte("{"), nil)
 	assert.NotNil(t, err)
 
 	notFoundComponent = strings.Replace(modifyMetadataAndMsgNode, "\"type\": \"jsTransform\"", "\"type\": \"noFound\"", -1)
-	_, err = jsonParser.DecodeRuleNode(config, []byte(notFoundComponent))
+	_, err = jsonParser.DecodeRuleNode(config, []byte(notFoundComponent), nil)
 	assert.NotNil(t, err)
 
 	_, ok = node.(*RuleNodeCtx).GetNodeById(types.RuleNodeId{Id: "s2"})

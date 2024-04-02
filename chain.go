@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/aes"
+	"github.com/rulego/rulego/utils/str"
 	"sync"
 )
 
@@ -61,6 +63,10 @@ type RuleChainCtx struct {
 	reloadAspects []types.OnReloadAspect
 	//销毁增强点切面
 	destroyAspects []types.OnDestroyAspect
+	//vars Variables
+	vars map[string]string
+	//decryptSecrets 解密后的secrets
+	decryptSecrets map[string]string
 	sync.RWMutex
 }
 
@@ -77,6 +83,14 @@ func InitRuleChainCtx(config types.Config, ruleChainDef *types.RuleChain) (*Rule
 	}
 	if ruleChainDef.RuleChain.ID != "" {
 		ruleChainCtx.Id = types.RuleNodeId{Id: ruleChainDef.RuleChain.ID, Type: types.CHAIN}
+	}
+	//处理规则链配置的vars和secrets
+	if ruleChainDef != nil && ruleChainDef.RuleChain.Configuration != nil {
+		varsConfig := ruleChainDef.RuleChain.Configuration[types.Vars]
+		ruleChainCtx.vars = str.ToStringMapString(varsConfig)
+		envConfig := ruleChainDef.RuleChain.Configuration[types.Secrets]
+		secrets := str.ToStringMapString(envConfig)
+		ruleChainCtx.decryptSecrets = decryptSecret(secrets, []byte(config.SecretKey))
 	}
 	nodeLen := len(ruleChainDef.Metadata.Nodes)
 	ruleChainCtx.nodeIds = make([]types.RuleNodeId, nodeLen)
@@ -139,6 +153,7 @@ func InitRuleChainCtx(config types.Config, ruleChainDef *types.RuleChain) (*Rule
 	_, reloadAspects, destroyAspects := config.GetEngineAspects()
 	ruleChainCtx.reloadAspects = reloadAspects
 	ruleChainCtx.destroyAspects = destroyAspects
+
 	return ruleChainCtx, nil
 }
 
@@ -309,6 +324,8 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.ruleChainPool = newCtx.ruleChainPool
 	rc.reloadAspects = newCtx.reloadAspects
 	rc.destroyAspects = newCtx.destroyAspects
+	rc.vars = newCtx.vars
+	rc.decryptSecrets = newCtx.decryptSecrets
 	//清除缓存
 	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
 }
@@ -325,4 +342,16 @@ func (rc *RuleChainCtx) GetRuleChainPool() *RuleGo {
 	} else {
 		return rc.ruleChainPool
 	}
+}
+
+func decryptSecret(inputMap map[string]string, secretKey []byte) map[string]string {
+	result := make(map[string]string)
+	for key, value := range inputMap {
+		if plaintext, err := aes.Decrypt(value, secretKey); err == nil {
+			result[key] = plaintext
+		} else {
+			result[key] = value
+		}
+	}
+	return result
 }

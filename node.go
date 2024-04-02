@@ -30,14 +30,16 @@ const (
 type RuleNodeCtx struct {
 	//组件实例
 	types.Node
+	//规则链配置上下文
+	ChainCtx *RuleChainCtx
 	//组件配置
-	SelfDefinition *RuleNode
+	SelfDefinition *types.RuleNode
 	//规则引擎配置
 	Config types.Config
 }
 
 // InitRuleNodeCtx 初始化RuleNodeCtx
-func InitRuleNodeCtx(config types.Config, selfDefinition *RuleNode) (*RuleNodeCtx, error) {
+func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, selfDefinition *types.RuleNode) (*RuleNodeCtx, error) {
 	node, err := config.ComponentsRegistry.NewNode(selfDefinition.Type)
 	if err != nil {
 		return &RuleNodeCtx{}, err
@@ -45,11 +47,16 @@ func InitRuleNodeCtx(config types.Config, selfDefinition *RuleNode) (*RuleNodeCt
 		if selfDefinition.Configuration == nil {
 			selfDefinition.Configuration = make(types.Configuration)
 		}
-		if err = node.Init(config, processGlobalPlaceholders(config, selfDefinition.Configuration)); err != nil {
+		configuration, err := processVariables(config, chainCtx, selfDefinition.Configuration)
+		if err != nil {
+			return &RuleNodeCtx{}, err
+		}
+		if err = node.Init(config, configuration); err != nil {
 			return &RuleNodeCtx{}, err
 		} else {
 			return &RuleNodeCtx{
 				Node:           node,
+				ChainCtx:       chainCtx,
 				SelfDefinition: selfDefinition,
 				Config:         config,
 			}, nil
@@ -67,7 +74,7 @@ func (rn *RuleNodeCtx) GetNodeId() types.RuleNodeId {
 }
 
 func (rn *RuleNodeCtx) ReloadSelf(def []byte) error {
-	if ruleNodeCtx, err := rn.Config.Parser.DecodeRuleNode(rn.Config, def); err == nil {
+	if ruleNodeCtx, err := rn.Config.Parser.DecodeRuleNode(rn.Config, def, rn.ChainCtx); err == nil {
 		//先销毁
 		rn.Destroy()
 		//重新加载
@@ -103,17 +110,44 @@ func (rn *RuleNodeCtx) Copy(newCtx *RuleNodeCtx) {
 }
 
 // 使用全局配置替换节点占位符配置，例如：${global.propertyKey}
-func processGlobalPlaceholders(config types.Config, configuration types.Configuration) types.Configuration {
-	if config.Properties.Values() != nil {
-		var result = make(types.Configuration)
-		for key, value := range configuration {
-			if strV, ok := value.(string); ok {
-				result[key] = str.SprintfVar(strV, "global.", config.Properties.Values())
-			} else {
-				result[key] = value
-			}
-		}
-		return result
+func processVariables(config types.Config, chainCtx *RuleChainCtx, configuration types.Configuration) (types.Configuration, error) {
+	var result = make(types.Configuration)
+	globalEnv := make(map[string]string)
+
+	if config.Properties != nil {
+		globalEnv = config.Properties.Values()
 	}
-	return configuration
+
+	var varsEnv map[string]string
+	var decryptSecrets map[string]string
+
+	if chainCtx != nil {
+		varsEnv = copyMap(chainCtx.vars)
+		//解密Secrets
+		decryptSecrets = copyMap(chainCtx.decryptSecrets)
+	}
+	for key, value := range configuration {
+		if strV, ok := value.(string); ok {
+			v := str.SprintfVar(strV, types.Global+".", globalEnv)
+			v = str.SprintfVar(v, types.Vars+".", varsEnv)
+			result[key] = v
+		} else {
+			result[key] = value
+		}
+	}
+	if varsEnv != nil {
+		result[types.Vars] = varsEnv
+	}
+	if decryptSecrets != nil {
+		result[types.Secrets] = decryptSecrets
+	}
+	return result, nil
+}
+
+func copyMap(inputMap map[string]string) map[string]string {
+	result := make(map[string]string)
+	for key, value := range inputMap {
+		result[key] = value
+	}
+	return result
 }
