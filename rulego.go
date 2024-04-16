@@ -199,6 +199,11 @@ func (g *RuleGo) Stop() {
 	})
 }
 
+// Range 遍历所有规则引擎实例
+func (g *RuleGo) Range(f func(key, value any) bool) {
+	g.ruleEngines.Range(f)
+}
+
 // OnMsg 调用所有规则引擎实例处理消息
 // 规则引擎实例池所有规则链都会去尝试处理该消息
 func (g *RuleGo) OnMsg(msg types.RuleMsg) {
@@ -240,4 +245,17 @@ func Stop() {
 // 规则引擎实例池所有规则链都会去尝试处理该消息
 func OnMsg(msg types.RuleMsg) {
 	DefaultRuleGo.OnMsg(msg)
+}
+
+// Reload 重新加载所有规则引擎实例
+func Reload(opts ...RuleEngineOption) {
+	DefaultRuleGo.ruleEngines.Range(func(key, value any) bool {
+		_ = value.(*RuleEngine).Reload(opts...)
+		return true
+	})
+}
+
+// Range 遍历所有规则引擎实例
+func Range(f func(key, value any) bool) {
+	DefaultRuleGo.ruleEngines.Range(f)
 }

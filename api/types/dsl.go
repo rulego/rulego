@@ -41,6 +41,21 @@ type RuleChainBaseInfo struct {
 	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
 }
 
+func (r RuleChainBaseInfo) GetAdditionalInfo(key string) (string, bool) {
+	if r.AdditionalInfo == nil {
+		return "", false
+	}
+	v, ok := r.AdditionalInfo[key]
+	return v, ok
+}
+
+func (r RuleChainBaseInfo) PutAdditionalInfo(key, value string) {
+	if r.AdditionalInfo == nil {
+		r.AdditionalInfo = make(map[string]string)
+	}
+	r.AdditionalInfo[key] = value
+}
+
 // RuleMetadata 规则链元数据定义，包含了规则链中节点和连接的信息
 type RuleMetadata struct {
 	//数据流转的第一个节点，默认:0
