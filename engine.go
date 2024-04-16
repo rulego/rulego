@@ -577,6 +577,10 @@ func newRuleEngine(id string, def []byte, opts ...RuleEngineOption) (*RuleEngine
 	return ruleEngine, err
 }
 
+func (e *RuleEngine) Reload(opts ...RuleEngineOption) error {
+	return e.ReloadSelf(e.DSL(), opts...)
+}
+
 // ReloadSelf 重新加载规则链
 func (e *RuleEngine) ReloadSelf(def []byte, opts ...RuleEngineOption) error {
 	// Apply the options to the RuleEngine.
@@ -637,6 +641,14 @@ func (e *RuleEngine) DSL() []byte {
 		return e.rootRuleChainCtx.DSL()
 	} else {
 		return nil
+	}
+}
+
+func (e *RuleEngine) Definition() types.RuleChain {
+	if e.rootRuleChainCtx != nil {
+		return *e.rootRuleChainCtx.SelfDefinition
+	} else {
+		return types.RuleChain{}
 	}
 }
 
