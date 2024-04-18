@@ -316,7 +316,9 @@ func restServe(logger *log.Logger, addr string) {
 	restEndpoint.GET(createGetDebugDataRouter())
 
 	//注册路由
-	_ = restEndpoint.Start()
+	if err := restEndpoint.Start(); err != nil {
+		logger.Fatal(err)
+	}
 }
 
 // 处理请求，并转发到规则引擎
