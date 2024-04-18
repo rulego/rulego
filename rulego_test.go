@@ -57,6 +57,18 @@ func TestRuleGo(t *testing.T) {
 	err = myRuleGo.Load("./testdata/*.json", WithConfig(config))
 	assert.Nil(t, err)
 
+	var i = 0
+	myRuleGo.Range(func(key, value any) bool {
+		i++
+		return true
+	})
+	assert.True(t, i > 0)
+	i = 0
+	Range(func(key, value any) bool {
+		i++
+		return true
+	})
+	assert.True(t, i > 0)
 	_, ok := myRuleGo.Get("chain_call_rest_api")
 	assert.Equal(t, true, ok)
 
