@@ -31,7 +31,7 @@ type RuleChainBaseInfo struct {
 	//Name 规则链的名称
 	Name string `json:"name"`
 	//表示这个节点是否处于调试模式。如果为真，当节点处理消息时，会触发调试回调函数。
-	//优先使用子节点的DebugMode配置
+	//该配置会覆盖节点`DebugMode`配置
 	DebugMode bool `json:"debugMode"`
 	//Root 表示这个规则链是根规则链还是子规则链。(只做标记使用，非应用在实际逻辑)
 	Root bool `json:"root"`
@@ -85,6 +85,7 @@ type RuleNode struct {
 	//节点的名称，可以是任意字符串
 	Name string `json:"name"`
 	//表示这个节点是否处于调试模式。如果为真，当节点处理消息时，会触发调试回调函数。
+	//该配置会被RuleChain`DebugMode`配置覆盖
 	DebugMode bool `json:"debugMode"`
 	//包含了节点的配置参数，具体内容取决于节点类型。
 	//例如，一个JS过滤器节点可能有一个`jsScript`字段，定义了过滤逻辑，
