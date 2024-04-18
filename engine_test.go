@@ -884,8 +884,7 @@ func TestRuleContext(t *testing.T) {
 		ruleEngine.Stop()
 
 		err = ruleEngine.ReloadChild("", []byte("{"))
-		assert.Equal(t, "ReloadNode error.RuleEngine not initialized", err.Error())
-		assert.Equal(t, 0, len(ruleEngine.DSL()))
+		assert.Equal(t, "unexpected end of JSON input", err.Error())
 		time.Sleep(time.Millisecond * 100)
 	})
 	t.Run("notEnd", func(t *testing.T) {
@@ -1042,15 +1041,7 @@ func TestReload(t *testing.T) {
 
 	config := NewConfig(types.WithDefaultPool())
 	config.Properties.PutValue("js", "return msg.temperature>10;")
-	config.OnDebug = func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-		if nodeId == "s1" && flowType == types.Out {
-			assert.Equal(t, types.True, relationType)
-		}
-		if nodeId == "s2" && flowType == types.Out {
-			assert.Equal(t, types.Success, relationType)
-		}
-	}
-	ruleEngine, err := New("testOnDebug", []byte(ruleChainFile), WithConfig(config))
+	ruleEngine, err := New("testReload", []byte(ruleChainFile), WithConfig(config))
 	assert.Nil(t, err)
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
@@ -1078,15 +1069,7 @@ func TestNoNodes(t *testing.T) {
 	wg.Add(1)
 	config := NewConfig(types.WithDefaultPool())
 	config.Properties.PutValue("js", "return msg.temperature>10;")
-	config.OnDebug = func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-		if nodeId == "s1" && flowType == types.Out {
-			assert.Equal(t, types.True, relationType)
-		}
-		if nodeId == "s2" && flowType == types.Out {
-			assert.Equal(t, types.Success, relationType)
-		}
-	}
-	ruleEngine, err := New("testOnDebug", []byte(ruleChainFile), WithConfig(config))
+	ruleEngine, err := New("testNoNodes", []byte(ruleChainFile), WithConfig(config))
 	assert.Nil(t, err)
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")

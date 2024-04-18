@@ -551,6 +551,8 @@ type RuleEngine struct {
 	endAspects []types.EndAspect
 	//规则链执行完成切面列表
 	completedAspects []types.CompletedAspect
+	//是否已经初始化
+	initialized bool
 }
 
 // RuleEngineOption is a function type that modifies the RuleEngine.
@@ -617,7 +619,7 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...RuleEngineOption) error {
 			for _, aop := range createdAspects {
 				aop.OnCreated(e.rootRuleChainCtx)
 			}
-
+			e.initialized = true
 			return nil
 		} else {
 			return err
@@ -679,7 +681,7 @@ func (e *RuleEngine) NodeDSL(chainId types.RuleNodeId, childNodeId types.RuleNod
 }
 
 func (e *RuleEngine) Initialized() bool {
-	return e.rootRuleChainCtx != nil
+	return e.initialized && e.rootRuleChainCtx != nil
 }
 
 // RootRuleChainCtx 获取根规则链
@@ -691,6 +693,7 @@ func (e *RuleEngine) Stop() {
 	if e.rootRuleChainCtx != nil {
 		e.rootRuleChainCtx.Destroy()
 	}
+	e.initialized = false
 }
 
 // OnMsg 把消息交给规则引擎处理，异步执行
