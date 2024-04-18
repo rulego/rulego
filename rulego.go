@@ -111,6 +111,7 @@ package rulego
 import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/fs"
+	"log"
 	"strings"
 	"sync"
 )
@@ -142,7 +143,7 @@ func (g *RuleGo) Load(folderPath string, opts ...RuleEngineOption) error {
 		b := fs.LoadFile(path)
 		if b != nil {
 			if _, err = g.New("", b, opts...); err != nil {
-				return err
+				log.Println("Load rule chain error:", err)
 			}
 		}
 	}
