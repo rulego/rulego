@@ -87,7 +87,11 @@ func (r *RequestMessage) GetParam(key string) string {
 	if r.request == nil {
 		return ""
 	}
-	return r.request.FormValue(key)
+	if v := r.Params.ByName(key); v == "" {
+		return r.request.FormValue(key)
+	} else {
+		return v
+	}
 }
 
 func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
@@ -203,9 +207,11 @@ type Rest struct {
 	//配置
 	Config     Config
 	RuleConfig types.Config
+	Server     *http.Server
 	//http路由器
 	router *httprouter.Router
-	server *http.Server
+	//事件回调函数
+	OnEventFunc endpoint.OnEvent
 }
 
 // Type 组件类型
@@ -230,8 +236,8 @@ func (rest *Rest) Destroy() {
 }
 
 func (rest *Rest) Close() error {
-	if nil != rest.server {
-		return rest.server.Shutdown(context.Background())
+	if nil != rest.Server {
+		return rest.Server.Shutdown(context.Background())
 	}
 	return nil
 }
@@ -267,14 +273,20 @@ func (rest *Rest) RemoveRouter(routerId string, params ...interface{}) error {
 }
 
 func (rest *Rest) Start() error {
+	if rest.router == nil {
+		rest.router = httprouter.New()
+	}
 	var err error
-	rest.server = &http.Server{Addr: rest.Config.Server, Handler: rest.router}
+	rest.Server = &http.Server{Addr: rest.Config.Server, Handler: rest.router}
+	if rest.OnEventFunc != nil {
+		rest.OnEventFunc(endpoint.EventInitServer, rest)
+	}
 	if rest.Config.CertKeyFile != "" && rest.Config.CertFile != "" {
-		rest.Printf("starting server with TLS on :%s", rest.Config.Server)
-		err = rest.server.ListenAndServeTLS(rest.Config.CertFile, rest.Config.CertKeyFile)
+		rest.Printf("starting rest server with TLS on :%s", rest.Config.Server)
+		err = rest.Server.ListenAndServeTLS(rest.Config.CertFile, rest.Config.CertKeyFile)
 	} else {
-		rest.Printf("starting server on :%s", rest.Config.Server)
-		err = rest.server.ListenAndServe()
+		rest.Printf("starting rest server on :%s", rest.Config.Server)
+		err = rest.Server.ListenAndServe()
 	}
 	return err
 

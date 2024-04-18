@@ -35,6 +35,15 @@ const (
 	pathKey = "_path"
 )
 
+const (
+	EventConnect    = "Connect"
+	EventDisconnect = "Disconnect"
+	EventInitServer = "InitServer"
+)
+
+// OnEvent 监听事件函数
+type OnEvent func(eventName string, params ...interface{})
+
 var (
 	//ChainNotFoundErr 规则链不存在错误
 	ChainNotFoundErr = errors.New("chain not found error")
@@ -297,7 +306,9 @@ type Router struct {
 	//输入
 	from *From
 	//规则链池，默认使用rulego.DefaultRuleGo
-	RuleGo *rulego.RuleGo
+	ruleGo *rulego.RuleGo
+	//动态获取规则链池函数
+	ruleGoFunc func(exchange *Exchange) *rulego.RuleGo
 	//Config ruleEngine Config
 	Config types.Config
 	//是否不可用 1:不可用;0:可以
@@ -307,10 +318,18 @@ type Router struct {
 // RouterOption 选项函数
 type RouterOption func(*Router) error
 
+// WithRuleGoFunc 动态获取规则链池函数
+func WithRuleGoFunc(f func(exchange *Exchange) *rulego.RuleGo) RouterOption {
+	return func(re *Router) error {
+		re.ruleGoFunc = f
+		return nil
+	}
+}
+
 // WithRuleGo 更改规则链池，默认使用rulego.DefaultRuleGo
 func WithRuleGo(ruleGo *rulego.RuleGo) RouterOption {
 	return func(re *Router) error {
-		re.RuleGo = ruleGo
+		re.ruleGo = ruleGo
 		return nil
 	}
 }
@@ -325,7 +344,7 @@ func WithRuleConfig(config types.Config) RouterOption {
 
 // NewRouter 创建新的路由
 func NewRouter(opts ...RouterOption) *Router {
-	router := &Router{RuleGo: rulego.DefaultRuleGo, Config: rulego.NewConfig()}
+	router := &Router{ruleGo: rulego.DefaultRuleGo, Config: rulego.NewConfig()}
 	// 设置选项值
 	for _, opt := range opts {
 		_ = opt(router)
@@ -355,6 +374,14 @@ func (r *Router) From(from string, configs ...types.Configuration) *From {
 
 func (r *Router) GetFrom() *From {
 	return r.from
+}
+
+func (r *Router) GetRuleGo(exchange *Exchange) *rulego.RuleGo {
+	if r.ruleGoFunc != nil {
+		return r.ruleGoFunc(exchange)
+	} else {
+		return r.ruleGo
+	}
 }
 
 // Disable 设置状态 true:不可用，false:可以
@@ -479,7 +506,7 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router *Router, exchange *
 		toChainId := toFlow.ToStringByDict(inMsg.Metadata.Values())
 
 		//查找规则链，并执行
-		if ruleEngine, ok := router.RuleGo.Get(toChainId); ok {
+		if ruleEngine, ok := router.GetRuleGo(exchange).Get(toChainId); ok {
 			opts := toFlow.opts
 			//监听结束回调函数
 			endFunc := types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {

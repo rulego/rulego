@@ -5,6 +5,7 @@ import (
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"log"
@@ -79,12 +80,28 @@ func TestWsEndpoint(t *testing.T) {
 	wg.Add(1)
 	stop := make(chan struct{})
 	//启动服务
-	go startServer(t, stop, &wg)
+	go startServer(t, stop, &wg, false)
 	//等待服务器启动完毕
 	time.Sleep(time.Millisecond * 200)
 
 	sendMsg(t, "ws://127.0.0.1"+testServer+"/api/v1/echo/TEST_MSG_TYPE1?aa=xx")
+	//停止服务器
+	stop <- struct{}{}
+	time.Sleep(time.Millisecond * 200)
+	wg.Wait()
+}
 
+func TestMultiplexRestEndpoint(t *testing.T) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	stop := make(chan struct{})
+	//启动服务
+	go startServer(t, stop, &wg, true)
+	//等待服务器启动完毕
+	time.Sleep(time.Millisecond * 200)
+
+	sendMsg(t, "ws://127.0.0.1"+testServer+"/api/v1/echo/TEST_MSG_TYPE1?aa=xx")
+	time.Sleep(time.Millisecond * 200)
 	//停止服务器
 	stop <- struct{}{}
 	time.Sleep(time.Millisecond * 200)
@@ -99,7 +116,10 @@ func sendMsg(t *testing.T, url string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer conn.Close()
+	defer func() {
+		time.Sleep(time.Millisecond * 200)
+		conn.Close()
+	}()
 
 	// 发送消息
 	err = conn.WriteMessage(websocket.BinaryMessage, []byte("Hello, world!"))
@@ -117,7 +137,7 @@ func sendMsg(t *testing.T, url string) {
 }
 
 // 启动服务
-func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
+func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup, isMultiplex bool) {
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
 	if err != nil {
 		t.Fatal(err)
@@ -125,9 +145,25 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	config := rulego.NewConfig(types.WithDefaultPool())
 	//注册规则链
 	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
-
-	//启动ws接收服务
-	wsEndpoint, err := endpoint.New(Type, config, Config{Server: ":9090"})
+	var wsEndpoint endpoint.Endpoint
+	//var restStartGroup sync.WaitGroup
+	//restStartGroup.Add(1)
+	restEndpoint := &rest.Endpoint{
+		Config: rest.Config{Server: testServer},
+	}
+	//复用rest endpoint
+	if isMultiplex {
+		restEndpoint.OnEventFunc = func(eventName string, params ...interface{}) {
+			if eventName == endpoint.EventInitServer {
+				wsEndpoint = newWebsocketServe(t, restEndpoint)
+				if err := wsEndpoint.Start(); err != nil {
+					t.Fatal("error:", err)
+				}
+			}
+		}
+	} else {
+		wsEndpoint = newWebsocketServe(t, nil)
+	}
 
 	go func() {
 		for {
@@ -135,11 +171,34 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 			case <-stop:
 				// 接收到中断信号，退出循环
 				wsEndpoint.Destroy()
+				restEndpoint.Destroy()
 				return
 			default:
 			}
 		}
 	}()
+
+	if isMultiplex {
+		//复用rest endpoint
+		_ = restEndpoint.Start()
+	} else {
+		//并启动服务
+		_ = wsEndpoint.Start()
+	}
+
+	wg.Done()
+}
+
+func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint {
+	config := rulego.NewConfig(types.WithDefaultPool())
+	wsEndpoint, err := endpoint.New(Type, config, Config{Server: testServer})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if restEndpoint != nil {
+		wsEndpoint = &Websocket{RestEndpoint: restEndpoint}
+	}
 	//添加全局拦截器
 	wsEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑
@@ -194,7 +253,6 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 
 	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.In.GetMsg().Type = exchange.In.GetParam("msgType")
-
 		exchange.Out.SetBody([]byte("s2 process" + "\n"))
 		return true
 	}).To("chain:default").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
@@ -206,7 +264,5 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	wsEndpoint.AddRouter(router1)
 
 	assert.NotNil(t, wsEndpoint.(*Endpoint).Router())
-	//并启动服务
-	_ = wsEndpoint.Start()
-	wg.Done()
+	return wsEndpoint
 }
