@@ -42,7 +42,11 @@ type RuleNodeCtx struct {
 func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, selfDefinition *types.RuleNode) (*RuleNodeCtx, error) {
 	node, err := config.ComponentsRegistry.NewNode(selfDefinition.Type)
 	if err != nil {
-		return &RuleNodeCtx{}, err
+		return &RuleNodeCtx{
+			ChainCtx:       chainCtx,
+			SelfDefinition: selfDefinition,
+			Config:         config,
+		}, err
 	} else {
 		if selfDefinition.Configuration == nil {
 			selfDefinition.Configuration = make(types.Configuration)

@@ -1066,3 +1066,37 @@ func TestReload(t *testing.T) {
 		assert.Equal(t, types.False, relationType)
 	}))
 }
+
+func TestNoNodes(t *testing.T) {
+	var ruleChainFile = `{
+          "ruleChain": {
+            "id": "testNoNodes",
+            "name": "testRuleChain01"
+          }
+        }`
+	var wg sync.WaitGroup
+	wg.Add(1)
+	config := NewConfig(types.WithDefaultPool())
+	config.Properties.PutValue("js", "return msg.temperature>10;")
+	config.OnDebug = func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		if nodeId == "s1" && flowType == types.Out {
+			assert.Equal(t, types.True, relationType)
+		}
+		if nodeId == "s2" && flowType == types.Out {
+			assert.Equal(t, types.Success, relationType)
+		}
+	}
+	ruleEngine, err := New("testOnDebug", []byte(ruleChainFile), WithConfig(config))
+	assert.Nil(t, err)
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
+	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.Failure, relationType)
+		assert.Equal(t, "the rule chain has no nodes", err.Error())
+	}), types.WithOnAllNodeCompleted(func() {
+		wg.Done()
+	}))
+	time.Sleep(time.Millisecond * 100)
+	wg.Wait()
+}
