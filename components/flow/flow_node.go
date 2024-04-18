@@ -69,6 +69,8 @@ func (x *ChainNode) Init(ruleConfig types.Config, configuration types.Configurat
 func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var wrapperMsg = msg.Copy()
 	var msgs []types.WrapperMsg
+	var targetRelationType = types.Success
+	var targetErr error
 	//使用一个互斥锁来保护对msgs切片的并发写入
 	var mu sync.Mutex
 	ctx.TellFlow(msg, x.Config.TargetId, func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
@@ -84,6 +86,10 @@ func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		//使用互斥锁来保证对msgs切片的原子操作
 		mu.Lock()
 		defer mu.Unlock()
+		if relationType == types.Failure {
+			targetRelationType = relationType
+			targetErr = err
+		}
 		msgs = append(msgs, types.WrapperMsg{
 			Msg:    onEndMsg,
 			Err:    errStr,
@@ -93,7 +99,12 @@ func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}, func() {
 		wrapperMsg.DataType = types.JSON
 		wrapperMsg.Data = str.ToString(msgs)
-		ctx.TellSuccess(wrapperMsg)
+		if targetRelationType == types.Failure {
+			ctx.TellFailure(wrapperMsg, targetErr)
+		} else {
+			ctx.TellSuccess(wrapperMsg)
+		}
+
 	})
 }
 
