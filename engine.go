@@ -737,7 +737,18 @@ func (e *RuleEngine) doOnAllNodeCompleted(rootCtxCopy *DefaultRuleContext, msg t
 	}
 
 }
-
+func (e *RuleEngine) noNodesHandler(msg types.RuleMsg, rootCtxCopy *DefaultRuleContext, wait bool) {
+	err := errors.New("the rule chain has no nodes")
+	if rootCtxCopy.config.OnEnd != nil {
+		rootCtxCopy.config.OnEnd(msg, err)
+	}
+	if rootCtxCopy.onEnd != nil {
+		rootCtxCopy.onEnd(rootCtxCopy, msg, err, types.Failure)
+	}
+	if rootCtxCopy.onAllNodeCompleted != nil {
+		rootCtxCopy.onAllNodeCompleted()
+	}
+}
 func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.RuleContextOption) {
 	if e.rootRuleChainCtx != nil {
 		rootCtx := e.rootRuleChainCtx.rootRuleContext.(*DefaultRuleContext)
@@ -747,7 +758,10 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 		for _, opt := range opts {
 			opt(rootCtxCopy)
 		}
-
+		if rootCtx.ruleChainCtx.isEmpty {
+			e.noNodesHandler(msg, rootCtxCopy, wait)
+			return
+		}
 		msg = e.onStart(rootCtxCopy, msg)
 
 		//用户自定义结束回调

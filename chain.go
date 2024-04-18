@@ -67,6 +67,8 @@ type RuleChainCtx struct {
 	vars map[string]string
 	//decryptSecrets 解密后的secrets
 	decryptSecrets map[string]string
+	//是否没有任何节点
+	isEmpty bool
 	sync.RWMutex
 }
 
@@ -147,6 +149,12 @@ func InitRuleChainCtx(config types.Config, ruleChainDef *types.RuleChain) (*Rule
 	if firstNode, ok := ruleChainCtx.GetFirstNode(); ok {
 		ruleChainCtx.rootRuleContext = NewRuleContext(context.TODO(), ruleChainCtx.Config, ruleChainCtx, nil,
 			firstNode, config.Pool, nil, nil)
+	} else {
+		//没有节点，则初始化一个空节点
+		ruleNodeCtx, _ := InitRuleNodeCtx(config, ruleChainCtx, &types.RuleNode{})
+		ruleChainCtx.rootRuleContext = NewRuleContext(context.TODO(), ruleChainCtx.Config, ruleChainCtx, nil,
+			ruleNodeCtx, config.Pool, nil, nil)
+		ruleChainCtx.isEmpty = true
 	}
 
 	//get aspects
