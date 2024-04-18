@@ -373,7 +373,7 @@ func (ctx *DefaultRuleContext) GetCallbackFunc(functionName string) interface{} 
 
 func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 	msgCopy := msg.Copy()
-	if ctx.Self() != nil && ctx.Self().IsDebugMode() {
+	if ctx.IsDebugMode() {
 		//异步记录日志
 		ctx.SubmitTack(func() {
 			if ctx.config.OnDebug != nil {
@@ -389,6 +389,14 @@ func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, node
 		ctx.runSnapshot.collectRunSnapshot(ctx, flowType, nodeId, msgCopy, relationType, err)
 	}
 
+}
+
+// IsDebugMode 是否调试模式，优先使用规则链指定的调试模式
+func (ctx *DefaultRuleContext) IsDebugMode() bool {
+	if ctx.ruleChainCtx.IsDebugMode() {
+		return true
+	}
+	return ctx.Self() != nil && ctx.Self().IsDebugMode()
 }
 
 // 增加一个待执行子节点
