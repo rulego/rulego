@@ -23,6 +23,8 @@ import (
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -84,6 +86,10 @@ type MqttClientNode struct {
 	//节点配置
 	Config     MqttClientNodeConfiguration
 	mqttClient *mqtt.Client
+	//锁
+	locker sync.RWMutex
+	//是否正在连接mqtt 服务器
+	connecting int32
 }
 
 // Type 组件类型
@@ -104,9 +110,7 @@ func (x *MqttClientNode) New() types.Node {
 func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		ctx, cancel := context.WithTimeout(context.TODO(), 16*time.Second)
-		defer cancel()
-		x.mqttClient, err = mqtt.NewClient(ctx, x.Config.ToMqttConfig())
+		_ = x.tryInitClient()
 	}
 	return err
 }
@@ -115,7 +119,11 @@ func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Confi
 func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	topic := str.SprintfDict(x.Config.Topic, msg.Metadata.Values())
 	if x.mqttClient == nil {
-		ctx.TellFailure(msg, MqttClientNotInitErr)
+		if err := x.tryInitClient(); err != nil {
+			ctx.TellFailure(msg, err)
+		} else {
+			ctx.TellFailure(msg, MqttClientNotInitErr)
+		}
 	} else if err := x.mqttClient.Publish(topic, x.Config.QOS, []byte(msg.Data)); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
@@ -127,5 +135,24 @@ func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 func (x *MqttClientNode) Destroy() {
 	if x.mqttClient != nil {
 		_ = x.mqttClient.Close()
+	}
+}
+func (x *MqttClientNode) isConnecting() bool {
+	return atomic.LoadInt32(&x.connecting) == 1
+}
+
+// TryInitClient 尝试重连mqtt客户端
+func (x *MqttClientNode) tryInitClient() error {
+	if x.mqttClient == nil && atomic.CompareAndSwapInt32(&x.connecting, 0, 1) {
+		var err error
+		ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
+		defer func() {
+			cancel()
+			atomic.StoreInt32(&x.connecting, 0)
+		}()
+		x.mqttClient, err = mqtt.NewClient(ctx, x.Config.ToMqttConfig())
+		return err
+	} else {
+		return nil
 	}
 }

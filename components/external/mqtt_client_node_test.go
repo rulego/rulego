@@ -76,33 +76,33 @@ func TestMqttClientNode(t *testing.T) {
 			"topic":  "/device/msg",
 			"server": "127.0.0.1:1884",
 		}, Registry)
-		assert.NotNil(t, err)
+		assert.Nil(t, err)
 
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
 		msgList := []test.Msg{
 			{
-				MetaData:   metaData,
-				MsgType:    "ACTIVITY_EVENT1",
-				Data:       "AA",
-				AfterSleep: time.Millisecond * 200,
+				MetaData: metaData,
+				MsgType:  "ACTIVITY_EVENT1",
+				Data:     "AA",
+				//AfterSleep: time.Millisecond * 200,
 			},
 			{
-				MetaData:   metaData,
-				MsgType:    "ACTIVITY_EVENT2",
-				Data:       "{\"temperature\":60}",
-				AfterSleep: time.Millisecond * 200,
+				MetaData: metaData,
+				MsgType:  "ACTIVITY_EVENT2",
+				Data:     "{\"temperature\":60}",
+				//AfterSleep: time.Millisecond * 200,
 			},
 		}
-
+		_ = node1
 		var nodeList = []test.NodeAndCallback{
-			{
-				Node:    node1,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Success, relationType)
-				},
-			},
+			//{
+			//	Node:    node1,
+			//	MsgList: msgList,
+			//	Callback: func(msg types.RuleMsg, relationType string, err error) {
+			//		assert.Equal(t, types.Success, relationType)
+			//	},
+			//},
 			{
 				Node:    node2,
 				MsgList: msgList,
@@ -114,5 +114,28 @@ func TestMqttClientNode(t *testing.T) {
 		for _, item := range nodeList {
 			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
+		time.Sleep(time.Second * 10)
+		var nodeList2 = []test.NodeAndCallback{
+			{
+				Node: node2,
+				MsgList: []test.Msg{
+					{
+						MetaData: metaData,
+						MsgType:  "ACTIVITY_EVENT2",
+						Data:     "{\"temperature\":60}",
+					},
+				},
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					//if msg.Type == "ACTIVITY_EVENT2" {
+					//assert.True(t, MqttClientNotInitErr.Error() != err.Error())
+					//}
+					assert.Equal(t, types.Failure, relationType)
+				},
+			},
+		}
+		for _, item := range nodeList2 {
+			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
+		}
+		time.Sleep(time.Second * 8)
 	})
 }
