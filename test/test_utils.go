@@ -128,7 +128,7 @@ func NodeOnMsg(t *testing.T, node types.Node, msgList []Msg, callback func(msg t
 // NodeOnMsgWithChildren 发送消息
 func NodeOnMsgWithChildren(t *testing.T, node types.Node, msgList []Msg, childrenNodes map[string]types.Node, callback func(msg types.RuleMsg, relationType string, err error)) {
 
-	defer node.Destroy()
+	//defer node.Destroy()
 
 	ctx := NewRuleContextFull(types.NewConfig(), node, childrenNodes, callback)
 	for _, item := range msgList {
@@ -138,7 +138,7 @@ func NodeOnMsgWithChildren(t *testing.T, node types.Node, msgList []Msg, childre
 		}
 		types.NewMsg(time.Now().UnixMilli(), item.MsgType, dataType, item.MetaData, item.Data)
 		msg := ctx.NewMsg(item.MsgType, item.MetaData, item.Data)
-		node.OnMsg(ctx, msg)
+		go node.OnMsg(ctx, msg)
 		if item.AfterSleep > 0 {
 			time.Sleep(item.AfterSleep)
 		}
