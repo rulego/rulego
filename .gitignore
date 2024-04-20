@@ -43,5 +43,4 @@ vendor/
 # coverage file
 coverage.html
 
-examples/server/js/
-examples/server/plugins/
+#examples/server/data/

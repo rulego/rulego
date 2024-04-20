@@ -1,13 +1,21 @@
 {
   "ruleChain": {
     "id": "chain_call_rest_api",
-    "additionalInfo": null,
     "name": "测试规则链",
-    "debugMode": false,
+    "debugMode": true,
     "root": true,
-    "configuration": null
+    "configuration": {
+      "vars": {
+        "ip": "127.0.0.1"
+      }
+    },
+    "additionalInfo": {
+      "description": "测试描述",
+      "updateTime": "2024/4/22 16:45:42"
+    }
   },
   "metadata": {
+    "firstNodeIndex": 0,
     "nodes": [
       {
         "id": "s1",
@@ -27,7 +35,7 @@
         "id": "s2",
         "additionalInfo": {
           "description": "",
-          "layoutX": 670,
+          "layoutX": 680,
           "layoutY": 280
         },
         "type": "jsTransform",
@@ -41,7 +49,7 @@
         "id": "s3",
         "additionalInfo": {
           "description": "",
-          "layoutX": 930,
+          "layoutX": 920,
           "layoutY": 190
         },
         "type": "restApiCall",
@@ -53,14 +61,14 @@
           },
           "maxParallelRequestsCount": 200,
           "requestMethod": "POST",
-          "restEndpointUrlPattern": "http://192.168.136.26:9099/api/msg"
+          "restEndpointUrlPattern": "http://127.0.0.1:9090/api/v1/webhook/test"
         }
       },
       {
         "id": "node_5",
         "additionalInfo": {
           "description": "",
-          "layoutX": 930,
+          "layoutX": 920,
           "layoutY": 370
         },
         "type": "log",
