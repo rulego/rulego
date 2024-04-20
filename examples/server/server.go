@@ -297,7 +297,7 @@ func restServe(logger *log.Logger, addr string) {
 		if r.Header.Get("Access-Control-Request-Method") != "" {
 			// 设置 CORS 相关的响应头
 			header := w.Header()
-			header.Set("Access-Control-Allow-Methods", r.Header.Get("Allow"))
+			header.Set("Access-Control-Allow-Methods", "*")
 			header.Set("Access-Control-Allow-Headers", "*")
 			header.Set("Access-Control-Allow-Origin", "*")
 		}
@@ -310,11 +310,15 @@ func restServe(logger *log.Logger, addr string) {
 	restEndpoint.GET(createGetDslRouter())
 	//新增/修改规则链DSL
 	restEndpoint.POST(createSaveDslRouter())
-	//处理数据上报请求，并转发到规则引擎
-	restEndpoint.POST(createPostMsgRouter())
 	//获取节点调试数据
 	restEndpoint.GET(createGetDebugDataRouter())
 
+	//执行规则链,并得到规则链处理结果
+	restEndpoint.POST(executeRuleRouter(apiBasePath + "rule/:chainId/execute/:msgType"))
+	//处理数据上报请求，并转发到规则引擎，不等待规则引擎处理结果
+	restEndpoint.POST(createPostMsgRouter(apiBasePath + "rule/:chainId/notify/:msgType"))
+	//处理数据上报请求，并转发到规则引擎
+	restEndpoint.POST(createPostMsgRouter(msgPath))
 	//注册路由
 	if err := restEndpoint.Start(); err != nil {
 		logger.Fatal(err)
@@ -322,8 +326,8 @@ func restServe(logger *log.Logger, addr string) {
 }
 
 // 处理请求，并转发到规则引擎
-func createPostMsgRouter() *endpoint.Router {
-	return endpoint.NewRouter().From(msgPath).Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+func createPostMsgRouter(url string) *endpoint.Router {
+	return endpoint.NewRouter().From(url).Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		//获取消息类型
 		msg.Type = msg.Metadata.GetValue("msgType")
@@ -332,6 +336,32 @@ func createPostMsgRouter() *endpoint.Router {
 		exchange.Out.SetStatusCode(http.StatusOK)
 		return true
 	}).To("chain:${chainId}").End()
+}
+
+// 执行规则链,并得到规则链处理结果
+func executeRuleRouter(url string) *endpoint.Router {
+	return endpoint.NewRouter().From(url).Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		//获取消息类型
+		msg.Type = msg.Metadata.GetValue("msgType")
+		return true
+	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Out.SetStatusCode(http.StatusOK)
+		return true
+	}).To("chain:${chainId}").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		err := exchange.Out.GetError()
+		if err != nil {
+			//错误
+			exchange.Out.SetStatusCode(400)
+			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
+		} else {
+			//把处理结果响应给客户端，http endpoint 必须增加 Wait()，否则无法正常响应
+			outMsg := exchange.Out.GetMsg()
+			exchange.Out.Headers().Set("Content-Type", "application/json")
+			exchange.Out.SetBody([]byte(outMsg.Data))
+		}
+		return true
+	}).Wait().End()
 }
 
 // 创建获取指定规则链路由
