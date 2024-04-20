@@ -3,8 +3,11 @@ module examples/server
 go 1.18
 
 require (
+	github.com/gorilla/websocket v1.4.2
 	github.com/rulego/rulego v0.20.0-alpha.1
 	github.com/rulego/rulego-components v0.20.0-alpha.1
+	github.com/rulego/rulego-components-ai v0.0.0-20240420051625-18ec23a2c930
+	gopkg.in/ini.v1 v1.67.0
 )
 
 require (
@@ -33,7 +36,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
-	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
@@ -60,6 +62,7 @@ require (
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
+	github.com/sashabaranov/go-openai v1.22.0 // indirect
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 	github.com/vadv/gopher-lua-libs v0.5.0 // indirect
 	github.com/yuin/gluamapper v0.0.0-20150323120927-d836955830e7 // indirect
@@ -77,3 +80,6 @@ require (
 replace github.com/rulego/rulego => ../../../rulego
 
 //replace github.com/rulego/rulego-components => ../../../rulego-components
+//replace github.com/rulego/rulego-components-ai => ../../../rulego-components-ai
+//replace github.com/rulego/rulego-components-ci => ../../../rulego-components-ci
+//replace github.com/rulego/rulego-components-iot => ../../../rulego-components-iot

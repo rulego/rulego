@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package event
+package service
 
 import (
 	"github.com/rulego/rulego/api/types"
