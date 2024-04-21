@@ -1058,6 +1058,73 @@ func TestReload(t *testing.T) {
 	}))
 }
 
+func TestUseVars(t *testing.T) {
+	var ruleChainFile = `{
+          "ruleChain": {
+            "id": "testReload",
+            "name": "testRuleChain01",
+			"configuration": {
+				"vars":{
+					"js":"return msg.temperature>10;"
+				}
+			}
+          },
+          "metadata": {
+            "firstNodeIndex": 0,
+            "nodes": [
+              {
+                "id": "s1",
+                "type": "jsFilter",
+                "name": "过滤",
+                "debugMode": true,
+                "configuration": {
+                  "jsScript": "${vars.js}"
+                }
+              }
+            ]
+          }
+        }`
+
+	config := NewConfig(types.WithDefaultPool())
+	config.Properties.PutValue("js", "return msg.temperature>10;")
+	ruleEngine, err := New("testUseVars", []byte(ruleChainFile), WithConfig(config))
+	assert.Nil(t, err)
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
+	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.True, relationType)
+	}))
+	ruleChainFile = strings.Replace(ruleChainFile, "msg.temperature>10;", "msg.temperature>70;", 1)
+	//刷新配置
+	_ = ruleEngine.ReloadSelf([]byte(ruleChainFile), WithConfig(config))
+	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.False, relationType)
+	}))
+	go func() {
+		var i = 0
+		for i < 100 {
+			ruleEngine.rootRuleChainCtx.SelfDefinition.RuleChain.Configuration[types.Vars] = map[string]string{"js": "return msg.temperature>30;"}
+			_ = ruleEngine.Reload(WithConfig(config))
+			i++
+		}
+	}()
+	time.Sleep(time.Millisecond * 100)
+	var i = 0
+	for i < 200 {
+		msg = types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":21,\"humidity\":90}")
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			assert.Equal(t, types.False, relationType)
+		}))
+		msg = types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			assert.Equal(t, types.True, relationType)
+		}))
+		i++
+	}
+	time.Sleep(time.Millisecond * 200)
+}
+
 func TestNoNodes(t *testing.T) {
 	var ruleChainFile = `{
           "ruleChain": {

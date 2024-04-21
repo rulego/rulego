@@ -30,6 +30,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components"
 	"github.com/rulego/rulego/components/js"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
@@ -85,7 +86,7 @@ func (x *LogNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
 		jsScript := fmt.Sprintf("function ToString(msg, metadata, msgType) { %s }", x.Config.JsScript)
-		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, nil)
+		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, components.NodeUtils.GetVars(configuration))
 	}
 	x.logger = ruleConfig.Logger
 	return err

@@ -60,8 +60,13 @@ func TestJsTransformNode(t *testing.T) {
 		node3, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"jsScript": `return a`,
 		}, Registry)
-
-		var nodeList = []types.Node{node1, node2, node3}
+		node4, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"vars": map[string]string{
+				"ip": "192.168.1.1",
+			},
+			"jsScript": "metadata['test']='addFromJs';metadata['ip']=vars.ip;msgType='MSG_TYPE_MODIFY_BY_JS';return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+		}, Registry)
+		var nodeList = []types.Node{node1, node2, node3, node4}
 
 		for _, node := range nodeList {
 			metaData := types.BuildMetadata(make(map[string]string))
@@ -86,6 +91,7 @@ func TestJsTransformNode(t *testing.T) {
 				} else if node.(*JsTransformNode).Config.JsScript == `return a` {
 					assert.NotNil(t, err2)
 				} else {
+					assert.True(t, msg.Metadata.GetValue("ip") == "" || msg.Metadata.GetValue("ip") == "192.168.1.1")
 					assert.Equal(t, "test", msg.Metadata.GetValue("productType"))
 					assert.Equal(t, "addFromJs", msg.Metadata.GetValue("test"))
 					assert.Equal(t, "MSG_TYPE_MODIFY_BY_JS", msg.Type)
