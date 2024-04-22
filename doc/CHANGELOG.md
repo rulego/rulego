@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## [v0.20.0] 2024/04/24
+- feat: 允许不同脚本相同的函数名
+- feat: restApiCall 节点允许空body
+- feat: 可以得到规则链执行快照
+- feat: 允许在OnMsg上下文添加onDebug回调函数
+- feat: endpoint允许添加RuleContextOption
+- feat: 规则链DSL文件可以添加vars变量
+- feat: 节点配置允许通过规则链vars值替换
+- feat: 规则链池增加reload和range方法
+- feat: websocket endpoint允许和rest endpoint 共用用一个server
+- feat: 节点debugMode 允许被规则链的debugMode参数统一覆盖
+- feat: 子规则链允许通过Failure和其他节点连接
+- feat: 加载规则链跳过出错的规则链
+- feat: 规则链引擎增加初始化标志
+- feat: js相关节点运行时允许通过`vars.xx`访问规则链vars
+- feat: 重构examples/server 提供基于rulego开发应用的脚手架，前端地址：[example.rulego.cc](https://example.rulego.cc/)
+- feat: 增加rulego-components-ai模块，提供AI组件
+- feat: 增加rulego-components-ci模块，提供CD/CI组件
+- feat: 增加rulego-components-iot模块，提供iot组件
+- fix: mqtt client节点如果连接不上mqtt broker允许延迟连接，而不是报错
+- fix: 修复groupAction节点，可能并发读写问题
+- fix: 规则链没有节点，执行报错问题
+- opt: 优化大js文件的执行效率
+
 ## [v0.19.0] 2024/02/18
 
 - feat:增加表达式过滤器节点组件。[文档](https://rulego.cc/pages/c8fe75/)
