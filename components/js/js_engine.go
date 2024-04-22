@@ -78,6 +78,8 @@ func (g *GojaJsEngine) PreCompileJs(config types.Config) error {
 					} else {
 						jsUdfProgramCache[k] = p
 					}
+				} else if p, ok := script.Content.(*goja.Program); ok {
+					jsUdfProgramCache[k] = p
 				}
 			}
 		}
@@ -111,6 +113,10 @@ func (g *GojaJsEngine) NewVm(config types.Config, fromVars map[string]interface{
 			if script.Type == types.Js || script.Type == "" {
 				// parse  JS script
 				if _, ok := script.Content.(string); ok {
+					if p, ok := g.jsUdfProgramCache[k]; ok {
+						_, err = vm.RunProgram(p)
+					}
+				} else if _, ok := script.Content.(*goja.Program); ok {
 					if p, ok := g.jsUdfProgramCache[k]; ok {
 						_, err = vm.RunProgram(p)
 					}

@@ -17,6 +17,7 @@
 package js
 
 import (
+	"github.com/dop251/goja"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
 	"strings"
@@ -135,7 +136,13 @@ func TestJsEngine(t *testing.T) {
 		`,
 		},
 	)
-
+	p, _ := goja.Compile("add3", `function add3(){return 9}`, true)
+	config.RegisterUdf(
+		"add3", types.Script{
+			Type:    types.Js,
+			Content: p,
+		},
+	)
 	jsEngine, err := NewGojaJsEngine(config, jsScript, nil)
 	assert.NotNil(t, jsEngine)
 	assert.Nil(t, err)
@@ -173,6 +180,9 @@ func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.
 		assert.Equal(t, int64(8), r["add2"])
 		assert.Equal(t, true, r["isNumber"])
 		assert.Equal(t, time.Now().Format("20060102"), r["today"])
+
+		response, err = jsEngine.Execute("add3", "bb", metadata, "aa")
+		assert.Equal(t, int64(9), response)
 	} else if index == 6 {
 		response, err = jsEngine.Execute("GetValue", "bb", metadata, "aa")
 		assert.Nil(t, err)

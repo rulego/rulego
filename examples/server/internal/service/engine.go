@@ -6,6 +6,7 @@ import (
 	"examples/server/config/logger"
 	"examples/server/internal/constants"
 	"examples/server/internal/dao"
+	"github.com/dop251/goja"
 	"github.com/rulego/rulego"
 	luaEngine "github.com/rulego/rulego-components/pkg/lua_engine"
 	"github.com/rulego/rulego/api/types"
@@ -340,10 +341,15 @@ func (s *RuleEngineService) loadJs(folderPath string) error {
 	}
 	for _, file := range paths {
 		if b := fs.LoadFile(file); b != nil {
-			s.ruleConfig.RegisterUdf(path.Base(file), types.Script{
-				Type:    types.Js,
-				Content: string(b),
-			})
+			if p, err := goja.Compile(file, string(b), true); err != nil {
+				s.logger.Printf("Compile js file=%s err=%s", file, err.Error())
+			} else {
+				s.ruleConfig.RegisterUdf(path.Base(file), types.Script{
+					Type:    types.Js,
+					Content: p,
+				})
+			}
+
 		}
 	}
 	return nil
