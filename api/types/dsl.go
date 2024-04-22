@@ -127,7 +127,7 @@ type RuleChainConnection struct {
 type RuleChainRunSnapshot struct {
 	RuleChain
 	// Id 执行ID
-	Id string `json:"Id"`
+	Id string `json:"id"`
 	// StartTs 执行开始时间
 	StartTs int64 `json:"startTs"`
 	// EndTs 执行结束时间
