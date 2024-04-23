@@ -153,8 +153,14 @@ func (s *RuleEngineService) SaveDsl(chainId, nodeId string, def []byte) error {
 				err = ruleEngine.ReloadChild(nodeId, def)
 			}
 		} else {
-			_, err = s.Pool.New(chainId, def, rulego.WithConfig(s.ruleConfig))
+			ruleEngine, err = s.Pool.New(chainId, def, rulego.WithConfig(s.ruleConfig))
 		}
+		self := ruleEngine.RootRuleChainCtx().SelfDefinition
+		//修改更新时间
+		if self.RuleChain.AdditionalInfo == nil {
+			self.RuleChain.AdditionalInfo = make(map[string]string)
+		}
+		self.RuleChain.AdditionalInfo["updateTime"] = time.Now().Format("2006/1/2 15:04:05")
 		//持久化规则链
 		return s.ruleDao.Save(s.username, chainId, def)
 	}
@@ -210,6 +216,12 @@ func (s *RuleEngineService) SaveBaseInfo(chainId string, baseInfo types.RuleChai
 			def.RuleChain.Name = baseInfo.Name
 			def.RuleChain.Root = baseInfo.Root
 			def.RuleChain.DebugMode = baseInfo.DebugMode
+
+			//修改更新时间
+			if def.RuleChain.AdditionalInfo == nil {
+				def.RuleChain.AdditionalInfo = make(map[string]string)
+			}
+			def.RuleChain.AdditionalInfo["updateTime"] = time.Now().Format("2006/1/2 15:04:05")
 		} else {
 			def := types.RuleChain{
 				RuleChain: baseInfo,
@@ -233,10 +245,16 @@ func (s *RuleEngineService) SaveConfiguration(chainId string, key string, config
 	if chainId != "" {
 		ruleEngine, ok := s.Pool.Get(chainId)
 		if ok {
-			if ruleEngine.RootRuleChainCtx().SelfDefinition.RuleChain.Configuration == nil {
-				ruleEngine.RootRuleChainCtx().SelfDefinition.RuleChain.Configuration = make(types.Configuration)
+			self := ruleEngine.RootRuleChainCtx().SelfDefinition
+			if self.RuleChain.Configuration == nil {
+				self.RuleChain.Configuration = make(types.Configuration)
 			}
-			ruleEngine.RootRuleChainCtx().SelfDefinition.RuleChain.Configuration[key] = configuration
+			self.RuleChain.Configuration[key] = configuration
+			//修改更新时间
+			if self.RuleChain.AdditionalInfo == nil {
+				self.RuleChain.AdditionalInfo = make(map[string]string)
+			}
+			self.RuleChain.AdditionalInfo["updateTime"] = time.Now().Format("2006/1/2 15:04:05")
 			if err := ruleEngine.ReloadSelf(ruleEngine.DSL()); err != nil {
 				return err
 			}
