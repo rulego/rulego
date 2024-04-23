@@ -22,7 +22,7 @@ jobs:
         run: go get .
       - name: Build for Linux and Windows and Macos
         run: |
-          cd examples/server
+          cd examples/server/cmd/server
           go build -tags with_extend -v -o rulego-server-linux-amd64
           GOOS=windows GOARCH=amd64 go build -tags with_extend -v -o rulego-server-windows-amd64.exe
           GOOS=darwin GOARCH=amd64 go build -tags with_extend -v -o rulego-server-macos-amd64
@@ -31,9 +31,9 @@ jobs:
         with:
           name: rulego-server-binaries
           path: |
-            examples/server/rulego-server-linux-amd64
-            examples/server/rulego-server-windows-amd64.exe
-            examples/server/rulego-server-macos-amd64
+            examples/server/cmd/server/rulego-server-linux-amd64
+            examples/server/cmd/server/rulego-server-windows-amd64.exe
+            examples/server/cmd/server/rulego-server-macos-amd64
 #      - name: Create Release
 #        uses: actions/create-release@v1
 #        env:
