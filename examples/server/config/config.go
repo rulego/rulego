@@ -29,10 +29,11 @@ type Config struct {
 	Debug bool `ini:"debug"`
 	//最大节点日志大小，默认40
 	MaxNodeLogSize int `ini:"max_node_log_size"`
+	//静态文件路径映射，例如:/ui/*filepath=/home/demo/dist,/images/*filepath=/home/demo/dist/images
+	ResourceMapping string `ini:"resource_mapping"`
 	// Mqtt mqtt配置
 	Mqtt Mqtt `ini:"mqtt"`
 }
-
 type Mqtt struct {
 	//是否启用mqtt
 	Enabled bool `ini:"enabled"`

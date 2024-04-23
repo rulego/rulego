@@ -9,6 +9,7 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
 	"net/http"
+	"strings"
 )
 
 const (
@@ -72,5 +73,20 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 
 	restEndpoint.POST(controller.TestWebhookRouter(apiBasePath + "/webhook/test"))
 
+	//静态文件映射
+	loadServeFiles(config, restEndpoint)
 	return restEndpoint
+}
+
+// 加载静态文件映射
+func loadServeFiles(c config.Config, restEndpoint *rest.Endpoint) {
+	if c.ResourceMapping != "" {
+		mapping := strings.Split(c.ResourceMapping, ",")
+		for _, item := range mapping {
+			files := strings.Split(item, "=")
+			if len(files) == 2 {
+				restEndpoint.Router().ServeFiles(strings.TrimSpace(files[0]), http.Dir(strings.TrimSpace(files[1])))
+			}
+		}
+	}
 }
