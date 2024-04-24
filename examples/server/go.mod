@@ -3,10 +3,11 @@ module examples/server
 go 1.18
 
 require (
+	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/gorilla/websocket v1.4.2
-	github.com/rulego/rulego v0.20.0-alpha.1
-	github.com/rulego/rulego-components v0.20.0-alpha.1
-	github.com/rulego/rulego-components-ai v0.0.0-20240420051625-18ec23a2c930
+	github.com/rulego/rulego v0.20.0
+	github.com/rulego/rulego-components v0.20.0
+	github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203
 	gopkg.in/ini.v1 v1.67.0
 )
 
@@ -21,7 +22,6 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.7.0 // indirect
-	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eapache/go-resiliency v1.4.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 // indirect
