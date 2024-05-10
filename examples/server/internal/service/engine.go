@@ -6,6 +6,7 @@ import (
 	"examples/server/config/logger"
 	"examples/server/internal/constants"
 	"examples/server/internal/dao"
+	"examples/server/pkg/component/action"
 	"github.com/dop251/goja"
 	"github.com/rulego/rulego"
 	luaEngine "github.com/rulego/rulego-components/pkg/lua_engine"
@@ -34,7 +35,7 @@ func NewUserRuleEngineServiceImpl(c config.Config) (*UserRuleEngineService, erro
 		Pool:   make(map[string]*RuleEngineService),
 		config: c,
 	}
-	userPath := path.Join(c.DataDir, constants.WorkflowsDir)
+	userPath := path.Join(c.DataDir, constants.DirWorkflows)
 	//创建文件夹
 	_ = fs.CreateDirs(userPath)
 
@@ -157,10 +158,7 @@ func (s *RuleEngineService) SaveDsl(chainId, nodeId string, def []byte) error {
 		}
 		self := ruleEngine.RootRuleChainCtx().SelfDefinition
 		//修改更新时间
-		if self.RuleChain.AdditionalInfo == nil {
-			self.RuleChain.AdditionalInfo = make(map[string]string)
-		}
-		self.RuleChain.AdditionalInfo["updateTime"] = time.Now().Format("2006/1/2 15:04:05")
+		s.fillAdditionalInfo(self)
 		//持久化规则链
 		return s.ruleDao.Save(s.username, chainId, def)
 	}
@@ -202,7 +200,7 @@ func (s *RuleEngineService) Delete(chainId string) error {
 	if err := s.ruleDao.Delete(s.username, chainId); err != nil {
 		return err
 	} else {
-		return EventServiceImpl.Delete(chainId)
+		return EventServiceImpl.DeleteByChainId(s.username, chainId)
 	}
 }
 
@@ -216,16 +214,14 @@ func (s *RuleEngineService) SaveBaseInfo(chainId string, baseInfo types.RuleChai
 			def.RuleChain.Name = baseInfo.Name
 			def.RuleChain.Root = baseInfo.Root
 			def.RuleChain.DebugMode = baseInfo.DebugMode
-
-			//修改更新时间
-			if def.RuleChain.AdditionalInfo == nil {
-				def.RuleChain.AdditionalInfo = make(map[string]string)
-			}
-			def.RuleChain.AdditionalInfo["updateTime"] = time.Now().Format("2006/1/2 15:04:05")
+			//填充更新时间
+			s.fillAdditionalInfo(def)
 		} else {
 			def := types.RuleChain{
 				RuleChain: baseInfo,
 			}
+			//修改更新时间
+			s.fillAdditionalInfo(&def)
 			jsonStr, _ := json.Marshal(def)
 			if e, err := s.Pool.New(chainId, jsonStr, rulego.WithConfig(s.ruleConfig)); nil != err {
 				return err
@@ -250,11 +246,10 @@ func (s *RuleEngineService) SaveConfiguration(chainId string, key string, config
 				self.RuleChain.Configuration = make(types.Configuration)
 			}
 			self.RuleChain.Configuration[key] = configuration
+
 			//修改更新时间
-			if self.RuleChain.AdditionalInfo == nil {
-				self.RuleChain.AdditionalInfo = make(map[string]string)
-			}
-			self.RuleChain.AdditionalInfo["updateTime"] = time.Now().Format("2006/1/2 15:04:05")
+			s.fillAdditionalInfo(self)
+
 			if err := ruleEngine.ReloadSelf(ruleEngine.DSL()); err != nil {
 				return err
 			}
@@ -300,13 +295,15 @@ func (s *RuleEngineService) initRuleGo(logger *log.Logger, workspacePath string,
 	ruleConfig := rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger))
 	//加载lua第三方库
 	ruleConfig.Properties.PutValue(luaEngine.LoadLuaLibs, s.config.LoadLuaLibs)
+	ruleConfig.Properties.PutValue(action.KeyExecCommandNodeWhitelist, s.config.CmdWhiteList)
+	ruleConfig.Properties.PutValue(constants.KeyWorkDir, s.config.CmdWhiteList)
 	ruleConfig.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		var errStr = ""
 		if err != nil {
 			errStr = err.Error()
 		}
 		if s.config.Debug {
-			logger.Printf("chainId=%s,flowType=%s,nodeId=%,err=%s", chainId, flowType, nodeId, err)
+			logger.Printf("chainId=%s,flowType=%s,nodeId=%s,data=%s,err=%s", chainId, flowType, nodeId, msg.Data, err)
 		}
 		//把日志记录到内存管理器，用于界面显示
 		s.ruleChainDebugData.Add(chainId, nodeId, DebugData{
@@ -341,7 +338,7 @@ func (s *RuleEngineService) initRuleGo(logger *log.Logger, workspacePath string,
 	}
 
 	//加载规则链
-	rulesPath := path.Join(workspacePath, constants.WorkflowsDir, username)
+	rulesPath := path.Join(workspacePath, constants.DirWorkflows, username, constants.DirWorkflowsRule)
 	err = s.loadRules(rulesPath)
 	if err != nil {
 		logger.Fatal("parser rule file error:", err)
@@ -400,4 +397,18 @@ func (s *RuleEngineService) loadRules(folderPath string) error {
 		s.logger.Fatal("parser rule file error:", err)
 	}
 	return err
+}
+
+//fillAdditionalInfo 填充扩展字段
+func (s *RuleEngineService) fillAdditionalInfo(def *types.RuleChain) {
+	//修改更新时间
+	if def.RuleChain.AdditionalInfo == nil {
+		def.RuleChain.AdditionalInfo = make(map[string]string)
+	}
+	def.RuleChain.AdditionalInfo[constants.KeyUsername] = s.username
+	nowStr := time.Now().Format("2006/1/2 15:04:05")
+	if _, ok := def.RuleChain.AdditionalInfo["createTime"]; !ok {
+		def.RuleChain.AdditionalInfo["createTime"] = nowStr
+	}
+	def.RuleChain.AdditionalInfo["updateTime"] = nowStr
 }

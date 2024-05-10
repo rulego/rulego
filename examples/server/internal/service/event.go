@@ -29,6 +29,17 @@ func (s *EventService) SaveRunLog(ctx types.RuleContext, snapshot types.RuleChai
 	return s.EventDao.SaveRunLog(ctx, snapshot)
 }
 
-func (s *EventService) Delete(chainId string) error {
-	return s.EventDao.Delete(chainId)
+func (s *EventService) Delete(username, chainId, id string) error {
+	return s.EventDao.Delete(username, chainId, id)
+}
+func (s *EventService) DeleteByChainId(username, chainId string) error {
+	return s.EventDao.DeleteByChainId(username, chainId)
+}
+
+func (s *EventService) List(username, chainId string, current, size int) ([]types.RuleChainRunSnapshot, int, error) {
+	return s.EventDao.List(username, chainId, current, size)
+}
+
+func (s *EventService) Get(username, chainId, snapshotId string) (types.RuleChainRunSnapshot, error) {
+	return s.EventDao.Get(username, chainId, snapshotId)
 }

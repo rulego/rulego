@@ -10,15 +10,16 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/utils/json"
 	"net/http"
+	"path"
 )
 
 var AuthProcess = func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 	msg := exchange.In.GetMsg()
-	username := exchange.In.Headers().Get(constants.Username)
+	username := exchange.In.Headers().Get(constants.KeyUsername)
 	if username == "" {
 		username = config.C.DefaultUsername
 	}
-	msg.Metadata.PutValue(constants.Username, username)
+	msg.Metadata.PutValue(constants.KeyUsername, username)
 	//TODO JWT 权限校验
 	return true
 }
@@ -43,9 +44,9 @@ func ComponentsRouter(url string) *endpoint.Router {
 func GetDslRouter(url string) *endpoint.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		chainId := msg.Metadata.GetValue(constants.ChainId)
-		nodeId := msg.Metadata.GetValue(constants.NodeId)
-		username := msg.Metadata.GetValue(constants.Username)
+		chainId := msg.Metadata.GetValue(constants.KeyChainId)
+		nodeId := msg.Metadata.GetValue(constants.KeyNodeId)
+		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 			if def, err := s.GetDsl(chainId, nodeId); err == nil {
 				exchange.Out.SetBody(def)
@@ -64,9 +65,9 @@ func GetDslRouter(url string) *endpoint.Router {
 func SaveDslRouter(url string) *endpoint.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		chainId := msg.Metadata.GetValue(constants.ChainId)
-		nodeId := msg.Metadata.GetValue(constants.NodeId)
-		username := msg.Metadata.GetValue(constants.Username)
+		chainId := msg.Metadata.GetValue(constants.KeyChainId)
+		nodeId := msg.Metadata.GetValue(constants.KeyNodeId)
+		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 			if err := s.SaveDsl(chainId, nodeId, exchange.In.Body()); err == nil {
 				exchange.Out.SetStatusCode(http.StatusOK)
@@ -86,7 +87,7 @@ func SaveDslRouter(url string) *endpoint.Router {
 func ListDslRouter(url string) *endpoint.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		username := msg.Metadata.GetValue(constants.Username)
+		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 			if list, err := json.Marshal(s.List()); err == nil {
 				exchange.Out.SetBody(list)
@@ -106,8 +107,8 @@ func ListDslRouter(url string) *endpoint.Router {
 func DeleteDslRouter(url string) *endpoint.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		chainId := msg.Metadata.GetValue(constants.ChainId)
-		username := msg.Metadata.GetValue(constants.Username)
+		chainId := msg.Metadata.GetValue(constants.KeyChainId)
+		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 			if err := s.Delete(chainId); err == nil {
 				exchange.Out.SetStatusCode(http.StatusOK)
@@ -127,8 +128,8 @@ func DeleteDslRouter(url string) *endpoint.Router {
 func SaveBaseInfo(url string) *endpoint.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		chainId := msg.Metadata.GetValue(constants.ChainId)
-		username := msg.Metadata.GetValue(constants.Username)
+		chainId := msg.Metadata.GetValue(constants.KeyChainId)
+		username := msg.Metadata.GetValue(constants.KeyUsername)
 		var req types.RuleChainBaseInfo
 		if err := json.Unmarshal([]byte(msg.Data), &req); err != nil {
 			exchange.Out.SetStatusCode(http.StatusInternalServerError)
@@ -152,9 +153,9 @@ func SaveBaseInfo(url string) *endpoint.Router {
 func SaveConfiguration(url string) *endpoint.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		chainId := msg.Metadata.GetValue(constants.ChainId)
-		username := msg.Metadata.GetValue(constants.Username)
-		varType := msg.Metadata.GetValue(constants.VarType)
+		chainId := msg.Metadata.GetValue(constants.KeyChainId)
+		username := msg.Metadata.GetValue(constants.KeyUsername)
+		varType := msg.Metadata.GetValue(constants.KeyVarType)
 		var req interface{}
 		if err := json.Unmarshal([]byte(msg.Data), &req); err != nil {
 			exchange.Out.SetStatusCode(http.StatusInternalServerError)
@@ -184,6 +185,15 @@ func ExecuteRuleRouter(url string) *endpoint.Router {
 		msgType := msg.Metadata.GetValue("msgType")
 		//获取消息类型
 		msg.Type = msgType
+		//把http header放入消息元数据
+		headers := exchange.In.Headers()
+		for k := range headers {
+			msg.Metadata.PutValue(k, headers.Get(k))
+		}
+		//设置工作目录
+		chainId := msg.Metadata.GetValue(constants.KeyChainId)
+		var paths = []string{config.C.DataDir, constants.DirWorkflows, constants.DirWorkflowsRun, chainId}
+		msg.Metadata.PutValue(constants.KeyWorkDir, path.Join(paths...))
 		return true
 	}).To("chain:${chainId}").RuleContextOption(
 		types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
@@ -212,6 +222,11 @@ func PostMsgRouter(url string) *endpoint.Router {
 		if msgId != "" {
 			msg.Id = msgId
 		}
+		//把http header放入消息元数据
+		headers := exchange.In.Headers()
+		for k := range headers {
+			msg.Metadata.PutValue(k, headers.Get(k))
+		}
 		msgType := msg.Metadata.GetValue("msgType")
 		//获取消息类型
 		msg.Type = msgType
@@ -232,7 +247,7 @@ func userNotFound(username string, exchange *endpoint.Exchange) bool {
 // GetRuleGoFunc 动态获取指定用户规则链池
 func GetRuleGoFunc(exchange *endpoint.Exchange) *rulego.RuleGo {
 	msg := exchange.In.GetMsg()
-	username := msg.Metadata.GetValue(constants.Username)
+	username := msg.Metadata.GetValue(constants.KeyUsername)
 	if s, ok := service.UserRuleEngineServiceImpl.Get(username); !ok {
 		panic("not found username=" + username)
 	} else {

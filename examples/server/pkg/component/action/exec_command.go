@@ -1,24 +1,25 @@
 package action
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
+	"examples/server/internal/constants"
+	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"io"
 	"os/exec"
+	"regexp"
 	"strings"
-	"sync"
 )
 
 // ErrCmdNotAllowed 不允许执行的命令
 var ErrCmdNotAllowed = errors.New("cmd not allowed error")
 
-// ExecCommandNodeWhitelistKey 节点白名单配置
-const ExecCommandNodeWhitelistKey = "ExecCommandNodeWhitelist"
+// KeyExecCommandNodeWhitelist 节点白名单配置
+const KeyExecCommandNodeWhitelist = "execCommandNodeWhitelist"
 
 func init() {
 	rulego.Registry.Register(&ExecCommandNode{})
@@ -30,8 +31,10 @@ type ExecCommandNodeConfiguration struct {
 	Command string
 	// Args 命令参数
 	Args []string
-	// Log 是否记录日志
+	// Log 是否打印标准输出
 	Log bool
+	//是否把输出输出到下一个节点
+	ReplaceData bool
 }
 
 // ExecCommandNode 实现命令执行
@@ -40,8 +43,6 @@ type ExecCommandNode struct {
 	Config ExecCommandNodeConfiguration
 	// 白名单命令列表
 	CommandWhitelist []string
-	//// Logger 实例，用于记录日志
-	//Logger types.Logger
 }
 
 // Type 组件类型
@@ -58,8 +59,7 @@ func (x *ExecCommandNode) Init(ruleConfig types.Config, configuration types.Conf
 	if err := maps.Map2Struct(configuration, &x.Config); err != nil {
 		return err
 	}
-	//x.Logger = ruleConfig.Logger
-	x.CommandWhitelist = strings.Split(ruleConfig.Properties.GetValue(ExecCommandNodeWhitelistKey), ",")
+	x.CommandWhitelist = strings.Split(ruleConfig.Properties.GetValue(KeyExecCommandNodeWhitelist), ",")
 	return nil
 }
 
@@ -82,54 +82,41 @@ func (x *ExecCommandNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	// 替换参数中的占位符
 	var args []string
 	for _, arg := range x.Config.Args {
-		args = append(args, str.SprintfDict(arg, metadataCopy.Values()))
+		if !strings.HasPrefix(arg, "\"") {
+			v := strings.Split(arg, " ")
+			for _, item := range v {
+				args = append(args, str.SprintfDict(item, metadataCopy.Values()))
+			}
+		} else {
+			args = append(args, str.SprintfDict(arg, metadataCopy.Values()))
+		}
 	}
 
 	// 执行命令
 	cmd := exec.Command(command, args...)
-
-	// 创建缓冲区来保存命令的组合输出
+	// 设置命令的工作目录
+	cmd.Dir = msg.Metadata.GetValue(constants.KeyWorkDir)
 	var stdoutBuf, stderrBuf bytes.Buffer
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	msgCopy := msg.Copy()
-	// 设置标准输出管道
-	stdoutPipe, _ := cmd.StdoutPipe()
-	go func() {
-		defer wg.Done()
-		// 实时记录日志
-		copyAndLog(ctx, msgCopy, &stdoutBuf, stdoutPipe, "info")
-	}()
-
-	// 设置标准错误管道
-	stderrPipe, _ := cmd.StderrPipe()
-	go func() {
-		defer wg.Done()
-		// 实时记录日志
-		copyAndLog(ctx, msgCopy, &stderrBuf, stderrPipe, "error")
-	}()
+	if x.Config.Log {
+		x.printLog(ctx, msg, cmd, &stdoutBuf, &stderrBuf)
+	} else if x.Config.ReplaceData {
+		cmd.Stdout = &stdoutBuf
+		cmd.Stderr = &stderrBuf
+	}
 
 	// 启动命令
-	err := cmd.Start()
-	if err != nil {
+	if err := cmd.Start(); err != nil {
 		ctx.TellFailure(msg, err)
 		return
 	}
-
-	// 等待管道操作完成
-	wg.Wait()
-
 	// 等待命令执行完成
-	err = cmd.Wait()
-	if err != nil {
+	if err := cmd.Wait(); err != nil {
 		ctx.TellFailure(msg, err)
 		return
 	}
-
-	// 组合输出
-	combinedOutput := stdoutBuf.String() + stderrBuf.String()
-	msg.Data = combinedOutput
+	if x.Config.ReplaceData {
+		msg.Data = stdoutBuf.String()
+	}
 	ctx.TellSuccess(msg)
 }
 
@@ -137,18 +124,31 @@ func (x *ExecCommandNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 func (x *ExecCommandNode) Destroy() {
 }
 
-// copyAndLog 读取管道输出并记录到日志和缓冲区
-func copyAndLog(ctx types.RuleContext, msg types.RuleMsg, buf *bytes.Buffer, pipe io.ReadCloser, relationType string) {
+func (x *ExecCommandNode) printLog(ctx types.RuleContext, msg types.RuleMsg, cmd *exec.Cmd, bufOut *bytes.Buffer, bufErr *bytes.Buffer) {
+	// 启用日志记录
 	var chainId = ""
 	if ctx.RuleChain() != nil {
 		chainId = ctx.RuleChain().GetNodeId().Id
 	}
-	reader := io.TeeReader(pipe, buf)
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		msg.Data = scanner.Text()
-		ctx.Config().OnDebug(chainId, types.In, ctx.Self().GetNodeId().Id, msg, relationType, nil)
+	msgCopy := msg.Copy()
+	// 创建 DebugWriter 实例
+	debugWriter := &OnDebugWriter{
+		ctx:          ctx,
+		msg:          msgCopy,
+		relationType: "info",
+		chainId:      chainId,
+		//buf:          bufOut,
 	}
+	errWriter := &OnDebugWriter{
+		ctx:          ctx,
+		msg:          msgCopy,
+		relationType: "error",
+		chainId:      chainId,
+		//buf:          bufErr,
+	}
+	// 将命令的输出重定向到 DebugWriter
+	cmd.Stdout = io.MultiWriter(bufOut, debugWriter)
+	cmd.Stderr = io.MultiWriter(bufErr, errWriter)
 }
 
 // isCommandWhitelisted 检查命令是否在白名单中
@@ -159,4 +159,65 @@ func isCommandWhitelisted(command string, whitelist []string) bool {
 		}
 	}
 	return false
+}
+
+type OnDebugWriter struct {
+	ctx          types.RuleContext
+	msg          types.RuleMsg
+	relationType string
+	chainId      string
+}
+
+func (w *OnDebugWriter) Write(p []byte) (n int, err error) {
+
+	// 将接收到的数据转换为字符串
+	w.msg.Data = string(p)
+	//w.buf.WriteString(w.msg.Data)
+	// 调用 OnDebug 方法来记录日志
+	w.ctx.Config().OnDebug(w.chainId, types.Log, w.ctx.Self().GetNodeId().Id, w.msg, w.relationType, nil)
+	// 返回写入的字节数和nil错误
+	return len(p), nil
+}
+
+// ansiToHTML 函数将ANSI颜色代码转换为HTML颜色代码
+func ansiToHTML(text string) string {
+	// 正则表达式匹配ANSI颜色代码
+	ansiRegex := regexp.MustCompile(`\x1B\[\d+(;\d+)*m`)
+	// 将文本分割为ANSI代码和普通文本
+	parts := ansiRegex.Split(text, -1)
+	var html strings.Builder
+
+	for i, part := range parts {
+		if i%2 == 0 {
+			// 普通文本部分
+			html.WriteString(part)
+		} else {
+			// ANSI代码部分
+			code := part[2:] // 忽略前两个字符"\x1B["
+			color, _ := parseAnsiColorCode(code)
+			if color != "" {
+				html.WriteString(fmt.Sprintf(`<span style="color: %s">`, color))
+				html.WriteString(parts[i+1])
+				html.WriteString(`</span>`)
+			}
+		}
+	}
+
+	return html.String()
+}
+
+// parseAnsiColorCode 函数解析ANSI颜色代码并返回相应的CSS颜色值
+func parseAnsiColorCode(code string) (string, error) {
+	// 根据ANSI代码解析颜色（这里只是一个简单的映射示例，实际需要更复杂的逻辑）
+	colorMap := map[string]string{
+		"31": "red",
+		"32": "green",
+		"33": "yellow",
+		// 根据需要添加更多颜色映射...
+	}
+
+	if color, ok := colorMap[code]; ok {
+		return color, nil
+	}
+	return "", fmt.Errorf("unsupported ansi color code: %s", code)
 }
