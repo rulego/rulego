@@ -1,21 +1,13 @@
 {
   "ruleChain": {
     "id": "chain_call_rest_api",
+    "additionalInfo": null,
     "name": "测试规则链",
-    "debugMode": true,
+    "debugMode": false,
     "root": true,
-    "configuration": {
-      "vars": {
-        "ip": "127.0.0.1"
-      }
-    },
-    "additionalInfo": {
-      "description": "测试描述",
-      "updateTime": "2024/4/22 16:45:42"
-    }
+    "configuration": null
   },
   "metadata": {
-    "firstNodeIndex": 0,
     "nodes": [
       {
         "id": "s1",
@@ -35,7 +27,7 @@
         "id": "s2",
         "additionalInfo": {
           "description": "",
-          "layoutX": 680,
+          "layoutX": 670,
           "layoutY": 280
         },
         "type": "jsTransform",
@@ -49,8 +41,8 @@
         "id": "s3",
         "additionalInfo": {
           "description": "",
-          "layoutX": 920,
-          "layoutY": 190
+          "layoutX": 930,
+          "layoutY": 180
         },
         "type": "restApiCall",
         "name": "推送数据",
