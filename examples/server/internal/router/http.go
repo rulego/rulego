@@ -67,11 +67,13 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	//处理数据上报请求，并转发到规则引擎
 	restEndpoint.POST(controller.PostMsgRouter(apiBasePath + "/msg/:chainId/:msgType"))
 
-	//restEndpoint.POST(controller.WebhookRouter(apiBasePath + "/webhook/:username/:workflowId"))
 	//获取节点调试数据
 	restEndpoint.GET(controller.GetDebugDataRouter(apiBasePath + "/event/debug"))
 
-	restEndpoint.POST(controller.TestWebhookRouter(apiBasePath + "/webhook/test"))
+	restEndpoint.GET(controller.GetRunsRouter(apiBasePath + "/event/runs"))
+	restEndpoint.DELETE(controller.DeleteRunsRouter(apiBasePath + "/event/runs"))
+
+	restEndpoint.POST(controller.TestWebhookRouter(apiBasePath + "/webhook/:integrationType/:username/:chainId"))
 
 	//静态文件映射
 	loadServeFiles(config, restEndpoint)

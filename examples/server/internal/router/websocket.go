@@ -37,12 +37,12 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 		case endpoint.EventConnect:
 			fmt.Println("connect")
 			exchange := params[0].(*endpoint.Exchange)
-			username := exchange.In.Headers().Get(constants.Username)
+			username := exchange.In.Headers().Get(constants.KeyUsername)
 			if username == "" {
 				username = config.C.DefaultUsername
 			}
 			if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-				s.AddOnDebugObserver(exchange.In.GetParam(constants.ClientId), func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+				s.AddOnDebugObserver(exchange.In.GetParam(constants.KeyClientId), func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 					errStr := ""
 					if err != nil {
 						errStr = err.Error()
@@ -63,12 +63,12 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 		case endpoint.EventDisconnect:
 			fmt.Println("disconnect")
 			exchange := params[0].(*endpoint.Exchange)
-			username := exchange.In.Headers().Get(constants.Username)
+			username := exchange.In.Headers().Get(constants.KeyUsername)
 			if username == "" {
 				username = config.C.DefaultUsername
 			}
 			if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-				s.RemoveOnDebugObserver(exchange.In.GetParam(constants.ClientId))
+				s.RemoveOnDebugObserver(exchange.In.GetParam(constants.KeyClientId))
 			}
 		}
 	}

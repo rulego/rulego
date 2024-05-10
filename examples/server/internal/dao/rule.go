@@ -21,8 +21,8 @@ func NewRuleDao(config config.Config) (*RuleDao, error) {
 }
 
 func (d *RuleDao) Save(username, chainId string, def []byte) error {
-	var paths = []string{d.config.DataDir, constants.WorkflowsDir}
-	paths = append(paths, username)
+	var paths = []string{d.config.DataDir, constants.DirWorkflows}
+	paths = append(paths, username, constants.DirWorkflowsRule)
 	pathStr := path.Join(paths...)
 	//创建文件夹
 	_ = fs.CreateDirs(pathStr)
@@ -33,7 +33,7 @@ func (d *RuleDao) Save(username, chainId string, def []byte) error {
 }
 
 func (d *RuleDao) Delete(username, chainId string) error {
-	var paths = []string{d.config.DataDir, constants.WorkflowsDir}
+	var paths = []string{d.config.DataDir, constants.DirWorkflows, constants.DirWorkflowsRule}
 	paths = append(paths, username)
 	pathStr := path.Join(paths...)
 	file := filepath.Join(pathStr, chainId+constants.RuleChainFileSuffix)

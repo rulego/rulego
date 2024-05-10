@@ -61,7 +61,7 @@ func (d *WorkflowDao) Delete(username, projectName string) error {
 
 // List 获取用户下面所有项目
 func (d *WorkflowDao) List(username string) []model.Workflow {
-	userPath := path.Join(d.Config.DataDir, constants.WorkflowsDir, username)
+	userPath := path.Join(d.Config.DataDir, constants.DirWorkflows, username)
 	entries, err := os.ReadDir(userPath)
 	if err != nil {
 		return nil

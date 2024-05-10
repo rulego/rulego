@@ -1,19 +1,26 @@
 package constants
 
 const (
-	// WorkflowsDir 工作流目录
-	WorkflowsDir    = "workflows"
-	WorkflowsRunDir = "runs"
+	// DirWorkflows 工作流目录
+	DirWorkflows     = "workflows"
+	DirWorkflowsRun  = "runs"
+	DirWorkflowsRule = "rules"
 )
 const (
-	ChainId             = "chainId"
-	NodeId              = "nodeId"
-	Username            = "username"
-	ClientId            = "clientId"
-	VarType             = "varType"
-	RuleChainFileSuffix = ".json"
+	KeyChainId         = "chainId"
+	KeyNodeId          = "nodeId"
+	KeyUsername        = "username"
+	KeyClientId        = "clientId"
+	KeyVarType         = "varType"
+	KeyPageSize        = "pageSize"
+	KeyCurrent         = "current"
+	KeyId              = "id"
+	KeyWebhookSecret   = "webhookSecret"
+	KeyIntegrationType = "integrationType"
+	// KeyWorkDir 工作目录
+	KeyWorkDir = "workDir"
 )
 
 const (
-	RuleChainIdSplit = "_"
+	RuleChainFileSuffix = ".json"
 )
