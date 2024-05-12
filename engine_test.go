@@ -500,10 +500,15 @@ func TestWithContext(t *testing.T) {
 	//start := time.Now()
 	config := NewConfig()
 
-	ruleEngine, err := New(str.RandomStr(10), loadFile("./test_context_chain.json"), WithConfig(config))
+	_, err := New("test_context_chain", loadFile("./test_context_chain.json"), WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}
+	ruleEngine, err := New(str.RandomStr(10), loadFile("./test_context.json"), WithConfig(config))
+	if err != nil {
+		t.Error(err)
+	}
+
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"temperature\":41}")
@@ -514,7 +519,6 @@ func TestWithContext(t *testing.T) {
 		go func() {
 			index := j
 			ruleEngine.OnMsg(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue+strconv.Itoa(index))), types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
-				wg.Done()
 				v1 := msg.Metadata.GetValue(shareKey)
 				assert.Equal(t, shareValue+strconv.Itoa(index), v1)
 
@@ -523,6 +527,7 @@ func TestWithContext(t *testing.T) {
 				v2 := msg.Metadata.GetValue(addShareKey)
 				assert.Equal(t, addShareValue, v2)
 				assert.Nil(t, err)
+				wg.Done()
 			}))
 		}()
 
