@@ -38,6 +38,7 @@
 package schedule
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/gofrs/uuid/v5"
@@ -271,5 +272,5 @@ func (schedule *Schedule) handler(router *endpoint.Router) {
 		In:  &RequestMessage{},
 		Out: &ResponseMessage{}}
 
-	schedule.DoProcess(router, exchange)
+	schedule.DoProcess(context.Background(), router, exchange)
 }

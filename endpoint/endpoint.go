@@ -100,6 +100,8 @@ type Exchange struct {
 	In Message
 	//出数据
 	Out Message
+	//上下文
+	Context context.Context
 }
 
 // Process 处理函数
@@ -303,14 +305,16 @@ func (t *To) End() *Router {
 // endpoint.NewRouter().From("#").Transform().Process().To("chain:xx")
 // endpoint.NewRouter().From("topic").Transform().Process().To("chain:xx")
 type Router struct {
+	//创建上下文回调函数
+	ContextFunc func(ctx context.Context, exchange *Exchange) context.Context
+	//Config ruleEngine Config
+	Config types.Config
 	//输入
 	from *From
 	//规则链池，默认使用rulego.DefaultRuleGo
 	ruleGo *rulego.RuleGo
 	//动态获取规则链池函数
 	ruleGoFunc func(exchange *Exchange) *rulego.RuleGo
-	//Config ruleEngine Config
-	Config types.Config
 	//是否不可用 1:不可用;0:可以
 	disable uint32
 }
@@ -338,6 +342,13 @@ func WithRuleGo(ruleGo *rulego.RuleGo) RouterOption {
 func WithRuleConfig(config types.Config) RouterOption {
 	return func(re *Router) error {
 		re.Config = config
+		return nil
+	}
+}
+
+func WithContextFunc(ctx func(ctx context.Context, exchange *Exchange) context.Context) RouterOption {
+	return func(re *Router) error {
+		re.ContextFunc = ctx
 		return nil
 	}
 }
@@ -418,7 +429,9 @@ func (e *BaseEndpoint) AddInterceptors(interceptors ...Process) {
 	e.interceptors = append(e.interceptors, interceptors...)
 }
 
-func (e *BaseEndpoint) DoProcess(router *Router, exchange *Exchange) {
+func (e *BaseEndpoint) DoProcess(baseCtx context.Context, router *Router, exchange *Exchange) {
+	//创建上下文
+	ctx := e.createContext(baseCtx, router, exchange)
 	for _, item := range e.interceptors {
 		//执行全局拦截器
 		if !item(router, exchange) {
@@ -433,8 +446,24 @@ func (e *BaseEndpoint) DoProcess(router *Router, exchange *Exchange) {
 	}
 	//执行to端逻辑
 	if router.GetFrom() != nil && router.GetFrom().GetTo() != nil {
-		router.GetFrom().GetTo().Execute(context.TODO(), exchange)
+		router.GetFrom().GetTo().Execute(ctx, exchange)
 	}
+}
+
+func (e *BaseEndpoint) createContext(baseCtx context.Context, router *Router, exchange *Exchange) context.Context {
+	if router.ContextFunc != nil {
+		if ctx := router.ContextFunc(baseCtx, exchange); ctx == nil {
+			panic("ContextFunc returned nil")
+		} else {
+			exchange.Context = ctx
+			return ctx
+		}
+	} else if baseCtx != nil {
+		return baseCtx
+	} else {
+		return context.Background()
+	}
+
 }
 
 // Executor to端执行器

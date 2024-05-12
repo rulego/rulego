@@ -418,7 +418,7 @@ func (ws *Websocket) handler(router *endpoint.Router) httprouter.Handle {
 				}
 
 			}
-			ws.DoProcess(router, exchange)
+			ws.DoProcess(r.Context(), router, exchange)
 		}
 
 	}

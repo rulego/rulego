@@ -396,7 +396,8 @@ func (rest *Rest) handler(router *endpoint.Router) httprouter.Handle {
 			Out: &ResponseMessage{
 				request:  r,
 				response: w,
-			}}
+			},
+		}
 
 		msg := exchange.In.GetMsg()
 		//把路径参数放到msg元数据中
@@ -413,7 +414,7 @@ func (rest *Rest) handler(router *endpoint.Router) httprouter.Handle {
 			}
 
 		}
-		rest.DoProcess(router, exchange)
+		rest.DoProcess(r.Context(), router, exchange)
 	}
 }
 

@@ -125,8 +125,15 @@ func TestEndpoint(t *testing.T) {
 		router.Disable(false)
 		assert.False(t, router.IsDisable())
 
-		router = NewRouter(WithRuleConfig(config), WithRuleGo(rulego.DefaultRuleGo)).From(from).
+		router = NewRouter(WithRuleConfig(config), WithContextFunc(func(ctx context.Context, exchange *Exchange) context.Context {
+			return context.WithValue(ctx, "addValue", "default")
+		}), WithRuleGo(rulego.DefaultRuleGo)).From(from).
 			Process(transformFunc).
+			Process(func(router *Router, exchange *Exchange) bool {
+				assert.Equal(t, "default", exchange.Context.Value("addValue"))
+				assert.Equal(t, "baseValue", exchange.Context.Value("baseAdd"))
+				return true
+			}).
 			To("chain:${chainId}").
 			Process(processFunc).
 			Process(func(router *Router, exchange *Exchange) bool {
@@ -137,9 +144,8 @@ func TestEndpoint(t *testing.T) {
 		assert.Equal(t, "default", router.GetFrom().GetTo().ToStringByDict(map[string]string{
 			"chainId": "default",
 		}))
-		assert.Equal(t, 1, len(router.GetFrom().GetProcessList()))
+		assert.Equal(t, 2, len(router.GetFrom().GetProcessList()))
 		assert.Equal(t, 2, len(router.GetFrom().GetTo().GetProcessList()))
-
 		testEp := &testEndpoint{}
 		testEp.AddInterceptors(func(router *Router, exchange *Exchange) bool {
 			return true
@@ -147,8 +153,7 @@ func TestEndpoint(t *testing.T) {
 			return false
 		})
 		assert.Equal(t, 2, len(testEp.interceptors))
-		testEp.DoProcess(router, exchange)
-
+		testEp.DoProcess(context.WithValue(context.TODO(), "baseAdd", "baseValue"), router, exchange)
 		//测试from process中断
 		var firstDone = false
 		var secondDone = false
@@ -163,7 +168,7 @@ func TestEndpoint(t *testing.T) {
 			secondDone = true
 			return false
 		})
-		testEp.DoProcess(router, exchange)
+		testEp.DoProcess(context.WithValue(context.TODO(), "baseAdd", "baseValue"), router, exchange)
 		time.Sleep(time.Millisecond * 100)
 		assert.True(t, firstDone)
 		assert.False(t, secondDone)
@@ -186,7 +191,7 @@ func TestEndpoint(t *testing.T) {
 			return false
 		}).End()
 
-		testEp.DoProcess(router, exchange)
+		testEp.DoProcess(context.Background(), router, exchange)
 		time.Sleep(time.Millisecond * 100)
 		assert.True(t, firstDone)
 		assert.False(t, secondDone)
@@ -415,6 +420,27 @@ func TestEndpoint(t *testing.T) {
 		})
 		//执行路由
 		executeRouterTest(router2, exchange)
+	})
+
+	t.Run("DoProcessContextIsNil", func(t *testing.T) {
+		defer func() {
+			if caught := recover(); caught != nil {
+				assert.Equal(t, "ContextFunc returned nil", fmt.Sprintf("%s", caught))
+			}
+		}()
+		exchange := &Exchange{
+			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
+			Out: &testResponseMessage{}}
+		router := NewRouter(WithRuleConfig(config), WithContextFunc(func(ctx context.Context, exchange *Exchange) context.Context {
+			return ctx
+		}), WithRuleGo(rulego.DefaultRuleGo)).From(from).
+			Process(transformFunc).
+			To("chain:${chainId}").
+			Process(func(router *Router, exchange *Exchange) bool {
+				return false
+			}).End()
+		testEp := &testEndpoint{}
+		testEp.DoProcess(nil, router, exchange)
 	})
 
 }
