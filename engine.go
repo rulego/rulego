@@ -275,7 +275,7 @@ func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 // 如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
 func (ctx *DefaultRuleContext) TellFlow(msg types.RuleMsg, chainId string, onEndFunc types.OnEndFunc, onAllNodeCompleted func()) {
 	if e, ok := ctx.GetRuleChainPool().Get(chainId); ok {
-		e.OnMsg(msg, types.WithOnEnd(onEndFunc), types.WithOnAllNodeCompleted(onAllNodeCompleted))
+		e.OnMsg(msg, types.WithOnEnd(onEndFunc), types.WithContext(ctx.context), types.WithOnAllNodeCompleted(onAllNodeCompleted))
 	} else {
 		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found", chainId))
 	}
