@@ -18,6 +18,7 @@ package net
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
@@ -418,7 +419,7 @@ func (x *ClientHandler) handler() {
 		// 匹配符合的路由，处理消息
 		for _, v := range x.endpoint.routers {
 			if v.regexp == nil || v.regexp.Match(data) {
-				x.endpoint.DoProcess(v.router, exchange)
+				x.endpoint.DoProcess(context.Background(), v.router, exchange)
 			}
 		}
 	}

@@ -312,7 +312,7 @@ func (m *Mqtt) handler(router *endpoint.Router) func(c paho.Client, data paho.Me
 				response: c,
 			}}
 
-		m.DoProcess(router, exchange)
+		m.DoProcess(context.Background(), router, exchange)
 	}
 }
 
