@@ -216,6 +216,9 @@ func (ctx *DefaultRuleContext) TellSelf(msg types.RuleMsg, delayMs int64) {
 		ctx.self.OnMsg(ctx, msg)
 	})
 }
+func (ctx *DefaultRuleContext) TellNextOrElse(msg types.RuleMsg, defaultRelationType string, relationTypes ...string) {
+	ctx.tellOrElse(msg, nil, defaultRelationType, relationTypes...)
+}
 func (ctx *DefaultRuleContext) NewMsg(msgType string, metaData types.Metadata, data string) types.RuleMsg {
 	return types.NewMsg(0, msgType, types.JSON, metaData, data)
 }
@@ -443,6 +446,12 @@ func (ctx *DefaultRuleContext) tellFirst(msg types.RuleMsg, err error, relationT
 
 // tellNext 通知执行子节点，如果是当前第一个节点则执行当前节点
 func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes ...string) {
+	ctx.tellOrElse(msg, err, "", relationTypes...)
+}
+
+// tellNext 通知执行子节点，如果是当前第一个节点则执行当前节点
+// 如果找不到relationTypes对应的节点，而且defaultRelationType非默认值，则通过defaultRelationType查找节点
+func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultRelationType string, relationTypes ...string) {
 	//msgCopy := msg.Copy()
 	if ctx.isFirst {
 		ctx.tellFirst(msg, err, relationTypes...)
@@ -454,8 +463,15 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 			for _, relationType := range relationTypes {
 				//执行After aop
 				msg = ctx.executeAfterAop(msg, err, relationType)
+				var ok = false
+				var nodes []types.NodeCtx
 				//根据relationType查找子节点列表
-				if nodes, ok := ctx.getNextNodes(relationType); ok && !ctx.skipTellNext {
+				nodes, ok = ctx.getNextNodes(relationType)
+				//根据默认关系查找节点
+				if defaultRelationType != "" && (!ok || len(nodes) == 0) && !ctx.skipTellNext {
+					nodes, ok = ctx.getNextNodes(defaultRelationType)
+				}
+				if ok && !ctx.skipTellNext {
 					for _, item := range nodes {
 						tmp := item
 						//增加一个待执行的子节点
