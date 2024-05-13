@@ -38,6 +38,15 @@
         "configuration": {
           "jsScript": "metadata['addFrom']='s4';\n msgType='s4';return {'msg':msg,'metadata':metadata,'msgType':msgType};"
         }
+      },
+      {
+        "id": "s5",
+        "type": "jsTransform",
+        "name": "s4-transform",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "metadata['addFrom']='Other';\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+        }
       }
     ],
     "connections": [
@@ -55,6 +64,11 @@
         "fromId": "s1",
         "toId": "s4",
         "type": "TEST_MSG_TYPE2"
+      },
+      {
+        "fromId": "s1",
+        "toId": "s5",
+        "type": "Other"
       }
     ]
   }

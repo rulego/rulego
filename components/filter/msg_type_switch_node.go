@@ -26,6 +26,12 @@ import (
 	"github.com/rulego/rulego/api/types"
 )
 
+// KeyDefaultRelationType 如果无法匹配到节点通过other关系查找节点
+const KeyDefaultRelationType = "Other"
+
+// KeyOtherRelationTypeName config配置的默认关系Properties key
+const KeyOtherRelationTypeName = "defaultRelationType"
+
 func init() {
 	Registry.Add(&MsgTypeSwitchNode{})
 }
@@ -33,6 +39,7 @@ func init() {
 // MsgTypeSwitchNode 根据传入的消息类型路由到一个或多个输出链
 // 把消息通过类型发到正确的链,
 type MsgTypeSwitchNode struct {
+	defaultRelationType string
 }
 
 // Type 组件类型
@@ -46,12 +53,17 @@ func (x *MsgTypeSwitchNode) New() types.Node {
 
 // Init 初始化
 func (x *MsgTypeSwitchNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	if v := ruleConfig.Properties.GetValue(KeyOtherRelationTypeName); v != "" {
+		x.defaultRelationType = v
+	} else {
+		x.defaultRelationType = KeyDefaultRelationType
+	}
 	return nil
 }
 
 // OnMsg 处理消息
 func (x *MsgTypeSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	ctx.TellNext(msg, msg.Type)
+	ctx.TellNextOrElse(msg, x.defaultRelationType, msg.Type)
 }
 
 // Destroy 销毁

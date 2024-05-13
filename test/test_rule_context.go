@@ -91,6 +91,9 @@ func (ctx *NodeTestRuleContext) TellSelf(msg types.RuleMsg, delayMs int64) {
 		}
 	})
 }
+func (ctx *NodeTestRuleContext) TellNextOrElse(msg types.RuleMsg, defaultRelationType string, relationTypes ...string) {
+	ctx.TellNext(msg, relationTypes...)
+}
 func (ctx *NodeTestRuleContext) NewMsg(msgType string, metaData types.Metadata, data string) types.RuleMsg {
 	return types.NewMsg(0, msgType, types.JSON, metaData, data)
 }

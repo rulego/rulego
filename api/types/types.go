@@ -159,6 +159,8 @@ type RuleContext interface {
 	TellNext(msg RuleMsg, relationTypes ...string)
 	//TellSelf 以指定的延迟（毫秒）向当前节点发送消息。
 	TellSelf(msg RuleMsg, delayMs int64)
+	//TellNextOrElse 使用指定的relationTypes，把消息发送到下一个节点，如果对应的relationType找不到下一个节点，使用defaultRelationType查找
+	TellNextOrElse(msg RuleMsg, defaultRelationType string, relationTypes ...string)
 	//TellFlow 执行子规则链
 	//ruleChainId 规则链ID
 	//onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次

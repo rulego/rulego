@@ -39,6 +39,19 @@ func TestMsgTypeSwitchNode(t *testing.T) {
 		test.NodeInit(t, targetNodeType, types.Configuration{}, types.Configuration{}, Registry)
 	})
 
+	t.Run("InitNodeDefault", func(t *testing.T) {
+		config := types.NewConfig()
+		node := MsgTypeSwitchNode{}
+		err := node.Init(config, types.Configuration{})
+		assert.Nil(t, err)
+		assert.Equal(t, node.defaultRelationType, KeyDefaultRelationType)
+
+		config.Properties.PutValue(KeyOtherRelationTypeName, "Default")
+		err = node.Init(config, types.Configuration{})
+		assert.Nil(t, err)
+		assert.Equal(t, node.defaultRelationType, "Default")
+	})
+
 	t.Run("OnMsg", func(t *testing.T) {
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{}, Registry)
 		assert.Nil(t, err)

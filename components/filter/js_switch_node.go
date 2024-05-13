@@ -56,8 +56,9 @@ type JsSwitchNodeConfiguration struct {
 // 消息类型可以通过`msgType`变量访问.
 type JsSwitchNode struct {
 	//节点配置
-	Config   JsSwitchNodeConfiguration
-	jsEngine types.JsEngine
+	Config              JsSwitchNodeConfiguration
+	jsEngine            types.JsEngine
+	defaultRelationType string
 }
 
 // Type 组件类型
@@ -76,6 +77,11 @@ func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configu
 	if err == nil {
 		jsScript := fmt.Sprintf("function Switch(msg, metadata, msgType) { %s }", x.Config.JsScript)
 		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, components.NodeUtils.GetVars(configuration))
+		if v := ruleConfig.Properties.GetValue(KeyOtherRelationTypeName); v != "" {
+			x.defaultRelationType = v
+		} else {
+			x.defaultRelationType = KeyDefaultRelationType
+		}
 	}
 	return err
 }
@@ -98,7 +104,7 @@ func (x *JsSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	} else {
 		if formatData, ok := out.([]interface{}); ok {
 			for _, relationType := range formatData {
-				ctx.TellNext(msg, str.ToString(relationType))
+				ctx.TellNextOrElse(msg, x.defaultRelationType, str.ToString(relationType))
 			}
 		} else {
 			ctx.TellFailure(msg, JsSwitchReturnFormatErr)

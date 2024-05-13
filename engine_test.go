@@ -482,13 +482,21 @@ func TestMsgTypeSwitch(t *testing.T) {
 	//TEST_MSG_TYPE2 找到1条chain,2个nodes
 	wg.Add(4)
 	msg = types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":41}")
-	ruleEngine.OnMsg(msg)
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, "s4", msg.Type)
+		v := msg.Metadata.GetValue("addFrom")
+		assert.Equal(t, "s4", v)
+	}))
 	wg.Wait()
 
-	//TEST_MSG_TYPE3 找到0条chain,1个node
-	wg.Add(2)
+	//TEST_MSG_TYPE3 找到1 other chain,4个node
+	wg.Add(4)
 	msg = types.NewMsg(0, "TEST_MSG_TYPE3", types.JSON, metaData, "{\"temperature\":41}")
-	ruleEngine.OnMsg(msg)
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, "TEST_MSG_TYPE3", msg.Type)
+		v := msg.Metadata.GetValue("addFrom")
+		assert.Equal(t, "Other", v)
+	}))
 	wg.Wait()
 }
 

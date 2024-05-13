@@ -49,6 +49,18 @@ func TestJsSwitchNode(t *testing.T) {
 		}, Registry)
 	})
 
+	t.Run("InitNodeDefault", func(t *testing.T) {
+		config := types.NewConfig()
+		node := JsSwitchNode{}
+		err := node.Init(config, types.Configuration{})
+		assert.Nil(t, err)
+		assert.Equal(t, node.defaultRelationType, KeyDefaultRelationType)
+
+		config.Properties.PutValue(KeyOtherRelationTypeName, "Default")
+		err = node.Init(config, types.Configuration{})
+		assert.Nil(t, err)
+		assert.Equal(t, node.defaultRelationType, "Default")
+	})
 	t.Run("OnMsg", func(t *testing.T) {
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"jsScript": "return ['one','two'];",
