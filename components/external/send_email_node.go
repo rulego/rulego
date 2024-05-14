@@ -39,17 +39,17 @@ func init() {
 // Email 邮件消息体
 type Email struct {
 	//From 发件人邮箱
-	From string
+	From string `json:"from"`
 	//To 收件人邮箱，多个与`,`隔开
-	To string
+	To string `json:"to"`
 	//Cc 抄送人邮箱，多个与`,`隔开
-	Cc string
+	Cc string `json:"cc"`
 	//Bcc 密送人邮箱，多个与`,`隔开
-	Bcc string
+	Bcc string `json:"bcc"`
 	//Subject 邮件主题，可以使用 ${metaKeyName} 替换元数据中的变量
-	Subject string
+	Subject string `json:"subject"`
 	//Body 邮件模板，可以使用 ${metaKeyName} 替换元数据中的变量
-	Body string
+	Body string `json:"body"`
 }
 
 func (e *Email) createEmailMsg(metadata map[string]string) ([]byte, []string) {
@@ -151,17 +151,17 @@ func (e *Email) SendEmailWithTls(addr string, auth smtp.Auth, metadata map[strin
 // SendEmailConfiguration 配置
 type SendEmailConfiguration struct {
 	//SmtpHost Smtp主机地址
-	SmtpHost string
+	SmtpHost string `json:"smtpHost"`
 	//SmtpPort Smtp端口
-	SmtpPort int
+	SmtpPort int `json:"smtpPort"`
 	//Username 用户名
-	Username string
+	Username string `json:"username"`
 	//Password 授权码
-	Password string
+	Password string `json:"password"`
 	//EnableTls 是否是使用tls方式
-	EnableTls bool
+	EnableTls bool `json:"enableTls"`
 	//Email 邮件内容配置
-	Email Email
+	Email Email `json:"email"`
 	//ConnectTimeout 连接超时，单位秒
 	ConnectTimeout int
 }
