@@ -246,12 +246,17 @@ func (rest *Rest) Id() string {
 	return rest.Config.Server
 }
 
-func (rest *Rest) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
+func (rest *Rest) AddRouter(router endpoint.Router, params ...interface{}) (id string, err error) {
 	if len(params) <= 0 {
 		return "", errors.New("need to specify HTTP method")
 	} else if router == nil {
 		return "", errors.New("router can not nil")
 	} else {
+		defer func() {
+			if e := recover(); e != nil {
+				err = fmt.Errorf("addRouter err :%v", e)
+			}
+		}()
 		var method = strings.ToUpper(str.ToString(params[0]))
 		rest.addRouter(method, router)
 		return router.GetId(), nil
@@ -314,15 +319,10 @@ func (rest *Rest) addRouter(method string, routers ...endpoint.Router) *Rest {
 		if id := item.GetId(); id == "" {
 			item.SetId(rest.routerKey(method, item.FromToString()))
 		}
-		if old, ok := rest.RouterStorage[item.GetId()]; ok {
-			//已经存储则，把路由设置可用
-			old.Disable(false)
-		} else {
-			//存储路由
-			rest.RouterStorage[item.GetId()] = item
-			//添加到http路由器
-			rest.router.Handle(method, item.FromToString(), rest.handler(item))
-		}
+		//存储路由
+		rest.RouterStorage[item.GetId()] = item
+		//添加到http路由器
+		rest.router.Handle(method, item.FromToString(), rest.handler(item))
 	}
 
 	return rest

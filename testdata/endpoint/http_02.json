@@ -1,15 +1,13 @@
 {
-  "endpoint": {
-    "id": "e2",
-    "type": "http",
-    "name": "http server",
-    "configuration": {
-      "server": ":9090"
-    }
+  "id": "e2",
+  "type": "http",
+  "name": "http server",
+  "configuration": {
+    "server": ":9090"
   },
   "routes": [
     {
-      "id":"r1",
+      "id": "r1",
       "params": [
         "post"
       ],

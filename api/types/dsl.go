@@ -156,14 +156,6 @@ type RuleNodeRunLog struct {
 
 // EndpointDsl defines the DSL for an endpoint.
 type EndpointDsl struct {
-	// Endpoint contains the basic information of the endpoint.
-	Endpoint EndpointBaseInfo `json:"endpoint"`
-	// Routers is the list of routers.
-	Routers []*RouterDsl `json:"routes"`
-}
-
-// EndpointBaseInfo is the base information for an endpoint.
-type EndpointBaseInfo struct {
 	// Id is the endpoint ID.
 	Id string `json:"id"`
 	// Name is the name of the endpoint.
@@ -174,6 +166,11 @@ type EndpointBaseInfo struct {
 	Configuration Configuration `json:"configuration,omitempty"`
 	// AdditionalInfo is an extension field.
 	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
+	// Processors is the list of global processors for the endpoint.
+	// Using processors registered in builtin/processor#Builtins xx by name.
+	Processors []string `json:"processor"`
+	// Routers is the list of routers.
+	Routers []*RouterDsl `json:"routes"`
 }
 
 // RouterDsl defines a router for an endpoint.
@@ -187,6 +184,8 @@ type RouterDsl struct {
 	From FromDsl `json:"from"`
 	// To is the destination for the router.
 	To ToDsl `json:"to"`
+	// AdditionalInfo is an extension field.
+	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
 }
 
 // FromDsl defines the source for an endpoint router.
@@ -195,6 +194,9 @@ type FromDsl struct {
 	Path string `json:"path"`
 	// Configuration is the configuration for the source.
 	Configuration Configuration `json:"configuration"`
+	// Processors is the list of processors for the source.
+	// Using processors registered in builtin/processor#Builtins xx by name.
+	Processors []string `json:"processor"`
 }
 
 // ToDsl defines the destination for an endpoint router.
@@ -206,4 +208,7 @@ type ToDsl struct {
 	Configuration Configuration `json:"configuration"`
 	// Wait indicates whether to wait for the 'To' executor to finish before proceeding.
 	Wait bool `json:"wait"`
+	// Processors is the list of processors for the destination.
+	// Using processors registered in builtin/processor#Builtins xx by name.
+	Processors []string `json:"processor"`
 }

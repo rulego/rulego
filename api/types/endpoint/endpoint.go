@@ -68,8 +68,8 @@ type DynamicEndpoint interface {
 	Endpoint
 	// SetConfig sets the configuration for the dynamic endpoint.
 	SetConfig(config types.Config)
-	// SetRouterOption sets options for the router.
-	SetRouterOption(opts ...RouterOption)
+	// SetRouterOptions sets options for the router.
+	SetRouterOptions(opts ...RouterOption)
 	// SetRestart restart the endpoint.
 	SetRestart(restart bool)
 	// SetInterceptors sets the interceptors for the dynamic endpoint.
@@ -79,12 +79,14 @@ type DynamicEndpoint interface {
 	// Else the endpoint only update the route without restarting
 	// Routing conflict, endpoint must be restarted
 	Reload(dsl []byte, opts ...DynamicEndpointOption) error
-	// ReloadRouter reloads or add the router with a new DSL configuration.
-	ReloadRouter(dsl []byte, opts ...DynamicEndpointOption) error
+	// AddOrReloadRouter reloads or add the router with a new DSL configuration.
+	AddOrReloadRouter(dsl []byte, opts ...DynamicEndpointOption) error
 	// Definition returns the DSL definition of the dynamic endpoint.
 	Definition() types.EndpointDsl
 	// DSL returns the DSL configuration of the dynamic endpoint.
 	DSL() []byte
+	// Target returns the target endpoint.
+	Target() Endpoint
 }
 
 // Message is an interface abstracting the data received at an endpoint.
@@ -190,6 +192,8 @@ type Router interface {
 	Disable(disable bool) Router
 	// IsDisable checks the availability state of the router.
 	IsDisable() bool
+	// Definition returns the DSL definition of the router.If not set, it will be nil
+	Definition() *types.RouterDsl
 }
 
 // Process is a function type defining a processing operation in a routing context.
@@ -205,6 +209,8 @@ type OptionsSetter interface {
 	SetRuleEnginePoolFunc(f func(exchange *Exchange) types.RuleEnginePool)
 	// SetContextFunc sets the context function for the component.
 	SetContextFunc(f func(ctx context.Context, exchange *Exchange) context.Context)
+	// SetDefinition sets the DSL configuration for the component.
+	SetDefinition(dsl *types.RouterDsl)
 }
 
 // Executor is an interface defining the execution operations for the 'to' end of a routing operation.

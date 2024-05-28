@@ -6,6 +6,8 @@ English| [中文](README_ZH.md)
 
 It allows you to easily create and start different receiving services, such as http, mqtt, kafka, gRpc, websocket, schedule, tpc, udp, etc., to achieve data integration of heterogeneous systems, and then perform conversion, processing, flow, etc. operations according to different requests or messages, and finally hand them over to the rule chain or component for processing.
 
+Additionally, it supports dynamic creation and updates through `DSL`.
+
 <img src="../doc/imgs/endpoint/endpoint.png">
 <div style="text-align: center;">Endpoint architecture diagram</div>
 
@@ -14,7 +16,7 @@ It allows you to easily create and start different receiving services, such as h
 1. First define the route, which provides a stream-like calling method, including the input end, processing function and output end. Different Endpoint types have **consistent** route processing
 
 ```go
-router := endpoint.NewRouter().From("/api/v1/msg/").Process(func(exchange *endpoint.Exchange) bool {
+router := endpoint.Registry.NewRouter().From("/api/v1/msg/").Process(func(exchange *endpoint.Exchange) bool {
 //processing logic
 return true
 }).To("chain:default")
@@ -29,23 +31,23 @@ For different `Endpoint` types, the meaning of the input end `From` will be diff
 
 ```go
 //For example: create http service
-restEndpoint, err := endpoint.New(rest.Type, config, rest.Config{Server: ":9090",})
+restEndpoint, err := endpoint.Registry.New(rest.Type, config, rest.Config{Server: ":9090",})
 // or use map to set configuration
-restEndpoint, err := endpoint.New(rest.Type, config, types.Configuration{"server": ":9090",})
+restEndpoint, err := endpoint.Registry.New(rest.Type, config, types.Configuration{"server": ":9090",})
 
 //For example: create mqtt subscription service
-mqttEndpoint, err := endpoint.New(mqtt.Type, config, mqtt.Config{Server: "127.0.0.1:1883",})
+mqttEndpoint, err := endpoint.Registry.New(mqtt.Type, config, mqtt.Config{Server: "127.0.0.1:1883",})
 // or use map to set configuration
-mqttEndpoint, err := endpoint.New(mqtt.Type, config, types.Configuration{"server": "127.0.0.1:1883",})
+mqttEndpoint, err := endpoint.Registry.New(mqtt.Type, config, types.Configuration{"server": "127.0.0.1:1883",})
 
 //For example: create ws service
-wsEndpoint, err := endpoint.New(websocket.Type, config, websocket.Config{Server: ":9090"})
+wsEndpoint, err := endpoint.Registry.New(websocket.Type, config, websocket.Config{Server: ":9090"})
 
 //For example: create tcp service
-tcpEndpoint, err := endpoint.New(net.Type, config, Config{Protocol: "tcp", Server:   ":8888",})
+tcpEndpoint, err := endpoint.Registry.New(net.Type, config, Config{Protocol: "tcp", Server:   ":8888",})
 
 //For example: create schedule endpoint service
-scheduleEndpoint, err := endpoint.New(schedule.Type, config, nil)
+scheduleEndpoint, err := endpoint.Registry.New(schedule.Type, config, nil)
 ```
 
 3. Register the route to the endpoint service and start the service
@@ -63,14 +65,14 @@ _ = mqttEndpoint.Start()
 
 4. Endpoint supports responding to the caller
 ```go
-router5 := endpoint.NewRouter().From("/api/v1/msgToComponent2/:msgType").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+router5 := endpoint.Registry.NewRouter().From("/api/v1/msgToComponent2/:msgType").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
     //respond to the client
     exchange.Out.Headers().Set("Content-Type", "application/json")
     exchange.Out.SetBody([]byte("ok"))
     return true
 })
 //If you need to synchronize the rule chain execution result to the client, add the wait semantics
-router5 := endpoint.NewRouter().From("/api/v1/msg2Chain4/:chainId").
+router5 := endpoint.Registry.NewRouter().From("/api/v1/msg2Chain4/:chainId").
 To("chain:${chainId}").
 //Must add Wait, asynchronous to synchronous, http can respond normally, if not synchronous response, do not add this sentence, will affect the throughput
 Wait().

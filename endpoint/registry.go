@@ -30,7 +30,7 @@ import (
 	"sync"
 )
 
-// 注册组件
+// init registers the available endpoint components with the Registry.
 func init() {
 	_ = Registry.Register(&mqtt.Endpoint{})
 	_ = Registry.Register(&rest.Endpoint{})
@@ -39,17 +39,17 @@ func init() {
 	_ = Registry.Register(&schedule.Endpoint{})
 }
 
-// Registry endpoint组件默认注册器
+// Registry is the default registry for endpoint components.
 var Registry = new(ComponentRegistry)
 
-// ComponentRegistry 组件注册器
+// ComponentRegistry is a registry for endpoint components.
 type ComponentRegistry struct {
-	//endpoint组件
+	// components holds the registered endpoint components.
 	components map[string]endpoint.Endpoint
 	sync.RWMutex
 }
 
-// Register 注册规则引擎节点组件
+// Register adds a new endpoint component to the registry.
 func (r *ComponentRegistry) Register(component endpoint.Endpoint) error {
 	r.Lock()
 	defer r.Unlock()
@@ -64,6 +64,7 @@ func (r *ComponentRegistry) Register(component endpoint.Endpoint) error {
 	return nil
 }
 
+// Unregister removes an endpoint component from the registry.
 func (r *ComponentRegistry) Unregister(componentType string) error {
 	r.RLock()
 	defer r.RUnlock()
@@ -75,7 +76,8 @@ func (r *ComponentRegistry) Unregister(componentType string) error {
 	}
 }
 
-// New 创建一个新的endpoint实例
+// New creates a new instance of an endpoint based on the component type.
+// The configuration parameter can be either types.Configuration or the corresponding Config type for the endpoint.
 func (r *ComponentRegistry) New(componentType string, ruleConfig types.Config, configuration interface{}) (endpoint.Endpoint, error) {
 	r.RLock()
 	defer r.RUnlock()
@@ -106,12 +108,4 @@ func (r *ComponentRegistry) New(componentType string, ruleConfig types.Config, c
 			return nil, fmt.Errorf("%s not type of Endpoint", componentType)
 		}
 	}
-}
-
-// New 创建指定类型的endpoint实例
-// componentType endpoint类型
-// ruleConfig rulego配置
-// configuration endpoint配置参数，可以是types.Configuration和endpoint对应Config的类型
-func New(componentType string, ruleConfig types.Config, configuration interface{}) (endpoint.Endpoint, error) {
-	return Registry.New(componentType, ruleConfig, configuration)
 }

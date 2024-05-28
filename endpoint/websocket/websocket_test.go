@@ -94,8 +94,8 @@ func TestWsEndpointConfig(t *testing.T) {
 	assert.Equal(t, "/api/test", routerId)
 
 	router = impl.NewRouter().From(testUrl).End()
-	routerId, _ = ep.AddRouter(router, "GET")
-	assert.Equal(t, "/api/test", routerId)
+	_, err = ep.AddRouter(router, "GET")
+	assert.NotNil(t, err)
 
 	//删除路由
 	ep.RemoveRouter(routerId)

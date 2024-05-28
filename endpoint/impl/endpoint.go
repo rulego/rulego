@@ -261,6 +261,8 @@ type Router struct {
 	ruleGoFunc func(exchange *endpoint.Exchange) types.RuleEnginePool
 	//是否不可用 1:不可用;0:可以
 	disable uint32
+	//路由定义，如果没设置会返回nil
+	def *types.RouterDsl
 }
 
 // RouterOption 选项函数
@@ -306,20 +308,34 @@ func NewRouter(opts ...RouterOption) endpoint.Router {
 	}
 	return router
 }
+
 func (r *Router) SetConfig(config types.Config) {
 	r.Config = config
 }
+
 func (r *Router) SetRuleEnginePool(pool types.RuleEnginePool) {
 	r.RuleGo = pool
 }
+
 func (r *Router) SetRuleEnginePoolFunc(f func(exchange *endpoint.Exchange) types.RuleEnginePool) {
 	r.ruleGoFunc = f
 }
+
 func (r *Router) SetContextFunc(f func(ctx context.Context, exchange *endpoint.Exchange) context.Context) {
 	r.ContextFunc = f
 }
+
 func (r *Router) GetContextFunc() func(ctx context.Context, exchange *endpoint.Exchange) context.Context {
 	return r.ContextFunc
+}
+
+func (r *Router) SetDefinition(def *types.RouterDsl) {
+	r.def = def
+}
+
+// Definition 返回路由定义，如果没设置会返回nil
+func (r *Router) Definition() *types.RouterDsl {
+	return r.def
 }
 
 func (r *Router) SetId(id string) endpoint.Router {

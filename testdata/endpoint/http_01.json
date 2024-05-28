@@ -1,26 +1,28 @@
 {
-  "endpoint": {
     "id": "e1",
     "type": "http",
     "name": "http server",
     "configuration": {
       "server": ":9090"
-    }
-  },
-  "routes": [
-    {
-      "id":"r1",
-      "params": [
-        "post"
-      ],
-      "from": {
-        "path": "/api/v1/test/:chainId",
-        "configuration": {
+    },
+    "routes": [
+      {
+        "id":"r1",
+        "params": [
+          "post"
+        ],
+        "from": {
+          "path": "/api/v1/test/:chainId",
+          "configuration": {
+          }
+        },
+        "to": {
+          "path": "${chainId}"
+        },
+        "additionalInfo": {
+          "aa":"aa"
         }
-      },
-      "to": {
-        "path": "${chainId}"
       }
-    }
-  ]
+    ]
+
 }
