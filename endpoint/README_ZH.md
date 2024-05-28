@@ -6,6 +6,8 @@
 
 它可以让你方便地创建和启动不同的接收服务，如http、mqtt、kafka、gRpc、websocket、schedule、tpc、udp等，实现对异构系统数据集成，然后根据不同的请求或消息，进行转换、处理、流转等操作，最终交给规则链或者组件处理。
 
+另外它支持通过`DSL`动态方式创建和更新。
+
 <img src="../doc/imgs/endpoint/endpoint.png">
 <div style="text-align: center;">Endpoint架构图</div>
 
@@ -14,7 +16,7 @@
 1. 首先定义路由，路由提供了流式的调用方式，包括输入端、处理函数和输出端。不同Endpoint其路由处理是`一致`的
 
 ```go
-router := endpoint.NewRouter().From("/api/v1/msg/").Process(func(exchange *endpoint.Exchange) bool {
+router := endpoint.Registry.NewRouter().From("/api/v1/msg/").Process(func(exchange *endpoint.Exchange) bool {
 //处理逻辑
 return true
 }).To("chain:default")
@@ -29,23 +31,23 @@ return true
 
 ```go
 //例如：创建http 服务
-restEndpoint, err := endpoint.New(rest.Type, config, rest.Config{Server: ":9090",})
+restEndpoint, err := endpoint.Registry.New(rest.Type, config, rest.Config{Server: ":9090",})
 // 或者使用map方式设置配置
-restEndpoint, err := endpoint.New(rest.Type, config, types.Configuration{"server": ":9090",})
+restEndpoint, err := endpoint.Registry.New(rest.Type, config, types.Configuration{"server": ":9090",})
 
 //例如：创建mqtt订阅 服务
-mqttEndpoint, err := endpoint.New(mqtt.Type, config, mqtt.Config{Server: "127.0.0.1:1883",})
+mqttEndpoint, err := endpoint.Registry.New(mqtt.Type, config, mqtt.Config{Server: "127.0.0.1:1883",})
 // 或者使用map方式设置配置
-mqttEndpoint, err := endpoint.New(mqtt.Type, config, types.Configuration{"server": "127.0.0.1:1883",})
+mqttEndpoint, err := endpoint.Registry.New(mqtt.Type, config, types.Configuration{"server": "127.0.0.1:1883",})
 
 //例如：创建ws服务
-wsEndpoint, err := endpoint.New(websocket.Type, config, websocket.Config{Server: ":9090"})
+wsEndpoint, err := endpoint.Registry.New(websocket.Type, config, websocket.Config{Server: ":9090"})
 
 //例如：创建tcp服务
-tcpEndpoint, err := endpoint.New(net.Type, config, Config{Protocol: "tcp", Server:   ":8888",})
+tcpEndpoint, err := endpoint.Registry.New(net.Type, config, Config{Protocol: "tcp", Server:   ":8888",})
 
 //例如： 创建schedule endpoint服务
-scheduleEndpoint, err := endpoint.New(schedule.Type, config, nil)
+scheduleEndpoint, err := endpoint.Registry.New(schedule.Type, config, nil)
 ```
 
 3. 把路由注册到endpoint服务中，并启动服务
@@ -63,14 +65,14 @@ _ = mqttEndpoint.Start()
 
 4. Endpoint支持响应给调用方
 ```go
-router5 := endpoint.NewRouter().From("/api/v1/msgToComponent2/:msgType").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+router5 := endpoint.Registry.NewRouter().From("/api/v1/msgToComponent2/:msgType").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
     //响应给客户端
     exchange.Out.Headers().Set("Content-Type", "application/json")
     exchange.Out.SetBody([]byte("ok"))
     return true
 })
 //如果需要把规则链执行结果同步响应给客户端，则增加wait语义
-router5 := endpoint.NewRouter().From("/api/v1/msg2Chain4/:chainId").
+router5 := endpoint.Registry.NewRouter().From("/api/v1/msg2Chain4/:chainId").
 To("chain:${chainId}").
 //必须增加Wait，异步转同步，http才能正常响应，如果不响应同步响应，不要加这一句，会影响吞吐量
 Wait().

@@ -62,6 +62,13 @@ func (r routerOptions) WithContextFunc(f func(ctx context.Context, exchange *Exc
 	}
 }
 
+func (r routerOptions) WithDefinition(def *types.RouterDsl) RouterOption {
+	return func(re OptionsSetter) error {
+		re.SetDefinition(def)
+		return nil
+	}
+}
+
 // DynamicEndpointOption is a function type for setting options on dynamic endpoints.
 type DynamicEndpointOption func(DynamicEndpoint) error
 
@@ -82,7 +89,7 @@ func (d dynamicEndpointOptions) WithConfig(config types.Config) DynamicEndpointO
 // WithRouterOpts sets the routerOptions for the dynamic endpoint.
 func (d dynamicEndpointOptions) WithRouterOpts(opts ...RouterOption) DynamicEndpointOption {
 	return func(re DynamicEndpoint) error {
-		re.SetRouterOption(opts...)
+		re.SetRouterOptions(opts...)
 		return nil
 	}
 }

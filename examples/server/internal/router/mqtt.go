@@ -17,7 +17,7 @@ func MqttServe(c config.Config, logger *log.Logger) {
 		return
 	}
 	//mqtt 订阅服务 接收端点
-	mqttEndpoint, err := endpoint.New(endpointMqtt.Type, rulego.NewConfig(), c.Mqtt)
+	mqttEndpoint, err := endpoint.Registry.New(endpointMqtt.Type, rulego.NewConfig(), c.Mqtt)
 	if err != nil {
 		logger.Fatal(err)
 	}

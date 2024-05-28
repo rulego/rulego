@@ -20,6 +20,8 @@ import (
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/impl"
+	"github.com/rulego/rulego/endpoint/rest"
+	"github.com/rulego/rulego/endpoint/websocket"
 	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/test/assert"
 	"testing"
@@ -40,7 +42,7 @@ func TestRegistry(t *testing.T) {
 	_, err = Registry.New(endpointType, config, nil)
 	assert.Nil(t, err)
 
-	endpoint, err := New(endpointType, config, configuration)
+	endpoint, err := Registry.New(endpointType, config, configuration)
 	assert.Nil(t, err)
 
 	endpoint, err = Registry.New(endpointType, config, configuration)
@@ -65,7 +67,22 @@ func TestRegistry(t *testing.T) {
 	assert.Nil(t, err)
 	_, err = Registry.New(endpointType, config, configuration)
 	assert.Equal(t, "component not found. type="+endpointType, err.Error())
+}
 
+func TestNewFromRegistry(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	configuration := types.Configuration{
+		"server": ":9090",
+	}
+	endpoint, err := Registry.New(rest.Type, config, configuration)
+	assert.Nil(t, err)
+	_, ok := endpoint.(*rest.Endpoint)
+	assert.True(t, ok)
+
+	endpoint, err = Registry.New(websocket.Type, config, configuration)
+	assert.Nil(t, err)
+	_, ok = endpoint.(*websocket.Endpoint)
+	assert.True(t, ok)
 }
 
 // 测试endpoint

@@ -41,7 +41,7 @@ func main() {
         `}).End()
 
 	//创建mqtt endpoint服务
-	_mqttEndpoint, err := endpoint.New(mqttEndpoint.Type, config, mqtt.Config{
+	_mqttEndpoint, err := endpoint.Registry.New(mqttEndpoint.Type, config, mqtt.Config{
 		Server: "127.0.0.1:1883",
 	})
 	if err != nil {
@@ -60,7 +60,7 @@ func main() {
 		panic(err)
 	}
 	//创建http接收服务
-	_restEndpoint, err := endpoint.New(rest.Type, config, mqtt.Config{
+	_restEndpoint, err := endpoint.Registry.New(rest.Type, config, mqtt.Config{
 		Server: ":9090",
 	})
 	//添加全局拦截器

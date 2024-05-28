@@ -252,12 +252,17 @@ func (ws *Websocket) Id() string {
 	return ws.Config.Server
 }
 
-func (ws *Websocket) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
+func (ws *Websocket) AddRouter(router endpoint.Router, params ...interface{}) (id string, err error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
 	} else {
+		defer func() {
+			if e := recover(); e != nil {
+				err = fmt.Errorf("addRouter err :%v", e)
+			}
+		}()
 		ws.addRouter(router)
-		return router.GetId(), nil
+		return router.GetId(), err
 	}
 }
 
@@ -316,18 +321,13 @@ func (ws *Websocket) addRouter(routers ...endpoint.Router) *Websocket {
 		if id := item.GetId(); id == "" {
 			item.SetId(item.GetFrom().ToString())
 		}
-		if old, ok := ws.RouterStorage[item.GetId()]; ok {
-			//已经存储则，把路由设置可用
-			old.Disable(false)
+		//存储路由
+		ws.RouterStorage[item.GetId()] = item
+		//添加到http路由器
+		if ws.RestEndpoint != nil {
+			ws.RestEndpoint.Router().Handle("GET", item.FromToString(), ws.handler(item))
 		} else {
-			//存储路由
-			ws.RouterStorage[item.GetId()] = item
-			//添加到http路由器
-			if ws.RestEndpoint != nil {
-				ws.RestEndpoint.Router().Handle("GET", item.FromToString(), ws.handler(item))
-			} else {
-				ws.router.Handle("GET", item.FromToString(), ws.handler(item))
-			}
+			ws.router.Handle("GET", item.FromToString(), ws.handler(item))
 		}
 	}
 

@@ -44,7 +44,7 @@ func main() {
 		os.Exit(0)
 	}
 	//创建http endpoint服务
-	restEndpoint, err := endpoint.New(rest.Type, config, rest.Config{
+	restEndpoint, err := endpoint.Registry.New(rest.Type, config, rest.Config{
 		Server: ":9090",
 	})
 
