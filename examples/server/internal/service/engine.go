@@ -156,7 +156,7 @@ func (s *RuleEngineService) SaveDsl(chainId, nodeId string, def []byte) error {
 		} else {
 			ruleEngine, err = s.Pool.New(chainId, def, rulego.WithConfig(s.ruleConfig))
 		}
-		self := ruleEngine.RootRuleChainCtx().SelfDefinition
+		self := ruleEngine.RootRuleChainCtx().Definition()
 		//修改更新时间
 		s.fillAdditionalInfo(self)
 		//持久化规则链
@@ -166,7 +166,7 @@ func (s *RuleEngineService) SaveDsl(chainId, nodeId string, def []byte) error {
 	return err
 }
 
-func (s *RuleEngineService) GetEngine(chainId string) (*rulego.RuleEngine, bool) {
+func (s *RuleEngineService) GetEngine(chainId string) (types.RuleEngine, bool) {
 	return s.Pool.Get(chainId)
 }
 
@@ -175,7 +175,7 @@ func (s *RuleEngineService) List() []types.RuleChain {
 	var ruleChains = make([]types.RuleChain, 0)
 
 	s.Pool.Range(func(key, value any) bool {
-		engine := value.(*rulego.RuleEngine)
+		engine := value.(types.RuleEngine)
 		ruleChains = append(ruleChains, engine.Definition())
 		return true
 	})
@@ -209,7 +209,7 @@ func (s *RuleEngineService) SaveBaseInfo(chainId string, baseInfo types.RuleChai
 	if chainId != "" {
 		ruleEngine, ok := s.Pool.Get(chainId)
 		if ok {
-			def := ruleEngine.RootRuleChainCtx().SelfDefinition
+			def := ruleEngine.RootRuleChainCtx().Definition()
 			def.RuleChain.AdditionalInfo = baseInfo.AdditionalInfo
 			def.RuleChain.Name = baseInfo.Name
 			def.RuleChain.Root = baseInfo.Root
@@ -241,7 +241,7 @@ func (s *RuleEngineService) SaveConfiguration(chainId string, key string, config
 	if chainId != "" {
 		ruleEngine, ok := s.Pool.Get(chainId)
 		if ok {
-			self := ruleEngine.RootRuleChainCtx().SelfDefinition
+			self := ruleEngine.RootRuleChainCtx().Definition()
 			if self.RuleChain.Configuration == nil {
 				self.RuleChain.Configuration = make(types.Configuration)
 			}
@@ -399,7 +399,7 @@ func (s *RuleEngineService) loadRules(folderPath string) error {
 	return err
 }
 
-//fillAdditionalInfo 填充扩展字段
+// fillAdditionalInfo 填充扩展字段
 func (s *RuleEngineService) fillAdditionalInfo(def *types.RuleChain) {
 	//修改更新时间
 	if def.RuleChain.AdditionalInfo == nil {

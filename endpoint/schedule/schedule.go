@@ -44,7 +44,8 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/robfig/cron/v3"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
 	"net/textproto"
 	"strconv"
 )
@@ -56,9 +57,9 @@ const Type = "schedule"
 type Endpoint = Schedule
 
 // 注册组件
-func init() {
-	_ = endpoint.Registry.Register(&Endpoint{})
-}
+//func init() {
+//	_ = endpoint.Registry.Register(&Endpoint{})
+//}
 
 // RequestMessage http请求消息
 type RequestMessage struct {
@@ -172,7 +173,7 @@ func (r *ResponseMessage) GetError() error {
 // Schedule 定时任务端点
 type Schedule struct {
 	id string
-	endpoint.BaseEndpoint
+	impl.BaseEndpoint
 	RuleConfig types.Config
 	cron       *cron.Cron
 }
@@ -215,7 +216,7 @@ func (schedule *Schedule) Id() string {
 	return schedule.id
 }
 
-func (schedule *Schedule) AddRouter(router *endpoint.Router, params ...interface{}) (string, error) {
+func (schedule *Schedule) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
 	}
@@ -226,13 +227,15 @@ func (schedule *Schedule) AddRouter(router *endpoint.Router, params ...interface
 		schedule.cron = cron.New(cron.WithSeconds())
 	}
 	//获取cron表达式
-	from := router.GetFrom().From
+	from := router.GetFrom().ToString()
 	//添加任务
 	id, err := schedule.cron.AddFunc(from, func() {
 		schedule.handler(router)
 	})
+	idStr := strconv.Itoa(int(id))
+	router.SetId(idStr)
 	//返回任务ID，用于清除任务
-	return strconv.Itoa(int(id)), err
+	return idStr, err
 }
 
 func (schedule *Schedule) RemoveRouter(routeId string, params ...interface{}) error {
@@ -261,7 +264,7 @@ func (schedule *Schedule) Printf(format string, v ...interface{}) {
 }
 
 // 处理定时任务
-func (schedule *Schedule) handler(router *endpoint.Router) {
+func (schedule *Schedule) handler(router endpoint.Router) {
 	defer func() {
 		//捕捉异常
 		if e := recover(); e != nil {

@@ -19,10 +19,12 @@ package mqtt
 import (
 	"context"
 	"errors"
+	"fmt"
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/components/mqtt"
-	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/utils/maps"
 	"net/textproto"
 	"strconv"
@@ -35,10 +37,10 @@ const Type = "mqtt"
 // Endpoint 别名
 type Endpoint = Mqtt
 
-// 注册组件
-func init() {
-	_ = endpoint.Registry.Register(&Endpoint{})
-}
+//// 注册组件
+//func init() {
+//	_ = endpoint.Registry.Register(&Endpoint{})
+//}
 
 // RequestMessage http请求消息
 type RequestMessage struct {
@@ -189,7 +191,7 @@ func (r *ResponseMessage) Response() paho.Client {
 
 // Mqtt MQTT 接收端端点
 type Mqtt struct {
-	endpoint.BaseEndpoint
+	impl.BaseEndpoint
 	RuleConfig types.Config
 	Config     mqtt.Config
 	client     *mqtt.Client
@@ -227,9 +229,13 @@ func (m *Mqtt) Id() string {
 	return m.Config.Server
 }
 
-func (m *Mqtt) AddRouter(router *endpoint.Router, params ...interface{}) (string, error) {
+func (m *Mqtt) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
+	}
+
+	if id := router.GetId(); id == "" {
+		router.SetId(router.GetFrom().ToString())
 	}
 	m.saveRouter(router)
 	//服务已经启动
@@ -242,12 +248,20 @@ func (m *Mqtt) AddRouter(router *endpoint.Router, params ...interface{}) (string
 			})
 		}
 	}
-	return router.GetFrom().From, nil
+	return router.GetId(), nil
 }
 
 func (m *Mqtt) RemoveRouter(routerId string, params ...interface{}) error {
-	m.deleteRouter(routerId)
-	return m.client.UnregisterHandler(routerId)
+	router := m.deleteRouter(routerId)
+	if router != nil {
+		if m.client != nil {
+			return m.client.UnregisterHandler(router.FromToString())
+		} else {
+			return nil
+		}
+	} else {
+		return fmt.Errorf("router: %s not found", routerId)
+	}
 }
 
 func (m *Mqtt) Start() error {
@@ -275,27 +289,31 @@ func (m *Mqtt) Start() error {
 }
 
 // 存储路由
-func (m *Mqtt) saveRouter(routers ...*endpoint.Router) {
+func (m *Mqtt) saveRouter(routers ...endpoint.Router) {
 	m.Lock()
 	defer m.Unlock()
 	if m.RouterStorage == nil {
-		m.RouterStorage = make(map[string]*endpoint.Router)
+		m.RouterStorage = make(map[string]endpoint.Router)
 	}
 	for _, item := range routers {
-		m.RouterStorage[item.FromToString()] = item
+		m.RouterStorage[item.GetId()] = item
 	}
 }
 
 // 从存储器中删除路由
-func (m *Mqtt) deleteRouter(from string) {
+func (m *Mqtt) deleteRouter(id string) endpoint.Router {
 	m.Lock()
 	defer m.Unlock()
 	if m.RouterStorage != nil {
-		delete(m.RouterStorage, from)
+		if router, ok := m.RouterStorage[id]; ok {
+			delete(m.RouterStorage, id)
+			return router
+		}
 	}
+	return nil
 }
 
-func (m *Mqtt) handler(router *endpoint.Router) func(c paho.Client, data paho.Message) {
+func (m *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Message) {
 	return func(c paho.Client, data paho.Message) {
 		defer func() {
 			//捕捉异常

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2024 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package rulego
+package engine
 
 import (
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/aspect"
+	"github.com/rulego/rulego/builtin/aspect"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/str"
 	"sync/atomic"
@@ -35,7 +35,7 @@ func TestSkipFallbackAspect(t *testing.T) {
 		//config.Logger.Printf("chainId=%s,flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", chainId, flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 	}
 
-	ruleEngine, err := New(str.RandomStr(10), loadFile("./test_skip_fallback_aspect.json"), WithConfig(config))
+	ruleEngine, err := DefaultPool.New(str.RandomStr(10), loadFile("./test_skip_fallback_aspect.json"), WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}
@@ -145,7 +145,7 @@ func TestEngineAspect(t *testing.T) {
 	}
 	config := NewConfig(types.WithAspects(&NodeAspect2{Name: "NodeAspect2"}, &NodeAspect1{Name: "NodeAspect1"},
 		&ChainAspect{Name: "ChainAspect"}, &EngineAspect{Name: "EngineAspect", Callback: callback}))
-	ruleEngine, err := New(chainId, []byte(ruleChainFile), WithConfig(config))
+	ruleEngine, err := DefaultPool.New(chainId, []byte(ruleChainFile), WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}
@@ -196,7 +196,7 @@ func TestChainAspect(t *testing.T) {
 		&EngineAspect{Name: "EngineAspect", Callback: callback},
 	))
 
-	ruleEngine, err := New(chainId, loadFile("./test_skip_fallback_aspect.json"), WithConfig(config))
+	ruleEngine, err := DefaultPool.New(chainId, loadFile("./test_skip_fallback_aspect.json"), WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}

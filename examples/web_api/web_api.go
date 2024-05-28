@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
@@ -36,7 +37,7 @@ func main() {
 	//启动http接收服务
 	restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}, RuleConfig: config}
 	//添加全局拦截器
-	restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	restEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		//模拟鉴权
 		userId := exchange.In.Headers().Get("userId")
 		if userId == "blacklist" {
@@ -47,7 +48,7 @@ func main() {
 		return true
 	})
 	//路由1
-	router1 := endpoint.NewRouter().From("/api/v1/user/:id").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router1 := endpoint.NewRouter().From("/api/v1/user/:id").Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		id := exchange.In.GetMsg().Metadata.GetValue("id")
 		//模拟查询数据库
 		user := struct {
@@ -67,7 +68,7 @@ func main() {
 	router2 := endpoint.NewRouter().From("/api/v1/userEvent").To("chain:default").End()
 
 	//路由3 采用配置方式调用规则链,to路径带变量
-	router3 := endpoint.NewRouter().From("/api/v1/msg2Chain2/:msgType").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router3 := endpoint.NewRouter().From("/api/v1/msg2Chain2/:msgType").Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		//获取消息类型
 		msg.Type = msg.Metadata.GetValue("msgType")
@@ -80,24 +81,24 @@ func main() {
 		//把userId存放在msg元数据
 		msg.Metadata.PutValue("userId", userId)
 		return true
-	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		//响应给客户端
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.SetBody([]byte("ok"))
 		return true
-	}).To("chain:${userId}").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	}).To("chain:${userId}").Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		outMsg := exchange.Out.GetMsg()
 		fmt.Println("规则链处理后结果：", outMsg)
 		return true
 	}).End()
 
 	//路由4 直接调用node组件方式
-	router4 := endpoint.NewRouter().From("/api/v1/msgToComponent1/:msgType").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router4 := endpoint.NewRouter().From("/api/v1/msgToComponent1/:msgType").Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		//获取消息类型
 		msg.Type = msg.Metadata.GetValue("msgType")
 		return true
-	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		//响应给客户端
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.SetBody([]byte("ok"))
@@ -114,12 +115,12 @@ func main() {
 	}()).End()
 
 	//路由5 采用配置方式调用node组件
-	router5 := endpoint.NewRouter().From("/api/v1/msgToComponent2/:msgType").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router5 := endpoint.NewRouter().From("/api/v1/msgToComponent2/:msgType").Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		//获取消息类型
 		msg.Type = msg.Metadata.GetValue("msgType")
 		return true
-	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		//响应给客户端
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.SetBody([]byte("ok"))

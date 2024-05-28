@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package rulego
+package engine
 
 import (
 	"github.com/rulego/rulego/api/types"

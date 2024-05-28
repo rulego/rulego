@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2024 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package rulego
+package engine
 
 import (
 	"github.com/rulego/rulego/api/types"
@@ -87,7 +87,7 @@ func BenchmarkCallRestApiNodeWorkerPool(b *testing.B) {
 //			callRestApiNode(ruleEngine)
 //		}
 //	}
-func callRestApiNode(ruleEngine *RuleEngine) {
+func callRestApiNode(ruleEngine types.RuleEngine) {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"aa\":\"aaaaaaaaaaaaaa\"}")

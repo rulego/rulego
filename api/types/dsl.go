@@ -16,31 +16,32 @@
 
 package types
 
-// RuleChain 规则链定义
+// RuleChain defines a rule chain.
 type RuleChain struct {
-	//规则链基础信息定义
+	// RuleChain contains the basic information of the rule chain.
 	RuleChain RuleChainBaseInfo `json:"ruleChain"`
-	//包含了规则链中节点和连接的信息
+	// Metadata includes information about the nodes and connections within the rule chain.
 	Metadata RuleMetadata `json:"metadata"`
 }
 
-// RuleChainBaseInfo 规则链基础信息定义
+// RuleChainBaseInfo defines the basic information of a rule chain.
 type RuleChainBaseInfo struct {
-	//规则链ID
+	// ID is the unique identifier of the rule chain.
 	ID string `json:"id"`
-	//Name 规则链的名称
+	// Name is the name of the rule chain.
 	Name string `json:"name"`
-	//表示这个节点是否处于调试模式。如果为真，当节点处理消息时，会触发调试回调函数。
-	//该配置会覆盖节点`DebugMode`配置
+	// DebugMode indicates whether the node is in debug mode. If true, a debug callback function is triggered when the node processes messages.
+	// This setting overrides the `DebugMode` configuration of the node.
 	DebugMode bool `json:"debugMode"`
-	//Root 表示这个规则链是根规则链还是子规则链。(只做标记使用，非应用在实际逻辑)
+	// Root indicates whether this rule chain is a root or a sub-rule chain. (Used only as a marker, not applied in actual logic)
 	Root bool `json:"root"`
-	//Configuration 规则链配置信息
+	// Configuration contains the configuration information of the rule chain.
 	Configuration Configuration `json:"configuration,omitempty"`
-	//扩展字段
+	// AdditionalInfo is an extension field.
 	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
 }
 
+// GetAdditionalInfo retrieves additional information by key.
 func (r RuleChainBaseInfo) GetAdditionalInfo(key string) (string, bool) {
 	if r.AdditionalInfo == nil {
 		return "", false
@@ -49,6 +50,7 @@ func (r RuleChainBaseInfo) GetAdditionalInfo(key string) (string, bool) {
 	return v, ok
 }
 
+// PutAdditionalInfo adds additional information by key and value.
 func (r RuleChainBaseInfo) PutAdditionalInfo(key, value string) {
 	if r.AdditionalInfo == nil {
 		r.AdditionalInfo = make(map[string]string)
@@ -56,104 +58,152 @@ func (r RuleChainBaseInfo) PutAdditionalInfo(key, value string) {
 	r.AdditionalInfo[key] = value
 }
 
-// RuleMetadata 规则链元数据定义，包含了规则链中节点和连接的信息
+// RuleMetadata defines the metadata of a rule chain, including information about nodes and connections.
 type RuleMetadata struct {
-	//数据流转的第一个节点，默认:0
+	// FirstNodeIndex is the index of the first node in data flow, default is 0.
 	FirstNodeIndex int `json:"firstNodeIndex"`
-	//节点组件定义
-	//每个对象代表规则链中的一个规则节点
+	// Nodes are the component definitions of the nodes.
+	// Each object represents a rule node within the rule chain.
 	Nodes []*RuleNode `json:"nodes"`
-	//连接定义
-	//每个对象代表规则链中两个节点之间的连接
+	// Connections define the connections between two nodes in the rule chain.
 	Connections []NodeConnection `json:"connections"`
-
-	//Deprecated
-	//使用 Flow Node代替
-	//子规则链链接
-	//每个对象代表规则链中一个节点和一个子规则链之间的连接
+	// Deprecated: Use Flow Node instead.
+	// RuleChainConnections are the connections between a node and a sub-rule chain.
 	RuleChainConnections []RuleChainConnection `json:"ruleChainConnections,omitempty"`
 }
 
-// RuleNode 规则链节点信息定义
+// RuleNode defines the information of a rule chain node.
 type RuleNode struct {
-	//节点的唯一标识符，可以是任意字符串
+	// Id is the unique identifier of the node, which can be any string.
 	Id string `json:"id"`
-	//扩展字段
+	// AdditionalInfo is an extension field for visualization position information (reserved field).
 	AdditionalInfo NodeAdditionalInfo `json:"additionalInfo,omitempty"`
-	//节点的类型，决定了节点的逻辑和行为。它应该与规则引擎中注册的节点类型之一匹配。
+	// Type is the type of the node, which determines the logic and behavior of the node. It should match one of the node types registered in the rule engine.
 	Type string `json:"type"`
-	//节点的名称，可以是任意字符串
+	// Name is the name of the node, which can be any string.
 	Name string `json:"name"`
-	//表示这个节点是否处于调试模式。如果为真，当节点处理消息时，会触发调试回调函数。
-	//该配置会被RuleChain`DebugMode`配置覆盖
+	// DebugMode indicates whether the node is in debug mode. If true, a debug callback function is triggered when the node processes messages.
+	// This setting can be overridden by the RuleChain `DebugMode` configuration.
 	DebugMode bool `json:"debugMode"`
-	//包含了节点的配置参数，具体内容取决于节点类型。
-	//例如，一个JS过滤器节点可能有一个`jsScript`字段，定义了过滤逻辑，
-	//而一个REST API调用节点可能有一个`restEndpointUrlPattern`字段，定义了要调用的URL。
+	// Configuration contains the configuration parameters of the node, which vary depending on the node type.
+	// For example, a JS filter node might have a `jsScript` field defining the filtering logic,
+	// while a REST API call node might have a `restEndpointUrlPattern` field defining the URL to call.
 	Configuration Configuration `json:"configuration"`
 }
 
-// NodeAdditionalInfo 用于可视化位置信息(预留字段)
+// NodeAdditionalInfo is used for visualization position information (reserved field).
 type NodeAdditionalInfo struct {
 	Description string `json:"description"`
 	LayoutX     int    `json:"layoutX"`
 	LayoutY     int    `json:"layoutY"`
 }
 
-// NodeConnection 规则链节点连接定义
-// 每个对象代表规则链中两个节点之间的连接
+// NodeConnection defines the connection between two nodes in a rule chain.
 type NodeConnection struct {
-	//连接的源节点的id，应该与nodes数组中的某个节点id匹配。
+	// FromId is the id of the source node, which should match the id of a node in the nodes array.
 	FromId string `json:"fromId"`
-	//连接的目标节点的id，应该与nodes数组中的某个节点id匹配
+	// ToId is the id of the target node, which should match the id of a node in the nodes array.
 	ToId string `json:"toId"`
-	//连接的类型，决定了什么时候以及如何把消息从一个节点发送到另一个节点。它应该与源节点类型支持的连接类型之一匹配。
-	//例如，一个JS过滤器节点可能支持两种连接类型："True"和"False"，表示消息是否通过或者失败过滤条件。
+	// Type is the type of connection, which determines when and how messages are sent from one node to another. It should match one of the connection types supported by the source node type.
+	// For example, a JS filter node might support two connection types: "True" and "False," indicating whether the message passes or fails the filter condition.
 	Type string `json:"type"`
 }
 
-// RuleChainConnection 子规则链连接定义
-// 每个对象代表规则链中一个节点和一个子规则链之间的连接
+// RuleChainConnection defines the connection between a node and a sub-rule chain.
 type RuleChainConnection struct {
-	//连接的源节点的id，应该与nodes数组中的某个节点id匹配。
+	// FromId is the id of the source node, which should match the id of a node in the nodes array.
 	FromId string `json:"fromId"`
-	//连接的目标子规则链的id，应该与规则引擎中注册的子规则链之一匹配。
+	// ToId is the id of the target sub-rule chain, which should match one of the sub-rule chains registered in the rule engine.
 	ToId string `json:"toId"`
-	//连接的类型，决定了什么时候以及如何把消息从一个节点发送到另一个节点。它应该与源节点类型支持的连接类型之一匹配。
+	// Type is the type of connection, which determines when and how messages are sent from one node to another. It should match one of the connection types supported by the source node type.
 	Type string `json:"type"`
 }
 
-// RuleChainRunSnapshot 规则链运行日志快照
+// RuleChainRunSnapshot is a snapshot of the rule chain execution log.
 type RuleChainRunSnapshot struct {
 	RuleChain
-	// Id 执行ID
+	// Id is the execution ID.
 	Id string `json:"id"`
-	// StartTs 执行开始时间
+	// StartTs is the start time of execution.
 	StartTs int64 `json:"startTs"`
-	// EndTs 执行结束时间
+	// EndTs is the end time of execution.
 	EndTs int64 `json:"endTs"`
-	// Logs 每个节点的日志
+	// Logs are the logs for each node.
 	Logs []RuleNodeRunLog `json:"logs"`
-	//扩展字段
+	// AdditionalInfo is an extension field.
 	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
 }
 
-// RuleNodeRunLog 节点日志
+// RuleNodeRunLog is the log for a node.
 type RuleNodeRunLog struct {
-	// Id 节点ID
+	// Id is the node ID.
 	Id string `json:"nodeId"`
-	// InMsg 输入消息
+	// InMsg is the input message.
 	InMsg RuleMsg `json:"inMsg"`
-	// OutMsg 输出消息
+	// OutMsg is the output message.
 	OutMsg RuleMsg `json:"outMsg"`
-	// RelationType 和下一个节点连接类型
+	// RelationType is the connection type with the next node.
 	RelationType string `json:"relationType"`
-	// Err 错误信息
+	// Err is the error information.
 	Err string `json:"err"`
-	// LogItems 执行过程中的日志
+	// LogItems are the logs during execution.
 	LogItems []string `json:"logItems"`
-	// StartTs 执行开始时间
+	// StartTs is the start time of execution.
 	StartTs int64 `json:"startTs"`
-	// EndTs 执行结束时间
+	// EndTs is the end time of execution.
 	EndTs int64 `json:"endTs"`
+}
+
+// EndpointDsl defines the DSL for an endpoint.
+type EndpointDsl struct {
+	// Endpoint contains the basic information of the endpoint.
+	Endpoint EndpointBaseInfo `json:"endpoint"`
+	// Routers is the list of routers.
+	Routers []*RouterDsl `json:"routes"`
+}
+
+// EndpointBaseInfo is the base information for an endpoint.
+type EndpointBaseInfo struct {
+	// Id is the endpoint ID.
+	Id string `json:"id"`
+	// Name is the name of the endpoint.
+	Name string `json:"name"`
+	// Type is the type of the endpoint.
+	Type string `json:"type"`
+	// Configuration contains the configuration information of the endpoint.
+	Configuration Configuration `json:"configuration,omitempty"`
+	// AdditionalInfo is an extension field.
+	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
+}
+
+// RouterDsl defines a router for an endpoint.
+type RouterDsl struct {
+	// Id is the router ID, optional and by default uses From.Path.
+	Id string `json:"id"`
+	// Params is the parameters for the router.
+	// HTTP Endpoint router params is POST/GET/PUT...
+	Params []interface{} `json:"params"`
+	// From is the source for the router.
+	From FromDsl `json:"from"`
+	// To is the destination for the router.
+	To ToDsl `json:"to"`
+}
+
+// FromDsl defines the source for an endpoint router.
+type FromDsl struct {
+	// Path is the path of the source.
+	Path string `json:"path"`
+	// Configuration is the configuration for the source.
+	Configuration Configuration `json:"configuration"`
+}
+
+// ToDsl defines the destination for an endpoint router.
+type ToDsl struct {
+	// Path is the path of the executor for the destination.
+	// For example, "chain:default" to execute by a rule chain for `default`, "component:jsTransform" to execute a JS transform component.
+	Path string `json:"path"`
+	// Configuration is the configuration for the destination.
+	Configuration Configuration `json:"configuration"`
+	// Wait indicates whether to wait for the 'To' executor to finish before proceeding.
+	Wait bool `json:"wait"`
 }

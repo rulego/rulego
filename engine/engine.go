@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2024 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,21 @@
  * limitations under the License.
  */
 
-package rulego
+package engine
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/aspect"
+	"github.com/rulego/rulego/builtin/aspect"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 var _ types.RuleContext = (*DefaultRuleContext)(nil)
+var _ types.RuleEngine = (*RuleEngine)(nil)
 
 // DefaultRuleContext 默认规则引擎消息处理上下文
 type DefaultRuleContext struct {
@@ -56,7 +57,7 @@ type DefaultRuleContext struct {
 	//是否已经执行了onAllNodeCompleted函数
 	onAllNodeCompletedDone int32
 	//子规则链池
-	ruleChainPool *RuleGo
+	ruleChainPool types.RuleEnginePool
 	//是否跳过执行子节点，默认是不跳过
 	skipTellNext bool
 	//环绕切面列表
@@ -70,7 +71,7 @@ type DefaultRuleContext struct {
 }
 
 // NewRuleContext 创建一个默认规则引擎消息处理上下文实例
-func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd types.OnEndFunc, ruleChainPool *RuleGo) *DefaultRuleContext {
+func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd types.OnEndFunc, ruleChainPool types.RuleEnginePool) *DefaultRuleContext {
 	aroundAspects, beforeAspects, afterAspects := config.GetNodeAspects()
 	//添加before日志切面
 	beforeAspects = append(beforeAspects, &aspect.Debug{})
@@ -257,10 +258,10 @@ func (ctx *DefaultRuleContext) GetContext() context.Context {
 	return ctx.context
 }
 
-func (ctx *DefaultRuleContext) SetAllCompletedFunc(f func()) types.RuleContext {
-	ctx.onAllNodeCompleted = f
-	return ctx
-}
+//func (ctx *DefaultRuleContext) SetAllCompletedFunc(f func()) types.RuleContext {
+//	ctx.onAllNodeCompleted = f
+//	return ctx
+//}
 
 func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 	if ctx.pool != nil {
@@ -285,14 +286,14 @@ func (ctx *DefaultRuleContext) TellFlow(msg types.RuleMsg, chainId string, onEnd
 }
 
 // SetRuleChainPool 设置子规则链池
-func (ctx *DefaultRuleContext) SetRuleChainPool(ruleChainPool *RuleGo) {
+func (ctx *DefaultRuleContext) SetRuleChainPool(ruleChainPool types.RuleEnginePool) {
 	ctx.ruleChainPool = ruleChainPool
 }
 
 // GetRuleChainPool 获取子规则链池
-func (ctx *DefaultRuleContext) GetRuleChainPool() *RuleGo {
+func (ctx *DefaultRuleContext) GetRuleChainPool() types.RuleEnginePool {
 	if ctx.ruleChainPool == nil {
-		return DefaultRuleGo
+		return DefaultPool
 	} else {
 		return ctx.ruleChainPool
 	}
@@ -553,12 +554,12 @@ func (ctx *DefaultRuleContext) executeAfterAop(msg types.RuleMsg, err error, rel
 // RuleEngine 规则引擎
 // 每个规则引擎实例只有一个根规则链，如果没设置规则链则无法处理数据
 type RuleEngine struct {
-	//规则引擎实例标识
-	Id string
 	//配置
 	Config types.Config
 	//子规则链池
-	RuleChainPool *RuleGo
+	RuleChainPool types.RuleEnginePool
+	//规则引擎实例标识
+	id string
 	//根规则链
 	rootRuleChainCtx *RuleChainCtx
 	//规则链执行开始前置切面列表
@@ -571,18 +572,18 @@ type RuleEngine struct {
 	initialized bool
 }
 
-// RuleEngineOption is a function type that modifies the RuleEngine.
-type RuleEngineOption func(*RuleEngine) error
+//// RuleEngineOption is a function type that modifies the RuleEngine.
+//type RuleEngineOption func(*RuleEngine) error
 
-func newRuleEngine(id string, def []byte, opts ...RuleEngineOption) (*RuleEngine, error) {
+func newRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*RuleEngine, error) {
 	if len(def) == 0 {
 		return nil, errors.New("def can not nil")
 	}
 	// Create a new RuleEngine with the Id
 	ruleEngine := &RuleEngine{
-		Id:            id,
+		id:            id,
 		Config:        NewConfig(),
-		RuleChainPool: DefaultRuleGo,
+		RuleChainPool: DefaultPool,
 	}
 	err := ruleEngine.ReloadSelf(def, opts...)
 	if err == nil && ruleEngine.rootRuleChainCtx != nil {
@@ -590,7 +591,7 @@ func newRuleEngine(id string, def []byte, opts ...RuleEngineOption) (*RuleEngine
 			ruleEngine.rootRuleChainCtx.Id = types.RuleNodeId{Id: id, Type: types.CHAIN}
 		} else {
 			//使用规则链ID
-			ruleEngine.Id = ruleEngine.rootRuleChainCtx.Id.Id
+			ruleEngine.id = ruleEngine.rootRuleChainCtx.Id.Id
 		}
 
 	}
@@ -603,12 +604,19 @@ func newRuleEngine(id string, def []byte, opts ...RuleEngineOption) (*RuleEngine
 	return ruleEngine, err
 }
 
-func (e *RuleEngine) Reload(opts ...RuleEngineOption) error {
+func (e *RuleEngine) Id() string {
+	return e.id
+}
+func (e *RuleEngine) SetConfig(config types.Config) {
+	e.Config = config
+}
+
+func (e *RuleEngine) Reload(opts ...types.RuleEngineOption) error {
 	return e.ReloadSelf(e.DSL(), opts...)
 }
 
 // ReloadSelf 重新加载规则链
-func (e *RuleEngine) ReloadSelf(def []byte, opts ...RuleEngineOption) error {
+func (e *RuleEngine) ReloadSelf(def []byte, opts ...types.RuleEngineOption) error {
 	// Apply the options to the RuleEngine.
 	for _, opt := range opts {
 		_ = opt(e)
@@ -701,7 +709,7 @@ func (e *RuleEngine) Initialized() bool {
 }
 
 // RootRuleChainCtx 获取根规则链
-func (e *RuleEngine) RootRuleChainCtx() *RuleChainCtx {
+func (e *RuleEngine) RootRuleChainCtx() types.ChainCtx {
 	return e.rootRuleChainCtx
 }
 
@@ -863,9 +871,9 @@ func NewConfig(opts ...types.Option) types.Config {
 }
 
 // WithConfig is an option that sets the Config of the RuleEngine.
-func WithConfig(config types.Config) RuleEngineOption {
-	return func(re *RuleEngine) error {
-		re.Config = config
+func WithConfig(config types.Config) types.RuleEngineOption {
+	return func(re types.RuleEngine) error {
+		re.SetConfig(config)
 		return nil
 	}
 }

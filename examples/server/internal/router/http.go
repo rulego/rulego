@@ -6,7 +6,7 @@ import (
 	"examples/server/internal/controller"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/endpoint"
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
 	"net/http"
 	"strings"
@@ -28,7 +28,7 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 		RuleConfig: rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger.Logger)),
 	}
 	//添加全局拦截器
-	restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	restEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.Headers().Set("Access-Control-Allow-Origin", "*")
 		return true

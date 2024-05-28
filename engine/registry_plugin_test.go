@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package rulego
+package engine
 
 import (
 	"github.com/rulego/rulego/api/types"
@@ -57,7 +57,7 @@ var testPluginRuleFile = `
 	  }
 	}
 `
-var testPluginFile = "plugin.so"
+var testPluginFile = "../plugin.so"
 
 func TestPlugin(t *testing.T) {
 	_ = Registry.Unregister("test")

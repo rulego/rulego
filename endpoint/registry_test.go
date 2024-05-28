@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2024 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,16 @@
 package endpoint
 
 import (
-	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
+	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/test/assert"
-	"net/textproto"
 	"testing"
 )
 
 func TestRegistry(t *testing.T) {
-	config := rulego.NewConfig(types.WithDefaultPool())
+	config := engine.NewConfig(types.WithDefaultPool())
 	var endpointType = "test"
 	var unknownType = "unknown"
 	configuration := types.Configuration{
@@ -67,112 +68,9 @@ func TestRegistry(t *testing.T) {
 
 }
 
-// testRequestMessage http请求消息
-type testRequestMessage struct {
-	headers textproto.MIMEHeader
-	body    []byte
-	msg     *types.RuleMsg
-	err     error
-}
-
-func (r *testRequestMessage) Body() []byte {
-	return r.body
-}
-func (r *testRequestMessage) Headers() textproto.MIMEHeader {
-	if r.headers == nil {
-		r.headers = make(map[string][]string)
-	}
-	return r.headers
-}
-
-func (r *testRequestMessage) From() string {
-	return ""
-}
-
-func (r *testRequestMessage) GetParam(key string) string {
-	return ""
-}
-
-func (r *testRequestMessage) SetMsg(msg *types.RuleMsg) {
-	r.msg = msg
-}
-
-func (r *testRequestMessage) GetMsg() *types.RuleMsg {
-	if r.msg == nil {
-		ruleMsg := types.NewMsg(0, r.From(), types.JSON, types.NewMetadata(), string(r.Body()))
-		r.msg = &ruleMsg
-	}
-	return r.msg
-}
-
-func (r *testRequestMessage) SetStatusCode(statusCode int) {
-}
-
-func (r *testRequestMessage) SetBody(body []byte) {
-	r.body = body
-}
-
-func (r *testRequestMessage) SetError(err error) {
-	r.err = err
-}
-
-func (r *testRequestMessage) GetError() error {
-	return r.err
-}
-
-// testResponseMessage 响应消息
-type testResponseMessage struct {
-	body    []byte
-	msg     *types.RuleMsg
-	headers textproto.MIMEHeader
-	err     error
-}
-
-func (r *testResponseMessage) Body() []byte {
-	return r.body
-}
-
-func (r *testResponseMessage) Headers() textproto.MIMEHeader {
-	if r.headers == nil {
-		r.headers = make(map[string][]string)
-	}
-	return r.headers
-}
-
-func (r *testResponseMessage) From() string {
-	return ""
-}
-
-func (r *testResponseMessage) GetParam(key string) string {
-	return ""
-}
-
-func (r *testResponseMessage) SetMsg(msg *types.RuleMsg) {
-	r.msg = msg
-}
-func (r *testResponseMessage) GetMsg() *types.RuleMsg {
-	return r.msg
-}
-
-func (r *testResponseMessage) SetStatusCode(statusCode int) {
-}
-
-func (r *testResponseMessage) SetBody(body []byte) {
-	r.body = body
-
-}
-
-func (r *testResponseMessage) SetError(err error) {
-	r.err = err
-}
-
-func (r *testResponseMessage) GetError() error {
-	return r.err
-}
-
 // 测试endpoint
 type testEndpoint struct {
-	BaseEndpoint
+	impl.BaseEndpoint
 	configuration types.Configuration
 }
 
@@ -204,7 +102,7 @@ func (test *testEndpoint) Id() string {
 	return "id"
 }
 
-func (test *testEndpoint) AddRouter(router *Router, params ...interface{}) (string, error) {
+func (test *testEndpoint) AddRouter(router endpointApi.Router, params ...interface{}) (string, error) {
 	//返回任务ID，用于清除任务
 	return "1", nil
 }

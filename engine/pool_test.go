@@ -14,51 +14,19 @@
  * limitations under the License.
  */
 
-package rulego
+package engine
 
 import (
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"testing"
 	"time"
 )
 
-var ruleChainFile = `{
-          "ruleChain": {
-            "id": "testRuleGo01",
-            "name": "testRuleChain01",
-            "debugMode": true,
-            "root": true
-          },
-          "metadata": {
-            "firstNodeIndex": 0,
-            "nodes": [
-              {
-                "id": "s1",
-                "additionalInfo": {
-                  "description": "",
-                  "layoutX": 0,
-                  "layoutY": 0
-                },
-                "type": "jsFilter",
-                "name": "过滤",
-                "debugMode": true,
-                "configuration": {
-                  "jsScript": "return msg.temperature>10;"
-                }
-              }
-            ],
-            "connections": [
-              {
-              }
-            ]
-          }
-        }`
-
 // TestRuleGo 测试加载规则链文件夹
 func TestRuleGo(t *testing.T) {
+
 	//注册自定义组件
 	_ = Registry.Register(&test.UpperNode{})
 	_ = Registry.Register(&test.TimeNode{})
@@ -68,32 +36,8 @@ func TestRuleGo(t *testing.T) {
 	assert.Nil(t, err)
 	_, err = New("aa", []byte(ruleChainFile))
 	assert.Nil(t, err)
-	_, ok := Get("aa")
-	assert.True(t, ok)
-	metaData := types.NewMetadata()
-	metaData.PutValue("productType", "test01")
-	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 
-	j := 0
-	Range(func(key, value any) bool {
-		j++
-		return true
-	})
-	assert.True(t, j > 0)
-	OnMsg(msg)
-	Reload()
-
-	Del("aa")
-	_, ok = Get("aa")
-	assert.False(t, ok)
-	Stop()
-	myRuleGo := &RuleGo{}
-	_ = Load("./api/")
-	p := engine.NewPool()
-	myRuleGo = &RuleGo{
-		ruleEnginePool: p,
-	}
-	assert.Equal(t, p, myRuleGo.Engine())
+	myRuleGo := NewPool()
 	config := NewConfig()
 	chainHasSubChainNodeDone := false
 	chainMsgTypeSwitchDone := false
@@ -105,12 +49,12 @@ func TestRuleGo(t *testing.T) {
 			chainMsgTypeSwitchDone = true
 		}
 	}
-	err = myRuleGo.Load("./testdata/aa.txt", WithConfig(config))
+	err = myRuleGo.Load("../testdata/aa.txt", WithConfig(config))
 	assert.NotNil(t, err)
-	err = myRuleGo.Load("./testdata/aa", WithConfig(config))
+	err = myRuleGo.Load("../testdata/aa", WithConfig(config))
 	assert.NotNil(t, err)
 
-	err = myRuleGo.Load("./testdata/*.json", WithConfig(config))
+	err = myRuleGo.Load("../testdata/rule/*.json", WithConfig(config))
 	assert.Nil(t, err)
 
 	var i = 0
@@ -119,8 +63,13 @@ func TestRuleGo(t *testing.T) {
 		return true
 	})
 	assert.True(t, i > 0)
-
-	_, ok = myRuleGo.Get("chain_call_rest_api")
+	i = 0
+	Range(func(key, value any) bool {
+		i++
+		return true
+	})
+	assert.True(t, i > 0)
+	_, ok := myRuleGo.Get("chain_call_rest_api")
 	assert.Equal(t, true, ok)
 
 	_, ok = myRuleGo.Get("chain_has_sub_chain_node")
@@ -146,15 +95,16 @@ func TestRuleGo(t *testing.T) {
 	_, ok = myRuleGo.Get("sub_chain")
 	assert.Equal(t, false, ok)
 
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
+
 	myRuleGo.OnMsg(msg)
 
 	time.Sleep(time.Millisecond * 500)
 
 	assert.True(t, chainHasSubChainNodeDone)
 	assert.True(t, chainMsgTypeSwitchDone)
-
-	myRuleGo.Reload()
-	myRuleGo.OnMsg(msg)
 
 	ruleEngine, _ := myRuleGo.Get("test_context_chain")
 	ruleEngine.Stop()

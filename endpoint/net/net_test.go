@@ -1,11 +1,14 @@
 package net
 
 import (
-	"github.com/rulego/rulego"
+	"fmt"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
+	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/maps"
 	"os"
 	"strings"
 	"sync"
@@ -15,7 +18,7 @@ import (
 )
 
 var (
-	testdataFolder   = "../../testdata"
+	testdataFolder   = "../../testdata/rule"
 	testServer       = "127.0.0.1:8888"
 	testConfigServer = "127.0.0.1:8889"
 	msgContent1      = "{\"test\":\"AA\"}"
@@ -35,6 +38,37 @@ func TestNetMessage(t *testing.T) {
 		var response = &ResponseMessage{}
 		test.EndpointMessage(t, response)
 	})
+}
+
+func TestRouterId(t *testing.T) {
+	config := types.NewConfig()
+	var nodeConfig = make(types.Configuration)
+	_ = maps.Map2Struct(&Config{
+		Protocol: "tcp",
+		Server:   testConfigServer,
+		//1秒超时
+		ReadTimeout: 1,
+	}, nodeConfig)
+	var ep = &Endpoint{}
+	err := ep.Init(config, nodeConfig)
+	assert.Nil(t, err)
+	router := impl.NewRouter().SetId("r1").From("/device/info").End()
+	routerId, _ := ep.AddRouter(router)
+	assert.Equal(t, "r1", routerId)
+
+	router = impl.NewRouter().From("/device/info").End()
+	routerId, _ = ep.AddRouter(router)
+	assert.Equal(t, "/device/info", routerId)
+	router = impl.NewRouter().From("/device/info").End()
+	routerId, _ = ep.AddRouter(router, "test")
+	assert.Equal(t, "/device/info", routerId)
+
+	err = ep.RemoveRouter("r1")
+	assert.Nil(t, err)
+	err = ep.RemoveRouter("/device/info")
+	assert.Nil(t, err)
+	err = ep.RemoveRouter("/device/info")
+	assert.Equal(t, fmt.Sprintf("router: %s not found", "/device/info"), err.Error())
 }
 
 func TestNetEndpoint(t *testing.T) {
@@ -75,33 +109,40 @@ func TestNetEndpoint(t *testing.T) {
 }
 
 func TestNetEndpointConfig(t *testing.T) {
-	config := rulego.NewConfig(types.WithDefaultPool())
+	config := engine.NewConfig(types.WithDefaultPool())
 	//创建tpc endpoint服务
-	epStarted, _ := endpoint.New(Type, config, Config{
+	var nodeConfig = make(types.Configuration)
+	_ = maps.Map2Struct(&Config{
 		Protocol: "tcp",
 		Server:   testConfigServer,
 		//1秒超时
 		ReadTimeout: 1,
-	})
+	}, nodeConfig)
+	var epStarted = &Endpoint{}
+	err := epStarted.Init(config, nodeConfig)
+
 	assert.Equal(t, testConfigServer, epStarted.Id())
 
 	go func() {
 		err := epStarted.Start()
-		assert.Equal(t, "endpoint stop", err.Error())
+		assert.Equal(t, endpoint.ErrServerStopped.Error(), err.Error())
 	}()
 
 	time.Sleep(time.Millisecond * 200)
 
-	epErr, _ := endpoint.New(Type, config, types.Configuration{
-		"server": testConfigServer,
+	nodeConfig = make(types.Configuration)
+	_ = maps.Map2Struct(&Config{
+		Server: testConfigServer,
 		//1秒超时
-		"readTimeout": 1,
-	})
-	netEndpoint := epErr.(*Endpoint)
+		ReadTimeout: 1,
+	}, nodeConfig)
+	var netEndpoint = &Endpoint{}
+	err = netEndpoint.Init(config, nodeConfig)
+
 	assert.Equal(t, "tcp", netEndpoint.Config.Protocol)
 
 	//启动失败，端口已经占用
-	err := epErr.Start()
+	err = netEndpoint.Start()
 	assert.NotNil(t, err)
 
 	netEndpoint = &Endpoint{}
@@ -113,44 +154,40 @@ func TestNetEndpointConfig(t *testing.T) {
 	})
 	assert.Equal(t, "tcp", netEndpoint.Config.Protocol)
 
-	ep, _ := endpoint.New(Type, config, types.Configuration{
-		"protocol": "tcp",
-		"server":   testConfigServer,
-		//1秒超时
-		"readTimeout": 1,
-	})
+	var ep = &Endpoint{}
+	err = ep.Init(config, nodeConfig)
 
 	assert.Equal(t, testConfigServer, ep.Id())
 	_, err = ep.AddRouter(nil)
 	assert.Equal(t, "router can not nil", err.Error())
 
-	router := endpoint.NewRouter().From("^{.*").End()
+	router := impl.NewRouter().From("^{.*").End()
 	routerId, err := ep.AddRouter(router)
 	assert.Nil(t, err)
 
 	//重复
-	router = endpoint.NewRouter().From("^{.*").End()
+	router = impl.NewRouter().From("^{.*").End()
 	_, err = ep.AddRouter(router)
 	assert.Equal(t, "duplicate router ^{.*", err.Error())
 
 	//删除路由
-	ep.RemoveRouter(routerId)
+	_ = ep.RemoveRouter(routerId)
 
-	router = endpoint.NewRouter().From("^{.*").End()
+	router = impl.NewRouter().From("^{.*").End()
 	_, err = ep.AddRouter(router)
 	assert.Nil(t, err)
 
 	//错误的表达式
-	router = endpoint.NewRouter().From("[a-z{1,5}").End()
+	router = impl.NewRouter().From("[a-z{1,5}").End()
 	_, err = ep.AddRouter(router)
 	assert.NotNil(t, err)
 
 	epStarted.Destroy()
-	epErr.Destroy()
+	netEndpoint.Destroy()
 }
 
 func createNetClient(t *testing.T) types.Node {
-	node, _ := rulego.Registry.NewNode("net")
+	node, _ := engine.Registry.NewNode("net")
 	var configuration = make(types.Configuration)
 	configuration["protocol"] = "tcp"
 	configuration["server"] = testServer
@@ -168,17 +205,29 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := rulego.NewConfig(types.WithDefaultPool())
+	config := engine.NewConfig(types.WithDefaultPool())
 	//注册规则链
-	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
+	_, _ = engine.New("default", buf, engine.WithConfig(config))
 
 	//创建tpc endpoint服务
-	ep, err := endpoint.New(Type, config, Config{
+	//ep, err := endpoint.New(Type, config, Config{
+	//	Protocol: "tcp",
+	//	Server:   testServer,
+	//	//1秒超时
+	//	ReadTimeout: 1,
+	//})
+
+	var nodeConfig = make(types.Configuration)
+	_ = maps.Map2Struct(&Config{
 		Protocol: "tcp",
 		Server:   testServer,
 		//1秒超时
 		ReadTimeout: 1,
-	})
+	}, nodeConfig)
+
+	var ep = &Endpoint{}
+	err = ep.Init(config, nodeConfig)
+
 	go func() {
 		for {
 			select {
@@ -191,14 +240,14 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		}
 	}()
 	//添加全局拦截器
-	ep.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	ep.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑
 		return true
 	})
 	var router1Count = int32(0)
 	var router2Count = int32(0)
 	//匹配所有消息，转发到该路由处理
-	router1 := endpoint.NewRouter().From("").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router1 := impl.NewRouter().From("").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		from := exchange.In.From()
 
 		requestMessage, ok := exchange.In.(*RequestMessage)
@@ -219,7 +268,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		atomic.AddInt32(&router1Count, 1)
 		return true
 	}).To("chain:default").
-		Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			assert.Equal(t, exchange.Out.From(), exchange.Out.Headers().Get(RemoteAddrKey))
 			v := exchange.Out.GetMsg().Metadata.GetValue("addFrom")
 			assert.True(t, v != "")
@@ -229,7 +278,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		}).End()
 
 	//匹配与{开头的消息，转发到该路由处理
-	router2 := endpoint.NewRouter().From("^{.*").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router2 := impl.NewRouter().From("^{.*").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.In.GetMsg().Type = "TEST_MSG_TYPE2"
 		receiveData := exchange.In.GetMsg().Data
 		if strings.HasSuffix(receiveData, "{") {
@@ -251,7 +300,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	//启动服务
 	err = ep.Start()
 
-	if err != nil && err != endpoint.StopErr {
+	if err != nil && err != endpoint.ErrServerStopped {
 		t.Fatal(err)
 	}
 	assert.Equal(t, int32(5), router1Count)
