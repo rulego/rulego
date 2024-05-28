@@ -23,7 +23,7 @@ import (
 	"examples/server/internal/service"
 	"flag"
 	"fmt"
-	"github.com/rulego/rulego/endpoint"
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
 	"gopkg.in/ini.v1"
 	"log"
@@ -82,8 +82,8 @@ func main() {
 	}
 	//创建rest服务
 	restEndpoint := router.NewRestServe(c)
-	restEndpoint.OnEventFunc = func(eventName string, params ...interface{}) {
-		if eventName == endpoint.EventInitServer {
+	restEndpoint.OnEvent = func(eventName string, params ...interface{}) {
+		if eventName == endpointApi.EventInitServer {
 			wsEndpoint := router.NewWebsocketServe(c, params[0].(*rest.Rest))
 			if err := wsEndpoint.Start(); err != nil {
 				log.Fatal("error:", err)

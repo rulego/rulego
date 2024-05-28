@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-var ruleEngine *rulego.RuleEngine
+var ruleEngine types.RuleEngine
 
 // 初始化规则引擎实例和配置
 func init() {

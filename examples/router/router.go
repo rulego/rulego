@@ -19,6 +19,7 @@ package main
 import (
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint"
 	mqttEndpoint "github.com/rulego/rulego/endpoint/mqtt"
@@ -31,9 +32,9 @@ import (
 func main() {
 	config := rulego.NewConfig(types.WithDefaultPool())
 	//定义路由 采用配置方式调用node组件
-	router := endpoint.NewRouter().From("/api/v1/msg").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router := endpoint.NewRouter().From("/api/v1/msg").Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		return true
-	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		return true
 	}).To("component:log", types.Configuration{"jsScript": `
 		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata)+'\n msgType='+msgType;
@@ -47,7 +48,7 @@ func main() {
 		panic(err)
 	}
 	//添加全局拦截器
-	_mqttEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	_mqttEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		//权限校验逻辑
 		return true
 	})
@@ -63,7 +64,7 @@ func main() {
 		Server: ":9090",
 	})
 	//添加全局拦截器
-	_restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	_restEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		userId := exchange.In.Headers().Get("userId")
 		if userId == "blacklist" {
 			//不允许访问

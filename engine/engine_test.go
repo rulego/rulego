@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2024 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package rulego
+package engine
 
 import (
 	"context"
+	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/test"
@@ -37,7 +38,7 @@ var (
 	shareValue     = "shareValue"
 	addShareKey    = "addShareKey"
 	addShareValue  = "addShareValue"
-	testdataFolder = "./testdata/"
+	testdataFolder = "../testdata/rule/"
 )
 var ruleChainFile = `{
           "ruleChain": {
@@ -548,7 +549,7 @@ func TestSpecifyID(t *testing.T) {
 	config := NewConfig()
 	ruleEngine, err := New("", []byte(ruleChainFile), WithConfig(config))
 	assert.Nil(t, err)
-	assert.Equal(t, "test01", ruleEngine.Id)
+	assert.Equal(t, "test01", ruleEngine.Id())
 	_, ok := Get("test01")
 	assert.Equal(t, true, ok)
 
@@ -556,7 +557,7 @@ func TestSpecifyID(t *testing.T) {
 
 	ruleEngine, err = New(chainId, []byte(ruleChainFile), WithConfig(config))
 	assert.Nil(t, err)
-	assert.Equal(t, chainId, ruleEngine.Id)
+	assert.Equal(t, chainId, ruleEngine.Id())
 	ruleEngine, ok = Get(chainId)
 	assert.Equal(t, true, ok)
 }
@@ -775,7 +776,8 @@ func TestEngine(t *testing.T) {
 
 	//获取节点
 	s1NodeId := types.RuleNodeId{Id: "s1"}
-	s1Node, ok := ruleEngine.rootRuleChainCtx.nodes[s1NodeId]
+	ruleEngine.RootRuleChainCtx()
+	s1Node, ok := ruleEngine.RootRuleChainCtx().GetNodeById(s1NodeId)
 	assert.True(t, ok)
 
 	nodeDsl := ruleEngine.NodeDSL(types.RuleNodeId{}, s1NodeId)
@@ -802,16 +804,16 @@ func TestEngine(t *testing.T) {
 
 	//获取子规则链
 	subChain01Id := types.RuleNodeId{Id: "subChain01", Type: types.CHAIN}
-	subChain01Node, ok := ruleEngine.rootRuleChainCtx.GetNodeById(subChain01Id)
+	subChain01Node, ok := ruleEngine.RootRuleChainCtx().GetNodeById(subChain01Id)
 	assert.True(t, ok)
 	subChain01NodeCtx, ok := subChain01Node.(*RuleChainCtx)
 	assert.True(t, ok)
 	assert.Equal(t, "测试子规则链", subChain01NodeCtx.SelfDefinition.RuleChain.Name)
-	assert.Equal(t, subChain01NodeCtx, subRuleEngine.rootRuleChainCtx)
+	assert.Equal(t, subChain01NodeCtx, subRuleEngine.RootRuleChainCtx())
 
 	//修改根规则链节点
 	_ = ruleEngine.ReloadChild(s1NodeId.Id, []byte(s1NodeFile))
-	s1Node, ok = ruleEngine.rootRuleChainCtx.nodes[s1NodeId]
+	s1Node, ok = ruleEngine.RootRuleChainCtx().GetNodeById(s1NodeId)
 	assert.True(t, ok)
 	s1RuleNodeCtx, ok = s1Node.(*RuleNodeCtx)
 	assert.True(t, ok)
@@ -822,7 +824,7 @@ func TestEngine(t *testing.T) {
 	//修改子规则链
 	_ = subRuleEngine.ReloadSelf([]byte(strings.Replace(subRuleChain, "测试子规则链", "测试子规则链-更改", -1)))
 
-	subChain01Node, ok = ruleEngine.rootRuleChainCtx.GetNodeById(types.RuleNodeId{Id: "subChain01", Type: types.CHAIN})
+	subChain01Node, ok = ruleEngine.RootRuleChainCtx().GetNodeById(types.RuleNodeId{Id: "subChain01", Type: types.CHAIN})
 	assert.True(t, ok)
 	subChain01NodeCtx, ok = subChain01Node.(*RuleChainCtx)
 	assert.True(t, ok)
@@ -848,10 +850,10 @@ func TestEngine(t *testing.T) {
 		onAllNodeCompleted = true
 	}))
 	time.Sleep(time.Millisecond * 100)
-	ruleEngine.OnMsgWithEndFunc(msg, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 
-	})
-	ruleEngine.OnMsgWithOptions(msg)
+	}))
+	ruleEngine.OnMsg(msg)
 
 	time.Sleep(time.Millisecond * 200)
 	assert.True(t, onAllNodeCompleted)
@@ -875,17 +877,17 @@ func TestRuleContext(t *testing.T) {
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
 
 	t.Run("hasOnEnd", func(t *testing.T) {
-		ctx := NewRuleContext(context.Background(), config, ruleEngine.rootRuleChainCtx, nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		ctx := NewRuleContext(context.Background(), config, ruleEngine.RootRuleChainCtx().(*RuleChainCtx), nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 
 		}, nil)
 		assert.Nil(t, ctx.From())
 
-		ctx.SetRuleChainPool(DefaultRuleGo)
-		assert.Equal(t, ctx.ruleChainPool, DefaultRuleGo)
+		ctx.SetRuleChainPool(DefaultPool)
+		assert.Equal(t, ctx.ruleChainPool, DefaultPool)
 
-		ctx.SetAllCompletedFunc(func() {
-
-		})
+		//ctx.SetAllCompletedFunc(func() {
+		//
+		//})
 		assert.NotNil(t, ctx.GetEndFunc())
 
 		ruleEngine.OnMsg(msg)
@@ -901,11 +903,11 @@ func TestRuleContext(t *testing.T) {
 		time.Sleep(time.Millisecond * 100)
 	})
 	t.Run("notEnd", func(t *testing.T) {
-		ctx := NewRuleContext(context.Background(), config, ruleEngine.rootRuleChainCtx, nil, nil, nil, nil, nil)
+		ctx := NewRuleContext(context.Background(), config, ruleEngine.RootRuleChainCtx().(*RuleChainCtx), nil, nil, nil, nil, nil)
 		ctx.DoOnEnd(msg, nil, types.Success)
 	})
 	t.Run("notSelf", func(t *testing.T) {
-		ctx := NewRuleContext(context.Background(), config, ruleEngine.rootRuleChainCtx, nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		ctx := NewRuleContext(context.Background(), config, ruleEngine.RootRuleChainCtx().(*RuleChainCtx), nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, "", relationType)
 		}, nil)
 		ctx.tellFirst(msg, nil, types.Success)
@@ -927,7 +929,7 @@ func TestRuleContext(t *testing.T) {
 		nodeCtx, _ := InitRuleNodeCtx(NewConfig(), nil, &selfDefinition)
 		ruleEngine2, _ := New("TestRuleContextTellSelf", []byte(ruleChainFile), WithConfig(config))
 
-		ctx := NewRuleContext(context.Background(), config, ruleEngine2.rootRuleChainCtx, nil, nodeCtx, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		ctx := NewRuleContext(context.Background(), config, ruleEngine2.RootRuleChainCtx().(*RuleChainCtx), nil, nodeCtx, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			//assert.Equal(t, "", relationType)
 		}, nil)
 
@@ -1117,7 +1119,7 @@ func TestUseVars(t *testing.T) {
 	go func() {
 		var i = 0
 		for i < 100 {
-			ruleEngine.rootRuleChainCtx.SelfDefinition.RuleChain.Configuration[types.Vars] = map[string]string{"js": "return msg.temperature>30;"}
+			ruleEngine.RootRuleChainCtx().Definition().RuleChain.Configuration[types.Vars] = map[string]string{"js": "return msg.temperature>30;"}
 			_ = ruleEngine.Reload(WithConfig(config))
 			i++
 		}
@@ -1162,4 +1164,60 @@ func TestNoNodes(t *testing.T) {
 	}))
 	time.Sleep(time.Millisecond * 100)
 	wg.Wait()
+}
+
+func TestIteratorNode(t *testing.T) {
+	var ruleChainFile = `{
+          "ruleChain": {
+            "id": "test01",
+            "name": "testIteratorNode",
+            "debugMode": true,
+            "root": true
+          },
+          "metadata": {
+            "firstNodeIndex": 0,
+            "nodes": [
+              {
+                "id": "s1",
+                "type": "iterator",
+                "name": "遍历所有",
+                "debugMode": true,
+                "configuration": {
+                  "fieldName": "body.sms"
+                }
+              },
+              {
+                "id": "s2",
+                "type": "log",
+                "name": "记录日志",
+                "debugMode": true,
+                "configuration": {
+                  "jsScript": "return 'Incoming';"
+                }
+              }
+            ],
+            "connections": [
+              {
+                "fromId": "s1",
+                "toId": "s2",
+                "type": "True"
+              }
+            ]
+          }
+        }`
+	config := NewConfig(types.WithDefaultPool())
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
+	}
+	ruleEngine, err := New("testIteratorNode", []byte(ruleChainFile), WithConfig(config))
+	assert.Nil(t, err)
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"body\":{\"sms\":[\"aa\"]}}")
+	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		fmt.Println("onEnd", relationType, msg.Data, err)
+	}), types.WithOnAllNodeCompleted(func() {
+		fmt.Println("WithOnAllNodeCompleted")
+	}))
+	time.Sleep(time.Millisecond * 100)
 }

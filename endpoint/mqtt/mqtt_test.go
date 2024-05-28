@@ -1,19 +1,22 @@
 package mqtt
 
 import (
-	"github.com/rulego/rulego"
+	"fmt"
 	"github.com/rulego/rulego/api/types"
+	endpoint "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/components/mqtt"
-	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
+	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/maps"
 	"os"
 	"testing"
 	"time"
 )
 
 var (
-	testdataFolder = "../../testdata"
+	testdataFolder = "../../testdata/rule"
 	testServer     = "127.0.0.1:1883"
 	msgContent1    = "{\"test\":\"AA\"}"
 	msgContent2    = "{\"test\":\"BB\"}"
@@ -29,6 +32,36 @@ func TestMqttMessage(t *testing.T) {
 		var response = &ResponseMessage{}
 		test.EndpointMessage(t, response)
 	})
+}
+
+func TestRouterId(t *testing.T) {
+	config := types.NewConfig()
+	//创建mqtt endpoint服务
+	var nodeConfig = make(types.Configuration)
+	_ = maps.Map2Struct(&mqtt.Config{
+		Server: testServer,
+	}, nodeConfig)
+	var ep = &Endpoint{}
+	err := ep.Init(config, nodeConfig)
+	assert.Nil(t, err)
+	assert.Equal(t, testServer, ep.Id())
+	router := impl.NewRouter().SetId("r1").From("/device/info").End()
+	routerId, _ := ep.AddRouter(router)
+	assert.Equal(t, "r1", routerId)
+
+	router = impl.NewRouter().From("/device/info").End()
+	routerId, _ = ep.AddRouter(router)
+	assert.Equal(t, "/device/info", routerId)
+	router = impl.NewRouter().From("/device/info").End()
+	routerId, _ = ep.AddRouter(router, "test")
+	assert.Equal(t, "/device/info", routerId)
+
+	err = ep.RemoveRouter("r1")
+	assert.Nil(t, err)
+	err = ep.RemoveRouter("/device/info")
+	assert.Nil(t, err)
+	err = ep.RemoveRouter("/device/info")
+	assert.Equal(t, fmt.Sprintf("router: %s not found", "/device/info"), err.Error())
 }
 
 func TestMqttEndpoint(t *testing.T) {
@@ -54,7 +87,7 @@ func TestMqttEndpoint(t *testing.T) {
 }
 
 func createClient(t *testing.T) types.Node {
-	node, _ := rulego.Registry.NewNode("mqttClient")
+	node, _ := engine.Registry.NewNode("mqttClient")
 	var configuration = make(types.Configuration)
 	configuration["Server"] = "127.0.0.1:1883"
 	configuration["Topic"] = "/device/msg"
@@ -73,22 +106,26 @@ func startServer(t *testing.T, stop chan struct{}) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := rulego.NewConfig(types.WithDefaultPool())
+	config := engine.NewConfig(types.WithDefaultPool())
 	//注册规则链
-	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
+	_, _ = engine.New("default", buf, engine.WithConfig(config))
 
 	//创建mqtt endpoint服务
-	ep, err := endpoint.New(Type, config, mqtt.Config{
+	var nodeConfig = make(types.Configuration)
+	_ = maps.Map2Struct(&mqtt.Config{
 		Server: testServer,
-	})
+	}, nodeConfig)
+	var ep = &Endpoint{}
+	err = ep.Init(config, nodeConfig)
+
 	assert.Equal(t, testServer, ep.Id())
 	//添加全局拦截器
-	ep.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	ep.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑
 		return true
 	})
 	//订阅所有主题路由，并转发到default规则链处理
-	router1 := endpoint.NewRouter().From("/device/msg").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router1 := impl.NewRouter().From("/device/msg").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		requestMessage := exchange.In.(*RequestMessage)
 		responseMessage := exchange.Out.(*ResponseMessage)
 		topic := "/device/msg"
@@ -123,12 +160,12 @@ func startServer(t *testing.T, stop chan struct{}) {
 	_ = ep.Start()
 
 	//服务启动后，继续添加路由
-	routerId, err := ep.AddRouter(endpoint.NewRouter().From("/device/#").End())
+	routerId, err := ep.AddRouter(impl.NewRouter().From("/device/#").End())
 	assert.Equal(t, "/device/#", routerId)
 
 	ep.RemoveRouter(routerId)
 
-	ep.(*Endpoint).Printf("start server")
+	ep.Printf("start server")
 	<-stop
 	ep.Destroy()
 }

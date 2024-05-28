@@ -22,7 +22,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
 	"log"
@@ -43,9 +44,9 @@ const (
 )
 
 // 注册组件
-func init() {
-	_ = endpoint.Registry.Register(&Endpoint{})
-}
+//func init() {
+//	_ = endpoint.Registry.Register(&Endpoint{})
+//}
 
 // RequestMessage 请求消息
 type RequestMessage struct {
@@ -193,8 +194,10 @@ type Config struct {
 
 // RegexpRouter 正则表达式路由
 type RegexpRouter struct {
+	//路由ID
+	id string
 	//路由
-	router *endpoint.Router
+	router endpoint.Router
 	//正则表达式
 	regexp *regexp.Regexp
 }
@@ -203,7 +206,7 @@ type RegexpRouter struct {
 // 支持通过正则表达式把匹配的消息路由到指定路由
 type Endpoint struct {
 	// 嵌入endpoint.BaseEndpoint，继承其方法
-	endpoint.BaseEndpoint
+	impl.BaseEndpoint
 	// 配置
 	Config Config
 	// rulego配置
@@ -254,11 +257,11 @@ func (ep *Endpoint) Id() string {
 	return ep.Config.Server
 }
 
-func (ep *Endpoint) AddRouter(router *endpoint.Router, params ...interface{}) (string, error) {
+func (ep *Endpoint) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
 	} else {
-		expr := router.GetFrom().From
+		expr := router.GetFrom().ToString()
 		//允许空expr，表示匹配所有
 		var regexpV *regexp.Regexp
 		if expr != "" {
@@ -269,20 +272,22 @@ func (ep *Endpoint) AddRouter(router *endpoint.Router, params ...interface{}) (s
 				regexpV = re
 			}
 		}
+		if id := router.GetId(); id == "" {
+			router.SetId(router.GetFrom().ToString())
+		}
 		ep.Lock()
 		defer ep.Unlock()
 		if ep.routers == nil {
 			ep.routers = make(map[string]*RegexpRouter)
 		}
-		if _, ok := ep.routers[expr]; ok {
-			return expr, fmt.Errorf("duplicate router %s", expr)
+		if _, ok := ep.routers[router.GetId()]; ok {
+			return router.GetId(), fmt.Errorf("duplicate router %s", expr)
 		} else {
-			ep.routers[expr] = &RegexpRouter{
+			ep.routers[router.GetId()] = &RegexpRouter{
 				router: router,
 				regexp: regexpV,
 			}
-
-			return expr, nil
+			return router.GetId(), nil
 		}
 
 	}
@@ -292,7 +297,11 @@ func (ep *Endpoint) RemoveRouter(routerId string, params ...interface{}) error {
 	ep.Lock()
 	defer ep.Unlock()
 	if ep.routers != nil {
-		delete(ep.routers, routerId)
+		if _, ok := ep.routers[routerId]; ok {
+			delete(ep.routers, routerId)
+		} else {
+			return fmt.Errorf("router: %s not found", routerId)
+		}
 	}
 	return nil
 }
@@ -313,7 +322,7 @@ func (ep *Endpoint) Start() error {
 		if err != nil {
 			if opError, ok := err.(*net.OpError); ok && opError.Err == net.ErrClosed {
 				ep.Printf("net endpoint stop")
-				return endpoint.StopErr
+				return endpoint.ErrServerStopped
 			} else {
 				ep.Printf("accept:", err)
 				continue
@@ -324,6 +333,7 @@ func (ep *Endpoint) Start() error {
 		// 启动一个协端处理客户端连接
 		go ep.handler(conn)
 	}
+
 }
 
 func (ep *Endpoint) Printf(format string, v ...interface{}) {

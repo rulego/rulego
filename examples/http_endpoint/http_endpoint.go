@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
@@ -48,7 +49,7 @@ func main() {
 	})
 
 	//添加全局拦截器
-	restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	restEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		userId := exchange.In.Headers().Get("userId")
 		if userId == "blacklist" {
 			//不允许访问
@@ -58,7 +59,7 @@ func main() {
 		return true
 	})
 	//路由1
-	router1 := endpoint.NewRouter().From("/api/v1/hello/:name").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router1 := endpoint.NewRouter().From("/api/v1/hello/:name").Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		//处理请求
 		request, ok := exchange.In.(*rest.RequestMessage)
 		if ok {
@@ -88,7 +89,7 @@ func main() {
 			return true
 		}
 
-	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		exchange.Out.SetBody([]byte("s2 process" + "\n"))
 		return true
 	}).End()
@@ -98,7 +99,7 @@ func main() {
 
 	//路由3 采用配置方式调用规则链,to路径带变量
 	router3 := endpoint.NewRouter().From("/api/v1/msg2Chain2/:msgType").
-		Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			msg := exchange.In.GetMsg()
 			//获取消息类型
 			msg.Type = msg.Metadata.GetValue("msgType")
@@ -115,7 +116,7 @@ func main() {
 
 	//路由4 采用配置方式调用规则链,to路径带变量，并异步响应
 	router4 := endpoint.NewRouter().From("/api/v1/msg2Chain3/:msgType").
-		Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			msg := exchange.In.GetMsg()
 			//获取消息类型
 			msg.Type = msg.Metadata.GetValue("msgType")
@@ -128,7 +129,7 @@ func main() {
 			//把userId存放在msg元数据
 			msg.Metadata.PutValue("userId", userId)
 			return true
-		}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		//响应给客户端
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.SetBody([]byte("ok"))
@@ -140,7 +141,7 @@ func main() {
 		To("chain:${chainId}").
 		//必须增加Wait，异步转同步，http才能正常响应，如果不响应同步响应，不要加这一句，会影响吞吐量
 		Wait().
-		Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			err := exchange.Out.GetError()
 			if err != nil {
 				//错误
@@ -158,12 +159,12 @@ func main() {
 
 	//路由6 直接调用node组件方式
 	router6 := endpoint.NewRouter().From("/api/v1/msgToComponent1/:msgType").
-		Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			msg := exchange.In.GetMsg()
 			//获取消息类型
 			msg.Type = msg.Metadata.GetValue("msgType")
 			return true
-		}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		//响应给客户端
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.SetBody([]byte("ok"))
@@ -181,12 +182,12 @@ func main() {
 
 	//路由7 采用配置方式调用node组件
 	router7 := endpoint.NewRouter().From("/api/v1/msgToComponent2/:msgType").
-		Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			msg := exchange.In.GetMsg()
 			//获取消息类型
 			msg.Type = msg.Metadata.GetValue("msgType")
 			return true
-		}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		//响应给客户端
 		//exchange.Out.SetBody([]byte("ok"))
 		return true
@@ -194,7 +195,7 @@ func main() {
 		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
         `}).
 		Wait().
-		Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+		Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			//把处理结果，同步响应给前端，http endpoint 必须增加 Wait()，否则无法正常响应
 			outMsg := exchange.Out.GetMsg()
 			exchange.Out.Headers().Set("Content-Type", "application/json")

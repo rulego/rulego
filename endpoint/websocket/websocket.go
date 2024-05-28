@@ -19,10 +19,12 @@ package websocket
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
@@ -40,9 +42,9 @@ const Type = "ws"
 type Endpoint = Websocket
 
 // 注册组件
-func init() {
-	_ = endpoint.Registry.Register(&Endpoint{})
-}
+//func init() {
+//	_ = endpoint.Registry.Register(&Endpoint{})
+//}
 
 // RequestMessage websocket请求消息
 type RequestMessage struct {
@@ -206,11 +208,11 @@ type Config struct {
 
 // Websocket 接收端端点
 type Websocket struct {
-	endpoint.BaseEndpoint
+	impl.BaseEndpoint
 	//配置
-	Config       Config
-	RuleConfig   types.Config
-	OnEventFunc  endpoint.OnEvent
+	Config     Config
+	RuleConfig types.Config
+	//OnEventFunc  endpoint.OnEvent
 	RestEndpoint *rest.Rest
 	Upgrader     websocket.Upgrader
 	server       *http.Server
@@ -250,18 +252,25 @@ func (ws *Websocket) Id() string {
 	return ws.Config.Server
 }
 
-func (ws *Websocket) AddRouter(router *endpoint.Router, params ...interface{}) (string, error) {
+func (ws *Websocket) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
 	} else {
 		ws.addRouter(router)
-		return router.GetFrom().From, nil
+		return router.GetId(), nil
 	}
 }
 
 func (ws *Websocket) RemoveRouter(routerId string, params ...interface{}) error {
-	if router, ok := ws.RouterStorage[ws.routerKey("GET", routerId)]; ok {
-		router.Disable(true)
+	ws.Lock()
+	defer ws.Unlock()
+	if ws.RouterStorage != nil {
+		if router, ok := ws.RouterStorage[routerId]; ok && !router.IsDisable() {
+			router.Disable(true)
+			return nil
+		} else {
+			return fmt.Errorf("router: %s not found", routerId)
+		}
 	}
 	return nil
 }
@@ -270,8 +279,8 @@ func (ws *Websocket) Start() error {
 	var err error
 	//已经初始化
 	if ws.RestEndpoint != nil {
-		if ws.OnEventFunc != nil {
-			ws.OnEventFunc(endpoint.EventInitServer, ws.RestEndpoint.Server)
+		if ws.OnEvent != nil {
+			ws.OnEvent(endpoint.EventInitServer, ws.RestEndpoint.Server)
 		}
 		return nil
 	}
@@ -279,8 +288,8 @@ func (ws *Websocket) Start() error {
 		ws.router = httprouter.New()
 	}
 	ws.server = &http.Server{Addr: ws.Config.Server, Handler: ws.router}
-	if ws.OnEventFunc != nil {
-		ws.OnEventFunc(endpoint.EventInitServer, ws.server)
+	if ws.OnEvent != nil {
+		ws.OnEvent(endpoint.EventInitServer, ws.server)
 	}
 	if ws.Config.CertKeyFile != "" && ws.Config.CertFile != "" {
 		ws.Printf("starting ws server with TLS on :%s", ws.Config.Server)
@@ -294,24 +303,25 @@ func (ws *Websocket) Start() error {
 }
 
 // addRouter 注册1个或者多个路由
-func (ws *Websocket) addRouter(routers ...*endpoint.Router) *Websocket {
+func (ws *Websocket) addRouter(routers ...endpoint.Router) *Websocket {
 	ws.Lock()
 	defer ws.Unlock()
 	if ws.router == nil {
 		ws.router = httprouter.New()
 	}
-
 	if ws.RouterStorage == nil {
-		ws.RouterStorage = make(map[string]*endpoint.Router)
+		ws.RouterStorage = make(map[string]endpoint.Router)
 	}
 	for _, item := range routers {
-		key := ws.routerKey("GET", item.FromToString())
-		if old, ok := ws.RouterStorage[key]; ok {
+		if id := item.GetId(); id == "" {
+			item.SetId(item.GetFrom().ToString())
+		}
+		if old, ok := ws.RouterStorage[item.GetId()]; ok {
 			//已经存储则，把路由设置可用
 			old.Disable(false)
 		} else {
 			//存储路由
-			ws.RouterStorage[key] = item
+			ws.RouterStorage[item.GetId()] = item
 			//添加到http路由器
 			if ws.RestEndpoint != nil {
 				ws.RestEndpoint.Router().Handle("GET", item.FromToString(), ws.handler(item))
@@ -331,7 +341,7 @@ func (ws *Websocket) Router() *httprouter.Router {
 func (ws *Websocket) routerKey(method string, from string) string {
 	return method + " " + from
 }
-func (ws *Websocket) handler(router *endpoint.Router) httprouter.Handle {
+func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		c, err := ws.Upgrader.Upgrade(w, r, nil)
 		if err != nil {
@@ -351,15 +361,15 @@ func (ws *Websocket) handler(router *endpoint.Router) httprouter.Handle {
 				request: r,
 				conn:    c,
 			}}
-		if ws.OnEventFunc != nil {
-			ws.OnEventFunc(endpoint.EventConnect, connectExchange)
+		if ws.OnEvent != nil {
+			ws.OnEvent(endpoint.EventConnect, connectExchange)
 		}
 		defer func() {
 			_ = c.Close()
 			//捕捉异常
 			if e := recover(); e != nil {
-				if ws.OnEventFunc != nil {
-					ws.OnEventFunc(endpoint.EventDisconnect, connectExchange)
+				if ws.OnEvent != nil {
+					ws.OnEvent(endpoint.EventDisconnect, connectExchange)
 				}
 				ws.Printf("ws handler err :%v", e)
 			}
@@ -368,15 +378,15 @@ func (ws *Websocket) handler(router *endpoint.Router) httprouter.Handle {
 		for {
 			mt, message, err := c.ReadMessage()
 			if err != nil {
-				if ws.OnEventFunc != nil {
-					ws.OnEventFunc(endpoint.EventDisconnect, w, r, params)
+				if ws.OnEvent != nil {
+					ws.OnEvent(endpoint.EventDisconnect, w, r, params)
 				}
 				break
 			}
 
 			if router.IsDisable() {
-				if ws.OnEventFunc != nil {
-					ws.OnEventFunc(endpoint.EventDisconnect, w, r, params)
+				if ws.OnEvent != nil {
+					ws.OnEvent(endpoint.EventDisconnect, w, r, params)
 				}
 				http.NotFound(w, r)
 				break

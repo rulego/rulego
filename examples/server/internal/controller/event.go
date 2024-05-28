@@ -4,6 +4,7 @@ import (
 	"examples/server/internal/constants"
 	"examples/server/internal/service"
 	"github.com/rulego/rulego/api/types"
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/utils/json"
 	"net/http"
@@ -11,8 +12,8 @@ import (
 )
 
 // GetDebugDataRouter 创建获取节点调试数据路由
-func GetDebugDataRouter(url string) *endpoint.Router {
-	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+func GetDebugDataRouter(url string) endpointApi.Router {
+	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		chainId := msg.Metadata.GetValue(constants.KeyChainId)
 		nodeId := msg.Metadata.GetValue(constants.KeyNodeId)
@@ -32,8 +33,8 @@ func GetDebugDataRouter(url string) *endpoint.Router {
 	}).End()
 }
 
-func WsNodeLogRouter(url string) *endpoint.Router {
-	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+func WsNodeLogRouter(url string) endpointApi.Router {
+	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
@@ -45,8 +46,8 @@ func WsNodeLogRouter(url string) *endpoint.Router {
 	}).End()
 }
 
-func GetRunsRouter(url string) *endpoint.Router {
-	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+func GetRunsRouter(url string) endpointApi.Router {
+	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		chainId := msg.Metadata.GetValue(constants.KeyChainId)
 		id := msg.Metadata.GetValue(constants.KeyId)
@@ -93,8 +94,8 @@ func GetRunsRouter(url string) *endpoint.Router {
 	}).End()
 }
 
-func DeleteRunsRouter(url string) *endpoint.Router {
-	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+func DeleteRunsRouter(url string) endpointApi.Router {
+	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		chainId := msg.Metadata.GetValue(constants.KeyChainId)
 		id := msg.Metadata.GetValue(constants.KeyId)

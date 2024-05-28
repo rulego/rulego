@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2024 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package rulego
+package engine
 
 import (
 	"context"
@@ -58,7 +58,7 @@ type RuleChainCtx struct {
 	//根上下文
 	rootRuleContext types.RuleContext
 	//子规则链池
-	ruleChainPool *RuleGo
+	ruleChainPool types.RuleEnginePool
 	//重新加载增强点切面
 	reloadAspects []types.OnReloadAspect
 	//销毁增强点切面
@@ -170,8 +170,8 @@ func (rc *RuleChainCtx) GetNodeById(id types.RuleNodeId) (types.NodeCtx, bool) {
 	defer rc.RUnlock()
 	if id.Type == types.CHAIN {
 		//子规则链通过规则链池查找
-		if subRuleEngine, ok := rc.GetRuleChainPool().Get(id.Id); ok && subRuleEngine.rootRuleChainCtx != nil {
-			return subRuleEngine.rootRuleChainCtx, true
+		if subRuleEngine, ok := rc.GetRuleChainPool().Get(id.Id); ok && subRuleEngine.RootRuleChainCtx() != nil {
+			return subRuleEngine.RootRuleChainCtx(), true
 		} else {
 			return nil, false
 		}
@@ -316,6 +316,10 @@ func (rc *RuleChainCtx) DSL() []byte {
 	return v
 }
 
+func (rc *RuleChainCtx) Definition() *types.RuleChain {
+	return rc.SelfDefinition
+}
+
 // Copy 复制
 func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.Lock()
@@ -339,14 +343,14 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 }
 
 // SetRuleChainPool 设置子规则链池
-func (rc *RuleChainCtx) SetRuleChainPool(ruleChainPool *RuleGo) {
+func (rc *RuleChainCtx) SetRuleChainPool(ruleChainPool types.RuleEnginePool) {
 	rc.ruleChainPool = ruleChainPool
 }
 
 // GetRuleChainPool 获取子规则链池
-func (rc *RuleChainCtx) GetRuleChainPool() *RuleGo {
+func (rc *RuleChainCtx) GetRuleChainPool() types.RuleEnginePool {
 	if rc.ruleChainPool == nil {
-		return DefaultRuleGo
+		return DefaultPool
 	} else {
 		return rc.ruleChainPool
 	}

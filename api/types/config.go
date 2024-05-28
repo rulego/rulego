@@ -17,7 +17,7 @@
 package types
 
 import (
-	"github.com/rulego/rulego/pool"
+	"github.com/rulego/rulego/api/pool"
 	"math"
 	"sort"
 	"time"
@@ -161,9 +161,6 @@ func (c *Config) GetEngineAspects() ([]OnCreatedAspect, []OnReloadAspect, []OnDe
 	return createdAspects, reloadAspects, destroyAspects
 }
 
-// Option is a function type that modifies the Config.
-type Option func(*Config) error
-
 func NewConfig(opts ...Option) Config {
 	// Create a new Config with default values.
 	c := &Config{
@@ -183,77 +180,4 @@ func DefaultPool() Pool {
 	wp := &pool.WorkerPool{MaxWorkersCount: math.MaxInt32}
 	wp.Start()
 	return wp
-}
-
-// WithComponentsRegistry is an option that sets the components registry of the Config.
-func WithComponentsRegistry(componentsRegistry ComponentRegistry) Option {
-	return func(c *Config) error {
-		c.ComponentsRegistry = componentsRegistry
-		return nil
-	}
-}
-
-// WithOnDebug is an option that sets the on debug callback of the Config.
-func WithOnDebug(onDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)) Option {
-	return func(c *Config) error {
-		c.OnDebug = onDebug
-		return nil
-	}
-}
-
-// WithPool is an option that sets the pool of the Config.
-func WithPool(pool Pool) Option {
-	return func(c *Config) error {
-		c.Pool = pool
-		return nil
-	}
-}
-
-func WithDefaultPool() Option {
-	return func(c *Config) error {
-		wp := &pool.WorkerPool{MaxWorkersCount: math.MaxInt32}
-		wp.Start()
-		c.Pool = wp
-		return nil
-	}
-}
-
-// WithScriptMaxExecutionTime is an option that sets the js max execution time of the Config.
-func WithScriptMaxExecutionTime(scriptMaxExecutionTime time.Duration) Option {
-	return func(c *Config) error {
-		c.ScriptMaxExecutionTime = scriptMaxExecutionTime
-		return nil
-	}
-}
-
-// WithParser is an option that sets the parser of the Config.
-func WithParser(parser Parser) Option {
-	return func(c *Config) error {
-		c.Parser = parser
-		return nil
-	}
-}
-
-// WithLogger is an option that sets the logger of the Config.
-func WithLogger(logger Logger) Option {
-	return func(c *Config) error {
-		c.Logger = logger
-		return nil
-	}
-}
-
-// WithAspects is an option that sets the aspects of the Config.
-func WithAspects(aspects ...Aspect) Option {
-	return func(c *Config) error {
-		c.Aspects = aspects
-		return nil
-	}
-}
-
-// WithSecretKey is an option that sets the secret key of the Config.
-func WithSecretKey(secretKey string) Option {
-	return func(c *Config) error {
-		c.SecretKey = secretKey
-		return nil
-	}
 }

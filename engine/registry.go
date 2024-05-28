@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package rulego
+package engine
 
 import (
 	"errors"
@@ -56,7 +56,8 @@ type RuleComponentRegistry struct {
 	//规则引擎节点组件列表
 	components map[string]types.Node
 	//插件列表
-	plugins map[string][]types.Node
+	plugins            map[string][]types.Node
+	endpointComponents map[string]types.Node
 	sync.RWMutex
 }
 

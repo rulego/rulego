@@ -1,12 +1,15 @@
 package rest
 
 import (
-	"github.com/rulego/rulego"
+	"fmt"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/components/action"
-	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
+	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/maps"
 	"net/http"
 	"os"
 	"sync"
@@ -14,7 +17,7 @@ import (
 	"time"
 )
 
-var testdataFolder = "../../testdata"
+var testdataFolder = "../../testdata/rule"
 var testServer = ":9090"
 var testConfigServer = ":9091"
 
@@ -30,12 +33,42 @@ func TestRestMessage(t *testing.T) {
 	})
 }
 
+func TestRouterId(t *testing.T) {
+	config := types.NewConfig()
+	var nodeConfig = make(types.Configuration)
+	_ = maps.Map2Struct(&Config{
+		Server: testServer,
+	}, nodeConfig)
+	var ep = &Endpoint{}
+	err := ep.Init(config, nodeConfig)
+	assert.Nil(t, err)
+	assert.Equal(t, testServer, ep.Id())
+	router := impl.NewRouter().SetId("r1").From("/device/info").End()
+	routerId, _ := ep.AddRouter(router, "GET")
+	assert.Equal(t, "r1", routerId)
+
+	router = impl.NewRouter().From("/device/info").End()
+	routerId, _ = ep.AddRouter(router, "POST")
+	assert.Equal(t, "POST:/device/info", routerId)
+
+	err = ep.RemoveRouter("r1")
+	assert.Nil(t, err)
+	err = ep.RemoveRouter("POST:/device/info")
+	assert.Nil(t, err)
+	err = ep.RemoveRouter("GET:/device/info")
+	assert.Equal(t, fmt.Sprintf("router: %s not found", "GET:/device/info"), err.Error())
+}
+
 func TestRestEndpointConfig(t *testing.T) {
-	config := rulego.NewConfig(types.WithDefaultPool())
+	config := engine.NewConfig(types.WithDefaultPool())
 	//创建rest endpoint服务
-	epStarted, _ := endpoint.New(Type, config, Config{
+	var nodeConfig = make(types.Configuration)
+	_ = maps.Map2Struct(&Config{
 		Server: testConfigServer,
-	})
+	}, nodeConfig)
+	var epStarted = &Endpoint{}
+	err := epStarted.Init(config, nodeConfig)
+
 	assert.Equal(t, testConfigServer, epStarted.Id())
 
 	go func() {
@@ -45,34 +78,32 @@ func TestRestEndpointConfig(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 200)
 
-	epErr, _ := endpoint.New(Type, config, types.Configuration{
-		"server": testConfigServer,
-	})
-	_, err := epErr.AddRouter(nil, "POST")
-	assert.Equal(t, "router can not nil", err.Error())
-	//err := epErr.Start()
-	//assert.NotNil(t, err)
-	ep, _ := endpoint.New(Type, config, types.Configuration{
-		"server": testConfigServer,
-	})
+	var epErr = &Endpoint{}
+	err = epErr.Init(config, nodeConfig)
 
-	assert.Equal(t, testConfigServer, ep.Id())
+	_, err = epErr.AddRouter(nil, "POST")
+	assert.Equal(t, "router can not nil", err.Error())
+
+	restEndpoint := &Endpoint{}
+	err = restEndpoint.Init(config, nodeConfig)
+
+	assert.Equal(t, testConfigServer, restEndpoint.Id())
 	//_, err := ep.AddRouter(nil)
 	//assert.Equal(t, "router can not nil", err.Error())
 	testUrl := "/api/test"
-	router := endpoint.NewRouter().From(testUrl).End()
-	_, err = ep.AddRouter(router)
+	router := impl.NewRouter().From(testUrl).End()
+	_, err = restEndpoint.AddRouter(router)
 	assert.Equal(t, "need to specify HTTP method", err.Error())
 
-	router = endpoint.NewRouter().From(testUrl).End()
-	routerId, err := ep.AddRouter(router, "POST")
-	assert.Equal(t, "/api/test", routerId)
+	router = impl.NewRouter().From(testUrl).End()
+	routerId, err := restEndpoint.AddRouter(router, "POST")
+	assert.Equal(t, "POST:/api/test", routerId)
 
-	restEndpoint, ok := ep.(*Rest)
-	assert.True(t, ok)
+	//restEndpoint, ok := ep.(*Rest)
+	//assert.True(t, ok)
 
-	router = endpoint.NewRouter().From(testUrl).End()
-	restEndpoint.POST(router)
+	router = impl.NewRouter().From(testUrl).End()
+	//restEndpoint.POST(router)
 	restEndpoint.GET(router)
 	restEndpoint.DELETE(router)
 	restEndpoint.PATCH(router)
@@ -81,8 +112,8 @@ func TestRestEndpointConfig(t *testing.T) {
 	restEndpoint.PUT(router)
 
 	//删除路由
-	ep.RemoveRouter(routerId)
-	ep.RemoveRouter(routerId, "POST")
+	restEndpoint.RemoveRouter(routerId)
+	restEndpoint.RemoveRouter(routerId, "POST")
 
 	epStarted.Destroy()
 	epErr.Destroy()
@@ -98,7 +129,7 @@ func TestRestEndpoint(t *testing.T) {
 	//等待服务器启动完毕
 	time.Sleep(time.Millisecond * 200)
 
-	config := rulego.NewConfig(types.WithDefaultPool())
+	config := engine.NewConfig(types.WithDefaultPool())
 	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, "ok", msg.Data)
 	})
@@ -115,7 +146,7 @@ func TestRestEndpoint(t *testing.T) {
 
 // 发送消息到rest服务器
 func sendMsg(t *testing.T, url, method string, msg types.RuleMsg, ctx types.RuleContext) types.Node {
-	node, _ := rulego.Registry.NewNode("restApiCall")
+	node, _ := engine.Registry.NewNode("restApiCall")
 	var configuration = make(types.Configuration)
 	configuration["restEndpointUrlPattern"] = url
 	configuration["requestMethod"] = method
@@ -135,14 +166,21 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := rulego.NewConfig(types.WithDefaultPool())
+	config := engine.NewConfig(types.WithDefaultPool())
 	//注册规则链
-	_, _ = rulego.New("default", buf, rulego.WithConfig(config))
+	_, _ = engine.New("default", buf, engine.WithConfig(config))
 
 	//创建http endpoint服务
-	restEndpoint, err := endpoint.New(Type, config, Config{
+	//restEndpoint, err := endpoint.New(Type, config, Config{
+	//	Server: testServer,
+	//})
+
+	var nodeConfig = make(types.Configuration)
+	_ = maps.Map2Struct(&Config{
 		Server: testServer,
-	})
+	}, nodeConfig)
+	var restEndpoint = &Endpoint{}
+	err = restEndpoint.Init(config, nodeConfig)
 
 	go func() {
 		for {
@@ -156,12 +194,12 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		}
 	}()
 	//添加全局拦截器
-	restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	restEndpoint.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑
 		return true
 	})
 	//设置跨域
-	restEndpoint.(*Endpoint).GlobalOPTIONS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	restEndpoint.GlobalOPTIONS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Access-Control-Request-Method") != "" {
 			// 设置 CORS 相关的响应头
 			header := w.Header()
@@ -173,7 +211,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	//路由1
-	router1 := endpoint.NewRouter().From("/api/v1/hello/:name").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router1 := impl.NewRouter().From("/api/v1/hello/:name").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//处理请求
 		request, ok := exchange.In.(*RequestMessage)
 		if ok {
@@ -203,16 +241,16 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 			return true
 		}
 
-	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.Out.SetBody([]byte("s2 process" + "\n"))
 		return true
 	}).End()
 
 	//路由2 采用配置方式调用规则链
-	router2 := endpoint.NewRouter().From("/api/v1/msg2Chain1/:msgType").To("chain:default").End()
+	router2 := impl.NewRouter().From("/api/v1/msg2Chain1/:msgType").To("chain:default").End()
 
 	//路由3 采用配置方式调用规则链,to路径带变量
-	router3 := endpoint.NewRouter().From("/api/v1/msg2Chain2/:msgType").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router3 := impl.NewRouter().From("/api/v1/msg2Chain2/:msgType").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		//获取消息类型
 		msg.Type = msg.Metadata.GetValue("msgType")
@@ -225,7 +263,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		//把userId存放在msg元数据
 		msg.Metadata.PutValue("userId", userId)
 		return true
-	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		requestMessage, ok := exchange.In.(*RequestMessage)
 		assert.True(t, ok)
 		assert.NotNil(t, requestMessage.Request())
@@ -246,7 +284,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		exchange.Out.SetStatusCode(200)
 		exchange.Out.SetBody([]byte("ok"))
 		return true
-	}).To("chain:${userId}").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	}).To("chain:${userId}").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		outMsg := exchange.Out.GetMsg()
 		if outMsg != nil {
 			assert.Equal(t, true, len(outMsg.Metadata.Values()) > 1)
@@ -255,12 +293,12 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	}).End()
 
 	//路由4 直接调用node组件方式
-	router4 := endpoint.NewRouter().From("/api/v1/msgToComponent1/:msgType").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router4 := impl.NewRouter().From("/api/v1/msgToComponent1/:msgType").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		//获取消息类型
 		msg.Type = msg.Metadata.GetValue("msgType")
 		return true
-	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//响应给客户端
 		exchange.Out.Headers().Set(ContentTypeKey, JsonContextType)
 		exchange.Out.SetBody([]byte("ok"))
@@ -277,12 +315,12 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	}()).End()
 
 	//路由5 采用配置方式调用node组件
-	router5 := endpoint.NewRouter().From("/api/v1/msgToComponent2/:msgType").Transform(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router5 := impl.NewRouter().From("/api/v1/msgToComponent2/:msgType").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		//获取消息类型
 		msg.Type = msg.Metadata.GetValue("msgType")
 		return true
-	}).Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//响应给客户端
 		exchange.Out.Headers().Set(ContentTypeKey, JsonContextType)
 		exchange.Out.SetBody([]byte("ok"))
@@ -299,7 +337,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	_, _ = restEndpoint.AddRouter(router4, "POST")
 	_, _ = restEndpoint.AddRouter(router5, "POST")
 
-	assert.NotNil(t, restEndpoint.(*Endpoint).Router())
+	assert.NotNil(t, restEndpoint.Router())
 	//启动服务
 	_ = restEndpoint.Start()
 	wg.Done()

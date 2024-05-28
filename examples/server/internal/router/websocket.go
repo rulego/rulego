@@ -10,7 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/endpoint"
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
 	websocketEndpoint "github.com/rulego/rulego/endpoint/websocket"
 	"github.com/rulego/rulego/utils/json"
@@ -32,11 +32,11 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 		},
 		RuleConfig: rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger.Logger)),
 	}
-	wsEndpoint.OnEventFunc = func(eventName string, params ...interface{}) {
+	wsEndpoint.OnEvent = func(eventName string, params ...interface{}) {
 		switch eventName {
-		case endpoint.EventConnect:
+		case endpointApi.EventConnect:
 			fmt.Println("connect")
-			exchange := params[0].(*endpoint.Exchange)
+			exchange := params[0].(*endpointApi.Exchange)
 			username := exchange.In.Headers().Get(constants.KeyUsername)
 			if username == "" {
 				username = config.C.DefaultUsername
@@ -60,9 +60,9 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 					exchange.Out.SetBody(jsonStr)
 				})
 			}
-		case endpoint.EventDisconnect:
+		case endpointApi.EventDisconnect:
 			fmt.Println("disconnect")
-			exchange := params[0].(*endpoint.Exchange)
+			exchange := params[0].(*endpointApi.Exchange)
 			username := exchange.In.Headers().Get(constants.KeyUsername)
 			if username == "" {
 				username = config.C.DefaultUsername

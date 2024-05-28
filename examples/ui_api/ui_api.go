@@ -19,6 +19,7 @@ package main
 import (
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/utils/json"
@@ -33,7 +34,7 @@ func main() {
 	//启动http接收服务
 	restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}, RuleConfig: config}
 	//添加全局拦截器
-	restEndpoint.AddInterceptors(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	restEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.Headers().Set("Access-Control-Allow-Origin", "*")
 		userId := exchange.In.Headers().Get("userId")
@@ -45,7 +46,7 @@ func main() {
 		return true
 	})
 	//路由1
-	router1 := endpoint.NewRouter().From("/api/v1/components").Process(func(router *endpoint.Router, exchange *endpoint.Exchange) bool {
+	router1 := endpoint.NewRouter().From("/api/v1/components").Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 
 		//响应组件配置表单列表
 		list, err := json.Marshal(rulego.Registry.GetComponentForms().Values())

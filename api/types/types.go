@@ -145,6 +145,11 @@ type NodeCtx interface {
 	DSL() []byte
 }
 
+type ChainCtx interface {
+	NodeCtx
+	Definition() *RuleChain
+}
+
 // RuleContext 规则引擎消息处理上下文接口
 // 处理把消息流转到下一个或者多个节点逻辑
 // 根据规则链连接关系查找当前节点的下一个或者多个节点，然后调用对应节点：nextNode.OnMsg(ctx, msg)触发下一个节点的业务逻辑
