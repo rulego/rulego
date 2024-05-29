@@ -17,7 +17,6 @@
 package endpoint
 
 import (
-	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
@@ -26,8 +25,8 @@ import (
 	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/endpoint/schedule"
 	"github.com/rulego/rulego/endpoint/websocket"
+	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/utils/maps"
-	"sync"
 )
 
 // init registers the available endpoint components with the Registry.
@@ -44,68 +43,38 @@ var Registry = new(ComponentRegistry)
 
 // ComponentRegistry is a registry for endpoint components.
 type ComponentRegistry struct {
-	// components holds the registered endpoint components.
-	components map[string]endpoint.Endpoint
-	sync.RWMutex
+	engine.RuleComponentRegistry
 }
 
 // Register adds a new endpoint component to the registry.
 func (r *ComponentRegistry) Register(component endpoint.Endpoint) error {
-	r.Lock()
-	defer r.Unlock()
-	if r.components == nil {
-		r.components = make(map[string]endpoint.Endpoint)
-	}
-	if _, ok := r.components[component.Type()]; ok {
-		return errors.New("the component already exists. type=" + component.Type())
-	}
-	r.components[component.Type()] = component
-
-	return nil
-}
-
-// Unregister removes an endpoint component from the registry.
-func (r *ComponentRegistry) Unregister(componentType string) error {
-	r.RLock()
-	defer r.RUnlock()
-	if _, ok := r.components[componentType]; ok {
-		delete(r.components, componentType)
-		return nil
-	} else {
-		return fmt.Errorf("component not found. type=%s", componentType)
-	}
+	return r.RuleComponentRegistry.Register(component)
 }
 
 // New creates a new instance of an endpoint based on the component type.
 // The configuration parameter can be either types.Configuration or the corresponding Config type for the endpoint.
 func (r *ComponentRegistry) New(componentType string, ruleConfig types.Config, configuration interface{}) (endpoint.Endpoint, error) {
-	r.RLock()
-	defer r.RUnlock()
+	newNode, err := r.RuleComponentRegistry.NewNode(componentType)
+	if err != nil {
+		return nil, err
+	}
 
-	if node, ok := r.components[componentType]; !ok {
-		return nil, fmt.Errorf("component not found. type=%s", componentType)
-	} else {
-		var err error
-		var config = make(types.Configuration)
-		if configuration != nil {
-			if c, ok := configuration.(types.Configuration); ok {
-				config = c
-			} else if err = maps.Map2Struct(configuration, config); err != nil {
-				return nil, err
-			}
+	var config = make(types.Configuration)
+	if configuration != nil {
+		if c, ok := configuration.(types.Configuration); ok {
+			config = c
+		} else if err = maps.Map2Struct(configuration, config); err != nil {
+			return nil, err
 		}
+	}
 
-		//创建新的实例
-		newNode := node.New()
-
-		if endpoint, ok := newNode.(endpoint.Endpoint); ok {
-			if err = endpoint.Init(ruleConfig, config); err != nil {
-				return nil, err
-			} else {
-				return endpoint, nil
-			}
+	if ep, ok := newNode.(endpoint.Endpoint); ok {
+		if err = ep.Init(ruleConfig, config); err != nil {
+			return nil, err
 		} else {
-			return nil, fmt.Errorf("%s not type of Endpoint", componentType)
+			return ep, nil
 		}
+	} else {
+		return nil, fmt.Errorf("%s not type of Endpoint", componentType)
 	}
 }

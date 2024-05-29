@@ -269,7 +269,7 @@ func TestEndpoint(t *testing.T) {
 			//捕捉异常
 			if e := recover(); e != nil {
 				errStr := fmt.Sprintf("%v", e)
-				assert.Equal(t, "component not found.componentType=aa", errStr)
+				assert.Equal(t, "component not found. componentType=aa", errStr)
 			}
 		}()
 		_ = NewRouter().From(from).To("component:aa", configuration).End()
