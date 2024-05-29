@@ -69,7 +69,7 @@ func (r *RuleComponentRegistry) Register(node types.Node) error {
 		r.components = make(map[string]types.Node)
 	}
 	if _, ok := r.components[node.Type()]; ok {
-		return errors.New("the component already exists. nodeType=" + node.Type())
+		return errors.New("the component already exists. componentType=" + node.Type())
 	}
 	r.components[node.Type()] = node
 
@@ -85,7 +85,7 @@ func (r *RuleComponentRegistry) RegisterPlugin(name string, file string) error {
 	components := builder.Components()
 	for _, node := range components {
 		if _, ok := r.components[node.Type()]; ok {
-			return errors.New("the component already exists. nodeType=" + node.Type())
+			return errors.New("the component already exists. componentType=" + node.Type())
 		}
 	}
 	for _, node := range components {
@@ -125,19 +125,19 @@ func (r *RuleComponentRegistry) Unregister(componentType string) error {
 	}
 
 	if !removed {
-		return fmt.Errorf("component not found.componentType=%s", componentType)
+		return fmt.Errorf("component not found. componentType=%s", componentType)
 	} else {
 		return nil
 	}
 }
 
 // NewNode 获取规则引擎节点组件
-func (r *RuleComponentRegistry) NewNode(nodeType string) (types.Node, error) {
+func (r *RuleComponentRegistry) NewNode(componentType string) (types.Node, error) {
 	r.RLock()
 	defer r.RUnlock()
 
-	if node, ok := r.components[nodeType]; !ok {
-		return nil, fmt.Errorf("component not found.componentType=%s", nodeType)
+	if node, ok := r.components[componentType]; !ok {
+		return nil, fmt.Errorf("component not found. componentType=%s", componentType)
 	} else {
 		return node.New(), nil
 	}

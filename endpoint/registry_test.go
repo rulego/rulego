@@ -38,7 +38,7 @@ func TestRegistry(t *testing.T) {
 	err := Registry.Register(&testEndpoint{})
 	assert.Nil(t, err)
 	err = Registry.Register(&testEndpoint{})
-	assert.Equal(t, "the component already exists. type=test", err.Error())
+	assert.Equal(t, "the component already exists. componentType=test", err.Error())
 	_, err = Registry.New(endpointType, config, nil)
 	assert.Nil(t, err)
 
@@ -60,13 +60,13 @@ func TestRegistry(t *testing.T) {
 	assert.Equal(t, "lala", target.configuration["Name"])
 
 	_, err = Registry.New(unknownType, config, configuration)
-	assert.Equal(t, "component not found. type="+unknownType, err.Error())
+	assert.Equal(t, "component not found. componentType="+unknownType, err.Error())
 	err = Registry.Unregister(unknownType)
-	assert.Equal(t, "component not found. type="+unknownType, err.Error())
+	assert.Equal(t, "component not found. componentType="+unknownType, err.Error())
 	err = Registry.Unregister(endpointType)
 	assert.Nil(t, err)
 	_, err = Registry.New(endpointType, config, configuration)
-	assert.Equal(t, "component not found. type="+endpointType, err.Error())
+	assert.Equal(t, "component not found. componentType="+endpointType, err.Error())
 }
 
 func TestNewFromRegistry(t *testing.T) {

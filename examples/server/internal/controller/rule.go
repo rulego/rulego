@@ -25,12 +25,26 @@ var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange
 	return true
 }
 
-// ComponentsRouter 创建获取组件列表路由
+// ComponentsRouter 创建获取规则引擎节点组件列表路由
 func ComponentsRouter(url string) endpointApi.Router {
-	//路由1
 	return endpoint.NewRouter().From(url).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		//响应组件配置表单列表
 		list, err := json.Marshal(rulego.Registry.GetComponentForms().Values())
+		if err != nil {
+			exchange.Out.SetStatusCode(http.StatusInternalServerError)
+			exchange.Out.SetBody([]byte(err.Error()))
+		} else {
+			exchange.Out.SetBody(list)
+		}
+		return true
+	}).End()
+}
+
+// EndpointsRouter 创建获取endpoint组件列表路由
+func EndpointsRouter(url string) endpointApi.Router {
+	return endpoint.NewRouter().From(url).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		//响应组件配置表单列表
+		list, err := json.Marshal(endpoint.Registry.GetComponentForms().Values())
 		if err != nil {
 			exchange.Out.SetStatusCode(http.StatusInternalServerError)
 			exchange.Out.SetBody([]byte(err.Error()))
