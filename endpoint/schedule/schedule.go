@@ -208,7 +208,9 @@ func (schedule *Schedule) Destroy() {
 func (schedule *Schedule) Close() error {
 	if schedule.cron != nil {
 		schedule.cron.Stop()
+		schedule.cron = nil
 	}
+	schedule.BaseEndpoint.Destroy()
 	return nil
 }
 

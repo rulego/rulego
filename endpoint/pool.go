@@ -17,24 +17,56 @@
 package endpoint
 
 import (
+	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"sync"
 )
 
 // DefaultPool is the default instance of the Pool.
-var DefaultPool = &Pool{}
+var DefaultPool = &Pool{factory: DefaultFactory}
+
+var DefaultFactory = &Factory{registry: Registry}
 
 // Ensure that Pool implements the endpoint.Pool interface.
 var _ endpoint.Pool = (*Pool)(nil)
 
+// Factory is a factory that creates Endpoints.
+type Factory struct {
+	registry *ComponentRegistry
+}
+
+// NewFromDsl creates a new DynamicEndpoint instance from DSL.
+func (f *Factory) NewFromDsl(dsl []byte, opts ...endpoint.DynamicEndpointOption) (endpoint.DynamicEndpoint, error) {
+	return NewFromDsl(dsl, opts...)
+}
+
+// NewFromDef creates a new DynamicEndpoint instance from DSL.
+func (f *Factory) NewFromDef(def types.EndpointDsl, opts ...endpoint.DynamicEndpointOption) (endpoint.DynamicEndpoint, error) {
+	return NewFromDef(def, opts...)
+}
+
+// NewFromType creates a new Endpoint instance from type.
+func (f *Factory) NewFromType(componentType string, ruleConfig types.Config, configuration interface{}) (endpoint.Endpoint, error) {
+	return f.registry.New(componentType, ruleConfig, configuration)
+}
+
 // Pool is a structure that holds DynamicEndpoints.
 type Pool struct {
 	entries sync.Map // entries is a thread-safe map that stores DynamicEndpoints.
+	factory *Factory
 }
 
 // NewPool creates a new instance of a Pool.
 func NewPool() *Pool {
-	return &Pool{}
+	return &Pool{
+		factory: &Factory{
+			registry: Registry,
+		},
+	}
+}
+
+func (p *Pool) Factory() endpoint.Factory {
+	return p.factory
 }
 
 // New creates a new DynamicEndpoint instance with the specified ID.
@@ -43,7 +75,10 @@ func (p *Pool) New(id string, def []byte, opts ...endpoint.DynamicEndpointOption
 	if v, ok := p.entries.Load(id); ok {
 		return v.(endpoint.DynamicEndpoint), nil
 	} else {
-		if e, err := NewFromDsl(id, def, opts...); err != nil {
+		if id != "" {
+			opts = append(opts, endpoint.DynamicEndpointOptions.WithId(id))
+		}
+		if e, err := NewFromDsl(def, opts...); err != nil {
 			return e, err
 		} else {
 			p.entries.Store(e.Id(), e)

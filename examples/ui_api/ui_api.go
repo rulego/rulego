@@ -23,6 +23,9 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/utils/json"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 //演示获取所有组件配置表单列表接口
@@ -63,4 +66,16 @@ func main() {
 	restEndpoint.GET(router1)
 	//并启动服务
 	_ = restEndpoint.Start()
+
+	sigs := make(chan os.Signal, 1)
+	// 监听系统信号，包括中断信号和终止信号
+	signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case <-sigs:
+		if restEndpoint != nil {
+			restEndpoint.Destroy()
+		}
+		os.Exit(0)
+	}
 }

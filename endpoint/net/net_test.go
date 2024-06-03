@@ -123,10 +123,8 @@ func TestNetEndpointConfig(t *testing.T) {
 
 	assert.Equal(t, testConfigServer, epStarted.Id())
 
-	go func() {
-		err := epStarted.Start()
-		assert.Equal(t, endpoint.ErrServerStopped.Error(), err.Error())
-	}()
+	err = epStarted.Start()
+	assert.Nil(t, err)
 
 	time.Sleep(time.Millisecond * 200)
 
@@ -209,14 +207,6 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	//注册规则链
 	_, _ = engine.New("default", buf, engine.WithConfig(config))
 
-	//创建tpc endpoint服务
-	//ep, err := endpoint.New(Type, config, Config{
-	//	Protocol: "tcp",
-	//	Server:   testServer,
-	//	//1秒超时
-	//	ReadTimeout: 1,
-	//})
-
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Protocol: "tcp",
@@ -228,17 +218,6 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	var ep = &Endpoint{}
 	err = ep.Init(config, nodeConfig)
 
-	go func() {
-		for {
-			select {
-			case <-stop:
-				// 接收到中断信号，退出循环
-				ep.Destroy()
-				return
-			default:
-			}
-		}
-	}()
 	//添加全局拦截器
 	ep.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑
@@ -300,9 +279,8 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	//启动服务
 	err = ep.Start()
 
-	if err != nil && err != endpoint.ErrServerStopped {
-		t.Fatal(err)
-	}
+	assert.Nil(t, err)
+	<-stop
 	assert.Equal(t, int32(5), router1Count)
 	assert.Equal(t, int32(4), router2Count)
 	wg.Done()

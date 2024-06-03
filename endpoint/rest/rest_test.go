@@ -70,11 +70,8 @@ func TestRestEndpointConfig(t *testing.T) {
 	err := epStarted.Init(config, nodeConfig)
 
 	assert.Equal(t, testConfigServer, epStarted.Id())
-
-	go func() {
-		err := epStarted.Start()
-		assert.Equal(t, "http: Server closed", err.Error())
-	}()
+	err = epStarted.Start()
+	assert.Nil(t, err)
 
 	time.Sleep(time.Millisecond * 200)
 
@@ -137,7 +134,7 @@ func TestRestEndpoint(t *testing.T) {
 	msg1 := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "{\"name\":\"lala\"}")
 
 	sendMsg(t, "http://127.0.0.1"+testServer+"/api/v1/msg2Chain2/TEST_MSG_TYPE1?aa=xx", "POST", msg1, ctx)
-
+	time.Sleep(time.Millisecond * 500)
 	//停止服务器
 	stop <- struct{}{}
 	time.Sleep(time.Millisecond * 200)
@@ -170,29 +167,12 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	//注册规则链
 	_, _ = engine.New("default", buf, engine.WithConfig(config))
 
-	//创建http endpoint服务
-	//restEndpoint, err := endpoint.New(Type, config, Config{
-	//	Server: testServer,
-	//})
-
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Server: testServer,
 	}, nodeConfig)
 	var restEndpoint = &Endpoint{}
 	err = restEndpoint.Init(config, nodeConfig)
-
-	go func() {
-		for {
-			select {
-			case <-stop:
-				// 接收到中断信号，退出循环
-				restEndpoint.Destroy()
-				return
-			default:
-			}
-		}
-	}()
 	//添加全局拦截器
 	restEndpoint.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑
@@ -340,5 +320,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	assert.NotNil(t, restEndpoint.Router())
 	//启动服务
 	_ = restEndpoint.Start()
+	<-stop
+	restEndpoint.Destroy()
 	wg.Done()
 }
