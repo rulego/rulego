@@ -118,15 +118,36 @@ func TestScheduleEndPoint(t *testing.T) {
 	//测试定时器已经启动，是否允许继续添加任务
 	routeId2, err := scheduleEndpoint.AddRouter(router2)
 
-	time.Sleep(30 * time.Second)
+	time.Sleep(15 * time.Second)
+
+	assert.True(t, math.Abs(float64(router1Count)-float64(15)) <= float64(1))
+	assert.True(t, math.Abs(float64(router2Count)-float64(3)) <= float64(1))
 
 	//删除某个任务
 	_ = scheduleEndpoint.RemoveRouter(routeId1)
 	_ = scheduleEndpoint.RemoveRouter(routeId2)
 
-	assert.True(t, math.Abs(float64(router1Count)-float64(30)) <= float64(1))
-	assert.True(t, math.Abs(float64(router2Count)-float64(6)) <= float64(1))
-
 	scheduleEndpoint.Destroy()
-	//fmt.Println("执行结束退出...")
+
+	var router3Count = int64(0)
+	//restart
+	router3 := impl.NewRouter().From("*/3 * * * * *").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.In.GetMsg().Type = "TEST_MSG_TYPE2"
+		atomic.AddInt64(&router3Count, 1)
+		//fmt.Println(time.Now().Local().Local().String(), "router3 执行...")
+		//业务逻辑，例如读取文件
+
+		return true
+	}).To("chain:default").End()
+
+	_, err = scheduleEndpoint.AddRouter(router3)
+	err = scheduleEndpoint.Start()
+
+	assert.Nil(t, err)
+	time.Sleep(15 * time.Second)
+	scheduleEndpoint.Destroy()
+
+	assert.True(t, math.Abs(float64(router1Count)-float64(15)) <= float64(1))
+	assert.True(t, math.Abs(float64(router2Count)-float64(3)) <= float64(1))
+	assert.True(t, math.Abs(float64(router3Count)-float64(5)) <= float64(1))
 }

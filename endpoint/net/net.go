@@ -314,26 +314,30 @@ func (ep *Endpoint) Start() error {
 		return err
 	}
 	// 打印服务器启动的信息
-	ep.Printf("starting server on :%s", ep.Config.Server)
-	// 循环接受客户端的连接请求
-	for {
-		// 从监听器中获取一个客户端连接，返回连接对象和错误信息
-		conn, err := ep.listener.Accept()
-		if err != nil {
-			if opError, ok := err.(*net.OpError); ok && opError.Err == net.ErrClosed {
-				ep.Printf("net endpoint stop")
-				return endpoint.ErrServerStopped
-			} else {
-				ep.Printf("accept:", err)
-				continue
+	ep.Printf("started server on :%s", ep.Config.Server)
+	go func() {
+		// 循环接受客户端的连接请求
+		for {
+			// 从监听器中获取一个客户端连接，返回连接对象和错误信息
+			conn, err := ep.listener.Accept()
+			if err != nil {
+				if opError, ok := err.(*net.OpError); ok && opError.Err == net.ErrClosed {
+					ep.Printf("net endpoint stop")
+					return
+					//return endpoint.ErrServerStopped
+				} else {
+					ep.Printf("accept:", err)
+					continue
+				}
 			}
+			// 打印客户端连接的信息
+			ep.Printf("new connection from:", conn.RemoteAddr().String())
+			// 启动一个协端处理客户端连接
+			go ep.handler(conn)
 		}
-		// 打印客户端连接的信息
-		ep.Printf("new connection from:", conn.RemoteAddr().String())
-		// 启动一个协端处理客户端连接
-		go ep.handler(conn)
-	}
-
+		ep.listener.Close()
+	}()
+	return nil
 }
 
 func (ep *Endpoint) Printf(format string, v ...interface{}) {

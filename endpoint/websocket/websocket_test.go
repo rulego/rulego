@@ -74,10 +74,13 @@ func TestWsEndpointConfig(t *testing.T) {
 
 	assert.Equal(t, testConfigServer, wsStarted.Id())
 
-	go func() {
-		err := wsStarted.Start()
-		assert.Equal(t, "http: Server closed", err.Error())
-	}()
+	err = wsStarted.Start()
+	assert.Nil(t, err)
+
+	//go func() {
+	//	err := wsStarted.Start()
+	//	assert.Equal(t, "http: Server closed", err.Error())
+	//}()
 
 	time.Sleep(time.Millisecond * 200)
 
@@ -178,8 +181,6 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup, isMultipl
 	//注册规则链
 	_, _ = engine.New("default", buf, engine.WithConfig(config))
 	var wsEndpoint endpoint.Endpoint
-	//var restStartGroup sync.WaitGroup
-	//restStartGroup.Add(1)
 	restEndpoint := &rest.Endpoint{
 		Config: rest.Config{Server: testServer},
 	}
@@ -197,19 +198,6 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup, isMultipl
 		wsEndpoint = newWebsocketServe(t, nil)
 	}
 
-	go func() {
-		for {
-			select {
-			case <-stop:
-				// 接收到中断信号，退出循环
-				wsEndpoint.Destroy()
-				restEndpoint.Destroy()
-				return
-			default:
-			}
-		}
-	}()
-
 	if isMultiplex {
 		//复用rest endpoint
 		_ = restEndpoint.Start()
@@ -217,7 +205,9 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup, isMultipl
 		//并启动服务
 		_ = wsEndpoint.Start()
 	}
-
+	<-stop
+	wsEndpoint.Destroy()
+	restEndpoint.Destroy()
 	wg.Done()
 }
 

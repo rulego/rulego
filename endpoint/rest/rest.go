@@ -27,6 +27,7 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"io"
+	"net"
 	"net/http"
 	"net/textproto"
 	"strings"
@@ -236,9 +237,13 @@ func (rest *Rest) Destroy() {
 }
 
 func (rest *Rest) Close() error {
-	if nil != rest.Server {
+	if rest.Server != nil {
 		return rest.Server.Shutdown(context.Background())
 	}
+	if rest.router != nil {
+		rest.router = httprouter.New()
+	}
+	rest.BaseEndpoint.Destroy()
 	return nil
 }
 
@@ -283,21 +288,46 @@ func (rest *Rest) Start() error {
 	}
 	var err error
 	rest.Server = &http.Server{Addr: rest.Config.Server, Handler: rest.router}
+	ln, err := rest.Listen()
+	if err != nil {
+		return err
+	}
+	isTls := rest.Config.CertKeyFile != "" && rest.Config.CertFile != ""
 	if rest.OnEvent != nil {
 		rest.OnEvent(endpoint.EventInitServer, rest)
 	}
-	if rest.Config.CertKeyFile != "" && rest.Config.CertFile != "" {
-		rest.Printf("starting rest server with TLS on :%s", rest.Config.Server)
-		err = rest.Server.ListenAndServeTLS(rest.Config.CertFile, rest.Config.CertKeyFile)
+	if isTls {
+		rest.Printf("started rest server with TLS on :%s", rest.Config.Server)
+		go func() {
+			defer ln.Close()
+			err = rest.Server.ServeTLS(ln, rest.Config.CertFile, rest.Config.CertKeyFile)
+			if rest.OnEvent != nil {
+				rest.OnEvent(endpoint.EventCompletedServer, err)
+			}
+		}()
 	} else {
-		rest.Printf("starting rest server on :%s", rest.Config.Server)
-		err = rest.Server.ListenAndServe()
-	}
-	if rest.OnEvent != nil {
-		rest.OnEvent(endpoint.EventCompletedServer, err)
+		rest.Printf("started rest server on :%s", rest.Config.Server)
+		go func() {
+			defer ln.Close()
+			err = rest.Server.Serve(ln)
+			if rest.OnEvent != nil {
+				rest.OnEvent(endpoint.EventCompletedServer, err)
+			}
+		}()
 	}
 	return err
+}
 
+func (rest *Rest) Listen() (net.Listener, error) {
+	addr := rest.Server.Addr
+	if addr == "" {
+		if rest.Config.CertKeyFile != "" && rest.Config.CertFile != "" {
+			addr = ":https"
+		} else {
+			addr = ":http"
+		}
+	}
+	return net.Listen("tcp", addr)
 }
 
 // addRouter 注册1个或者多个路由

@@ -28,6 +28,9 @@ import (
 	"gopkg.in/ini.v1"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
+
 	//注册自定义扩展组件
 	_ "examples/server/pkg/component/action"
 )
@@ -76,9 +79,10 @@ func main() {
 	if err := service.Setup(c); err != nil {
 		log.Fatal("error:", err)
 	}
+	var mqttEndpoint endpointApi.Endpoint
 	//创建mqtt接入服务
 	if c.Mqtt.Enabled {
-		router.MqttServe(c, logger.Logger)
+		mqttEndpoint, _ = router.MqttServe(c, logger.Logger)
 	}
 	//创建rest服务
 	restEndpoint := router.NewRestServe(c)
@@ -93,6 +97,22 @@ func main() {
 	//启动服务
 	if err := restEndpoint.Start(); err != nil {
 		log.Fatal("error:", err)
+	}
+
+	sigs := make(chan os.Signal, 1)
+	// 监听系统信号，包括中断信号和终止信号
+	signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case <-sigs:
+		if restEndpoint != nil {
+			restEndpoint.Destroy()
+		}
+		if mqttEndpoint != nil {
+			mqttEndpoint.Destroy()
+		}
+		log.Println("stopped server")
+		os.Exit(0)
 	}
 }
 

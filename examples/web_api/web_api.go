@@ -25,6 +25,9 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/utils/json"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // 使用router开发web应用
@@ -133,6 +136,18 @@ func main() {
 	restEndpoint.POST(router2, router3, router4, router5)
 	//并启动服务
 	_ = restEndpoint.Start()
+
+	sigs := make(chan os.Signal, 1)
+	// 监听系统信号，包括中断信号和终止信号
+	signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case <-sigs:
+		if restEndpoint != nil {
+			restEndpoint.Destroy()
+		}
+		os.Exit(0)
+	}
 }
 
 var chainJsonFile = `

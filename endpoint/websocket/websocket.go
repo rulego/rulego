@@ -29,6 +29,7 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"log"
+	"net"
 	"net/http"
 	"net/textproto"
 	"strconv"
@@ -215,7 +216,7 @@ type Websocket struct {
 	//OnEventFunc  endpoint.OnEvent
 	RestEndpoint *rest.Rest
 	Upgrader     websocket.Upgrader
-	server       *http.Server
+	Server       *http.Server
 	//http路由器
 	router *httprouter.Router
 }
@@ -242,8 +243,8 @@ func (ws *Websocket) Destroy() {
 }
 
 func (ws *Websocket) Close() error {
-	if nil != ws.server {
-		return ws.server.Shutdown(context.Background())
+	if nil != ws.Server {
+		return ws.Server.Shutdown(context.Background())
 	}
 	return nil
 }
@@ -292,19 +293,49 @@ func (ws *Websocket) Start() error {
 	if ws.router == nil {
 		ws.router = httprouter.New()
 	}
-	ws.server = &http.Server{Addr: ws.Config.Server, Handler: ws.router}
-	if ws.OnEvent != nil {
-		ws.OnEvent(endpoint.EventInitServer, ws.server)
+	ws.Server = &http.Server{Addr: ws.Config.Server, Handler: ws.router}
+
+	ln, err := ws.Listen()
+	if err != nil {
+		return err
 	}
-	if ws.Config.CertKeyFile != "" && ws.Config.CertFile != "" {
-		ws.Printf("starting ws server with TLS on :%s", ws.Config.Server)
-		err = ws.server.ListenAndServeTLS(ws.Config.CertFile, ws.Config.CertKeyFile)
+	isTls := ws.Config.CertKeyFile != "" && ws.Config.CertFile != ""
+	if ws.OnEvent != nil {
+		ws.OnEvent(endpoint.EventInitServer, ws)
+	}
+	if isTls {
+		ws.Printf("started ws server with TLS on :%s", ws.Config.Server)
+		go func() {
+			defer ln.Close()
+			err = ws.Server.ServeTLS(ln, ws.Config.CertFile, ws.Config.CertKeyFile)
+			if ws.OnEvent != nil {
+				ws.OnEvent(endpoint.EventCompletedServer, err)
+			}
+		}()
 	} else {
-		ws.Printf("starting ws server on :%s", ws.Config.Server)
-		err = ws.server.ListenAndServe()
+		ws.Printf("started ws server on :%s", ws.Config.Server)
+		go func() {
+			defer ln.Close()
+			err = ws.Server.Serve(ln)
+			if ws.OnEvent != nil {
+				ws.OnEvent(endpoint.EventCompletedServer, err)
+			}
+		}()
 	}
 	return err
 
+}
+
+func (ws *Websocket) Listen() (net.Listener, error) {
+	addr := ws.Server.Addr
+	if addr == "" {
+		if ws.Config.CertKeyFile != "" && ws.Config.CertFile != "" {
+			addr = ":https"
+		} else {
+			addr = ":http"
+		}
+	}
+	return net.Listen("tcp", addr)
 }
 
 // addRouter 注册1个或者多个路由

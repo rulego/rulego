@@ -12,9 +12,9 @@ import (
 )
 
 // MqttServe mqtt 订阅服务
-func MqttServe(c config.Config, logger *log.Logger) {
+func MqttServe(c config.Config, logger *log.Logger) (endpoint.Endpoint, error) {
 	if !c.Mqtt.Enabled {
-		return
+		return nil, nil
 	}
 	//mqtt 订阅服务 接收端点
 	mqttEndpoint, err := endpoint.Registry.New(endpointMqtt.Type, rulego.NewConfig(), c.Mqtt)
@@ -31,4 +31,5 @@ func MqttServe(c config.Config, logger *log.Logger) {
 	if err := mqttEndpoint.Start(); err != nil {
 		logger.Fatal(err)
 	}
+	return mqttEndpoint, err
 }
