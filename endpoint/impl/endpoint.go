@@ -399,11 +399,11 @@ func (r *Router) IsDisable() bool {
 // BaseEndpoint 基础端点
 // 实现全局拦截器基础方法
 type BaseEndpoint struct {
-	//全局拦截器
-	interceptors []endpoint.Process
 	//endpoint 路由存储器
 	RouterStorage map[string]endpoint.Router
 	OnEvent       endpoint.OnEvent
+	//全局拦截器
+	interceptors []endpoint.Process
 	sync.RWMutex
 }
 
@@ -455,6 +455,10 @@ func (e *BaseEndpoint) createContext(baseCtx context.Context, router endpoint.Ro
 		return context.Background()
 	}
 
+}
+func (e *BaseEndpoint) Destroy() {
+	e.interceptors = nil
+	e.RouterStorage = make(map[string]endpoint.Router)
 }
 
 // ExecutorFactory to端执行器工厂
