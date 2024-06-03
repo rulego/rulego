@@ -62,6 +62,14 @@ func (aspect *SkipFallbackAspect) Order() int {
 	return 10
 }
 
+func (aspect *SkipFallbackAspect) New() types.Aspect {
+	return &SkipFallbackAspect{ErrorCountLimit: 3, LimitDuration: time.Second * 10}
+}
+
+func (aspect *SkipFallbackAspect) Type() string {
+	return "fallback"
+}
+
 // PointCut 判断是否执行降级逻辑 可以指定某类型的节点执行降级逻辑，默认所有节点执行降级逻辑。可以被 PointCutFunc 覆盖
 func (aspect *SkipFallbackAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
 	if aspect.PointCutFunc != nil {
@@ -131,7 +139,7 @@ func (aspect *SkipFallbackAspect) After(ctx types.RuleContext, msg types.RuleMsg
 }
 
 // OnReload 节点更新清除错误缓存
-func (aspect *SkipFallbackAspect) OnReload(parentCtx types.NodeCtx, ctx types.NodeCtx, err error) {
+func (aspect *SkipFallbackAspect) OnReload(parentCtx types.NodeCtx, ctx types.NodeCtx, err error) error {
 	nodeId := ctx.GetNodeId()
 	if nodeId.Type == types.CHAIN {
 		aspect.chainNodeErrorCache.Delete(nodeId.Id)
@@ -142,6 +150,7 @@ func (aspect *SkipFallbackAspect) OnReload(parentCtx types.NodeCtx, ctx types.No
 			}
 		}
 	}
+	return nil
 }
 
 func (aspect *SkipFallbackAspect) OnDestroy(ctx types.NodeCtx) {

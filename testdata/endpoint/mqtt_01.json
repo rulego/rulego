@@ -1,0 +1,21 @@
+{
+  "id": "e_mqtt_01",
+  "type": "mqtt",
+  "name": "mqtt订阅触发",
+  "configuration": {
+    "server": "127.0.0.1:1883",
+    "username":"admin",
+    "password":"admin"
+  },
+  "routes": [
+    {
+      "id":"r1",
+      "from": {
+        "path": "#"
+      },
+      "to": {
+        "path": "${chainId}"
+      }
+    }
+  ]
+}

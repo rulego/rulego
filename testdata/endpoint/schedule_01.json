@@ -1,0 +1,12 @@
+{
+  "id": "schedule_e1",
+  "type": "schedule",
+  "name": "schedule",
+  "routes": [
+    {
+      "from": {
+        "path": "*/1 * * * * *"
+      }
+    }
+  ]
+}

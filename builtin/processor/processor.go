@@ -17,6 +17,7 @@
 package processor
 
 import (
+	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"sync"
 )
@@ -25,6 +26,29 @@ import (
 var Builtins = builtins{}
 
 func init() {
+	//把http header放入消息元数据
+	Builtins.Register("headersToMetadata", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		headers := exchange.In.Headers()
+		for k := range headers {
+			msg.Metadata.PutValue(k, headers.Get(k))
+		}
+		return true
+	})
+	//把msg响应给http客户端
+	Builtins.Register("responseToBody", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		if err := exchange.Out.GetError(); err != nil {
+			//错误
+			exchange.Out.SetStatusCode(400)
+			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
+		} else if exchange.Out.GetMsg() != nil {
+			if exchange.Out.GetMsg().DataType == types.JSON {
+				exchange.Out.Headers().Set("Content-Type", "application/json")
+			}
+			exchange.Out.SetBody([]byte(exchange.Out.GetMsg().Data))
+		}
+		return true
+	})
 }
 
 type builtins struct {

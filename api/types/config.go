@@ -66,6 +66,8 @@ type Config struct {
 	Aspects []Aspect
 	// SecretKey AES-256 32长度密钥，用于解密规则链`Secrets`配置
 	SecretKey string
+	//规则链DSL，endpoint模块是否可用
+	EndpointEnabled bool
 }
 
 // RegisterUdf 注册自定义函数
@@ -167,6 +169,7 @@ func NewConfig(opts ...Option) Config {
 		ScriptMaxExecutionTime: time.Millisecond * 2000,
 		Logger:                 DefaultLogger(),
 		Properties:             NewMetadata(),
+		EndpointEnabled:        true,
 	}
 
 	// Apply the options to the Config.

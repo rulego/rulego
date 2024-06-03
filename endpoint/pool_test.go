@@ -38,24 +38,30 @@ func TestNew(t *testing.T) {
 	})
 	msg1 := ctx.NewMsg("TEST_MSG_TYPE_AA", types.NewMetadata(), "{\"name\":\"lala\"}")
 
-	endpointBuf, err := os.ReadFile(testEndpointsFolder + "/http_01.json")
-	if err != nil {
-		t.Fatal(err)
-	}
 	ruleDsl, err := os.ReadFile(testRulesFolder + "/filter_node.json")
-
 	_, err = engine.New("test01", ruleDsl)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ep, err := DefaultPool.New("e_http", endpointBuf, endpoint.DynamicEndpointOptions.WithConfig(config))
+
+	pool := NewPool()
+	defer pool.Stop()
+	assert.True(t, reflect.DeepEqual(pool.factory, pool.Factory()))
+
+	ep, err := New("e_http", []byte(""), endpoint.DynamicEndpointOptions.WithConfig(config))
+	assert.NotNil(t, err)
+
+	endpointBuf, err := os.ReadFile(testEndpointsFolder + "/http_01.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	go func() {
-		err = ep.Start()
-	}()
+	ep, err = New("e_http", endpointBuf, endpoint.DynamicEndpointOptions.WithConfig(config))
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ep.Start()
 	time.Sleep(time.Millisecond * 200)
+
 	var def types.EndpointDsl
 	_ = json.Unmarshal(endpointBuf, &def)
 	v, _ := json.Marshal(def)
@@ -71,17 +77,26 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go func() {
-		_ = ep.Reload(endpointBuf, endpoint.DynamicEndpointOptions.WithRestart(true))
-	}()
-
+	_ = ep.Reload(endpointBuf)
 	time.Sleep(time.Millisecond * 200)
+
 	sendMsg(t, "http://127.0.0.1:9090/api/v1/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Failure)
 	}))
 	sendMsg(t, "http://127.0.0.1:9090/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Success)
 	}))
+
+	_ = ep.Reload(endpointBuf, endpoint.DynamicEndpointOptions.WithRestart(true))
+	time.Sleep(time.Millisecond * 200)
+
+	sendMsg(t, "http://127.0.0.1:9090/api/v1/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+		assert.Equal(t, relationType, types.Failure)
+	}))
+	sendMsg(t, "http://127.0.0.1:9090/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+		assert.Equal(t, relationType, types.Success)
+	}))
+
 	router1 := `
   {
       "id":"r1",
@@ -97,11 +112,9 @@ func TestNew(t *testing.T) {
         "path": "${chainId}"
       }
     }`
-	go func() {
-		_ = ep.AddOrReloadRouter([]byte(router1))
-	}()
-
+	_ = ep.AddOrReloadRouter([]byte(router1))
 	time.Sleep(time.Millisecond * 200)
+
 	sendMsg(t, "http://127.0.0.1:9090/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Failure)
 	}))
@@ -114,11 +127,9 @@ func TestNew(t *testing.T) {
 		t.Fatal(err)
 	}
 	newDsl := strings.Replace(string(endpointBuf), ":9090", ":9091", -1)
-	go func() {
-		ep, ok := DefaultPool.Get("e_http")
-		assert.True(t, ok)
-		_ = ep.Reload([]byte(newDsl))
-	}()
+	ep, ok := Get("e_http")
+	assert.True(t, ok)
+	_ = ep.Reload([]byte(newDsl))
 	time.Sleep(time.Millisecond * 200)
 
 	sendMsg(t, "http://127.0.0.1:9090/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
@@ -129,12 +140,57 @@ func TestNew(t *testing.T) {
 	}))
 	time.Sleep(time.Millisecond * 200)
 
-	DefaultPool.Del("e_http")
-	ep, ok := DefaultPool.Get("e_http")
+	Reload()
+
+	Range(func(key, value any) bool {
+		assert.Equal(t, "e_http", key)
+		return true
+	})
+
+	Del("e_http")
+	ep, ok = Get("e_http")
 	assert.False(t, ok)
 
-	DefaultPool.Reload()
-	DefaultPool.Stop()
+	var count = 0
+	Range(func(key, value any) bool {
+		count++
+		return true
+	})
+	assert.Equal(t, 0, count)
+	Stop()
+}
+
+func TestFactory(t *testing.T) {
+	endpointBuf, err := os.ReadFile(testEndpointsFolder + "/http_01.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruleDsl, err := os.ReadFile(testRulesFolder + "/filter_node.json")
+
+	_, err = engine.New("test01", ruleDsl)
+
+	assert.True(t, reflect.DeepEqual(DefaultPool.factory, DefaultPool.Factory()))
+
+	ep1, err := DefaultPool.factory.NewFromDsl(endpointBuf)
+	assert.Nil(t, err)
+
+	def := ep1.Definition()
+	assert.Equal(t, "e1", def.Id)
+
+	ep1.Destroy()
+
+	ep2, err := DefaultPool.factory.NewFromDef(def)
+	assert.Nil(t, err)
+	assert.True(t, reflect.DeepEqual(def, ep2.Definition()))
+
+	config := engine.NewConfig(types.WithDefaultPool())
+	ep3, err := DefaultPool.factory.NewFromType("http", config, struct {
+		Name string
+	}{Name: "lala"})
+
+	assert.Nil(t, err)
+
+	assert.Equal(t, "http", ep3.Type())
 }
 
 // SendMsg 发送消息到rest服务器

@@ -19,6 +19,20 @@
       "to": {
         "path": "${chainId}"
       }
+    },
+    {
+      "id": "r2",
+      "params": [
+        "post"
+      ],
+      "from": {
+        "path": "/api/v2/test2/:chainId",
+        "configuration": {
+        }
+      },
+      "to": {
+        "path": "${chainId}"
+      }
     }
   ]
 }

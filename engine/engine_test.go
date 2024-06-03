@@ -25,6 +25,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/str"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -881,7 +882,7 @@ func TestRuleContext(t *testing.T) {
 
 		}, nil)
 		assert.Nil(t, ctx.From())
-
+		assert.True(t, reflect.DeepEqual(ctx.Config().EndpointEnabled, config.EndpointEnabled))
 		ctx.SetRuleChainPool(DefaultPool)
 		assert.Equal(t, ctx.ruleChainPool, DefaultPool)
 

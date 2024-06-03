@@ -11,6 +11,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -117,8 +118,10 @@ func startServer(t *testing.T, stop chan struct{}) {
 	}, nodeConfig)
 	var ep = &Endpoint{}
 	err = ep.Init(config, nodeConfig)
-
 	assert.Equal(t, testServer, ep.Id())
+	assert.Equal(t, "mqtt", ep.Type())
+	assert.True(t, reflect.DeepEqual(&Mqtt{}, ep.New()))
+
 	//添加全局拦截器
 	ep.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑

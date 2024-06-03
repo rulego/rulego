@@ -137,10 +137,6 @@ func (g *Pool) OnMsg(msg types.RuleMsg) {
 	})
 }
 
-func (g *Pool) NewConfig(opts ...types.Option) types.Config {
-	return NewConfig(opts...)
-}
-
 // Load 加载指定文件夹及其子文件夹所有规则链配置（与.json结尾文件），到规则引擎实例池
 // 规则链ID，使用文件配置的 ruleChain.id
 func Load(folderPath string, opts ...types.RuleEngineOption) error {

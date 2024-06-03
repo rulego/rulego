@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/builtin/aspect"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -29,6 +30,9 @@ import (
 
 var _ types.RuleContext = (*DefaultRuleContext)(nil)
 var _ types.RuleEngine = (*RuleEngine)(nil)
+
+// BuiltinsAspects 内置切面列表
+var BuiltinsAspects = []types.Aspect{&aspect.Debug{}}
 
 // DefaultRuleContext 默认规则引擎消息处理上下文
 type DefaultRuleContext struct {
@@ -73,10 +77,6 @@ type DefaultRuleContext struct {
 // NewRuleContext 创建一个默认规则引擎消息处理上下文实例
 func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd types.OnEndFunc, ruleChainPool types.RuleEnginePool) *DefaultRuleContext {
 	aroundAspects, beforeAspects, afterAspects := config.GetNodeAspects()
-	//添加before日志切面
-	beforeAspects = append(beforeAspects, &aspect.Debug{})
-	//添加after日志切面
-	afterAspects = append(afterAspects, &aspect.Debug{})
 	return &DefaultRuleContext{
 		context:       context,
 		config:        config,
@@ -570,6 +570,8 @@ type RuleEngine struct {
 	completedAspects []types.CompletedAspect
 	//是否已经初始化
 	initialized bool
+	//默认内置切面列表
+	builtinsAspects []types.Aspect
 }
 
 //// RuleEngineOption is a function type that modifies the RuleEngine.
@@ -581,9 +583,10 @@ func newRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*Rule
 	}
 	// Create a new RuleEngine with the Id
 	ruleEngine := &RuleEngine{
-		id:            id,
-		Config:        NewConfig(),
-		RuleChainPool: DefaultPool,
+		id:              id,
+		Config:          NewConfig(),
+		RuleChainPool:   DefaultPool,
+		builtinsAspects: BuiltinsAspects,
 	}
 	err := ruleEngine.ReloadSelf(def, opts...)
 	if err == nil && ruleEngine.rootRuleChainCtx != nil {
@@ -593,7 +596,6 @@ func newRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*Rule
 			//使用规则链ID
 			ruleEngine.id = ruleEngine.rootRuleChainCtx.Id.Id
 		}
-
 	}
 	//设置切面列表
 	startAspects, endAspects, completedAspects := ruleEngine.Config.GetChainAspects()
@@ -611,8 +613,34 @@ func (e *RuleEngine) SetConfig(config types.Config) {
 	e.Config = config
 }
 
+func (e *RuleEngine) SetBuiltinsAspects(builtinsAspects ...types.Aspect) {
+	e.builtinsAspects = builtinsAspects
+}
+
 func (e *RuleEngine) Reload(opts ...types.RuleEngineOption) error {
 	return e.ReloadSelf(e.DSL(), opts...)
+}
+func (e *RuleEngine) initBuiltinsAspects() {
+	//初始化内置切面
+	if len(e.Config.Aspects) == 0 {
+		for _, builtinsAspect := range e.builtinsAspects {
+			e.Config.Aspects = append(e.Config.Aspects, builtinsAspect.New())
+		}
+	} else {
+		for _, builtinsAspect := range e.builtinsAspects {
+			found := false
+			for _, item := range e.Config.Aspects {
+				//判断是否是相同类型
+				if reflect.TypeOf(item) == reflect.TypeOf(builtinsAspect) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				e.Config.Aspects = append(e.Config.Aspects, builtinsAspect.New())
+			}
+		}
+	}
 }
 
 // ReloadSelf 重新加载规则链
@@ -621,8 +649,11 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...types.RuleEngineOption) erro
 	for _, opt := range opts {
 		_ = opt(e)
 	}
+	//初始化内置切面
+	e.initBuiltinsAspects()
+
 	if e.Initialized() {
-		e.rootRuleChainCtx.Config = e.Config
+		e.rootRuleChainCtx.config = e.Config
 		//更新规则链
 		err := e.rootRuleChainCtx.ReloadSelf(def)
 		//设置子规则链池
@@ -641,7 +672,9 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...types.RuleEngineOption) erro
 			//执行创建切面逻辑
 			createdAspects, _, _ := e.Config.GetEngineAspects()
 			for _, aop := range createdAspects {
-				aop.OnCreated(e.rootRuleChainCtx)
+				if err := aop.OnCreated(e.rootRuleChainCtx); err != nil {
+					return err
+				}
 			}
 			e.initialized = true
 			return nil

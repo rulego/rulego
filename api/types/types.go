@@ -126,6 +126,7 @@ type Node interface {
 // NodeCtx 规则节点实例化上下文
 type NodeCtx interface {
 	Node
+	Config() Config
 	//IsDebugMode 该节点是否是调试模式
 	//True:消息流入和流出该节点，会调用config.OnDebug回调函数，否则不会
 	IsDebugMode() bool

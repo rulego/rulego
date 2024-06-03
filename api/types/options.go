@@ -97,3 +97,10 @@ func WithSecretKey(secretKey string) Option {
 		return nil
 	}
 }
+
+func WithEndpointEnabled(endpointEnabled bool) Option {
+	return func(c *Config) error {
+		c.EndpointEnabled = endpointEnabled
+		return nil
+	}
+}

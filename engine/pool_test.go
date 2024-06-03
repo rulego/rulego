@@ -113,6 +113,8 @@ func TestRuleGo(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 200)
 
+	myRuleGo.Reload()
+	
 	myRuleGo.Stop()
 	_, ok = myRuleGo.Get("test_context_chain")
 	assert.Equal(t, false, ok)

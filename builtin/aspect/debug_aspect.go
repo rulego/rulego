@@ -35,6 +35,14 @@ func (aspect *Debug) Order() int {
 	return 900
 }
 
+func (aspect *Debug) New() types.Aspect {
+	return &Debug{}
+}
+
+func (aspect *Debug) Type() string {
+	return "debug"
+}
+
 // PointCut 切入点 所有节点都会执行
 func (aspect *Debug) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
 	return true

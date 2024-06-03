@@ -60,14 +60,15 @@ func TestDynamicEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go func() {
-		err = ep.Start()
-	}()
+
+	err = ep.Start()
 	time.Sleep(time.Millisecond * 200)
+
 	ep.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		assert.Equal(t, "aa", router.Definition().AdditionalInfo["aa"])
 		return true
 	})
+
 	var def types.EndpointDsl
 	_ = json.Unmarshal(endpointBuf, &def)
 	v, _ := json.Marshal(def)
@@ -79,5 +80,6 @@ func TestDynamicEndpoint(t *testing.T) {
 		assert.Equal(t, relationType, types.Success)
 	}))
 	time.Sleep(time.Millisecond * 2000)
+	
 	ep.Destroy()
 }
