@@ -69,6 +69,10 @@ func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, selfDefinition
 
 }
 
+func (rn *RuleNodeCtx) GetConfig() types.Config {
+	return rn.Config
+}
+
 func (rn *RuleNodeCtx) IsDebugMode() bool {
 	return rn.SelfDefinition.DebugMode
 }
