@@ -1,0 +1,38 @@
+{
+  "ruleChain": {
+    "id": "withScheduleEndpoint",
+    "name": "内置定时输入端规则链"
+  },
+
+  "metadata": {
+    "endpoints":[
+      {
+        "id": "e2",
+        "type": "schedule",
+        "name": "schedule",
+        "processors": ["testPrint"],
+        "routes": [
+          {
+            "from": {
+              "path": "*/1 * * * * *"
+            }
+          }
+        ]
+      }
+    ],
+    "nodes": [
+      {
+        "id":"s1",
+        "type": "jsFilter",
+        "name": "过滤",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msg.temperature>10;"
+        }
+      }
+    ],
+    "connections": [
+
+    ]
+  }
+}

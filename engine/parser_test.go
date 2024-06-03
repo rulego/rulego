@@ -26,7 +26,6 @@ import (
 )
 
 func TestParser(t *testing.T) {
-
 	jsonParser := JsonParser{}
 	config := NewConfig()
 	chainNode, err := jsonParser.DecodeRuleChain(config, []byte(ruleChainFile))
@@ -53,9 +52,6 @@ func TestParser(t *testing.T) {
 
 	chainNodeJson, err := jsonParser.EncodeRuleChain(ruleChainCtx.SelfDefinition)
 	assert.Equal(t, strings.Replace(ruleChainFile, " ", "", -1), strings.Replace(string(chainNodeJson), " ", "", -1))
-
-	_, err = jsonParser.EncodeRuleChain(ruleChainCtx)
-	assert.NotNil(t, err)
 
 	node, err := jsonParser.DecodeRuleNode(config, []byte(modifyMetadataAndMsgNode), nil)
 	assert.Nil(t, err)
@@ -93,9 +89,6 @@ func TestParser(t *testing.T) {
 	  }
 	}`), &expectMap)
 	assert.Equal(t, expectMap, targetMap)
-
-	_, err = jsonParser.EncodeRuleNode(nodeCtx)
-	assert.NotNil(t, err)
 
 	str := strings.Replace(ruleChainFile, "connections", "ruleChainConnections", -1)
 	chainNode, err = jsonParser.DecodeRuleChain(config, []byte(str))

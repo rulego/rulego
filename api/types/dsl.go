@@ -63,6 +63,8 @@ type RuleMetadata struct {
 	// FirstNodeIndex is the index of the first node in data flow, default is 0.
 	FirstNodeIndex int `json:"firstNodeIndex"`
 	// Nodes are the component definitions of the nodes.
+	Endpoints []*EndpointDsl `json:"endpoints,omitempty"`
+	// Nodes are the component definitions of the nodes.
 	// Each object represents a rule node within the rule chain.
 	Nodes []*RuleNode `json:"nodes"`
 	// Connections define the connections between two nodes in the rule chain.
@@ -162,13 +164,16 @@ type EndpointDsl struct {
 	Name string `json:"name"`
 	// Type is the type of the endpoint.
 	Type string `json:"type"`
+	// Ref is the reference to the endpoint.
+	// Reuse initialized endpointId. Configuration does not require.
+	Ref string `json:"ref"`
 	// Configuration contains the configuration information of the endpoint.
 	Configuration Configuration `json:"configuration,omitempty"`
 	// AdditionalInfo is an extension field.
 	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
 	// Processors is the list of global processors for the endpoint.
 	// Using processors registered in builtin/processor#Builtins xx by name.
-	Processors []string `json:"processor"`
+	Processors []string `json:"processors"`
 	// Routers is the list of routers.
 	Routers []*RouterDsl `json:"routes"`
 }
@@ -196,7 +201,7 @@ type FromDsl struct {
 	Configuration Configuration `json:"configuration"`
 	// Processors is the list of processors for the source.
 	// Using processors registered in builtin/processor#Builtins xx by name.
-	Processors []string `json:"processor"`
+	Processors []string `json:"processors"`
 }
 
 // ToDsl defines the destination for an endpoint router.
@@ -210,5 +215,5 @@ type ToDsl struct {
 	Wait bool `json:"wait"`
 	// Processors is the list of processors for the destination.
 	// Using processors registered in builtin/processor#Builtins xx by name.
-	Processors []string `json:"processor"`
+	Processors []string `json:"processors"`
 }

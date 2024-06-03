@@ -17,7 +17,9 @@
           }
         },
         "to": {
-          "path": "${chainId}"
+          "path": "${chainId}",
+          "wait": true,
+          "processors": ["responseToBody"]
         },
         "additionalInfo": {
           "aa":"aa"

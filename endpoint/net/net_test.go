@@ -10,6 +10,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -217,6 +218,10 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 
 	var ep = &Endpoint{}
 	err = ep.Init(config, nodeConfig)
+	assert.Equal(t, "net", ep.Type())
+	assert.True(t, reflect.DeepEqual(&Endpoint{
+		Config: Config{Protocol: "tcp", ReadTimeout: 60},
+	}, ep.New()))
 
 	//添加全局拦截器
 	ep.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {

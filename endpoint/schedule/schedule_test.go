@@ -79,6 +79,8 @@ func TestScheduleEndPoint(t *testing.T) {
 	var scheduleEndpoint = &Endpoint{}
 	err = scheduleEndpoint.Init(config, nil)
 	assert.Nil(t, err)
+	assert.Equal(t, "schedule", scheduleEndpoint.Type())
+
 	////创建schedule endpoint服务
 	//scheduleEndpoint, err := registry.New(Type, config, nil)
 

@@ -1,0 +1,50 @@
+{
+  "ruleChain": {
+    "id": "withHttpEndpoint",
+    "name": "内置Http输入端规则链"
+  },
+
+  "metadata": {
+    "endpoints":[
+      {
+        "id": "e1",
+        "type": "http",
+        "name": "http server",
+        "configuration": {
+          "server": ":9090"
+        },
+        "routes": [
+          {
+            "id":"r1",
+            "params": [
+              "POST"
+            ],
+            "from": {
+              "path": "/api/v1/test/:chainId",
+              "configuration": {
+              }
+            },
+            "to": {
+              "wait": true,
+              "processors": ["responseToBody"]
+            }
+          }
+        ]
+
+      }
+    ],
+    "nodes": [
+      {
+        "type": "jsFilter",
+        "name": "过滤",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msg.temperature>10;"
+        }
+      }
+    ],
+    "connections": [
+
+    ]
+  }
+}

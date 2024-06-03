@@ -35,7 +35,7 @@ type RuleNodeCtx struct {
 	//组件配置
 	SelfDefinition *types.RuleNode
 	//规则引擎配置
-	Config types.Config
+	config types.Config
 }
 
 // InitRuleNodeCtx 初始化RuleNodeCtx
@@ -45,7 +45,7 @@ func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, selfDefinition
 		return &RuleNodeCtx{
 			ChainCtx:       chainCtx,
 			SelfDefinition: selfDefinition,
-			Config:         config,
+			config:         config,
 		}, err
 	} else {
 		if selfDefinition.Configuration == nil {
@@ -62,15 +62,15 @@ func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, selfDefinition
 				Node:           node,
 				ChainCtx:       chainCtx,
 				SelfDefinition: selfDefinition,
-				Config:         config,
+				config:         config,
 			}, nil
 		}
 	}
 
 }
 
-func (rn *RuleNodeCtx) GetConfig() types.Config {
-	return rn.Config
+func (rn *RuleNodeCtx) Config() types.Config {
+	return rn.config
 }
 
 func (rn *RuleNodeCtx) IsDebugMode() bool {
@@ -82,7 +82,7 @@ func (rn *RuleNodeCtx) GetNodeId() types.RuleNodeId {
 }
 
 func (rn *RuleNodeCtx) ReloadSelf(def []byte) error {
-	if ruleNodeCtx, err := rn.Config.Parser.DecodeRuleNode(rn.Config, def, rn.ChainCtx); err == nil {
+	if ruleNodeCtx, err := rn.config.Parser.DecodeRuleNode(rn.config, def, rn.ChainCtx); err == nil {
 		//先销毁
 		rn.Destroy()
 		//重新加载
@@ -102,7 +102,7 @@ func (rn *RuleNodeCtx) GetNodeById(_ types.RuleNodeId) (types.NodeCtx, bool) {
 }
 
 func (rn *RuleNodeCtx) DSL() []byte {
-	v, _ := rn.Config.Parser.EncodeRuleNode(rn.SelfDefinition)
+	v, _ := rn.config.Parser.EncodeRuleNode(rn.SelfDefinition)
 	return v
 }
 

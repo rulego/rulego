@@ -110,14 +110,25 @@ package rulego
 
 import (
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/builtin/aspect"
+	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/engine"
 )
 
 // Registry is the default registrar for rule engine components.
 var Registry = engine.Registry
 
-// DefaultRuleGo is the default instance of RuleGo with the rule engine pool set to the default pool.
-var DefaultRuleGo = &RuleGo{ruleEnginePool: engine.DefaultPool}
+// Rules is the default instance of RuleGo with the rule engine pool set to the default pool.
+var Rules = &RuleGo{ruleEnginePool: engine.DefaultPool}
+
+var Endpoints = endpoint.DefaultPool
+
+func init() {
+	engine.BuiltinsAspects = append(engine.BuiltinsAspects, &aspect.EndpointAspect{
+		EndpointPool: Endpoints,
+		RuleGoPool:   Rules,
+	})
+}
 
 // Ensure RuleGo implements the RuleEnginePool interface.
 var _ types.RuleEnginePool = (*RuleGo)(nil)
@@ -186,38 +197,38 @@ func (g *RuleGo) OnMsg(msg types.RuleMsg) {
 // Load loads all rule chain configurations from the specified folder and its subFolders into the rule engine instance pool.
 // The rule chain ID is taken from the ruleChain.id specified in the rule chain file.
 func Load(folderPath string, opts ...types.RuleEngineOption) error {
-	return DefaultRuleGo.Load(folderPath, opts...)
+	return Rules.Load(folderPath, opts...)
 }
 
 // New creates a new RuleEngine and stores it in the RuleGo rule chain pool.
 func New(id string, rootRuleChainSrc []byte, opts ...types.RuleEngineOption) (types.RuleEngine, error) {
-	return DefaultRuleGo.New(id, rootRuleChainSrc, opts...)
+	return Rules.New(id, rootRuleChainSrc, opts...)
 }
 
 // Get retrieves a rule engine instance by its ID.
 func Get(id string) (types.RuleEngine, bool) {
-	return DefaultRuleGo.Get(id)
+	return Rules.Get(id)
 }
 
 // Del removes a rule engine instance by its ID.
 func Del(id string) {
-	DefaultRuleGo.Del(id)
+	Rules.Del(id)
 }
 
 // Stop releases all rule engine instances.
 func Stop() {
-	DefaultRuleGo.Stop()
+	Rules.Stop()
 }
 
 // OnMsg calls all rule engine instances to process a message.
 // All rule chains in the rule engine instance pool will attempt to process the message.
 func OnMsg(msg types.RuleMsg) {
-	DefaultRuleGo.OnMsg(msg)
+	Rules.OnMsg(msg)
 }
 
 // Reload reloads all rule engine instances.
 func Reload(opts ...types.RuleEngineOption) {
-	DefaultRuleGo.Range(func(key, value any) bool {
+	Rules.Range(func(key, value any) bool {
 		_ = value.(types.RuleEngine).Reload(opts...)
 		return true
 	})
@@ -225,7 +236,7 @@ func Reload(opts ...types.RuleEngineOption) {
 
 // Range iterates over all rule engine instances.
 func Range(f func(key, value any) bool) {
-	DefaultRuleGo.Range(f)
+	Rules.Range(f)
 }
 
 // NewConfig creates a new Config and applies the options.

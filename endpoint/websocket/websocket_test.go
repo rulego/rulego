@@ -14,6 +14,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -101,10 +102,10 @@ func TestWsEndpointConfig(t *testing.T) {
 	assert.NotNil(t, err)
 
 	//删除路由
-	ep.RemoveRouter(routerId)
-	ep.RemoveRouter(routerId, "GET")
+	_ = ep.RemoveRouter(routerId)
+	_ = ep.RemoveRouter(routerId, "GET")
 
-	ep.AddRouter(nil)
+	_, _ = ep.AddRouter(nil)
 	wsStarted.Destroy()
 	epErr.Destroy()
 	time.Sleep(time.Millisecond * 200)
@@ -224,6 +225,9 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	assert.Equal(t, "ws", wsEndpoint.Type())
+	assert.True(t, reflect.DeepEqual(&Websocket{}, wsEndpoint.New()))
 
 	if restEndpoint != nil {
 		wsEndpoint = &Websocket{RestEndpoint: restEndpoint}

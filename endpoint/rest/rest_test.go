@@ -12,6 +12,7 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 	"net/http"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -173,6 +174,9 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	}, nodeConfig)
 	var restEndpoint = &Endpoint{}
 	err = restEndpoint.Init(config, nodeConfig)
+	assert.Equal(t, "http", restEndpoint.Type())
+	assert.True(t, reflect.DeepEqual(&Rest{}, restEndpoint.New()))
+
 	//添加全局拦截器
 	restEndpoint.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//权限校验逻辑

@@ -41,7 +41,7 @@ type RuleChainCtx struct {
 	//规则链定义
 	SelfDefinition *types.RuleChain
 	//规则引擎配置
-	Config types.Config
+	config types.Config
 	//是否已经初始化
 	initialized bool
 	//组件库
@@ -75,7 +75,7 @@ type RuleChainCtx struct {
 // InitRuleChainCtx 初始化RuleChainCtx
 func InitRuleChainCtx(config types.Config, ruleChainDef *types.RuleChain) (*RuleChainCtx, error) {
 	var ruleChainCtx = &RuleChainCtx{
-		Config:             config,
+		config:             config,
 		SelfDefinition:     ruleChainDef,
 		nodes:              make(map[types.RuleNodeId]types.NodeCtx),
 		nodeRoutes:         make(map[types.RuleNodeId][]types.RuleNodeRelation),
@@ -147,12 +147,12 @@ func InitRuleChainCtx(config types.Config, ruleChainDef *types.RuleChain) (*Rule
 	}
 
 	if firstNode, ok := ruleChainCtx.GetFirstNode(); ok {
-		ruleChainCtx.rootRuleContext = NewRuleContext(context.TODO(), ruleChainCtx.Config, ruleChainCtx, nil,
+		ruleChainCtx.rootRuleContext = NewRuleContext(context.TODO(), ruleChainCtx.config, ruleChainCtx, nil,
 			firstNode, config.Pool, nil, nil)
 	} else {
 		//没有节点，则初始化一个空节点
 		ruleNodeCtx, _ := InitRuleNodeCtx(config, ruleChainCtx, &types.RuleNode{})
-		ruleChainCtx.rootRuleContext = NewRuleContext(context.TODO(), ruleChainCtx.Config, ruleChainCtx, nil,
+		ruleChainCtx.rootRuleContext = NewRuleContext(context.TODO(), ruleChainCtx.config, ruleChainCtx, nil,
 			ruleNodeCtx, config.Pool, nil, nil)
 		ruleChainCtx.isEmpty = true
 	}
@@ -165,8 +165,8 @@ func InitRuleChainCtx(config types.Config, ruleChainDef *types.RuleChain) (*Rule
 	return ruleChainCtx, nil
 }
 
-func (rc *RuleChainCtx) GetConfig() types.Config {
-	return rc.Config
+func (rc *RuleChainCtx) Config() types.Config {
+	return rc.config
 }
 
 func (rc *RuleChainCtx) GetNodeById(id types.RuleNodeId) (types.NodeCtx, bool) {
@@ -251,7 +251,7 @@ func (rc *RuleChainCtx) New() types.Node {
 func (rc *RuleChainCtx) Init(_ types.Config, configuration types.Configuration) error {
 	if rootRuleChainDef, ok := configuration["selfDefinition"]; ok {
 		if v, ok := rootRuleChainDef.(*types.RuleChain); ok {
-			if ruleChainCtx, err := InitRuleChainCtx(rc.Config, v); err == nil {
+			if ruleChainCtx, err := InitRuleChainCtx(rc.config, v); err == nil {
 				rc.Copy(ruleChainCtx)
 			} else {
 				return err
@@ -291,7 +291,7 @@ func (rc *RuleChainCtx) GetNodeId() types.RuleNodeId {
 func (rc *RuleChainCtx) ReloadSelf(def []byte) error {
 	var err error
 	var ctx types.Node
-	if ctx, err = rc.Config.Parser.DecodeRuleChain(rc.Config, def); err == nil {
+	if ctx, err = rc.config.Parser.DecodeRuleChain(rc.config, def); err == nil {
 		rc.Destroy()
 		rc.Copy(ctx.(*RuleChainCtx))
 	}
@@ -320,7 +320,7 @@ func (rc *RuleChainCtx) ReloadChild(ruleNodeId types.RuleNodeId, def []byte) err
 }
 
 func (rc *RuleChainCtx) DSL() []byte {
-	v, _ := rc.Config.Parser.EncodeRuleChain(rc.SelfDefinition)
+	v, _ := rc.config.Parser.EncodeRuleChain(rc.SelfDefinition)
 	return v
 }
 
@@ -333,7 +333,7 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.Lock()
 	defer rc.Unlock()
 	rc.Id = newCtx.Id
-	rc.Config = newCtx.Config
+	rc.config = newCtx.config
 	rc.initialized = newCtx.initialized
 	rc.componentsRegistry = newCtx.componentsRegistry
 	rc.SelfDefinition = newCtx.SelfDefinition
