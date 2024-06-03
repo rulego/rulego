@@ -20,14 +20,8 @@ package endpoint
 
 import (
 	"context"
-	"errors"
 	"github.com/rulego/rulego/api/types"
 	"net/textproto"
-)
-
-var (
-	// ErrServerStopped represents an error when the endpoint is stopped.
-	ErrServerStopped = errors.New("endpoint stopped")
 )
 
 // Event constants define various event types in the endpoints.
@@ -66,6 +60,7 @@ type Endpoint interface {
 // DynamicEndpoint is an interface for dynamically defining an endpoint using a DSL (`types.EndpointDsl`).
 type DynamicEndpoint interface {
 	Endpoint
+	SetId(id string)
 	// SetConfig sets the configuration for the dynamic endpoint.
 	SetConfig(config types.Config)
 	// SetRouterOptions sets options for the router.
@@ -79,6 +74,8 @@ type DynamicEndpoint interface {
 	// Else the endpoint only update the route without restarting
 	// Routing conflict, endpoint must be restarted
 	Reload(dsl []byte, opts ...DynamicEndpointOption) error
+	// ReloadFromDef reloads the dynamic endpoint with a new DSL configuration.
+	ReloadFromDef(def types.EndpointDsl, opts ...DynamicEndpointOption) error
 	// AddOrReloadRouter reloads or add the router with a new DSL configuration.
 	AddOrReloadRouter(dsl []byte, opts ...DynamicEndpointOption) error
 	// Definition returns the DSL definition of the dynamic endpoint.
@@ -225,6 +222,16 @@ type Executor interface {
 	Execute(ctx context.Context, router Router, exchange *Exchange)
 }
 
+// Factory is an interface defining that creates Endpoints.
+type Factory interface {
+	// NewFromDsl creates a new DynamicEndpoint instance from DSL.
+	NewFromDsl(dsl []byte, opts ...DynamicEndpointOption) (DynamicEndpoint, error)
+	// NewFromDef creates a new DynamicEndpoint instance from DSL.
+	NewFromDef(def types.EndpointDsl, opts ...DynamicEndpointOption) (DynamicEndpoint, error)
+	// NewFromType creates a new Endpoint instance from type.
+	NewFromType(componentType string, ruleConfig types.Config, configuration interface{}) (Endpoint, error)
+}
+
 // Pool is an interface defining operations for managing a pool of endpoints.
 type Pool interface {
 	// New creates a new dynamic endpoint.
@@ -239,4 +246,6 @@ type Pool interface {
 	Reload(opts ...DynamicEndpointOption)
 	// Range iterates over all dynamic endpoint instances.
 	Range(f func(key, value any) bool)
+	// Factory returns the factory used to create endpoint instances.
+	Factory() Factory
 }
