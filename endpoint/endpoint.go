@@ -135,26 +135,39 @@ type DynamicEndpoint struct {
 }
 
 // NewFromDsl creates a new DynamicEndpoint from the provided DSL definition and options.
-func NewFromDsl(id string, def []byte, opts ...endpoint.DynamicEndpointOption) (endpoint.DynamicEndpoint, error) {
+func NewFromDsl(def []byte, opts ...endpoint.DynamicEndpointOption) (endpoint.DynamicEndpoint, error) {
 	if len(def) == 0 {
 		return nil, errors.New("def cannot be nil")
 	}
 	e := &DynamicEndpoint{}
-	err := e.Reload(def, opts...)
-	if err != nil {
+	if err := e.Reload(def, opts...); err != nil {
 		return nil, err
 	}
-	if id != "" {
-		e.id = id
-	} else {
+	if e.id == "" && e.definition.Id != "" {
 		e.id = e.definition.Id
 	}
-	return e, err
+	return e, nil
+}
+
+func NewFromDef(def types.EndpointDsl, opts ...endpoint.DynamicEndpointOption) (endpoint.DynamicEndpoint, error) {
+	e := &DynamicEndpoint{}
+	if err := e.ReloadFromDef(def, opts...); err != nil {
+		return nil, err
+	}
+	if e.id == "" && e.definition.Id != "" {
+		e.id = e.definition.Id
+	}
+	return e, nil
 }
 
 // Id returns the identifier of the DynamicEndpoint.
 func (e *DynamicEndpoint) Id() string {
 	return e.id
+}
+
+// SetId sets the identifier of the DynamicEndpoint.
+func (e *DynamicEndpoint) SetId(id string) {
+	e.id = id
 }
 
 // SetConfig sets the configuration for the DynamicEndpoint.
@@ -184,21 +197,21 @@ func (e *DynamicEndpoint) AddInterceptors(interceptors ...endpoint.Process) {
 }
 
 // Reload reloads the DynamicEndpoint with the provided definition and options.
-func (e *DynamicEndpoint) Reload(def []byte, opts ...endpoint.DynamicEndpointOption) error {
-	if dsl, err := e.unmarshal(def); err != nil {
+func (e *DynamicEndpoint) Reload(dsl []byte, opts ...endpoint.DynamicEndpointOption) error {
+	if dsl, err := e.unmarshal(dsl); err != nil {
 		return err
 	} else {
-		return e.initEndpoint(dsl, opts...)
+		return e.ReloadFromDef(dsl, opts...)
 	}
 }
 
 // AddOrReloadRouter reloads the router for the DynamicEndpoint with the provided definition and options.
-func (e *DynamicEndpoint) AddOrReloadRouter(def []byte, opts ...endpoint.DynamicEndpointOption) error {
-	var dsl types.RouterDsl
-	if err := json.Unmarshal(def, &dsl); err != nil {
+func (e *DynamicEndpoint) AddOrReloadRouter(dsl []byte, opts ...endpoint.DynamicEndpointOption) error {
+	var routerDsl types.RouterDsl
+	if err := json.Unmarshal(dsl, &routerDsl); err != nil {
 		return err
 	}
-	_, err := e.AddRouterFromDsl(&dsl)
+	_, err := e.AddRouterFromDef(&routerDsl)
 	e.restart = false
 	for _, opt := range opts {
 		_ = opt(e)
@@ -241,8 +254,8 @@ func (e *DynamicEndpoint) RemoveRouter(routerId string, params ...interface{}) e
 	return nil
 }
 
-// AddRouterFromDsl adds a router to the DynamicEndpoint from the provided DSL.
-func (e *DynamicEndpoint) AddRouterFromDsl(routerDsl *types.RouterDsl) (string, error) {
+// AddRouterFromDef adds a router to the DynamicEndpoint from the provided DSL.
+func (e *DynamicEndpoint) AddRouterFromDef(routerDsl *types.RouterDsl) (string, error) {
 	if routerDsl == nil {
 		return "", errors.New("routerDsl cannot be nil")
 	}
@@ -284,17 +297,17 @@ func (e *DynamicEndpoint) AddRouterFromDsl(routerDsl *types.RouterDsl) (string, 
 	}
 }
 
-// initEndpoint initializes the DynamicEndpoint with the provided DSL and options.
-func (e *DynamicEndpoint) initEndpoint(dsl types.EndpointDsl, opts ...endpoint.DynamicEndpointOption) error {
+// ReloadFromDef initializes the DynamicEndpoint with the provided DSL and options.
+func (e *DynamicEndpoint) ReloadFromDef(def types.EndpointDsl, opts ...endpoint.DynamicEndpointOption) error {
 	e.restart = false
 	e.ruleConfig = engine.NewConfig(types.WithDefaultPool())
 	for _, opt := range opts {
 		_ = opt(e)
 	}
 	if e.Endpoint != nil {
-		return e.reloadEndpoint(dsl)
+		return e.reloadEndpoint(def)
 	} else {
-		return e.newEndpoint(dsl)
+		return e.newEndpoint(def)
 	}
 }
 
@@ -310,7 +323,7 @@ func (e *DynamicEndpoint) newEndpoint(dsl types.EndpointDsl) error {
 		}
 		e.AddInterceptors(e.interceptors...)
 		for _, item := range dsl.Routers {
-			if _, err := e.AddRouterFromDsl(item); err != nil {
+			if _, err := e.AddRouterFromDef(item); err != nil {
 				return err
 			}
 		}
@@ -331,29 +344,29 @@ func (e *DynamicEndpoint) newEndpoint(dsl types.EndpointDsl) error {
 }
 
 // reloadEndpoint reloads the Endpoint with the provided DSL.
-func (e *DynamicEndpoint) reloadEndpoint(dsl types.EndpointDsl) error {
-	if e.Endpoint != nil && (e.restart || needRestart(e.definition, dsl)) {
+func (e *DynamicEndpoint) reloadEndpoint(def types.EndpointDsl) error {
+	if e.Endpoint != nil && (e.restart || needRestart(e.definition, def)) {
 		e.Endpoint.Destroy()
 		e.Endpoint = nil
 		e.restart = true
-		return e.newEndpoint(dsl)
+		return e.newEndpoint(def)
 	}
 	// Check for changes in routers
-	added, removed, modified := checkRouterChanges(e.definition.Routers, dsl.Routers)
+	added, removed, modified := checkRouterChanges(e.definition.Routers, def.Routers)
 	for _, item := range removed {
 		_ = e.RemoveRouter(item.Id, item.Params...)
 	}
 	for _, item := range added {
-		if _, err := e.AddRouterFromDsl(item); err != nil {
+		if _, err := e.AddRouterFromDef(item); err != nil {
 			return err
 		}
 	}
 	for _, item := range modified {
-		if _, err := e.AddRouterFromDsl(item); err != nil {
+		if _, err := e.AddRouterFromDef(item); err != nil {
 			return err
 		}
 	}
-	e.definition = dsl
+	e.definition = def
 	return nil
 }
 

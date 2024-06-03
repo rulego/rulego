@@ -78,6 +78,14 @@ var DynamicEndpointOptions = dynamicEndpointOptions{}
 type dynamicEndpointOptions struct {
 }
 
+// WithId sets the ID for the dynamic endpoint.
+func (d dynamicEndpointOptions) WithId(id string) DynamicEndpointOption {
+	return func(re DynamicEndpoint) error {
+		re.SetId(id)
+		return nil
+	}
+}
+
 // WithConfig sets the configuration for the dynamic endpoint.
 func (d dynamicEndpointOptions) WithConfig(config types.Config) DynamicEndpointOption {
 	return func(re DynamicEndpoint) error {

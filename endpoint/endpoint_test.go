@@ -52,7 +52,7 @@ func TestDynamicEndpoint(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ep, err := NewFromDsl("e1", endpointBuf, endpoint.DynamicEndpointOptions.WithConfig(config),
+	ep, err := NewFromDsl(endpointBuf, endpoint.DynamicEndpointOptions.WithConfig(config),
 		endpoint.DynamicEndpointOptions.WithRouterOpts(endpoint.RouterOptions.WithContextFunc(func(ctx context.Context, exchange *endpoint.Exchange) context.Context {
 			return context.Background()
 		})))
