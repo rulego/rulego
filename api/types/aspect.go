@@ -29,17 +29,19 @@ package types
 // Aspect is the base interface for advice
 // Aspect 增强点接口的基类
 type Aspect interface {
-	//Order returns the execution order, the smaller the value, the higher the priority
-	//Order 返回执行顺序，值越小，优先级越高
+	// Order returns the execution order, the smaller the value, the higher the priority
+	// Order 返回执行顺序，值越小，优先级越高
 	Order() int
+	// New returns a new instance of the aspect
+	New() Aspect
 }
 
 // NodeAspect is the base interface for node advice
 // NodeAspect 节点增强点接口的基类
 type NodeAspect interface {
 	Aspect
-	//PointCut declares a cut-in point, used to determine whether to execute the advice
-	//PointCut 声明一个切入点，用于判断是否需要执行增强点
+	//PointCut declares a cut-in point, used to determine whether to execute the advice if OnMsg
+	//PointCut 声明一个切入点，用于判断是否需要执行节点 OnMsg 相关增强点
 	//For example: specify some component types or relationType to execute the aspect logic;return ctx.Self().Type()=="mqttClient"
 	//例如：指定某些组件类型或者relationType才执行切面逻辑;return ctx.Self().Type()=="mqttClient"
 	PointCut(ctx RuleContext, msg RuleMsg, relationType string) bool
@@ -109,7 +111,7 @@ type OnCreatedAspect interface {
 	Aspect
 	// OnCreated is the advice that executes after the rule engine is successfully created.
 	// OnCreated 规则引擎成功创建之后的增强点
-	OnCreated(chainCtx NodeCtx)
+	OnCreated(chainCtx NodeCtx) error
 }
 
 // OnReloadAspect is the interface for rule engine reload rule chain or child node configuration advice
@@ -120,7 +122,7 @@ type OnReloadAspect interface {
 	// OnReload 规则引擎重新加载规则链或者子节点配置之后的增强点。规则链更新会同时触发OnDestroy和OnReload
 	// If the rule chain is updated, then chainCtx=ctx
 	// 如果更新规则链，则chainCtx=ctx
-	OnReload(parentCtx NodeCtx, ctx NodeCtx, err error)
+	OnReload(parentCtx NodeCtx, ctx NodeCtx, err error) error
 }
 
 // OnDestroyAspect is the interface for rule engine instance destruction advice

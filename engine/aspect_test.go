@@ -229,24 +229,30 @@ func (aspect *EngineAspect) Order() int {
 	return 1
 }
 
+func (aspect *EngineAspect) New() types.Aspect {
+	return &EngineAspect{}
+}
+
 func (aspect *EngineAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
 	return true
 }
 
-func (aspect *EngineAspect) OnCreated(ctx types.NodeCtx) {
+func (aspect *EngineAspect) OnCreated(ctx types.NodeCtx) error {
 	//fmt.Println("OnCreated:" + ctx.GetNodeId().Id)
 	if aspect.Callback != nil && aspect.Callback.OnCreated != nil {
 		aspect.Callback.OnCreated(ctx)
 	}
-
+	return nil
 }
 
-func (aspect *EngineAspect) OnReload(parentCtx types.NodeCtx, ctx types.NodeCtx, err error) {
+func (aspect *EngineAspect) OnReload(parentCtx types.NodeCtx, ctx types.NodeCtx, err error) error {
 	//fmt.Println("OnReload:" + ctx.GetNodeId().Id)
 	if aspect.Callback != nil && aspect.Callback.OnReload != nil {
 		aspect.Callback.OnReload(parentCtx, ctx, err)
 	}
+	return nil
 }
+
 func (aspect *EngineAspect) OnDestroy(ctx types.NodeCtx) {
 	//fmt.Println("OnDestroy:" + ctx.GetNodeId().Id)
 	if aspect.Callback != nil && aspect.Callback.OnDestroy != nil {
@@ -268,6 +274,11 @@ type ChainAspect struct {
 func (aspect *ChainAspect) Order() int {
 	return 2
 }
+
+func (aspect *ChainAspect) New() types.Aspect {
+	return &ChainAspect{}
+}
+
 func (aspect *ChainAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
 	return true
 }
@@ -289,6 +300,10 @@ func (aspect *NodeAspect1) Order() int {
 	return 3
 }
 
+func (aspect *NodeAspect1) New() types.Aspect {
+	return &NodeAspect1{}
+}
+
 func (aspect *NodeAspect1) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
 	return true
 }
@@ -305,6 +320,10 @@ type NodeAspect2 struct {
 
 func (aspect *NodeAspect2) Order() int {
 	return 4
+}
+
+func (aspect *NodeAspect2) New() types.Aspect {
+	return &NodeAspect2{}
 }
 
 func (aspect *NodeAspect2) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {

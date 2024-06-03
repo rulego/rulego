@@ -165,6 +165,10 @@ func InitRuleChainCtx(config types.Config, ruleChainDef *types.RuleChain) (*Rule
 	return ruleChainCtx, nil
 }
 
+func (rc *RuleChainCtx) GetConfig() types.Config {
+	return rc.Config
+}
+
 func (rc *RuleChainCtx) GetNodeById(id types.RuleNodeId) (types.NodeCtx, bool) {
 	rc.RLock()
 	defer rc.RUnlock()
@@ -293,7 +297,9 @@ func (rc *RuleChainCtx) ReloadSelf(def []byte) error {
 	}
 	//执行reload切面
 	for _, aop := range rc.reloadAspects {
-		aop.OnReload(rc, rc, err)
+		if err := aop.OnReload(rc, rc, err); err != nil {
+			return err
+		}
 	}
 	return err
 }
@@ -304,7 +310,9 @@ func (rc *RuleChainCtx) ReloadChild(ruleNodeId types.RuleNodeId, def []byte) err
 		err := node.ReloadSelf(def)
 		//执行reload切面
 		for _, aop := range rc.reloadAspects {
-			aop.OnReload(rc, node, err)
+			if err := aop.OnReload(rc, node, err); err != nil {
+				return err
+			}
 		}
 		return err
 	}
