@@ -13,6 +13,8 @@ English| [中文](README_ZH.md)
 `RuleGo` is a lightweight, high-performance, embedded, orchestrable component-based rule engine based on `Go` language. 
 It is also a flexible and highly customizable event processing framework. Support heterogeneous system data integration. It can aggregate, distribute, filter, transform, enrich and execute various actions on input messages.
 
+<h3>Your encouragement is our driving force. If this project has been helpful to you, please give it a Star in the top right corner.</h3>
+
 ## Documentation
 
 RuleGo documentation is hosted on: [rulego.cc](https://rulego.cc) .
