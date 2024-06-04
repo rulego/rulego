@@ -88,8 +88,8 @@ func SaveDslRouter(url string) endpointApi.Router {
 				exchange.Out.SetStatusCode(http.StatusOK)
 			} else {
 				logger.Logger.Println(err)
+				exchange.Out.SetStatusCode(http.StatusBadRequest)
 				exchange.Out.SetBody([]byte(err.Error()))
-				exchange.Out.SetStatusCode(http.StatusInternalServerError)
 			}
 		} else {
 			return userNotFound(username, exchange)
@@ -108,8 +108,8 @@ func ListDslRouter(url string) endpointApi.Router {
 				exchange.Out.SetBody(list)
 			} else {
 				logger.Logger.Println(err)
+				exchange.Out.SetStatusCode(http.StatusBadRequest)
 				exchange.Out.SetBody([]byte(err.Error()))
-				exchange.Out.SetStatusCode(http.StatusInternalServerError)
 			}
 		} else {
 			return userNotFound(username, exchange)
@@ -129,8 +129,8 @@ func DeleteDslRouter(url string) endpointApi.Router {
 				exchange.Out.SetStatusCode(http.StatusOK)
 			} else {
 				logger.Logger.Println(err)
+				exchange.Out.SetStatusCode(http.StatusBadRequest)
 				exchange.Out.SetBody([]byte(err.Error()))
-				exchange.Out.SetStatusCode(http.StatusInternalServerError)
 			}
 		} else {
 			return userNotFound(username, exchange)
@@ -147,12 +147,12 @@ func SaveBaseInfo(url string) endpointApi.Router {
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		var req types.RuleChainBaseInfo
 		if err := json.Unmarshal([]byte(msg.Data), &req); err != nil {
-			exchange.Out.SetStatusCode(http.StatusInternalServerError)
+			exchange.Out.SetStatusCode(http.StatusBadRequest)
 			exchange.Out.SetBody([]byte(err.Error()))
 		} else {
 			if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 				if err := s.SaveBaseInfo(chainId, req); err != nil {
-					exchange.Out.SetStatusCode(http.StatusInternalServerError)
+					exchange.Out.SetStatusCode(http.StatusBadRequest)
 					exchange.Out.SetBody([]byte(err.Error()))
 				}
 
@@ -173,12 +173,12 @@ func SaveConfiguration(url string) endpointApi.Router {
 		varType := msg.Metadata.GetValue(constants.KeyVarType)
 		var req interface{}
 		if err := json.Unmarshal([]byte(msg.Data), &req); err != nil {
-			exchange.Out.SetStatusCode(http.StatusInternalServerError)
+			exchange.Out.SetStatusCode(http.StatusBadRequest)
 			exchange.Out.SetBody([]byte(err.Error()))
 		} else {
 			if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 				if err := s.SaveConfiguration(chainId, varType, req); err != nil {
-					exchange.Out.SetStatusCode(http.StatusInternalServerError)
+					exchange.Out.SetStatusCode(http.StatusBadRequest)
 					exchange.Out.SetBody([]byte(err.Error()))
 				}
 			} else {
@@ -217,7 +217,7 @@ func ExecuteRuleRouter(url string) endpointApi.Router {
 		err := exchange.Out.GetError()
 		if err != nil {
 			//错误
-			exchange.Out.SetStatusCode(400)
+			exchange.Out.SetStatusCode(http.StatusBadRequest)
 			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 		} else {
 			//把处理结果响应给客户端，http endpoint 必须增加 Wait()，否则无法正常响应
@@ -254,8 +254,8 @@ func PostMsgRouter(url string) endpointApi.Router {
 
 // userNotFound 用户不存在
 func userNotFound(username string, exchange *endpointApi.Exchange) bool {
-	exchange.Out.SetBody([]byte("no found username for" + username))
 	exchange.Out.SetStatusCode(http.StatusBadRequest)
+	exchange.Out.SetBody([]byte("no found username for" + username))
 	return false
 }
 

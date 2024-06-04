@@ -156,6 +156,9 @@ func (s *RuleEngineService) SaveDsl(chainId, nodeId string, def []byte) error {
 		} else {
 			ruleEngine, err = s.Pool.New(chainId, def, rulego.WithConfig(s.ruleConfig))
 		}
+		if err != nil {
+			return err
+		}
 		self := ruleEngine.RootRuleChainCtx().Definition()
 		//修改更新时间
 		s.fillAdditionalInfo(self)
