@@ -11,16 +11,16 @@
     "nodes": [
       {
         "id": "s1",
-        "additionalInfo": {
-          "description": "ddd",
-          "layoutX": 440,
-          "layoutY": 280
-        },
         "type": "jsFilter",
         "name": "过滤",
-        "debugMode": true,
         "configuration": {
           "jsScript": "return msg!='bb';"
+        },
+        "debugMode": true,
+        "additionalInfo": {
+          "description": "ddd",
+          "layoutX": 450,
+          "layoutY": 240
         }
       },
       {
@@ -42,7 +42,7 @@
         "additionalInfo": {
           "description": "",
           "layoutX": 930,
-          "layoutY": 180
+          "layoutY": 190
         },
         "type": "restApiCall",
         "name": "推送数据",
