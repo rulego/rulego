@@ -13,7 +13,7 @@
         "configuration": {
           "server": ":9090"
         },
-        "routes": [
+        "routers": [
           {
             "id":"r1",
             "params": [

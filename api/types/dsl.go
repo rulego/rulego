@@ -175,7 +175,7 @@ type EndpointDsl struct {
 	// Using processors registered in builtin/processor#Builtins xx by name.
 	Processors []string `json:"processors"`
 	// Routers is the list of routers.
-	Routers []*RouterDsl `json:"routes"`
+	Routers []*RouterDsl `json:"routers"`
 }
 
 // RouterDsl defines a router for an endpoint.

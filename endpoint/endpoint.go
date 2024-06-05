@@ -31,7 +31,7 @@
 //	  "configuration": {
 //	    "server": ":9090"
 //	  },
-//	 "routes": [
+//	 "routers": [
 //	   {
 //	     "id":"r1",
 //	     "params": [
@@ -243,13 +243,13 @@ func (e *DynamicEndpoint) RemoveRouter(routerId string, params ...interface{}) e
 	e.locker.Lock()
 	defer e.locker.Unlock()
 	if err := e.Endpoint.RemoveRouter(routerId, params...); err == nil {
-		var newRoutes []*types.RouterDsl
+		var newRouters []*types.RouterDsl
 		for _, item := range e.definition.Routers {
 			if item.Id != routerId {
-				newRoutes = append(newRoutes, item)
+				newRouters = append(newRouters, item)
 			}
 		}
-		e.definition.Routers = newRoutes
+		e.definition.Routers = newRouters
 	}
 	return nil
 }

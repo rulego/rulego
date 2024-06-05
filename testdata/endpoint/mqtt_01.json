@@ -7,14 +7,14 @@
     "username":"admin",
     "password":"admin"
   },
-  "routes": [
+  "routers": [
     {
       "id":"r1",
       "from": {
         "path": "#"
       },
       "to": {
-        "path": "${chainId}"
+        "path": "default"
       }
     }
   ]

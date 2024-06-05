@@ -2,10 +2,13 @@
   "id": "schedule_e1",
   "type": "schedule",
   "name": "schedule",
-  "routes": [
+  "routers": [
     {
       "from": {
         "path": "*/1 * * * * *"
+      },
+      "to": {
+        "path": "default"
       }
     }
   ]
