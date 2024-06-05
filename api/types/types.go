@@ -286,7 +286,7 @@ type JsEngine interface {
 type Parser interface {
 	// DecodeRuleChain 从描述文件解析规则链结构体
 	//parses a chain from an input source.
-	DecodeRuleChain(config Config, dsl []byte) (Node, error)
+	DecodeRuleChain(config Config, aspects AspectList, dsl []byte) (Node, error)
 	// DecodeRuleNode 从描述文件解析规则节点结构体
 	//parses a node from an input source.
 	DecodeRuleNode(config Config, dsl []byte, chainCtx Node) (Node, error)

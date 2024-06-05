@@ -26,10 +26,10 @@ import (
 type JsonParser struct {
 }
 
-func (p *JsonParser) DecodeRuleChain(config types.Config, dsl []byte) (types.Node, error) {
+func (p *JsonParser) DecodeRuleChain(config types.Config, aspects types.AspectList, dsl []byte) (types.Node, error) {
 	if rootRuleChainDef, err := ParserRuleChain(dsl); err == nil {
 		//初始化
-		return InitRuleChainCtx(config, &rootRuleChainDef)
+		return InitRuleChainCtx(config, aspects, &rootRuleChainDef)
 	} else {
 		return nil, err
 	}

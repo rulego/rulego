@@ -29,13 +29,13 @@ import (
 // 测试故障降级切面
 func TestSkipFallbackAspect(t *testing.T) {
 	//如果10s内出现3次错误，则跳过当前节点，继续执行下一个节点，10s后恢复
-	config := NewConfig(types.WithAspects(&aspect.SkipFallbackAspect{ErrorCountLimit: 3, LimitDuration: time.Second * 10}))
+	config := NewConfig()
 
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		//config.Logger.Printf("chainId=%s,flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", chainId, flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
 	}
 
-	ruleEngine, err := DefaultPool.New(str.RandomStr(10), loadFile("./test_skip_fallback_aspect.json"), WithConfig(config))
+	ruleEngine, err := DefaultPool.New(str.RandomStr(10), loadFile("./test_skip_fallback_aspect.json"), WithConfig(config), types.WithAspects(&aspect.SkipFallbackAspect{ErrorCountLimit: 3, LimitDuration: time.Second * 10}))
 	if err != nil {
 		t.Error(err)
 	}
@@ -101,18 +101,23 @@ func TestSkipFallbackAspect(t *testing.T) {
 }
 
 func TestAspectOrder(t *testing.T) {
-	config := NewConfig(types.WithAspects(&NodeAspect2{Name: "NodeAspect2"}, &NodeAspect1{Name: "NodeAspect1"}, &ChainAspect{Name: "ChainAspect"}, &EngineAspect{Name: "EngineAspect"}))
-	onCreated, onReload, onDestroy := config.GetEngineAspects()
+	var aspects = types.AspectList{
+		&NodeAspect2{Name: "NodeAspect2"},
+		&NodeAspect1{Name: "NodeAspect1"},
+		&ChainAspect{Name: "ChainAspect"},
+		&EngineAspect{Name: "EngineAspect"},
+	}
+	onCreated, onReload, onDestroy := aspects.GetEngineAspects()
 	assert.Equal(t, len(onCreated), 1)
 	assert.Equal(t, len(onReload), 1)
 	assert.Equal(t, len(onDestroy), 1)
 
-	onStart, onEnd, onCompleted := config.GetChainAspects()
+	onStart, onEnd, onCompleted := aspects.GetChainAspects()
 	assert.Equal(t, len(onStart), 1)
 	assert.Equal(t, len(onEnd), 1)
 	assert.Equal(t, len(onCompleted), 1)
 
-	around, before, after := config.GetNodeAspects()
+	around, before, after := aspects.GetNodeAspects()
 	assert.Equal(t, len(around), 1)
 	assert.Equal(t, len(before), 2)
 	assert.Equal(t, len(after), 1)
@@ -143,9 +148,9 @@ func TestEngineAspect(t *testing.T) {
 	callback.OnCompleted = func(ctx types.RuleContext, msg types.RuleMsg) {
 		onCompleted = true
 	}
-	config := NewConfig(types.WithAspects(&NodeAspect2{Name: "NodeAspect2"}, &NodeAspect1{Name: "NodeAspect1"},
+	config := NewConfig()
+	ruleEngine, err := DefaultPool.New(chainId, []byte(ruleChainFile), WithConfig(config), types.WithAspects(&NodeAspect2{Name: "NodeAspect2"}, &NodeAspect1{Name: "NodeAspect1"},
 		&ChainAspect{Name: "ChainAspect"}, &EngineAspect{Name: "EngineAspect", Callback: callback}))
-	ruleEngine, err := DefaultPool.New(chainId, []byte(ruleChainFile), WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}
@@ -189,14 +194,14 @@ func TestChainAspect(t *testing.T) {
 
 	callback := &CallbackTest{}
 
-	config := NewConfig(types.WithAspects(
+	config := NewConfig()
+
+	ruleEngine, err := DefaultPool.New(chainId, loadFile("./test_skip_fallback_aspect.json"), WithConfig(config), types.WithAspects(
 		&NodeAspect2{Name: "NodeAspect2"},
 		&NodeAspect1{Name: "NodeAspect1"},
 		&ChainAspect{Name: "ChainAspect"},
 		&EngineAspect{Name: "EngineAspect", Callback: callback},
 	))
-
-	ruleEngine, err := DefaultPool.New(chainId, loadFile("./test_skip_fallback_aspect.json"), WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}
@@ -230,7 +235,7 @@ func (aspect *EngineAspect) Order() int {
 }
 
 func (aspect *EngineAspect) New() types.Aspect {
-	return &EngineAspect{}
+	return &EngineAspect{Callback: aspect.Callback, Name: aspect.Name}
 }
 
 func (aspect *EngineAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {

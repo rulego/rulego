@@ -59,6 +59,8 @@ type RuleChainCtx struct {
 	rootRuleContext types.RuleContext
 	//子规则链池
 	ruleChainPool types.RuleEnginePool
+	//切面
+	aspects types.AspectList
 	//重新加载增强点切面
 	reloadAspects []types.OnReloadAspect
 	//销毁增强点切面
@@ -73,7 +75,7 @@ type RuleChainCtx struct {
 }
 
 // InitRuleChainCtx 初始化RuleChainCtx
-func InitRuleChainCtx(config types.Config, ruleChainDef *types.RuleChain) (*RuleChainCtx, error) {
+func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDef *types.RuleChain) (*RuleChainCtx, error) {
 	var ruleChainCtx = &RuleChainCtx{
 		config:             config,
 		SelfDefinition:     ruleChainDef,
@@ -82,6 +84,7 @@ func InitRuleChainCtx(config types.Config, ruleChainDef *types.RuleChain) (*Rule
 		relationCache:      make(map[RelationCache][]types.NodeCtx),
 		componentsRegistry: config.ComponentsRegistry,
 		initialized:        true,
+		aspects:            aspects,
 	}
 	if ruleChainDef.RuleChain.ID != "" {
 		ruleChainCtx.Id = types.RuleNodeId{Id: ruleChainDef.RuleChain.ID, Type: types.CHAIN}
@@ -158,7 +161,7 @@ func InitRuleChainCtx(config types.Config, ruleChainDef *types.RuleChain) (*Rule
 	}
 
 	//get aspects
-	_, reloadAspects, destroyAspects := config.GetEngineAspects()
+	_, reloadAspects, destroyAspects := aspects.GetEngineAspects()
 	ruleChainCtx.reloadAspects = reloadAspects
 	ruleChainCtx.destroyAspects = destroyAspects
 
@@ -251,7 +254,7 @@ func (rc *RuleChainCtx) New() types.Node {
 func (rc *RuleChainCtx) Init(_ types.Config, configuration types.Configuration) error {
 	if rootRuleChainDef, ok := configuration["selfDefinition"]; ok {
 		if v, ok := rootRuleChainDef.(*types.RuleChain); ok {
-			if ruleChainCtx, err := InitRuleChainCtx(rc.config, v); err == nil {
+			if ruleChainCtx, err := InitRuleChainCtx(rc.config, rc.aspects, v); err == nil {
 				rc.Copy(ruleChainCtx)
 			} else {
 				return err
@@ -259,7 +262,6 @@ func (rc *RuleChainCtx) Init(_ types.Config, configuration types.Configuration) 
 		}
 	}
 	return nil
-	//return errors.New("not support this func")
 }
 
 // OnMsg 处理消息
@@ -291,7 +293,7 @@ func (rc *RuleChainCtx) GetNodeId() types.RuleNodeId {
 func (rc *RuleChainCtx) ReloadSelf(def []byte) error {
 	var err error
 	var ctx types.Node
-	if ctx, err = rc.config.Parser.DecodeRuleChain(rc.config, def); err == nil {
+	if ctx, err = rc.config.Parser.DecodeRuleChain(rc.config, rc.aspects, def); err == nil {
 		rc.Destroy()
 		rc.Copy(ctx.(*RuleChainCtx))
 	}
@@ -342,6 +344,7 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.nodeRoutes = newCtx.nodeRoutes
 	rc.rootRuleContext = newCtx.rootRuleContext
 	rc.ruleChainPool = newCtx.ruleChainPool
+	rc.aspects = newCtx.aspects
 	rc.reloadAspects = newCtx.reloadAspects
 	rc.destroyAspects = newCtx.destroyAspects
 	rc.vars = newCtx.vars
@@ -362,6 +365,13 @@ func (rc *RuleChainCtx) GetRuleChainPool() types.RuleEnginePool {
 	} else {
 		return rc.ruleChainPool
 	}
+}
+
+func (rc *RuleChainCtx) SetAspects(aspects types.AspectList) {
+	rc.aspects = aspects
+	_, reloadAspects, destroyAspects := aspects.GetEngineAspects()
+	rc.reloadAspects = reloadAspects
+	rc.destroyAspects = destroyAspects
 }
 
 func decryptSecret(inputMap map[string]string, secretKey []byte) map[string]string {

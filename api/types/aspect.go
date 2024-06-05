@@ -16,6 +16,10 @@
 
 package types
 
+import (
+	"sort"
+)
+
 // The interface provides AOP (Aspect Oriented Programming) mechanism, Which is similar to interceptor or hook mechanism, but more powerful and flexible.
 //
 //   - It allows adding extra behavior to the rule chain execution without modifying the original logic of the rule chain or nodes.
@@ -33,6 +37,9 @@ type Aspect interface {
 	// Order 返回执行顺序，值越小，优先级越高
 	Order() int
 	// New returns a new instance of the aspect
+	// The method will be called to create a new instance during the initialization of the rule chain.
+	// If the field value needs to be inherited, it must be handled here.
+	// 规则链初始化时候会调用该方法创建新的实例，如果字段值需要继承，必须在这里处理
 	New() Aspect
 }
 
@@ -132,4 +139,86 @@ type OnDestroyAspect interface {
 	// OnDestroy is the advice that executes after the rule engine instance is destroyed.
 	// OnDestroy 规则引擎实例销毁执行之后增强点
 	OnDestroy(chainCtx NodeCtx)
+}
+
+type AspectList []Aspect
+
+// GetNodeAspects 获取节点执行类型增强点切面列表
+func (list AspectList) GetNodeAspects() ([]AroundAspect, []BeforeAspect, []AfterAspect) {
+
+	//从小到大排序
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Order() < list[j].Order()
+	})
+
+	var aroundAspects []AroundAspect
+	var beforeAspects []BeforeAspect
+	var afterAspects []AfterAspect
+
+	for _, item := range list {
+		if a, ok := item.(AroundAspect); ok {
+			aroundAspects = append(aroundAspects, a)
+		}
+		if a, ok := item.(BeforeAspect); ok {
+			beforeAspects = append(beforeAspects, a)
+		}
+		if a, ok := item.(AfterAspect); ok {
+			afterAspects = append(afterAspects, a)
+		}
+	}
+
+	return aroundAspects, beforeAspects, afterAspects
+}
+
+// GetChainAspects 获取规则链执行类型增强点切面列表
+func (list AspectList) GetChainAspects() ([]StartAspect, []EndAspect, []CompletedAspect) {
+
+	//从小到大排序
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Order() < list[j].Order()
+	})
+
+	var startAspects []StartAspect
+	var endAspects []EndAspect
+	var completedAspects []CompletedAspect
+	for _, item := range list {
+		if a, ok := item.(StartAspect); ok {
+			startAspects = append(startAspects, a)
+		}
+		if a, ok := item.(EndAspect); ok {
+			endAspects = append(endAspects, a)
+		}
+		if a, ok := item.(CompletedAspect); ok {
+			completedAspects = append(completedAspects, a)
+		}
+	}
+
+	return startAspects, endAspects, completedAspects
+}
+
+// GetEngineAspects 获取规则引擎类型增强点切面列表
+func (list AspectList) GetEngineAspects() ([]OnCreatedAspect, []OnReloadAspect, []OnDestroyAspect) {
+
+	//从小到大排序
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Order() < list[j].Order()
+	})
+
+	var createdAspects []OnCreatedAspect
+	var reloadAspects []OnReloadAspect
+	var destroyAspects []OnDestroyAspect
+
+	for _, item := range list {
+		if a, ok := item.(OnCreatedAspect); ok {
+			createdAspects = append(createdAspects, a)
+		}
+		if a, ok := item.(OnReloadAspect); ok {
+			reloadAspects = append(reloadAspects, a)
+		}
+		if a, ok := item.(OnDestroyAspect); ok {
+			destroyAspects = append(destroyAspects, a)
+		}
+	}
+
+	return createdAspects, reloadAspects, destroyAspects
 }
