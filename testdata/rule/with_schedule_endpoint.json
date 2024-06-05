@@ -11,7 +11,7 @@
         "type": "schedule",
         "name": "schedule",
         "processors": ["testPrint"],
-        "routes": [
+        "routers": [
           {
             "from": {
               "path": "*/1 * * * * *"
