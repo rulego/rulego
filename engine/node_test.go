@@ -94,7 +94,7 @@ func TestNodeCtx(t *testing.T) {
 		assert.Equal(t, 18, result["age"])
 
 		jsonParser := JsonParser{}
-		chainNode, _ := jsonParser.DecodeRuleChain(config, []byte(ruleChainFile))
+		chainNode, _ := jsonParser.DecodeRuleChain(config, nil, []byte(ruleChainFile))
 		result, _ = processVariables(config, chainNode.(*RuleChainCtx), types.Configuration{"name": "${global.name}", "ip": "${vars.ip}"})
 		assert.Equal(t, "lala", result["name"])
 		assert.Equal(t, "127.0.0.1", result["ip"])

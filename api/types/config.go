@@ -19,7 +19,6 @@ package types
 import (
 	"github.com/rulego/rulego/api/pool"
 	"math"
-	"sort"
 	"time"
 )
 
@@ -62,8 +61,6 @@ type Config struct {
 	//Udf 注册自定义Golang函数和原生脚本，js等脚本引擎运行时可以调用
 	//不同脚本类型函数名可以重复
 	Udf map[string]interface{}
-	//Aspects AOP切面列表
-	Aspects []Aspect
 	// SecretKey AES-256 32长度密钥，用于解密规则链`Secrets`配置
 	SecretKey string
 	//规则链DSL，endpoint模块是否可用
@@ -81,86 +78,6 @@ func (c *Config) RegisterUdf(name string, value interface{}) {
 		name = c.Type + ScriptFuncSeparator + name
 	}
 	c.Udf[name] = value
-}
-
-// GetNodeAspects 获取节点执行类型增强点切面列表
-func (c *Config) GetNodeAspects() ([]AroundAspect, []BeforeAspect, []AfterAspect) {
-
-	//从小到大排序
-	sort.Slice(c.Aspects, func(i, j int) bool {
-		return c.Aspects[i].Order() < c.Aspects[j].Order()
-	})
-
-	var aroundAspects []AroundAspect
-	var beforeAspects []BeforeAspect
-	var afterAspects []AfterAspect
-
-	for _, item := range c.Aspects {
-		if a, ok := item.(AroundAspect); ok {
-			aroundAspects = append(aroundAspects, a)
-		}
-		if a, ok := item.(BeforeAspect); ok {
-			beforeAspects = append(beforeAspects, a)
-		}
-		if a, ok := item.(AfterAspect); ok {
-			afterAspects = append(afterAspects, a)
-		}
-	}
-
-	return aroundAspects, beforeAspects, afterAspects
-}
-
-// GetChainAspects 获取规则链执行类型增强点切面列表
-func (c *Config) GetChainAspects() ([]StartAspect, []EndAspect, []CompletedAspect) {
-
-	//从小到大排序
-	sort.Slice(c.Aspects, func(i, j int) bool {
-		return c.Aspects[i].Order() < c.Aspects[j].Order()
-	})
-
-	var startAspects []StartAspect
-	var endAspects []EndAspect
-	var completedAspects []CompletedAspect
-	for _, item := range c.Aspects {
-		if a, ok := item.(StartAspect); ok {
-			startAspects = append(startAspects, a)
-		}
-		if a, ok := item.(EndAspect); ok {
-			endAspects = append(endAspects, a)
-		}
-		if a, ok := item.(CompletedAspect); ok {
-			completedAspects = append(completedAspects, a)
-		}
-	}
-
-	return startAspects, endAspects, completedAspects
-}
-
-// GetEngineAspects 获取规则引擎类型增强点切面列表
-func (c *Config) GetEngineAspects() ([]OnCreatedAspect, []OnReloadAspect, []OnDestroyAspect) {
-
-	//从小到大排序
-	sort.Slice(c.Aspects, func(i, j int) bool {
-		return c.Aspects[i].Order() < c.Aspects[j].Order()
-	})
-
-	var createdAspects []OnCreatedAspect
-	var reloadAspects []OnReloadAspect
-	var destroyAspects []OnDestroyAspect
-
-	for _, item := range c.Aspects {
-		if a, ok := item.(OnCreatedAspect); ok {
-			createdAspects = append(createdAspects, a)
-		}
-		if a, ok := item.(OnReloadAspect); ok {
-			reloadAspects = append(reloadAspects, a)
-		}
-		if a, ok := item.(OnDestroyAspect); ok {
-			destroyAspects = append(destroyAspects, a)
-		}
-	}
-
-	return createdAspects, reloadAspects, destroyAspects
 }
 
 func NewConfig(opts ...Option) Config {

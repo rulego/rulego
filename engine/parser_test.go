@@ -28,7 +28,7 @@ import (
 func TestParser(t *testing.T) {
 	jsonParser := JsonParser{}
 	config := NewConfig()
-	chainNode, err := jsonParser.DecodeRuleChain(config, []byte(ruleChainFile))
+	chainNode, err := jsonParser.DecodeRuleChain(config, nil, []byte(ruleChainFile))
 	assert.Nil(t, err)
 	ruleChainCtx, ok := chainNode.(*RuleChainCtx)
 	assert.True(t, ok)
@@ -42,12 +42,12 @@ func TestParser(t *testing.T) {
 	_, ok = ruleChainCtx.GetNodeByIndex(5)
 	assert.False(t, ok)
 	//错误
-	_, err = jsonParser.DecodeRuleChain(config, []byte("{"))
+	_, err = jsonParser.DecodeRuleChain(config, nil, []byte("{"))
 	assert.NotNil(t, err)
 
 	//找不到组件的规则链测试
 	notFoundComponent := strings.Replace(ruleChainFile, "\"type\": \"jsFilter\"", "\"type\": \"noFound\"", -1)
-	_, err = jsonParser.DecodeRuleChain(config, []byte(notFoundComponent))
+	_, err = jsonParser.DecodeRuleChain(config, nil, []byte(notFoundComponent))
 	assert.NotNil(t, err)
 
 	chainNodeJson, err := jsonParser.EncodeRuleChain(ruleChainCtx.SelfDefinition)
@@ -91,7 +91,7 @@ func TestParser(t *testing.T) {
 	assert.Equal(t, expectMap, targetMap)
 
 	str := strings.Replace(ruleChainFile, "connections", "ruleChainConnections", -1)
-	chainNode, err = jsonParser.DecodeRuleChain(config, []byte(str))
+	chainNode, err = jsonParser.DecodeRuleChain(config, nil, []byte(str))
 	assert.Nil(t, err)
 	assert.True(t, len(chainNode.(*RuleChainCtx).SelfDefinition.Metadata.RuleChainConnections) > 0)
 }

@@ -82,13 +82,13 @@ func WithLogger(logger Logger) Option {
 	}
 }
 
-// WithAspects is an option that sets the aspects of the Config.
-func WithAspects(aspects ...Aspect) Option {
-	return func(c *Config) error {
-		c.Aspects = aspects
-		return nil
-	}
-}
+//// WithAspects is an option that sets the aspects of the Config.
+//func WithAspects(aspects ...Aspect) Option {
+//	return func(c *Config) error {
+//		c.Aspects = aspects
+//		return nil
+//	}
+//}
 
 // WithSecretKey is an option that sets the secret key of the Config.
 func WithSecretKey(secretKey string) Option {

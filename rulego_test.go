@@ -25,6 +25,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 	"math"
 	"os"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -223,10 +224,15 @@ func TestScheduleEndpointAspect(t *testing.T) {
 
 	atomic.StoreInt64(&count, 0)
 
+	oldAspects := ruleEngine.(*engine.RuleEngine).Aspects
+	assert.Equal(t, len(engine.BuiltinsAspects), len(ruleEngine.(*engine.RuleEngine).Aspects))
+	assert.False(t, reflect.DeepEqual(engine.BuiltinsAspects, ruleEngine.(*engine.RuleEngine).Aspects))
+
 	newRuleDsl := strings.Replace(string(ruleDsl), "*/1 * * * * *", "*/3 * * * * *", -1)
-	err = ruleEngine.ReloadSelf([]byte(newRuleDsl))
+	err = ruleEngine.ReloadSelf([]byte(newRuleDsl), types.WithConfig(engine.NewConfig(types.WithDefaultPool())))
 	assert.Nil(t, err)
 
+	assert.True(t, reflect.DeepEqual(oldAspects, ruleEngine.(*engine.RuleEngine).Aspects))
 	time.Sleep(time.Second * 6)
 
 	assert.True(t, math.Abs(float64(count)-float64(3)) <= float64(1))

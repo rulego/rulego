@@ -44,12 +44,12 @@ func TestChainCtx(t *testing.T) {
 				Type:   types.True,
 			},
 		}
-		ctx, _ := InitRuleChainCtx(NewConfig(), &ruleChainDef)
+		ctx, _ := InitRuleChainCtx(NewConfig(), nil, &ruleChainDef)
 		ctx.New()
 	})
 
 	t.Run("Init", func(t *testing.T) {
-		ctx, _ := InitRuleChainCtx(NewConfig(), &ruleChainDef)
+		ctx, _ := InitRuleChainCtx(NewConfig(), nil, &ruleChainDef)
 		newRuleChainDef := types.RuleChain{}
 		err := ctx.Init(NewConfig(), types.Configuration{"selfDefinition": &newRuleChainDef})
 		assert.Nil(t, err)
@@ -62,7 +62,7 @@ func TestChainCtx(t *testing.T) {
 	})
 
 	t.Run("ReloadChildNotFound", func(t *testing.T) {
-		ctx, _ := InitRuleChainCtx(NewConfig(), &ruleChainDef)
+		ctx, _ := InitRuleChainCtx(NewConfig(), nil, &ruleChainDef)
 		newRuleChainDef := types.RuleChain{}
 		err := ctx.Init(NewConfig(), types.Configuration{"selfDefinition": &newRuleChainDef})
 		assert.Nil(t, err)
@@ -111,7 +111,7 @@ func TestChainCtx(t *testing.T) {
         }`
 		config := NewConfig()
 		jsonParser := JsonParser{}
-		chainNode, err := jsonParser.DecodeRuleChain(config, []byte(ruleChainFile))
+		chainNode, err := jsonParser.DecodeRuleChain(config, nil, []byte(ruleChainFile))
 		assert.Nil(t, err)
 		ruleChainCtx, _ := chainNode.(*RuleChainCtx)
 		nodeDsl := []byte(`

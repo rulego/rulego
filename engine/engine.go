@@ -64,6 +64,7 @@ type DefaultRuleContext struct {
 	ruleChainPool types.RuleEnginePool
 	//是否跳过执行子节点，默认是不跳过
 	skipTellNext bool
+	aspects      types.AspectList
 	//环绕切面列表
 	aroundAspects []types.AroundAspect
 	//前置切面列表
@@ -76,7 +77,16 @@ type DefaultRuleContext struct {
 
 // NewRuleContext 创建一个默认规则引擎消息处理上下文实例
 func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd types.OnEndFunc, ruleChainPool types.RuleEnginePool) *DefaultRuleContext {
-	aroundAspects, beforeAspects, afterAspects := config.GetNodeAspects()
+	var aspects types.AspectList
+	if ruleChainCtx != nil {
+		aspects = ruleChainCtx.aspects
+	}
+	if len(aspects) == 0 {
+		for _, builtinsAspect := range BuiltinsAspects {
+			aspects = append(aspects, builtinsAspect.New())
+		}
+	}
+	aroundAspects, beforeAspects, afterAspects := aspects.GetNodeAspects()
 	return &DefaultRuleContext{
 		context:       context,
 		config:        config,
@@ -87,6 +97,7 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 		pool:          pool,
 		onEnd:         onEnd,
 		ruleChainPool: ruleChainPool,
+		aspects:       aspects,
 		aroundAspects: aroundAspects,
 		beforeAspects: beforeAspects,
 		afterAspects:  afterAspects,
@@ -570,8 +581,8 @@ type RuleEngine struct {
 	completedAspects []types.CompletedAspect
 	//是否已经初始化
 	initialized bool
-	//默认内置切面列表
-	builtinsAspects []types.Aspect
+	//Aspects AOP切面列表
+	Aspects types.AspectList
 }
 
 //// RuleEngineOption is a function type that modifies the RuleEngine.
@@ -583,10 +594,9 @@ func newRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*Rule
 	}
 	// Create a new RuleEngine with the Id
 	ruleEngine := &RuleEngine{
-		id:              id,
-		Config:          NewConfig(),
-		RuleChainPool:   DefaultPool,
-		builtinsAspects: BuiltinsAspects,
+		id:            id,
+		Config:        NewConfig(),
+		RuleChainPool: DefaultPool,
 	}
 	err := ruleEngine.ReloadSelf(def, opts...)
 	if err == nil && ruleEngine.rootRuleChainCtx != nil {
@@ -598,7 +608,7 @@ func newRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*Rule
 		}
 	}
 	//设置切面列表
-	startAspects, endAspects, completedAspects := ruleEngine.Config.GetChainAspects()
+	startAspects, endAspects, completedAspects := ruleEngine.Aspects.GetChainAspects()
 	ruleEngine.startAspects = startAspects
 	ruleEngine.endAspects = endAspects
 	ruleEngine.completedAspects = completedAspects
@@ -613,23 +623,33 @@ func (e *RuleEngine) SetConfig(config types.Config) {
 	e.Config = config
 }
 
-func (e *RuleEngine) SetBuiltinsAspects(builtinsAspects ...types.Aspect) {
-	e.builtinsAspects = builtinsAspects
+func (e *RuleEngine) SetAspects(aspects ...types.Aspect) {
+	e.Aspects = append(e.Aspects, aspects...)
+}
+
+func (e *RuleEngine) GetAspects() types.AspectList {
+	return e.Aspects
 }
 
 func (e *RuleEngine) Reload(opts ...types.RuleEngineOption) error {
 	return e.ReloadSelf(e.DSL(), opts...)
 }
+
 func (e *RuleEngine) initBuiltinsAspects() {
+	var newAspects types.AspectList
 	//初始化内置切面
-	if len(e.Config.Aspects) == 0 {
-		for _, builtinsAspect := range e.builtinsAspects {
-			e.Config.Aspects = append(e.Config.Aspects, builtinsAspect.New())
+	if len(e.Aspects) == 0 {
+		for _, builtinsAspect := range BuiltinsAspects {
+			newAspects = append(newAspects, builtinsAspect.New())
 		}
 	} else {
-		for _, builtinsAspect := range e.builtinsAspects {
+		for _, item := range e.Aspects {
+			newAspects = append(newAspects, item.New())
+		}
+
+		for _, builtinsAspect := range BuiltinsAspects {
 			found := false
-			for _, item := range e.Config.Aspects {
+			for _, item := range newAspects {
 				//判断是否是相同类型
 				if reflect.TypeOf(item) == reflect.TypeOf(builtinsAspect) {
 					found = true
@@ -637,10 +657,11 @@ func (e *RuleEngine) initBuiltinsAspects() {
 				}
 			}
 			if !found {
-				e.Config.Aspects = append(e.Config.Aspects, builtinsAspect.New())
+				newAspects = append(newAspects, builtinsAspect.New())
 			}
 		}
 	}
+	e.Aspects = newAspects
 }
 
 // ReloadSelf 重新加载规则链
@@ -649,28 +670,31 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...types.RuleEngineOption) erro
 	for _, opt := range opts {
 		_ = opt(e)
 	}
-	//初始化内置切面
-	e.initBuiltinsAspects()
-
 	if e.Initialized() {
+		//初始化内置切面
+		if len(e.Aspects) == 0 {
+			e.initBuiltinsAspects()
+		}
 		e.rootRuleChainCtx.config = e.Config
+		e.rootRuleChainCtx.SetAspects(e.Aspects)
 		//更新规则链
 		err := e.rootRuleChainCtx.ReloadSelf(def)
 		//设置子规则链池
 		e.rootRuleChainCtx.SetRuleChainPool(e.RuleChainPool)
 		return err
 	} else {
+		//初始化内置切面
+		e.initBuiltinsAspects()
 		//初始化
-		if ctx, err := e.Config.Parser.DecodeRuleChain(e.Config, def); err == nil {
+		if ctx, err := e.Config.Parser.DecodeRuleChain(e.Config, e.Aspects, def); err == nil {
 			if e.rootRuleChainCtx != nil {
 				ctx.(*RuleChainCtx).Id = e.rootRuleChainCtx.Id
 			}
 			e.rootRuleChainCtx = ctx.(*RuleChainCtx)
 			//设置子规则链池
 			e.rootRuleChainCtx.SetRuleChainPool(e.RuleChainPool)
-
 			//执行创建切面逻辑
-			createdAspects, _, _ := e.Config.GetEngineAspects()
+			createdAspects, _, _ := e.Aspects.GetEngineAspects()
 			for _, aop := range createdAspects {
 				if err := aop.OnCreated(e.rootRuleChainCtx); err != nil {
 					return err

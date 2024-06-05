@@ -25,10 +25,9 @@ func WithConfig(config Config) RuleEngineOption {
 	}
 }
 
-// WithBuiltinsAspect 设置内置切片
-func WithBuiltinsAspect(builtinsAspects ...Aspect) RuleEngineOption {
+func WithAspects(aspects ...Aspect) RuleEngineOption {
 	return func(re RuleEngine) error {
-		re.SetBuiltinsAspects(builtinsAspects...)
+		re.SetAspects(aspects...)
 		return nil
 	}
 }
@@ -36,7 +35,7 @@ func WithBuiltinsAspect(builtinsAspects ...Aspect) RuleEngineOption {
 type RuleEngine interface {
 	Id() string
 	SetConfig(config Config)
-	SetBuiltinsAspects(builtinsAspects ...Aspect)
+	SetAspects(aspects ...Aspect)
 	Reload(opts ...RuleEngineOption) error
 	ReloadSelf(def []byte, opts ...RuleEngineOption) error
 	ReloadChild(ruleNodeId string, dsl []byte) error
