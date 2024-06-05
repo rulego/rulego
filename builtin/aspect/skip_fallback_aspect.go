@@ -63,7 +63,15 @@ func (aspect *SkipFallbackAspect) Order() int {
 }
 
 func (aspect *SkipFallbackAspect) New() types.Aspect {
-	return &SkipFallbackAspect{ErrorCountLimit: 3, LimitDuration: time.Second * 10}
+	var errorCountLimit = aspect.ErrorCountLimit
+	var limitDuration = aspect.LimitDuration
+	if errorCountLimit == 0 {
+		errorCountLimit = 3
+	}
+	if limitDuration == 0 {
+		limitDuration = time.Second * 10
+	}
+	return &SkipFallbackAspect{ErrorCountLimit: errorCountLimit, LimitDuration: limitDuration}
 }
 
 func (aspect *SkipFallbackAspect) Type() string {
