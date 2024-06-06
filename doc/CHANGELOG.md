@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## [v0.21.0] 2024/06/06
+
+- feat: rule chain DSL允许动态配置接入端（endpoint）
+- feat: 接入端（endpoint）允许通过DSL动态配置和启动
+- feat: endpoint通过无阻塞方式启动
+- feat: endpoint router允许传递context
+- feat: endpoint 组件注册和rule 组件注册合并
+- feat: 增加nats 节点组件
+- feat: msgTypeSwitch 和jsSwitch 节点如果没任何匹配转发到默认链
+- feat: 增加nats endpoint组件
+- fix: 子规则链context丢失问题
+- fix: examples/server 规则链文件解析失败不保存
+- refactor: endpoint 模块优化，调整目录结构
+- refactor: engine 模块优化，调整目录结构
+- refactor：优化aspect初始化
+- chore：examples/server build关闭CGO_ENABLED
+- chore：examples/server 加入nats组件
+
 ## [v0.20.0] 2024/04/24
 - feat: 允许不同脚本相同的函数名
 - feat: restApiCall 节点允许空body
