@@ -20,8 +20,7 @@ import (
 	"context"
 )
 
-// 关系 节点与节点连接的关系，以下是常用的关系，可以自定义
-// relation types
+// Relation types define the connections between nodes. These are common relations that can be customized.
 const (
 	Success = "Success"
 	Failure = "Failure"
@@ -29,194 +28,190 @@ const (
 	False   = "False"
 )
 
-// flow direction type
-// 流向 消息流入、流出节点方向
+// Flow direction types indicate the direction of message flow into and out of nodes.
 const (
-	In  = "IN"
-	Out = "OUT"
-	Log = "Log"
+	In  = "IN"  // Represents a message flowing into a node.
+	Out = "OUT" // Represents a message flowing out of a node.
+	Log = "Log" // Used for logging purposes.
 )
 
-// 脚本类型
+// Script types define the scripting languages supported for script execution within nodes.
 const (
-	Js     = "Js"
-	Lua    = "Lua"
-	Python = "Python"
+	Js     = "Js"     // Represents JavaScript scripting language.
+	Lua    = "Lua"    // Represents Lua scripting language.
+	Python = "Python" // Represents Python scripting language.
 )
 
-// OnEndFunc 规则链分支执行完函数
+// OnEndFunc is a callback function type that is executed when a branch of the rule chain completes.
 type OnEndFunc = func(ctx RuleContext, msg RuleMsg, err error, relationType string)
 
-// Configuration 组件配置类型
+// Configuration is a type for component configurations, represented as a map with string keys and interface{} values.
 type Configuration map[string]interface{}
 
-// ComponentType 组件类型：规则节点或者子规则链
+// ComponentType is an enum for component types: rule nodes or sub-rule chains.
 type ComponentType int
 
 const (
-	NODE ComponentType = iota
-	CHAIN
+	NODE  ComponentType = iota // NODE represents a rule node component.
+	CHAIN                      // CHAIN represents a sub-rule chain component.
 )
 
-// PluginRegistry go plugin 方式提供节点组件接口
-// 示例：
+// PluginRegistry is an interface for providing node components via Go plugins.
+// Example:
 // package main
-// var Plugins MyPlugins// plugin entry point
+// var Plugins MyPlugins // Plugin entry point
 // type MyPlugins struct{}
 //
 //	func (p *MyPlugins) Init() error {
-//		return nil
+//		return nil // Initialization logic for the plugin
 //	}
 //
 //	func (p *MyPlugins) Components() []types.Node {
-//		return []types.Node{&UpperNode{}, &TimeNode{}, &FilterNode{}}//一个插件可以提供多个组件
+//		return []types.Node{&UpperNode{}, &TimeNode{}, &FilterNode{}} // A plugin can provide multiple components
 //	}
 //
-// go build -buildmode=plugin -o plugin.so plugin.go # 编译插件，生成plugin.so文件
-// rulego.Registry.RegisterPlugin("test", "./plugin.so")//注册到RuleGo默认注册器9
+// go build -buildmode=plugin -o plugin.so plugin.go # Compile the plugin to generate a plugin.so file
+// rulego.Registry.RegisterPlugin("test", "./plugin.so") // Register the plugin with the default RuleGo registry
 type PluginRegistry interface {
-	//Init 初始化
+	// Init initializes the plugin.
 	Init() error
-	//Components 组件列表
+	// Components returns a list of components provided by the plugin.
 	Components() []Node
 }
 
-// ComponentRegistry 节点组件注册器
+// ComponentRegistry is an interface for registering node components.
 type ComponentRegistry interface {
-	//Register 注册组件，如果`node.Type()`已经存在则返回一个`已存在`错误
+	// Register adds a new component. If `node.Type()` already exists, it returns an 'already exists' error.
 	Register(node Node) error
-	//RegisterPlugin 通过plugin机制加载外部.so文件注册组件，
-	//如果`name`已经存在或者插件提供的组件列表`node.Type()`已经存在则返回一个`已存在`错误
+	// RegisterPlugin loads and registers a component from an external .so file using the plugin mechanism.
+	// If `name` already exists or the component list provided by the plugin `node.Type()` exists, it returns an 'already exists' error.
 	RegisterPlugin(name string, file string) error
-	//Unregister 删除组件或者通过插件名称删除一批组件
+	// Unregister removes a component or a batch of components by plugin name.
 	Unregister(componentType string) error
-	//NewNode 通过nodeType创建一个新的node实例
+	// NewNode creates a new instance of a node by nodeType.
 	NewNode(nodeType string) (Node, error)
-	//GetComponents 获取所有注册组件列表
+	// GetComponents retrieves a list of all registered components.
 	GetComponents() map[string]Node
-	//GetComponentForms 获取所有注册组件配置表单，用于可视化配置
+	// GetComponentForms retrieves configuration forms for all registered components, used for visual configuration.
 	GetComponentForms() ComponentFormList
 }
 
-// Node 规则引擎节点组件接口
-// 把业务封或者通用逻辑装成组件，然后通过规则链配置方式调用该组件
-// 实现方式参考`components`包
-// 然后注册到`RuleGo`默认注册器
+// Node is an interface for rule engine node components.
+// Business or common logic is encapsulated into components, which are then invoked through rule chain configurations.
+// Implementation reference can be found in the `components` package.
+// Then register to the default `RuleGo` registry.
 // rulego.Registry.Register(&MyNode{})
 type Node interface {
-	//New 创建一个组件新实例
-	//每个规则链里的规则节点都会创建一个新的实例，数据是独立的
+	// New creates a new instance of a component.
+	// A new instance is created for each rule node in the rule chain, with independent data.
 	New() Node
-	//Type 组件类型，类型不能重复。
-	//用于规则链，node.type配置，初始化对应的组件
-	//建议使用`/`区分命名空间，防止冲突。例如：x/httpClient
+	// Type returns the component type, which must be unique.
+	// Used for rule chain configuration to initialize the corresponding component.
+	// It is recommended to use `/` to distinguish namespaces and prevent conflicts, e.g., x/httpClient.
 	Type() string
-	//Init 组件初始化，一般做一些组件参数配置或者客户端初始化操作
-	//规则链里的规则节点初始化会调用一次
+	// Init initializes the component, typically for component parameter configuration or client initialization.
+	// This is called once during the initialization of rule nodes in the rule chain.
 	Init(ruleConfig Config, configuration Configuration) error
-	//OnMsg 处理消息，每条流入组件的数据会经过该函数处理
-	//ctx:规则引擎处理消息上下文
-	//msg:消息
-	//执行完逻辑后，调用ctx.TellSuccess/ctx.TellFailure/ctx.TellNext通知下一个节点，否则会导致规则链无法结束
+	// OnMsg processes messages. Each message flowing into the component is processed by this function.
+	// ctx: Context for message processing by the rule engine.
+	// msg: The message to be processed.
+	// After executing the logic, call ctx.TellSuccess/ctx.TellFailure/ctx.TellNext to notify the next node, otherwise, the rule chain cannot end.
 	OnMsg(ctx RuleContext, msg RuleMsg)
-	//Destroy 销毁，做一些资源释放操作
+	// Destroy releases resources when the component is no longer needed.
 	Destroy()
 }
 
-// NodeCtx 规则节点实例化上下文
+// NodeCtx is the context for instantiating rule nodes.
 type NodeCtx interface {
 	Node
 	Config() Config
-	//IsDebugMode 该节点是否是调试模式
-	//True:消息流入和流出该节点，会调用config.OnDebug回调函数，否则不会
+	// IsDebugMode checks if the node is in debug mode.
+	// True: When messages flow in and out of the node, the config.OnDebug callback function is called; otherwise, it is not.
 	IsDebugMode() bool
-	//GetNodeId 获取组件ID
+	// GetNodeId retrieves the component ID.
 	GetNodeId() RuleNodeId
-	//ReloadSelf 刷新该组件配置
+	// ReloadSelf refreshes the configuration of the component.
 	ReloadSelf(def []byte) error
-	//ReloadChild
-	//如果是子规则链类型，则刷新该子规则链指定ID组件配置
-	//如果是节点类型，则不支持该方法
+	// ReloadChild refreshes the configuration of a specified ID component in a sub-rule chain.
+	// If it is a node type, this method is not supported.
 	ReloadChild(nodeId RuleNodeId, def []byte) error
-	//GetNodeById
-	//如果是子规则链类型，则获取该子规则链指定ID组件配置
-	//如果是节点类型，则不支持该方法
+	// GetNodeById retrieves the configuration of a specified ID component in a sub-rule chain.
+	// If it is a node type, this method is not supported.
 	GetNodeById(nodeId RuleNodeId) (NodeCtx, bool)
-	//DSL 返回该节点配置DSL
+	// DSL returns the configuration DSL of the node.
 	DSL() []byte
 }
 
 type ChainCtx interface {
 	NodeCtx
+	// Definition returns the definition of the rule chain.
 	Definition() *RuleChain
 }
 
-// RuleContext 规则引擎消息处理上下文接口
-// 处理把消息流转到下一个或者多个节点逻辑
-// 根据规则链连接关系查找当前节点的下一个或者多个节点，然后调用对应节点：nextNode.OnMsg(ctx, msg)触发下一个节点的业务逻辑
-// 另外处理节点OnDebug和OnEnd回调逻辑
+// RuleContext is an interface for message processing context in the rule engine.
+// It handles the logic of transferring messages to the next or multiple nodes.
+// Based on the rule chain connection, it finds the next node(s) and triggers their business logic by calling nextNode.OnMsg(ctx, msg).
+// Additionally, it handles the OnDebug and OnEnd callback logic.
 type RuleContext interface {
-	//TellSuccess 通知规则引擎处理当前消息处理成功，并把消息通过`Success`关系发送到下一个节点
+	// TellSuccess notifies the rule engine that the current message has been successfully processed and sends the message to the next node via the 'Success' relationship.
 	TellSuccess(msg RuleMsg)
-	//TellFailure 通知规则引擎处理当前消息处理失败，并把消息通过`Failure`关系发送到下一个节点
+	// TellFailure notifies the rule engine that the current message has failed to process and sends the message to the next node via the 'Failure' relationship.
 	TellFailure(msg RuleMsg, err error)
-	//TellNext 使用指定的relationTypes，把消息发送到下一个节点
-	//Send the message to the next node
+	// TellNext sends the message to the next node using the specified relationTypes.
 	TellNext(msg RuleMsg, relationTypes ...string)
-	//TellSelf 以指定的延迟（毫秒）向当前节点发送消息。
+	// TellSelf sends a message to the current node after a specified delay (in milliseconds).
 	TellSelf(msg RuleMsg, delayMs int64)
-	//TellNextOrElse 使用指定的relationTypes，把消息发送到下一个节点，如果对应的relationType找不到下一个节点，使用defaultRelationType查找
+	// TellNextOrElse sends the message to the next node using the specified relationTypes. If the corresponding relationType does not find the next node, it uses defaultRelationType to search.
 	TellNextOrElse(msg RuleMsg, defaultRelationType string, relationTypes ...string)
-	//TellFlow 执行子规则链
-	//ruleChainId 规则链ID
-	//onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次
-	//onAllNodeCompleted 所以节点执行完之后的回调，无结果返回
-	//如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
+	// TellFlow executes a sub-rule chain.
+	// ruleChainId: The ID of the rule chain.
+	// onEndFunc: Callback for when a branch of the sub-rule chain completes, returning the result of that chain. If multiple branches are triggered, it will be called multiple times.
+	// onAllNodeCompleted: Callback for when all nodes have completed, with no result returned.
+	// If the rule chain is not found, the message is sent to the next node via the 'Failure' relationship.
 	TellFlow(msg RuleMsg, ruleChainId string, endFunc OnEndFunc, onAllNodeCompleted func())
-	//NewMsg 创建新的消息实例
+	// NewMsg creates a new message instance.
 	NewMsg(msgType string, metaData Metadata, data string) RuleMsg
-	//GetSelfId 获取当前节点ID
+	// GetSelfId retrieves the current node ID.
 	GetSelfId() string
-	//Self 获取当前节点实例
+	// Self retrieves the current node instance.
 	Self() NodeCtx
-	//From 获取消息流入该节点的节点实例
+	// From retrieves the node instance from which the message entered the current node.
 	From() NodeCtx
-	//RuleChain 获取当前节点所在的规则链实例
+	// RuleChain retrieves the rule chain instance where the current node resides.
 	RuleChain() NodeCtx
-	//Config 获取规则引擎配置
+	// Config retrieves the configuration of the rule engine.
 	Config() Config
-	//SubmitTack 异步执行任务
+	// SubmitTack submits an asynchronous task for execution.
 	SubmitTack(task func())
-	//SetEndFunc 设置当前消息处理结束回调函数
+	// SetEndFunc sets the callback function for when the current message processing ends.
 	SetEndFunc(f OnEndFunc) RuleContext
-	//GetEndFunc 获取当前消息处理结束回调函数
+	// GetEndFunc retrieves the callback function for when the current message processing ends.
 	GetEndFunc() OnEndFunc
-	//SetContext 设置用于不同组件实例共享信号量或者数据的上下文
+	// SetContext sets a context for sharing semaphores or data across different component instances.
 	SetContext(c context.Context) RuleContext
-	//GetContext 获取用于不同组件实例共享信号量或者数据的上下文
+	// GetContext retrieves the context for sharing semaphores or data across different component instances.
 	GetContext() context.Context
-	//SetOnAllNodeCompleted 设置所有节点执行完回调
+	// SetOnAllNodeCompleted sets the callback for when all nodes have completed execution.
 	SetOnAllNodeCompleted(onAllNodeCompleted func())
-	//ExecuteNode 从指定节点开始执行，如果 skipTellNext=true 则只执行当前节点，不通知下一个节点。
-	//onEnd 查看获得最终执行结果
+	// ExecuteNode starts execution from a specified node. If skipTellNext=true, only the current node is executed without notifying the next node.
+	// onEnd is used to view the final execution result.
 	ExecuteNode(chanCtx context.Context, nodeId string, msg RuleMsg, skipTellNext bool, onEnd OnEndFunc)
-	//DoOnEnd 触发 OnEnd 回调函数
+	// DoOnEnd triggers the OnEnd callback function.
 	DoOnEnd(msg RuleMsg, err error, relationType string)
-	//SetCallbackFunc 设置回调函数
+	// SetCallbackFunc sets a callback function.
 	SetCallbackFunc(functionName string, f interface{})
-	//GetCallbackFunc 获取回调函数
+	// GetCallbackFunc retrieves a callback function.
 	GetCallbackFunc(functionName string) interface{}
-	//OnDebug 调用配置的OnDebug回调函数
+	// OnDebug calls the configured OnDebug callback function.
 	OnDebug(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)
 }
 
-// RuleContextOption 修改RuleContext选项的函数
+// RuleContextOption is a function type for modifying RuleContext options.
 type RuleContextOption func(RuleContext)
 
-// WithEndFunc 规则链分支链执行完回调函数
-// 注意：如果规则链有多个结束点，回调函数则会执行多次
-// Deprecated
-// 使用`types.WithOnEnd`代替
+// WithEndFunc is a callback function for when a branch of the rule chain completes.
+// Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
+// Deprecated: Use `types.WithOnEnd` instead.
 func WithEndFunc(endFunc func(ctx RuleContext, msg RuleMsg, err error)) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetEndFunc(func(ctx RuleContext, msg RuleMsg, err error, relationType string) {
@@ -225,114 +220,111 @@ func WithEndFunc(endFunc func(ctx RuleContext, msg RuleMsg, err error)) RuleCont
 	}
 }
 
-// WithOnEnd 规则链分支链执行完回调函数
-// 注意：如果规则链有多个结束点，回调函数则会执行多次
+// WithOnEnd is a callback function for when a branch of the rule chain completes.
+// Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
 func WithOnEnd(endFunc func(ctx RuleContext, msg RuleMsg, err error, relationType string)) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetEndFunc(endFunc)
 	}
 }
 
-// WithContext 上下文
-// 用于不同组件实例数据或者信号量共享
-// 用于超时取消
+// WithContext sets a context for sharing data or semaphores between different component instances.
+// It is also used for timeout cancellation.
 func WithContext(c context.Context) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetContext(c)
 	}
 }
 
-// WithOnAllNodeCompleted 规则链执行完回调函数
+// WithOnAllNodeCompleted is a callback function for when the rule chain execution completes.
 func WithOnAllNodeCompleted(onAllNodeCompleted func()) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetOnAllNodeCompleted(onAllNodeCompleted)
 	}
 }
 
-// WithOnRuleChainCompleted 规则链执行完回调函数，并收集每个节点的运行日志
+// WithOnRuleChainCompleted is a callback function for when the rule chain execution completes and collects the runtime logs of each node.
 func WithOnRuleChainCompleted(onCallback func(ctx RuleContext, snapshot RuleChainRunSnapshot)) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetCallbackFunc(CallbackFuncOnRuleChainCompleted, onCallback)
 	}
 }
 
-// WithOnNodeCompleted 节点执行完回调函数，并收集节点的运行日志
+// WithOnNodeCompleted is a callback function for when a node execution completes and collects the node's runtime log.
 func WithOnNodeCompleted(onCallback func(ctx RuleContext, nodeRunLog RuleNodeRunLog)) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetCallbackFunc(CallbackFuncOnNodeCompleted, onCallback)
 	}
 }
 
-// WithOnNodeDebug 节点调试日志回调函数，实时异步调用，必须节点配置开启debugMode才会触发
+// WithOnNodeDebug is a callback function for node debug logs, called in real-time asynchronously. It is triggered only if the node is configured with debugMode.
 func WithOnNodeDebug(onDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetCallbackFunc(CallbackFuncDebug, onDebug)
 	}
 }
 
-// JsEngine JavaScript脚本引擎
+// JsEngine is a JavaScript script engine interface.
 type JsEngine interface {
-	//Execute 执行js脚本指定函数，js脚本在JsEngine实例化的时候进行初始化
-	//functionName 执行的函数名
-	//argumentList 函数参数列表
+	// Execute runs a specified function in the JS script, which is initialized when the JsEngine instance is created.
+	// functionName is the name of the function to execute.
+	// argumentList is the list of arguments for the function.
 	Execute(functionName string, argumentList ...interface{}) (interface{}, error)
-	//Stop 释放js引擎资源
+	// Stop releases the resources of the JS engine.
 	Stop()
 }
 
-// Parser 规则链定义文件DSL解析器
-// 默认使用json方式，如果使用其他方式定义规则链，可以实现该接口
-// 然后通过该方式注册到规则引擎中：`rulego.NewConfig(WithParser(&MyParser{})`
+// Parser is an interface for parsing rule chain definition files (DSL).
+// The default implementation uses JSON. If other formats are used to define rule chains, this interface can be implemented.
+// Then register it with the rule engine like this: `rulego.NewConfig(WithParser(&MyParser{})`
 type Parser interface {
-	// DecodeRuleChain 从描述文件解析规则链结构体
-	//parses a chain from an input source.
+	// DecodeRuleChain parses a rule chain structure from a description file.
 	DecodeRuleChain(config Config, aspects AspectList, dsl []byte) (Node, error)
-	// DecodeRuleNode 从描述文件解析规则节点结构体
-	//parses a node from an input source.
+	// DecodeRuleNode parses a rule node structure from a description file.
 	DecodeRuleNode(config Config, dsl []byte, chainCtx Node) (Node, error)
-	//EncodeRuleChain 把规则链结构体转换成描述文件
+	// EncodeRuleChain converts a rule chain structure into a description file.
 	EncodeRuleChain(def interface{}) ([]byte, error)
-	//EncodeRuleNode 把规则节点结构体转换成描述文件
+	// EncodeRuleNode converts a rule node structure into a description file.
 	EncodeRuleNode(def interface{}) ([]byte, error)
 }
 
-// Pool 协程池
+// Pool is an interface for a coroutine pool.
 type Pool interface {
-	//Submit 往协程池提交一个任务
-	//如果协程池满返回错误
+	// Submit submits a task to the coroutine pool.
+	// Returns an error if the coroutine pool is full.
 	Submit(task func()) error
-	//Release 释放
+	// Release releases the resources of the pool.
 	Release()
 }
 
-// EmptyRuleNodeId 空节点ID
+// EmptyRuleNodeId is an empty node ID.
 var EmptyRuleNodeId = RuleNodeId{}
 
-// RuleNodeId 组件ID类型定义
+// RuleNodeId is a type definition for component IDs.
 type RuleNodeId struct {
-	//节点ID
+	// Id is the node ID.
 	Id string
-	//节点类型，节点/子规则链
+	// Type is the component type, either a node or a sub-rule chain.
 	Type ComponentType
 }
 
-// RuleNodeRelation 节点与节点之间关系
+// RuleNodeRelation defines the relationship between nodes.
 type RuleNodeRelation struct {
-	//入组件ID
+	// InId is the incoming component ID.
 	InId RuleNodeId
-	//出组件ID
+	// OutId is the outgoing component ID.
 	OutId RuleNodeId
-	//关系 如：True、False、Success、Failure 或者其他自定义关系
+	// RelationType is the type of relationship, such as True, False, Success, Failure, or other custom types.
 	RelationType string
 }
 
-// ScriptFuncSeparator 脚本函数名分割符
+// ScriptFuncSeparator is the delimiter for script function names.
 const ScriptFuncSeparator = "#"
 
-// Script 脚本 用于注册原生函数或者使用go定义的自定义函数
+// Script is used to register native functions or custom functions defined in Go.
 type Script struct {
-	//Type 脚本类型，默认Js
+	// Type is the script type, default is Js.
 	Type string
-	//Content 脚本内容或者自定义函数
+	// Content is the script content or custom function.
 	Content interface{}
 }

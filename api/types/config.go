@@ -22,66 +22,64 @@ import (
 	"time"
 )
 
+// OnDebug is a global debug callback function for nodes.
 var OnDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)
 
-// Config 规则引擎配置
+// Config defines the configuration for the rule engine.
 type Config struct {
-	//OnDebug 节点调试信息回调函数，只有节点debugMode=true才会调用
-	//ruleChainId 规则链ID
-	//flowType IN/OUT,流入(IN)该组件或者流出(OUT)该组件事件类型
-	//nodeId 节点ID
-	//msg 当前msg
-	//relationType 如果flowType=IN，则代表上一个节点和该节点的连接关系，例如(True/False);如果flowType=OUT，则代表该节点和下一个节点的连接关系，例如(True/False)
-	//err 错误信息
+	// OnDebug is a callback function for node debug information. It is only called if the node's debugMode is set to true.
+	// - ruleChainId: The ID of the rule chain.
+	// - flowType: The event type, either IN (incoming) or OUT (outgoing) for the component.
+	// - nodeId: The ID of the node.
+	// - msg: The current message being processed.
+	// - relationType: If flowType is IN, it represents the connection relation between the previous node and this node (e.g., True/False).
+	//                 If flowType is OUT, it represents the connection relation between this node and the next node (e.g., True/False).
+	// - err: Error information, if any.
 	OnDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)
-	//Deprecated
-	//使用types.WithEndFunc方式代替
-	//OnEnd 规则链执行完成回调函数，如果有多个结束点，则执行多次
+	// OnEnd is a deprecated callback function that is called when the rule chain execution is complete. If there are multiple endpoints, it will be executed multiple times.
+	// Deprecated: Use types.WithEndFunc instead.
 	OnEnd func(msg RuleMsg, err error)
-	//ScriptMaxExecutionTime 脚本执行超时时间，默认2000毫秒
+	// ScriptMaxExecutionTime is the maximum execution time for scripts, defaulting to 2000 milliseconds.
 	ScriptMaxExecutionTime time.Duration
-	//Pool 协程池接口
-	//如果不配置，则使用 go func 方式
-	//默认使用`pool.WorkerPool`。兼容ants协程池，可以使用ants协程池实现
-	//例如：
-	//	pool, _ := ants.NewPool(math.MaxInt32)
-	//	config := rulego.NewConfig(types.WithPool(pool))
+	// Pool is the interface for a coroutine pool. If not configured, the go func method is used by default.
+	// The default implementation is `pool.WorkerPool`. It is compatible with ants coroutine pool and can be implemented using ants.
+	// Example:
+	//   pool, _ := ants.NewPool(math.MaxInt32)
+	//   config := rulego.NewConfig(types.WithPool(pool))
 	Pool Pool
-	//ComponentsRegistry 组件库
-	//默认使用`rulego.Registry`
+	// ComponentsRegistry is the component registry, defaulting to `rulego.Registry`.
 	ComponentsRegistry ComponentRegistry
-	//规则链解析接口，默认使用：`rulego.JsonParser`
+	// Parser is the rule chain parser interface, defaulting to `rulego.JsonParser`.
 	Parser Parser
-	//Logger 日志记录接口，默认使用：`DefaultLogger()`
+	// Logger is the logging interface, defaulting to `DefaultLogger()`.
 	Logger Logger
-	//Properties 全局属性，key-value形式
-	//规则链节点配置可以通过${global.propertyKey}方式替换Properties值
-	//节点初始化时候替换，只替换一次
+	// Properties are global properties in key-value format.
+	// Rule chain node configurations can replace values with ${global.propertyKey}.
+	// Replacement occurs during node initialization and only once.
 	Properties Metadata
-	//Udf 注册自定义Golang函数和原生脚本，js等脚本引擎运行时可以调用
-	//不同脚本类型函数名可以重复
+	// Udf is a map for registering custom Golang functions and native scripts that can be called at runtime by script engines like JavaScript.
+	// Function names can be repeated for different script types.
 	Udf map[string]interface{}
-	// SecretKey AES-256 32长度密钥，用于解密规则链`Secrets`配置
+	// SecretKey is an AES-256 key of 32 characters in length, used for decrypting the `Secrets` configuration in the rule chain.
 	SecretKey string
-	//规则链DSL，endpoint模块是否可用
+	// EndpointEnabled indicates whether the endpoint module in the rule chain DSL is enabled.
 	EndpointEnabled bool
 }
 
-// RegisterUdf 注册自定义函数
-// 不同脚本类型函数名可以重复
+// RegisterUdf registers a custom function. Function names can be repeated for different script types.
 func (c *Config) RegisterUdf(name string, value interface{}) {
 	if c.Udf == nil {
 		c.Udf = make(map[string]interface{})
 	}
-	if c, ok := value.(Script); ok {
-		//解决不同类型脚本的函数名冲突
-		name = c.Type + ScriptFuncSeparator + name
+	if script, ok := value.(Script); ok {
+		// Resolve function name conflicts for different script types.
+		name = script.Type + ScriptFuncSeparator + name
 	}
 	c.Udf[name] = value
 }
 
+// NewConfig creates a new Config with default values and applies the provided options.
 func NewConfig(opts ...Option) Config {
-	// Create a new Config with default values.
 	c := &Config{
 		ScriptMaxExecutionTime: time.Millisecond * 2000,
 		Logger:                 DefaultLogger(),
@@ -89,13 +87,13 @@ func NewConfig(opts ...Option) Config {
 		EndpointEnabled:        true,
 	}
 
-	// Apply the options to the Config.
 	for _, opt := range opts {
 		_ = opt(c)
 	}
 	return *c
 }
 
+// DefaultPool provides a default coroutine pool.
 func DefaultPool() Pool {
 	wp := &pool.WorkerPool{MaxWorkersCount: math.MaxInt32}
 	wp.Start()

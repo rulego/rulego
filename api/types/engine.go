@@ -16,55 +16,73 @@
 
 package types
 
+// RuleEngineOption defines a function type for configuring a RuleEngine.
 type RuleEngineOption func(RuleEngine) error
 
+// WithConfig creates a RuleEngineOption to set the configuration of a RuleEngine.
 func WithConfig(config Config) RuleEngineOption {
 	return func(re RuleEngine) error {
-		re.SetConfig(config)
-		return nil
+		re.SetConfig(config) // Apply the provided configuration to the RuleEngine.
+		return nil           // Return no error.
 	}
 }
 
+// WithAspects creates a RuleEngineOption to set the aspects of a RuleEngine.
 func WithAspects(aspects ...Aspect) RuleEngineOption {
 	return func(re RuleEngine) error {
-		re.SetAspects(aspects...)
-		return nil
+		re.SetAspects(aspects...) // Apply the provided aspects to the RuleEngine.
+		return nil                // Return no error.
 	}
 }
 
+// RuleEngine is an interface for a rule engine.
 type RuleEngine interface {
+	// Id returns the identifier of the RuleEngine.
 	Id() string
+	// SetConfig sets the configuration for the RuleEngine.
 	SetConfig(config Config)
+	// SetAspects sets the aspects for the RuleEngine.
 	SetAspects(aspects ...Aspect)
+	// Reload reloads the RuleEngine with the given options.
 	Reload(opts ...RuleEngineOption) error
+	// ReloadSelf reloads the RuleEngine itself with the given definition and options.
 	ReloadSelf(def []byte, opts ...RuleEngineOption) error
+	// ReloadChild reloads a child node within the RuleEngine.
 	ReloadChild(ruleNodeId string, dsl []byte) error
+	// DSL returns the DSL (Domain Specific Language) representation of the RuleEngine.
 	DSL() []byte
+	// Definition returns the definition of the rule chain.
 	Definition() RuleChain
+	// RootRuleChainCtx returns the context of the root rule chain.
 	RootRuleChainCtx() ChainCtx
+	// NodeDSL returns the DSL of a specific node within the rule chain.
 	NodeDSL(chainId RuleNodeId, childNodeId RuleNodeId) []byte
+	// Initialized checks if the RuleEngine is initialized.
 	Initialized() bool
+	// Stop stops the RuleEngine.
 	Stop()
+	// OnMsg processes a message with the given context options.
 	OnMsg(msg RuleMsg, opts ...RuleContextOption)
+	// OnMsgAndWait processes a message and waits for completion with the given context options.
 	OnMsgAndWait(msg RuleMsg, opts ...RuleContextOption)
 }
 
+// RuleEnginePool is an interface for a pool of rule engines.
 type RuleEnginePool interface {
-	// Load 加载指定文件夹及其子文件夹所有规则链配置（与.json结尾文件），到规则引擎实例池
-	// 规则链ID，使用文件配置的 ruleChain.id
+	// Load loads all rule chain configurations from a specified folder and its subfolders into the rule engine instance pool.
 	Load(folderPath string, opts ...RuleEngineOption) error
-	// New 创建一个新的RuleEngine并将其存储在RuleGo规则链池中
+	// New creates a new RuleEngine and stores it in the RuleGo rule chain pool.
 	New(id string, rootRuleChainSrc []byte, opts ...RuleEngineOption) (RuleEngine, error)
+	// Get retrieves a RuleEngine by its ID.
 	Get(id string) (RuleEngine, bool)
-	// Del 删除指定ID规则引擎实例
+	// Del deletes a RuleEngine instance by its ID.
 	Del(id string)
-	// Stop 释放所有规则引擎实例
+	// Stop stops and releases all RuleEngine instances.
 	Stop()
-	// OnMsg 调用所有规则引擎实例处理消息
-	// 规则引擎实例池所有规则链都会去尝试处理该消息
+	// OnMsg invokes all RuleEngine instances to process a message.
 	OnMsg(msg RuleMsg)
-	// Reload 重新加载所有规则引擎实例
+	// Reload reloads all RuleEngine instances.
 	Reload(opts ...RuleEngineOption)
-	// Range 遍历所有规则引擎实例
+	// Range iterates over all RuleEngine instances.
 	Range(f func(key, value any) bool)
 }

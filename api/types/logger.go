@@ -39,6 +39,5 @@ func NewLogger(custom Logger) Logger {
 	if custom != nil {
 		return custom
 	}
-
 	return DefaultLogger()
 }

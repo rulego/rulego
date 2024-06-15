@@ -30,38 +30,41 @@ import (
 	"sync"
 )
 
-// PluginsSymbol 插件检查点 Symbol
+// PluginsSymbol is the symbol used to identify plugins in a Go plugin file.
 const PluginsSymbol = "Plugins"
 
-// Registry 规则引擎组件默认注册器
+// Registry is the default registry for rule engine components.
 var Registry = new(RuleComponentRegistry)
 
-// 注册默认组件
+// init registers default components to the default component registry.
 func init() {
 	var components []types.Node
+	// Append components from various packages to the components slice.
 	components = append(components, action.Registry.Components()...)
 	components = append(components, filter.Registry.Components()...)
 	components = append(components, transform.Registry.Components()...)
 	components = append(components, external.Registry.Components()...)
 	components = append(components, flow.Registry.Components()...)
 
-	//把组件注册到默认组件库
+	// Register all components to the default component registry.
 	for _, node := range components {
 		_ = Registry.Register(node)
 	}
 }
 
-// RuleComponentRegistry 组件注册器
+// RuleComponentRegistry is a registry for rule engine components.
 type RuleComponentRegistry struct {
-	//规则引擎节点组件列表
+	// components is a map of rule engine node components.
 	components map[string]types.Node
-	//插件列表
-	plugins            map[string][]types.Node
+	// plugins is a map of plugin components.
+	plugins map[string][]types.Node
+	// endpointComponents is a map of endpoint components.
 	endpointComponents map[string]types.Node
+	// RWMutex is a read/write mutex lock.
 	sync.RWMutex
 }
 
-// Register 注册规则引擎节点组件
+// Register adds a rule engine node component to the registry.
 func (r *RuleComponentRegistry) Register(node types.Node) error {
 	r.Lock()
 	defer r.Unlock()
@@ -76,7 +79,7 @@ func (r *RuleComponentRegistry) Register(node types.Node) error {
 	return nil
 }
 
-// RegisterPlugin 注册规则引擎节点组件
+// RegisterPlugin adds a rule engine node component from a plugin file.
 func (r *RuleComponentRegistry) RegisterPlugin(name string, file string) error {
 	builder := &PluginComponentRegistry{name: name, file: file}
 	if err := builder.Init(); err != nil {
@@ -103,6 +106,7 @@ func (r *RuleComponentRegistry) RegisterPlugin(name string, file string) error {
 	return nil
 }
 
+// Unregister removes a component from the registry by its type.
 func (r *RuleComponentRegistry) Unregister(componentType string) error {
 	r.RLock()
 	defer r.RUnlock()
@@ -131,7 +135,7 @@ func (r *RuleComponentRegistry) Unregister(componentType string) error {
 	}
 }
 
-// NewNode 获取规则引擎节点组件
+// NewNode creates a new instance of a rule engine node component by its type.
 func (r *RuleComponentRegistry) NewNode(componentType string) (types.Node, error) {
 	r.RLock()
 	defer r.RUnlock()
@@ -143,6 +147,7 @@ func (r *RuleComponentRegistry) NewNode(componentType string) (types.Node, error
 	}
 }
 
+// GetComponents returns a map of all registered components.
 func (r *RuleComponentRegistry) GetComponents() map[string]types.Node {
 	r.RLock()
 	defer r.RUnlock()
@@ -153,6 +158,7 @@ func (r *RuleComponentRegistry) GetComponents() map[string]types.Node {
 	return components
 }
 
+// GetComponentForms returns a list of component forms for all registered components.
 func (r *RuleComponentRegistry) GetComponentForms() types.ComponentFormList {
 	r.RLock()
 	defer r.RUnlock()
@@ -164,13 +170,14 @@ func (r *RuleComponentRegistry) GetComponentForms() types.ComponentFormList {
 	return components
 }
 
-// PluginComponentRegistry go plugin组件初始化器
+// PluginComponentRegistry is an initializer for Go plugin components.
 type PluginComponentRegistry struct {
 	name     string
 	file     string
 	registry types.PluginRegistry
 }
 
+// Init initializes the plugin component registry by loading the plugin from a file.
 func (p *PluginComponentRegistry) Init() error {
 	pluginRegistry, err := loadPlugin(p.file)
 	if err != nil {
@@ -181,6 +188,7 @@ func (p *PluginComponentRegistry) Init() error {
 	}
 }
 
+// Components returns a slice of components provided by the plugin.
 func (p *PluginComponentRegistry) Components() []types.Node {
 	if p.registry != nil {
 		return p.registry.Components()

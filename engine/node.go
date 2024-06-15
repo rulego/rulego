@@ -26,38 +26,45 @@ const (
 	defaultNodeIdPrefix = "node"
 )
 
-// RuleNodeCtx 节点组件实例定义
+// RuleNodeCtx defines an instance of a node component within the rule engine.
 type RuleNodeCtx struct {
-	//组件实例
+	// Node is the instance of the component.
 	types.Node
-	//规则链配置上下文
+	// ChainCtx is the context of the rule chain configuration.
 	ChainCtx *RuleChainCtx
-	//组件配置
+	// SelfDefinition is the configuration of the component itself.
 	SelfDefinition *types.RuleNode
-	//规则引擎配置
+	// config is the configuration of the rule engine.
 	config types.Config
 }
 
-// InitRuleNodeCtx 初始化RuleNodeCtx
+// InitRuleNodeCtx initializes a RuleNodeCtx with the given configuration, chain context, and self-definition.
+// It attempts to create a new node based on the type defined in selfDefinition.
 func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, selfDefinition *types.RuleNode) (*RuleNodeCtx, error) {
+	// Attempt to create a new node from the components registry using the type specified in selfDefinition.
 	node, err := config.ComponentsRegistry.NewNode(selfDefinition.Type)
 	if err != nil {
+		// If there is an error in creating the node, return a RuleNodeCtx with the provided context and definition.
 		return &RuleNodeCtx{
 			ChainCtx:       chainCtx,
 			SelfDefinition: selfDefinition,
 			config:         config,
 		}, err
 	} else {
+		// If selfDefinition.Configuration is nil, initialize it as an empty configuration.
 		if selfDefinition.Configuration == nil {
 			selfDefinition.Configuration = make(types.Configuration)
 		}
+		// Process variables within the configuration.
 		configuration, err := processVariables(config, chainCtx, selfDefinition.Configuration)
 		if err != nil {
 			return &RuleNodeCtx{}, err
 		}
+		// Initialize the node with the processed configuration.
 		if err = node.Init(config, configuration); err != nil {
 			return &RuleNodeCtx{}, err
 		} else {
+			// Return a RuleNodeCtx with the initialized node and provided context and definition.
 			return &RuleNodeCtx{
 				Node:           node,
 				ChainCtx:       chainCtx,
@@ -66,7 +73,6 @@ func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, selfDefinition
 			}, nil
 		}
 	}
-
 }
 
 func (rn *RuleNodeCtx) Config() types.Config {
