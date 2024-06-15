@@ -21,31 +21,33 @@ import (
 	"time"
 )
 
-// DataType 消息数据类型
+// DataType defines the type of data contained in a message.
 type DataType string
 
+// Constants for different data types that a message can represent.
 const (
-	JSON   = DataType("JSON")
-	TEXT   = DataType("TEXT")
-	BINARY = DataType("BINARY")
+	JSON   = DataType("JSON")   // Represents data in JSON format.
+	TEXT   = DataType("TEXT")   // Represents plain text data.
+	BINARY = DataType("BINARY") // Represents binary data.
 )
 
+// Constants for keys used in message handling.
 const (
-	MsgKey      = "msg"
-	MetadataKey = "metadata"
-	MsgTypeKey  = "msgType"
-	DataTypeKey = "dataType"
+	MsgKey      = "msg"      // Key for the message content.
+	MetadataKey = "metadata" // Key for the message metadata.
+	MsgTypeKey  = "msgType"  // Key for the message type.
+	DataTypeKey = "dataType" // Key for the data type of the message.
 )
 
-// Metadata 规则引擎消息元数据
+// Metadata is a type for message metadata within the rule engine.
 type Metadata map[string]string
 
-// NewMetadata 创建一个新的规则引擎消息元数据实例
+// NewMetadata creates a new instance of rule engine message metadata.
 func NewMetadata() Metadata {
 	return make(Metadata)
 }
 
-// BuildMetadata 通过map，创建一个新的规则引擎消息元数据实例
+// BuildMetadata creates a new instance of rule engine message metadata from a map.
 func BuildMetadata(data Metadata) Metadata {
 	metadata := make(Metadata)
 	for k, v := range data {
@@ -54,60 +56,59 @@ func BuildMetadata(data Metadata) Metadata {
 	return metadata
 }
 
-// Copy 复制
+// Copy creates a copy of the metadata.
 func (md Metadata) Copy() Metadata {
 	return BuildMetadata(md)
 }
 
-// Has 是否存在某个key
+// Has checks if a key exists in the metadata.
 func (md Metadata) Has(key string) bool {
 	_, ok := md[key]
 	return ok
 }
 
-// GetValue 通过key获取值
+// GetValue retrieves a value by key from the metadata.
 func (md Metadata) GetValue(key string) string {
 	v, _ := md[key]
 	return v
 }
 
-// PutValue 设置值
+// PutValue sets a value in the metadata.
 func (md Metadata) PutValue(key, value string) {
 	if key != "" {
 		md[key] = value
 	}
 }
 
-// Values 获取所有值
+// Values returns all key-value pairs in the metadata.
 func (md Metadata) Values() map[string]string {
 	return md
 }
 
-// RuleMsg 规则引擎消息
+// RuleMsg is a type for messages within the rule engine.
 type RuleMsg struct {
-	// 消息时间戳
+	// Ts is the message timestamp.
 	Ts int64 `json:"ts"`
-	// 消息ID，同一条消息再规则引擎流转，整个过程是唯一的
+	// Id is the unique identifier for the message as it flows through the rule engine.
 	Id string `json:"id"`
-	//数据类型
+	// DataType is the type of data contained in the message.
 	DataType DataType `json:"dataType"`
-	//消息类型，规则引擎分发数据的重要字段
-	//一般把消息交给规则引擎处理`ruleEngine.OnMsg(msg)`,需要把消息分类并指定其Type
-	//例如：POST_TELEMETRY、ACTIVITY_EVENT、INACTIVITY_EVENT、CONNECT_EVENT、DISCONNECT_EVENT
-	//ENTITY_CREATED、ENTITY_UPDATED、ENTITY_DELETED、DEVICE_ALARM、POST_DEVICE_DATA
+	// Type is a crucial field for the rule engine to distribute data. Messages are categorized and assigned a Type when processed by the rule engine (`ruleEngine.OnMsg(msg)`).
+	// Examples include: POST_TELEMETRY, ACTIVITY_EVENT, INACTIVITY_EVENT, CONNECT_EVENT, DISCONNECT_EVENT, ENTITY_CREATED, ENTITY_UPDATED, ENTITY_DELETED, DEVICE_ALARM, POST_DEVICE_DATA.
 	Type string `json:"type"`
-	//消息内容
+	// Data is the content of the message.
 	Data string `json:"data"`
-	//消息元数据
+	// Metadata contains metadata associated with the message.
 	Metadata Metadata `json:"metadata"`
 }
 
-// NewMsg 创建一个新的消息实例，并通过uuid生成消息ID
+// NewMsg creates a new message instance and generates a message ID using UUID.
 func NewMsg(ts int64, msgType string, dataType DataType, metaData Metadata, data string) RuleMsg {
 	uuId, _ := uuid.NewV4()
 	return newMsg(uuId.String(), ts, msgType, dataType, metaData, data)
 }
 
+// newMsg is a helper function to create a new RuleMsg.
 func newMsg(id string, ts int64, msgType string, dataType DataType, metaData Metadata, data string) RuleMsg {
 	if ts <= 0 {
 		ts = time.Now().UnixMilli()
@@ -126,17 +127,17 @@ func newMsg(id string, ts int64, msgType string, dataType DataType, metaData Met
 	}
 }
 
-// Copy 复制
+// Copy creates a copy of the message.
 func (m *RuleMsg) Copy() RuleMsg {
 	return newMsg(m.Id, m.Ts, m.Type, m.DataType, m.Metadata.Copy(), m.Data)
 }
 
-// WrapperMsg 节点执行结果封装，用于封装多个节点执行结果
+// WrapperMsg is a type for wrapping the results of node execution, used to encapsulate the results of multiple nodes.
 type WrapperMsg struct {
-	//Msg 消息
+	// Msg is the message.
 	Msg RuleMsg `json:"msg"`
-	//Err 错误
+	// Err is the error, if any occurred during node execution.
 	Err string `json:"err"`
-	//NodeId 结束节点ID
+	// NodeId is the ID of the ending node.
 	NodeId string `json:"nodeId"`
 }

@@ -82,14 +82,6 @@ func WithLogger(logger Logger) Option {
 	}
 }
 
-//// WithAspects is an option that sets the aspects of the Config.
-//func WithAspects(aspects ...Aspect) Option {
-//	return func(c *Config) error {
-//		c.Aspects = aspects
-//		return nil
-//	}
-//}
-
 // WithSecretKey is an option that sets the secret key of the Config.
 func WithSecretKey(secretKey string) Option {
 	return func(c *Config) error {
@@ -98,6 +90,7 @@ func WithSecretKey(secretKey string) Option {
 	}
 }
 
+// WithEndpointEnabled creates an Option to enable or disable the endpoint functionality in the Config.
 func WithEndpointEnabled(endpointEnabled bool) Option {
 	return func(c *Config) error {
 		c.EndpointEnabled = endpointEnabled

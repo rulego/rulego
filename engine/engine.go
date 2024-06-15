@@ -28,65 +28,73 @@ import (
 	"time"
 )
 
+// Ensuring DefaultRuleContext implements types.RuleContext interface.
 var _ types.RuleContext = (*DefaultRuleContext)(nil)
+
+// Ensuring RuleEngine implements types.RuleEngine interface.
 var _ types.RuleEngine = (*RuleEngine)(nil)
 
-// BuiltinsAspects 内置切面列表
+// BuiltinsAspects holds a list of built-in aspects for the rule engine.
 var BuiltinsAspects = []types.Aspect{&aspect.Debug{}}
 
-// DefaultRuleContext 默认规则引擎消息处理上下文
+// DefaultRuleContext is the default context for message processing in the rule engine.
 type DefaultRuleContext struct {
-	//id     string
-	//用于不同组件共享信号量和数据的上下文
+	// Context for sharing semaphores and data across different components.
 	context context.Context
-	config  types.Config
-	//根规则链上下文
+	// Configuration settings for the rule engine.
+	config types.Config
+	// Context of the root rule chain.
 	ruleChainCtx *RuleChainCtx
-	//上一个节点上下文
+	// Context of the previous node.
 	from types.NodeCtx
-	//当前节点上下文
+	// Context of the current node.
 	self types.NodeCtx
-	//是否是第一个节点
+	// Indicates if this is the first node in the chain.
 	isFirst bool
-	//协程池
+	// Goroutine pool for concurrent execution.
 	pool types.Pool
-	//规则链分支处理结束回调函数
+	// Callback function for when the rule chain branch processing ends.
 	onEnd types.OnEndFunc
-	//当前节点下未执行完成的子节点数量
+	// Count of child nodes that have not yet completed execution.
 	waitingCount int32
-	//父ruleContext
+	// Parent rule context.
 	parentRuleCtx *DefaultRuleContext
-	//所有子节点处理完成事件，只执行一次
+	// Event that triggers once when all child nodes have completed, executed only once.
 	onAllNodeCompleted func()
-	//是否已经执行了onAllNodeCompleted函数
+	// Indicates if the onAllNodeCompleted function has been executed.
 	onAllNodeCompletedDone int32
-	//子规则链池
+	// Pool for sub-rule chains.
 	ruleChainPool types.RuleEnginePool
-	//是否跳过执行子节点，默认是不跳过
+	// Indicates whether to skip executing child nodes, default is false.
 	skipTellNext bool
-	aspects      types.AspectList
-	//环绕切面列表
+	// List of aspects.
+	aspects types.AspectList
+	// List of around aspects.
 	aroundAspects []types.AroundAspect
-	//前置切面列表
+	// List of before aspects.
 	beforeAspects []types.BeforeAspect
-	//后置切面列表
+	// List of after aspects.
 	afterAspects []types.AfterAspect
-	//运行时快照
+	// Runtime snapshot for debugging and logging.
 	runSnapshot *RunSnapshot
 }
 
-// NewRuleContext 创建一个默认规则引擎消息处理上下文实例
+// NewRuleContext creates a new instance of the default rule engine message processing context.
 func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd types.OnEndFunc, ruleChainPool types.RuleEnginePool) *DefaultRuleContext {
+	// Initialize aspects list.
 	var aspects types.AspectList
 	if ruleChainCtx != nil {
 		aspects = ruleChainCtx.aspects
 	}
+	// If no aspects are defined, use built-in aspects.
 	if len(aspects) == 0 {
 		for _, builtinsAspect := range BuiltinsAspects {
 			aspects = append(aspects, builtinsAspect.New())
 		}
 	}
+	// Get node-specific aspects.
 	aroundAspects, beforeAspects, afterAspects := aspects.GetNodeAspects()
+	// Return a new DefaultRuleContext populated with the provided parameters and aspects.
 	return &DefaultRuleContext{
 		context:       context,
 		config:        config,
@@ -104,33 +112,44 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 	}
 }
 
+// RunSnapshot holds the state and logs for a rule chain execution.
 type RunSnapshot struct {
-	msgId                    string
-	chainCtx                 *RuleChainCtx
-	startTs                  int64
+	// Unique identifier for the message being processed.
+	msgId string
+	// Context of the rule chain being executed.
+	chainCtx *RuleChainCtx
+	// Timestamp marking the start of execution.
+	startTs int64
+	// Callback function for when the rule chain execution is completed.
 	onRuleChainCompletedFunc func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot)
-	onNodeCompletedFunc      func(ctx types.RuleContext, nodeRunLog types.RuleNodeRunLog)
-	// Logs 每个节点的日志
+	// Callback function for when a node execution is completed.
+	onNodeCompletedFunc func(ctx types.RuleContext, nodeRunLog types.RuleNodeRunLog)
+	// Logs for each node's execution.
 	logs map[string]*types.RuleNodeRunLog
-	//onDebugCustomFunc 自定义debug回调
+	// Custom debug callback function.
 	onDebugCustomFunc func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error)
-	lock              sync.RWMutex
+	// Lock for synchronizing access to logs.
+	lock sync.RWMutex
 }
 
+// NewRunSnapshot creates a new instance of RunSnapshot with the given parameters.
 func NewRunSnapshot(msgId string, chainCtx *RuleChainCtx, startTs int64) *RunSnapshot {
 	runSnapshot := &RunSnapshot{
 		msgId:    msgId,
 		chainCtx: chainCtx,
 		startTs:  startTs,
 	}
+	// Initialize the logs map.
 	runSnapshot.logs = make(map[string]*types.RuleNodeRunLog)
 	return runSnapshot
 }
 
+// needCollectRunSnapshot determines if there is a need to collect a snapshot of the rule chain execution.
 func (r *RunSnapshot) needCollectRunSnapshot() bool {
 	return r.onRuleChainCompletedFunc != nil || r.onNodeCompletedFunc != nil
 }
 
+// collectRunSnapshot collects a snapshot of the rule node's execution state.
 func (r *RunSnapshot) collectRunSnapshot(ctx types.RuleContext, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 	if !r.needCollectRunSnapshot() {
 		return
@@ -146,10 +165,12 @@ func (r *RunSnapshot) collectRunSnapshot(ctx types.RuleContext, flowType string,
 		r.logs[nodeId] = nodeLog
 		r.lock.Unlock()
 	}
+	// If the flow type is 'In', update the log with the incoming message and timestamp.
 	if flowType == types.In {
 		nodeLog.InMsg = msg
 		nodeLog.StartTs = time.Now().UnixMilli()
 	}
+	// If the flow type is 'Out', update the log with the outgoing message, relation type, and timestamp.
 	if flowType == types.Out {
 		nodeLog.OutMsg = msg
 		nodeLog.RelationType = relationType
@@ -161,17 +182,20 @@ func (r *RunSnapshot) collectRunSnapshot(ctx types.RuleContext, flowType string,
 			r.onNodeCompletedFunc(ctx, *nodeLog)
 		}
 	}
+	// If the flow type is 'Log', append the log item to the node's log items.
 	if flowType == types.Log {
 		nodeLog.LogItems = append(nodeLog.LogItems, msg.Data)
 	}
 }
 
+// onDebugCustom invokes the custom debug function with the provided parameters.
 func (r *RunSnapshot) onDebugCustom(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 	if r.onDebugCustomFunc != nil {
 		r.onDebugCustomFunc(ruleChainId, flowType, nodeId, msg, relationType, err)
 	}
 }
 
+// createRuleChainRunLog creates a log of the entire rule chain's execution.
 func (r *RunSnapshot) createRuleChainRunLog(endTs int64) types.RuleChainRunSnapshot {
 	var logs []types.RuleNodeRunLog
 	for _, item := range r.logs {
@@ -188,13 +212,14 @@ func (r *RunSnapshot) createRuleChainRunLog(endTs int64) types.RuleChainRunSnaps
 
 }
 
+// onRuleChainCompleted is called when the rule chain execution is completed.
 func (r *RunSnapshot) onRuleChainCompleted(ctx types.RuleContext) {
 	if r.onRuleChainCompletedFunc != nil {
 		r.onRuleChainCompletedFunc(ctx, r.createRuleChainRunLog(time.Now().UnixMilli()))
 	}
 }
 
-// NewNextNodeRuleContext 创建下一个节点的规则引擎消息处理上下文实例RuleContext
+// NewNextNodeRuleContext creates a new instance of RuleContext for the next node in the rule engine.
 func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *DefaultRuleContext {
 	return &DefaultRuleContext{
 		config:        ctx.config,
@@ -217,26 +242,33 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 func (ctx *DefaultRuleContext) TellSuccess(msg types.RuleMsg) {
 	ctx.tell(msg, nil, types.Success)
 }
+
 func (ctx *DefaultRuleContext) TellFailure(msg types.RuleMsg, err error) {
 	ctx.tell(msg, err, types.Failure)
 }
+
 func (ctx *DefaultRuleContext) TellNext(msg types.RuleMsg, relationTypes ...string) {
 	ctx.tell(msg, nil, relationTypes...)
 }
+
 func (ctx *DefaultRuleContext) TellSelf(msg types.RuleMsg, delayMs int64) {
 	time.AfterFunc(time.Millisecond*time.Duration(delayMs), func() {
 		ctx.self.OnMsg(ctx, msg)
 	})
 }
+
 func (ctx *DefaultRuleContext) TellNextOrElse(msg types.RuleMsg, defaultRelationType string, relationTypes ...string) {
 	ctx.tellOrElse(msg, nil, defaultRelationType, relationTypes...)
 }
+
 func (ctx *DefaultRuleContext) NewMsg(msgType string, metaData types.Metadata, data string) types.RuleMsg {
 	return types.NewMsg(0, msgType, types.JSON, metaData, data)
 }
+
 func (ctx *DefaultRuleContext) GetSelfId() string {
 	return ctx.self.GetNodeId().Id
 }
+
 func (ctx *DefaultRuleContext) Self() types.NodeCtx {
 	return ctx.self
 }
@@ -244,9 +276,11 @@ func (ctx *DefaultRuleContext) Self() types.NodeCtx {
 func (ctx *DefaultRuleContext) From() types.NodeCtx {
 	return ctx.from
 }
+
 func (ctx *DefaultRuleContext) RuleChain() types.NodeCtx {
 	return ctx.ruleChainCtx
 }
+
 func (ctx *DefaultRuleContext) Config() types.Config {
 	return ctx.config
 }
@@ -268,11 +302,6 @@ func (ctx *DefaultRuleContext) SetContext(c context.Context) types.RuleContext {
 func (ctx *DefaultRuleContext) GetContext() context.Context {
 	return ctx.context
 }
-
-//func (ctx *DefaultRuleContext) SetAllCompletedFunc(f func()) types.RuleContext {
-//	ctx.onAllNodeCompleted = f
-//	return ctx
-//}
 
 func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 	if ctx.pool != nil {
@@ -562,32 +591,31 @@ func (ctx *DefaultRuleContext) executeAfterAop(msg types.RuleMsg, err error, rel
 	return msg
 }
 
-// RuleEngine 规则引擎
-// 每个规则引擎实例只有一个根规则链，如果没设置规则链则无法处理数据
+// RuleEngine is the core structure for a rule engine instance.
+// Each RuleEngine instance has only one root rule chain, and it cannot process data without a set rule chain.
 type RuleEngine struct {
-	//配置
+	// Config is the configuration for the rule engine.
 	Config types.Config
-	//子规则链池
+	// RuleChainPool is a pool of sub-rule chains.
 	RuleChainPool types.RuleEnginePool
-	//规则引擎实例标识
+	// id is the unique identifier for the rule engine instance.
 	id string
-	//根规则链
+	// rootRuleChainCtx is the context of the root rule chain.
 	rootRuleChainCtx *RuleChainCtx
-	//规则链执行开始前置切面列表
+	// startAspects is a list of aspects that are applied before the execution of the rule chain starts.
 	startAspects []types.StartAspect
-	//规则链分支链执行结束切面列表
+	// endAspects is a list of aspects that are applied when a branch of the rule chain ends.
 	endAspects []types.EndAspect
-	//规则链执行完成切面列表
+	// completedAspects is a list of aspects that are applied when the rule chain execution is completed.
 	completedAspects []types.CompletedAspect
-	//是否已经初始化
+	// initialized indicates whether the rule engine has been initialized.
 	initialized bool
-	//Aspects AOP切面列表
+	// Aspects is a list of AOP (Aspect-Oriented Programming) aspects.
 	Aspects types.AspectList
 }
 
-//// RuleEngineOption is a function type that modifies the RuleEngine.
-//type RuleEngineOption func(*RuleEngine) error
-
+// newRuleEngine creates a new RuleEngine instance with the given ID and definition.
+// It applies the provided RuleEngineOptions during the creation process.
 func newRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*RuleEngine, error) {
 	if len(def) == 0 {
 		return nil, errors.New("def can not nil")
@@ -603,11 +631,11 @@ func newRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*Rule
 		if id != "" {
 			ruleEngine.rootRuleChainCtx.Id = types.RuleNodeId{Id: id, Type: types.CHAIN}
 		} else {
-			//使用规则链ID
+			// Use the rule chain ID if no ID is provided.
 			ruleEngine.id = ruleEngine.rootRuleChainCtx.Id.Id
 		}
 	}
-	//设置切面列表
+	// Set the aspect lists.
 	startAspects, endAspects, completedAspects := ruleEngine.Aspects.GetChainAspects()
 	ruleEngine.startAspects = startAspects
 	ruleEngine.endAspects = endAspects
@@ -777,125 +805,141 @@ func (e *RuleEngine) Stop() {
 	e.initialized = false
 }
 
-// OnMsg 把消息交给规则引擎处理，异步执行
-// 提供可选参数types.RuleContextOption
+// OnMsg asynchronously processes a message using the rule engine.
+// It accepts optional RuleContextOption parameters to customize the execution context.
 func (e *RuleEngine) OnMsg(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	e.onMsgAndWait(msg, false, opts...)
 }
 
-// OnMsgAndWait 把消息交给规则引擎处理，同步执行
-// 等规则链所有节点执行完后返回
+// OnMsgAndWait synchronously processes a message using the rule engine and waits for all nodes in the rule chain to complete before returning.
 func (e *RuleEngine) OnMsgAndWait(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	e.onMsgAndWait(msg, true, opts...)
 }
 
-// OnMsgWithEndFunc 把消息交给规则引擎处理，异步执行
-// endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
-// Deprecated
-// 使用OnMsg代替
+// OnMsgWithEndFunc is a deprecated method that asynchronously processes a message using the rule engine.
+// The endFunc callback is used to obtain the results after the rule chain execution is complete.
+// Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
+// Deprecated: Use OnMsg instead.
 func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc types.OnEndFunc) {
 	e.OnMsg(msg, types.WithOnEnd(endFunc))
 }
 
-// OnMsgWithOptions 把消息交给规则引擎处理，异步执行
-// 可以携带context选项和结束回调选项
-// context 用于不同组件实例数据共享
-// endFunc 用于数据经过规则链执行完的回调，用于获取规则链处理结果数据。注意：如果规则链有多个结束点，回调函数则会执行多次
-// Deprecated
-// 使用OnMsg代替
+// OnMsgWithOptions is a deprecated method that asynchronously processes a message using the rule engine.
+// It allows carrying context options and an end callback option.
+// The context is used for sharing data between different component instances.
+// The endFunc callback is used to obtain the results after the rule chain execution is complete.
+// Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
+// Deprecated: Use OnMsg instead.
 func (e *RuleEngine) OnMsgWithOptions(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	e.onMsgAndWait(msg, false, opts...)
 }
 
+// doOnAllNodeCompleted handles the completion of all nodes within the rule chain.
+// It executes aspects, completes the run snapshot, and triggers any custom callback functions.
 func (e *RuleEngine) doOnAllNodeCompleted(rootCtxCopy *DefaultRuleContext, msg types.RuleMsg, customFunc func()) {
-	//执行切面
+	// Execute aspects upon completion of all nodes.
 	e.onAllNodeCompleted(rootCtxCopy, msg)
 
+	// Complete the run snapshot if it exists.
 	if rootCtxCopy.runSnapshot != nil {
-		//等待所有日志执行完
 		rootCtxCopy.runSnapshot.onRuleChainCompleted(rootCtxCopy)
 	}
-	//触发自定义回调
+	// Trigger custom callback if provided.
 	if customFunc != nil {
 		customFunc()
 	}
-
 }
+
+// noNodesHandler handles the scenario where the rule chain has no nodes to process the message.
+// It logs an error and triggers the end-of-chain callbacks.
 func (e *RuleEngine) noNodesHandler(msg types.RuleMsg, rootCtxCopy *DefaultRuleContext, wait bool) {
 	err := errors.New("the rule chain has no nodes")
+	// Trigger the configured OnEnd callback with the error.
 	if rootCtxCopy.config.OnEnd != nil {
 		rootCtxCopy.config.OnEnd(msg, err)
 	}
+	// Trigger the onEnd callback with the error and Failure relation type.
 	if rootCtxCopy.onEnd != nil {
 		rootCtxCopy.onEnd(rootCtxCopy, msg, err, types.Failure)
 	}
+	// Execute the onAllNodeCompleted callback if it exists.
 	if rootCtxCopy.onAllNodeCompleted != nil {
 		rootCtxCopy.onAllNodeCompleted()
 	}
 }
+
+// onMsgAndWait processes a message through the rule engine, optionally waiting for all nodes to complete.
+// It applies any provided RuleContextOptions to customize the execution context.
 func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.RuleContextOption) {
 	if e.rootRuleChainCtx != nil {
+		// Create a copy of the root context for processing the message.
 		rootCtx := e.rootRuleChainCtx.rootRuleContext.(*DefaultRuleContext)
 		rootCtxCopy := NewRuleContext(rootCtx.GetContext(), rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, rootCtx.onEnd, e.RuleChainPool)
 		rootCtxCopy.isFirst = rootCtx.isFirst
 		rootCtxCopy.runSnapshot = NewRunSnapshot(msg.Id, rootCtxCopy.ruleChainCtx, time.Now().UnixMilli())
+		// Apply the provided options to the context copy.
 		for _, opt := range opts {
 			opt(rootCtxCopy)
 		}
+		// Handle the case where the rule chain has no nodes.
 		if rootCtx.ruleChainCtx.isEmpty {
 			e.noNodesHandler(msg, rootCtxCopy, wait)
 			return
 		}
+		// Execute start aspects and update the message accordingly.
 		msg = e.onStart(rootCtxCopy, msg)
 
-		//用户自定义结束回调
+		// Set up a custom end callback function.
 		customOnEndFunc := rootCtxCopy.onEnd
 		rootCtxCopy.onEnd = func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			// Execute end aspects and update the message accordingly.
 			msg = e.onEnd(rootCtxCopy, msg, err, relationType)
+			// Trigger the custom end callback if provided.
 			if customOnEndFunc != nil {
 				customOnEndFunc(ctx, msg, err, relationType)
 			}
 
 		}
-
+		// Set up a custom function to be called upon completion of all nodes.
 		customFunc := rootCtxCopy.onAllNodeCompleted
-		//同步方式调用，等规则链都执行完，才返回
+		// If waiting is required, set up a channel to synchronize the completion.
 		if wait {
 			c := make(chan struct{})
 			rootCtxCopy.onAllNodeCompleted = func() {
 				defer close(c)
+				// Execute the completion handling function.
 				e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 			}
-			//执行规则链
+			// Process the message through the rule chain.
 			rootCtxCopy.TellNext(msg)
-			//阻塞
+			// Block until all nodes have completed.
 			<-c
 		} else {
+			// If not waiting, simply set the completion handling function.
 			rootCtxCopy.onAllNodeCompleted = func() {
 				e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 			}
-			//执行规则链
+			// Process the message through the rule chain.
 			rootCtxCopy.TellNext(msg)
 		}
 
 	} else {
-		//沒有定义根则链或者没初始化
+		// Log an error if the rule engine is not initialized or the root rule chain is not defined.
 		e.Config.Logger.Printf("onMsg error.RuleEngine not initialized")
 	}
 }
 
-// 执行规则链执行开始切面列表
+// onStart executes the list of start aspects before the rule chain begins processing a message.
 func (e *RuleEngine) onStart(ctx types.RuleContext, msg types.RuleMsg) types.RuleMsg {
 	for _, aop := range e.startAspects {
 		if aop.PointCut(ctx, msg, "") {
 			msg = aop.Start(ctx, msg)
 		}
 	}
-
 	return msg
 }
 
-// 执行规则链分支链执行结束切面列表
+// onEnd executes the list of end aspects when a branch of the rule chain ends.
 func (e *RuleEngine) onEnd(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) types.RuleMsg {
 	for _, aop := range e.endAspects {
 		if aop.PointCut(ctx, msg, relationType) {
@@ -905,7 +949,7 @@ func (e *RuleEngine) onEnd(ctx types.RuleContext, msg types.RuleMsg, err error, 
 	return msg
 }
 
-// 执行规则链所有分支链执行结束切面列表
+// onAllNodeCompleted executes the list of completed aspects after all branches of the rule chain have ended.
 func (e *RuleEngine) onAllNodeCompleted(ctx types.RuleContext, msg types.RuleMsg) types.RuleMsg {
 	for _, aop := range e.completedAspects {
 		if aop.PointCut(ctx, msg, "") {

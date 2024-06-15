@@ -28,18 +28,21 @@ var _ types.RuleEnginePool = (*Pool)(nil)
 
 var DefaultPool = &Pool{}
 
-// Pool 规则引擎实例池
+// Pool is a pool of rule engine instances.
 type Pool struct {
+	// A concurrent map to store rule engine instances.
 	entries sync.Map
 }
 
+// NewPool creates a new instance of a rule engine pool.
 func NewPool() *Pool {
 	return &Pool{}
 }
 
-// Load 加载指定文件夹及其子文件夹所有规则链配置（与.json结尾文件），到规则引擎实例池
-// 规则链ID，使用规则链文件配置的ruleChain.id
+// Load loads all rule chain configurations from a specified folder and its subfolders into the rule engine instance pool.
+// The rule chain ID is taken from the configuration file's ruleChain.id.
 func (g *Pool) Load(folderPath string, opts ...types.RuleEngineOption) error {
+	// Ensure the folder path ends with a pattern that matches JSON files.
 	if !strings.HasSuffix(folderPath, "*.json") && !strings.HasSuffix(folderPath, "*.JSON") {
 		if strings.HasSuffix(folderPath, "/") || strings.HasSuffix(folderPath, "\\") {
 			folderPath = folderPath + "*.json"
@@ -49,10 +52,12 @@ func (g *Pool) Load(folderPath string, opts ...types.RuleEngineOption) error {
 			folderPath = folderPath + "/*.json"
 		}
 	}
+	// Get all file paths that match the pattern.
 	paths, err := fs.GetFilePaths(folderPath)
 	if err != nil {
 		return err
 	}
+	// Load each file and create a new rule engine instance from its contents.
 	for _, path := range paths {
 		b := fs.LoadFile(path)
 		if b != nil {
@@ -64,17 +69,19 @@ func (g *Pool) Load(folderPath string, opts ...types.RuleEngineOption) error {
 	return nil
 }
 
-// New 创建一个新的RuleEngine并将其存储在RuleGo规则链池中
-// 如果指定id="",则使用规则链文件的ruleChain.id
+// New creates a new RuleEngine instance and stores it in the rule chain pool.
+// If the specified id is empty, the ruleChain.id from the rule chain file is used.
 func (g *Pool) New(id string, rootRuleChainSrc []byte, opts ...types.RuleEngineOption) (types.RuleEngine, error) {
+	// Check if an instance with the given ID already exists.
 	if v, ok := g.entries.Load(id); ok {
 		return v.(*RuleEngine), nil
 	} else {
+		// Create a new rule engine instance.
 		if ruleEngine, err := newRuleEngine(id, rootRuleChainSrc, opts...); err != nil {
 			return nil, err
 		} else {
+			// Store the new rule engine instance in the pool.
 			if ruleEngine.Id() != "" {
-				// Store the new RuleEngine in the entries map with the Id as the key.
 				g.entries.Store(ruleEngine.Id(), ruleEngine)
 			}
 			ruleEngine.RuleChainPool = g
@@ -84,7 +91,7 @@ func (g *Pool) New(id string, rootRuleChainSrc []byte, opts ...types.RuleEngineO
 	}
 }
 
-// Get 获取指定ID规则引擎实例
+// Get retrieves a rule engine instance by its ID.
 func (g *Pool) Get(id string) (types.RuleEngine, bool) {
 	v, ok := g.entries.Load(id)
 	if ok {
@@ -94,7 +101,7 @@ func (g *Pool) Get(id string) (types.RuleEngine, bool) {
 	}
 }
 
-// Del 删除指定ID规则引擎实例
+// Del deletes a rule engine instance by its ID.
 func (g *Pool) Del(id string) {
 	v, ok := g.entries.Load(id)
 	if ok {
@@ -103,7 +110,7 @@ func (g *Pool) Del(id string) {
 	}
 }
 
-// Stop 释放所有规则引擎实例
+// Stop releases all rule engine instances in the pool.
 func (g *Pool) Stop() {
 	g.entries.Range(func(key, value any) bool {
 		if item, ok := value.(*RuleEngine); ok {
@@ -114,11 +121,12 @@ func (g *Pool) Stop() {
 	})
 }
 
-// Range 遍历所有规则引擎实例
+// Range iterates over all rule engine instances in the pool.
 func (g *Pool) Range(f func(key, value any) bool) {
 	g.entries.Range(f)
 }
 
+// Reload reloads all rule engine instances in the pool with the given options.
 func (g *Pool) Reload(opts ...types.RuleEngineOption) {
 	g.entries.Range(func(key, value any) bool {
 		_ = value.(*RuleEngine).Reload(opts...)
@@ -126,8 +134,8 @@ func (g *Pool) Reload(opts ...types.RuleEngineOption) {
 	})
 }
 
-// OnMsg 调用所有规则引擎实例处理消息
-// 规则引擎实例池所有规则链都会去尝试处理该消息
+// OnMsg invokes all rule engine instances to process a message.
+// All rule chains in the rule engine instance pool will attempt to process the message.
 func (g *Pool) OnMsg(msg types.RuleMsg) {
 	g.entries.Range(func(key, value any) bool {
 		if item, ok := value.(*RuleEngine); ok {
@@ -137,39 +145,39 @@ func (g *Pool) OnMsg(msg types.RuleMsg) {
 	})
 }
 
-// Load 加载指定文件夹及其子文件夹所有规则链配置（与.json结尾文件），到规则引擎实例池
-// 规则链ID，使用文件配置的 ruleChain.id
+// Load loads all rule chain configurations from the specified folder and its subfolders into the default rule engine instance pool.
+// The rule chain ID is taken from the configuration file's ruleChain.id.
 func Load(folderPath string, opts ...types.RuleEngineOption) error {
 	return DefaultPool.Load(folderPath, opts...)
 }
 
-// New 创建一个新的RuleEngine并将其存储在RuleGo规则链池中
+// New creates a new RuleEngine and stores it in the default rule chain pool.
 func New(id string, rootRuleChainSrc []byte, opts ...types.RuleEngineOption) (types.RuleEngine, error) {
 	return DefaultPool.New(id, rootRuleChainSrc, opts...)
 }
 
-// Get 获取指定ID规则引擎实例
+// Get retrieves a specified ID rule engine instance from the default rule chain pool.
 func Get(id string) (types.RuleEngine, bool) {
 	return DefaultPool.Get(id)
 }
 
-// Del 删除指定ID规则引擎实例
+// Del deletes a specified ID rule engine instance from the default rule chain pool.
 func Del(id string) {
 	DefaultPool.Del(id)
 }
 
-// Stop 释放所有规则引擎实例
+// Stop releases all rule engine instances in the default rule chain pool.
 func Stop() {
 	DefaultPool.Stop()
 }
 
-// OnMsg 调用所有规则引擎实例处理消息
-// 规则引擎实例池所有规则链都会去尝试处理该消息
+// OnMsg calls all rule engine instances in the default rule chain pool to process a message.
+// All rule chains in the rule engine instance pool will attempt to process the message.
 func OnMsg(msg types.RuleMsg) {
 	DefaultPool.OnMsg(msg)
 }
 
-// Reload 重新加载所有规则引擎实例
+// Reload reloads all rule engine instances in the default rule chain pool.
 func Reload(opts ...types.RuleEngineOption) {
 	DefaultPool.entries.Range(func(key, value any) bool {
 		_ = value.(types.RuleEngine).Reload(opts...)
@@ -177,7 +185,7 @@ func Reload(opts ...types.RuleEngineOption) {
 	})
 }
 
-// Range 遍历所有规则引擎实例
+// Range iterates over all rule engine instances in the default rule chain pool.
 func Range(f func(key, value any) bool) {
 	DefaultPool.entries.Range(f)
 }

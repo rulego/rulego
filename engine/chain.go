@@ -25,57 +25,58 @@ import (
 	"sync"
 )
 
+// RelationCache is a structure that caches the outgoing node relationships based on the incoming node.
 type RelationCache struct {
-	//入接点
+	// inNodeId is the identifier of the incoming node.
 	inNodeId types.RuleNodeId
-	//与出节点连接关系
+	// relationType is the type of relationship with the outgoing node.
 	relationType string
 }
 
-// RuleChainCtx 规则链实例定义
-// 初始化所有节点
-// 记录规则链，所有节点路由关系
+// RuleChainCtx defines an instance of a rule chain.
+// It initializes all nodes and records the routing relationships between all nodes in the rule chain.
 type RuleChainCtx struct {
-	//节点ID
+	// Id is the identifier of the node.
 	Id types.RuleNodeId
-	//规则链定义
+	// SelfDefinition is the definition of the rule chain.
 	SelfDefinition *types.RuleChain
-	//规则引擎配置
+	// config is the configuration of the rule engine.
 	config types.Config
-	//是否已经初始化
+	// initialized indicates whether the rule chain context has been initialized.
 	initialized bool
-	//组件库
+	// componentsRegistry is the registry of components.
 	componentsRegistry types.ComponentRegistry
-	//节点ID列表
+	// nodeIds is a list of node identifiers.
 	nodeIds []types.RuleNodeId
-	//组件列表
+	// nodes is a map of node contexts.
 	nodes map[types.RuleNodeId]types.NodeCtx
-	//组件路由关系
-	nodeRoutes    map[types.RuleNodeId][]types.RuleNodeRelation
-	nodeCtxRoutes map[types.RuleNodeId][]types.NodeCtx
-	//通过入节点查询指定关系出节点列表缓存
+	// nodeRoutes is a map of node routing relationships.
+	nodeRoutes map[types.RuleNodeId][]types.RuleNodeRelation
+	// relationCache caches the outgoing node lists based on the incoming node and relationship.
 	relationCache map[RelationCache][]types.NodeCtx
-	//根上下文
+	// rootRuleContext is the root context of the rule chain.
 	rootRuleContext types.RuleContext
-	//子规则链池
+	// ruleChainPool is a pool of sub-rule chains.
 	ruleChainPool types.RuleEnginePool
-	//切面
+	// aspects is a list of AOP (Aspect-Oriented Programming) aspects.
 	aspects types.AspectList
-	//重新加载增强点切面
+	// reloadAspects is a list of aspects triggered on reload.
 	reloadAspects []types.OnReloadAspect
-	//销毁增强点切面
+	// destroyAspects is a list of aspects triggered on destruction.
 	destroyAspects []types.OnDestroyAspect
-	//vars Variables
+	// vars is a map of variables.
 	vars map[string]string
-	//decryptSecrets 解密后的secrets
+	// decryptSecrets is a map of decrypted secrets.
 	decryptSecrets map[string]string
-	//是否没有任何节点
+	// isEmpty indicates whether the rule chain has no nodes.
 	isEmpty bool
+	// RWMutex is a read/write mutex lock.
 	sync.RWMutex
 }
 
-// InitRuleChainCtx 初始化RuleChainCtx
+// InitRuleChainCtx initializes a RuleChainCtx with the given configuration, aspects, and rule chain definition.
 func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDef *types.RuleChain) (*RuleChainCtx, error) {
+	// Initialize a new RuleChainCtx with the provided configuration and aspects.
 	var ruleChainCtx = &RuleChainCtx{
 		config:             config,
 		SelfDefinition:     ruleChainDef,
@@ -86,10 +87,11 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		initialized:        true,
 		aspects:            aspects,
 	}
+	// Set the ID of the rule chain context if provided in the definition.
 	if ruleChainDef.RuleChain.ID != "" {
 		ruleChainCtx.Id = types.RuleNodeId{Id: ruleChainDef.RuleChain.ID, Type: types.CHAIN}
 	}
-	//处理规则链配置的vars和secrets
+	// Process the rule chain configuration's vars and secrets.
 	if ruleChainDef != nil && ruleChainDef.RuleChain.Configuration != nil {
 		varsConfig := ruleChainDef.RuleChain.Configuration[types.Vars]
 		ruleChainCtx.vars = str.ToStringMapString(varsConfig)
@@ -99,7 +101,7 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 	}
 	nodeLen := len(ruleChainDef.Metadata.Nodes)
 	ruleChainCtx.nodeIds = make([]types.RuleNodeId, nodeLen)
-	//加载所有节点信息
+	// Load all node information.
 	for index, item := range ruleChainDef.Metadata.Nodes {
 		if item.Id == "" {
 			item.Id = fmt.Sprintf(defaultNodeIdPrefix+"%d", index)
@@ -112,7 +114,7 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		}
 		ruleChainCtx.nodes[ruleNodeId] = ruleNodeCtx
 	}
-	//加载节点关系信息
+	// Load node relationship information.
 	for _, item := range ruleChainDef.Metadata.Connections {
 		inNodeId := types.RuleNodeId{Id: item.FromId, Type: types.NODE}
 		outNodeId := types.RuleNodeId{Id: item.ToId, Type: types.NODE}
@@ -130,7 +132,7 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		}
 		ruleChainCtx.nodeRoutes[inNodeId] = nodeRelations
 	}
-	//加载子规则链
+	// Load sub-rule chains.
 	for _, item := range ruleChainDef.Metadata.RuleChainConnections {
 		inNodeId := types.RuleNodeId{Id: item.FromId, Type: types.NODE}
 		outNodeId := types.RuleNodeId{Id: item.ToId, Type: types.CHAIN}
@@ -148,19 +150,19 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		}
 		ruleChainCtx.nodeRoutes[inNodeId] = nodeRelations
 	}
-
+	// Initialize the root rule context.
 	if firstNode, ok := ruleChainCtx.GetFirstNode(); ok {
 		ruleChainCtx.rootRuleContext = NewRuleContext(context.TODO(), ruleChainCtx.config, ruleChainCtx, nil,
 			firstNode, config.Pool, nil, nil)
 	} else {
-		//没有节点，则初始化一个空节点
+		// If there are no nodes, initialize an empty node context.
 		ruleNodeCtx, _ := InitRuleNodeCtx(config, ruleChainCtx, &types.RuleNode{})
 		ruleChainCtx.rootRuleContext = NewRuleContext(context.TODO(), ruleChainCtx.config, ruleChainCtx, nil,
 			ruleNodeCtx, config.Pool, nil, nil)
 		ruleChainCtx.isEmpty = true
 	}
 
-	//get aspects
+	// Retrieve aspects for the engine.
 	_, reloadAspects, destroyAspects := aspects.GetEngineAspects()
 	ruleChainCtx.reloadAspects = reloadAspects
 	ruleChainCtx.destroyAspects = destroyAspects
