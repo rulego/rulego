@@ -119,7 +119,7 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	for i, nodeId := range x.NodeIdList {
 		//创建一个局部变量，避免闭包引用问题
 		index := i
-		ctx.ExecuteNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
+		ctx.TellNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
 			if atomic.LoadInt32(&completed) == 0 {
 				errStr := ""
 				if err != nil {
@@ -155,7 +155,7 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 			}
 
-		})
+		}, nil)
 	}
 
 	// 等待执行结束或者超时

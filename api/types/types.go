@@ -168,7 +168,10 @@ type RuleContext interface {
 	// onEndFunc: Callback for when a branch of the sub-rule chain completes, returning the result of that chain. If multiple branches are triggered, it will be called multiple times.
 	// onAllNodeCompleted: Callback for when all nodes have completed, with no result returned.
 	// If the rule chain is not found, the message is sent to the next node via the 'Failure' relationship.
-	TellFlow(msg RuleMsg, ruleChainId string, endFunc OnEndFunc, onAllNodeCompleted func())
+	TellFlow(ctx context.Context, ruleChainId string, msg RuleMsg, endFunc OnEndFunc, onAllNodeCompleted func())
+	// TellNode starts execution from a specified node. If skipTellNext=true, only the current node is executed without notifying the next node.
+	// onEnd is used to view the final execution result.
+	TellNode(ctx context.Context, nodeId string, msg RuleMsg, skipTellNext bool, onEnd OnEndFunc, onAllNodeCompleted func())
 	// NewMsg creates a new message instance.
 	NewMsg(msgType string, metaData Metadata, data string) RuleMsg
 	// GetSelfId retrieves the current node ID.
@@ -193,9 +196,6 @@ type RuleContext interface {
 	GetContext() context.Context
 	// SetOnAllNodeCompleted sets the callback for when all nodes have completed execution.
 	SetOnAllNodeCompleted(onAllNodeCompleted func())
-	// ExecuteNode starts execution from a specified node. If skipTellNext=true, only the current node is executed without notifying the next node.
-	// onEnd is used to view the final execution result.
-	ExecuteNode(chanCtx context.Context, nodeId string, msg RuleMsg, skipTellNext bool, onEnd OnEndFunc)
 	// DoOnEnd triggers the OnEnd callback function.
 	DoOnEnd(msg RuleMsg, err error, relationType string)
 	// SetCallbackFunc sets a callback function.

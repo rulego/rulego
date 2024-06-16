@@ -136,7 +136,7 @@ func (ctx *NodeTestRuleContext) GetContext() context.Context {
 	return ctx.context
 }
 
-func (ctx *NodeTestRuleContext) TellFlow(msg types.RuleMsg, chainId string, endFunc types.OnEndFunc, onAllNodeCompleted func()) {
+func (ctx *NodeTestRuleContext) TellFlow(chainCtx context.Context, chainId string, msg types.RuleMsg, endFunc types.OnEndFunc, onAllNodeCompleted func()) {
 
 	if chainId == "" {
 		endFunc(ctx, msg, errors.New("chainId can not nil"), types.Failure)
@@ -146,13 +146,8 @@ func (ctx *NodeTestRuleContext) TellFlow(msg types.RuleMsg, chainId string, endF
 	}
 }
 
-// SetOnAllNodeCompleted 设置所有节点执行完回调
-func (ctx *NodeTestRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) {
-	ctx.onAllNodeCompleted = onAllNodeCompleted
-}
-
 // ExecuteNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
-func (ctx *NodeTestRuleContext) ExecuteNode(context context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, callback types.OnEndFunc) {
+func (ctx *NodeTestRuleContext) TellNode(context context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, callback types.OnEndFunc, onAllNodeCompleted func()) {
 	if v, ok := ctx.childrenNodes.Load(nodeId); ok {
 		ctx.selfId = nodeId
 		subCtx := NewRuleContext(ctx.config, func(msg types.RuleMsg, relationType string, err error) {
@@ -163,6 +158,11 @@ func (ctx *NodeTestRuleContext) ExecuteNode(context context.Context, nodeId stri
 	} else {
 		callback(ctx, msg, errors.New("not found nodeId="+nodeId), types.Failure)
 	}
+}
+
+// SetOnAllNodeCompleted 设置所有节点执行完回调
+func (ctx *NodeTestRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) {
+	ctx.onAllNodeCompleted = onAllNodeCompleted
 }
 
 func (ctx *NodeTestRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationType string) {

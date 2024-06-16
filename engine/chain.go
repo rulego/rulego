@@ -268,7 +268,7 @@ func (rc *RuleChainCtx) Init(_ types.Config, configuration types.Configuration) 
 
 // OnMsg 处理消息
 func (rc *RuleChainCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	ctx.TellFlow(msg, rc.Id.Id, nil, nil)
+	ctx.TellFlow(context.Background(), rc.Id.Id, msg, nil, nil)
 }
 
 func (rc *RuleChainCtx) Destroy() {

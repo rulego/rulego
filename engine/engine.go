@@ -315,13 +315,28 @@ func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 
 // TellFlow 执行子规则链，ruleChainId 规则链ID
 // onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次
-// onAllNodeCompleted 所以节点执行完之后的回调，无结果返回
+// onAllNodeCompleted 所以节点执行完触发，无结果返回
 // 如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
-func (ctx *DefaultRuleContext) TellFlow(msg types.RuleMsg, chainId string, onEndFunc types.OnEndFunc, onAllNodeCompleted func()) {
-	if e, ok := ctx.GetRuleChainPool().Get(chainId); ok {
-		e.OnMsg(msg, types.WithOnEnd(onEndFunc), types.WithContext(ctx.context), types.WithOnAllNodeCompleted(onAllNodeCompleted))
+func (ctx *DefaultRuleContext) TellFlow(chanCtx context.Context, ruleChainId string, msg types.RuleMsg, onEndFunc types.OnEndFunc, onAllNodeCompleted func()) {
+	if e, ok := ctx.GetRuleChainPool().Get(ruleChainId); ok {
+		e.OnMsg(msg, types.WithOnEnd(onEndFunc), types.WithContext(chanCtx), types.WithOnAllNodeCompleted(onAllNodeCompleted))
 	} else {
-		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found", chainId))
+		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found", ruleChainId))
+	}
+}
+
+// TellNode 从指定节点开始执行，如果 skipTellNext=true 则只执行当前节点，不通知下一个节点。
+// onEnd 查看获得最终执行结果
+// onAllNodeCompleted 所以节点执行完触发，无结果返回
+func (ctx *DefaultRuleContext) TellNode(chanCtx context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc, onAllNodeCompleted func()) {
+	if nodeCtx, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
+		rootCtxCopy := NewRuleContext(chanCtx, ctx.config, ctx.ruleChainCtx, nil, nodeCtx, ctx.pool, onEnd, ctx.ruleChainPool)
+		rootCtxCopy.onAllNodeCompleted = onAllNodeCompleted
+		//Whether to only execute the current node
+		rootCtxCopy.skipTellNext = skipTellNext
+		rootCtxCopy.tell(msg, nil, "")
+	} else {
+		onEnd(ctx, msg, errors.New("node id not found nodeId="+nodeId), types.Failure)
 	}
 }
 
@@ -342,20 +357,6 @@ func (ctx *DefaultRuleContext) GetRuleChainPool() types.RuleEnginePool {
 // SetOnAllNodeCompleted 设置所有节点执行完回调
 func (ctx *DefaultRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) {
 	ctx.onAllNodeCompleted = onAllNodeCompleted
-}
-
-// ExecuteNode 从指定节点开始执行，如果 skipTellNext=true 则只执行当前节点，不通知下一个节点。
-// onEnd 查看获得最终执行结果
-func (ctx *DefaultRuleContext) ExecuteNode(chanCtx context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc) {
-	if nodeCtx, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
-		rootCtxCopy := NewRuleContext(chanCtx, ctx.config, ctx.ruleChainCtx, nil, nodeCtx, ctx.pool, nil, ctx.ruleChainPool)
-		rootCtxCopy.onEnd = onEnd
-		//只执行当前节点
-		rootCtxCopy.skipTellNext = skipTellNext
-		rootCtxCopy.tell(msg, nil, "")
-	} else {
-		onEnd(ctx, msg, errors.New("node id not found nodeId="+nodeId), types.Failure)
-	}
 }
 
 // DoOnEnd  结束规则链分支执行，触发 OnEnd 回调函数
