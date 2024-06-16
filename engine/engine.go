@@ -336,7 +336,7 @@ func (ctx *DefaultRuleContext) TellNode(chanCtx context.Context, nodeId string, 
 		rootCtxCopy.skipTellNext = skipTellNext
 		rootCtxCopy.tell(msg, nil, "")
 	} else {
-		onEnd(ctx, msg, errors.New("node id not found nodeId="+nodeId), types.Failure)
+		onEnd(ctx, msg, fmt.Errorf("node id=%s not found", nodeId), types.Failure)
 	}
 }
 
