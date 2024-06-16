@@ -47,6 +47,7 @@ type IteratorNodeConfiguration struct {
 // 如果item满足JsScript，则会把item数据通过`True`链发到下一个节点，否则通过`False`链发到下一个节点
 // 如果找不到指定字段、js脚本执行失败或者遍历的对象不是`数组`或者`{key:value}`，则会把错误信息通过Failure链发到下一个节点
 // 遍历结束后，通过Success链把原始msg发送到下一个节点
+// Deprecated: Use ForNode instead.
 type IteratorNode struct {
 	//节点配置
 	Config   IteratorNodeConfiguration
