@@ -698,10 +698,10 @@ func TestExecuteNode(t *testing.T) {
 	ruleEngine.OnMsg(msg2, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		assert.Equal(t, "true", msg.Metadata.GetValue("result"))
 
-		ctx.ExecuteNode(context.Background(), "aa", msg, false, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		ctx.TellNode(context.Background(), "aa", msg, false, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.NotNil(t, err)
 			assert.Equal(t, types.Failure, relationType)
-		})
+		}, nil)
 	}))
 	time.Sleep(time.Millisecond * 200)
 }

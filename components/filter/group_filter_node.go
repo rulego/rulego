@@ -94,7 +94,7 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	//执行节点列表逻辑
 	for _, nodeId := range x.NodeIdList {
-		ctx.ExecuteNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		ctx.TellNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			if atomic.LoadInt32(&completed) == 0 {
 				firstRelationType := relationType
 				atomic.AddInt32(&endCount, 1)
@@ -114,7 +114,7 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				}
 			}
 
-		})
+		}, nil)
 	}
 
 	// 等待执行结束或者超时
