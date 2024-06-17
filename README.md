@@ -10,64 +10,70 @@ English| [中文](README_ZH.md)
 
 <img src="doc/imgs/logo.png" width="100">   
 
-`RuleGo` is a lightweight, high-performance, embedded, orchestrable component-based rule engine based on `Go` language. 
-It is also a flexible and highly customizable event processing framework. Support heterogeneous system data integration. It can aggregate, distribute, filter, transform, enrich and execute various actions on input messages.
+RuleGo is a lightweight, high-performance, embedded, orchestrable component-based rule engine built on the Go language. It supports heterogeneous system data integration and can aggregate, distribute, filter, transform, enrich, and perform various actions on input messages.
 
-<h3>Your encouragement is our driving force. If this project has been helpful to you, please give it a Star in the top right corner.</h3>
+<h3>Your encouragement is our motivation to move forward. If this project is helpful to you, please give it a Star in the top right corner.</h3>
 
 ## Documentation
 
-RuleGo documentation is hosted on: [rulego.cc](https://rulego.cc) .
+The official documentation is hosted at: [rulego.cc](https://rulego.cc/en)
 
 ## Features
 
-* **Lightweight:** No external middleware dependencies, can efficiently process and link data on low-cost devices, suitable for IoT edge computing.
-* **High performance:** Thanks to the high-performance characteristics of `Go`, in addition, `RuleGo` adopts technologies such as coroutine pool and object pool.
-* **Embedded:** Support embedding `RuleGo` into existing projects, non-intrusively utilizing its features.
-* **Componentized:** All business logic is componentized and can be flexibly configured and reused.
-* **Rule chain:** You can flexibly combine and reuse different components to achieve highly customizable and scalable business processes.
-* **Process orchestration:** Support dynamic orchestration of rule chain components, replace or add business logic without restarting the application.
-* **Easy to extend:** Provide rich and flexible extension interfaces, you can easily implement custom components or introduce third-party components.
-* **Dynamic loading:** Support dynamic loading of components and extension components through `Go plugin`.
-* **Rule chain nesting:** Support sub-rule chain nesting, realize process reuse.
-* **Built-in common components:** `Message type Switch`,`JavaScript Switch`,`JavaScript filter`,`JavaScript converter`,`HTTP push`,`MQTT push`,`Send email`,`Log record` and other components. You can extend other components by yourself.
-* **Context isolation mechanism:** Reliable context isolation mechanism, no need to worry about data streaming in high concurrency situations.
-* **AOP:** Allows adding extra behavior to the execution of the rule chain, or directly replacing the original rule chain or node logic, without modifying the original logic of the rule chain or node.
+* **Lightweight:** No external middleware dependencies, efficient data processing and linkage on low-cost devices, suitable for IoT edge computing.
+* **High Performance:** Thanks to Go's high-performance characteristics, RuleGo also employs technologies such as coroutine pools and object pools.
+* **Embedded:** Supports embedding RuleGo into existing projects, non-invasively utilizing its features.
+* **Componentized:** All business logic is component-based, allowing flexible configuration and reuse.
+* **Rule Chains:** Flexibly combine and reuse different components to achieve highly customized and scalable business processes.
+* **Workflow Orchestration:** Supports dynamic orchestration of rule chain components, replacing or adding business logic without restarting the application.
+* **Easy Extension:** Provides rich and flexible extension interfaces, making it easy to implement custom components or introduce third-party components.
+* **Dynamic Loading:** Supports dynamic loading of components and extensions through Go plugins.
+* **Nested Rule Chains:** Supports nesting of sub-rule chains to reuse processes.
+* **Built-in Components:** Includes a large number of components such as `Message Type Switch`, `JavaScript Switch`, `JavaScript Filter`, `JavaScript Transformer`, `HTTP Push`, `MQTT Push`, `Send Email`, `Log Recording`, etc. Other components can be extended as needed.
+* **Context Isolation Mechanism:** Reliable context isolation mechanism, no need to worry about data streaming in high concurrency situations.
+* **AOP Mechanism:** Allows adding extra behavior to the execution of rule chains or directly replacing the original logic of rule chains or nodes without modifying their original logic.
+* **Data Integration:** Allows dynamic configuration of Endpoints, such as `HTTP Endpoint`, `MQTT Endpoint`, `TCP/UDP Endpoint`, `UDP Endpoint`, `Kafka Endpoint`, `Schedule Endpoint`, etc.
 
 ## Use Cases
 
-`RuleGo` is a rule engine based on orchestration, which is best at decoupling your system.
+RuleGo is an orchestrable rule engine that excels at decoupling your systems.
 
-- If your system is complex and bloated with code
-- If your business scenario is highly customized or frequently changed
-- If your system needs to interface with a large number of third-party systems or protocols
-- Or you need an end-to-end IoT solution
-- Or you need to process data from heterogeneous systems centrally
-- Or you want to try hot deployment in `Go` language...
-  Then `RuleGo` framework will be a very good solution.
+- If your system's business is complex and the code is bloated
+- If your business scenarios are highly customized or frequently changing
+- If your system needs to interface with a large number of third-party applications or protocols
+- Or if you need an end-to-end IoT solution
+- Or if you need centralized processing of heterogeneous system data
+- Or if you want to try hot deployment in the Go language...
+  Then the RuleGo framework will be a very good solution.
 
-#### Typical use cases
+#### Typical Use Cases
 
-* **Edge computing:** For example: You can deploy `RuleGo` on the edge server, preprocess, filter, aggregate or calculate the data before reporting it to the cloud. The data processing rules and distribution rules can be dynamically configured and modified through the rule chain without restarting the system.
-* **Internet of Things:** For example: Collect device data reporting, and after the rule judgment of the rule chain, trigger one or more actions, such as: send email, send alarm, and link with other devices or systems.
-* **Data distribution:** For example: You can distribute data to different systems according to different message types, such as HTTP, MQTT or gRPC.
-* **Application integration:** Use `RuleGo` as a glue to various different systems or protocols, such as: ssh,webhook,kafka, message queue, database, chatGPT, third-party systems.
-* **Data processing from heterogeneous systems:** For example: Receive data from different data sources (such as MQTT, HTTP,WS,TCP/UDP etc.), and then filter, format conversion, and then distribute to databases, business systems or dashboards.
-* **Highly customized business:** For example: Decouple highly customized or frequently changed business and hand it over to `RuleGo` rule chain for management. Business requirements change without restarting the main program.
-* **Complex business orchestration:** For example: Encapsulate the business into custom components, and use `RuleGo` to orchestrate and drive these custom components, and support dynamic adjustment.
-* **Microservice orchestration:** For example: Use `RuleGo` to orchestrate and drive microservices, or dynamically call third-party services to process business and return results.
-* **Business code and business logic decoupling:** For example: User points calculation system, risk control system.
-* **Flexible configuration and highly customized event processing framework:** For example: Asynchronously or synchronously process different message types.
-* **Automation:** For example, process automation systems, marketing automation systems.
+* **Edge Computing:** Deploy RuleGo on edge servers to preprocess data, filter, aggregate, or compute before reporting to the cloud. Data processing rules and distribution rules can be dynamically configured and modified through rule chains without restarting the system.
+* **IoT:** Collect device data reports, make rule judgments through rule chains, and trigger one or more actions, such as sending emails, alarms, and linking with other devices or systems.
+* **Data Distribution:** Distribute data to different systems using HTTP, MQTT, or gRPC based on different message types.
+* **Application Integration:** Use RuleGo as glue to connect various systems or protocols, such as SSH, webhook, Kafka, message queues, databases, ChatGPT, third-party application systems.
+* **Centralized Processing of Heterogeneous System Data:** Receive data from different sources (such as MQTT, HTTP, WS, TCP/UDP, etc.), then filter, format convert, and distribute to databases, business systems, or dashboards.
+* **Highly Customized Business:** Decouple highly customized or frequently changing business and manage it with RuleGo rule chains. Business requirements change without needing to restart the main program.
+* **Complex Business Orchestration:** Encapsulate business into custom components, orchestrate and drive these custom components through RuleGo, and support dynamic adjustment and replacement of business logic.
+* **Microservice Orchestration:** Orchestrate and drive microservices through RuleGo, or dynamically call third-party services to process business and return results.
+* **Decoupling of Business Code and Logic:** For example, user points calculation systems, risk control systems.
+* **Automation:** For example, CI/CD systems, process automation systems, marketing automation systems.
+* **Low Code:** For example, low-code platforms, iPaaS systems, ETL, LangFlow-like systems (interfacing with large models to extract user intent, then triggering rule chains to interact with other systems or process business).
 
 ## Architecture Diagram
 
-<img src="doc/imgs/architecture.png" width="100%">  
-<p align="center"> RuleGo Architecture Diagram</p>
+<img src="doc/imgs/architecture_zh.png" width="100%">
+<p align="center">RuleGo Architecture Diagram</p>
+
+## Rule Chain Running Example Diagram
+
+  <img src="doc/imgs/rulechain/img_2.png" style="height:40%;width:70%;"/>
+
+[More Running Modes](https://rulego.cc/en/pages/6f46fc/#%E8%A7%84%E5%88%99%E9%93%BE%E6%94%AF%E6%8C%81%E7%9A%84%E8%BF%90%E8%A1%8C%E6%96%B9%E5%BC%8F)
 
 ## Installation
 
-Use the `go get` command to install `RuleGo`:
+Install RuleGo using the `go get` command:
 
 ```bash
 go get github.com/rulego/rulego
@@ -75,173 +81,88 @@ go get github.com/rulego/rulego
 
 ## Usage
 
-First, define the rule chain in Json format. The rule chain definition does not require learning a specific rule syntax or DSL, just configure the components and connect them with certain relationships, and you can achieve your functional requirements. Rule chain definition: [Reference rule chain](https://rulego.cc/pages/6f46fc/)
+RuleGo is extremely simple and lightweight to use. Just follow these 3 steps:
 
-RuleGo is extremely simple and lightweight. Just follow these 2 steps:
+1. Define rule chains using JSON:
+   [Rule Chain DSL](https://rulego.cc/en/pages/10e1c0/)
 
-1. Import the `RuleGo` package and use the rule chain definition to create a rule engine instance:
+2. Import the RuleGo package and use the rule chain definition to create a rule engine instance:
 
 ```go
 import "github.com/rulego/rulego"
 
-//Use the rule chain definition to create a rule engine instance
+// Create a rule engine instance using the rule chain definition
 ruleEngine, err := rulego.New("rule01", []byte(ruleFile))
 ```
 
-2. Pass the message payload, message type, and message metadata to the rule engine instance, and the rule engine will process the message according to the rule chain definition:
+3. Hand over the message payload, message type, and message metadata to the rule engine instance for processing, and then the rule engine will process the message according to the rule chain's definition:
 
 ```go
-//Define message metadata
+// Define message metadata
 metaData := types.NewMetadata()
 metaData.PutValue("productType", "test01")
-//Define message payload and message type
+// Define message payload and message type
 msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
 
-//Pass the message to the rule engine for processing
+// Hand over the message to the rule engine for processing
 ruleEngine.OnMsg(msg)
-
 ```
 
-### Rule engine management API
+### Rule Engine Management API
 
-Dynamically update the rule chain
+Dynamically update rule chains
 
 ```go
-//Update the root rule chain
+// Update the root rule chain
 err := ruleEngine.ReloadSelf([]byte(ruleFile))
-//Update a node under the rule chain
+// Update a node under the rule chain
 ruleEngine.ReloadChild("rule_chain_test", nodeFile)
-//Get the rule chain definition
+// Get the rule chain definition
 ruleEngine.DSL()
-
 ```
 
-Rule engine instance management:
+Rule Engine Instance Management:
 
 ```go
-//Load all rule chain definitions in the folder to the rule engine pool
+// Load all rule chain definitions in a folder into the rule engine pool
 rulego.Load("/rules", rulego.WithConfig(config))
-//Get a created rule engine instance by ID
+// Get an already created rule engine instance by ID
 ruleEngine, ok := rulego.Get("rule01")
-//Delete a created rule engine instance
+// Delete an already created rule engine instance
 rulego.Del("rule01")
 ```
 
 Configuration:
 
-See [documentation](https://rulego.cc/pages/d59341/) for details
+See [Documentation](https://rulego.cc/en/pages/d59341/)
 
 ```go
-//Create a default configuration
+// Create a default configuration
 config := rulego.NewConfig()
-//Debug node callback, node configuration must be configured debugMode:true to trigger call
-//Node entry and exit information will call this callback function
+// Debug node callback, the node configuration must be set to debugMode:true to trigger the call
+// Both node entry and exit information will call this callback function
 config.OnDebug = func (chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 }
-//Use configuration
+// Use the configuration
 ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(config))
 ```
+### Rule Chain Definition DSL
+[Rule Chain Definition DSL](https://rulego.cc/en/pages/10e1c0/)
 
-### More examples
-
-- Standalone example project: [server](examples/server)
-- More examples: [examples](examples)
-
-## About rule chain
-
-### Rule node
-
-[Rule nodes](https://rulego.cc/pages/83cba1/)  are the basic components of the rule chain, they are functions that implement specific business logic. Rule nodes can filter, transform, enrich or perform some actions on the incoming messages. Rule nodes can adjust their behavior and output by configuring parameters.
-You can easily encapsulate your business into `RuleGo` node components, and flexibly configure and reuse them, like building blocks to achieve your business requirements.
-
-- Custom node components: [examples/custom_component](examples/custom_component) or [documentation](https://rulego.cc/pages/caed1b/)
-- Provide custom components in `go plugin` way: [examples/plugin](examples/custom_component) or [documentation](https://rulego.cc/pages/caed1b/#go-plugin-%E6%96%B9%E5%BC%8F%E6%8F%90%E4%BE%9B%E7%BB%84%E4%BB%B6)
-- `RuleGo` provides a lot of [standard components](https://rulego.cc/pages/88fc3c/) , as well as [extended components](https://rulego.cc/pages/d7fc43/)
-
-### Rule chains
-
-[Rule chains](https://rulego.cc/pages/6f46fc/)  are the core concept of RuleGo, they are directed acyclic graphs composed of multiple rule nodes, each rule node is a component that can implement different business logic, nodes are connected by relationship types (relation type). Rule chains can be dynamically configured and modified, support nesting and orchestration, and implement complex business processes.
-
-The following example defines 3 rule nodes, which are to filter->transform->push data, the rule chain logic is as follows:
-
-<img src="doc/imgs/rulechain/img_1.png" style="height:50%;width:80%;"/>
-
-Rule chain definition:
-```json
-{
-  "ruleChain": {
-    "name": "Test rule chain",
-    "root": true
-  },
-  "metadata": {
-    "nodes": [
-      {
-        "id": "s1",
-        "type": "jsFilter",
-        "name": "Filter",
-        "debugMode": true,
-        "configuration": {
-          "jsScript": "return msg!='bb';"
-        }
-      },
-      {
-        "id": "s2",
-        "type": "jsTransform",
-        "name": "Transform",
-        "debugMode": true,
-        "configuration": {
-          "jsScript": "metadata['test']='test02';\n metadata['index']=50;\n msgType='TEST_MSG_TYPE2';\n var msg2=JSON.parse(msg);\n msg2['aa']=66;\n return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
-        }
-      },
-      {
-        "id": "s3",
-        "type": "restApiCall",
-        "name": "Push data",
-        "debugMode": true,
-        "configuration": {
-          "restEndpointUrlPattern": "http://192.168.216.21:9099/api/socket/msg",
-          "requestMethod": "POST",
-          "maxParallelRequestsCount": 200
-        }
-      }
-    ],
-    "connections": [
-      {
-        "fromId": "s1",
-        "toId": "s2",
-        "type": "True"
-      },
-      {
-        "fromId": "s2",
-        "toId": "s3",
-        "type": "Success"
-      }
-    ]
-  }
-}
-```
-
-Other rule chain examples:
-
-- Asynchronous + sequential execution:
-
-  <img src="doc/imgs/rulechain/img_2.png" style="height:50%;width:80%;">
-
---------
-- Using sub-rule chain method:
-
-  <img src="doc/imgs/rulechain/img_3.png" style="height:50%;width:80%;">
-
---------
-- Some complex examples:
-
-  <img src="doc/imgs/rulechain/img_4.png" style="height:50%;width:80%;">
-
---------
+### Node Components
+- [Standard Components](https://rulego.cc/en/pages/88fc3c/)
+- [rulego-components](https://github.com/rulego/rulego-components)  [Documentation](https://rulego.cc/en/pages/d7fc43/)
+- [rulego-components-ai](https://github.com/rulego/rulego-components-ai)
+- [rulego-components-ci](https://github.com/rulego/rulego-components-ci)
+- [rulego-components-iot](https://github.com/rulego/rulego-components-iot)
+- [Custom Node Component Example](examples/custom_component) [Documentation](https://rulego.cc/en/pages/caed1b/)
 
 ## Data Integration
+RuleGo provides the Endpoint module for unified data integration and processing of heterogeneous systems. For details, refer to: [Endpoint](endpoint/README.md)
 
-`RuleGo` provides `Endpoint` module for unified data integration and processing of heterogeneous systems.For more details, please refer to: [Endpoint](endpoint/README.md)
+### Endpoint Components
+- [Endpoint Components](https://rulego.cc/en/pages/691dd3/)
+- [Endpoint DSL](https://rulego.cc/en/pages/390ad7/)
 
 ## Performance
 
@@ -260,7 +181,8 @@ Test results: 100 concurrent and 500 concurrent, memory consumption does not cha
 
 ## Ecosystem
 
-- [RuleGo-Editor](https://app.rulego.cc) :Rule chain visual editor
+- [RuleGo-Editor](https://editor.rulego.cc/) :Rule chain visual editor
+- [RuleGo-CI](http://8.134.32.225:9090/ui/) :RuleGo CI/CD APP
 - [rulego-components](https://github.com/rulego/rulego-components) :Extension component library:
 - [examples/server](examples/server): A standalone example project
 - [examples](examples): More examples
