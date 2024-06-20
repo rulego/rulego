@@ -95,7 +95,10 @@ func NewClient(ctx context.Context, conf Config) (*Client, error) {
 
 	tlsconfig, err := newTLSConfig(conf.CAFile, conf.CertFile, conf.CertKeyFile)
 	if err != nil {
-		log.Printf("error loading mqtt certificate files,ca_cert=%s,tls_cert=%s,tls_key=%s", conf.CAFile, conf.CertFile, conf.CertKeyFile)
+		log.Printf(
+			"error loading mqtt certificate files,ca_cert=%s,tls_cert=%s,tls_key=%s",
+			conf.CAFile, conf.CertFile, conf.CertKeyFile,
+		)
 	}
 	//tls
 	if tlsconfig != nil {
@@ -106,7 +109,10 @@ func NewClient(ctx context.Context, conf Config) (*Client, error) {
 
 	for {
 		if token := b.client.Connect(); token.Wait() && token.Error() != nil {
-			log.Printf("connecting to mqtt broker failed, will retry in 2s: %s", token.Error())
+			log.Printf(
+				"connecting to mqtt broker failed, will retry in 2s: %s",
+				token.Error(),
+			)
 			select {
 			case <-ctx.Done():
 				//context被取消或超时，返回错误
@@ -153,12 +159,15 @@ func (b *Client) Close() error {
 	for _, v := range b.msgHandlerMap {
 		b.client.Unsubscribe(v.Topic)
 	}
+	b.client.Disconnect(500)
 	return nil
 }
 
 // Publish 发布数据
 func (b *Client) Publish(topic string, qos byte, data []byte) error {
-	if token := b.client.Publish(topic, qos, false, data); token.Wait() && token.Error() != nil {
+	if token := b.client.Publish(
+		topic, qos, false, data,
+	); token.Wait() && token.Error() != nil {
 		return token.Error()
 	} else {
 		return nil
@@ -182,7 +191,11 @@ func (b *Client) subscribeHandler(handler Handler) {
 	topic := handler.Topic
 	for {
 		log.Printf("subscribing to topic,topic=%s,qos=%d", topic, int(handler.Qos))
-		if token := b.client.Subscribe(topic, handler.Qos, handler.Handle).(*paho.SubscribeToken); token.Wait() && (token.Error() != nil || is128Err(token, topic)) { //128 ACK错误
+		if token := b.client.Subscribe(
+			topic, handler.Qos, handler.Handle,
+		).(*paho.SubscribeToken); token.Wait() && (token.Error() != nil || is128Err(
+			token, topic,
+		)) { //128 ACK错误
 			log.Printf("subscribe error,topic=%s,qos=%d", topic, int(handler.Qos))
 			time.Sleep(2 * time.Second)
 			continue
