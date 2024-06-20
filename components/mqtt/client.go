@@ -153,6 +153,7 @@ func (b *Client) Close() error {
 	for _, v := range b.msgHandlerMap {
 		b.client.Unsubscribe(v.Topic)
 	}
+	b.client.Disconnect(500)
 	return nil
 }
 
