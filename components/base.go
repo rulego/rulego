@@ -16,7 +16,10 @@
 
 package components
 
-import "github.com/rulego/rulego/api/types"
+import (
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/json"
+)
 
 type BaseNode struct {
 }
@@ -34,4 +37,28 @@ func (n *nodeUtils) GetVars(configuration types.Configuration) map[string]interf
 	} else {
 		return nil
 	}
+}
+
+func (n *nodeUtils) GetEvn(_ types.RuleContext, msg types.RuleMsg) (map[string]interface{}, error) {
+	var data interface{}
+	if msg.DataType == types.JSON {
+		// 解析 JSON 字符串到 map
+		if err := json.Unmarshal([]byte(msg.Data), &data); err != nil {
+			// 解析失败，使用原始数据
+			data = msg.Data
+		}
+	} else {
+		// 如果不是 JSON 类型，直接使用原始数据
+		data = msg.Data
+	}
+	var evn = make(map[string]interface{})
+	evn[types.IdKey] = msg.Id
+	evn[types.TsKey] = msg.Ts
+	evn[types.DataKey] = msg.Data
+	evn[types.MsgKey] = data
+	evn[types.MetadataKey] = msg.Metadata
+	evn[types.MsgTypeKey] = msg.Type
+	evn[types.TypeKey] = msg.Type
+	evn[types.DataTypeKey] = msg.DataType
+	return evn, nil
 }

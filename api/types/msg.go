@@ -33,9 +33,13 @@ const (
 
 // Constants for keys used in message handling.
 const (
-	MsgKey      = "msg"      // Key for the message content.
+	IdKey       = "id"       // Key for the message id.
+	TsKey       = "ts"       // Key for the message ts.
+	DataKey     = "data"     // Key for the message content.
+	MsgKey      = "msg"      // Key for the message content object.
 	MetadataKey = "metadata" // Key for the message metadata.
 	MsgTypeKey  = "msgType"  // Key for the message type.
+	TypeKey     = "type"     // Key for the message type.
 	DataTypeKey = "dataType" // Key for the data type of the message.
 )
 

@@ -18,6 +18,7 @@ package test
 
 import (
 	"context"
+	"github.com/gofrs/uuid/v5"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
 	reflect2 "github.com/rulego/rulego/utils/reflect"
@@ -50,6 +51,14 @@ func CreateAndInitNode(targetNodeType string, initConfig types.Configuration, re
 
 	err := node.Init(types.NewConfig(), initConfig)
 	return node, err
+}
+
+func InitNode(targetNodeType string, initConfig types.Configuration, registry *types.SafeComponentSlice) types.Node {
+	node, err := CreateAndInitNode(targetNodeType, initConfig, registry)
+	if err != nil {
+		return nil
+	}
+	return node
 }
 
 // NodeNew 测试创建节点实例
@@ -110,6 +119,8 @@ type NodeAndCallback struct {
 }
 
 type Msg struct {
+	Id       string
+	Ts       int64
 	MetaData types.Metadata
 	DataType types.DataType
 	MsgType  string
@@ -134,8 +145,21 @@ func NodeOnMsgWithChildren(t *testing.T, node types.Node, msgList []Msg, childre
 		if item.DataType != "" {
 			dataType = item.DataType
 		}
-		types.NewMsg(time.Now().UnixMilli(), item.MsgType, dataType, item.MetaData, item.Data)
-		msg := ctx.NewMsg(item.MsgType, item.MetaData, item.Data)
+		if item.Id == "" {
+			uuId, _ := uuid.NewV4()
+			item.Id = uuId.String()
+		}
+		if item.Ts == 0 {
+			item.Ts = time.Now().UnixMilli()
+		}
+		msg := types.RuleMsg{
+			Id:       item.Id,
+			Ts:       item.Ts,
+			Type:     item.MsgType,
+			Data:     item.Data,
+			DataType: dataType,
+			Metadata: item.MetaData,
+		}
 		go node.OnMsg(ctx, msg)
 		if item.AfterSleep > 0 {
 			time.Sleep(item.AfterSleep)

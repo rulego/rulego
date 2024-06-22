@@ -19,6 +19,7 @@ package assert
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -79,6 +80,15 @@ func CallerInfo() []string {
 func Equal(t *testing.T, a, b interface{}) {
 	if !reflect.DeepEqual(a, b) {
 		t.Errorf("%v != %v\n Error Trace:   %s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"))
+	}
+}
+
+func EqualCleanString(t *testing.T, a, b string) {
+	re := regexp.MustCompile(`[\s\n\t]+`)
+	cleanStra := re.ReplaceAllString(a, "")
+	cleanStrb := re.ReplaceAllString(b, "")
+	if cleanStra != cleanStrb {
+		t.Errorf("%v ！= %v\n Error Trace:   %s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"))
 	}
 }
 func NotEqual(t *testing.T, a, b interface{}) {
