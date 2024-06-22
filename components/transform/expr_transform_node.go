@@ -35,7 +35,7 @@ import (
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/components"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"strings"
@@ -121,19 +121,11 @@ func (x *ExprTransformNode) Init(ruleConfig types.Config, configuration types.Co
 
 // OnMsg 处理消息
 func (x *ExprTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	var data interface{} = msg.Data
-	if msg.DataType == types.JSON {
-		var dataMap interface{}
-		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
-			data = dataMap
-		}
+	evn, err := components.NodeUtils.GetEvn(ctx, msg)
+	if err != nil {
+		ctx.TellFailure(msg, err)
+		return
 	}
-	var evn = make(map[string]interface{})
-	evn[types.MsgKey] = data
-	evn[types.MetadataKey] = msg.Metadata
-	evn[types.MsgTypeKey] = msg.Type
-	evn[types.DataTypeKey] = msg.DataType
-
 	var result interface{}
 	var exprVm = vm.VM{}
 	if x.program != nil {

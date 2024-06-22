@@ -56,6 +56,10 @@ func TestExprTransformNode(t *testing.T) {
 	t.Run("OnMsg", func(t *testing.T) {
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"mapping": map[string]string{
+				"id":          "id",
+				"ts":          "ts",
+				"dataType":    "dataType",
+				"type":        "type",
 				"name":        "upper(msg.name)",
 				"tmp":         "msg.temperature",
 				"alarm":       "msg.temperature>50",
@@ -106,6 +110,8 @@ func TestExprTransformNode(t *testing.T) {
 		metaData.PutValue("productType", "test")
 
 		msg := test.Msg{
+			Id:         "226a05f1-9464-43b6-881e-b1629f1b030d",
+			Ts:         1719024872741,
 			MetaData:   metaData,
 			MsgType:    "ACTIVITY_EVENT",
 			Data:       "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}",
@@ -125,7 +131,7 @@ func TestExprTransformNode(t *testing.T) {
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Success, relationType)
 					assert.Equal(t, types.JSON, msg.DataType)
-					assert.Equal(t, "{\"alarm\":true,\"name\":\"AA\",\"productType\":\"test\",\"tmp\":60}", msg.Data)
+					assert.Equal(t, "{\"alarm\":true,\"dataType\":\"JSON\",\"id\":\"226a05f1-9464-43b6-881e-b1629f1b030d\",\"name\":\"AA\",\"productType\":\"test\",\"tmp\":60,\"ts\":1719024872741,\"type\":\"ACTIVITY_EVENT\"}", msg.Data)
 				},
 			},
 			{
