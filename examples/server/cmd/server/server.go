@@ -30,9 +30,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
-	//注册自定义扩展组件
-	_ "examples/server/pkg/component/action"
 )
 
 const (
