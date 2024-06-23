@@ -6,11 +6,11 @@ import (
 	"examples/server/config/logger"
 	"examples/server/internal/constants"
 	"examples/server/internal/dao"
-	"examples/server/pkg/component/action"
 	"github.com/dop251/goja"
 	"github.com/rulego/rulego"
 	luaEngine "github.com/rulego/rulego-components/pkg/lua_engine"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
 	"log"
@@ -298,8 +298,8 @@ func (s *RuleEngineService) initRuleGo(logger *log.Logger, workspacePath string,
 	ruleConfig := rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger))
 	//加载lua第三方库
 	ruleConfig.Properties.PutValue(luaEngine.LoadLuaLibs, s.config.LoadLuaLibs)
-	ruleConfig.Properties.PutValue(action.KeyExecCommandNodeWhitelist, s.config.CmdWhiteList)
-	ruleConfig.Properties.PutValue(constants.KeyWorkDir, s.config.CmdWhiteList)
+	ruleConfig.Properties.PutValue(action.KeyExecNodeWhitelist, s.config.CmdWhiteList)
+	ruleConfig.Properties.PutValue(action.KeyWorkDir, s.config.CmdWhiteList)
 	ruleConfig.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		var errStr = ""
 		if err != nil {

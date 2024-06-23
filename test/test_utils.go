@@ -61,6 +61,21 @@ func InitNode(targetNodeType string, initConfig types.Configuration, registry *t
 	return node
 }
 
+func InitNodeByConfig(config types.Config, targetNodeType string, initConfig types.Configuration, registry *types.SafeComponentSlice) types.Node {
+	var nodeFactory types.Node
+	for _, component := range registry.Components() {
+		if component.Type() == targetNodeType {
+			nodeFactory = component
+		}
+	}
+	node := nodeFactory.New()
+	err := node.Init(config, initConfig)
+	if err != nil {
+		return nil
+	}
+	return node
+}
+
 // NodeNew 测试创建节点实例
 func NodeNew(t *testing.T, targetNodeType string, targetNode types.Node, defaultConfig types.Configuration, registry *types.SafeComponentSlice) {
 	var nodeFactory types.Node
@@ -136,10 +151,11 @@ func NodeOnMsg(t *testing.T, node types.Node, msgList []Msg, callback func(msg t
 
 // NodeOnMsgWithChildren 发送消息
 func NodeOnMsgWithChildren(t *testing.T, node types.Node, msgList []Msg, childrenNodes map[string]types.Node, callback func(msg types.RuleMsg, relationType string, err error)) {
+	NodeOnMsgWithChildrenAndConfig(t, types.NewConfig(), node, msgList, childrenNodes, callback)
+}
 
-	//defer node.Destroy()
-
-	ctx := NewRuleContextFull(types.NewConfig(), node, childrenNodes, callback)
+func NodeOnMsgWithChildrenAndConfig(t *testing.T, config types.Config, node types.Node, msgList []Msg, childrenNodes map[string]types.Node, callback func(msg types.RuleMsg, relationType string, err error)) {
+	ctx := NewRuleContextFull(config, node, childrenNodes, callback)
 	for _, item := range msgList {
 		dataType := types.JSON
 		if item.DataType != "" {
