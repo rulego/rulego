@@ -58,6 +58,10 @@ func TestTemplateNode(t *testing.T) {
 						msg.name:{{ .msg.name}}
 						dataType:{{ .dataType}}
 						productType:{{ .metadata.productType}}
+						nameList:
+						{{- range .msg.nameList }}
+						  - {{ . }}
+						{{- end }}
 				`,
 		}, Registry)
 
@@ -72,7 +76,7 @@ func TestTemplateNode(t *testing.T) {
 			Ts:         1719024872741,
 			MetaData:   metaData,
 			MsgType:    "ACTIVITY_EVENT",
-			Data:       "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}",
+			Data:       "{\"name\":\"aa\",\"nameList\":[\"aa\",\"bb\"],\"temperature\":60,\"humidity\":30}",
 			AfterSleep: time.Millisecond * 200,
 		}
 		result := `
@@ -80,10 +84,13 @@ func TestTemplateNode(t *testing.T) {
 						ts:1719024872741
 						type:ACTIVITY_EVENT
 						msgType:ACTIVITY_EVENT
-						data:{"name":"aa","temperature":60,"humidity":30}
+						data:{"name":"aa","nameList":["aa","bb"],"temperature":60,"humidity":30}
 						msg.name:aa
 						dataType:JSON
 						productType:test
+						nameList:
+						  - aa
+						  - bb
 						`
 		var nodeList = []test.NodeAndCallback{
 			{
@@ -108,7 +115,7 @@ func TestTemplateNode(t *testing.T) {
 				}, Registry),
 				MsgList: []test.Msg{msg},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.EqualCleanString(t, "data:\"{\\\"name\\\":\\\"aa\\\",\\\"temperature\\\":60,\\\"humidity\\\":30}\"", msg.Data)
+					assert.EqualCleanString(t, "data:\"{\\\"name\\\":\\\"aa\\\",\\\"nameList\\\":[\\\"aa\\\",\\\"bb\\\"],\\\"temperature\\\":60,\\\"humidity\\\":30}\"", msg.Data)
 					assert.Equal(t, types.Success, relationType)
 				},
 			},
