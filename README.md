@@ -62,7 +62,7 @@ RuleGo is an orchestrable rule engine that excels at decoupling your systems.
 
 ## Architecture Diagram
 
-<img src="doc/imgs/architecture_zh.png" width="100%">
+<img src="doc/imgs/architecture.png" width="100%">
 <p align="center">RuleGo Architecture Diagram</p>
 
 ## Rule Chain Running Example Diagram
