@@ -16,6 +16,16 @@
 
 package transform
 
+//规则链节点配置示例：
+//{
+//"id": "s1",
+//"type": "text/template",
+//"name": "模板转换",
+//"configuration": {
+//"template": "type:{{ .type}}"
+//}
+//}
+
 import (
 	"bytes"
 	"github.com/rulego/rulego/api/types"
@@ -27,6 +37,7 @@ import (
 	"text/template"
 )
 
+// TemplateName 默认模板名称
 const TemplateName = "template"
 
 func init() {
@@ -40,6 +51,13 @@ type TemplateNodeConfiguration struct {
 }
 
 // TemplateNode 使用 text/template 解析模板
+// 通过`.id`变量访问消息id
+// 通过`.ts`变量访问消息时间戳
+// 通过`.data`变量访问消息原始数据
+// 通过`.msg`变量访问转换后消息体，如果消息的dataType是json类型，可以通过 `msg.XX`方式访问msg的字段。例如:`msg.temperature > 50;`
+// 通过`.metadata`变量访问消息元数据。例如 `metadata.customerName`
+// 通过`.type`变量访问消息类型
+// 通过`.dataType`变量访问数据类型
 type TemplateNode struct {
 	Config         TemplateNodeConfiguration
 	templateEngine *template.Template
