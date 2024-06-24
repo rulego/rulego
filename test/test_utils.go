@@ -174,7 +174,7 @@ func NodeOnMsgWithChildrenAndConfig(t *testing.T, config types.Config, node type
 			Type:     item.MsgType,
 			Data:     item.Data,
 			DataType: dataType,
-			Metadata: item.MetaData,
+			Metadata: types.BuildMetadata(item.MetaData),
 		}
 		go node.OnMsg(ctx, msg)
 		if item.AfterSleep > 0 {
