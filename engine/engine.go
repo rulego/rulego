@@ -723,7 +723,7 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...types.RuleEngineOption) erro
 			//设置子规则链池
 			e.rootRuleChainCtx.SetRuleChainPool(e.RuleChainPool)
 			//执行创建切面逻辑
-			createdAspects, _, _ := e.Aspects.GetEngineAspects()
+			_, _, createdAspects, _, _ := e.Aspects.GetEngineAspects()
 			for _, aop := range createdAspects {
 				if err := aop.OnCreated(e.rootRuleChainCtx); err != nil {
 					return err

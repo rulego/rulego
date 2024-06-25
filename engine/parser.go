@@ -34,19 +34,21 @@ func (p *JsonParser) DecodeRuleChain(config types.Config, aspects types.AspectLi
 		return nil, err
 	}
 }
+
 func (p *JsonParser) DecodeRuleNode(config types.Config, dsl []byte, chainCtx types.Node) (types.Node, error) {
 	if node, err := ParserRuleNode(dsl); err == nil {
 		if chainCtx == nil {
-			return InitRuleNodeCtx(config, nil, &node)
+			return InitRuleNodeCtx(config, nil, nil, &node)
 		} else if ruleChainCtx, ok := chainCtx.(*RuleChainCtx); !ok {
 			return nil, errors.New("ruleChainCtx needs to be provided")
 		} else {
-			return InitRuleNodeCtx(config, ruleChainCtx, &node)
+			return InitRuleNodeCtx(config, ruleChainCtx, ruleChainCtx.aspects, &node)
 		}
 	} else {
 		return nil, err
 	}
 }
+
 func (p *JsonParser) EncodeRuleChain(def interface{}) ([]byte, error) {
 	if v, err := json.Marshal(def); err != nil {
 		return nil, err
@@ -55,6 +57,7 @@ func (p *JsonParser) EncodeRuleChain(def interface{}) ([]byte, error) {
 		return json.Format(v)
 	}
 }
+
 func (p *JsonParser) EncodeRuleNode(def interface{}) ([]byte, error) {
 	if v, err := json.Marshal(def); err != nil {
 		return nil, err

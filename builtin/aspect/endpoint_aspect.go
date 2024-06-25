@@ -66,16 +66,14 @@ func (aspect *EndpointAspect) OnCreated(chainCtx types.NodeCtx) error {
 	return nil
 }
 
-func (aspect *EndpointAspect) OnReload(_ types.NodeCtx, ctx types.NodeCtx, err error) error {
-	if err == nil {
-		if chainCtx, ok := ctx.(types.ChainCtx); ok && aspect.ruleChainEndpoint != nil {
-			if !ctx.Config().EndpointEnabled {
-				aspect.ruleChainEndpoint.Destroy()
-				return nil
-			}
-			aspect.ruleChainEndpoint.config = ctx.Config()
-			return aspect.ruleChainEndpoint.Reload(chainCtx.Definition().Metadata.Endpoints)
+func (aspect *EndpointAspect) OnReload(_ types.NodeCtx, ctx types.NodeCtx) error {
+	if chainCtx, ok := ctx.(types.ChainCtx); ok && aspect.ruleChainEndpoint != nil {
+		if !ctx.Config().EndpointEnabled {
+			aspect.ruleChainEndpoint.Destroy()
+			return nil
 		}
+		aspect.ruleChainEndpoint.config = ctx.Config()
+		return aspect.ruleChainEndpoint.Reload(chainCtx.Definition().Metadata.Endpoints)
 	}
 	return nil
 }

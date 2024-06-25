@@ -36,11 +36,21 @@ type RuleNodeCtx struct {
 	SelfDefinition *types.RuleNode
 	// config is the configuration of the rule engine.
 	config types.Config
+	// aspects is a list of AOP (Aspect-Oriented Programming) aspects.
+	aspects types.AspectList
 }
 
 // InitRuleNodeCtx initializes a RuleNodeCtx with the given configuration, chain context, and self-definition.
 // It attempts to create a new node based on the type defined in selfDefinition.
-func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, selfDefinition *types.RuleNode) (*RuleNodeCtx, error) {
+func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.AspectList, selfDefinition *types.RuleNode) (*RuleNodeCtx, error) {
+	// Retrieve aspects for the engine.
+	_, nodeBeforeInitAspects, _, _, _ := aspects.GetEngineAspects()
+	// Iterate over the nodeBeforeInitAspects and call OnNodeBeforeInit on each aspect.
+	for _, aspect := range nodeBeforeInitAspects {
+		if err := aspect.OnNodeBeforeInit(selfDefinition); err != nil {
+			return nil, err
+		}
+	}
 	// Attempt to create a new node from the components registry using the type specified in selfDefinition.
 	node, err := config.ComponentsRegistry.NewNode(selfDefinition.Type)
 	if err != nil {
@@ -49,6 +59,7 @@ func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, selfDefinition
 			ChainCtx:       chainCtx,
 			SelfDefinition: selfDefinition,
 			config:         config,
+			aspects:        aspects,
 		}, err
 	} else {
 		// If selfDefinition.Configuration is nil, initialize it as an empty configuration.
@@ -70,6 +81,7 @@ func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, selfDefinition
 				ChainCtx:       chainCtx,
 				SelfDefinition: selfDefinition,
 				config:         config,
+				aspects:        aspects,
 			}, nil
 		}
 	}
@@ -115,6 +127,8 @@ func (rn *RuleNodeCtx) DSL() []byte {
 // Copy 复制
 func (rn *RuleNodeCtx) Copy(newCtx *RuleNodeCtx) {
 	rn.Node = newCtx.Node
+	rn.config = newCtx.config
+	rn.aspects = newCtx.aspects
 
 	rn.SelfDefinition.AdditionalInfo = newCtx.SelfDefinition.AdditionalInfo
 	rn.SelfDefinition.Name = newCtx.SelfDefinition.Name

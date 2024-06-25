@@ -147,7 +147,7 @@ func (aspect *SkipFallbackAspect) After(ctx types.RuleContext, msg types.RuleMsg
 }
 
 // OnReload 节点更新清除错误缓存
-func (aspect *SkipFallbackAspect) OnReload(parentCtx types.NodeCtx, ctx types.NodeCtx, err error) error {
+func (aspect *SkipFallbackAspect) OnReload(parentCtx types.NodeCtx, ctx types.NodeCtx) error {
 	nodeId := ctx.GetNodeId()
 	if nodeId.Type == types.CHAIN {
 		aspect.chainNodeErrorCache.Delete(nodeId.Id)

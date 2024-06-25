@@ -17,10 +17,12 @@
 package engine
 
 import (
+	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/builtin/aspect"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/str"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -107,9 +109,11 @@ func TestAspectOrder(t *testing.T) {
 		&ChainAspect{Name: "ChainAspect"},
 		&EngineAspect{Name: "EngineAspect"},
 	}
-	onCreated, onReload, onDestroy := aspects.GetEngineAspects()
+	onChainBeforeCreate, onNodeBeforeCreate, onCreated, onAfterReload, onDestroy := aspects.GetEngineAspects()
+	assert.Equal(t, len(onChainBeforeCreate), 1)
+	assert.Equal(t, len(onNodeBeforeCreate), 1)
 	assert.Equal(t, len(onCreated), 1)
-	assert.Equal(t, len(onReload), 1)
+	assert.Equal(t, len(onAfterReload), 1)
 	assert.Equal(t, len(onDestroy), 1)
 
 	onStart, onEnd, onCompleted := aspects.GetChainAspects()
@@ -132,7 +136,7 @@ func TestEngineAspect(t *testing.T) {
 		assert.Equal(t, chainId, ctx.GetNodeId().Id)
 		atomic.AddInt32(&count, 1)
 	}
-	callback.OnReload = func(parentCtx types.NodeCtx, ctx types.NodeCtx, err error) {
+	callback.OnReload = func(parentCtx types.NodeCtx, ctx types.NodeCtx) {
 		assert.Equal(t, chainId, parentCtx.GetNodeId().Id)
 		if ctx.GetNodeId().Type == types.NODE {
 			assert.Equal(t, "s2", ctx.GetNodeId().Id)
@@ -154,6 +158,10 @@ func TestEngineAspect(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	assert.Equal(t, int32(1), count)
+	atomic.StoreInt32(&count, 0)
+
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
@@ -164,6 +172,8 @@ func TestEngineAspect(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	assert.Equal(t, int32(2), count)
+	atomic.StoreInt32(&count, 0)
 
 	//更新子节节点
 	err = ruleEngine.ReloadChild("s2", []byte(`
@@ -180,13 +190,50 @@ func TestEngineAspect(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	assert.Equal(t, int32(1), count)
 	//销毁
 	ruleEngine.Stop()
 	time.Sleep(time.Millisecond * 200)
 
-	assert.Equal(t, int32(5), count)
 	assert.True(t, onCompleted)
 
+}
+
+func TestBeforeInitErrAspect(t *testing.T) {
+	chainId := "testBeforeCreateErrAspect"
+	config := NewConfig()
+	count := int32(0)
+	ruleEngine, err := DefaultPool.New(chainId, []byte(ruleChainFile), WithConfig(config), types.WithAspects(&BeforeCreateErrAspect{
+		Name:  "BeforeCreateErrAspect",
+		Count: &count,
+	}))
+	assert.Nil(t, err)
+	assert.Equal(t, int32(4), count)
+	atomic.StoreInt32(&count, 0)
+
+	newRuleChainFile := strings.ReplaceAll(ruleChainFile, "test01", "test02")
+	err = ruleEngine.ReloadSelf([]byte(newRuleChainFile))
+
+	assert.Equal(t, "crate error break", err.Error())
+
+	assert.Equal(t, int32(1), count)
+	atomic.StoreInt32(&count, 0)
+
+	err = ruleEngine.ReloadChild("s2", []byte(`
+	  {
+			"id": "s2",
+			"type": "log",
+			"name": "记录日志Success",
+			"debugMode": true,
+			"configuration": {
+			  "jsScript": "return msgType+':Success';"
+			}
+		  }
+	`))
+	assert.Nil(t, err)
+	assert.Equal(t, int32(2), count)
+	//销毁
+	ruleEngine.Stop()
 }
 
 func TestChainAspect(t *testing.T) {
@@ -221,7 +268,7 @@ func TestChainAspect(t *testing.T) {
 
 type CallbackTest struct {
 	OnCreated   func(ctx types.NodeCtx)
-	OnReload    func(parentCtx types.NodeCtx, ctx types.NodeCtx, err error)
+	OnReload    func(parentCtx types.NodeCtx, ctx types.NodeCtx)
 	OnDestroy   func(ctx types.NodeCtx)
 	OnCompleted func(ctx types.RuleContext, msg types.RuleMsg)
 }
@@ -242,6 +289,14 @@ func (aspect *EngineAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, r
 	return true
 }
 
+func (aspect *EngineAspect) OnChainBeforeInit(def *types.RuleChain) error {
+	return nil
+}
+
+func (aspect *EngineAspect) OnNodeBeforeInit(def *types.RuleNode) error {
+	return nil
+}
+
 func (aspect *EngineAspect) OnCreated(ctx types.NodeCtx) error {
 	//fmt.Println("OnCreated:" + ctx.GetNodeId().Id)
 	if aspect.Callback != nil && aspect.Callback.OnCreated != nil {
@@ -250,10 +305,10 @@ func (aspect *EngineAspect) OnCreated(ctx types.NodeCtx) error {
 	return nil
 }
 
-func (aspect *EngineAspect) OnReload(parentCtx types.NodeCtx, ctx types.NodeCtx, err error) error {
+func (aspect *EngineAspect) OnReload(parentCtx types.NodeCtx, ctx types.NodeCtx) error {
 	//fmt.Println("OnReload:" + ctx.GetNodeId().Id)
 	if aspect.Callback != nil && aspect.Callback.OnReload != nil {
-		aspect.Callback.OnReload(parentCtx, ctx, err)
+		aspect.Callback.OnReload(parentCtx, ctx)
 	}
 	return nil
 }
@@ -341,4 +396,42 @@ func (aspect *NodeAspect2) Before(ctx types.RuleContext, msg types.RuleMsg, rela
 
 func (aspect *NodeAspect2) Around(ctx types.RuleContext, msg types.RuleMsg, relationType string) (types.RuleMsg, bool) {
 	return msg, true
+}
+
+type BeforeCreateErrAspect struct {
+	Name  string
+	Count *int32
+}
+
+func (aspect *BeforeCreateErrAspect) Order() int {
+	return 3
+}
+
+func (aspect *BeforeCreateErrAspect) New() types.Aspect {
+	return &BeforeCreateErrAspect{Count: aspect.Count}
+}
+
+func (aspect *BeforeCreateErrAspect) OnChainBeforeInit(def *types.RuleChain) error {
+	atomic.AddInt32(aspect.Count, 1)
+	if def != nil {
+		if def.RuleChain.ID == "test02" {
+			return fmt.Errorf("crate error break")
+		}
+	}
+	return nil
+}
+
+func (aspect *BeforeCreateErrAspect) OnNodeBeforeInit(def *types.RuleNode) error {
+	atomic.AddInt32(aspect.Count, 1)
+	return nil
+}
+
+func (aspect *BeforeCreateErrAspect) OnCreated(chainCtx types.NodeCtx) error {
+	atomic.AddInt32(aspect.Count, 1)
+	return nil
+}
+
+func (aspect *BeforeCreateErrAspect) OnReload(chainCtx types.NodeCtx, nodeCtx types.NodeCtx) error {
+	atomic.AddInt32(aspect.Count, 1)
+	return nil
 }

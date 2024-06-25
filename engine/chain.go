@@ -60,8 +60,8 @@ type RuleChainCtx struct {
 	ruleChainPool types.RuleEnginePool
 	// aspects is a list of AOP (Aspect-Oriented Programming) aspects.
 	aspects types.AspectList
-	// reloadAspects is a list of aspects triggered on reload.
-	reloadAspects []types.OnReloadAspect
+	// afterReloadAspects is a list of aspects triggered on after reload.
+	afterReloadAspects []types.OnReloadAspect
 	// destroyAspects is a list of aspects triggered on destruction.
 	destroyAspects []types.OnDestroyAspect
 	// vars is a map of variables.
@@ -76,6 +76,14 @@ type RuleChainCtx struct {
 
 // InitRuleChainCtx initializes a RuleChainCtx with the given configuration, aspects, and rule chain definition.
 func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDef *types.RuleChain) (*RuleChainCtx, error) {
+	// Retrieve aspects for the engine.
+	chainBeforeInitAspects, _, _, afterReloadAspects, destroyAspects := aspects.GetEngineAspects()
+	for _, aspect := range chainBeforeInitAspects {
+		if err := aspect.OnChainBeforeInit(ruleChainDef); err != nil {
+			return nil, err
+		}
+	}
+
 	// Initialize a new RuleChainCtx with the provided configuration and aspects.
 	var ruleChainCtx = &RuleChainCtx{
 		config:             config,
@@ -86,6 +94,8 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		componentsRegistry: config.ComponentsRegistry,
 		initialized:        true,
 		aspects:            aspects,
+		afterReloadAspects: afterReloadAspects,
+		destroyAspects:     destroyAspects,
 	}
 	// Set the ID of the rule chain context if provided in the definition.
 	if ruleChainDef.RuleChain.ID != "" {
@@ -108,7 +118,7 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		}
 		ruleNodeId := types.RuleNodeId{Id: item.Id, Type: types.NODE}
 		ruleChainCtx.nodeIds[index] = ruleNodeId
-		ruleNodeCtx, err := InitRuleNodeCtx(config, ruleChainCtx, item)
+		ruleNodeCtx, err := InitRuleNodeCtx(config, ruleChainCtx, aspects, item)
 		if err != nil {
 			return nil, err
 		}
@@ -156,16 +166,11 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 			firstNode, config.Pool, nil, nil)
 	} else {
 		// If there are no nodes, initialize an empty node context.
-		ruleNodeCtx, _ := InitRuleNodeCtx(config, ruleChainCtx, &types.RuleNode{})
+		ruleNodeCtx, _ := InitRuleNodeCtx(config, ruleChainCtx, aspects, &types.RuleNode{})
 		ruleChainCtx.rootRuleContext = NewRuleContext(context.TODO(), ruleChainCtx.config, ruleChainCtx, nil,
 			ruleNodeCtx, config.Pool, nil, nil)
 		ruleChainCtx.isEmpty = true
 	}
-
-	// Retrieve aspects for the engine.
-	_, reloadAspects, destroyAspects := aspects.GetEngineAspects()
-	ruleChainCtx.reloadAspects = reloadAspects
-	ruleChainCtx.destroyAspects = destroyAspects
 
 	return ruleChainCtx, nil
 }
@@ -298,11 +303,11 @@ func (rc *RuleChainCtx) ReloadSelf(def []byte) error {
 	if ctx, err = rc.config.Parser.DecodeRuleChain(rc.config, rc.aspects, def); err == nil {
 		rc.Destroy()
 		rc.Copy(ctx.(*RuleChainCtx))
-	}
-	//执行reload切面
-	for _, aop := range rc.reloadAspects {
-		if err := aop.OnReload(rc, rc, err); err != nil {
-			return err
+		//执行reload切面
+		for _, aop := range rc.afterReloadAspects {
+			if err := aop.OnReload(rc, rc); err != nil {
+				return err
+			}
 		}
 	}
 	return err
@@ -313,8 +318,8 @@ func (rc *RuleChainCtx) ReloadChild(ruleNodeId types.RuleNodeId, def []byte) err
 		//更新子节点
 		err := node.ReloadSelf(def)
 		//执行reload切面
-		for _, aop := range rc.reloadAspects {
-			if err := aop.OnReload(rc, node, err); err != nil {
+		for _, aop := range rc.afterReloadAspects {
+			if err := aop.OnReload(rc, node); err != nil {
 				return err
 			}
 		}
@@ -347,7 +352,7 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.rootRuleContext = newCtx.rootRuleContext
 	rc.ruleChainPool = newCtx.ruleChainPool
 	rc.aspects = newCtx.aspects
-	rc.reloadAspects = newCtx.reloadAspects
+	rc.afterReloadAspects = newCtx.afterReloadAspects
 	rc.destroyAspects = newCtx.destroyAspects
 	rc.vars = newCtx.vars
 	rc.decryptSecrets = newCtx.decryptSecrets
@@ -371,9 +376,13 @@ func (rc *RuleChainCtx) GetRuleChainPool() types.RuleEnginePool {
 
 func (rc *RuleChainCtx) SetAspects(aspects types.AspectList) {
 	rc.aspects = aspects
-	_, reloadAspects, destroyAspects := aspects.GetEngineAspects()
-	rc.reloadAspects = reloadAspects
+	_, _, _, afterReloadAspects, destroyAspects := aspects.GetEngineAspects()
+	rc.afterReloadAspects = afterReloadAspects
 	rc.destroyAspects = destroyAspects
+}
+
+func (rc *RuleChainCtx) GetAspects() types.AspectList {
+	return rc.aspects
 }
 
 func decryptSecret(inputMap map[string]string, secretKey []byte) map[string]string {
