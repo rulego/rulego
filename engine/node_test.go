@@ -45,7 +45,7 @@ func TestNodeCtx(t *testing.T) {
 			Id:   "s1",
 			Type: "notFound",
 		}
-		_, err := InitRuleNodeCtx(NewConfig(), nil, &selfDefinition)
+		_, err := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
 		assert.Equal(t, "component not found. componentType=notFound", err.Error())
 	})
 
@@ -60,7 +60,7 @@ func TestNodeCtx(t *testing.T) {
 			Id:   "s1",
 			Type: "log",
 		}
-		ctx, _ := InitRuleNodeCtx(NewConfig(), nil, &selfDefinition)
+		ctx, _ := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
 		ctx.ReloadChild(types.RuleNodeId{}, nil)
 	})
 
@@ -70,7 +70,7 @@ func TestNodeCtx(t *testing.T) {
 			Type:          "dbClient",
 			Configuration: types.Configuration{"sql": "xx"},
 		}
-		_, err := InitRuleNodeCtx(NewConfig(), nil, &selfDefinition)
+		_, err := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
 		assert.NotNil(t, err)
 	})
 	t.Run("reloadSelfErr", func(t *testing.T) {
@@ -78,7 +78,7 @@ func TestNodeCtx(t *testing.T) {
 			Id:   "s1",
 			Type: "log",
 		}
-		ctx, _ := InitRuleNodeCtx(NewConfig(), nil, &selfDefinition)
+		ctx, _ := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
 		err := ctx.ReloadSelf([]byte("{"))
 		assert.NotNil(t, err)
 	})

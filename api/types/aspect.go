@@ -112,6 +112,24 @@ type CompletedAspect interface {
 	Completed(ctx RuleContext, msg RuleMsg) RuleMsg
 }
 
+// OnChainBeforeInitAspect is the interface for rule engine initialization before advice
+// OnChainBeforeInitAspect 规则引擎初始化之前的增强点，如果返回错误，则创建失败
+type OnChainBeforeInitAspect interface {
+	Aspect
+	// OnChainBeforeInit is the advice that executes before the rule engine initialization.
+	// OnChainBeforeInit 规则引擎初始化之前的增强点，如果返回错误，则创建失败
+	OnChainBeforeInit(def *RuleChain) error
+}
+
+// OnNodeBeforeInitAspect is the interface for rule node initialization before advice
+// OnNodeBeforeInitAspect 规则节点初始化之前的增强点，如果返回错误，则创建失败
+type OnNodeBeforeInitAspect interface {
+	Aspect
+	// OnNodeBeforeInit is the advice that executes before the rule node initialization.
+	// OnNodeBeforeInit 规则节点初始化之前的增强点，如果返回错误，则创建失败
+	OnNodeBeforeInit(def *RuleNode) error
+}
+
 // OnCreatedAspect is the interface for rule engine creation success advice
 // OnCreatedAspect 规则引擎成功创建之后增强点接口
 type OnCreatedAspect interface {
@@ -126,10 +144,10 @@ type OnCreatedAspect interface {
 type OnReloadAspect interface {
 	Aspect
 	// OnReload is the advice that executes after the rule engine reloads the rule chain or child node configuration.
-	// OnReload 规则引擎重新加载规则链或者子节点配置之后的增强点。规则链更新会同时触发OnDestroy和OnReload
+	// OnReload 规则引擎重新加载规则链或者子节点配置之后的增强点。规则链更新会同时触发OnDestroy、OnBeforeReload、OnReload
 	// If the rule chain is updated, then chainCtx=ctx
 	// 如果更新规则链，则chainCtx=ctx
-	OnReload(parentCtx NodeCtx, ctx NodeCtx, err error) error
+	OnReload(chainCtx NodeCtx, ctx NodeCtx) error
 }
 
 // OnDestroyAspect is the interface for rule engine instance destruction advice
@@ -197,28 +215,36 @@ func (list AspectList) GetChainAspects() ([]StartAspect, []EndAspect, []Complete
 }
 
 // GetEngineAspects 获取规则引擎类型增强点切面列表
-func (list AspectList) GetEngineAspects() ([]OnCreatedAspect, []OnReloadAspect, []OnDestroyAspect) {
+func (list AspectList) GetEngineAspects() ([]OnChainBeforeInitAspect, []OnNodeBeforeInitAspect, []OnCreatedAspect, []OnReloadAspect, []OnDestroyAspect) {
 
 	//从小到大排序
 	sort.Slice(list, func(i, j int) bool {
 		return list[i].Order() < list[j].Order()
 	})
 
+	var chainBeforeInitAspects []OnChainBeforeInitAspect
+	var nodeBeforeInitAspects []OnNodeBeforeInitAspect
 	var createdAspects []OnCreatedAspect
-	var reloadAspects []OnReloadAspect
+	var afterReloadAspects []OnReloadAspect
 	var destroyAspects []OnDestroyAspect
 
 	for _, item := range list {
+		if a, ok := item.(OnChainBeforeInitAspect); ok {
+			chainBeforeInitAspects = append(chainBeforeInitAspects, a)
+		}
+		if a, ok := item.(OnNodeBeforeInitAspect); ok {
+			nodeBeforeInitAspects = append(nodeBeforeInitAspects, a)
+		}
 		if a, ok := item.(OnCreatedAspect); ok {
 			createdAspects = append(createdAspects, a)
 		}
 		if a, ok := item.(OnReloadAspect); ok {
-			reloadAspects = append(reloadAspects, a)
+			afterReloadAspects = append(afterReloadAspects, a)
 		}
 		if a, ok := item.(OnDestroyAspect); ok {
 			destroyAspects = append(destroyAspects, a)
 		}
 	}
 
-	return createdAspects, reloadAspects, destroyAspects
+	return chainBeforeInitAspects, nodeBeforeInitAspects, createdAspects, afterReloadAspects, destroyAspects
 }
