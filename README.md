@@ -77,6 +77,9 @@ Install RuleGo using the `go get` command:
 
 ```bash
 go get github.com/rulego/rulego
+
+or
+go get gitee.com/rulego/rulego
 ```
 
 ## Usage

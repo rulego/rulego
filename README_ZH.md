@@ -80,6 +80,14 @@
 go get github.com/rulego/rulego
 ```
 
+或者使用gitee源
+```bash
+go get gitee.com/rulego/rulego
+
+如果遇到无法下载，在go.mod文件增加以下指令：
+replace github.com/rulego/rulego => gitee.com/rulego/rulego version
+replace gitee.com/rulego/rulego => github.com/rulego/rulego version
+```
 ## 使用
 
 RuleGo 使用极其简单和轻量级。只需以下3步：
