@@ -24,7 +24,7 @@ The official documentation is hosted at: [rulego.cc](https://rulego.cc/en)
 
 * **Lightweight:** No external middleware dependencies, efficient data processing and linkage on low-cost devices, suitable for IoT edge computing.
 * **High Performance:** Thanks to Go's high-performance characteristics, RuleGo also employs technologies such as coroutine pools and object pools.
-* **Embedded:** Supports embedding RuleGo into existing projects, non-invasively utilizing its features.
+* **Dual Mode:** Embedded and Standalone Deployment modes. Supports embedding `RuleGo` into existing applications. It can also be deployed independently as middleware, providing rule engine and orchestration services.
 * **Componentized:** All business logic is component-based, allowing flexible configuration and reuse.
 * **Rule Chains:** Flexibly combine and reuse different components to achieve highly customized and scalable business processes.
 * **Workflow Orchestration:** Supports dynamic orchestration of rule chain components, replacing or adding business logic without restarting the application.
