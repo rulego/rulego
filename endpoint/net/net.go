@@ -43,9 +43,12 @@ const (
 	PingData = "ping"
 )
 
+// Endpoint 别名
+type Endpoint = Net
+
 // 注册组件
 //func init() {
-//	_ = endpoint.Registry.Register(&Endpoint{})
+//	_ = endpoint.Registry.Register(&Net{})
 //}
 
 // RequestMessage 请求消息
@@ -202,9 +205,9 @@ type RegexpRouter struct {
 	regexp *regexp.Regexp
 }
 
-// Endpoint net endpoint组件
+// Net net endpoint组件
 // 支持通过正则表达式把匹配的消息路由到指定路由
-type Endpoint struct {
+type Net struct {
 	// 嵌入endpoint.BaseEndpoint，继承其方法
 	impl.BaseEndpoint
 	// 配置
@@ -218,18 +221,18 @@ type Endpoint struct {
 }
 
 // Type 组件类型
-func (ep *Endpoint) Type() string {
+func (ep *Net) Type() string {
 	return Type
 }
 
-func (ep *Endpoint) New() types.Node {
-	return &Endpoint{
-		Config: Config{Protocol: "tcp", ReadTimeout: 60},
+func (ep *Net) New() types.Node {
+	return &Net{
+		Config: Config{Protocol: "tcp", ReadTimeout: 60, Server: ":6335"},
 	}
 }
 
 // Init 初始化
-func (ep *Endpoint) Init(ruleConfig types.Config, configuration types.Configuration) error {
+func (ep *Net) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	// 将配置转换为EndpointConfiguration结构体
 	err := maps.Map2Struct(configuration, &ep.Config)
 	if ep.Config.Protocol == "" {
@@ -240,11 +243,11 @@ func (ep *Endpoint) Init(ruleConfig types.Config, configuration types.Configurat
 }
 
 // Destroy 销毁
-func (ep *Endpoint) Destroy() {
+func (ep *Net) Destroy() {
 	_ = ep.Close()
 }
 
-func (ep *Endpoint) Close() error {
+func (ep *Net) Close() error {
 	if nil != ep.listener {
 		err := ep.listener.Close()
 		ep.listener = nil
@@ -253,11 +256,11 @@ func (ep *Endpoint) Close() error {
 	return nil
 }
 
-func (ep *Endpoint) Id() string {
+func (ep *Net) Id() string {
 	return ep.Config.Server
 }
 
-func (ep *Endpoint) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
+func (ep *Net) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
 	} else {
@@ -293,7 +296,7 @@ func (ep *Endpoint) AddRouter(router endpoint.Router, params ...interface{}) (st
 	}
 }
 
-func (ep *Endpoint) RemoveRouter(routerId string, params ...interface{}) error {
+func (ep *Net) RemoveRouter(routerId string, params ...interface{}) error {
 	ep.Lock()
 	defer ep.Unlock()
 	if ep.routers != nil {
@@ -306,7 +309,7 @@ func (ep *Endpoint) RemoveRouter(routerId string, params ...interface{}) error {
 	return nil
 }
 
-func (ep *Endpoint) Start() error {
+func (ep *Net) Start() error {
 	var err error
 	// 根据配置的协议和地址，创建一个服务器监听器
 	ep.listener, err = net.Listen(ep.Config.Protocol, ep.Config.Server)
@@ -340,13 +343,13 @@ func (ep *Endpoint) Start() error {
 	return nil
 }
 
-func (ep *Endpoint) Printf(format string, v ...interface{}) {
+func (ep *Net) Printf(format string, v ...interface{}) {
 	if ep.RuleConfig.Logger != nil {
 		ep.RuleConfig.Logger.Printf(format, v...)
 	}
 }
 
-func (ep *Endpoint) handler(conn net.Conn) {
+func (ep *Net) handler(conn net.Conn) {
 	h := ClientHandler{
 		endpoint: ep,
 		conn:     conn,
@@ -355,7 +358,7 @@ func (ep *Endpoint) handler(conn net.Conn) {
 }
 
 type ClientHandler struct {
-	endpoint *Endpoint
+	endpoint *Net
 	// 客户端连接对象
 	conn net.Conn
 	// 创建一个读取超时定时器，用于设置读取数据的超时时间，可以为0表示不设置超时

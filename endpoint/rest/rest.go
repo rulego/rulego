@@ -221,7 +221,11 @@ func (rest *Rest) Type() string {
 }
 
 func (rest *Rest) New() types.Node {
-	return &Rest{}
+	return &Rest{
+		Config: Config{
+			Server: ":6333",
+		},
+	}
 }
 
 // Init 初始化

@@ -75,6 +75,6 @@ func (r *ComponentRegistry) New(componentType string, ruleConfig types.Config, c
 			return ep, nil
 		}
 	} else {
-		return nil, fmt.Errorf("%s not type of Endpoint", componentType)
+		return nil, fmt.Errorf("%s not type of Net", componentType)
 	}
 }

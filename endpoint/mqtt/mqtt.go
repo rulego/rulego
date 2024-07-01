@@ -203,7 +203,9 @@ func (m *Mqtt) Type() string {
 }
 
 func (m *Mqtt) New() types.Node {
-	return &Mqtt{}
+	return &Mqtt{Config: mqtt.Config{
+		Server: "127.0.0.1:1883",
+	}}
 }
 
 // Init 初始化
