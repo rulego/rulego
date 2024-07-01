@@ -227,7 +227,11 @@ func (ws *Websocket) Type() string {
 }
 
 func (ws *Websocket) New() types.Node {
-	return &Websocket{}
+	return &Websocket{
+		Config: Config{
+			Server: ":6334",
+		},
+	}
 }
 
 // Init 初始化

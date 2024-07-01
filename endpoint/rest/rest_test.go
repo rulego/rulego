@@ -175,7 +175,11 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	var restEndpoint = &Endpoint{}
 	err = restEndpoint.Init(config, nodeConfig)
 	assert.Equal(t, "http", restEndpoint.Type())
-	assert.True(t, reflect.DeepEqual(&Rest{}, restEndpoint.New()))
+	assert.True(t, reflect.DeepEqual(&Rest{
+		Config: Config{
+			Server: ":6333",
+		},
+	}, restEndpoint.New()))
 
 	//添加全局拦截器
 	restEndpoint.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
@@ -323,7 +327,8 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 
 	assert.NotNil(t, restEndpoint.Router())
 	//启动服务
-	_ = restEndpoint.Start()
+	err = restEndpoint.Start()
+	fmt.Println(err)
 	<-stop
 	restEndpoint.Destroy()
 	wg.Done()

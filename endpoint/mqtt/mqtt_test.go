@@ -120,7 +120,11 @@ func startServer(t *testing.T, stop chan struct{}) {
 	err = ep.Init(config, nodeConfig)
 	assert.Equal(t, testServer, ep.Id())
 	assert.Equal(t, "mqtt", ep.Type())
-	assert.True(t, reflect.DeepEqual(&Mqtt{}, ep.New()))
+	assert.True(t, reflect.DeepEqual(&Mqtt{
+		Config: mqtt.Config{
+			Server: "127.0.0.1:1883",
+		},
+	}, ep.New()))
 
 	//添加全局拦截器
 	ep.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {

@@ -20,7 +20,7 @@ import (
 
 var (
 	testdataFolder   = "../../testdata/rule"
-	testServer       = "127.0.0.1:8888"
+	testServer       = ":6335"
 	testConfigServer = "127.0.0.1:8889"
 	msgContent1      = "{\"test\":\"AA\"}"
 	msgContent2      = "{\"test\":\"BB\"}"
@@ -50,7 +50,7 @@ func TestRouterId(t *testing.T) {
 		//1秒超时
 		ReadTimeout: 1,
 	}, nodeConfig)
-	var ep = &Endpoint{}
+	var ep = &Net{}
 	err := ep.Init(config, nodeConfig)
 	assert.Nil(t, err)
 	router := impl.NewRouter().SetId("r1").From("/device/info").End()
@@ -119,7 +119,7 @@ func TestNetEndpointConfig(t *testing.T) {
 		//1秒超时
 		ReadTimeout: 1,
 	}, nodeConfig)
-	var epStarted = &Endpoint{}
+	var epStarted = &Net{}
 	err := epStarted.Init(config, nodeConfig)
 
 	assert.Equal(t, testConfigServer, epStarted.Id())
@@ -135,7 +135,7 @@ func TestNetEndpointConfig(t *testing.T) {
 		//1秒超时
 		ReadTimeout: 1,
 	}, nodeConfig)
-	var netEndpoint = &Endpoint{}
+	var netEndpoint = &Net{}
 	err = netEndpoint.Init(config, nodeConfig)
 
 	assert.Equal(t, "tcp", netEndpoint.Config.Protocol)
@@ -144,7 +144,7 @@ func TestNetEndpointConfig(t *testing.T) {
 	err = netEndpoint.Start()
 	assert.NotNil(t, err)
 
-	netEndpoint = &Endpoint{}
+	netEndpoint = &Net{}
 
 	err = netEndpoint.Init(types.NewConfig(), types.Configuration{
 		"server": testConfigServer,
@@ -153,7 +153,7 @@ func TestNetEndpointConfig(t *testing.T) {
 	})
 	assert.Equal(t, "tcp", netEndpoint.Config.Protocol)
 
-	var ep = &Endpoint{}
+	var ep = &Net{}
 	err = ep.Init(config, nodeConfig)
 
 	assert.Equal(t, testConfigServer, ep.Id())
@@ -216,11 +216,11 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		ReadTimeout: 1,
 	}, nodeConfig)
 
-	var ep = &Endpoint{}
+	var ep = &Net{}
 	err = ep.Init(config, nodeConfig)
 	assert.Equal(t, "net", ep.Type())
-	assert.True(t, reflect.DeepEqual(&Endpoint{
-		Config: Config{Protocol: "tcp", ReadTimeout: 60},
+	assert.True(t, reflect.DeepEqual(&Net{
+		Config: Config{Protocol: "tcp", ReadTimeout: 60, Server: ":6335"},
 	}, ep.New()))
 
 	//添加全局拦截器
