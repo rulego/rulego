@@ -146,6 +146,7 @@ type ChainCtx interface {
 	NodeCtx
 	// Definition returns the definition of the rule chain.
 	Definition() *RuleChain
+	GetRuleChainPool() RuleEnginePool
 }
 
 // RuleContext is an interface for message processing context in the rule engine.
@@ -204,6 +205,10 @@ type RuleContext interface {
 	GetCallbackFunc(functionName string) interface{}
 	// OnDebug calls the configured OnDebug callback function.
 	OnDebug(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)
+	// SetExecuteNode sets the current node.
+	// If relationTypes is empty, execute the current node; otherwise,
+	// find and execute the child nodes of the current node.
+	SetExecuteNode(nodeId string, relationTypes ...string)
 }
 
 // RuleContextOption is a function type for modifying RuleContext options.
@@ -261,6 +266,29 @@ func WithOnNodeCompleted(onCallback func(ctx RuleContext, nodeRunLog RuleNodeRun
 func WithOnNodeDebug(onDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetCallbackFunc(CallbackFuncDebug, onDebug)
+	}
+}
+
+// WithStartNode 设置第一个开始执行节点
+// WithStartNode sets the first node to start execution.
+func WithStartNode(nodeId string) RuleContextOption {
+	return func(rc RuleContext) {
+		if nodeId == "" {
+			return
+		}
+		rc.SetExecuteNode(nodeId)
+	}
+}
+
+// WithTellNext 设置通过指定节点Id，查找下一个或者多个执行节点。用于恢复规则链执行链路
+// WithTellNext sets the next or multiple execution nodes by specifying the node ID.
+// It is used to restore the execution path of the rule chain.
+func WithTellNext(fromNodeId string, relationTypes ...string) RuleContextOption {
+	return func(rc RuleContext) {
+		if fromNodeId == "" {
+			return
+		}
+		rc.SetExecuteNode(fromNodeId, relationTypes...)
 	}
 }
 
