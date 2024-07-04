@@ -27,3 +27,6 @@ const (
 	Vars    = "vars"
 	Secrets = "secrets"
 )
+const (
+	EndpointTypePrefix = "endpoint/"
+)

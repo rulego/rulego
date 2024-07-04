@@ -32,6 +32,8 @@ import (
 
 const (
 	pathKey = "_path"
+	//分割标志如：{chainId}#{nodeId}
+	pathSplitFlag = ":"
 )
 
 var _ endpoint.From = (*From)(nil)
@@ -87,6 +89,7 @@ func (f *From) ExecuteProcess(router endpoint.Router, exchange *endpoint.Exchang
 // To To端
 // 参数是组件路径，格式{executorType}:{path} executorType：执行器组件类型，path:组件路径
 // 如：chain:{chainId} 执行rulego中注册的规则链
+// chain:{chainId}#{nodeId} 执行rulego中注册的规则链，并指定开始节点
 // component:{nodeType} 执行在config.ComponentsRegistry 中注册的组件
 // 可在DefaultExecutorFactory中注册自定义执行器组件类型
 // componentConfigs 组件配置参数
@@ -103,7 +106,7 @@ func (f *From) To(to string, configs ...types.Configuration) endpoint.To {
 		f.to.HasVars = true
 	}
 	//获取To执行器类型
-	executorType := strings.Split(to, ":")[0]
+	executorType := strings.Split(to, pathSplitFlag)[0]
 
 	//获取To执行器
 	if executor, ok := DefaultExecutorFactory.New(executorType); ok {
@@ -515,7 +518,8 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router endpoint.Router, ex
 	inMsg := exchange.In.GetMsg()
 	if toFlow := fromFlow.GetTo(); toFlow != nil && inMsg != nil {
 		toChainId := toFlow.ToStringByDict(inMsg.Metadata.Values())
-
+		tos := strings.Split(toChainId, pathSplitFlag)
+		toChainId = tos[0]
 		//查找规则链，并执行
 		if ruleEngine, ok := router.GetRuleGo(exchange).Get(toChainId); ok {
 			opts := toFlow.GetOpts()
@@ -534,7 +538,11 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router endpoint.Router, ex
 				}
 			})
 			opts = append(opts, types.WithContext(ctx))
+			if len(tos) > 1 {
+				opts = append(opts, types.WithStartNode(tos[0]))
+			}
 			opts = append(opts, endFunc)
+
 			if toFlow.IsWait() {
 				//同步
 				ruleEngine.OnMsgAndWait(*inMsg, opts...)
