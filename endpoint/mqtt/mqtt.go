@@ -32,15 +32,10 @@ import (
 )
 
 // Type 组件类型
-const Type = "mqtt"
+const Type = types.EndpointTypePrefix + "mqtt"
 
 // Endpoint 别名
 type Endpoint = Mqtt
-
-//// 注册组件
-//func init() {
-//	_ = endpoint.Registry.Register(&Endpoint{})
-//}
 
 // RequestMessage http请求消息
 type RequestMessage struct {

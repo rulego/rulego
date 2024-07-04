@@ -36,7 +36,7 @@ import (
 
 const (
 	// Type 组件类型
-	Type = "net"
+	Type = types.EndpointTypePrefix + "net"
 	// RemoteAddrKey 远程地址键
 	RemoteAddrKey = "remoteAddr"
 	// PingData 心跳数据
@@ -45,11 +45,6 @@ const (
 
 // Endpoint 别名
 type Endpoint = Net
-
-// 注册组件
-//func init() {
-//	_ = endpoint.Registry.Register(&Net{})
-//}
 
 // RequestMessage 请求消息
 type RequestMessage struct {

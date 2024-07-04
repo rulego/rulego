@@ -27,6 +27,7 @@ import (
 	"github.com/rulego/rulego/endpoint/websocket"
 	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/utils/maps"
+	"strings"
 )
 
 // init registers the available endpoint components with the Registry.
@@ -54,6 +55,10 @@ func (r *ComponentRegistry) Register(component endpoint.Endpoint) error {
 // New creates a new instance of an endpoint based on the component type.
 // The configuration parameter can be either types.Configuration or the corresponding Config type for the endpoint.
 func (r *ComponentRegistry) New(componentType string, ruleConfig types.Config, configuration interface{}) (endpoint.Endpoint, error) {
+	if strings.Contains("http,ws,mqtt,net,schedule,kafka,nats", componentType) {
+		//Compatible with older versions
+		componentType = types.EndpointTypePrefix + componentType
+	}
 	newNode, err := r.RuleComponentRegistry.NewNode(componentType)
 	if err != nil {
 		return nil, err
