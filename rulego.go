@@ -126,7 +126,6 @@ var Endpoints = endpoint.DefaultPool
 func init() {
 	engine.BuiltinsAspects = append(engine.BuiltinsAspects, &aspect.EndpointAspect{
 		EndpointPool: Endpoints,
-		RuleGoPool:   Rules,
 	})
 }
 

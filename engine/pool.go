@@ -76,6 +76,7 @@ func (g *Pool) New(id string, rootRuleChainSrc []byte, opts ...types.RuleEngineO
 	if v, ok := g.entries.Load(id); ok {
 		return v.(*RuleEngine), nil
 	} else {
+		opts = append(opts, types.WithRuleEnginePool(g))
 		// Create a new rule engine instance.
 		if ruleEngine, err := newRuleEngine(id, rootRuleChainSrc, opts...); err != nil {
 			return nil, err
@@ -84,7 +85,6 @@ func (g *Pool) New(id string, rootRuleChainSrc []byte, opts ...types.RuleEngineO
 			if ruleEngine.Id() != "" {
 				g.entries.Store(ruleEngine.Id(), ruleEngine)
 			}
-			ruleEngine.RuleChainPool = g
 			return ruleEngine, err
 		}
 
