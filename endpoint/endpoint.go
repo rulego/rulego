@@ -318,6 +318,9 @@ func (e *DynamicEndpoint) newEndpoint(dsl types.EndpointDsl) error {
 	} else {
 		e.Endpoint = ep
 		e.definition = dsl
+		if e.id == "" && e.definition.Id != "" {
+			e.id = e.definition.Id
+		}
 		if e.id == "" {
 			e.id = ep.Id()
 		}
