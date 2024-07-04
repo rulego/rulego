@@ -77,6 +77,9 @@ type DefaultRuleContext struct {
 	afterAspects []types.AfterAspect
 	// Runtime snapshot for debugging and logging.
 	runSnapshot *RunSnapshot
+	initErr     error
+	// used when the first node of the rule chain is processed.
+	firstNodeRelationTypes []string
 }
 
 // NewRuleContext creates a new instance of the default rule engine message processing context.
@@ -436,6 +439,18 @@ func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, node
 
 }
 
+func (ctx *DefaultRuleContext) SetExecuteNode(nodeId string, relationTypes ...string) {
+	//如果relationTypes为空，则执行当前节点
+	ctx.isFirst = len(relationTypes) == 0
+	//否则通过relationTypes查找子节点执行
+	ctx.firstNodeRelationTypes = relationTypes
+	if node, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
+		ctx.self = node
+	} else {
+		ctx.initErr = fmt.Errorf("SetExecuteNode node id=%s not found", nodeId)
+	}
+}
+
 // IsDebugMode 是否调试模式，优先使用规则链指定的调试模式
 func (ctx *DefaultRuleContext) IsDebugMode() bool {
 	if ctx.ruleChainCtx.IsDebugMode() {
@@ -533,29 +548,6 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 	}
 }
 
-// 执行下一个节点
-func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCtx, relationType string) {
-
-	defer func() {
-		//捕捉异常
-		if e := recover(); e != nil {
-			//执行After aop
-			msg = ctx.executeAfterAop(msg, fmt.Errorf("%v", e), relationType)
-			ctx.childDone()
-		}
-	}()
-
-	nextCtx := ctx.NewNextNodeRuleContext(nextNode)
-
-	//环绕aop
-	if !nextCtx.executeAroundAop(msg, relationType) {
-		return
-	}
-	// AroundAop 已经执行节点OnMsg逻辑，不在执行下面的逻辑
-
-	nextNode.OnMsg(nextCtx, msg)
-}
-
 // 执行环绕aop
 // 返回值true: 继续执行下一个节点，否则不执行
 func (ctx *DefaultRuleContext) executeAroundAop(msg types.RuleMsg, relationType string) bool {
@@ -590,6 +582,29 @@ func (ctx *DefaultRuleContext) executeAfterAop(msg types.RuleMsg, err error, rel
 		}
 	}
 	return msg
+}
+
+// 执行下一个节点
+func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCtx, relationType string) {
+
+	defer func() {
+		//捕捉异常
+		if e := recover(); e != nil {
+			//执行After aop
+			msg = ctx.executeAfterAop(msg, fmt.Errorf("%v", e), relationType)
+			ctx.childDone()
+		}
+	}()
+
+	nextCtx := ctx.NewNextNodeRuleContext(nextNode)
+
+	//环绕aop
+	if !nextCtx.executeAroundAop(msg, relationType) {
+		return
+	}
+	// AroundAop 已经执行节点OnMsg逻辑，不在执行下面的逻辑
+
+	nextNode.OnMsg(nextCtx, msg)
 }
 
 // RuleEngine is the core structure for a rule engine instance.
@@ -851,10 +866,9 @@ func (e *RuleEngine) doOnAllNodeCompleted(rootCtxCopy *DefaultRuleContext, msg t
 	}
 }
 
-// noNodesHandler handles the scenario where the rule chain has no nodes to process the message.
+// onErrHandler handles the scenario where the rule chain has no nodes or fails to process the message.
 // It logs an error and triggers the end-of-chain callbacks.
-func (e *RuleEngine) noNodesHandler(msg types.RuleMsg, rootCtxCopy *DefaultRuleContext, wait bool) {
-	err := errors.New("the rule chain has no nodes")
+func (e *RuleEngine) onErrHandler(msg types.RuleMsg, rootCtxCopy *DefaultRuleContext, err error) {
 	// Trigger the configured OnEnd callback with the error.
 	if rootCtxCopy.config.OnEnd != nil {
 		rootCtxCopy.config.OnEnd(msg, err)
@@ -883,8 +897,12 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 			opt(rootCtxCopy)
 		}
 		// Handle the case where the rule chain has no nodes.
-		if rootCtx.ruleChainCtx.isEmpty {
-			e.noNodesHandler(msg, rootCtxCopy, wait)
+		if rootCtxCopy.ruleChainCtx.isEmpty {
+			e.onErrHandler(msg, rootCtxCopy, errors.New("the rule chain has no nodes"))
+			return
+		}
+		if rootCtxCopy.initErr != nil {
+			e.onErrHandler(msg, rootCtxCopy, rootCtxCopy.initErr)
 			return
 		}
 		// Execute start aspects and update the message accordingly.
@@ -912,7 +930,7 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 				e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 			}
 			// Process the message through the rule chain.
-			rootCtxCopy.TellNext(msg)
+			rootCtxCopy.TellNext(msg, rootCtxCopy.firstNodeRelationTypes...)
 			// Block until all nodes have completed.
 			<-c
 		} else {
@@ -921,7 +939,7 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 				e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 			}
 			// Process the message through the rule chain.
-			rootCtxCopy.TellNext(msg)
+			rootCtxCopy.TellNext(msg, rootCtxCopy.firstNodeRelationTypes...)
 		}
 
 	} else {

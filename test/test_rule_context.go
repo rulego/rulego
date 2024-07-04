@@ -195,3 +195,7 @@ func (ctx *NodeTestRuleContext) GetCallbackFunc(functionName string) interface{}
 // OnDebug 调用配置的OnDebug回调函数
 func (ctx *NodeTestRuleContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 }
+
+func (ctx *NodeTestRuleContext) SetExecuteNode(nodeId string, relationTypes ...string) {
+
+}
