@@ -37,15 +37,10 @@ import (
 )
 
 // Type 组件类型
-const Type = "ws"
+const Type = types.EndpointTypePrefix + "ws"
 
 // Endpoint 别名
 type Endpoint = Websocket
-
-// 注册组件
-//func init() {
-//	_ = endpoint.Registry.Register(&Endpoint{})
-//}
 
 // RequestMessage websocket请求消息
 type RequestMessage struct {
