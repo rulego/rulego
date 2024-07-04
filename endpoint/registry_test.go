@@ -29,8 +29,8 @@ import (
 
 func TestRegistry(t *testing.T) {
 	config := engine.NewConfig(types.WithDefaultPool())
-	var endpointType = "test"
-	var unknownType = "unknown"
+	var endpointType = types.EndpointTypePrefix + "test"
+	var unknownType = types.EndpointTypePrefix + "unknown"
 	configuration := types.Configuration{
 		"name": "lala",
 	}
@@ -38,7 +38,7 @@ func TestRegistry(t *testing.T) {
 	err := Registry.Register(&testEndpoint{})
 	assert.Nil(t, err)
 	err = Registry.Register(&testEndpoint{})
-	assert.Equal(t, "the component already exists. componentType=test", err.Error())
+	assert.Equal(t, "the component already exists. componentType=endpoint/test", err.Error())
 	_, err = Registry.New(endpointType, config, nil)
 	assert.Nil(t, err)
 
@@ -93,7 +93,7 @@ type testEndpoint struct {
 
 // Type 组件类型
 func (test *testEndpoint) Type() string {
-	return "test"
+	return types.EndpointTypePrefix + "test"
 }
 
 func (test *testEndpoint) New() types.Node {

@@ -119,7 +119,7 @@ func startServer(t *testing.T, stop chan struct{}) {
 	var ep = &Endpoint{}
 	err = ep.Init(config, nodeConfig)
 	assert.Equal(t, testServer, ep.Id())
-	assert.Equal(t, "mqtt", ep.Type())
+	assert.Equal(t, Type, ep.Type())
 	assert.True(t, reflect.DeepEqual(&Mqtt{
 		Config: mqtt.Config{
 			Server: "127.0.0.1:1883",

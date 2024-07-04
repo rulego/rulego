@@ -20,6 +20,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/components/external"
+	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
@@ -190,7 +191,7 @@ func TestFactory(t *testing.T) {
 
 	assert.Nil(t, err)
 
-	assert.Equal(t, "http", ep3.Type())
+	assert.Equal(t, rest.Type, ep3.Type())
 }
 
 // SendMsg 发送消息到rest服务器

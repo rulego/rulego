@@ -218,7 +218,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 
 	var ep = &Net{}
 	err = ep.Init(config, nodeConfig)
-	assert.Equal(t, "net", ep.Type())
+	assert.Equal(t, Type, ep.Type())
 	assert.True(t, reflect.DeepEqual(&Net{
 		Config: Config{Protocol: "tcp", ReadTimeout: 60, Server: ":6335"},
 	}, ep.New()))
