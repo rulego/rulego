@@ -226,7 +226,7 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, "ws", wsEndpoint.Type())
+	assert.Equal(t, Type, wsEndpoint.Type())
 	assert.True(t, reflect.DeepEqual(&Websocket{
 		Config: Config{
 			Server: ":6334",

@@ -174,7 +174,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	}, nodeConfig)
 	var restEndpoint = &Endpoint{}
 	err = restEndpoint.Init(config, nodeConfig)
-	assert.Equal(t, "http", restEndpoint.Type())
+	assert.Equal(t, Type, restEndpoint.Type())
 	assert.True(t, reflect.DeepEqual(&Rest{
 		Config: Config{
 			Server: ":6333",
