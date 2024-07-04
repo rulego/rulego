@@ -47,8 +47,6 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	}))
 	//创建获取所有规则引擎组件列表路由
 	restEndpoint.GET(controller.ComponentsRouter(apiBasePath + "/components"))
-	//创建获取所有endpoint组件列表路由
-	restEndpoint.GET(controller.EndpointsRouter(apiBasePath + "/endpoints"))
 	//获取所有规则链列表
 	restEndpoint.GET(controller.ListDslRouter(apiBasePath + "/rules"))
 	//获取规则链DSL
