@@ -184,7 +184,7 @@ func (rc *RuleChainCtx) GetNodeById(id types.RuleNodeId) (types.NodeCtx, bool) {
 	defer rc.RUnlock()
 	if id.Type == types.CHAIN {
 		//子规则链通过规则链池查找
-		if subRuleEngine, ok := rc.GetRuleChainPool().Get(id.Id); ok && subRuleEngine.RootRuleChainCtx() != nil {
+		if subRuleEngine, ok := rc.GetRuleEnginePool().Get(id.Id); ok && subRuleEngine.RootRuleChainCtx() != nil {
 			return subRuleEngine.RootRuleChainCtx(), true
 		} else {
 			return nil, false
@@ -350,7 +350,6 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.nodes = newCtx.nodes
 	rc.nodeRoutes = newCtx.nodeRoutes
 	rc.rootRuleContext = newCtx.rootRuleContext
-	rc.ruleChainPool = newCtx.ruleChainPool
 	rc.aspects = newCtx.aspects
 	rc.afterReloadAspects = newCtx.afterReloadAspects
 	rc.destroyAspects = newCtx.destroyAspects
@@ -360,13 +359,13 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
 }
 
-// SetRuleChainPool 设置子规则链池
-func (rc *RuleChainCtx) SetRuleChainPool(ruleChainPool types.RuleEnginePool) {
+// SetRuleEnginePool 设置子规则链池
+func (rc *RuleChainCtx) SetRuleEnginePool(ruleChainPool types.RuleEnginePool) {
 	rc.ruleChainPool = ruleChainPool
 }
 
-// GetRuleChainPool 获取子规则链池
-func (rc *RuleChainCtx) GetRuleChainPool() types.RuleEnginePool {
+// GetRuleEnginePool 获取子规则链池
+func (rc *RuleChainCtx) GetRuleEnginePool() types.RuleEnginePool {
 	if rc.ruleChainPool == nil {
 		return DefaultPool
 	} else {

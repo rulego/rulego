@@ -35,6 +35,13 @@ func WithAspects(aspects ...Aspect) RuleEngineOption {
 	}
 }
 
+func WithRuleEnginePool(ruleEnginePool RuleEnginePool) RuleEngineOption {
+	return func(re RuleEngine) error {
+		re.SetRuleEnginePool(ruleEnginePool)
+		return nil
+	}
+}
+
 // RuleEngine is an interface for a rule engine.
 type RuleEngine interface {
 	// Id returns the identifier of the RuleEngine.
@@ -43,6 +50,8 @@ type RuleEngine interface {
 	SetConfig(config Config)
 	// SetAspects sets the aspects for the RuleEngine.
 	SetAspects(aspects ...Aspect)
+	// SetRuleEnginePool sets the rule engine pool for the RuleEngine.
+	SetRuleEnginePool(ruleEnginePool RuleEnginePool)
 	// Reload reloads the RuleEngine with the given options.
 	Reload(opts ...RuleEngineOption) error
 	// ReloadSelf reloads the RuleEngine itself with the given definition and options.

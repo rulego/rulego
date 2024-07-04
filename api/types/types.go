@@ -146,7 +146,7 @@ type ChainCtx interface {
 	NodeCtx
 	// Definition returns the definition of the rule chain.
 	Definition() *RuleChain
-	GetRuleChainPool() RuleEnginePool
+	GetRuleEnginePool() RuleEnginePool
 }
 
 // RuleContext is an interface for message processing context in the rule engine.

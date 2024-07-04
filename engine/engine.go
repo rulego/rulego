@@ -612,8 +612,8 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 type RuleEngine struct {
 	// Config is the configuration for the rule engine.
 	Config types.Config
-	// RuleChainPool is a pool of sub-rule chains.
-	RuleChainPool types.RuleEnginePool
+	// ruleChainPool is a pool of rule engine.
+	ruleChainPool types.RuleEnginePool
 	// id is the unique identifier for the rule engine instance.
 	id string
 	// rootRuleChainCtx is the context of the root rule chain.
@@ -640,7 +640,7 @@ func newRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*Rule
 	ruleEngine := &RuleEngine{
 		id:            id,
 		Config:        NewConfig(),
-		RuleChainPool: DefaultPool,
+		ruleChainPool: DefaultPool,
 	}
 	err := ruleEngine.ReloadSelf(def, opts...)
 	if err == nil && ruleEngine.rootRuleChainCtx != nil {
@@ -669,6 +669,13 @@ func (e *RuleEngine) SetConfig(config types.Config) {
 
 func (e *RuleEngine) SetAspects(aspects ...types.Aspect) {
 	e.Aspects = append(e.Aspects, aspects...)
+}
+
+func (e *RuleEngine) SetRuleEnginePool(ruleChainPool types.RuleEnginePool) {
+	e.ruleChainPool = ruleChainPool
+	if e.rootRuleChainCtx != nil {
+		e.rootRuleChainCtx.SetRuleEnginePool(ruleChainPool)
+	}
 }
 
 func (e *RuleEngine) GetAspects() types.AspectList {
@@ -724,7 +731,7 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...types.RuleEngineOption) erro
 		//更新规则链
 		err := e.rootRuleChainCtx.ReloadSelf(def)
 		//设置子规则链池
-		e.rootRuleChainCtx.SetRuleChainPool(e.RuleChainPool)
+		e.rootRuleChainCtx.SetRuleEnginePool(e.ruleChainPool)
 		return err
 	} else {
 		//初始化内置切面
@@ -736,7 +743,7 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...types.RuleEngineOption) erro
 			}
 			e.rootRuleChainCtx = ctx.(*RuleChainCtx)
 			//设置子规则链池
-			e.rootRuleChainCtx.SetRuleChainPool(e.RuleChainPool)
+			e.rootRuleChainCtx.SetRuleEnginePool(e.ruleChainPool)
 			//执行创建切面逻辑
 			_, _, createdAspects, _, _ := e.Aspects.GetEngineAspects()
 			for _, aop := range createdAspects {
@@ -889,7 +896,7 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 	if e.rootRuleChainCtx != nil {
 		// Create a copy of the root context for processing the message.
 		rootCtx := e.rootRuleChainCtx.rootRuleContext.(*DefaultRuleContext)
-		rootCtxCopy := NewRuleContext(rootCtx.GetContext(), rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, rootCtx.onEnd, e.RuleChainPool)
+		rootCtxCopy := NewRuleContext(rootCtx.GetContext(), rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, rootCtx.onEnd, e.ruleChainPool)
 		rootCtxCopy.isFirst = rootCtx.isFirst
 		rootCtxCopy.runSnapshot = NewRunSnapshot(msg.Id, rootCtxCopy.ruleChainCtx, time.Now().UnixMilli())
 		// Apply the provided options to the context copy.

@@ -32,7 +32,6 @@ var (
 
 type EndpointAspect struct {
 	EndpointPool      endpoint.Pool
-	RuleGoPool        types.RuleEnginePool
 	ruleChainEndpoint *RuleChainEndpoint
 }
 
@@ -41,7 +40,7 @@ func (aspect *EndpointAspect) Order() int {
 }
 
 func (aspect *EndpointAspect) New() types.Aspect {
-	return &EndpointAspect{EndpointPool: aspect.EndpointPool, RuleGoPool: aspect.RuleGoPool}
+	return &EndpointAspect{EndpointPool: aspect.EndpointPool}
 }
 
 func (aspect *EndpointAspect) Type() string {
@@ -57,7 +56,7 @@ func (aspect *EndpointAspect) OnCreated(chainCtx types.NodeCtx) error {
 		if !ctx.Config().EndpointEnabled {
 			return nil
 		}
-		if ruleChainEndpoint, err := NewRuleChainEndpoint(chainCtx.GetNodeId().Id, ctx.Config(), aspect.EndpointPool, aspect.RuleGoPool, ctx.Definition().Metadata.Endpoints); err != nil {
+		if ruleChainEndpoint, err := NewRuleChainEndpoint(chainCtx.GetNodeId().Id, ctx.Config(), aspect.EndpointPool, ctx.GetRuleEnginePool(), ctx.Definition().Metadata.Endpoints); err != nil {
 			return err
 		} else {
 			aspect.ruleChainEndpoint = ruleChainEndpoint
@@ -73,6 +72,7 @@ func (aspect *EndpointAspect) OnReload(_ types.NodeCtx, ctx types.NodeCtx) error
 			return nil
 		}
 		aspect.ruleChainEndpoint.config = ctx.Config()
+		aspect.ruleChainEndpoint.ruleGoPool = chainCtx.GetRuleEnginePool()
 		return aspect.ruleChainEndpoint.Reload(chainCtx.Definition().Metadata.Endpoints)
 	}
 	return nil
@@ -244,6 +244,8 @@ func (e *RuleChainEndpoint) checkEndpointChanges(oldEndpoints, newEndpoints []*t
 // 绑定To,To必须是当前规则链ID
 func (e *RuleChainEndpoint) bindTo(def *types.EndpointDsl, ruleEngineId string) {
 	for _, r := range def.Routers {
-		r.To.Path = ruleEngineId
+		if r.To.Path == "" {
+			r.To.Path = ruleEngineId
+		}
 	}
 }
