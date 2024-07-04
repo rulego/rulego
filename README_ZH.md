@@ -70,9 +70,9 @@
 
 ## 规则链运行示例图
 
-  <img src="doc/imgs/rulechain/img_2.png" style="height:40%;width:70%;"/>
+  <img src="doc/imgs/rulechain/demo.png" style="height:40%;width:100%;"/>
 
-[更多运行模式](https://rulego.cc/pages/6f46fc/#%E8%A7%84%E5%88%99%E9%93%BE%E6%94%AF%E6%8C%81%E7%9A%84%E8%BF%90%E8%A1%8C%E6%96%B9%E5%BC%8F)
+[更多运行模式](http://8.134.32.225:9090/ui/)
 
 ## 安装
 
@@ -82,13 +82,18 @@
 go get github.com/rulego/rulego
 ```
 
-或者使用gitee源
+或者使用gitee/gitcode源
 ```bash
 go get gitee.com/rulego/rulego
+#or 
+go get gitcode.com/rulego/rulego
 
 如果遇到无法下载，在go.mod文件增加以下指令：
 replace github.com/rulego/rulego => gitee.com/rulego/rulego version
 replace gitee.com/rulego/rulego => github.com/rulego/rulego version
+#or
+replace github.com/rulego/rulego => gitcode.com/rulego/rulego version
+replace gitcode.com/rulego/rulego => github.com/rulego/rulego version
 ```
 ## 使用
 

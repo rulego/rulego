@@ -69,9 +69,9 @@ RuleGo is an orchestrable rule engine that excels at decoupling your systems.
 
 ## Rule Chain Running Example Diagram
 
-  <img src="doc/imgs/rulechain/img_2.png" style="height:40%;width:70%;"/>
+  <img src="doc/imgs/rulechain/demo.png" style="height:40%;width:100%;"/>
 
-[More Running Modes](https://rulego.cc/en/pages/6f46fc/#%E8%A7%84%E5%88%99%E9%93%BE%E6%94%AF%E6%8C%81%E7%9A%84%E8%BF%90%E8%A1%8C%E6%96%B9%E5%BC%8F)
+[More Running Modes](http://8.134.32.225:9090/ui/)
 
 ## Installation
 
