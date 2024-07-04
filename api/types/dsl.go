@@ -170,7 +170,7 @@ type EndpointDsl struct {
 	// Configuration contains the configuration information of the endpoint.
 	Configuration Configuration `json:"configuration,omitempty"`
 	// AdditionalInfo is an extension field.
-	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
+	AdditionalInfo NodeAdditionalInfo `json:"additionalInfo,omitempty"`
 	// Processors is the list of global processors for the endpoint.
 	// Using processors registered in builtin/processor#Builtins xx by name.
 	Processors []string `json:"processors"`
