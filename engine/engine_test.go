@@ -907,11 +907,17 @@ func TestRuleContext(t *testing.T) {
 		ctx := NewRuleContext(context.Background(), config, ruleEngine.RootRuleChainCtx().(*RuleChainCtx), nil, nil, nil, nil, nil)
 		ctx.DoOnEnd(msg, nil, types.Success)
 	})
+	t.Run("doOnEnd", func(t *testing.T) {
+		ctx := NewRuleContext(context.Background(), config, ruleEngine.RootRuleChainCtx().(*RuleChainCtx), nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			assert.Equal(t, types.Success, relationType)
+		}, nil)
+		ctx.DoOnEnd(msg, nil, types.Success)
+	})
 	t.Run("notSelf", func(t *testing.T) {
 		ctx := NewRuleContext(context.Background(), config, ruleEngine.RootRuleChainCtx().(*RuleChainCtx), nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, "", relationType)
 		}, nil)
-		ctx.tellFirst(msg, nil, types.Success)
+		ctx.tellSelf(msg, nil, types.Success)
 	})
 	t.Run("notRuleChainCtx", func(t *testing.T) {
 		ctx := NewRuleContext(context.Background(), config, nil, nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
@@ -935,7 +941,7 @@ func TestRuleContext(t *testing.T) {
 		}, nil)
 
 		ctx.TellSelf(msg, 1000)
-		ctx.tellFirst(msg, nil, types.Success)
+		ctx.tellSelf(msg, nil, types.Success)
 	})
 	t.Run("WithStartNode", func(t *testing.T) {
 		var count = int32(0)
@@ -1228,24 +1234,21 @@ func TestNoNodes(t *testing.T) {
 	wg.Wait()
 }
 
-func TestIteratorNode(t *testing.T) {
+func TestDoOnEnd(t *testing.T) {
 	var ruleChainFile = `{
           "ruleChain": {
-            "id": "test01",
-            "name": "testIteratorNode",
-            "debugMode": true,
-            "root": true
+            "id": "testDoOnEnd",
+            "name": "TestDoOnEnd"
           },
           "metadata": {
-            "firstNodeIndex": 0,
             "nodes": [
               {
                 "id": "s1",
-                "type": "iterator",
-                "name": "遍历所有",
+                "type": "functions",
+                "name": "结束函数",
                 "debugMode": true,
                 "configuration": {
-                  "fieldName": "body.sms"
+                  "functionName": "doEnd"
                 }
               },
               {
@@ -1263,23 +1266,46 @@ func TestIteratorNode(t *testing.T) {
                 "fromId": "s1",
                 "toId": "s2",
                 "type": "True"
+              },
+ 				{
+                "fromId": "s1",
+                "toId": "s2",
+                "type": "False"
               }
             ]
           }
         }`
+
+	//测试函数
+	action.Functions.Register("doEnd", func(ctx types.RuleContext, msg types.RuleMsg) {
+		if msg.Metadata.GetValue("productType") == "test01" {
+			ctx.TellNext(msg, types.True)
+		} else {
+			//中断执行规则链
+			ctx.DoOnEnd(msg, nil, types.False)
+		}
+	})
+	count := int32(0)
 	config := NewConfig(types.WithDefaultPool())
-	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
-	}
-	ruleEngine, err := New("testIteratorNode", []byte(ruleChainFile), WithConfig(config))
+	ruleEngine, err := New("testDoOnEnd", []byte(ruleChainFile), WithConfig(config))
 	assert.Nil(t, err)
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"body\":{\"sms\":[\"aa\"]}}")
-	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-		fmt.Println("onEnd", relationType, msg.Data, err)
-	}), types.WithOnAllNodeCompleted(func() {
-		fmt.Println("WithOnAllNodeCompleted")
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.Success, relationType)
+	}), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		atomic.AddInt32(&count, 1)
 	}))
 	time.Sleep(time.Millisecond * 100)
+	assert.Equal(t, int32(4), count)
+	count = int32(0)
+	metaData.PutValue("productType", "test02")
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.False, relationType)
+	}), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		atomic.AddInt32(&count, 1)
+	}))
+	time.Sleep(time.Millisecond * 100)
+	assert.Equal(t, int32(1), count)
 }

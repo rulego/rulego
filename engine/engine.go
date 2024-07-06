@@ -489,8 +489,8 @@ func (ctx *DefaultRuleContext) getNextNodes(relationType string) ([]types.NodeCt
 	return ctx.ruleChainCtx.GetNextNodes(ctx.self.GetNodeId(), relationType)
 }
 
-// tellFirst 执行第一个节点
-func (ctx *DefaultRuleContext) tellFirst(msg types.RuleMsg, err error, relationTypes ...string) {
+// tellSelf 执行自身节点
+func (ctx *DefaultRuleContext) tellSelf(msg types.RuleMsg, err error, relationTypes ...string) {
 	msgCopy := msg.Copy()
 	ctx.SubmitTack(func() {
 		if ctx.self != nil {
@@ -511,7 +511,7 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultRelationType string, relationTypes ...string) {
 	//msgCopy := msg.Copy()
 	if ctx.isFirst {
-		ctx.tellFirst(msg, err, relationTypes...)
+		ctx.tellSelf(msg, err, relationTypes...)
 	} else {
 		if relationTypes == nil {
 			//找不到子节点，则执行结束回调
