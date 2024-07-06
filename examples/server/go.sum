@@ -212,6 +212,8 @@ github.com/rogpeppe/go-internal v1.6.1 h1:/FiVV8dS/e+YqF2JvO3yXRFbBLTIuSDkuC7aBO
 github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTEfhy4qGm1nDQc=
 github.com/rulego/rulego-components v0.21.1-0.20240705011856-1f439e11d0f9 h1:xLzI9p5qgNikP7c4SA5Qm2MAVfaUBvwb2rqZuy9Xtm8=
 github.com/rulego/rulego-components v0.21.1-0.20240705011856-1f439e11d0f9/go.mod h1:XUmHN4eOTlTF0NS+DjXiA5AbjX+goTUUqv+355yUvIQ=
+github.com/rulego/rulego-components v0.21.1-0.20240706122449-dd5edd86ccec h1:e9uWpmpbXcgTIKRbXHsT4yKk2vMMpss35uijIb48/2k=
+github.com/rulego/rulego-components v0.21.1-0.20240706122449-dd5edd86ccec/go.mod h1:XUmHN4eOTlTF0NS+DjXiA5AbjX+goTUUqv+355yUvIQ=
 github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203 h1:x1p3pIdAOC/QaL+O8w76liBaTs1V6WlRfIG94T0zTHk=
 github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203/go.mod h1:oSerau1PdeGilh/FR7sKW0yAikXsWLn4Qh0qH9mBlsc=
 github.com/sashabaranov/go-openai v1.22.0 h1:bjYkELQCbOBMW9B7zi/KA5L4syPfn/3qRvUoyV49Fvs=
