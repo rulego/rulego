@@ -149,10 +149,9 @@ type ChainCtx interface {
 	GetRuleEnginePool() RuleEnginePool
 }
 
-// RuleContext is an interface for message processing context in the rule engine.
-// It handles the logic of transferring messages to the next or multiple nodes.
-// Based on the rule chain connection, it finds the next node(s) and triggers their business logic by calling nextNode.OnMsg(ctx, msg).
-// Additionally, it handles the OnDebug and OnEnd callback logic.
+// RuleContext is the interface for message processing context within the rule engine.
+// It handles the transfer of messages to the next or multiple nodes and triggers their business logic.
+// It also controls and orchestrates the node flow of the current execution instance.
 type RuleContext interface {
 	// TellSuccess notifies the rule engine that the current message has been successfully processed and sends the message to the next node via the 'Success' relationship.
 	TellSuccess(msg RuleMsg)
