@@ -270,9 +270,7 @@ func (ep *Net) AddRouter(router endpoint.Router, params ...interface{}) (string,
 				regexpV = re
 			}
 		}
-		if id := router.GetId(); id == "" {
-			router.SetId(router.GetFrom().ToString())
-		}
+		ep.CheckAndSetRouterId(router)
 		ep.Lock()
 		defer ep.Unlock()
 		if ep.routers == nil {

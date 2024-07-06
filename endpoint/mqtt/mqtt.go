@@ -230,10 +230,7 @@ func (m *Mqtt) AddRouter(router endpoint.Router, params ...interface{}) (string,
 	if router == nil {
 		return "", errors.New("router can not nil")
 	}
-
-	if id := router.GetId(); id == "" {
-		router.SetId(router.GetFrom().ToString())
-	}
+	m.CheckAndSetRouterId(router)
 	m.saveRouter(router)
 	//服务已经启动
 	if m.client != nil {

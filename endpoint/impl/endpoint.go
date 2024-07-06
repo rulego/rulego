@@ -459,6 +459,14 @@ func (e *BaseEndpoint) createContext(baseCtx context.Context, router endpoint.Ro
 	}
 
 }
+
+func (e *BaseEndpoint) CheckAndSetRouterId(router endpoint.Router) string {
+	if router.GetId() == "" {
+		router.SetId(router.FromToString())
+	}
+	return router.GetId()
+}
+
 func (e *BaseEndpoint) Destroy() {
 	e.interceptors = nil
 	e.RouterStorage = make(map[string]endpoint.Router)
