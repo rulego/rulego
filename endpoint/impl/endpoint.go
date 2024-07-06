@@ -539,7 +539,7 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router endpoint.Router, ex
 			})
 			opts = append(opts, types.WithContext(ctx))
 			if len(tos) > 1 {
-				opts = append(opts, types.WithStartNode(tos[0]))
+				opts = append(opts, types.WithStartNode(tos[1]))
 			}
 			opts = append(opts, endFunc)
 
