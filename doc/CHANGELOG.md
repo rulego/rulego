@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## [v0.22.0] 2024/07/08
+- feat[rulego-editor]: 接入端(endpoint)允许可视化配置。体验地址：[http://8.134.32.225:9090/ui/](http://8.134.32.225:9090/ui/)
+- feat[rulego-components]: 增加redis endpoint组件
+- feat[rulego-components]: 增加redis 节点组件允许配置db参数
+- feat[rulego-components]: 增加nats endpoint组件
+- feat[rulego-components]: 增加nats 节点组件
+- feat: 增加for节点组件，用于控制循环节点
+- feat: 增加执行本地命令节点组件，用于控制循环节点
+- feat: 增加template节点组件
+- feat: 增加metadataTransform节点组件
+- feat: 增加OnChainBeforeInitAspect和OnNodeBeforeInitAspect增强点
+- feat: 增加规则引擎中断恢复相关API
+- feat: endpoint允许指定从规则链某节点开始执行
+- fix: mqtt client平滑关闭
+- refactor: endpoint type名称增加前缀
+- refactor: iterator 节点组件标记弃用
+
 ## [v0.21.0] 2024/06/06
 
 - feat: rule chain DSL允许动态配置接入端（endpoint）
