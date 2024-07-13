@@ -409,7 +409,7 @@ func (s *RuleEngineService) fillAdditionalInfo(def *types.RuleChain) {
 		def.RuleChain.AdditionalInfo = make(map[string]string)
 	}
 	def.RuleChain.AdditionalInfo[constants.KeyUsername] = s.username
-	nowStr := time.Now().Format("2006/1/2 15:04:05")
+	nowStr := time.Now().Format("2006/01/02 15:04:05")
 	if _, ok := def.RuleChain.AdditionalInfo["createTime"]; !ok {
 		def.RuleChain.AdditionalInfo["createTime"] = nowStr
 	}
