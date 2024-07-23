@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
@@ -49,7 +50,7 @@ func init() {
 }
 
 type MqttClientNodeConfiguration struct {
-	//publish topic
+	// Topic 发布主题 可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Topic    string
 	Server   string
 	Username string
@@ -90,6 +91,8 @@ type MqttClientNode struct {
 	locker sync.RWMutex
 	//是否正在连接mqtt 服务器
 	connecting int32
+	//topic 模板
+	topicTemplate str.Template
 }
 
 // Type 组件类型
@@ -111,13 +114,16 @@ func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Confi
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
 		_ = x.tryInitClient()
+		x.topicTemplate = str.NewTemplate(x.Config.Topic)
 	}
 	return err
 }
 
 // OnMsg 处理消息
 func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	topic := str.SprintfDict(x.Config.Topic, msg.Metadata.Values())
+	topic := x.topicTemplate.ExecuteFn(func() map[string]any {
+		return base.NodeUtils.GetEvnAndMetadata(ctx, msg)
+	})
 	if x.mqttClient == nil {
 		if err := x.tryInitClient(); err != nil {
 			ctx.TellFailure(msg, err)

@@ -64,14 +64,14 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 
 	node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "insert into users (id,name, age) values (?,?,?)",
-		"params":     []interface{}{"${id}", "${name}", 18},
+		"params":     []interface{}{"${metadata.id}", "${metadata.name}", 18},
 		"driverName": driverName,
 		"dsn":        dsn,
 	}, Registry)
 
 	node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "update users set age = ? where id = ?",
-		"params":     []interface{}{"${age}", "${id}"},
+		"params":     []interface{}{"${metadata.age}", "${metadata.id}"},
 		"driverName": driverName,
 		"dsn":        dsn,
 	}, Registry)
@@ -84,7 +84,7 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 
 	node5, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "select * from users where id = ?",
-		"params":     []interface{}{"${id}"},
+		"params":     []interface{}{"${metadata.id}"},
 		"getOne":     true,
 		"driverName": driverName,
 		"dsn":        dsn,

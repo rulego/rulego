@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/components"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/js"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
@@ -70,7 +70,7 @@ func (x *IteratorNode) Init(ruleConfig types.Config, configuration types.Configu
 	x.Config.FieldName = strings.TrimSpace(x.Config.FieldName)
 	if err == nil && x.Config.JsScript != "" {
 		jsScript := fmt.Sprintf("function ItemFilter(item,index,metadata) { %s }", x.Config.JsScript)
-		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, components.NodeUtils.GetVars(configuration))
+		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, base.NodeUtils.GetVars(configuration))
 	}
 	return err
 }

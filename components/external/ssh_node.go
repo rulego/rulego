@@ -31,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"golang.org/x/crypto/ssh"
@@ -56,7 +57,7 @@ type SshConfiguration struct {
 	Username string
 	//Password ssh登录密码
 	Password string
-	//Cmd shell命令,可以使用 ${metaKeyName} 替换元数据中的变量
+	//Cmd shell命令,可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Cmd string
 }
 
@@ -68,7 +69,8 @@ type SshNode struct {
 	//节点配置
 	Config SshConfiguration
 	// client 是一个 ssh.Client 类型的字段，用来保存 ssh 客户端对象
-	client *ssh.Client
+	client      *ssh.Client
+	cmdTemplate str.Template
 }
 
 // Type 方法用来返回组件的类型
@@ -105,6 +107,7 @@ func (x *SshNode) Init(ruleConfig types.Config, configuration types.Configuratio
 		} else {
 			return SshConfigEmptyErr
 		}
+		x.cmdTemplate = str.NewTemplate(x.Config.Cmd)
 	}
 	return err
 
@@ -123,8 +126,9 @@ func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.TellFailure(msg, SshCmdEmptyErr)
 		return
 	}
-	metaData := msg.Metadata.Values()
-	cmd = str.SprintfDict(cmd, metaData)
+	cmd = x.cmdTemplate.ExecuteFn(func() map[string]any {
+		return base.NodeUtils.GetEvnAndMetadata(ctx, msg)
+	})
 	var output []byte
 	var session *ssh.Session
 	// 如果有 ssh 客户端对象，则创建一个 ssh 会话，并执行远程 shell 命令，并获取其输出或错误信息

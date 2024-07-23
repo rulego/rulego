@@ -30,7 +30,7 @@ import (
 	"bytes"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/builtin/funcs"
-	"github.com/rulego/rulego/components"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 	"path/filepath"
 	"strings"
@@ -103,11 +103,9 @@ func (x *TemplateNode) Init(ruleConfig types.Config, configuration types.Configu
 
 // OnMsg 处理消息
 func (x *TemplateNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	evn, err := components.NodeUtils.GetEvn(ctx, msg)
-	if err != nil {
-		ctx.TellFailure(msg, err)
-		return
-	}
+	var err error
+	evn := base.NodeUtils.GetEvn(ctx, msg)
+
 	var buf bytes.Buffer
 	err = x.templateEngine.ExecuteTemplate(&buf, x.templateName, evn)
 	if err != nil {

@@ -29,6 +29,7 @@ package action
 import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"strings"
@@ -89,7 +90,7 @@ func (x *FunctionsRegistry) Get(functionName string) (func(ctx types.RuleContext
 
 // FunctionsNodeConfiguration 节点配置
 type FunctionsNodeConfiguration struct {
-	//FunctionName 调用的函数名称，支持通过${metadataKey}方式从metadata动态获取函数名称值
+	//FunctionName 调用的函数名称，支持通过${metadata.key}方式从metadata动态获取函数名称值或者通过${msg.key}方式从消息负荷动态获取函数名称值
 	FunctionName string
 }
 
@@ -125,7 +126,7 @@ func (x *FunctionsNode) Init(ruleConfig types.Config, configuration types.Config
 
 // OnMsg 处理消息
 func (x *FunctionsNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	funcName := x.getFunctionName(msg)
+	funcName := x.getFunctionName(ctx, msg)
 	if f, ok := Functions.Get(funcName); ok {
 		//调用函数
 		f(ctx, msg)
@@ -141,9 +142,10 @@ func (x *FunctionsNode) Destroy() {
 // 获取函数名称
 // 如果有占位符变量，则使用占位符变量替换
 // 如果没有占位符变量，则直接返回函数名称
-func (x *FunctionsNode) getFunctionName(msg types.RuleMsg) string {
+func (x *FunctionsNode) getFunctionName(ctx types.RuleContext, msg types.RuleMsg) string {
 	if x.HasVars {
-		return str.SprintfDict(x.Config.FunctionName, msg.Metadata.Values())
+		evn := base.NodeUtils.GetEvnAndMetadata(ctx, msg)
+		return str.ExecuteTemplate(x.Config.FunctionName, evn)
 	} else {
 		return x.Config.FunctionName
 	}

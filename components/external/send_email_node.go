@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 	string2 "github.com/rulego/rulego/utils/str"
 	"net"
@@ -46,17 +47,18 @@ type Email struct {
 	Cc string `json:"cc"`
 	//Bcc 密送人邮箱，多个与`,`隔开
 	Bcc string `json:"bcc"`
-	//Subject 邮件主题，可以使用 ${metaKeyName} 替换元数据中的变量
+	//Subject 邮件主题，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Subject string `json:"subject"`
-	//Body 邮件模板，可以使用 ${metaKeyName} 替换元数据中的变量
+	//Body 邮件模板，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Body string `json:"body"`
 }
 
-func (e *Email) createEmailMsg(metadata map[string]string) ([]byte, []string) {
+func (e *Email) createEmailMsg(ctx types.RuleContext, ruleMsg types.RuleMsg) ([]byte, []string) {
+	evn := base.NodeUtils.GetEvnAndMetadata(ctx, ruleMsg)
 	// 设置邮件主题
-	subject := string2.SprintfDict(e.Subject, metadata)
+	subject := string2.ExecuteTemplate(e.Subject, evn)
 	// 设置邮件正文，使用HTML格式
-	body := string2.SprintfDict(e.Body, metadata)
+	body := string2.ExecuteTemplate(e.Body, evn)
 
 	to := strings.Split(e.To, splitUserSep)
 	// 将所有的收件人、抄送和密送合并为一个切片
@@ -84,15 +86,15 @@ func (e *Email) createEmailMsg(metadata map[string]string) ([]byte, []string) {
 	return msg, sendTo
 }
 
-func (e *Email) SendEmail(addr string, auth smtp.Auth, metadata map[string]string, connectTimeout time.Duration) error {
-	msg, sendTo := e.createEmailMsg(metadata)
+func (e *Email) SendEmail(ctx types.RuleContext, ruleMsg types.RuleMsg, addr string, auth smtp.Auth, connectTimeout time.Duration) error {
+	msg, sendTo := e.createEmailMsg(ctx, ruleMsg)
 	// 调用SendMail函数发送邮件
 	return smtp.SendMail(addr, auth, e.From, sendTo, msg)
 }
 
-func (e *Email) SendEmailWithTls(addr string, auth smtp.Auth, metadata map[string]string, connectTimeout time.Duration) error {
+func (e *Email) SendEmailWithTls(ctx types.RuleContext, ruleMsg types.RuleMsg, addr string, auth smtp.Auth, connectTimeout time.Duration) error {
 
-	msg, sendTo := e.createEmailMsg(metadata)
+	msg, sendTo := e.createEmailMsg(ctx, ruleMsg)
 
 	host, _, _ := net.SplitHostPort(addr)
 
@@ -209,13 +211,12 @@ func (x *SendEmailNode) Init(ruleConfig types.Config, configuration types.Config
 
 // OnMsg 处理消息
 func (x *SendEmailNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	metaData := msg.Metadata.Values()
 	emailPojo := x.Config.Email
 	var err error
 	if x.Config.EnableTls {
-		err = emailPojo.SendEmailWithTls(x.smtpAddr, x.smtpAuth, metaData, x.ConnectTimeoutDuration)
+		err = emailPojo.SendEmailWithTls(ctx, msg, x.smtpAddr, x.smtpAuth, x.ConnectTimeoutDuration)
 	} else {
-		err = emailPojo.SendEmail(x.smtpAddr, x.smtpAuth, metaData, x.ConnectTimeoutDuration)
+		err = emailPojo.SendEmail(ctx, msg, x.smtpAddr, x.smtpAuth, x.ConnectTimeoutDuration)
 
 	}
 	if err != nil {
