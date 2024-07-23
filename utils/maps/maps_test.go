@@ -73,4 +73,20 @@ func TestGet(t *testing.T) {
 		actual := Get(value, c.fieldName)
 		assert.Equal(t, c.expected, actual)
 	}
+
+	value2 := map[string]string{
+		"name": "Alice",
+	}
+	// 定义一些测试用例，包含字段名和期望的值
+	cases2 := []struct {
+		fieldName string
+		expected  interface{}
+	}{
+		{"name", "Alice"},
+	}
+	// 遍历每个测试用例，调用GetFieldValue函数，断言结果是否与期望的值相等
+	for _, c := range cases2 {
+		actual := Get(value2, c.fieldName)
+		assert.Equal(t, c.expected, actual)
+	}
 }

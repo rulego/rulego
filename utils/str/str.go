@@ -19,7 +19,9 @@ package str
 import (
 	"fmt"
 	"github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/utils/maps"
 	"math/rand"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +33,25 @@ const varPatternRight = "}"
 func init() {
 	//设置随机种子
 	rand.Seed(time.Now().UnixNano())
+}
+
+// ExecuteTemplate 根据pattern和dict格式化字符串。
+// original是一个字符串，包含${key}形式的变量占位符。支持多级如：${key.subKey}
+// dict map[string]string 被替换的变量。
+// 例如，SprintfDict（“你好，$｛name｝！”，map[string]string｛“name”：“Alice”｝）返回“你好，Alice！”。
+func ExecuteTemplate(original string, dict map[string]interface{}) string {
+	// 正则表达式匹配 ${aa} 或 ${aa.bb}
+	re := regexp.MustCompile(`\$\{ *([^}]+) *\}`)
+	// 使用正则表达式进行替换
+	replaced := re.ReplaceAllStringFunc(original, func(s string) string {
+		// 提取键名
+		matches := re.FindStringSubmatch(s)
+		if len(matches) < 2 {
+			return s // 如果没有匹配到，返回原字符串
+		}
+		return ToString(maps.Get(dict, strings.TrimSpace(matches[1])))
+	})
+	return replaced
 }
 
 // SprintfDict 根据pattern和dict格式化字符串。
@@ -58,9 +79,9 @@ func SprintfVar(pattern string, keyPrefix string, dict map[string]string) string
 	return result
 }
 
-func ProcessVar(pattern, key, val string) string {
-	varPattern := varPatternLeft + key + varPatternRight
-	return strings.Replace(pattern, varPattern, val, -1)
+func ProcessVar(s, varKey, newVal string) string {
+	varPattern := varPatternLeft + varKey + varPatternRight
+	return strings.Replace(s, varPattern, newVal, -1)
 }
 
 const randomStrOptions = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

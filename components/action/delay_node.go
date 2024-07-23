@@ -30,6 +30,7 @@ package action
 import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"strconv"
@@ -50,7 +51,7 @@ type DelayNodeConfiguration struct {
 	PeriodInSeconds int
 	//最大允许挂起消息的数量
 	MaxPendingMsgs int
-	//通过${metadataKey}方式从metadata变量中获取，延迟时间，如果该值有值，优先取该值。
+	//通过 ${metadata.key} 从元数据变量中获取或者通过 ${msg.key} 从消息负荷中获取，延迟时间，如果该值有值，优先取该值。
 	PeriodInSecondsPattern string
 	//是否覆盖周期内的消息
 	//true：周期内只保留一条消息，新的消息会覆盖之前的消息。直到队列里的消息被处理后，才会再次进入延迟队列。
@@ -127,7 +128,8 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			periodInSeconds := x.Config.PeriodInSeconds
 			//从Metadata获取延迟时间
 			if x.Config.PeriodInSecondsPattern != "" {
-				if v, err := strconv.Atoi(str.SprintfDict(x.Config.PeriodInSecondsPattern, msg.Metadata.Values())); err != nil {
+				evn := base.NodeUtils.GetEvnAndMetadata(ctx, msg)
+				if v, err := strconv.Atoi(str.ExecuteTemplate(x.Config.PeriodInSecondsPattern, evn)); err != nil {
 					ctx.TellFailure(msg, err)
 					return
 				} else {

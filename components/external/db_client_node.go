@@ -23,6 +23,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"strings"
@@ -46,9 +47,9 @@ const (
 
 // DbClientNodeConfiguration 节点配置
 type DbClientNodeConfiguration struct {
-	// Sql SQL语句，可以使用${metaKeyName} 替换元数据中的变量
+	// Sql SQL语句，v0.23.0之后不再支持运行时变量进行替换
 	Sql string
-	// Params SQL语句参数列表，可以使用${metaKeyName} 替换元数据中的变量
+	// Params SQL语句参数列表，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Params []interface{}
 	// GetOne 是否只返回一条记录，true:返回结构不是数组结构，false：返回数据是数组结构
 	GetOne bool
@@ -65,7 +66,11 @@ type DbClientNode struct {
 	Config DbClientNodeConfiguration
 	db     *sql.DB
 	//操作类型 SELECT\UPDATE\INSERT\DELETE
-	opType string
+	opType         string
+	sqlTemplate    str.Template
+	paramsTemplate []str.Template
+	//sql是否有变量
+	sqlHasVar bool
 	//参数是否有变量
 	paramsHasVar bool
 }
@@ -119,6 +124,9 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 
 			//检查是否需要转换成$1风格占位符
 			x.Config.Sql = str.ConvertDollarPlaceholder(x.Config.Sql, x.Config.DriverName)
+			if str.CheckHasVar(x.Config.Sql) {
+				x.sqlHasVar = true
+			}
 		}
 	}
 	return err
@@ -130,14 +138,22 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var err error
 	var rowsAffected int64
 	var lastInsertId int64
-	sqlStr := str.SprintfDict(x.Config.Sql, msg.Metadata.Values())
+	var evn map[string]interface{}
+	if x.sqlHasVar || x.paramsHasVar {
+		evn = base.NodeUtils.GetEvnAndMetadata(ctx, msg)
+	}
+	var sqlStr = x.Config.Sql
+	if x.sqlHasVar {
+		//转换sql变量
+		sqlStr = str.ExecuteTemplate(x.Config.Sql, evn)
+	}
 
 	var params []interface{}
 	if x.paramsHasVar {
 		//转换参数变量
 		for _, item := range x.Config.Params {
 			if v, ok := item.(string); ok {
-				params = append(params, str.SprintfDict(v, msg.Metadata.Values()))
+				params = append(params, str.ExecuteTemplate(v, evn))
 			} else {
 				params = append(params, item)
 			}

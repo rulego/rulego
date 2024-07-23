@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-package components
+package base
 
 import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/json"
 )
-
-type BaseNode struct {
-}
 
 var NodeUtils = &nodeUtils{}
 
@@ -39,7 +36,16 @@ func (n *nodeUtils) GetVars(configuration types.Configuration) map[string]interf
 	}
 }
 
-func (n *nodeUtils) GetEvn(_ types.RuleContext, msg types.RuleMsg) (map[string]interface{}, error) {
+func (n *nodeUtils) GetEvn(ctx types.RuleContext, msg types.RuleMsg) map[string]interface{} {
+	return n.getEvnAndMetadata(ctx, msg, false)
+}
+
+// GetEvnAndMetadata 和Metadata key合并
+func (n *nodeUtils) GetEvnAndMetadata(ctx types.RuleContext, msg types.RuleMsg) map[string]interface{} {
+	return n.getEvnAndMetadata(ctx, msg, true)
+}
+
+func (n *nodeUtils) getEvnAndMetadata(_ types.RuleContext, msg types.RuleMsg, useMetadata bool) map[string]interface{} {
 	var data interface{}
 	if msg.DataType == types.JSON {
 		// 解析 JSON 字符串到 map
@@ -56,9 +62,14 @@ func (n *nodeUtils) GetEvn(_ types.RuleContext, msg types.RuleMsg) (map[string]i
 	evn[types.TsKey] = msg.Ts
 	evn[types.DataKey] = msg.Data
 	evn[types.MsgKey] = data
-	evn[types.MetadataKey] = msg.Metadata
+	evn[types.MetadataKey] = map[string]string(msg.Metadata)
 	evn[types.MsgTypeKey] = msg.Type
 	evn[types.TypeKey] = msg.Type
 	evn[types.DataTypeKey] = msg.DataType
-	return evn, nil
+	if useMetadata {
+		for k, v := range msg.Metadata {
+			evn[k] = v
+		}
+	}
+	return evn
 }

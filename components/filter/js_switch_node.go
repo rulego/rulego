@@ -30,7 +30,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/components"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/js"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
@@ -76,7 +76,7 @@ func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configu
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
 		jsScript := fmt.Sprintf("function Switch(msg, metadata, msgType) { %s }", x.Config.JsScript)
-		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, components.NodeUtils.GetVars(configuration))
+		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, base.NodeUtils.GetVars(configuration))
 		if v := ruleConfig.Properties.GetValue(KeyOtherRelationTypeName); v != "" {
 			x.defaultRelationType = v
 		} else {

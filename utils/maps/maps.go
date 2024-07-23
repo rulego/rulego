@@ -47,15 +47,23 @@ func Get(input interface{}, fieldName string) interface{} {
 	fields := strings.Split(fieldName, ".")
 	var result interface{}
 	result = input
+
 	// 遍历每个子字段
 	for _, field := range fields {
-		if mapValue, ok := result.(map[string]interface{}); ok {
-			if v, ok := mapValue[field]; ok {
-				result = v
+		switch v := result.(type) {
+		case map[string]interface{}:
+			if val, ok := v[field]; ok {
+				result = val
 			} else {
 				return nil
 			}
-		} else {
+		case map[string]string:
+			if val, ok := v[field]; ok {
+				result = val
+			} else {
+				return nil
+			}
+		default:
 			return nil
 		}
 	}

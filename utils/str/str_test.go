@@ -62,6 +62,28 @@ func TestSprintfDict(t *testing.T) {
 	assert.Equal(t, "Hello, Alice. You are 18 years old.", s)
 }
 
+func TestExecuteTemplate(t *testing.T) {
+	// 创建一个字典
+	dict := map[string]interface{}{
+		"name": "Alice",
+		"age":  "18",
+		"info": map[string]interface{}{
+			"job": map[string]interface{}{
+				"title": "Engineer",
+			},
+			"location": map[string]interface{}{
+				"city": "GZ",
+			},
+		},
+	}
+	// 使用SprintfDict来格式化字符串
+	s := ExecuteTemplate("Hello, ${name}. You are ${age} years old. I am an ${info.job.title} from ${info.location.city}. ${unknown}", dict)
+	assert.Equal(t, "Hello, Alice. You are 18 years old. I am an Engineer from GZ. ", s)
+
+	s = ExecuteTemplate("Hello, Alice.", dict)
+	assert.Equal(t, "Hello, Alice.", s)
+}
+
 func TestSprintfVar(t *testing.T) {
 	// 创建一个字典
 	dict := map[string]string{

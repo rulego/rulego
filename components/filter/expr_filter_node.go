@@ -30,7 +30,7 @@ import (
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/components"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 )
 
@@ -83,11 +83,7 @@ func (x *ExprFilterNode) Init(ruleConfig types.Config, configuration types.Confi
 
 // OnMsg 处理消息
 func (x *ExprFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	evn, err := components.NodeUtils.GetEvn(ctx, msg)
-	if err != nil {
-		ctx.TellFailure(msg, err)
-		return
-	}
+	evn := base.NodeUtils.GetEvn(ctx, msg)
 
 	if out, err := vm.Run(x.program, evn); err != nil {
 		ctx.TellFailure(msg, err)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"io"
@@ -27,9 +28,9 @@ func init() {
 
 // ExecCommandNodeConfiguration 节点配置
 type ExecCommandNodeConfiguration struct {
-	// Cmd 执行的命令
+	// Cmd 执行的命令，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Cmd string
-	// Args 命令参数
+	// Args 命令参数，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Args []string
 	// Log 是否打印标准输出。true:命令标准输出会触发OnDebug函数输出
 	Log bool
@@ -67,13 +68,10 @@ func (x *ExecCommandNode) Init(ruleConfig types.Config, configuration types.Conf
 
 // OnMsg 处理消息
 func (x *ExecCommandNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	// 创建 metadata 的副本并添加消息内容
-	metadataCopy := msg.Metadata.Copy()
-	metadataCopy.PutValue("msg.data", msg.Data)
-	metadataCopy.PutValue("msg.type", msg.Type)
 
+	evn := base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	// 替换命令中的占位符
-	command := str.SprintfDict(x.Config.Cmd, metadataCopy.Values())
+	command := str.ExecuteTemplate(x.Config.Cmd, evn)
 
 	// 检查命令是否在白名单中
 	if !isCommandWhitelisted(command, x.CommandWhitelist) {
@@ -87,10 +85,10 @@ func (x *ExecCommandNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		if !strings.HasPrefix(arg, "\"") {
 			v := strings.Split(arg, " ")
 			for _, item := range v {
-				args = append(args, str.SprintfDict(item, metadataCopy.Values()))
+				args = append(args, str.ExecuteTemplate(item, evn))
 			}
 		} else {
-			args = append(args, str.SprintfDict(arg, metadataCopy.Values()))
+			args = append(args, str.ExecuteTemplate(arg, evn))
 		}
 	}
 

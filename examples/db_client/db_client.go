@@ -65,23 +65,25 @@ var chainJsonFile = `
         "id": "s1",
         "type": "dbClient",
         "name": "插入1条记录",
+		"debugMode":true,
         "configuration": {
 			"driverName":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
 			"poolSize":5,
 			"sql":"insert into users (id,name, age) values (?,?,?)",
-			"params":["${id}", "${name}", "${age}"]
+			"params":["${metadata.id}", "${metadata.name}", "${metadata.age}"]
         }
       },
      {
         "id": "s2",
         "type": "dbClient",
         "name": "查询1条记录",
+		"debugMode":true,
         "configuration": {
 			"driverName":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
 			"sql":"select * from users where id = ?",
-			"params":["${id}"],
+			"params":["${metadata.id}"],
 			"getOne":true
         }
       },
@@ -89,27 +91,30 @@ var chainJsonFile = `
         "id": "s3",
         "type": "dbClient",
         "name": "查询多条记录，参数不使用占位符",
+		"debugMode":true,
         "configuration": {
 			"driverName":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
-			"sql":"select * from users where age >= ${age}"
+			"sql":"select * from users where age >= 18"
         }
       },
 	  {
         "id": "s4",
         "type": "dbClient",
         "name": "更新记录，参数使用占位符",
+		"debugMode":true,
         "configuration": {
 			"driverName":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",
 			"sql":"update users set age = ? where id = ?",
-			"params":["${updateAge}","${id}"]
+			"params":["${metadata.updateAge}","${metadata.id}"]
         }
       },
 	  {
         "id": "s5",
         "type": "dbClient",
         "name": "删除记录",
+		"debugMode":true,
         "configuration": {
 			"driverName":"mysql",
 			"dsn":"root:root@tcp(127.0.0.1:3306)/test",

@@ -35,7 +35,7 @@ import (
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/components"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 )
@@ -118,11 +118,7 @@ func (x *MetadataTransformNode) Init(_ types.Config, configuration types.Configu
 
 // OnMsg 处理消息
 func (x *MetadataTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	evn, err := components.NodeUtils.GetEvn(ctx, msg)
-	if err != nil {
-		ctx.TellFailure(msg, err)
-		return
-	}
+	evn := base.NodeUtils.GetEvn(ctx, msg)
 	var exprVm = vm.VM{}
 	mapResult := make(map[string]string)
 	for fieldName, program := range x.programMapping {
