@@ -128,6 +128,7 @@ func (x *ForNode) Init(_ types.Config, configuration types.Configuration) error 
 func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var err error
 	evn := base.NodeUtils.GetEvn(ctx, msg)
+	var inData = msg.Data
 	var data interface{}
 	var exprVm = vm.VM{}
 	if x.program != nil {
@@ -194,6 +195,8 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	default:
 		err = errors.New("value is not a supported. must array slice or struct type")
 	}
+	//不修改in data
+	msg.Data = inData
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
