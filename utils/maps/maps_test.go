@@ -52,6 +52,7 @@ func TestGet(t *testing.T) {
 		"address": map[string]interface{}{
 			"city":    "Beijing",
 			"country": "China",
+			"detail":  nil,
 		},
 		"friends": []string{"Bob", "Charlie"},
 	}
@@ -64,6 +65,8 @@ func TestGet(t *testing.T) {
 		{"age", 25},
 		{"address.city", "Beijing"},
 		{"address.country", "China"},
+		{"address.detail", nil},
+		{"address.detail.x", nil},
 		{"friends", []string{"Bob", "Charlie"}},
 		{"hobbies", nil},
 		{"address.zipcode", nil},
