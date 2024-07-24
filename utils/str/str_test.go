@@ -17,53 +17,23 @@
 package str
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/rulego/rulego/test/assert"
 	"math"
 	"reflect"
 	"testing"
 )
 
-func TestProcessVar(t *testing.T) {
-	s := ProcessVar("Hello, Alice. You are ${age} years old.", "age", "18")
-	assert.Equal(t, "Hello, Alice. You are 18 years old.", s)
-}
-func TestProcessVar2(t *testing.T) {
-	var input interface{}
-	input = float64(5)
-	newValue, _ := json.Marshal(input)
-	fmt.Println(string(newValue))
-	fmt.Println(ToString(input))
-	input = true
-	newValue, _ = json.Marshal(input)
-	fmt.Println(string(newValue))
-	fmt.Println(ToString(input))
-	input = "aa"
-	newValue, _ = json.Marshal(input)
-	fmt.Println(string(newValue))
-	fmt.Println(ToString(input))
-	input = []byte("bb")
-	newValue, _ = json.Marshal(input)
-	fmt.Println(string(newValue))
-	fmt.Println(ToString(input))
-
-}
-
 func TestSprintfDict(t *testing.T) {
-	// 创建一个字典
 	dict := map[string]string{
 		"name": "Alice",
 		"age":  "18",
 	}
-	// 使用SprintfDict来格式化字符串
 	s := SprintfDict("Hello, ${name}. You are ${age} years old.", dict)
 	assert.Equal(t, "Hello, Alice. You are 18 years old.", s)
 }
 
 func TestExecuteTemplate(t *testing.T) {
-	// 创建一个字典
 	dict := map[string]interface{}{
 		"name": "Alice",
 		"age":  "18",
@@ -76,23 +46,12 @@ func TestExecuteTemplate(t *testing.T) {
 			},
 		},
 	}
-	// 使用SprintfDict来格式化字符串
+
 	s := ExecuteTemplate("Hello, ${name}. You are ${age} years old. I am an ${info.job.title} from ${info.location.city}. ${unknown}", dict)
-	assert.Equal(t, "Hello, Alice. You are 18 years old. I am an Engineer from GZ. ", s)
+	assert.Equal(t, "Hello, Alice. You are 18 years old. I am an Engineer from GZ. ${unknown}", s)
 
 	s = ExecuteTemplate("Hello, Alice.", dict)
 	assert.Equal(t, "Hello, Alice.", s)
-}
-
-func TestSprintfVar(t *testing.T) {
-	// 创建一个字典
-	dict := map[string]string{
-		"name": "Alice",
-		"age":  "18",
-	}
-	// 使用SprintfDict来格式化字符串
-	s := SprintfVar("Hello, ${global.name}. You are ${global.age} years old.", "global.", dict)
-	assert.Equal(t, "Hello, Alice. You are 18 years old.", s)
 }
 
 type Stringer struct {

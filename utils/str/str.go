@@ -35,53 +35,52 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// ExecuteTemplate 根据pattern和dict格式化字符串。
-// original是一个字符串，包含${key}形式的变量占位符。支持多级如：${key.subKey}
-// dict map[string]string 被替换的变量。
-// 例如，SprintfDict（“你好，$｛name｝！”，map[string]string｛“name”：“Alice”｝）返回“你好，Alice！”。
+// 正则表达式匹配 ${aa} 或 ${aa.bb}
+var tplVarRegex = regexp.MustCompile(`\$\{ *([^}]+) *\}`)
+
+// ExecuteTemplate 替换字符串模板中的${}变量
+// original是一个字符串，包含${key}形式的变量占位符。支持多级变量如：${key.subKey}
+// Example: ExecuteTemplate("Hello,${name}",map[string]string{"name":"Alice"}). return "Hello,Alice!".
+// 如果没匹配到变量，则保留原样
 func ExecuteTemplate(original string, dict map[string]interface{}) string {
-	// 正则表达式匹配 ${aa} 或 ${aa.bb}
-	re := regexp.MustCompile(`\$\{ *([^}]+) *\}`)
 	// 使用正则表达式进行替换
-	replaced := re.ReplaceAllStringFunc(original, func(s string) string {
+	replaced := tplVarRegex.ReplaceAllStringFunc(original, func(s string) string {
 		// 提取键名
-		matches := re.FindStringSubmatch(s)
+		matches := tplVarRegex.FindStringSubmatch(s)
 		if len(matches) < 2 {
 			return s // 如果没有匹配到，返回原字符串
 		}
-		return ToString(maps.Get(dict, strings.TrimSpace(matches[1])))
+		result := ToString(maps.Get(dict, strings.TrimSpace(matches[1])))
+		if result == "" {
+			return s
+		} else {
+			return result
+		}
 	})
 	return replaced
 }
 
 // SprintfDict 根据pattern和dict格式化字符串。
-// pattern是一个字符串，包含${key}形式的变量占位符。
-// dict map[string]string 被替换的变量。
-// 例如，SprintfDict（“你好，$｛name｝！”，map[string]string｛“name”：“Alice”｝）返回“你好，Alice！”。
-// 如果pattern包含一个不在dict中的key，它将保持不变。
-// 如果dict包含一个不在pattern中的key，它将被忽略。
-func SprintfDict(pattern string, dict map[string]string) string {
-	return SprintfVar(pattern, "", dict)
-}
-
-// SprintfVar 根据pattern和dict格式化字符串。
-// pattern是一个字符串，包含${key}形式的变量占位符。
-// dict map[string]string 被替换的变量。
-// keyPrefix key前缀，dict所有key将会加上前缀keyPrefix再进行替换。
-// 例如，SprintfDict（“你好，$｛name｝！”，map[string]string｛“name”：“Alice”｝）返回“你好，Alice！”。
-// 如果pattern包含一个不在dict中的key，它将保持不变。
-// 如果dict包含一个不在pattern中的key，它将被忽略。
-func SprintfVar(pattern string, keyPrefix string, dict map[string]string) string {
-	var result = pattern
-	for key, value := range dict {
-		result = ProcessVar(result, keyPrefix+key, value)
-	}
-	return result
-}
-
-func ProcessVar(s, varKey, newVal string) string {
-	varPattern := varPatternLeft + varKey + varPatternRight
-	return strings.Replace(s, varPattern, newVal, -1)
+// SprintfDict 替换字符串模板中的${}变量
+// original是一个字符串，包含${key}形式的变量占位符。不支持多级变量。
+// Example: SprintfDict("Hello,${name}",map[string]string{"name":"Alice"}). return "Hello,Alice!".
+// 如果没匹配到变量，则保留原样
+func SprintfDict(original string, dict map[string]string) string {
+	// 使用正则表达式进行替换
+	replaced := tplVarRegex.ReplaceAllStringFunc(original, func(s string) string {
+		// 提取键名
+		matches := tplVarRegex.FindStringSubmatch(s)
+		if len(matches) < 2 {
+			return s // 如果没有匹配到，返回原字符串
+		}
+		result := dict[strings.TrimSpace(matches[1])]
+		if result == "" {
+			return s
+		} else {
+			return result
+		}
+	})
+	return replaced
 }
 
 const randomStrOptions = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

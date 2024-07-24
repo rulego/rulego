@@ -154,10 +154,13 @@ func processVariables(config types.Config, chainCtx *RuleChainCtx, configuration
 		//解密Secrets
 		decryptSecrets = copyMap(chainCtx.decryptSecrets)
 	}
+	var env = map[string]interface{}{
+		types.Global: globalEnv,
+		types.Vars:   varsEnv,
+	}
 	for key, value := range configuration {
 		if strV, ok := value.(string); ok {
-			v := str.SprintfVar(strV, types.Global+".", globalEnv)
-			v = str.SprintfVar(v, types.Vars+".", varsEnv)
+			v := str.ExecuteTemplate(strV, env)
 			result[key] = v
 		} else {
 			result[key] = value
