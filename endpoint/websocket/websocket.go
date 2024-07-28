@@ -27,6 +27,7 @@ import (
 	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/runtime"
 	"github.com/rulego/rulego/utils/str"
 	"log"
 	"net"
@@ -399,7 +400,7 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 				if ws.OnEvent != nil {
 					ws.OnEvent(endpoint.EventDisconnect, connectExchange)
 				}
-				ws.Printf("ws handler err :%v", e)
+				ws.Printf("ws endpoint handler err :\n%v", runtime.Stack())
 			}
 		}()
 

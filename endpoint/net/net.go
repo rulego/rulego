@@ -24,8 +24,8 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/impl"
-	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/runtime"
 	"log"
 	"net"
 	"net/textproto"
@@ -363,7 +363,7 @@ func (x *ClientHandler) handler() {
 		_ = x.conn.Close()
 		//捕捉异常
 		if e := recover(); e != nil {
-			x.endpoint.Printf("net handler err :%v\n %s", e, assert.CallerInfo())
+			x.endpoint.Printf("net endpoint handler err :\n%v", runtime.Stack())
 		}
 	}()
 	readTimeoutDuration := time.Duration(x.endpoint.Config.ReadTimeout+5) * time.Second

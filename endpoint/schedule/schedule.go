@@ -46,6 +46,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/impl"
+	"github.com/rulego/rulego/utils/runtime"
 	"net/textproto"
 	"strconv"
 )
@@ -265,7 +266,7 @@ func (schedule *Schedule) handler(router endpoint.Router) {
 	defer func() {
 		//捕捉异常
 		if e := recover(); e != nil {
-			schedule.Printf("schedule handler err :%v", e)
+			schedule.Printf("schedule endpoint handler err :\n%v", runtime.Stack())
 		}
 	}()
 	exchange := &endpoint.Exchange{
