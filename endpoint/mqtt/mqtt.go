@@ -26,6 +26,7 @@ import (
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/runtime"
 	"net/textproto"
 	"strconv"
 	"time"
@@ -312,7 +313,7 @@ func (m *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Mes
 		defer func() {
 			//捕捉异常
 			if e := recover(); e != nil {
-				m.Printf("rest handler err :%v", e)
+				m.Printf("mqtt endpoint handler err :\n%v", runtime.Stack())
 			}
 		}()
 		exchange := &endpoint.Exchange{

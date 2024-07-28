@@ -25,6 +25,7 @@ import (
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/runtime"
 	"github.com/rulego/rulego/utils/str"
 	"io"
 	"net"
@@ -409,12 +410,13 @@ func (rest *Rest) Router() *httprouter.Router {
 func (rest *Rest) routerKey(method string, from string) string {
 	return method + ":" + from
 }
+
 func (rest *Rest) handler(router endpoint.Router) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		defer func() {
 			//捕捉异常
 			if e := recover(); e != nil {
-				rest.Printf("rest handler err :%v", e)
+				rest.Printf("http endpoint handler err :\n%v", runtime.Stack())
 			}
 		}()
 		if router.IsDisable() {
