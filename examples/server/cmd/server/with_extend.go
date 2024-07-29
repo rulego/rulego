@@ -8,6 +8,7 @@ import (
 	_ "github.com/rulego/rulego-components/endpoint/kafka"
 	_ "github.com/rulego/rulego-components/endpoint/nats"
 	_ "github.com/rulego/rulego-components/endpoint/redis"
+	_ "github.com/rulego/rulego-components/endpoint/redis_stream"
 	_ "github.com/rulego/rulego-components/external/kafka"
 	_ "github.com/rulego/rulego-components/external/nats"
 	_ "github.com/rulego/rulego-components/external/redis"
