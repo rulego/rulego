@@ -1,6 +1,9 @@
 package config
 
-import "time"
+import (
+	"github.com/rulego/rulego/api/types"
+	"time"
+)
 
 var C Config
 
@@ -33,6 +36,8 @@ type Config struct {
 	ResourceMapping string `ini:"resource_mapping"`
 	// Mqtt mqtt配置
 	Mqtt Mqtt `ini:"mqtt"`
+	// 全局自定义配置，组件可以通过${global.xxx}方式取值
+	Global types.Metadata `ini:"global"`
 }
 type Mqtt struct {
 	//是否启用mqtt

@@ -66,6 +66,9 @@ func main() {
 		if err := cfg.MapTo(&c); err != nil {
 			log.Fatal("error:", err)
 		}
+		if section, err := cfg.GetSection("global"); err == nil {
+			c.Global = section.KeysHash()
+		}
 	}
 	config.Set(c)
 	logger.Set(initLogger(c))

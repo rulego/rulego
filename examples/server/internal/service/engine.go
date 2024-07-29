@@ -296,6 +296,10 @@ func (s *RuleEngineService) DebugData() *RuleChainDebugData {
 func (s *RuleEngineService) initRuleGo(logger *log.Logger, workspacePath string, username string) {
 
 	ruleConfig := rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger))
+	//加载自定义配置
+	for k, v := range s.config.Global {
+		ruleConfig.Properties.PutValue(k, v)
+	}
 	//加载lua第三方库
 	ruleConfig.Properties.PutValue(luaEngine.LoadLuaLibs, s.config.LoadLuaLibs)
 	ruleConfig.Properties.PutValue(action.KeyExecNodeWhitelist, s.config.CmdWhiteList)
