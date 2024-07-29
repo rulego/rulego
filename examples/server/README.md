@@ -115,6 +115,7 @@ default_username = admin
 debug = true
 # Maximum node log size, default 40
 max_node_log_size =40
+
 # mqtt configuration
 [mqtt]
 # Whether to enable mqtt
@@ -125,4 +126,10 @@ server = 127.0.0.1:1883
 topics = `#`
 # Which rule chain to handle the subscribed data
 to_chain_id = chain_call_rest_api
+
+# Global custom configuration, components can take values through the ${global.xxx}
+[global]
+# example
+sqlDriver = mysql
+sqlDsn = root:root@tcp(127.0.0.1:3306)/test
 ```

@@ -113,6 +113,7 @@ default_username = admin
 debug = true
 # 最大节点日志大小，默认40
 max_node_log_size =40
+
 # mqtt 配置
 [mqtt]
 # 是否开启mqtt
@@ -123,4 +124,11 @@ server = 127.0.0.1:1883
 topics = `#`
 # 订阅数据交给哪个规则链处理
 to_chain_id = chain_call_rest_api
+
+# 全局自定义配置，组件可以通过${global.xxx}方式取值
+[global]
+# 例子
+sqlDriver = mysql
+sqlDsn = root:root@tcp(127.0.0.1:3306)/test
+
 ```
