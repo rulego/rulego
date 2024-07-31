@@ -88,6 +88,16 @@ func (x *FunctionsRegistry) Get(functionName string) (func(ctx types.RuleContext
 	return f, ok
 }
 
+func (x *FunctionsRegistry) Names() []string {
+	x.RLock()
+	defer x.RUnlock()
+	var keys = make([]string, 0, len(x.functions))
+	for k := range x.functions {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // FunctionsNodeConfiguration 节点配置
 type FunctionsNodeConfiguration struct {
 	//FunctionName 调用的函数名称，支持通过${metadata.key}方式从metadata动态获取函数名称值或者通过${msg.key}方式从消息负荷动态获取函数名称值
