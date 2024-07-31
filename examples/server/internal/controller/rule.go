@@ -8,6 +8,8 @@ import (
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/builtin/processor"
+	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/utils/json"
 	"net/http"
@@ -28,10 +30,28 @@ var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange
 // ComponentsRouter 创建获取规则引擎节点组件列表路由
 func ComponentsRouter(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+
 		//响应endpoint和节点组件配置表单列表
 		list, err := json.Marshal(map[string]interface{}{
+			//endpoint组件
 			"endpoints": endpoint.Registry.GetComponentForms().Values(),
-			"nodes":     rulego.Registry.GetComponentForms().Values(),
+			//节点组件
+			"nodes": rulego.Registry.GetComponentForms().Values(),
+			//组件配置内置选项
+			"builtins": map[string]interface{}{
+				// functions节点组件
+				"functions": map[string]interface{}{
+					//函数名选项
+					"functionName": action.Functions.Names(),
+				},
+				//endpoints内置路由选项
+				"endpoints": map[string]interface{}{
+					//in 处理器列表
+					"inProcessors": processor.InBuiltins.Names(),
+					//in 处理器列表
+					"outProcessors": processor.OutBuiltins.Names(),
+				},
+			},
 		})
 		if err != nil {
 			exchange.Out.SetStatusCode(http.StatusInternalServerError)
