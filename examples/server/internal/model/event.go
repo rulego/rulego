@@ -30,7 +30,7 @@ type DebugData struct {
 // DebugDataPage 分页返回数据
 type DebugDataPage struct {
 	//每页多少条，默认读取所有
-	Size int `json:"Size"`
+	Size int `json:"PageSize"`
 	//当前第几页，默认读取所有
 	Current int `json:"current"`
 	//总数

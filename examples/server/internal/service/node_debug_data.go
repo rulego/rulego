@@ -69,7 +69,7 @@ func (d *RuleChainDebugData) Get(chainId string, nodeId string) *FixedQueue {
 		return nil
 	}
 }
-func (d *RuleChainDebugData) GetToPage(chainId string, nodeId string) DebugDataPage {
+func (d *RuleChainDebugData) GetToPage(chainId string, nodeId string, pageSize, current int) DebugDataPage {
 	list := d.Get(chainId, nodeId)
 	var page = DebugDataPage{}
 	if list != nil {
@@ -78,7 +78,28 @@ func (d *RuleChainDebugData) GetToPage(chainId string, nodeId string) DebugDataP
 		sort.Slice(list.Items, func(i, j int) bool {
 			return list.Items[i].Ts > list.Items[j].Ts
 		})
-		page.Items = list.Items
+		if pageSize == 0 {
+			pageSize = page.Total
+		}
+		if current <= 0 {
+			current = 1
+		}
+		// 计算分页索引
+		start := (current - 1) * pageSize
+		end := start + pageSize
+		page.PageSize = pageSize
+		page.Current = current
+		// 检查起始索引是否超出列表范围
+		if start >= page.Total {
+			page.Items = []DebugData{} // 如果超出范围，返回空列表
+		} else {
+			// 计算结束索引，防止超过列表最大长度
+			if end > page.Total {
+				end = page.Total
+			}
+			// 根据索引范围获取分页数据
+			page.Items = list.Items[start:end]
+		}
 	}
 	return page
 }
@@ -158,7 +179,7 @@ type DebugData struct {
 // DebugDataPage 分页返回数据
 type DebugDataPage struct {
 	//每页多少条，默认读取所有
-	Size int `json:"Size"`
+	PageSize int `json:"pageSize"`
 	//当前第几页，默认读取所有
 	Current int `json:"current"`
 	//总数

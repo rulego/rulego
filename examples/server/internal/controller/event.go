@@ -18,8 +18,18 @@ func GetDebugDataRouter(url string) endpointApi.Router {
 		chainId := msg.Metadata.GetValue(constants.KeyChainId)
 		nodeId := msg.Metadata.GetValue(constants.KeyNodeId)
 		username := msg.Metadata.GetValue(constants.KeyUsername)
+		var current = 1
+		var pageSize = 20
+		currentStr := msg.Metadata.GetValue(constants.KeyCurrent)
+		if i, err := strconv.Atoi(currentStr); err == nil {
+			current = i
+		}
+		pageSizeStr := msg.Metadata.GetValue(constants.KeyPageSize)
+		if i, err := strconv.Atoi(pageSizeStr); err == nil {
+			pageSize = i
+		}
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-			page := s.DebugData().GetToPage(chainId, nodeId)
+			page := s.DebugData().GetToPage(chainId, nodeId, pageSize, current)
 			if v, err := json.Marshal(page); err != nil {
 				exchange.Out.SetStatusCode(http.StatusInternalServerError)
 				exchange.Out.SetBody([]byte(err.Error()))
