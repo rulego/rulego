@@ -22,12 +22,15 @@ import (
 	"sync"
 )
 
-// Builtins is a collection of built-in processors that can be called by name through endpoint DSL.
-var Builtins = builtins{}
+// InBuiltins is a collection of built-in in processors that can be called by name through endpoint DSL.
+var InBuiltins = builtins{}
+
+// OutBuiltins is a collection of built-in out processors that can be called by name through endpoint DSL.
+var OutBuiltins = builtins{}
 
 func init() {
 	// Register a processor to add HTTP headers to message metadata.
-	Builtins.Register("headersToMetadata", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+	InBuiltins.Register("headersToMetadata", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		headers := exchange.In.Headers()
 		for k := range headers {
@@ -36,7 +39,7 @@ func init() {
 		return true
 	})
 	// Register a processor to respond to the HTTP client with the message.
-	Builtins.Register("responseToBody", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+	OutBuiltins.Register("responseToBody", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		if err := exchange.Out.GetError(); err != nil {
 			// Set error status and body in the response.
 			exchange.Out.SetStatusCode(400)
@@ -95,4 +98,15 @@ func (b *builtins) Get(name string) (endpoint.Process, bool) {
 	defer b.lock.RUnlock()
 	p, ok := b.processors[name]
 	return p, ok
+}
+
+// Names Get a list of built-in processor names
+func (b *builtins) Names() []string {
+	b.lock.RLock()
+	defer b.lock.RUnlock()
+	var keys = make([]string, 0, len(b.processors))
+	for k := range b.processors {
+		keys = append(keys, k)
+	}
+	return keys
 }

@@ -268,7 +268,7 @@ func (e *DynamicEndpoint) AddRouterFromDef(routerDsl *types.RouterDsl) (string, 
 	defer e.locker.Unlock()
 	from := NewRouter(opts...).SetId(routerDsl.Id).From(routerDsl.From.Path, routerDsl.From.Configuration)
 	for _, item := range routerDsl.From.Processors {
-		if p, ok := processor.Builtins.Get(item); ok {
+		if p, ok := processor.InBuiltins.Get(item); ok {
 			from.Process(p)
 		} else {
 			return "", errors.New("processor not found: " + item)
@@ -277,7 +277,7 @@ func (e *DynamicEndpoint) AddRouterFromDef(routerDsl *types.RouterDsl) (string, 
 	if routerDsl.To.Path != "" {
 		to := from.To(routerDsl.To.Path, routerDsl.To.Configuration)
 		for _, item := range routerDsl.To.Processors {
-			if p, ok := processor.Builtins.Get(item); ok {
+			if p, ok := processor.OutBuiltins.Get(item); ok {
 				to.Process(p)
 			} else {
 				return "", errors.New("processor not found: " + item)
@@ -332,7 +332,7 @@ func (e *DynamicEndpoint) newEndpoint(dsl types.EndpointDsl) error {
 		}
 		// Add interceptors
 		for _, item := range dsl.Processors {
-			if p, ok := processor.Builtins.Get(item); ok {
+			if p, ok := processor.InBuiltins.Get(item); ok {
 				e.AddInterceptors(p)
 			} else {
 				return errors.New("processor not found: " + item)
