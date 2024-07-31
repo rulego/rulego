@@ -206,7 +206,7 @@ func TestHttpEndpointAspect(t *testing.T) {
 
 func TestScheduleEndpointAspect(t *testing.T) {
 	var count = int64(0)
-	processor.Builtins.Register("testPrint", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+	processor.InBuiltins.Register("testPrint", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//fmt.Printf("testPrint:%s \n", time.Now().Format("2006-01-02 15:04:05"))
 		atomic.AddInt64(&count, 1)
 		return true
