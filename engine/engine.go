@@ -339,7 +339,12 @@ func (ctx *DefaultRuleContext) TellNode(chanCtx context.Context, nodeId string, 
 		rootCtxCopy.skipTellNext = skipTellNext
 		rootCtxCopy.tell(msg, nil, "")
 	} else {
-		onEnd(ctx, msg, fmt.Errorf("node id=%s not found", nodeId), types.Failure)
+		if onEnd != nil {
+			onEnd(ctx, msg, fmt.Errorf("node id=%s not found", nodeId), types.Failure)
+		}
+		if onAllNodeCompleted != nil {
+			onAllNodeCompleted()
+		}
 	}
 }
 
