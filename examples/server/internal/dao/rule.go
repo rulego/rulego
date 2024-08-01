@@ -33,8 +33,8 @@ func (d *RuleDao) Save(username, chainId string, def []byte) error {
 }
 
 func (d *RuleDao) Delete(username, chainId string) error {
-	var paths = []string{d.config.DataDir, constants.DirWorkflows, constants.DirWorkflowsRule}
-	paths = append(paths, username)
+	var paths = []string{d.config.DataDir, constants.DirWorkflows}
+	paths = append(paths, username, constants.DirWorkflowsRule)
 	pathStr := path.Join(paths...)
 	file := filepath.Join(pathStr, chainId+constants.RuleChainFileSuffix)
 	return os.RemoveAll(file)
