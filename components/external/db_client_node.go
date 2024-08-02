@@ -229,13 +229,16 @@ func (x *DbClientNode) query(sqlStr string, params []interface{}, getOne bool) (
 		// 将当前行的 map 深拷贝到一个新的 map 中，避免后续循环覆盖数据
 		m := make(map[string]interface{}, len(row))
 		for k, v := range row {
+			var temp = v
 			// 如果值是 []byte 类型，转换成 string 类型
 			if b1, ok := v.(*interface{}); ok {
 				if b, ok := (*b1).([]byte); ok {
-					v = string(b)
+					temp = string(b)
+				} else {
+					temp = *b1
 				}
 			}
-			m[k] = v
+			m[k] = temp
 		}
 		// 将新的 map 追加到结果切片中
 		result = append(result, m)
