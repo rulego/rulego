@@ -143,6 +143,17 @@ func ToStringMaybeErr(input interface{}) (string, error) {
 		return v.String(), nil
 	case error:
 		return v.Error(), nil
+	case map[interface{}]interface{}:
+		// 转换为 map[string]interface{}
+		convertedInput := make(map[string]interface{})
+		for k, value := range v {
+			convertedInput[fmt.Sprintf("%v", k)] = value
+		}
+		if newValue, err := json.Marshal(convertedInput); err == nil {
+			return string(newValue), nil
+		} else {
+			return "", err
+		}
 	default:
 		if newValue, err := json.Marshal(input); err == nil {
 			return string(newValue), nil
