@@ -91,6 +91,9 @@ func TestToString(t *testing.T) {
 		{"{\"name\":\"lala\"}", map[string]string{
 			"name": "lala",
 		}},
+		{"{\"name\":\"lala\"}", map[interface{}]interface{}{
+			"name": "lala",
+		}},
 	}
 
 	for _, tc := range testCases {
