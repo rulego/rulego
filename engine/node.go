@@ -100,11 +100,27 @@ func (rn *RuleNodeCtx) GetNodeId() types.RuleNodeId {
 }
 
 func (rn *RuleNodeCtx) ReloadSelf(def []byte) error {
-	if ruleNodeCtx, err := rn.config.Parser.DecodeRuleNode(rn.config, def, rn.ChainCtx); err == nil {
+	if node, err := rn.config.Parser.DecodeRuleNode(def); err == nil {
+		return rn.ReloadSelfFromDef(node)
+	} else {
+		return err
+	}
+}
+
+func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
+	chainCtx := rn.ChainCtx
+	var ctx *RuleNodeCtx
+	var err error
+	if chainCtx == nil {
+		ctx, err = InitRuleNodeCtx(rn.config, nil, nil, &def)
+	} else {
+		ctx, err = InitRuleNodeCtx(rn.config, chainCtx, chainCtx.aspects, &def)
+	}
+	if err == nil {
 		//先销毁
 		rn.Destroy()
 		//重新加载
-		rn.Copy(ruleNodeCtx.(*RuleNodeCtx))
+		rn.Copy(ctx)
 		return nil
 	} else {
 		return err
@@ -129,12 +145,7 @@ func (rn *RuleNodeCtx) Copy(newCtx *RuleNodeCtx) {
 	rn.Node = newCtx.Node
 	rn.config = newCtx.config
 	rn.aspects = newCtx.aspects
-
-	rn.SelfDefinition.AdditionalInfo = newCtx.SelfDefinition.AdditionalInfo
-	rn.SelfDefinition.Name = newCtx.SelfDefinition.Name
-	rn.SelfDefinition.Type = newCtx.SelfDefinition.Type
-	rn.SelfDefinition.DebugMode = newCtx.SelfDefinition.DebugMode
-	rn.SelfDefinition.Configuration = newCtx.SelfDefinition.Configuration
+	rn.SelfDefinition = newCtx.SelfDefinition
 }
 
 // 使用全局配置替换节点占位符配置，例如：${global.propertyKey}

@@ -306,9 +306,9 @@ type JsEngine interface {
 // Then register it with the rule engine like this: `rulego.NewConfig(WithParser(&MyParser{})`
 type Parser interface {
 	// DecodeRuleChain parses a rule chain structure from a description file.
-	DecodeRuleChain(config Config, aspects AspectList, dsl []byte) (Node, error)
+	DecodeRuleChain(rootRuleChain []byte) (RuleChain, error)
 	// DecodeRuleNode parses a rule node structure from a description file.
-	DecodeRuleNode(config Config, dsl []byte, chainCtx Node) (Node, error)
+	DecodeRuleNode(rootRuleChain []byte) (RuleNode, error)
 	// EncodeRuleChain converts a rule chain structure into a description file.
 	EncodeRuleChain(def interface{}) ([]byte, error)
 	// EncodeRuleNode converts a rule node structure into a description file.

@@ -298,19 +298,27 @@ func (rc *RuleChainCtx) GetNodeId() types.RuleNodeId {
 }
 
 func (rc *RuleChainCtx) ReloadSelf(def []byte) error {
-	var err error
-	var ctx types.Node
-	if ctx, err = rc.config.Parser.DecodeRuleChain(rc.config, rc.aspects, def); err == nil {
+	if rootRuleChainDef, err := rc.config.Parser.DecodeRuleChain(def); err == nil {
+		return rc.ReloadSelfFromDef(rootRuleChainDef)
+	} else {
+		return err
+	}
+}
+
+func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
+	if ctx, err := InitRuleChainCtx(rc.config, rc.aspects, &def); err == nil {
 		rc.Destroy()
-		rc.Copy(ctx.(*RuleChainCtx))
+		rc.Copy(ctx)
 		//执行reload切面
 		for _, aop := range rc.afterReloadAspects {
 			if err := aop.OnReload(rc, rc); err != nil {
 				return err
 			}
 		}
+		return nil
+	} else {
+		return err
 	}
-	return err
 }
 
 func (rc *RuleChainCtx) ReloadChild(ruleNodeId types.RuleNodeId, def []byte) error {

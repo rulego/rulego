@@ -720,8 +720,30 @@ func (e *RuleEngine) initBuiltinsAspects() {
 	e.Aspects = newAspects
 }
 
+func (e *RuleEngine) initChain(def types.RuleChain) error {
+	if ctx, err := InitRuleChainCtx(e.Config, e.Aspects, &def); err == nil {
+		if e.rootRuleChainCtx != nil {
+			ctx.Id = e.rootRuleChainCtx.Id
+		}
+		e.rootRuleChainCtx = ctx
+		//设置子规则链池
+		e.rootRuleChainCtx.SetRuleEnginePool(e.ruleChainPool)
+		//执行创建切面逻辑
+		_, _, createdAspects, _, _ := e.Aspects.GetEngineAspects()
+		for _, aop := range createdAspects {
+			if err := aop.OnCreated(e.rootRuleChainCtx); err != nil {
+				return err
+			}
+		}
+		e.initialized = true
+		return nil
+	} else {
+		return err
+	}
+}
+
 // ReloadSelf 重新加载规则链
-func (e *RuleEngine) ReloadSelf(def []byte, opts ...types.RuleEngineOption) error {
+func (e *RuleEngine) ReloadSelf(dsl []byte, opts ...types.RuleEngineOption) error {
 	// Apply the options to the RuleEngine.
 	for _, opt := range opts {
 		_ = opt(e)
@@ -734,7 +756,7 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...types.RuleEngineOption) erro
 		e.rootRuleChainCtx.config = e.Config
 		e.rootRuleChainCtx.SetAspects(e.Aspects)
 		//更新规则链
-		err := e.rootRuleChainCtx.ReloadSelf(def)
+		err := e.rootRuleChainCtx.ReloadSelf(dsl)
 		//设置子规则链池
 		e.rootRuleChainCtx.SetRuleEnginePool(e.ruleChainPool)
 		return err
@@ -742,27 +764,12 @@ func (e *RuleEngine) ReloadSelf(def []byte, opts ...types.RuleEngineOption) erro
 		//初始化内置切面
 		e.initBuiltinsAspects()
 		//初始化
-		if ctx, err := e.Config.Parser.DecodeRuleChain(e.Config, e.Aspects, def); err == nil {
-			if e.rootRuleChainCtx != nil {
-				ctx.(*RuleChainCtx).Id = e.rootRuleChainCtx.Id
-			}
-			e.rootRuleChainCtx = ctx.(*RuleChainCtx)
-			//设置子规则链池
-			e.rootRuleChainCtx.SetRuleEnginePool(e.ruleChainPool)
-			//执行创建切面逻辑
-			_, _, createdAspects, _, _ := e.Aspects.GetEngineAspects()
-			for _, aop := range createdAspects {
-				if err := aop.OnCreated(e.rootRuleChainCtx); err != nil {
-					return err
-				}
-			}
-			e.initialized = true
-			return nil
+		if rootRuleChainDef, err := e.Config.Parser.DecodeRuleChain(dsl); err == nil {
+			return e.initChain(rootRuleChainDef)
 		} else {
 			return err
 		}
 	}
-
 }
 
 // ReloadChild 更新根规则链或者其下某个节点

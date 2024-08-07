@@ -64,6 +64,18 @@ func TestNodeCtx(t *testing.T) {
 		ctx.ReloadChild(types.RuleNodeId{}, nil)
 	})
 
+	t.Run("reloadSelf", func(t *testing.T) {
+		selfDefinition := types.RuleNode{
+			Id:   "s1",
+			Type: "log",
+		}
+		ctx, _ := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
+		err := ctx.ReloadSelf([]byte(`{"id":"s2","type":"jsFilter"}`))
+		assert.Nil(t, err)
+		assert.Equal(t, "jsFilter", ctx.SelfDefinition.Type)
+		assert.Equal(t, "s2", ctx.SelfDefinition.Id)
+	})
+
 	t.Run("initErr", func(t *testing.T) {
 		selfDefinition := types.RuleNode{
 			Id:            "s1",
@@ -94,8 +106,10 @@ func TestNodeCtx(t *testing.T) {
 		assert.Equal(t, 18, result["age"])
 
 		jsonParser := JsonParser{}
-		chainNode, _ := jsonParser.DecodeRuleChain(config, nil, []byte(ruleChainFile))
-		result, _ = processVariables(config, chainNode.(*RuleChainCtx), types.Configuration{"name": "${global.name}", "ip": "${vars.ip}"})
+		def, _ := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
+		chainCtx, err := InitRuleChainCtx(config, nil, &def)
+		assert.Nil(t, err)
+		result, _ = processVariables(config, chainCtx, types.Configuration{"name": "${global.name}", "ip": "${vars.ip}"})
 		assert.Equal(t, "lala", result["name"])
 		assert.Equal(t, "127.0.0.1", result["ip"])
 
