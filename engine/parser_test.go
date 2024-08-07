@@ -28,45 +28,45 @@ import (
 func TestParser(t *testing.T) {
 	jsonParser := JsonParser{}
 	config := NewConfig()
-	chainNode, err := jsonParser.DecodeRuleChain(config, nil, []byte(ruleChainFile))
+	def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 	assert.Nil(t, err)
-	ruleChainCtx, ok := chainNode.(*RuleChainCtx)
-	assert.True(t, ok)
-	assert.True(t, ruleChainCtx.IsDebugMode())
-	assert.Equal(t, "ruleChain", chainNode.Type())
-
+	assert.True(t, def.RuleChain.DebugMode)
+	ruleChainCtx, err := InitRuleChainCtx(config, nil, &def)
 	ruleChainCtx.Init(config, types.Configuration{})
-	ctx := NewRuleContext(context.Background(), config, ruleChainCtx, nil, nil, nil, nil, nil)
-	ruleChainCtx.OnMsg(ctx, types.RuleMsg{})
-	//超过范围
-	_, ok = ruleChainCtx.GetNodeByIndex(5)
-	assert.False(t, ok)
-	//错误
-	_, err = jsonParser.DecodeRuleChain(config, nil, []byte("{"))
-	assert.NotNil(t, err)
-
-	//找不到组件的规则链测试
-	notFoundComponent := strings.Replace(ruleChainFile, "\"type\": \"jsFilter\"", "\"type\": \"noFound\"", -1)
-	_, err = jsonParser.DecodeRuleChain(config, nil, []byte(notFoundComponent))
-	assert.NotNil(t, err)
 
 	chainNodeJson, err := jsonParser.EncodeRuleChain(ruleChainCtx.SelfDefinition)
 	assert.Equal(t, strings.Replace(ruleChainFile, " ", "", -1), strings.Replace(string(chainNodeJson), " ", "", -1))
 
-	node, err := jsonParser.DecodeRuleNode(config, []byte(modifyMetadataAndMsgNode), nil)
-	assert.Nil(t, err)
-	nodeCtx, ok := node.(*RuleNodeCtx)
-	assert.True(t, ok)
-	assert.True(t, nodeCtx.IsDebugMode())
+	ctx := NewRuleContext(context.Background(), config, ruleChainCtx, nil, nil, nil, nil, nil)
+	ruleChainCtx.OnMsg(ctx, types.RuleMsg{})
+	//超过范围
+	_, ok := ruleChainCtx.GetNodeByIndex(5)
+	assert.False(t, ok)
+	//错误
+	_, err = jsonParser.DecodeRuleChain([]byte("{"))
+	assert.NotNil(t, err)
 
-	_, err = jsonParser.DecodeRuleNode(config, []byte("{"), nil)
+	//找不到组件的规则链测试
+	notFoundComponent := strings.Replace(ruleChainFile, "\"type\": \"jsFilter\"", "\"type\": \"noFound\"", -1)
+	def, err = jsonParser.DecodeRuleChain([]byte(notFoundComponent))
+	_, err = InitRuleChainCtx(config, nil, &def)
+	assert.NotNil(t, err)
+
+	_, err = jsonParser.DecodeRuleNode([]byte("{"))
 	assert.NotNil(t, err)
 
 	notFoundComponent = strings.Replace(modifyMetadataAndMsgNode, "\"type\": \"jsTransform\"", "\"type\": \"noFound\"", -1)
-	_, err = jsonParser.DecodeRuleNode(config, []byte(notFoundComponent), nil)
+	nodeNotFound, err := jsonParser.DecodeRuleNode([]byte(notFoundComponent))
+	_, err = InitRuleNodeCtx(config, ruleChainCtx, ruleChainCtx.aspects, &nodeNotFound)
+
 	assert.NotNil(t, err)
 
-	_, ok = node.(*RuleNodeCtx).GetNodeById(types.RuleNodeId{Id: "s2"})
+	node, err := jsonParser.DecodeRuleNode([]byte(modifyMetadataAndMsgNode))
+	assert.Nil(t, err)
+	nodeCtx, err := InitRuleNodeCtx(config, ruleChainCtx, ruleChainCtx.aspects, &node)
+
+	assert.True(t, nodeCtx.IsDebugMode())
+	_, ok = nodeCtx.GetNodeById(types.RuleNodeId{Id: "s2"})
 	assert.False(t, ok)
 
 	nodeJson, err := jsonParser.EncodeRuleNode(nodeCtx.SelfDefinition)
@@ -90,8 +90,8 @@ func TestParser(t *testing.T) {
 	}`), &expectMap)
 	assert.Equal(t, expectMap, targetMap)
 
-	str := strings.Replace(ruleChainFile, "connections", "ruleChainConnections", -1)
-	chainNode, err = jsonParser.DecodeRuleChain(config, nil, []byte(str))
-	assert.Nil(t, err)
-	assert.True(t, len(chainNode.(*RuleChainCtx).SelfDefinition.Metadata.RuleChainConnections) > 0)
+	_, err = jsonParser.EncodeRuleChain(map[interface{}]interface{}{})
+	assert.NotNil(t, err)
+	_, err = jsonParser.EncodeRuleNode(map[interface{}]interface{}{})
+	assert.NotNil(t, err)
 }

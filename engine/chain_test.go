@@ -111,9 +111,9 @@ func TestChainCtx(t *testing.T) {
         }`
 		config := NewConfig()
 		jsonParser := JsonParser{}
-		chainNode, err := jsonParser.DecodeRuleChain(config, nil, []byte(ruleChainFile))
+		def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 		assert.Nil(t, err)
-		ruleChainCtx, _ := chainNode.(*RuleChainCtx)
+		ruleChainCtx, _ := InitRuleChainCtx(config, nil, &def)
 		nodeDsl := []byte(`
  			{
                 "id": "s1",

@@ -414,7 +414,8 @@ func TestNotDebugModel(t *testing.T) {
 
 // 测试获取节点
 func TestGetNodeId(t *testing.T) {
-	def, _ := ParserRuleChain([]byte(ruleChainFile))
+	parser := JsonParser{}
+	def, _ := parser.DecodeRuleChain([]byte(ruleChainFile))
 	ctx, err := InitRuleChainCtx(NewConfig(), nil, &def)
 	assert.Nil(t, err)
 	nodeCtx, ok := ctx.GetNodeById(types.RuleNodeId{Id: "s1", Type: types.NODE})
