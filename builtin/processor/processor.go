@@ -53,6 +53,20 @@ func init() {
 		}
 		return true
 	})
+	// Register a processor to add HTTP headers to message metadata.
+	OutBuiltins.Register("metadataToHeaders", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		if err := exchange.Out.GetError(); err != nil {
+			// Set error status and body in the response.
+			exchange.Out.SetStatusCode(400)
+			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
+		} else if exchange.Out.GetMsg() != nil {
+			msg := exchange.Out.GetMsg()
+			for k, v := range msg.Metadata {
+				exchange.Out.Headers().Set(k, v)
+			}
+		}
+		return true
+	})
 }
 
 // builtins struct holds a map of processor functions that can be registered and called by name.
