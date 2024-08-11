@@ -408,14 +408,14 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 			mt, message, err := c.ReadMessage()
 			if err != nil {
 				if ws.OnEvent != nil {
-					ws.OnEvent(endpoint.EventDisconnect, w, r, params)
+					ws.OnEvent(endpoint.EventDisconnect, connectExchange, w, r, params)
 				}
 				break
 			}
 
 			if router.IsDisable() {
 				if ws.OnEvent != nil {
-					ws.OnEvent(endpoint.EventDisconnect, w, r, params)
+					ws.OnEvent(endpoint.EventDisconnect, connectExchange, w, r, params)
 				}
 				http.NotFound(w, r)
 				break
