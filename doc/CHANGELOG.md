@@ -1,5 +1,42 @@
 # CHANGELOG
 
+## [v0.23.0] 2024/08/11
+- feat(server):动态获取functions节点内置函数列表API
+- feat(server):日志分页
+- feat(server):config.conf支持自定义的global配置
+- feat(rulego-components):增加redis stream endpoint组件
+- feat(rulego-components):redis 组件支持配置密码
+- feat(rulego-components):redis 组件支持HMSET、HGETALL、HDEL等操作
+- feat(rulego-components):redis 组件支持动态参数
+- feat(rulego-components-ci):增加gitClone组件
+- feat(rulego-components-ci):增加服务器指标监控组件，如：cpu、内存、磁盘、网络等
+- feat(builtin/processor):增加metadataToHeaders内置processor函数
+- feat(builtin/processor):内置responseToBody函数 支持所有endpoint类型
+- feat:rest endpoint GET请求，消息负荷从查询参数读取
+- feat:统一所有组件配置变量取值方法。
+- fix(server):无法删除规则链
+- fix(server):websocket断开连接错误
+- fix:for node 修改out数据
+- fix:TellNode找不到节点，没触发第二个回调
+- fix:dbClient node 在某些go版本下，转换int64错误
+- fix:ToString 函数适配 map[interface{}]interface{} 类型
+- refactor:打印endpoint详细错误栈
+- refactor:builtin/processor 区分 in 和 out类型
+- refactor:优化规则链解析器
+
+### RuleGo-Editor[v1.4]
+- feat:支持rulego最新版本组件配置
+- feat:支持endpoint组件配置
+- feat:支持下拉表单
+- fix:修复边文本越界问题
+- fix:保存规则链失败没提示
+- fix:解决0值无法显示问题
+- fix:自定义组件无法显示问题
+- refactor:Input节点允许移动
+- refactor:增加帮助文档链接
+- refactor:升级element-plus
+- refactor:引入element-plus zhCn lang
+
 ## [v0.22.0] 2024/07/08
 - feat[rulego-editor]: 接入端(endpoint)允许可视化配置。体验地址：[http://8.134.32.225:9090/ui/](http://8.134.32.225:9090/ui/)
 - feat[rulego-components]: 增加redis endpoint组件
