@@ -96,17 +96,26 @@ func (r *RequestMessage) GetParam(key string) string {
 func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
 	r.msg = msg
 }
+
 func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	if r.msg == nil {
 		dataType := types.TEXT
-		if contentType := r.Headers().Get(ContentTypeKey); contentType == JsonContextType {
+		var data string
+		if r.request != nil && r.request.Method == http.MethodGet {
 			dataType = types.JSON
+			data = str.ToString(r.request.URL.Query())
+		} else {
+			if contentType := r.Headers().Get(ContentTypeKey); contentType == JsonContextType {
+				dataType = types.JSON
+			}
+			data = string(r.Body())
 		}
-		ruleMsg := types.NewMsg(0, r.From(), dataType, types.NewMetadata(), string(r.Body()))
+		ruleMsg := types.NewMsg(0, r.From(), dataType, types.NewMetadata(), data)
 		r.msg = &ruleMsg
 	}
 	return r.msg
 }
+
 func (r *RequestMessage) SetStatusCode(statusCode int) {
 }
 
