@@ -6,7 +6,6 @@ import (
 	"examples/server/internal/constants"
 	"examples/server/internal/controller"
 	"examples/server/internal/service"
-	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
@@ -35,7 +34,6 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 	wsEndpoint.OnEvent = func(eventName string, params ...interface{}) {
 		switch eventName {
 		case endpointApi.EventConnect:
-			fmt.Println("connect")
 			exchange := params[0].(*endpointApi.Exchange)
 			username := exchange.In.Headers().Get(constants.KeyUsername)
 			if username == "" {
@@ -61,7 +59,6 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 				})
 			}
 		case endpointApi.EventDisconnect:
-			fmt.Println("disconnect")
 			exchange := params[0].(*endpointApi.Exchange)
 			username := exchange.In.Headers().Get(constants.KeyUsername)
 			if username == "" {
