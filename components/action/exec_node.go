@@ -115,7 +115,12 @@ func (x *ExecCommandNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		return
 	}
 	if x.Config.ReplaceData {
-		msg.Data = stdoutBuf.String()
+		stdoutStr := stdoutBuf.String()
+		if stdoutStr != "" {
+			msg.Data = stdoutStr
+		} else {
+			msg.Data = stderrBuf.String()
+		}
 	}
 	ctx.TellSuccess(msg)
 }
