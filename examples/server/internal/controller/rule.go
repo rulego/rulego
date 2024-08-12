@@ -213,9 +213,9 @@ func ExecuteRuleRouter(url string) endpointApi.Router {
 		for k := range headers {
 			msg.Metadata.PutValue(k, headers.Get(k))
 		}
+		username := msg.Metadata.GetValue(constants.KeyUsername)
 		//设置工作目录
-		chainId := msg.Metadata.GetValue(constants.KeyChainId)
-		var paths = []string{config.C.DataDir, constants.DirWorkflows, constants.DirWorkflowsRun, chainId}
+		var paths = []string{config.C.DataDir, constants.DirWorkflows, username, constants.DirWorkflowsRule}
 		msg.Metadata.PutValue(constants.KeyWorkDir, path.Join(paths...))
 		return true
 	}).To("chain:${chainId}").SetOpts(
