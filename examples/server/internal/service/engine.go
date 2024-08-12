@@ -303,7 +303,7 @@ func (s *RuleEngineService) initRuleGo(logger *log.Logger, workspacePath string,
 	//加载lua第三方库
 	ruleConfig.Properties.PutValue(luaEngine.LoadLuaLibs, s.config.LoadLuaLibs)
 	ruleConfig.Properties.PutValue(action.KeyExecNodeWhitelist, s.config.CmdWhiteList)
-	ruleConfig.Properties.PutValue(action.KeyWorkDir, s.config.CmdWhiteList)
+	ruleConfig.Properties.PutValue(action.KeyWorkDir, s.config.DataDir)
 	ruleConfig.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		var errStr = ""
 		if err != nil {
