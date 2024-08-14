@@ -22,6 +22,13 @@ import (
 	"sync"
 )
 
+const (
+	// HeaderKeyContentType Content-Type header key
+	HeaderKeyContentType = "Content-Type"
+	// HeaderValueApplicationJson Content-Type header value
+	HeaderValueApplicationJson = "application/json"
+)
+
 // InBuiltins is a collection of built-in in processors that can be called by name through endpoint DSL.
 var InBuiltins = builtins{}
 
@@ -46,8 +53,8 @@ func init() {
 			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 		} else if exchange.Out.GetMsg() != nil {
 			// Set the response body with the message data.
-			if exchange.Out.GetMsg().DataType == types.JSON {
-				exchange.Out.Headers().Set("Content-Type", "application/json")
+			if exchange.Out.GetMsg().DataType == types.JSON && exchange.Out.Headers().Get(HeaderKeyContentType) == "" {
+				exchange.Out.Headers().Set(HeaderKeyContentType, HeaderValueApplicationJson)
 			}
 			exchange.Out.SetBody([]byte(exchange.Out.GetMsg().Data))
 		}
