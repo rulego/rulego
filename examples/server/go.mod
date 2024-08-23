@@ -6,7 +6,7 @@ require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/gorilla/websocket v1.4.2
 	github.com/rulego/rulego v0.23.0-alpha.1.0.20240809084515-eeef2ae803d8
-	github.com/rulego/rulego-components v0.23.0
+	github.com/rulego/rulego-components v0.23.1-0.20240823153758-f8e839719404
 	github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203
 	github.com/rulego/rulego-components-ci v0.23.0
 	gopkg.in/ini.v1 v1.67.0
@@ -80,6 +80,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
+	github.com/rabbitmq/amqp091-go v1.10.1-0.20240821123418-dc67c21576c2 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/redis/go-redis/v9 v9.5.2 // indirect
 	github.com/robfig/cron/v3 v3.0.0 // indirect
