@@ -253,6 +253,10 @@ func PostMsgRouter(url string) endpointApi.Router {
 		msgType := msg.Metadata.GetValue("msgType")
 		//获取消息类型
 		msg.Type = msgType
+		username := msg.Metadata.GetValue(constants.KeyUsername)
+		//设置工作目录
+		var paths = []string{config.C.DataDir, constants.DirWorkflows, username, constants.DirWorkflowsRule}
+		msg.Metadata.PutValue(constants.KeyWorkDir, path.Join(paths...))
 		return true
 	}).To("chain:${chainId}").SetOpts(
 		types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
