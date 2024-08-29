@@ -17,8 +17,16 @@
 package base
 
 import (
+	"errors"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/json"
+	"strings"
+	"sync/atomic"
+)
+
+var (
+	ErrNetPoolNil    = errors.New("net pool is nil")
+	ErrClientNotInit = errors.New("client not init")
 )
 
 var NodeUtils = &nodeUtils{}
@@ -43,6 +51,23 @@ func (n *nodeUtils) GetEvn(ctx types.RuleContext, msg types.RuleMsg) map[string]
 // GetEvnAndMetadata 和Metadata key合并
 func (n *nodeUtils) GetEvnAndMetadata(ctx types.RuleContext, msg types.RuleMsg) map[string]interface{} {
 	return n.getEvnAndMetadata(ctx, msg, true)
+}
+
+func (n *nodeUtils) IsNetPool(config types.Config, server string) bool {
+	return strings.HasPrefix(server, types.NodeConfigurationPrefixNetResource)
+}
+
+func (n *nodeUtils) GetNetResourceId(config types.Config, server string) string {
+	if n.IsNetPool(config, server) {
+		//截取资源ID
+		return server[len(types.NodeConfigurationPrefixNetResource):]
+	}
+	return ""
+}
+
+func (n *nodeUtils) IsInitNetResource(_ types.Config, configuration types.Configuration) bool {
+	_, ok := configuration[types.NodeConfigurationKeyIsInitNetResource]
+	return ok
 }
 
 func (n *nodeUtils) getEvnAndMetadata(_ types.RuleContext, msg types.RuleMsg, useMetadata bool) map[string]interface{} {
@@ -72,4 +97,71 @@ func (n *nodeUtils) getEvnAndMetadata(_ types.RuleContext, msg types.RuleMsg, us
 		}
 	}
 	return evn
+}
+
+type NetResourceNode[T any] struct {
+	RuleConfig types.Config
+	//节点类型
+	NodeType string
+	//资源ID
+	NetResourceId string
+	//初始化资源函数
+	InitNetResourceFunc func() (T, error)
+	//是否正在连接资源
+	Connecting int32
+}
+
+func (x *NetResourceNode[T]) Init(ruleConfig types.Config, nodeType, server string, initNetResourceFunc func() (T, error)) error {
+	x.RuleConfig = ruleConfig
+	x.NodeType = nodeType
+
+	if netResourceId := NodeUtils.GetNetResourceId(ruleConfig, server); netResourceId == "" {
+		x.InitNetResourceFunc = initNetResourceFunc
+		//非资源池方式，初始化mqtt客户端
+		_, err := x.InitNetResourceFunc()
+		return err
+	} else {
+		x.NetResourceId = netResourceId
+		return nil
+	}
+}
+
+func (x *NetResourceNode[T]) GetClient() (T, error) {
+	if x.NetResourceId != "" {
+		//从网络资源池获取
+		if x.RuleConfig.NetPool == nil {
+			return zeroValue[T](), ErrNetPoolNil
+		}
+		if p, err := x.RuleConfig.NetPool.GetNetResource(x.NodeType, x.NetResourceId); err == nil {
+			return p.(T), nil
+		} else {
+			return zeroValue[T](), err
+		}
+	} else if x.InitNetResourceFunc != nil {
+		//根据当前组件配置初始化一个客户端
+		return x.InitNetResourceFunc()
+	} else {
+		return zeroValue[T](), ErrClientNotInit
+	}
+}
+
+// Connect 尝试连接中
+func (x *NetResourceNode[T]) Connect() bool {
+	return atomic.CompareAndSwapInt32(&x.Connecting, 0, 1)
+}
+
+// IsConnecting 正在连接中
+func (x *NetResourceNode[T]) IsConnecting() bool {
+	return atomic.LoadInt32(&x.Connecting) == 1
+}
+
+// Connected 连接完成
+func (x *NetResourceNode[T]) Connected() {
+	atomic.StoreInt32(&x.Connecting, 0)
+}
+
+// zeroValue 函数用于返回 T 类型的零值
+func zeroValue[T any]() T {
+	var zero T
+	return zero
 }

@@ -43,7 +43,11 @@ func TestDbClientNode(t *testing.T) {
 		assert.Equal(t, "mysql", node.Config.DriverName)
 
 		node2 := &DbClientNode{}
-		err = node2.Init(types.NewConfig(), types.Configuration{"sql": "xx"})
+		err = node2.Init(types.NewConfig(), types.Configuration{
+			"sql":        "xx",
+			"driverName": "mysql",
+			"dsn":        "root:root@tcp(127.0.0.1:3306)/test",
+		})
 		assert.Equal(t, "unsupported sql statement: xx", err.Error())
 	})
 

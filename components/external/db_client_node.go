@@ -62,9 +62,10 @@ type DbClientNodeConfiguration struct {
 }
 
 type DbClientNode struct {
+	base.NetResourceNode[*sql.DB]
 	//节点配置
 	Config DbClientNodeConfiguration
-	db     *sql.DB
+	client *sql.DB
 	//操作类型 SELECT\UPDATE\INSERT\DELETE
 	opType         string
 	sqlTemplate    str.Template
@@ -95,14 +96,18 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 		if x.Config.DriverName == "" {
 			x.Config.DriverName = "mysql"
 		}
-		if x.Config.Sql == "" {
-			return errors.New("sql can not empty")
+		//初始化客户端
+		err = x.NetResourceNode.Init(ruleConfig, x.Type(), x.Config.Dsn, func() (*sql.DB, error) {
+			return x.initClient()
+		})
+		if err != nil {
+			return err
 		}
-		x.db, err = sql.Open(x.Config.DriverName, x.Config.Dsn)
-		if err == nil {
-			x.db.SetMaxOpenConns(x.Config.PoolSize)
-			x.db.SetMaxIdleConns(x.Config.PoolSize / 2)
-			err = x.db.Ping()
+
+		if !base.NodeUtils.IsInitNetResource(ruleConfig, configuration) {
+			if x.Config.Sql == "" {
+				return errors.New("sql can not empty")
+			}
 			words := strings.Fields(x.Config.Sql)
 			// opType = SELECT\UPDATE\INSERT\DELETE
 			x.opType = strings.ToUpper(words[0])
@@ -161,16 +166,20 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	} else {
 		params = x.Config.Params
 	}
-
+	client, err := x.NetResourceNode.GetClient()
+	if err != nil {
+		ctx.TellFailure(msg, err)
+		return
+	}
 	switch x.opType {
 	case SELECT:
-		data, err = x.query(sqlStr, params, x.Config.GetOne)
+		data, err = x.query(client, sqlStr, params, x.Config.GetOne)
 	case UPDATE:
-		rowsAffected, err = x.update(sqlStr, params)
+		rowsAffected, err = x.update(client, sqlStr, params)
 	case INSERT:
-		rowsAffected, lastInsertId, err = x.insert(sqlStr, params)
+		rowsAffected, lastInsertId, err = x.insert(client, sqlStr, params)
 	case DELETE:
-		rowsAffected, err = x.delete(sqlStr, params)
+		rowsAffected, err = x.delete(client, sqlStr, params)
 	default:
 		err = fmt.Errorf("unsupported sql statement: %s", sqlStr)
 	}
@@ -192,8 +201,8 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 }
 
 // query 查询数据并返回map或slice类型
-func (x *DbClientNode) query(sqlStr string, params []interface{}, getOne bool) (interface{}, error) {
-	rows, err := x.db.Query(sqlStr, params...)
+func (x *DbClientNode) query(client *sql.DB, sqlStr string, params []interface{}, getOne bool) (interface{}, error) {
+	rows, err := client.Query(sqlStr, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -262,8 +271,8 @@ func (x *DbClientNode) query(sqlStr string, params []interface{}, getOne bool) (
 }
 
 // update 修改数据并返回影响行数
-func (x *DbClientNode) update(sqlStr string, params []interface{}) (int64, error) {
-	result, err := x.db.Exec(sqlStr, params...)
+func (x *DbClientNode) update(client *sql.DB, sqlStr string, params []interface{}) (int64, error) {
+	result, err := client.Exec(sqlStr, params...)
 	if err != nil {
 		return 0, err
 	}
@@ -275,8 +284,8 @@ func (x *DbClientNode) update(sqlStr string, params []interface{}) (int64, error
 }
 
 // insert 插入数据并返回自增ID
-func (x *DbClientNode) insert(sqlStr string, params []interface{}) (int64, int64, error) {
-	result, err := x.db.Exec(sqlStr, params...)
+func (x *DbClientNode) insert(client *sql.DB, sqlStr string, params []interface{}) (int64, int64, error) {
+	result, err := client.Exec(sqlStr, params...)
 	if err != nil {
 		return 0, 0, err
 	} else {
@@ -291,8 +300,8 @@ func (x *DbClientNode) insert(sqlStr string, params []interface{}) (int64, int64
 }
 
 // delete 删除数据并返回影响行数
-func (x *DbClientNode) delete(sqlStr string, params []interface{}) (int64, error) {
-	result, err := x.db.Exec(sqlStr, params...)
+func (x *DbClientNode) delete(client *sql.DB, sqlStr string, params []interface{}) (int64, error) {
+	result, err := client.Exec(sqlStr, params...)
 	if err != nil {
 		return 0, err
 	}
@@ -305,7 +314,28 @@ func (x *DbClientNode) delete(sqlStr string, params []interface{}) (int64, error
 
 // Destroy 销毁组件
 func (x *DbClientNode) Destroy() {
-	if x.db != nil {
-		x.db.Close()
+	if x.client != nil {
+		_ = x.client.Close()
+	}
+}
+func (x *DbClientNode) GetNetResource() (interface{}, error) {
+	return x.GetClient()
+}
+
+// initClient 初始化客户端
+func (x *DbClientNode) initClient() (*sql.DB, error) {
+	if x.client != nil {
+		return x.client, nil
+	} else if x.client == nil && x.Connect() {
+		var err error
+		x.client, err = sql.Open(x.Config.DriverName, x.Config.Dsn)
+		if err == nil {
+			x.client.SetMaxOpenConns(x.Config.PoolSize)
+			x.client.SetMaxIdleConns(x.Config.PoolSize / 2)
+		}
+		err = x.client.Ping()
+		return x.client, err
+	} else {
+		return x.client, base.ErrClientNotInit
 	}
 }

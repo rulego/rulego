@@ -64,6 +64,7 @@ type Config struct {
 	SecretKey string
 	// EndpointEnabled indicates whether the endpoint module in the rule chain DSL is enabled.
 	EndpointEnabled bool
+	NetPool         NetPool
 }
 
 // RegisterUdf registers a custom function. Function names can be repeated for different script types.

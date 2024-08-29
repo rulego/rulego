@@ -1006,6 +1006,9 @@ func NewConfig(opts ...types.Option) types.Config {
 	if c.ComponentsRegistry == nil {
 		c.ComponentsRegistry = Registry
 	}
+	if c.NetPool == nil {
+		c.NetPool = NewNetPool(c)
+	}
 	return c
 }
 
