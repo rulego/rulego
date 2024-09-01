@@ -99,7 +99,8 @@ func (n *nodeUtils) getEvnAndMetadata(_ types.RuleContext, msg types.RuleMsg, us
 	return evn
 }
 
-type NetResourceNode[T any] struct {
+// NetNode 网络资源节点，可以用共享和获取网络资源，资源是一个泛型，可以是：mqtt、数据库客户端，也可以http server以及是可复用的节点.
+type NetNode[T any] struct {
 	RuleConfig types.Config
 	//节点类型
 	NodeType string
@@ -108,31 +109,42 @@ type NetResourceNode[T any] struct {
 	//初始化资源函数
 	InitNetResourceFunc func() (T, error)
 	//是否正在连接资源
-	Connecting int32
+	connecting int32
+	//是否从资源池获取
+	isFromPool bool
 }
 
-func (x *NetResourceNode[T]) Init(ruleConfig types.Config, nodeType, server string, initNetResourceFunc func() (T, error)) error {
+// Init 初始化，如果server 为 ref:// 开头，则从网络资源池获取，否则调用initNetResourceFunc初始化
+func (x *NetNode[T]) Init(ruleConfig types.Config, nodeType, server string, initNow bool, initNetResourceFunc func() (T, error)) error {
 	x.RuleConfig = ruleConfig
 	x.NodeType = nodeType
 
 	if netResourceId := NodeUtils.GetNetResourceId(ruleConfig, server); netResourceId == "" {
 		x.InitNetResourceFunc = initNetResourceFunc
-		//非资源池方式，初始化mqtt客户端
-		_, err := x.InitNetResourceFunc()
-		return err
+		if initNow {
+			//非资源池方式，初始化
+			_, err := x.InitNetResourceFunc()
+			return err
+		}
 	} else {
 		x.NetResourceId = netResourceId
-		return nil
 	}
+	return nil
 }
 
-func (x *NetResourceNode[T]) GetClient() (T, error) {
+// IsInit 是否初始化过
+func (x *NetNode[T]) IsInit() bool {
+	return x.NodeType != ""
+}
+
+func (x *NetNode[T]) GetResource() (T, error) {
 	if x.NetResourceId != "" {
 		//从网络资源池获取
 		if x.RuleConfig.NetPool == nil {
 			return zeroValue[T](), ErrNetPoolNil
 		}
 		if p, err := x.RuleConfig.NetPool.GetNetResource(x.NodeType, x.NetResourceId); err == nil {
+			x.isFromPool = true
 			return p.(T), nil
 		} else {
 			return zeroValue[T](), err
@@ -145,19 +157,24 @@ func (x *NetResourceNode[T]) GetClient() (T, error) {
 	}
 }
 
-// Connect 尝试连接中
-func (x *NetResourceNode[T]) Connect() bool {
-	return atomic.CompareAndSwapInt32(&x.Connecting, 0, 1)
+// TryConnect 尝试连接中
+func (x *NetNode[T]) TryConnect() bool {
+	return atomic.CompareAndSwapInt32(&x.connecting, 0, 1)
 }
 
-// IsConnecting 正在连接中
-func (x *NetResourceNode[T]) IsConnecting() bool {
-	return atomic.LoadInt32(&x.Connecting) == 1
+// Connecting 正在连接中
+func (x *NetNode[T]) Connecting() bool {
+	return atomic.LoadInt32(&x.connecting) == 1
 }
 
-// Connected 连接完成
-func (x *NetResourceNode[T]) Connected() {
-	atomic.StoreInt32(&x.Connecting, 0)
+// ConnectCompleted 连接完成
+func (x *NetNode[T]) ConnectCompleted() {
+	atomic.StoreInt32(&x.connecting, 0)
+}
+
+// IsFromPool 是否从资源池获取
+func (x *NetNode[T]) IsFromPool() bool {
+	return x.isFromPool
 }
 
 // zeroValue 函数用于返回 T 类型的零值

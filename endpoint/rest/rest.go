@@ -23,6 +23,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
+	nodeBase "github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/runtime"
@@ -212,12 +213,14 @@ type Config struct {
 // Rest 接收端端点
 type Rest struct {
 	impl.BaseEndpoint
+	nodeBase.NetNode[*Rest]
 	//配置
 	Config     Config
 	RuleConfig types.Config
 	Server     *http.Server
 	//http路由器
-	router *httprouter.Router
+	Router  *httprouter.Router
+	started bool
 }
 
 // Type 组件类型
@@ -236,8 +239,13 @@ func (rest *Rest) New() types.Node {
 // Init 初始化
 func (rest *Rest) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &rest.Config)
+	if err != nil {
+		return err
+	}
 	rest.RuleConfig = ruleConfig
-	return err
+	return rest.NetNode.Init(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
+		return rest.initServer()
+	})
 }
 
 // Destroy 销毁
@@ -249,9 +257,10 @@ func (rest *Rest) Close() error {
 	if rest.Server != nil {
 		return rest.Server.Shutdown(context.Background())
 	}
-	if rest.router != nil {
-		rest.router = httprouter.New()
+	if rest.Router != nil {
+		rest.Router = httprouter.New()
 	}
+	rest.started = false
 	rest.BaseEndpoint.Destroy()
 	return nil
 }
@@ -292,39 +301,19 @@ func (rest *Rest) RemoveRouter(routerId string, params ...interface{}) error {
 }
 
 func (rest *Rest) Start() error {
-	if rest.router == nil {
-		rest.router = httprouter.New()
+	if !rest.NetNode.IsInit() {
+		err := rest.NetNode.Init(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
+			return rest.initServer()
+		})
+		if err != nil {
+			return err
+		}
 	}
-	var err error
-	rest.Server = &http.Server{Addr: rest.Config.Server, Handler: rest.router}
-	ln, err := rest.Listen()
-	if err != nil {
+	if client, err := rest.NetNode.GetResource(); err == nil {
+		return client.startServer()
+	} else {
 		return err
 	}
-	isTls := rest.Config.CertKeyFile != "" && rest.Config.CertFile != ""
-	if rest.OnEvent != nil {
-		rest.OnEvent(endpoint.EventInitServer, rest)
-	}
-	if isTls {
-		rest.Printf("started rest server with TLS on :%s", rest.Config.Server)
-		go func() {
-			defer ln.Close()
-			err = rest.Server.ServeTLS(ln, rest.Config.CertFile, rest.Config.CertKeyFile)
-			if rest.OnEvent != nil {
-				rest.OnEvent(endpoint.EventCompletedServer, err)
-			}
-		}()
-	} else {
-		rest.Printf("started rest server on :%s", rest.Config.Server)
-		go func() {
-			defer ln.Close()
-			err = rest.Server.Serve(ln)
-			if rest.OnEvent != nil {
-				rest.OnEvent(endpoint.EventCompletedServer, err)
-			}
-		}()
-	}
-	return err
 }
 
 func (rest *Rest) Listen() (net.Listener, error) {
@@ -345,10 +334,11 @@ func (rest *Rest) Listen() (net.Listener, error) {
 // functions can be used.
 func (rest *Rest) addRouter(method string, routers ...endpoint.Router) *Rest {
 	method = strings.ToUpper(method)
+
 	rest.Lock()
 	defer rest.Unlock()
-	if rest.router == nil {
-		rest.router = httprouter.New()
+	if rest.Router == nil {
+		rest.Router = httprouter.New()
 	}
 
 	if rest.RouterStorage == nil {
@@ -360,8 +350,27 @@ func (rest *Rest) addRouter(method string, routers ...endpoint.Router) *Rest {
 		}
 		//存储路由
 		rest.RouterStorage[item.GetId()] = item
-		//添加到http路由器
-		rest.router.Handle(method, item.FromToString(), rest.handler(item))
+
+		if !rest.NetNode.IsInit() {
+			err := rest.NetNode.Init(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
+				return rest.initServer()
+			})
+			if err != nil {
+				rest.Printf("add router err :%v", err)
+				return rest
+			}
+		}
+		fromPool, err := rest.NetNode.GetResource()
+		if err != nil {
+			rest.Printf("add router err :%v", err)
+			return rest
+		}
+		if fromPool.IsFromPool() {
+			fromPool.Router.Handle(method, item.FromToString(), rest.handler(item))
+		} else {
+			//添加到http路由器
+			rest.Router.Handle(method, item.FromToString(), rest.handler(item))
+		}
 	}
 
 	return rest
@@ -403,18 +412,18 @@ func (rest *Rest) DELETE(routers ...endpoint.Router) *Rest {
 }
 
 func (rest *Rest) GlobalOPTIONS(handler http.Handler) *Rest {
-	if rest.router == nil {
-		rest.router = httprouter.New()
-		rest.router.GlobalOPTIONS = handler
+	if rest.Router == nil {
+		rest.Router = httprouter.New()
+		rest.Router.GlobalOPTIONS = handler
 	} else {
-		rest.router.GlobalOPTIONS = handler
+		rest.Router.GlobalOPTIONS = handler
 	}
 	return rest
 }
 
-func (rest *Rest) Router() *httprouter.Router {
-	return rest.router
-}
+//func (rest *Rest) Router() *httprouter.Router {
+//	return rest.Router
+//}
 
 func (rest *Rest) routerKey(method string, from string) string {
 	return method + ":" + from
@@ -467,4 +476,54 @@ func (rest *Rest) Printf(format string, v ...interface{}) {
 	if rest.RuleConfig.Logger != nil {
 		rest.RuleConfig.Logger.Printf(format, v...)
 	}
+}
+
+func (rest *Rest) initServer() (*Rest, error) {
+	if rest.NetNode.IsInit() {
+		return rest, nil
+	}
+
+	//rest.NetNode.SetResource(rest)
+
+	if rest.Router == nil {
+		rest.Router = httprouter.New()
+	}
+	return rest, nil
+}
+
+func (rest *Rest) startServer() error {
+	if rest.started {
+		return nil
+	}
+	var err error
+	rest.Server = &http.Server{Addr: rest.Config.Server, Handler: rest.Router}
+	ln, err := rest.Listen()
+	if err != nil {
+		return err
+	}
+	isTls := rest.Config.CertKeyFile != "" && rest.Config.CertFile != ""
+	if rest.OnEvent != nil {
+		rest.OnEvent(endpoint.EventInitServer, rest)
+	}
+	if isTls {
+		rest.Printf("started rest server with TLS on :%s", rest.Config.Server)
+		go func() {
+			defer ln.Close()
+			err = rest.Server.ServeTLS(ln, rest.Config.CertFile, rest.Config.CertKeyFile)
+			if rest.OnEvent != nil {
+				rest.OnEvent(endpoint.EventCompletedServer, err)
+			}
+		}()
+	} else {
+		rest.Printf("started rest server on :%s", rest.Config.Server)
+		go func() {
+			defer ln.Close()
+			err = rest.Server.Serve(ln)
+			if rest.OnEvent != nil {
+				rest.OnEvent(endpoint.EventCompletedServer, err)
+			}
+		}()
+	}
+	rest.started = true
+	return err
 }

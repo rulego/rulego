@@ -234,7 +234,7 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 	}, wsEndpoint.New()))
 
 	if restEndpoint != nil {
-		wsEndpoint = &Websocket{RestEndpoint: restEndpoint}
+		wsEndpoint = &Websocket{Rest: restEndpoint}
 	}
 	//添加全局拦截器
 	wsEndpoint.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
@@ -300,6 +300,6 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 	//注册路由
 	wsEndpoint.AddRouter(router1)
 
-	assert.NotNil(t, wsEndpoint.Router())
+	assert.NotNil(t, wsEndpoint.Router)
 	return wsEndpoint
 }

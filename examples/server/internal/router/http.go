@@ -87,7 +87,7 @@ func loadServeFiles(c config.Config, restEndpoint *rest.Endpoint) {
 		for _, item := range mapping {
 			files := strings.Split(item, "=")
 			if len(files) == 2 {
-				restEndpoint.Router().ServeFiles(strings.TrimSpace(files[0]), http.Dir(strings.TrimSpace(files[1])))
+				restEndpoint.Router.ServeFiles(strings.TrimSpace(files[0]), http.Dir(strings.TrimSpace(files[1])))
 			}
 		}
 	}

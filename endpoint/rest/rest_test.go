@@ -129,7 +129,7 @@ func TestRestEndpoint(t *testing.T) {
 
 	config := engine.NewConfig(types.WithDefaultPool())
 	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		assert.Equal(t, "ok", msg.Data)
+		assert.Equal(t, "{\"name\":\"lala\"}", msg.Data)
 	})
 	metaData := types.BuildMetadata(make(map[string]string))
 	msg1 := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "{\"name\":\"lala\"}")
@@ -325,10 +325,10 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	_, _ = restEndpoint.AddRouter(router4, "POST")
 	_, _ = restEndpoint.AddRouter(router5, "POST")
 
-	assert.NotNil(t, restEndpoint.Router())
+	assert.NotNil(t, restEndpoint.Router)
 	//启动服务
 	err = restEndpoint.Start()
-	fmt.Println(err)
+	//fmt.Println(err)
 	<-stop
 	restEndpoint.Destroy()
 	wg.Done()

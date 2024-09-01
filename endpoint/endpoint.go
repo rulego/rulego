@@ -331,6 +331,11 @@ func (e *DynamicEndpoint) ReloadSelf(def []byte) error {
 	return e.Reload(def)
 }
 
+// GetNodeById not supported.
+func (e *DynamicEndpoint) GetNodeById(_ types.RuleNodeId) (types.NodeCtx, bool) {
+	return nil, false
+}
+
 // newEndpoint creates a new Endpoint with the provided DSL.
 func (e *DynamicEndpoint) newEndpoint(dsl types.EndpointDsl) error {
 	if ep, err := Registry.New(dsl.Type, e.ruleConfig, dsl.Configuration); err != nil {

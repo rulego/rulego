@@ -62,7 +62,7 @@ type DbClientNodeConfiguration struct {
 }
 
 type DbClientNode struct {
-	base.NetResourceNode[*sql.DB]
+	base.NetNode[*sql.DB]
 	//节点配置
 	Config DbClientNodeConfiguration
 	client *sql.DB
@@ -97,7 +97,7 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 			x.Config.DriverName = "mysql"
 		}
 		//初始化客户端
-		err = x.NetResourceNode.Init(ruleConfig, x.Type(), x.Config.Dsn, func() (*sql.DB, error) {
+		err = x.NetNode.Init(ruleConfig, x.Type(), x.Config.Dsn, true, func() (*sql.DB, error) {
 			return x.initClient()
 		})
 		if err != nil {
@@ -166,7 +166,7 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	} else {
 		params = x.Config.Params
 	}
-	client, err := x.NetResourceNode.GetClient()
+	client, err := x.NetNode.GetResource()
 	if err != nil {
 		ctx.TellFailure(msg, err)
 		return
@@ -319,14 +319,14 @@ func (x *DbClientNode) Destroy() {
 	}
 }
 func (x *DbClientNode) GetNetResource() (interface{}, error) {
-	return x.GetClient()
+	return x.GetResource()
 }
 
 // initClient 初始化客户端
 func (x *DbClientNode) initClient() (*sql.DB, error) {
 	if x.client != nil {
 		return x.client, nil
-	} else if x.client == nil && x.Connect() {
+	} else if x.client == nil && x.TryConnect() {
 		var err error
 		x.client, err = sql.Open(x.Config.DriverName, x.Config.Dsn)
 		if err == nil {

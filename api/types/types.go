@@ -133,6 +133,9 @@ type NodeCtx interface {
 	GetNodeId() RuleNodeId
 	// ReloadSelf refreshes the configuration of the component.
 	ReloadSelf(def []byte) error
+	// GetNodeById retrieves the configuration of a specified ID component in a sub-rule chain.
+	// If it is a node type, this method is not supported.
+	GetNodeById(nodeId RuleNodeId) (NodeCtx, bool)
 	// DSL returns the configuration DSL of the node.
 	DSL() []byte
 }
@@ -142,11 +145,9 @@ type ChainCtx interface {
 	// ReloadChild refreshes the configuration of a specified ID component in a sub-rule chain.
 	// If it is a node type, this method is not supported.
 	ReloadChild(nodeId RuleNodeId, def []byte) error
-	// GetNodeById retrieves the configuration of a specified ID component in a sub-rule chain.
-	// If it is a node type, this method is not supported.
-	GetNodeById(nodeId RuleNodeId) (NodeCtx, bool)
 	// Definition returns the definition of the rule chain.
 	Definition() *RuleChain
+	// GetRuleEnginePool retrieves the rule engine pool.
 	GetRuleEnginePool() RuleEnginePool
 }
 

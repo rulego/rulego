@@ -16,32 +16,32 @@
 
 package types
 
-// NetResource represents a network resource node component such as a client or server connection.
-type NetResource interface {
+// NetNode represents a network resource node component such as a client or server connection.
+type NetNode interface {
 	Node
 	// GetNetResource retrieves the underlying net client or server connection.
 	// Used for connection pool reuse
 	GetNetResource() (interface{}, error)
 }
 
-type NetResourceCtx interface {
+type NetNodeCtx interface {
 	NodeCtx
 	GetNetResource() (interface{}, error)
 }
 
 type NetPool interface {
-	// New creates a new NetResource instance with the given ID and DSL.
-	New(nodeType, id string, dsl []byte) (NetResourceCtx, error)
-	// NewFromDef creates a new NetResource instance from a RuleNode definition.
-	NewFromDef(def RuleNode) (NetResourceCtx, error)
-	// Get retrieves a NetResource instance by its ID.
-	Get(nodeType string, id string) (NetResourceCtx, bool)
+	// New creates a new NetNode instance with the given ID and DSL.
+	New(nodeType, id string, dsl []byte) (NetNodeCtx, error)
+	// NewFromDef creates a new NetNode instance from a RuleNode definition.
+	NewFromDef(def RuleNode) (NetNodeCtx, error)
+	// Get retrieves a NetNode instance by its ID.
+	Get(nodeType string, id string) (NetNodeCtx, bool)
 	// GetNetResource retrieves a net client or server connection by its nodeTye and ID.
 	GetNetResource(nodeType string, id string) (interface{}, error)
-	// Del deletes a NetResource instance by its nodeTye and ID.
+	// Del deletes a NetNode instance by its nodeTye and ID.
 	Del(nodeType string, id string)
-	// Stop stops and releases all NetResource instances.
+	// Stop stops and releases all NetNode instances.
 	Stop()
-	// GetAll get all NetResource instances
-	GetAll() map[string][]NetResourceCtx
+	// GetAll get all NetNode instances
+	GetAll() map[string][]NetNodeCtx
 }

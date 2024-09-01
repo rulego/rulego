@@ -18,7 +18,6 @@ package external
 
 import (
 	"context"
-	"errors"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/mqtt"
@@ -39,9 +38,6 @@ import (
 //	         "Topic": "/device/msg"
 //	       }
 //	     }
-
-// MqttClientNotInitErr mqttClient 未初始化错误
-var MqttClientNotInitErr = errors.New("mqtt client not initialized")
 
 func init() {
 	Registry.Add(&MqttClientNode{})
@@ -82,13 +78,12 @@ func (x *MqttClientNodeConfiguration) ToMqttConfig() mqtt.Config {
 }
 
 type MqttClientNode struct {
-	base.NetResourceNode[*mqtt.Client]
+	base.NetNode[*mqtt.Client]
 	//节点配置
 	Config MqttClientNodeConfiguration
-	//客户端
-	client *mqtt.Client
 	//topic 模板
 	topicTemplate str.Template
+	client        *mqtt.Client
 }
 
 // Type 组件类型
@@ -109,7 +104,7 @@ func (x *MqttClientNode) New() types.Node {
 func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		x.NetResourceNode.Init(ruleConfig, x.Type(), x.Config.Server, func() (*mqtt.Client, error) {
+		_ = x.NetNode.Init(ruleConfig, x.Type(), x.Config.Server, true, func() (*mqtt.Client, error) {
 			return x.initClient()
 		})
 		x.topicTemplate = str.NewTemplate(x.Config.Topic)
@@ -122,7 +117,7 @@ func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	topic := x.topicTemplate.ExecuteFn(func() map[string]any {
 		return base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	})
-	if client, err := x.NetResourceNode.GetClient(); err != nil {
+	if client, err := x.NetNode.GetResource(); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
 		if err := client.Publish(topic, x.Config.QOS, []byte(msg.Data)); err != nil {
@@ -141,23 +136,24 @@ func (x *MqttClientNode) Destroy() {
 }
 
 func (x *MqttClientNode) GetNetResource() (interface{}, error) {
-	return x.GetClient()
+	return x.GetResource()
 }
 
 // initClient 初始化客户端
 func (x *MqttClientNode) initClient() (*mqtt.Client, error) {
 	if x.client != nil {
 		return x.client, nil
-	} else if x.client == nil && x.Connect() {
+	} else if x.client == nil && x.TryConnect() {
 		ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
 		defer func() {
 			cancel()
-			x.Connected()
+			x.ConnectCompleted()
 		}()
 		var err error
 		x.client, err = mqtt.NewClient(ctx, x.Config.ToMqttConfig())
+		//x.NetNode.SetResource(client)
 		return x.client, err
 	} else {
-		return x.client, base.ErrClientNotInit
+		return nil, base.ErrClientNotInit
 	}
 }

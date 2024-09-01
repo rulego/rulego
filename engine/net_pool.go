@@ -45,20 +45,20 @@ func NewNetPool(config types.Config) *NetPool {
 	}
 }
 
-// New creates a new NetResource instance.
-func (n *NetPool) New(nodeType, id string, dsl []byte) (types.NetResourceCtx, error) {
+// New creates a new NetNode instance.
+func (n *NetPool) New(nodeType, id string, dsl []byte) (types.NetNodeCtx, error) {
 	v, _ := n.nodeNetPoolMap.LoadOrStore(nodeType, NewNodeNetPool(n.Config, nodeType))
 	return v.(*NodeNetPool).New(id, dsl)
 }
 
-// NewFromDef creates a new NetResource instance from a RuleNode definition.
-func (n *NetPool) NewFromDef(def types.RuleNode) (types.NetResourceCtx, error) {
+// NewFromDef creates a new NetNode instance from a RuleNode definition.
+func (n *NetPool) NewFromDef(def types.RuleNode) (types.NetNodeCtx, error) {
 	v, _ := n.nodeNetPoolMap.LoadOrStore(def.Type, NewNodeNetPool(n.Config, def.Type))
 	return v.(*NodeNetPool).NewFromDef(def)
 }
 
-// Get retrieves a NetResource instance by its nodeTye and ID.
-func (n *NetPool) Get(nodeType string, id string) (types.NetResourceCtx, bool) {
+// Get retrieves a NetNode instance by its nodeTye and ID.
+func (n *NetPool) Get(nodeType string, id string) (types.NetNodeCtx, bool) {
 	if v, ok := n.nodeNetPoolMap.Load(nodeType); ok {
 		return v.(*NodeNetPool).Get(id)
 	} else {
@@ -75,14 +75,14 @@ func (n *NetPool) GetNetResource(nodeType string, id string) (interface{}, error
 	}
 }
 
-// Del deletes a NetResource instance by its nodeTye and ID.
+// Del deletes a NetNode instance by its nodeTye and ID.
 func (n *NetPool) Del(nodeType string, id string) {
 	if v, ok := n.nodeNetPoolMap.Load(nodeType); ok {
 		v.(*NodeNetPool).Del(id)
 	}
 }
 
-// Stop stops and releases all NetResource instances.
+// Stop stops and releases all NetNode instances.
 func (n *NetPool) Stop() {
 	n.nodeNetPoolMap.Range(func(key, value any) bool {
 		value.(*NodeNetPool).Stop()
@@ -91,9 +91,9 @@ func (n *NetPool) Stop() {
 	})
 }
 
-// GetAll get all NetResource instances
-func (n *NetPool) GetAll() map[string][]types.NetResourceCtx {
-	nodeTypeItems := make(map[string][]types.NetResourceCtx)
+// GetAll get all NetNode instances
+func (n *NetPool) GetAll() map[string][]types.NetNodeCtx {
+	nodeTypeItems := make(map[string][]types.NetNodeCtx)
 	n.nodeNetPoolMap.Range(func(key, value any) bool {
 		items := value.(*NodeNetPool).GetAll()
 		nodeTypeItems[key.(string)] = items
@@ -107,7 +107,7 @@ type NodeNetPool struct {
 	Config types.Config
 	//NodeType node type
 	NodeType string
-	// key:resourceId value:NetResourceCtx
+	// key:resourceId value:NetNodeCtx
 	entries sync.Map
 }
 
@@ -118,10 +118,10 @@ func NewNodeNetPool(config types.Config, nodeType string) *NodeNetPool {
 	}
 }
 
-// New creates a new NetResource and stores it in the Pool.
-func (n *NodeNetPool) New(id string, dsl []byte) (types.NetResourceCtx, error) {
+// New creates a new NetNode and stores it in the Pool.
+func (n *NodeNetPool) New(id string, dsl []byte) (types.NetNodeCtx, error) {
 	if v, ok := n.entries.Load(id); ok {
-		return v.(types.NetResourceCtx), nil
+		return v.(types.NetNodeCtx), nil
 	}
 	if nodeDef, err := n.Config.Parser.DecodeRuleNode(dsl); err == nil {
 		if id != "" {
@@ -133,13 +133,13 @@ func (n *NodeNetPool) New(id string, dsl []byte) (types.NetResourceCtx, error) {
 	}
 }
 
-func (n *NodeNetPool) NewFromDef(def types.RuleNode) (types.NetResourceCtx, error) {
+func (n *NodeNetPool) NewFromDef(def types.RuleNode) (types.NetNodeCtx, error) {
 	if v, ok := n.entries.Load(def.Id); ok {
-		return v.(types.NetResourceCtx), nil
+		return v.(types.NetNodeCtx), nil
 	}
 	if ctx, err := InitNetResourceNodeCtx(n.Config, nil, nil, &def); err == nil {
 		rCtx := NewNetResourceCtx(ctx)
-		if _, ok := rCtx.Node.(types.NetResource); !ok {
+		if _, ok := rCtx.Node.(types.NetNode); !ok {
 			return nil, ErrNotImplemented
 		}
 		n.entries.Store(rCtx.GetNodeId().Id, rCtx)
@@ -149,10 +149,10 @@ func (n *NodeNetPool) NewFromDef(def types.RuleNode) (types.NetResourceCtx, erro
 	}
 }
 
-// Get retrieves a NetResource by its ID.
-func (n *NodeNetPool) Get(id string) (types.NetResourceCtx, bool) {
+// Get retrieves a NetNode by its ID.
+func (n *NodeNetPool) Get(id string) (types.NetNodeCtx, bool) {
 	if v, ok := n.entries.Load(id); ok {
-		return v.(types.NetResourceCtx), ok
+		return v.(types.NetNodeCtx), ok
 	} else {
 		return nil, false
 	}
@@ -167,15 +167,15 @@ func (n *NodeNetPool) GetNetResource(id string) (interface{}, error) {
 	}
 }
 
-// Del deletes a NetResource instance by its ID.
+// Del deletes a NetNode instance by its ID.
 func (n *NodeNetPool) Del(id string) {
 	if v, ok := n.entries.Load(id); ok {
-		v.(types.NetResourceCtx).Destroy()
+		v.(types.NetNodeCtx).Destroy()
 		n.entries.Delete(id)
 	}
 }
 
-// Stop stops and releases all NetResource instances.
+// Stop stops and releases all NetNode instances.
 func (n *NodeNetPool) Stop() {
 	n.entries.Range(func(key, value any) bool {
 		n.Del(key.(string))
@@ -183,17 +183,17 @@ func (n *NodeNetPool) Stop() {
 	})
 }
 
-// GetAll get all NetResource instances
-func (n *NodeNetPool) GetAll() []types.NetResourceCtx {
-	var items []types.NetResourceCtx
+// GetAll get all NetNode instances
+func (n *NodeNetPool) GetAll() []types.NetNodeCtx {
+	var items []types.NetNodeCtx
 	n.entries.Range(func(key, value any) bool {
-		items = append(items, value.(types.NetResourceCtx))
+		items = append(items, value.(types.NetNodeCtx))
 		return true
 	})
 	return items
 }
 
-// Range iterates over all NetResource instances in the pool.
+// Range iterates over all NetNode instances in the pool.
 func (n *NodeNetPool) Range(f func(key, value any) bool) {
 	n.entries.Range(f)
 }
@@ -207,9 +207,9 @@ func NewNetResourceCtx(ctx *RuleNodeCtx) *NetResourceCtx {
 }
 
 // GetNetResource retrieves a net client or server connection.
-// Node must implement types.NetResource interface
+// Node must implement types.NetNode interface
 func (n *NetResourceCtx) GetNetResource() (interface{}, error) {
-	if ctx, ok := n.Node.(types.NetResource); ok {
+	if ctx, ok := n.Node.(types.NetNode); ok {
 		return ctx.GetNetResource()
 	} else {
 		return nil, ErrNotImplemented
