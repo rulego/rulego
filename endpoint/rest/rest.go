@@ -23,6 +23,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
+	nodeBase "github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/runtime"
@@ -212,12 +213,14 @@ type Config struct {
 // Rest 接收端端点
 type Rest struct {
 	impl.BaseEndpoint
+	nodeBase.SharedNode[*Rest]
 	//配置
 	Config     Config
 	RuleConfig types.Config
 	Server     *http.Server
 	//http路由器
-	router *httprouter.Router
+	router  *httprouter.Router
+	started bool
 }
 
 // Type 组件类型
@@ -236,8 +239,13 @@ func (rest *Rest) New() types.Node {
 // Init 初始化
 func (rest *Rest) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &rest.Config)
+	if err != nil {
+		return err
+	}
 	rest.RuleConfig = ruleConfig
-	return err
+	return rest.SharedNode.Init(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
+		return rest.initServer()
+	})
 }
 
 // Destroy 销毁
@@ -252,6 +260,7 @@ func (rest *Rest) Close() error {
 	if rest.router != nil {
 		rest.router = httprouter.New()
 	}
+	rest.started = false
 	rest.BaseEndpoint.Destroy()
 	return nil
 }
@@ -292,39 +301,19 @@ func (rest *Rest) RemoveRouter(routerId string, params ...interface{}) error {
 }
 
 func (rest *Rest) Start() error {
-	if rest.router == nil {
-		rest.router = httprouter.New()
+	if !rest.SharedNode.IsInit() {
+		err := rest.SharedNode.Init(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
+			return rest.initServer()
+		})
+		if err != nil {
+			return err
+		}
 	}
-	var err error
-	rest.Server = &http.Server{Addr: rest.Config.Server, Handler: rest.router}
-	ln, err := rest.Listen()
-	if err != nil {
+	if netResource, err := rest.SharedNode.GetInstance(); err == nil {
+		return netResource.startServer()
+	} else {
 		return err
 	}
-	isTls := rest.Config.CertKeyFile != "" && rest.Config.CertFile != ""
-	if rest.OnEvent != nil {
-		rest.OnEvent(endpoint.EventInitServer, rest)
-	}
-	if isTls {
-		rest.Printf("started rest server with TLS on :%s", rest.Config.Server)
-		go func() {
-			defer ln.Close()
-			err = rest.Server.ServeTLS(ln, rest.Config.CertFile, rest.Config.CertKeyFile)
-			if rest.OnEvent != nil {
-				rest.OnEvent(endpoint.EventCompletedServer, err)
-			}
-		}()
-	} else {
-		rest.Printf("started rest server on :%s", rest.Config.Server)
-		go func() {
-			defer ln.Close()
-			err = rest.Server.Serve(ln)
-			if rest.OnEvent != nil {
-				rest.OnEvent(endpoint.EventCompletedServer, err)
-			}
-		}()
-	}
-	return err
 }
 
 func (rest *Rest) Listen() (net.Listener, error) {
@@ -345,6 +334,7 @@ func (rest *Rest) Listen() (net.Listener, error) {
 // functions can be used.
 func (rest *Rest) addRouter(method string, routers ...endpoint.Router) *Rest {
 	method = strings.ToUpper(method)
+
 	rest.Lock()
 	defer rest.Unlock()
 	if rest.router == nil {
@@ -360,10 +350,8 @@ func (rest *Rest) addRouter(method string, routers ...endpoint.Router) *Rest {
 		}
 		//存储路由
 		rest.RouterStorage[item.GetId()] = item
-		//添加到http路由器
-		rest.router.Handle(method, item.FromToString(), rest.handler(item))
+		rest.Router().Handle(method, item.FromToString(), rest.handler(item))
 	}
-
 	return rest
 }
 
@@ -413,7 +401,20 @@ func (rest *Rest) GlobalOPTIONS(handler http.Handler) *Rest {
 }
 
 func (rest *Rest) Router() *httprouter.Router {
-	return rest.router
+	if !rest.SharedNode.IsInit() {
+		_ = rest.SharedNode.Init(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
+			return rest.initServer()
+		})
+	}
+
+	if fromPool, err := rest.SharedNode.GetInstance(); err != nil {
+		rest.Printf("get router err :%v", err)
+		return httprouter.New()
+	} else if fromPool.IsFromPool() {
+		return fromPool.router
+	} else {
+		return rest.router
+	}
 }
 
 func (rest *Rest) routerKey(method string, from string) string {
@@ -467,4 +468,59 @@ func (rest *Rest) Printf(format string, v ...interface{}) {
 	if rest.RuleConfig.Logger != nil {
 		rest.RuleConfig.Logger.Printf(format, v...)
 	}
+}
+
+// Started 返回服务是否已经启动
+func (rest *Rest) Started() bool {
+	return rest.started
+}
+
+func (rest *Rest) GetInstance() (interface{}, error) {
+	return rest.SharedNode.GetInstance()
+}
+
+func (rest *Rest) initServer() (*Rest, error) {
+	if rest.router == nil {
+		rest.router = httprouter.New()
+	}
+	return rest, nil
+}
+
+func (rest *Rest) startServer() error {
+	if rest.started {
+		return nil
+	}
+	var err error
+	rest.Server = &http.Server{Addr: rest.Config.Server, Handler: rest.router}
+	ln, err := rest.Listen()
+	if err != nil {
+		return err
+	}
+	//标记已经启动
+	rest.started = true
+
+	isTls := rest.Config.CertKeyFile != "" && rest.Config.CertFile != ""
+	if rest.OnEvent != nil {
+		rest.OnEvent(endpoint.EventInitServer, rest)
+	}
+	if isTls {
+		rest.Printf("started rest server with TLS on :%s", rest.Config.Server)
+		go func() {
+			defer ln.Close()
+			err = rest.Server.ServeTLS(ln, rest.Config.CertFile, rest.Config.CertKeyFile)
+			if rest.OnEvent != nil {
+				rest.OnEvent(endpoint.EventCompletedServer, err)
+			}
+		}()
+	} else {
+		rest.Printf("started rest server on :%s", rest.Config.Server)
+		go func() {
+			defer ln.Close()
+			err = rest.Server.Serve(ln)
+			if rest.OnEvent != nil {
+				rest.OnEvent(endpoint.EventCompletedServer, err)
+			}
+		}()
+	}
+	return err
 }

@@ -115,6 +115,10 @@ func NewRuleEngineService(c config.Config, username string) (*RuleEngineService,
 	return service, nil
 }
 
+func (s *RuleEngineService) GetRuleConfig() types.Config {
+	return s.ruleConfig
+}
+
 func (s *RuleEngineService) Get(chainId string) (types.RuleChain, bool) {
 	if e, ok := s.Pool.Get(chainId); ok {
 		return e.Definition(), true

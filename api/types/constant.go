@@ -27,6 +27,13 @@ const (
 	Vars    = "vars"
 	Secrets = "secrets"
 )
+
 const (
-	EndpointTypePrefix = "endpoint/"
+	EndpointTypePrefix                = "endpoint/"
+	NodeConfigurationPrefixInstanceId = "ref://"
+)
+
+const (
+	//NodeConfigurationKeyIsInitNetResource 组件配置key是否是初始化网络资源，用于节点组件初始化参数校验区分
+	NodeConfigurationKeyIsInitNetResource = "$initNetResource"
 )

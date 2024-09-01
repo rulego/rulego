@@ -113,6 +113,7 @@ import (
 	"github.com/rulego/rulego/builtin/aspect"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/engine"
+	"github.com/rulego/rulego/node_pool"
 )
 
 // Registry is the default registrar for rule engine components.
@@ -240,7 +241,11 @@ func Range(f func(key, value any) bool) {
 
 // NewConfig creates a new Config and applies the options.
 func NewConfig(opts ...types.Option) types.Config {
-	return engine.NewConfig(opts...)
+	config := engine.NewConfig(opts...)
+	if config.NetPool == nil {
+		config.NetPool = node_pool.NewNodePool(config)
+	}
+	return config
 }
 
 // WithConfig is an option that sets the Config of the RuleEngine.

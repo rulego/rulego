@@ -2,12 +2,10 @@ package router
 
 import (
 	"examples/server/config"
-	"examples/server/config/logger"
 	"examples/server/internal/constants"
 	"examples/server/internal/controller"
 	"examples/server/internal/service"
 	"github.com/gorilla/websocket"
-	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
@@ -21,7 +19,7 @@ import (
 func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpoint.Endpoint {
 	//初始化日志
 	wsEndpoint := &websocketEndpoint.Endpoint{
-		RestEndpoint: restEndpoint,
+		Rest: restEndpoint,
 		Upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -29,7 +27,6 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 				return true // 允许所有跨域请求
 			},
 		},
-		RuleConfig: rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger.Logger)),
 	}
 	wsEndpoint.OnEvent = func(eventName string, params ...interface{}) {
 		switch eventName {

@@ -17,20 +17,17 @@
 package websocket
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
-	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/runtime"
 	"github.com/rulego/rulego/utils/str"
 	"log"
-	"net"
 	"net/http"
 	"net/textproto"
 	"strconv"
@@ -197,24 +194,15 @@ func (r *ResponseMessage) GetError() error {
 }
 
 // Config Websocket 服务配置
-type Config struct {
-	Server      string
-	CertFile    string
-	CertKeyFile string
-}
+type Config = rest.Config
 
 // Websocket 接收端端点
 type Websocket struct {
-	impl.BaseEndpoint
+	*rest.Rest
 	//配置
-	Config     Config
-	RuleConfig types.Config
-	//OnEventFunc  endpoint.OnEvent
-	RestEndpoint *rest.Rest
-	Upgrader     websocket.Upgrader
-	Server       *http.Server
-	//http路由器
-	router *httprouter.Router
+	Config   Config
+	Upgrader websocket.Upgrader
+	OnEvent  endpoint.OnEvent
 }
 
 // Type 组件类型
@@ -233,20 +221,14 @@ func (ws *Websocket) New() types.Node {
 // Init 初始化
 func (ws *Websocket) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &ws.Config)
-	ws.RuleConfig = ruleConfig
-	return err
-}
-
-// Destroy 销毁
-func (ws *Websocket) Destroy() {
-	_ = ws.Close()
-}
-
-func (ws *Websocket) Close() error {
-	if nil != ws.Server {
-		return ws.Server.Shutdown(context.Background())
+	if err != nil {
+		return err
 	}
-	return nil
+	ws.Rest = &rest.Rest{}
+	if err = ws.Rest.Init(ruleConfig, configuration); err != nil {
+		return err
+	}
+	return err
 }
 
 func (ws *Websocket) Id() string {
@@ -267,84 +249,28 @@ func (ws *Websocket) AddRouter(router endpoint.Router, params ...interface{}) (i
 	}
 }
 
-func (ws *Websocket) RemoveRouter(routerId string, params ...interface{}) error {
-	ws.Lock()
-	defer ws.Unlock()
-	if ws.RouterStorage != nil {
-		if router, ok := ws.RouterStorage[routerId]; ok && !router.IsDisable() {
-			router.Disable(true)
-			return nil
-		} else {
-			return fmt.Errorf("router: %s not found", routerId)
-		}
+func (ws *Websocket) Start() error {
+	if ws.OnEvent != nil {
+		ws.OnEvent(endpoint.EventInitServer, ws.Rest.Server)
+	}
+	if ws.Rest.Started() {
+		return nil
+	}
+	if err := ws.Rest.Start(); err != nil {
+		return err
 	}
 	return nil
 }
 
-func (ws *Websocket) Start() error {
-	var err error
-	//已经初始化
-	if ws.RestEndpoint != nil {
-		if ws.OnEvent != nil {
-			ws.OnEvent(endpoint.EventInitServer, ws.RestEndpoint.Server)
-		}
-		return nil
-	}
-	if ws.router == nil {
-		ws.router = httprouter.New()
-	}
-	ws.Server = &http.Server{Addr: ws.Config.Server, Handler: ws.router}
-
-	ln, err := ws.Listen()
-	if err != nil {
-		return err
-	}
-	isTls := ws.Config.CertKeyFile != "" && ws.Config.CertFile != ""
-	if ws.OnEvent != nil {
-		ws.OnEvent(endpoint.EventInitServer, ws)
-	}
-	if isTls {
-		ws.Printf("started ws server with TLS on :%s", ws.Config.Server)
-		go func() {
-			defer ln.Close()
-			err = ws.Server.ServeTLS(ln, ws.Config.CertFile, ws.Config.CertKeyFile)
-			if ws.OnEvent != nil {
-				ws.OnEvent(endpoint.EventCompletedServer, err)
-			}
-		}()
-	} else {
-		ws.Printf("started ws server on :%s", ws.Config.Server)
-		go func() {
-			defer ln.Close()
-			err = ws.Server.Serve(ln)
-			if ws.OnEvent != nil {
-				ws.OnEvent(endpoint.EventCompletedServer, err)
-			}
-		}()
-	}
-	return err
-
-}
-
-func (ws *Websocket) Listen() (net.Listener, error) {
-	addr := ws.Server.Addr
-	if addr == "" {
-		if ws.Config.CertKeyFile != "" && ws.Config.CertFile != "" {
-			addr = ":https"
-		} else {
-			addr = ":http"
-		}
-	}
-	return net.Listen("tcp", addr)
+func (ws *Websocket) GetInstance() (interface{}, error) {
+	return ws.SharedNode.GetInstance()
 }
 
 // addRouter 注册1个或者多个路由
 func (ws *Websocket) addRouter(routers ...endpoint.Router) *Websocket {
 	ws.Lock()
 	defer ws.Unlock()
-	if ws.router == nil {
-		ws.router = httprouter.New()
-	}
+
 	if ws.RouterStorage == nil {
 		ws.RouterStorage = make(map[string]endpoint.Router)
 	}
@@ -353,23 +279,12 @@ func (ws *Websocket) addRouter(routers ...endpoint.Router) *Websocket {
 		//存储路由
 		ws.RouterStorage[item.GetId()] = item
 		//添加到http路由器
-		if ws.RestEndpoint != nil {
-			ws.RestEndpoint.Router().Handle("GET", item.FromToString(), ws.handler(item))
-		} else {
-			ws.router.Handle("GET", item.FromToString(), ws.handler(item))
-		}
+		ws.Router().Handle("GET", item.FromToString(), ws.handler(item))
 	}
 
 	return ws
 }
 
-func (ws *Websocket) Router() *httprouter.Router {
-	return ws.router
-}
-
-func (ws *Websocket) routerKey(method string, from string) string {
-	return method + " " + from
-}
 func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		c, err := ws.Upgrader.Upgrade(w, r, nil)
@@ -459,12 +374,5 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 			}
 			ws.DoProcess(r.Context(), router, exchange)
 		}
-
-	}
-}
-
-func (ws *Websocket) Printf(format string, v ...interface{}) {
-	if ws.RuleConfig.Logger != nil {
-		ws.RuleConfig.Logger.Printf(format, v...)
 	}
 }

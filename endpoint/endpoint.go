@@ -135,7 +135,7 @@ type DynamicEndpoint struct {
 }
 
 // NewFromDsl creates a new DynamicEndpoint from the provided DSL definition and options.
-func NewFromDsl(def []byte, opts ...endpoint.DynamicEndpointOption) (endpoint.DynamicEndpoint, error) {
+func NewFromDsl(def []byte, opts ...endpoint.DynamicEndpointOption) (*DynamicEndpoint, error) {
 	if len(def) == 0 {
 		return nil, errors.New("def cannot be nil")
 	}
@@ -149,7 +149,7 @@ func NewFromDsl(def []byte, opts ...endpoint.DynamicEndpointOption) (endpoint.Dy
 	return e, nil
 }
 
-func NewFromDef(def types.EndpointDsl, opts ...endpoint.DynamicEndpointOption) (endpoint.DynamicEndpoint, error) {
+func NewFromDef(def types.EndpointDsl, opts ...endpoint.DynamicEndpointOption) (*DynamicEndpoint, error) {
 	e := &DynamicEndpoint{}
 	if err := e.ReloadFromDef(def, opts...); err != nil {
 		return nil, err
@@ -309,6 +309,31 @@ func (e *DynamicEndpoint) ReloadFromDef(def types.EndpointDsl, opts ...endpoint.
 	} else {
 		return e.newEndpoint(def)
 	}
+}
+
+func (e *DynamicEndpoint) Config() types.Config {
+	return e.ruleConfig
+}
+
+// IsDebugMode checks if the node is in debug mode.
+// True: When messages flow in and out of the node, the config.OnDebug callback function is called; otherwise, it is not.
+func (e *DynamicEndpoint) IsDebugMode() bool {
+	return false
+}
+
+// GetNodeId retrieves the component ID.
+func (e *DynamicEndpoint) GetNodeId() types.RuleNodeId {
+	return types.RuleNodeId{Id: e.Id(), Type: types.ENDPOINT}
+}
+
+// ReloadSelf refreshes the configuration of the component.
+func (e *DynamicEndpoint) ReloadSelf(def []byte) error {
+	return e.Reload(def)
+}
+
+// GetNodeById not supported.
+func (e *DynamicEndpoint) GetNodeById(_ types.RuleNodeId) (types.NodeCtx, bool) {
+	return nil, false
 }
 
 // newEndpoint creates a new Endpoint with the provided DSL.

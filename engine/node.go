@@ -37,12 +37,21 @@ type RuleNodeCtx struct {
 	// config is the configuration of the rule engine.
 	config types.Config
 	// aspects is a list of AOP (Aspect-Oriented Programming) aspects.
-	aspects types.AspectList
+	aspects           types.AspectList
+	isInitNetResource bool
 }
 
 // InitRuleNodeCtx initializes a RuleNodeCtx with the given configuration, chain context, and self-definition.
 // It attempts to create a new node based on the type defined in selfDefinition.
 func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.AspectList, selfDefinition *types.RuleNode) (*RuleNodeCtx, error) {
+	return initRuleNodeCtx(config, chainCtx, aspects, selfDefinition, false)
+}
+
+func InitNetResourceNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.AspectList, selfDefinition *types.RuleNode) (*RuleNodeCtx, error) {
+	return initRuleNodeCtx(config, chainCtx, aspects, selfDefinition, true)
+}
+
+func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.AspectList, selfDefinition *types.RuleNode, isInitNetResource bool) (*RuleNodeCtx, error) {
 	// Retrieve aspects for the engine.
 	_, nodeBeforeInitAspects, _, _, _ := aspects.GetEngineAspects()
 	// Iterate over the nodeBeforeInitAspects and call OnNodeBeforeInit on each aspect.
@@ -56,10 +65,11 @@ func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 	if err != nil {
 		// If there is an error in creating the node, return a RuleNodeCtx with the provided context and definition.
 		return &RuleNodeCtx{
-			ChainCtx:       chainCtx,
-			SelfDefinition: selfDefinition,
-			config:         config,
-			aspects:        aspects,
+			ChainCtx:          chainCtx,
+			SelfDefinition:    selfDefinition,
+			config:            config,
+			aspects:           aspects,
+			isInitNetResource: isInitNetResource,
 		}, err
 	} else {
 		// If selfDefinition.Configuration is nil, initialize it as an empty configuration.
@@ -71,17 +81,21 @@ func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 		if err != nil {
 			return &RuleNodeCtx{}, err
 		}
+		if isInitNetResource {
+			configuration[types.NodeConfigurationKeyIsInitNetResource] = true
+		}
 		// Initialize the node with the processed configuration.
 		if err = node.Init(config, configuration); err != nil {
 			return &RuleNodeCtx{}, err
 		} else {
 			// Return a RuleNodeCtx with the initialized node and provided context and definition.
 			return &RuleNodeCtx{
-				Node:           node,
-				ChainCtx:       chainCtx,
-				SelfDefinition: selfDefinition,
-				config:         config,
-				aspects:        aspects,
+				Node:              node,
+				ChainCtx:          chainCtx,
+				SelfDefinition:    selfDefinition,
+				config:            config,
+				aspects:           aspects,
+				isInitNetResource: isInitNetResource,
 			}, nil
 		}
 	}
@@ -112,9 +126,9 @@ func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
 	var ctx *RuleNodeCtx
 	var err error
 	if chainCtx == nil {
-		ctx, err = InitRuleNodeCtx(rn.config, nil, nil, &def)
+		ctx, err = initRuleNodeCtx(rn.config, nil, nil, &def, rn.isInitNetResource)
 	} else {
-		ctx, err = InitRuleNodeCtx(rn.config, chainCtx, chainCtx.aspects, &def)
+		ctx, err = initRuleNodeCtx(rn.config, chainCtx, chainCtx.aspects, &def, rn.isInitNetResource)
 	}
 	if err == nil {
 		//先销毁

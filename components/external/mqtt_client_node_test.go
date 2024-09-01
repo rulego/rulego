@@ -78,6 +78,15 @@ func TestMqttClientNode(t *testing.T) {
 		}, Registry)
 		assert.Nil(t, err)
 
+		nodeClientFromPool, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"server":               types.NodeConfigurationPrefixInstanceId + "127.0.0.1:1883",
+			"topic":                "/device/msg",
+			"maxReconnectInterval": -1,
+		}, Registry)
+		assert.Nil(t, err)
+		assert.Equal(t, targetNodeType, nodeClientFromPool.(*MqttClientNode).Type())
+		assert.Equal(t, "127.0.0.1:1883", nodeClientFromPool.(*MqttClientNode).InstanceId)
+
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
 		msgList := []test.Msg{
@@ -85,26 +94,31 @@ func TestMqttClientNode(t *testing.T) {
 				MetaData: metaData,
 				MsgType:  "ACTIVITY_EVENT1",
 				Data:     "AA",
-				//AfterSleep: time.Millisecond * 200,
 			},
 			{
 				MetaData: metaData,
 				MsgType:  "ACTIVITY_EVENT2",
 				Data:     "{\"temperature\":60}",
-				//AfterSleep: time.Millisecond * 200,
 			},
 		}
 		_ = node1
 		var nodeList = []test.NodeAndCallback{
-			//{
-			//	Node:    node1,
-			//	MsgList: msgList,
-			//	Callback: func(msg types.RuleMsg, relationType string, err error) {
-			//		assert.Equal(t, types.Success, relationType)
-			//	},
-			//},
+			{
+				Node:    node1,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+				},
+			},
 			{
 				Node:    node2,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Failure, relationType)
+				},
+			},
+			{
+				Node:    nodeClientFromPool,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Failure, relationType)
@@ -114,28 +128,6 @@ func TestMqttClientNode(t *testing.T) {
 		for _, item := range nodeList {
 			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
-		time.Sleep(time.Second * 10)
-		var nodeList2 = []test.NodeAndCallback{
-			{
-				Node: node2,
-				MsgList: []test.Msg{
-					{
-						MetaData: metaData,
-						MsgType:  "ACTIVITY_EVENT2",
-						Data:     "{\"temperature\":60}",
-					},
-				},
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					//if msg.Type == "ACTIVITY_EVENT2" {
-					//assert.True(t, MqttClientNotInitErr.Error() != err.Error())
-					//}
-					assert.Equal(t, types.Failure, relationType)
-				},
-			},
-		}
-		for _, item := range nodeList2 {
-			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
-		}
-		time.Sleep(time.Second * 8)
+		time.Sleep(time.Second * 2)
 	})
 }

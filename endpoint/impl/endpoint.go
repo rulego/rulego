@@ -481,7 +481,7 @@ type ExecutorFactory struct {
 // Register 注册to端执行器
 func (r *ExecutorFactory) Register(name string, executor endpoint.Executor) {
 	r.Lock()
-	r.Unlock()
+	defer r.Unlock()
 	if r.executors == nil {
 		r.executors = make(map[string]endpoint.Executor)
 	}
