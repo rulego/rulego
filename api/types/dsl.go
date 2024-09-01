@@ -158,19 +158,7 @@ type RuleNodeRunLog struct {
 
 // EndpointDsl defines the DSL for an endpoint.
 type EndpointDsl struct {
-	// Id is the endpoint ID.
-	Id string `json:"id"`
-	// Name is the name of the endpoint.
-	Name string `json:"name"`
-	// Type is the type of the endpoint.
-	Type string `json:"type"`
-	// Ref is the reference to the endpoint.
-	// Reuse initialized endpointId. Configuration does not require.
-	Ref string `json:"ref"`
-	// Configuration contains the configuration information of the endpoint.
-	Configuration Configuration `json:"configuration,omitempty"`
-	// AdditionalInfo is an extension field.
-	AdditionalInfo NodeAdditionalInfo `json:"additionalInfo,omitempty"`
+	RuleNode
 	// Processors is the list of global processors for the endpoint.
 	// Using processors registered in builtin/processor#Builtins xx by name.
 	Processors []string `json:"processors"`

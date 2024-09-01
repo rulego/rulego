@@ -27,6 +27,8 @@ import (
 	"github.com/rulego/rulego/endpoint/rest"
 	"gopkg.in/ini.v1"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -49,7 +51,7 @@ func init() {
 }
 
 func main() {
-
+	go http.ListenAndServe("0.0.0.0:6060", nil)
 	flag.Parse()
 
 	if ver {

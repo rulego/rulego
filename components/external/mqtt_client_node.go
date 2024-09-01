@@ -18,14 +18,11 @@ package external
 
 import (
 	"context"
-	"errors"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -41,9 +38,6 @@ import (
 //	         "Topic": "/device/msg"
 //	       }
 //	     }
-
-// MqttClientNotInitErr mqttClient 未初始化错误
-var MqttClientNotInitErr = errors.New("mqtt client not initialized")
 
 func init() {
 	Registry.Add(&MqttClientNode{})
@@ -84,15 +78,12 @@ func (x *MqttClientNodeConfiguration) ToMqttConfig() mqtt.Config {
 }
 
 type MqttClientNode struct {
+	base.SharedNode[*mqtt.Client]
 	//节点配置
-	Config     MqttClientNodeConfiguration
-	mqttClient *mqtt.Client
-	//锁
-	locker sync.RWMutex
-	//是否正在连接mqtt 服务器
-	connecting int32
+	Config MqttClientNodeConfiguration
 	//topic 模板
 	topicTemplate str.Template
+	client        *mqtt.Client
 }
 
 // Type 组件类型
@@ -113,7 +104,9 @@ func (x *MqttClientNode) New() types.Node {
 func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		_ = x.tryInitClient()
+		_ = x.SharedNode.Init(ruleConfig, x.Type(), x.Config.Server, true, func() (*mqtt.Client, error) {
+			return x.initClient()
+		})
 		x.topicTemplate = str.NewTemplate(x.Config.Topic)
 	}
 	return err
@@ -124,41 +117,43 @@ func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	topic := x.topicTemplate.ExecuteFn(func() map[string]any {
 		return base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	})
-	if x.mqttClient == nil {
-		if err := x.tryInitClient(); err != nil {
-			ctx.TellFailure(msg, err)
-		} else {
-			ctx.TellFailure(msg, MqttClientNotInitErr)
-		}
-	} else if err := x.mqttClient.Publish(topic, x.Config.QOS, []byte(msg.Data)); err != nil {
+	if client, err := x.SharedNode.GetInstance(); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
-		ctx.TellSuccess(msg)
+		if err := client.Publish(topic, x.Config.QOS, []byte(msg.Data)); err != nil {
+			ctx.TellFailure(msg, err)
+		} else {
+			ctx.TellSuccess(msg)
+		}
 	}
 }
 
 // Destroy 销毁
 func (x *MqttClientNode) Destroy() {
-	if x.mqttClient != nil {
-		_ = x.mqttClient.Close()
+	if x.client != nil {
+		_ = x.client.Close()
 	}
 }
-func (x *MqttClientNode) isConnecting() bool {
-	return atomic.LoadInt32(&x.connecting) == 1
+
+func (x *MqttClientNode) GetInstance() (interface{}, error) {
+	return x.SharedNode.GetInstance()
 }
 
-// TryInitClient 尝试重连mqtt客户端
-func (x *MqttClientNode) tryInitClient() error {
-	if x.mqttClient == nil && atomic.CompareAndSwapInt32(&x.connecting, 0, 1) {
-		var err error
+// initClient 初始化客户端
+func (x *MqttClientNode) initClient() (*mqtt.Client, error) {
+	if x.client != nil {
+		return x.client, nil
+	} else if x.client == nil && x.TryLock() {
 		ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
 		defer func() {
 			cancel()
-			atomic.StoreInt32(&x.connecting, 0)
+			x.ReleaseLock()
 		}()
-		x.mqttClient, err = mqtt.NewClient(ctx, x.Config.ToMqttConfig())
-		return err
+		var err error
+		x.client, err = mqtt.NewClient(ctx, x.Config.ToMqttConfig())
+		//x.SharedNode.SetResource(client)
+		return x.client, err
 	} else {
-		return nil
+		return nil, base.ErrClientNotInit
 	}
 }

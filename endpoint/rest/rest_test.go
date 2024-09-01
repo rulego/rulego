@@ -325,10 +325,10 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	_, _ = restEndpoint.AddRouter(router4, "POST")
 	_, _ = restEndpoint.AddRouter(router5, "POST")
 
-	assert.NotNil(t, restEndpoint.Router())
+	assert.NotNil(t, restEndpoint.Router)
 	//启动服务
 	err = restEndpoint.Start()
-	fmt.Println(err)
+	//fmt.Println(err)
 	<-stop
 	restEndpoint.Destroy()
 	wg.Done()

@@ -49,6 +49,14 @@ func WithPool(pool Pool) Option {
 	}
 }
 
+// WithNetPool is an option that sets the netPool of the Config.
+func WithNetPool(pool NodePool) Option {
+	return func(c *Config) error {
+		c.NetPool = pool
+		return nil
+	}
+}
+
 func WithDefaultPool() Option {
 	return func(c *Config) error {
 		wp := &pool.WorkerPool{MaxWorkersCount: math.MaxInt32}

@@ -75,6 +75,9 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 
 	restEndpoint.POST(controller.TestWebhookRouter(apiBasePath + "/webhook/:integrationType/:username/:chainId"))
 
+	//获取所有共享组件
+	restEndpoint.GET(controller.ListNodePool(apiBasePath + "/node_pool/list"))
+
 	//静态文件映射
 	loadServeFiles(config, restEndpoint)
 	return restEndpoint

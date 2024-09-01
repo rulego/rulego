@@ -23,6 +23,7 @@ import (
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/utils/maps"
@@ -207,69 +208,79 @@ func (r *ResponseMessage) Response() paho.Client {
 // Mqtt MQTT 接收端端点
 type Mqtt struct {
 	impl.BaseEndpoint
+	base.SharedNode[*mqtt.Client]
 	RuleConfig types.Config
 	Config     mqtt.Config
 	client     *mqtt.Client
+	started    bool
 }
 
 // Type 组件类型
-func (m *Mqtt) Type() string {
+func (x *Mqtt) Type() string {
 	return Type
 }
 
-func (m *Mqtt) New() types.Node {
+func (x *Mqtt) New() types.Node {
 	return &Mqtt{Config: mqtt.Config{
 		Server: "127.0.0.1:1883",
 	}}
 }
 
 // Init 初始化
-func (m *Mqtt) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	err := maps.Map2Struct(configuration, &m.Config)
-	m.RuleConfig = ruleConfig
+func (x *Mqtt) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	err := maps.Map2Struct(configuration, &x.Config)
+	x.RuleConfig = ruleConfig
+	_ = x.SharedNode.Init(x.RuleConfig, x.Type(), x.Config.Server, true, func() (*mqtt.Client, error) {
+		return x.initClient()
+	})
 	return err
 }
 
 // Destroy 销毁
-func (m *Mqtt) Destroy() {
-	_ = m.Close()
+func (x *Mqtt) Destroy() {
+	_ = x.Close()
 }
 
-func (m *Mqtt) Close() error {
-	if nil != m.client {
-		return m.client.Close()
+func (x *Mqtt) Close() error {
+	if x.client != nil {
+		return x.client.Close()
 	}
 	return nil
 }
 
-func (m *Mqtt) Id() string {
-	return m.Config.Server
+func (x *Mqtt) Id() string {
+	return x.Config.Server
 }
 
-func (m *Mqtt) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
+func (x *Mqtt) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
 	}
-	m.CheckAndSetRouterId(router)
-	m.saveRouter(router)
+	x.CheckAndSetRouterId(router)
+	x.saveRouter(router)
 	//服务已经启动
-	if m.client != nil {
+	if x.started {
 		if form := router.GetFrom(); form != nil {
-			m.client.RegisterHandler(mqtt.Handler{
+			client, err := x.SharedNode.GetInstance()
+			if err != nil {
+				return "", err
+			}
+			client.RegisterHandler(mqtt.Handler{
 				Topic:  form.ToString(),
-				Qos:    m.Config.QOS,
-				Handle: m.handler(router),
+				Qos:    x.Config.QOS,
+				Handle: x.handler(router),
 			})
 		}
 	}
 	return router.GetId(), nil
 }
 
-func (m *Mqtt) RemoveRouter(routerId string, params ...interface{}) error {
-	router := m.deleteRouter(routerId)
+func (x *Mqtt) RemoveRouter(routerId string, params ...interface{}) error {
+	router := x.deleteRouter(routerId)
 	if router != nil {
-		if m.client != nil {
-			return m.client.UnregisterHandler(router.FromToString())
+		client, _ := x.SharedNode.GetInstance()
+		if client != nil {
+			return client.UnregisterHandler(router.FromToString())
 		} else {
 			return nil
 		}
@@ -278,61 +289,58 @@ func (m *Mqtt) RemoveRouter(routerId string, params ...interface{}) error {
 	}
 }
 
-func (m *Mqtt) Start() error {
-	if m.client == nil {
-		ctx, cancel := context.WithTimeout(context.TODO(), 16*time.Second)
-		defer cancel()
-		if client, err := mqtt.NewClient(ctx, m.Config); err != nil {
-			return err
-		} else {
-			m.client = client
-			for _, router := range m.RouterStorage {
-
-				if form := router.GetFrom(); form != nil {
-					m.client.RegisterHandler(mqtt.Handler{
-						Topic:  form.ToString(),
-						Qos:    m.Config.QOS,
-						Handle: m.handler(router),
-					})
-				}
-			}
-			return nil
+func (x *Mqtt) Start() error {
+	if x.started {
+		return nil
+	}
+	client, err := x.SharedNode.GetInstance()
+	if err != nil {
+		return err
+	}
+	for _, router := range x.RouterStorage {
+		if form := router.GetFrom(); form != nil {
+			client.RegisterHandler(mqtt.Handler{
+				Topic:  form.ToString(),
+				Qos:    x.Config.QOS,
+				Handle: x.handler(router),
+			})
 		}
 	}
+	x.started = true
 	return nil
 }
 
 // 存储路由
-func (m *Mqtt) saveRouter(routers ...endpoint.Router) {
-	m.Lock()
-	defer m.Unlock()
-	if m.RouterStorage == nil {
-		m.RouterStorage = make(map[string]endpoint.Router)
+func (x *Mqtt) saveRouter(routers ...endpoint.Router) {
+	x.Lock()
+	defer x.Unlock()
+	if x.RouterStorage == nil {
+		x.RouterStorage = make(map[string]endpoint.Router)
 	}
 	for _, item := range routers {
-		m.RouterStorage[item.GetId()] = item
+		x.RouterStorage[item.GetId()] = item
 	}
 }
 
 // 从存储器中删除路由
-func (m *Mqtt) deleteRouter(id string) endpoint.Router {
-	m.Lock()
-	defer m.Unlock()
-	if m.RouterStorage != nil {
-		if router, ok := m.RouterStorage[id]; ok {
-			delete(m.RouterStorage, id)
+func (x *Mqtt) deleteRouter(id string) endpoint.Router {
+	x.Lock()
+	defer x.Unlock()
+	if x.RouterStorage != nil {
+		if router, ok := x.RouterStorage[id]; ok {
+			delete(x.RouterStorage, id)
 			return router
 		}
 	}
 	return nil
 }
 
-func (m *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Message) {
+func (x *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Message) {
 	return func(c paho.Client, data paho.Message) {
 		defer func() {
 			//捕捉异常
 			if e := recover(); e != nil {
-				m.Printf("mqtt endpoint handler err :\n%v", runtime.Stack())
+				x.Printf("mqtt endpoint handler err :\n%v", runtime.Stack())
 			}
 		}()
 		exchange := &endpoint.Exchange{
@@ -344,12 +352,34 @@ func (m *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Mes
 				response: c,
 			}}
 
-		m.DoProcess(context.Background(), router, exchange)
+		x.DoProcess(context.Background(), router, exchange)
 	}
 }
 
-func (m *Mqtt) Printf(format string, v ...interface{}) {
-	if m.RuleConfig.Logger != nil {
-		m.RuleConfig.Logger.Printf(format, v...)
+func (x *Mqtt) Printf(format string, v ...interface{}) {
+	if x.RuleConfig.Logger != nil {
+		x.RuleConfig.Logger.Printf(format, v...)
+	}
+}
+
+func (x *Mqtt) GetInstance() (interface{}, error) {
+	return x.SharedNode.GetInstance()
+}
+
+// initClient 初始化客户端
+func (x *Mqtt) initClient() (*mqtt.Client, error) {
+	if x.client != nil {
+		return x.client, nil
+	} else if x.client == nil && x.TryLock() {
+		ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
+		defer func() {
+			cancel()
+			x.ReleaseLock()
+		}()
+		var err error
+		x.client, err = mqtt.NewClient(ctx, x.Config)
+		return x.client, err
+	} else {
+		return nil, base.ErrClientNotInit
 	}
 }

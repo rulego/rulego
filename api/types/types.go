@@ -54,6 +54,7 @@ type ComponentType int
 const (
 	NODE  ComponentType = iota // NODE represents a rule node component.
 	CHAIN                      // CHAIN represents a sub-rule chain component.
+	ENDPOINT
 )
 
 // PluginRegistry is an interface for providing node components via Go plugins.
@@ -132,9 +133,6 @@ type NodeCtx interface {
 	GetNodeId() RuleNodeId
 	// ReloadSelf refreshes the configuration of the component.
 	ReloadSelf(def []byte) error
-	// ReloadChild refreshes the configuration of a specified ID component in a sub-rule chain.
-	// If it is a node type, this method is not supported.
-	ReloadChild(nodeId RuleNodeId, def []byte) error
 	// GetNodeById retrieves the configuration of a specified ID component in a sub-rule chain.
 	// If it is a node type, this method is not supported.
 	GetNodeById(nodeId RuleNodeId) (NodeCtx, bool)
@@ -144,8 +142,12 @@ type NodeCtx interface {
 
 type ChainCtx interface {
 	NodeCtx
+	// ReloadChild refreshes the configuration of a specified ID component in a sub-rule chain.
+	// If it is a node type, this method is not supported.
+	ReloadChild(nodeId RuleNodeId, def []byte) error
 	// Definition returns the definition of the rule chain.
 	Definition() *RuleChain
+	// GetRuleEnginePool retrieves the rule engine pool.
 	GetRuleEnginePool() RuleEnginePool
 }
 
