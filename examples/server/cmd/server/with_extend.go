@@ -12,6 +12,7 @@ import (
 	_ "github.com/rulego/rulego-components/endpoint/redis_stream"
 	_ "github.com/rulego/rulego-components/external/kafka"
 	_ "github.com/rulego/rulego-components/external/nats"
+	_ "github.com/rulego/rulego-components/external/opengemini"
 	_ "github.com/rulego/rulego-components/external/rabbitmq"
 	_ "github.com/rulego/rulego-components/external/redis"
 	_ "github.com/rulego/rulego-components/filter"
