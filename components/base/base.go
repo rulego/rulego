@@ -99,26 +99,30 @@ func (n *nodeUtils) getEvnAndMetadata(_ types.RuleContext, msg types.RuleMsg, us
 	return evn
 }
 
-// SharedNode 共享资源组件，通过GetInstance获取共享实例，多个节点可以在共享池中获取相同的实例，例如：mqtt、数据库客户端，也可以http server以及是可复用的节点.
+// SharedNode 共享资源组件，通过 Get 获取共享实例，多个节点可以在共享池中获取相同的实例
+// 例如：mqtt 客户端、数据库客户端，也可以http server以及是可复用的节点。
 type SharedNode[T any] struct {
-	NodeType   string
+	//节点类型
+	NodeType string
+	//配置
 	RuleConfig types.Config
 	//资源ID
 	InstanceId string
 	//初始化实例资源函数
 	InitInstanceFunc func() (T, error)
-	//是否正在连接资源
-	connecting int32
+	//初始化资源资源，防止并发初始化
+	lock int32
 	//是否从资源池获取
 	isFromPool bool
 }
 
-// Init 初始化，如果server 为 ref:// 开头，则从网络资源池获取，否则调用initNetResourceFunc初始化
-func (x *SharedNode[T]) Init(ruleConfig types.Config, nodeType, server string, initNow bool, initInstanceFunc func() (T, error)) error {
+// Init 初始化，如果 resourcePath 为 ref:// 开头，则从网络资源池获取，否则调用 initInstanceFunc 初始化
+// initNow=true，会在立刻初始化，否则在 GetInstance() 时候初始化
+func (x *SharedNode[T]) Init(ruleConfig types.Config, nodeType, resourcePath string, initNow bool, initInstanceFunc func() (T, error)) error {
 	x.RuleConfig = ruleConfig
 	x.NodeType = nodeType
 
-	if instanceId := NodeUtils.GetInstanceId(ruleConfig, server); instanceId == "" {
+	if instanceId := NodeUtils.GetInstanceId(ruleConfig, resourcePath); instanceId == "" {
 		x.InitInstanceFunc = initInstanceFunc
 		if initNow {
 			//非资源池方式，初始化
@@ -126,6 +130,7 @@ func (x *SharedNode[T]) Init(ruleConfig types.Config, nodeType, server string, i
 			return err
 		}
 	} else {
+		x.isFromPool = true
 		x.InstanceId = instanceId
 	}
 	return nil
@@ -136,14 +141,19 @@ func (x *SharedNode[T]) IsInit() bool {
 	return x.NodeType != ""
 }
 
-func (x *SharedNode[T]) GetInstance() (T, error) {
+// GetInstance 获取共享实例
+func (x *SharedNode[T]) GetInstance() (interface{}, error) {
+	return x.Get()
+}
+
+// Get 获取共享实例，并返回具体类型
+func (x *SharedNode[T]) Get() (T, error) {
 	if x.InstanceId != "" {
 		//从网络资源池获取
 		if x.RuleConfig.NetPool == nil {
 			return zeroValue[T](), ErrNetPoolNil
 		}
 		if p, err := x.RuleConfig.NetPool.GetInstance(x.InstanceId); err == nil {
-			x.isFromPool = true
 			return p.(T), nil
 		} else {
 			return zeroValue[T](), err
@@ -156,14 +166,14 @@ func (x *SharedNode[T]) GetInstance() (T, error) {
 	}
 }
 
-// TryLock 尝试连接中
+// TryLock 获取锁，如果获取不到则返回false
 func (x *SharedNode[T]) TryLock() bool {
-	return atomic.CompareAndSwapInt32(&x.connecting, 0, 1)
+	return atomic.CompareAndSwapInt32(&x.lock, 0, 1)
 }
 
-// ReleaseLock 连接完成
+// ReleaseLock 释放锁
 func (x *SharedNode[T]) ReleaseLock() {
-	atomic.StoreInt32(&x.connecting, 0)
+	atomic.StoreInt32(&x.lock, 0)
 }
 
 // IsFromPool 是否从资源池获取

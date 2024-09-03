@@ -43,6 +43,8 @@ func init() {
 	Registry.Add(&MqttClientNode{})
 }
 
+//var _ types.SharedNode = (*MqttClientNode[*mqtt.Client])(nil)
+
 type MqttClientNodeConfiguration struct {
 	// Topic 发布主题 可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Topic    string
@@ -117,7 +119,7 @@ func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	topic := x.topicTemplate.ExecuteFn(func() map[string]any {
 		return base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	})
-	if client, err := x.SharedNode.GetInstance(); err != nil {
+	if client, err := x.SharedNode.Get(); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
 		if err := client.Publish(topic, x.Config.QOS, []byte(msg.Data)); err != nil {
@@ -133,10 +135,6 @@ func (x *MqttClientNode) Destroy() {
 	if x.client != nil {
 		_ = x.client.Close()
 	}
-}
-
-func (x *MqttClientNode) GetInstance() (interface{}, error) {
-	return x.SharedNode.GetInstance()
 }
 
 // initClient 初始化客户端
