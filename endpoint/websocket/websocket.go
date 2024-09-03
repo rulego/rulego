@@ -262,10 +262,6 @@ func (ws *Websocket) Start() error {
 	return nil
 }
 
-func (ws *Websocket) GetInstance() (interface{}, error) {
-	return ws.SharedNode.GetInstance()
-}
-
 // addRouter 注册1个或者多个路由
 func (ws *Websocket) addRouter(routers ...endpoint.Router) *Websocket {
 	ws.Lock()

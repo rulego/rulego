@@ -261,7 +261,7 @@ func (x *Mqtt) AddRouter(router endpoint.Router, params ...interface{}) (string,
 	//服务已经启动
 	if x.started {
 		if form := router.GetFrom(); form != nil {
-			client, err := x.SharedNode.GetInstance()
+			client, err := x.SharedNode.Get()
 			if err != nil {
 				return "", err
 			}
@@ -278,7 +278,7 @@ func (x *Mqtt) AddRouter(router endpoint.Router, params ...interface{}) (string,
 func (x *Mqtt) RemoveRouter(routerId string, params ...interface{}) error {
 	router := x.deleteRouter(routerId)
 	if router != nil {
-		client, _ := x.SharedNode.GetInstance()
+		client, _ := x.SharedNode.Get()
 		if client != nil {
 			return client.UnregisterHandler(router.FromToString())
 		} else {
@@ -293,7 +293,7 @@ func (x *Mqtt) Start() error {
 	if x.started {
 		return nil
 	}
-	client, err := x.SharedNode.GetInstance()
+	client, err := x.SharedNode.Get()
 	if err != nil {
 		return err
 	}
@@ -360,10 +360,6 @@ func (x *Mqtt) Printf(format string, v ...interface{}) {
 	if x.RuleConfig.Logger != nil {
 		x.RuleConfig.Logger.Printf(format, v...)
 	}
-}
-
-func (x *Mqtt) GetInstance() (interface{}, error) {
-	return x.SharedNode.GetInstance()
 }
 
 // initClient 初始化客户端

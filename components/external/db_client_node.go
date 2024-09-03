@@ -163,7 +163,7 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	} else {
 		params = x.Config.Params
 	}
-	client, err := x.SharedNode.GetInstance()
+	client, err := x.SharedNode.Get()
 	if err != nil {
 		ctx.TellFailure(msg, err)
 		return
@@ -314,10 +314,6 @@ func (x *DbClientNode) Destroy() {
 	if x.client != nil {
 		_ = x.client.Close()
 	}
-}
-
-func (x *DbClientNode) GetInstance() (interface{}, error) {
-	return x.SharedNode.GetInstance()
 }
 
 // initClient 初始化客户端

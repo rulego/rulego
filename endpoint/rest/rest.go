@@ -309,7 +309,7 @@ func (rest *Rest) Start() error {
 			return err
 		}
 	}
-	if netResource, err := rest.SharedNode.GetInstance(); err == nil {
+	if netResource, err := rest.SharedNode.Get(); err == nil {
 		return netResource.startServer()
 	} else {
 		return err
@@ -407,7 +407,7 @@ func (rest *Rest) Router() *httprouter.Router {
 		})
 	}
 
-	if fromPool, err := rest.SharedNode.GetInstance(); err != nil {
+	if fromPool, err := rest.SharedNode.Get(); err != nil {
 		rest.Printf("get router err :%v", err)
 		return httprouter.New()
 	} else if fromPool.IsFromPool() {
@@ -473,10 +473,6 @@ func (rest *Rest) Printf(format string, v ...interface{}) {
 // Started 返回服务是否已经启动
 func (rest *Rest) Started() bool {
 	return rest.started
-}
-
-func (rest *Rest) GetInstance() (interface{}, error) {
-	return rest.SharedNode.GetInstance()
 }
 
 func (rest *Rest) initServer() (*Rest, error) {
