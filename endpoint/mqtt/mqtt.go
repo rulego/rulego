@@ -366,16 +366,18 @@ func (x *Mqtt) Printf(format string, v ...interface{}) {
 func (x *Mqtt) initClient() (*mqtt.Client, error) {
 	if x.client != nil {
 		return x.client, nil
-	} else if x.client == nil && x.TryLock() {
+	} else {
 		ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
+		x.Lock()
 		defer func() {
 			cancel()
-			x.ReleaseLock()
+			x.Unlock()
 		}()
+		if x.client != nil {
+			return x.client, nil
+		}
 		var err error
 		x.client, err = mqtt.NewClient(ctx, x.Config)
 		return x.client, err
-	} else {
-		return nil, base.ErrClientNotInit
 	}
 }

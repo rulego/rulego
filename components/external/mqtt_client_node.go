@@ -43,8 +43,6 @@ func init() {
 	Registry.Add(&MqttClientNode{})
 }
 
-//var _ types.SharedNode = (*MqttClientNode[*mqtt.Client])(nil)
-
 type MqttClientNodeConfiguration struct {
 	// Topic 发布主题 可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Topic    string
@@ -141,17 +139,18 @@ func (x *MqttClientNode) Destroy() {
 func (x *MqttClientNode) initClient() (*mqtt.Client, error) {
 	if x.client != nil {
 		return x.client, nil
-	} else if x.client == nil && x.TryLock() {
+	} else {
 		ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
+		x.Locker.Lock()
 		defer func() {
 			cancel()
-			x.ReleaseLock()
+			x.Locker.Unlock()
 		}()
+		if x.client != nil {
+			return x.client, nil
+		}
 		var err error
 		x.client, err = mqtt.NewClient(ctx, x.Config.ToMqttConfig())
-		//x.SharedNode.SetResource(client)
 		return x.client, err
-	} else {
-		return nil, base.ErrClientNotInit
 	}
 }
