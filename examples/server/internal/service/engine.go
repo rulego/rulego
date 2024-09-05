@@ -11,6 +11,7 @@ import (
 	luaEngine "github.com/rulego/rulego-components/pkg/lua_engine"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/action"
+	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
 	"log"
@@ -299,7 +300,7 @@ func (s *RuleEngineService) DebugData() *RuleChainDebugData {
 // 初始化规则链池
 func (s *RuleEngineService) initRuleGo(logger *log.Logger, workspacePath string, username string) {
 
-	ruleConfig := rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger))
+	ruleConfig := rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger), types.WithNetPool(node_pool.DefaultNodePool))
 	//加载自定义配置
 	for k, v := range s.config.Global {
 		ruleConfig.Properties.PutValue(k, v)

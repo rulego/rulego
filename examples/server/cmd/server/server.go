@@ -25,8 +25,10 @@ import (
 	"fmt"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
+	"github.com/rulego/rulego/node_pool"
 	"gopkg.in/ini.v1"
 	"log"
+	//_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -49,7 +51,7 @@ func init() {
 }
 
 func main() {
-
+	//go http.ListenAndServe("0.0.0.0:6060", nil)
 	flag.Parse()
 
 	if ver {
@@ -75,9 +77,15 @@ func main() {
 
 	log.Printf("use config file=%s \n", configFile)
 
+	if err := loadNodePool(c.NodePoolFile); err != nil {
+		log.Fatal("loadNodePool error:", err)
+	} else {
+		log.Printf("loadNodePool file=%s \n", c.NodePoolFile)
+	}
+
 	//初始化服务
 	if err := service.Setup(c); err != nil {
-		log.Fatal("error:", err)
+		log.Fatal("setup service error:", err)
 	}
 	var mqttEndpoint endpointApi.Endpoint
 	//创建mqtt接入服务
@@ -127,4 +135,16 @@ func initLogger(c config.Config) *log.Logger {
 		}
 		return log.New(f, "", log.LstdFlags)
 	}
+}
+
+func loadNodePool(file string) error {
+	if file != "" {
+		if buf, err := os.ReadFile(file); err != nil {
+			return err
+		} else {
+			_, err = node_pool.DefaultNodePool.Load(buf)
+			return err
+		}
+	}
+	return nil
 }

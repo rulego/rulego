@@ -11,6 +11,7 @@ import (
 	"github.com/rulego/rulego/builtin/processor"
 	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/json"
 	"net/http"
 	"path"
@@ -30,7 +31,7 @@ var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange
 // ComponentsRouter 创建获取规则引擎节点组件列表路由
 func ComponentsRouter(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-
+		nodePool, _ := node_pool.DefaultNodePool.GetAllDef()
 		//响应endpoint和节点组件配置表单列表
 		list, err := json.Marshal(map[string]interface{}{
 			//endpoint组件
@@ -51,6 +52,8 @@ func ComponentsRouter(url string) endpointApi.Router {
 					//in 处理器列表
 					"outProcessors": processor.OutBuiltins.Names(),
 				},
+				//共享节点池
+				"nodePool": nodePool,
 			},
 		})
 		if err != nil {

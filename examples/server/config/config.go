@@ -38,6 +38,8 @@ type Config struct {
 	Mqtt Mqtt `ini:"mqtt"`
 	// 全局自定义配置，组件可以通过${global.xxx}方式取值
 	Global types.Metadata `ini:"global"`
+	// 节点池文件，规则链json格式
+	NodePoolFile string `ini:"node_pool_file"`
 }
 type Mqtt struct {
 	//是否启用mqtt

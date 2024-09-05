@@ -115,6 +115,8 @@ default_username = admin
 debug = true
 # Maximum node log size, default 40
 max_node_log_size =40
+# Node pool file
+node_pool_file=./node_pool.json
 
 # mqtt configuration
 [mqtt]
