@@ -1,0 +1,31 @@
+{
+  "ruleChain": {
+    "id": "default_node_pool",
+    "name": "全局共享节点池"
+  },
+  "metadata": {
+    "endpoints": [
+    ],
+    "nodes": [
+      {
+        "id": "local_mqtt_client",
+        "type": "mqttClient",
+        "name": "本地MQTT1883连接池",
+        "debugMode": false,
+        "configuration": {
+          "server": "127.0.0.1:1883"
+        }
+      },
+      {
+        "id": "local_mysql_client",
+        "type": "dbClient",
+        "name": "本地MYSQL-test数据库连接池",
+        "debugMode": false,
+        "configuration": {
+          "driverName": "mysql",
+          "dsn": "root:root@tcp(127.0.0.1:3306)/test"
+        }
+      }
+    ]
+  }
+}

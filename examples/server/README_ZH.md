@@ -113,6 +113,8 @@ default_username = admin
 debug = true
 # 最大节点日志大小，默认40
 max_node_log_size =40
+# 节点池文件，规则链json格式，示例：./node_pool.json
+node_pool_file=./node_pool.json
 
 # mqtt 配置
 [mqtt]
