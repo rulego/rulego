@@ -21,7 +21,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/json"
 	"strings"
-	"sync/atomic"
+	"sync"
 )
 
 var (
@@ -110,10 +110,11 @@ type SharedNode[T any] struct {
 	InstanceId string
 	//初始化实例资源函数
 	InitInstanceFunc func() (T, error)
-	//初始化资源资源，防止并发初始化
-	lock int32
+	////初始化资源资源，防止并发初始化
+	//lock int32
 	//是否从资源池获取
 	isFromPool bool
+	Locker     sync.Mutex
 }
 
 // Init 初始化，如果 resourcePath 为 ref:// 开头，则从网络资源池获取，否则调用 initInstanceFunc 初始化
@@ -166,15 +167,15 @@ func (x *SharedNode[T]) Get() (T, error) {
 	}
 }
 
-// TryLock 获取锁，如果获取不到则返回false
-func (x *SharedNode[T]) TryLock() bool {
-	return atomic.CompareAndSwapInt32(&x.lock, 0, 1)
-}
-
-// ReleaseLock 释放锁
-func (x *SharedNode[T]) ReleaseLock() {
-	atomic.StoreInt32(&x.lock, 0)
-}
+//// TryLock 获取锁，如果获取不到则返回false
+//func (x *SharedNode[T]) TryLock() bool {
+//	return atomic.CompareAndSwapInt32(&x.lock, 0, 1)
+//}
+//
+//// ReleaseLock 释放锁
+//func (x *SharedNode[T]) ReleaseLock() {
+//	atomic.StoreInt32(&x.lock, 0)
+//}
 
 // IsFromPool 是否从资源池获取
 func (x *SharedNode[T]) IsFromPool() bool {

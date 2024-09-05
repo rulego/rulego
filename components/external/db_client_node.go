@@ -320,7 +320,12 @@ func (x *DbClientNode) Destroy() {
 func (x *DbClientNode) initClient() (*sql.DB, error) {
 	if x.client != nil {
 		return x.client, nil
-	} else if x.client == nil && x.TryLock() {
+	} else {
+		x.Locker.Lock()
+		defer x.Locker.Unlock()
+		if x.client != nil {
+			return x.client, nil
+		}
 		var err error
 		x.client, err = sql.Open(x.Config.DriverName, x.Config.Dsn)
 		if err == nil {
@@ -329,7 +334,5 @@ func (x *DbClientNode) initClient() (*sql.DB, error) {
 		}
 		err = x.client.Ping()
 		return x.client, err
-	} else {
-		return x.client, base.ErrClientNotInit
 	}
 }
