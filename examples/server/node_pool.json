@@ -5,13 +5,20 @@
   },
   "metadata": {
     "endpoints": [
+      {
+        "id": "local_endpoint_nats",
+        "type": "endpoint/nats",
+        "name": "本地nats连接池",
+        "configuration": {
+          "server": "nats://127.0.0.1:4222"
+        }
+      }
     ],
     "nodes": [
       {
         "id": "local_mqtt_client",
         "type": "mqttClient",
-        "name": "本地MQTT1883连接池",
-        "debugMode": false,
+        "name": "本地MQTT连接池",
         "configuration": {
           "server": "127.0.0.1:1883"
         }
@@ -20,10 +27,58 @@
         "id": "local_mysql_client",
         "type": "dbClient",
         "name": "本地MYSQL-test数据库连接池",
-        "debugMode": false,
         "configuration": {
           "driverName": "mysql",
           "dsn": "root:root@tcp(127.0.0.1:3306)/test"
+        }
+      },
+
+      {
+        "id": "local_nats",
+        "type": "x/natsClient",
+        "name": "本地nats连接池",
+        "configuration": {
+          "server": "nats://127.0.0.1:4222"
+        }
+      },
+
+      {
+        "id": "local_rabbitmq",
+        "type": "x/rabbitmqClient",
+        "name": "本地rabbitmq连接池",
+        "configuration": {
+          "autoDelete": true,
+          "durable": true,
+          "exchange": "rulego",
+          "exchangeType": "topic",
+          "server": "amqp://guest:guest@127.0.0.1:5672/"
+        }
+      },
+      {
+        "id": "local_redis",
+        "type": "x/redisClient",
+        "name": "本地redis连接池",
+        "configuration": {
+          "db": 0,
+          "server": "127.0.0.1:6379"
+        }
+      },
+      {
+        "id": "local_opengemini_write",
+        "type": "x/opengeminiWrite",
+        "name": "本地opengemini_write连接池",
+        "configuration": {
+          "database": "db0",
+          "server": "127.0.0.1:8086"
+        }
+      },
+      {
+        "id": "local_opengemini_query",
+        "type": "x/opengeminiQuery",
+        "name": "本地opengemini_query连接池",
+        "configuration": {
+          "database": "db0",
+          "server": "127.0.0.1:8086"
         }
       }
     ]
