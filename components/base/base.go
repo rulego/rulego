@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	ErrNetPoolNil    = errors.New("net pool is nil")
+	ErrNetPoolNil    = errors.New("node pool is nil")
 	ErrClientNotInit = errors.New("client not init")
 )
 
