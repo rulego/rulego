@@ -5,8 +5,8 @@ go 1.20
 require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/gorilla/websocket v1.4.2
-	github.com/rulego/rulego v0.23.1-0.20240903145230-5e56268b7e0d
-	github.com/rulego/rulego-components v0.24.0-alpha.2
+	github.com/rulego/rulego v0.23.1-0.20240906092025-fda1952d9f9e
+	github.com/rulego/rulego-components v0.24.0-alpha.2.0.20240906092626-69dcc10134a5
 	github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203
 	github.com/rulego/rulego-components-ci v0.23.0
 	gopkg.in/ini.v1 v1.67.0
