@@ -47,18 +47,18 @@ const (
 
 // DbClientNodeConfiguration 节点配置
 type DbClientNodeConfiguration struct {
+	// DriverName 数据库驱动名称，mysql或postgres
+	DriverName string
+	// Dsn 数据库连接配置，参考sql.Open参数
+	Dsn string
+	// PoolSize 连接池大小
+	PoolSize int
 	// Sql SQL语句，v0.23.0之后不再支持运行时变量进行替换
 	Sql string
 	// Params SQL语句参数列表，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Params []interface{}
 	// GetOne 是否只返回一条记录，true:返回结构不是数组结构，false：返回数据是数组结构
 	GetOne bool
-	// PoolSize 连接池大小
-	PoolSize int
-	// DriverName 数据库驱动名称，mysql或postgres
-	DriverName string
-	// Dsn 数据库连接配置，参考sql.Open参数
-	Dsn string
 }
 
 type DbClientNode struct {
