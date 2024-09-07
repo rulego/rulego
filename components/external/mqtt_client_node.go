@@ -44,11 +44,11 @@ func init() {
 }
 
 type MqttClientNodeConfiguration struct {
-	// Topic 发布主题 可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	Topic    string
 	Server   string
 	Username string
 	Password string
+	// Topic 发布主题 可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
+	Topic string
 	//MaxReconnectInterval 重连间隔 单位秒
 	MaxReconnectInterval int
 	QOS                  uint8
