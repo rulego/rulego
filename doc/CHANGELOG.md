@@ -1,4 +1,23 @@
 # CHANGELOG
+## [v0.24.0] 2024/09/09
+
+- feat:增加节点连接资源复用机制
+- feat:网络连接类组件支持共享连接池
+- feat:增加引用节点的节点
+- feat:exec node允许通过stderr获取数据
+- feat:http endpoint允许响应html页面
+- fix(server):post msg api没有workDir
+- feat(server):增加节点复用相关api
+- feat(server):加载全局共享组件
+- feat(rulego-components):增加rabbitmq endpoint和节点组件
+- feat(rulego-components):增加opengemini读和opengemini写组件
+- feat(rulego-components):组件支持连接池
+- refactor(rulego-components):kafka组件brokers字段改成server
+- feat(rulego-editor):规则链ID默认使用nanoid
+- feat(rulego-editor):endpoint支持多路由
+- feat(rulego-editor):增加连接类型国际化
+- feat(rulego-editor):增加连接池下拉选项
+- feat(rulego-editor):增加最新版本节点配置
 
 ## [v0.23.0] 2024/08/11
 - feat(server):动态获取functions节点内置函数列表API
