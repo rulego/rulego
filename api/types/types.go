@@ -174,6 +174,9 @@ type RuleContext interface {
 	// TellNode starts execution from a specified node. If skipTellNext=true, only the current node is executed without notifying the next node.
 	// onEnd is used to view the final execution result.
 	TellNode(ctx context.Context, nodeId string, msg RuleMsg, skipTellNext bool, onEnd OnEndFunc, onAllNodeCompleted func())
+	// TellChainNode executes the specified node in the specified rule chain.
+	// If skipTellNext=true, only the current node is executed, and no message is sent to the next node.
+	TellChainNode(ctx context.Context, ruleChainId, nodeId string, msg RuleMsg, skipTellNext bool, onEnd OnEndFunc, onAllNodeCompleted func())
 	// NewMsg creates a new message instance.
 	NewMsg(msgType string, metaData Metadata, data string) RuleMsg
 	// GetSelfId retrieves the current node ID.

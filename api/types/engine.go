@@ -74,6 +74,8 @@ type RuleEngine interface {
 	OnMsg(msg RuleMsg, opts ...RuleContextOption)
 	// OnMsgAndWait processes a message and waits for completion with the given context options.
 	OnMsgAndWait(msg RuleMsg, opts ...RuleContextOption)
+	// RootRuleContext returns the root rule context.
+	RootRuleContext() RuleContext
 }
 
 // RuleEnginePool is an interface for a pool of rule engines.

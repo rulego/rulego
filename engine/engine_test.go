@@ -673,14 +673,21 @@ func TestFunctionsNodeRelationTypeEmpty(t *testing.T) {
 func TestExecuteNode(t *testing.T) {
 	config := NewConfig()
 	var err error
-	ruleEngine, err := New(str.RandomStr(10), loadFile("./test_group_filter_node.json"), WithConfig(config))
+	chainId := "executeNode_rule01"
+	b := loadFile("./chain_call_rest_api.json")
+	ruleEngine, err := New(chainId, b, WithConfig(config))
+
+	chainId2 := "executeNode_rule02"
+	chainJson2 := strings.Replace(string(b), "test_group_filter_node", chainId2, -1)
+	_, err = New(chainId2, []byte(chainJson2), WithConfig(config))
+
 	assert.Nil(t, err)
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 
 	msg1 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
 
-	ruleEngine.OnMsg(msg1, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, "true", msg.Metadata.GetValue("result"))
 	}))
 
@@ -688,23 +695,50 @@ func TestExecuteNode(t *testing.T) {
 
 	chainJsonFile1 := string(loadFile("./test_group_filter_node.json"))
 	newChainJsonFile1 := strings.Replace(chainJsonFile1, `"allMatches": false`, `"allMatches": true`, -1)
+	newChainJsonFile1 = strings.Replace(newChainJsonFile1, "test_group_filter_node", chainId, -1)
 	//更新规则链，groupFilter必须所有节点都满足True,才走True链
 	_ = ruleEngine.ReloadSelf([]byte(newChainJsonFile1))
 
-	ruleEngine.OnMsg(msg1, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, "false", msg.Metadata.GetValue("result"))
 	}))
+	var wg sync.WaitGroup
+	wg.Add(4)
 
 	msg2 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":51,\"humidity\":90}")
-	ruleEngine.OnMsg(msg2, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg2, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, "true", msg.Metadata.GetValue("result"))
-
-		ctx.TellNode(context.Background(), "aa", msg, false, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		ctx.TellNode(context.Background(), "aa", msg, true, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.NotNil(t, err)
 			assert.Equal(t, types.Failure, relationType)
+
+			wg.Done()
 		}, nil)
+
+		ctx.TellChainNode(context.Background(), chainId, "s1", msg, true, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			assert.Equal(t, types.True, relationType)
+			wg.Done()
+		}, nil)
+
+		ctx.TellChainNode(context.Background(), "notfound", "s2", msg, true, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			assert.NotNil(t, err)
+			assert.Equal(t, "ruleChain id=notfound not found", err.Error())
+			assert.Equal(t, types.Failure, relationType)
+			wg.Done()
+		}, nil)
+
+		ctx.TellChainNode(context.Background(), chainId2, "s2", msg, true, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			assert.Equal(t, types.Success, relationType)
+			wg.Done()
+		}, nil)
+		//ctx.TellChainNode(context.Background(), chainId2, "s2", msg, false, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		//	assert.Equal(t, types.Failure, relationType)
+		//	assert.Equal(t, "Computing the full value of call results is not supported", err.Error())
+		//	wg.Done()
+		//}, nil)
 	}))
-	time.Sleep(time.Millisecond * 200)
+
+	wg.Wait()
 }
 
 func TestBatchOnMsgAndWait(t *testing.T) {

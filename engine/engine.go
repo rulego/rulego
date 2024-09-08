@@ -348,6 +348,39 @@ func (ctx *DefaultRuleContext) TellNode(chanCtx context.Context, nodeId string, 
 	}
 }
 
+func (ctx *DefaultRuleContext) TellChainNode(chanCtx context.Context, ruleChainId, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc, onAllNodeCompleted func()) {
+	// Tell current chain node
+	if ruleChainId == "" || (ctx.ruleChainCtx != nil && ctx.ruleChainCtx.Id.Id == ruleChainId) {
+		ctx.TellNode(chanCtx, nodeId, msg, skipTellNext, onEnd, onAllNodeCompleted)
+	} else {
+		// Tell other chain node
+		ctx.tellOtherChainNode(chanCtx, ruleChainId, nodeId, msg, skipTellNext, onEnd, onAllNodeCompleted)
+	}
+}
+
+func (ctx *DefaultRuleContext) tellOtherChainNode(chanCtx context.Context, ruleChainId, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc, onAllNodeCompleted func()) {
+	if e, ok := ctx.GetRuleChainPool().Get(ruleChainId); ok {
+		rootCtx := e.RootRuleContext()
+		if rootCtx == nil {
+			if onEnd != nil {
+				onEnd(ctx, msg, fmt.Errorf("ruleChain id=%s root rule context is nil", ruleChainId), types.Failure)
+			}
+			if onAllNodeCompleted != nil {
+				onAllNodeCompleted()
+			}
+			return
+		}
+		rootCtx.TellNode(chanCtx, nodeId, msg, skipTellNext, onEnd, onAllNodeCompleted)
+	} else {
+		if onEnd != nil {
+			onEnd(ctx, msg, fmt.Errorf("ruleChain id=%s not found", ruleChainId), types.Failure)
+		}
+		if onAllNodeCompleted != nil {
+			onAllNodeCompleted()
+		}
+	}
+}
+
 // SetRuleChainPool 设置子规则链池
 func (ctx *DefaultRuleContext) SetRuleChainPool(ruleChainPool types.RuleEnginePool) {
 	ctx.ruleChainPool = ruleChainPool
@@ -849,6 +882,14 @@ func (e *RuleEngine) OnMsg(msg types.RuleMsg, opts ...types.RuleContextOption) {
 // OnMsgAndWait synchronously processes a message using the rule engine and waits for all nodes in the rule chain to complete before returning.
 func (e *RuleEngine) OnMsgAndWait(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	e.onMsgAndWait(msg, true, opts...)
+}
+
+// RootRuleContext returns the root rule context.
+func (e *RuleEngine) RootRuleContext() types.RuleContext {
+	if e.rootRuleChainCtx != nil {
+		return e.rootRuleChainCtx.rootRuleContext
+	}
+	return nil
 }
 
 // OnMsgWithEndFunc is a deprecated method that asynchronously processes a message using the rule engine.
