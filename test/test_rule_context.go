@@ -173,6 +173,11 @@ func (ctx *NodeTestRuleContext) TellNode(context context.Context, nodeId string,
 	}
 }
 
+// TellChainNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
+func (ctx *NodeTestRuleContext) TellChainNode(context context.Context, chainId string, nodeId string, msg types.RuleMsg, skipTellNext bool, callback types.OnEndFunc, onAllNodeCompleted func()) {
+	ctx.TellNode(context, nodeId, msg, skipTellNext, callback, onAllNodeCompleted)
+}
+
 // SetOnAllNodeCompleted 设置所有节点执行完回调
 func (ctx *NodeTestRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) {
 	ctx.onAllNodeCompleted = onAllNodeCompleted
