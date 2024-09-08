@@ -123,7 +123,7 @@ func (n *NodePool) GetInstance(id string) (interface{}, error) {
 	if ctx, ok := n.Get(id); ok {
 		return ctx.GetInstance()
 	} else {
-		return nil, fmt.Errorf("net resource not found id=%s", id)
+		return nil, fmt.Errorf("node resource not found id=%s", id)
 	}
 }
 
