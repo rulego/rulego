@@ -48,7 +48,9 @@ func WsNodeLogRouter(url string) endpointApi.Router {
 		msg := exchange.In.GetMsg()
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-			s.AddOnDebugObserver(exchange.In.GetParam(constants.KeyClientId), func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			chainId := exchange.In.GetParam(constants.KeyChainId)
+			clientId := exchange.In.GetParam(constants.KeyClientId)
+			s.AddOnDebugObserver(chainId, clientId, func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 				exchange.Out.SetBody([]byte(msg.Data))
 			})
 		}
