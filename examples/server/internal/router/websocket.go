@@ -37,7 +37,9 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 				username = config.C.DefaultUsername
 			}
 			if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-				s.AddOnDebugObserver(exchange.In.GetParam(constants.KeyClientId), func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+				chainId := exchange.In.GetParam(constants.KeyChainId)
+				clientId := exchange.In.GetParam(constants.KeyClientId)
+				s.AddOnDebugObserver(chainId, clientId, func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 					errStr := ""
 					if err != nil {
 						errStr = err.Error()
@@ -66,7 +68,7 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 			}
 		}
 	}
-	_, _ = wsEndpoint.AddRouter(controller.WsNodeLogRouter(apiBasePath + "/event/ws/:clientId"))
+	_, _ = wsEndpoint.AddRouter(controller.WsNodeLogRouter(apiBasePath + "/event/ws/:chainId/:clientId"))
 
 	return wsEndpoint
 }

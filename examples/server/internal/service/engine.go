@@ -87,7 +87,7 @@ type RuleEngineService struct {
 	//基于内存的节点调试数据管理器
 	//如果需要查询历史数据，请把调试日志数据存放数据库等可以持久化载体
 	ruleChainDebugData *RuleChainDebugData
-	onDebugObserver    map[string]func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error)
+	onDebugObserver    map[string]*DebugObserver
 	ruleDao            *dao.RuleDao
 	locker             sync.RWMutex
 }
@@ -107,7 +107,7 @@ func NewRuleEngineService(c config.Config, username string) (*RuleEngineService,
 		username:        username,
 		logger:          logger.Logger,
 		config:          c,
-		onDebugObserver: make(map[string]func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error)),
+		onDebugObserver: make(map[string]*DebugObserver),
 		//基于内存的节点调试数据管理器
 		ruleChainDebugData: NewRuleChainDebugData(maxNodeLogSize),
 		ruleDao:            ruleDao,
@@ -276,21 +276,28 @@ func (s *RuleEngineService) SaveConfiguration(chainId string, key string, config
 func (s *RuleEngineService) OnDebug(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 	s.locker.RLock()
 	defer s.locker.RUnlock()
-	for _, f := range s.onDebugObserver {
-		go f(chainId, flowType, nodeId, msg, relationType, err)
+	for _, observer := range s.onDebugObserver {
+		if observer.chainId == chainId {
+			go observer.fn(chainId, flowType, nodeId, msg, relationType, err)
+		}
 	}
 }
 
-func (s *RuleEngineService) AddOnDebugObserver(clientId string, f func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error)) {
+func (s *RuleEngineService) AddOnDebugObserver(chainId string, clientId string, fn func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error)) {
 	s.locker.Lock()
 	defer s.locker.Unlock()
-	s.onDebugObserver[clientId] = f
+	s.onDebugObserver[clientId] = &DebugObserver{
+		chainId:  chainId,
+		clientId: clientId,
+		fn:       fn,
+	}
 }
 
 func (s *RuleEngineService) RemoveOnDebugObserver(clientId string) {
 	s.locker.Lock()
 	defer s.locker.Unlock()
 	delete(s.onDebugObserver, clientId)
+	s.ruleConfig.Logger.Printf("debug observer length=%d", len(s.onDebugObserver))
 }
 
 func (s *RuleEngineService) DebugData() *RuleChainDebugData {
@@ -423,4 +430,10 @@ func (s *RuleEngineService) fillAdditionalInfo(def *types.RuleChain) {
 		def.RuleChain.AdditionalInfo["createTime"] = nowStr
 	}
 	def.RuleChain.AdditionalInfo["updateTime"] = nowStr
+}
+
+type DebugObserver struct {
+	chainId  string
+	clientId string
+	fn       func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error)
 }
