@@ -8,17 +8,15 @@
 [![build](https://github.com/rulego/rulego/workflows/build/badge.svg)](https://github.com/rulego/rulego/actions/workflows/build.yml)
 [![QQ-720103251](https://img.shields.io/badge/QQ-720103251-orange)](https://qm.qq.com/q/8RDaYcOry8)
 
-English| [中文](README_ZH.md)
+English| [简体中文](README_ZH.md)
 
-<img src="doc/imgs/logo.png" width="100">   
+[Official Website](https://rulego.cc/en/) | [Docs](https://rulego.cc/en/pages/0f6af2/) | [Contribution Guide](CONTRIBUTION.md)
+
+<img src="doc/imgs/logo.png" alt="logo" width="100"/>   
 
 RuleGo is a lightweight, high-performance, embedded, orchestrable component-based rule engine built on the Go language. It supports heterogeneous system data integration and can aggregate, distribute, filter, transform, enrich, and perform various actions on input messages.
 
 <h3>Your encouragement is our motivation to move forward. If this project is helpful to you, please give it a Star in the top right corner.</h3>
-
-## Documentation
-
-The official documentation is hosted at: [rulego.cc](https://rulego.cc/en)
 
 ## Features
 

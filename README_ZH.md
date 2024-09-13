@@ -7,17 +7,15 @@
 [![build](https://github.com/rulego/rulego/workflows/build/badge.svg)](https://github.com/rulego/rulego/actions/workflows/build.yml)
 [![QQ交流群-720103251](https://img.shields.io/badge/QQ交流群-720103251-orange)](https://qm.qq.com/q/8RDaYcOry8)
 
-[English](README.md)| 中文
+[English](README.md)| 简体中文
 
-<img src="doc/imgs/logo.png" width="100">  
+[官网](https://rulego.cc) | [文档](https://rulego.cc/pages/0f6af2/) | [贡献指南](CONTRIBUTION_CN.md) 
+
+<img src="doc/imgs/logo.png" alt="logo" width="100"/>  
 
 `RuleGo`是一个基于`Go`语言的轻量级、高性能、嵌入式、可编排组件式的规则引擎。支持异构系统数据集成，可以对输入消息进行聚合、分发、过滤、转换、丰富和执行各种动作。
 
 <h3>您的鼓励是我们前进的动力。如果这个项目对您有帮助，请右上角点个Star吧。</h3>
-
-## 文档
-
-官网文档托管在： [rulego.cc](https://rulego.cc) 
 
 ## 特性
 
