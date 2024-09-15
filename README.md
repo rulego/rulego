@@ -10,7 +10,7 @@
 
 English| [简体中文](README_ZH.md)
 
-[Official Website](https://rulego.cc/en/) | [Docs](https://rulego.cc/en/pages/0f6af2/) | [Contribution Guide](CONTRIBUTION.md)
+[Official Website](https://rulego.cc) | [Docs](https://rulego.cc/en/pages/0f6af2/) | [Contribution Guide](CONTRIBUTION.md)
 
 <img src="doc/imgs/logo.png" alt="logo" width="100"/>   
 
