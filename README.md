@@ -14,9 +14,12 @@ English| [简体中文](README_ZH.md)
 
 <img src="doc/imgs/logo.png" alt="logo" width="100"/>   
 
-RuleGo is a lightweight, high-performance, embedded, orchestrable component-based rule engine built on the Go language. It supports heterogeneous system data integration and can aggregate, distribute, filter, transform, enrich, and perform various actions on input messages.
+`RuleGo` is a lightweight, high-performance, embedded, orchestrable component-based rule engine built on the Go language.
 
-<h3>Your encouragement is our motivation to move forward. If this project is helpful to you, please give it a Star in the top right corner.</h3>
+It can help you quickly build loosely coupled and flexible systems that can respond and adjust to changes in business requirements in real time.
+
+`RuleGo` also provides a large number of reusable components that support the aggregation, filtering, distribution, transformation, enrichment, and execution of various actions on data, and can also interact and integrate with various protocols and systems.
+It has a wide range of application potential in low-code, business code orchestration, data integration, workflows, large model intelligent agents, edge computing, automation, IoT, and other scenarios.
 
 ## Features
 
@@ -36,7 +39,7 @@ RuleGo is a lightweight, high-performance, embedded, orchestrable component-base
 
 ## Use Cases
 
-RuleGo is an orchestrable rule engine that excels at decoupling your systems.
+`RuleGo` is an orchestrable rule engine that excels at decoupling your systems.
 
 - If your system's business is complex and the code is bloated
 - If your business scenarios are highly customized or frequently changing
@@ -73,29 +76,30 @@ RuleGo is an orchestrable rule engine that excels at decoupling your systems.
 
 ## Installation
 
-Install RuleGo using the `go get` command:
+Install `RuleGo` using the `go get` command:
 
 ```bash
 go get github.com/rulego/rulego
-
-or
+# or
 go get gitee.com/rulego/rulego
 ```
 
 ## Usage
 
-RuleGo is extremely simple and lightweight to use. Just follow these 3 steps:
+`RuleGo` is extremely simple to use. Just follow these 3 steps:
 
 1. Define rule chains using JSON:
-   [Rule Chain DSL](https://rulego.cc/en/pages/10e1c0/)
+   - [Rule Chain DSL Doc](https://rulego.cc/en/pages/10e1c0/) 
+   - [example_chain.json](testdata/rule/chain_call_rest_api.json)
 
 2. Import the RuleGo package and use the rule chain definition to create a rule engine instance:
 
 ```go
 import "github.com/rulego/rulego"
-
+//Load the rule chain definition file.
+ruleFile := fs.LoadFile("chain_call_rest_api.json")
 // Create a rule engine instance using the rule chain definition
-ruleEngine, err := rulego.New("rule01", []byte(ruleFile))
+ruleEngine, err := rulego.New("rule01", ruleFile)
 ```
 
 3. Hand over the message payload, message type, and message metadata to the rule engine instance for processing, and then the rule engine will process the message according to the rule chain's definition:
@@ -110,22 +114,20 @@ msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":
 // Hand over the message to the rule engine for processing
 ruleEngine.OnMsg(msg)
 ```
-
+> Real time update of rule chain logic without restarting the application
 ### Rule Engine Management API
 
-Dynamically update rule chains
-
+- Dynamically update rule chains
 ```go
-// Update the root rule chain
-err := ruleEngine.ReloadSelf([]byte(ruleFile))
+// Dynamically update rule chain logic
+err := ruleEngine.ReloadSelf(ruleFile)
 // Update a node under the rule chain
-ruleEngine.ReloadChild("rule_chain_test", nodeFile)
+ruleEngine.ReloadChild("node01", nodeFile)
 // Get the rule chain definition
 ruleEngine.DSL()
 ```
 
-Rule Engine Instance Management:
-
+- Rule Engine Instance Management:
 ```go
 // Load all rule chain definitions in a folder into the rule engine pool
 rulego.Load("/rules", rulego.WithConfig(config))
@@ -135,10 +137,7 @@ ruleEngine, ok := rulego.Get("rule01")
 rulego.Del("rule01")
 ```
 
-Configuration:
-
-See [Documentation](https://rulego.cc/en/pages/d59341/)
-
+- Config:[Documentation](https://rulego.cc/en/pages/d59341/)
 ```go
 // Create a default configuration
 config := rulego.NewConfig()
@@ -149,19 +148,22 @@ config.OnDebug = func (chainId,flowType string, nodeId string, msg types.RuleMsg
 // Use the configuration
 ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(config))
 ```
+
 ### Rule Chain Definition DSL
 [Rule Chain Definition DSL](https://rulego.cc/en/pages/10e1c0/)
 
-### Node Components
+### Rule Chain Node Components
+The core feature of `RuleGo` is its component-based architecture, where all business logic is encapsulated in components that can be flexibly configured and reused. Currently, 
+`RuleGo` has built-in a vast array of commonly used components.
 - [Standard Components](https://rulego.cc/en/pages/88fc3c/)
-- [rulego-components](https://github.com/rulego/rulego-components)  [Documentation](https://rulego.cc/en/pages/d7fc43/)
+- [rulego-components](https://github.com/rulego/rulego-components)  :[Documentation](https://rulego.cc/en/pages/d7fc43/)
 - [rulego-components-ai](https://github.com/rulego/rulego-components-ai)
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci)
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot)
-- [Custom Node Component Example](examples/custom_component) [Documentation](https://rulego.cc/en/pages/caed1b/)
+- [Custom Node Component Example](examples/custom_component) :[Documentation](https://rulego.cc/en/pages/caed1b/)
 
 ## Data Integration
-RuleGo provides the Endpoint module for unified data integration and processing of heterogeneous systems. For details, refer to: [Endpoint](endpoint/README.md)
+`RuleGo` provides the Endpoint module for unified data integration and processing of heterogeneous systems. For details, refer to: [Endpoint](endpoint/README.md)
 
 ### Endpoint Components
 - [Endpoint Components](https://rulego.cc/en/pages/691dd3/)
@@ -169,8 +171,8 @@ RuleGo provides the Endpoint module for unified data integration and processing 
 
 ## Performance
 
-`RuleGo` almost does not increase system overhead, resource consumption is extremely low, especially suitable for running on edge servers.
-In addition, RuleGo uses a directed acyclic graph to represent the rule chain, and each input message only needs to be processed along the path in the graph, without matching all the rules, This greatly improves the efficiency and speed of message processing, and also saves resources and time. The routing algorithm can achieve: no matter how many nodes the rule chain has, it will not affect the node routing performance.
+`RuleGo` completes most of its work during initialization, so running the rule chain almost doesn't add extra overhead to the system, and the resource consumption is extremely low, making it particularly suitable for running on edge servers.
+Additionally, RuleGo uses Directed Acyclic Graph (DAG) to represent the rule chain, where each input message only needs to be processed along the path in the graph without matching all the rules, which greatly improves the efficiency of message processing and routing, and also saves system resources.
 
 Performance test cases:
 ```
@@ -185,19 +187,15 @@ Test results: 100 concurrent and 500 concurrent, memory consumption does not cha
 ## Ecosystem
 
 - [RuleGo-Editor](https://editor.rulego.cc/) :Rule chain visual editor
-- [RuleGo-CI](http://8.134.32.225:9090/ui/) :RuleGo CI/CD APP
-- [rulego-components](https://github.com/rulego/rulego-components) :Extension component library:
-- [examples/server](examples/server): A standalone example project
-- [examples](examples): More examples
+- [RuleGo-Server](http://8.134.32.225:9090/ui/) :RuleGo Server
+- [rulego-components](https://github.com/rulego/rulego-components) :Extended Component Library
+- [rulego-components-ai](https://github.com/rulego/rulego-components-ai) :AI Scene Component Library
+- [rulego-components-ci](https://github.com/rulego/rulego-components-ci) :CI/CD Scene Component Libraryr
+- [rulego-components-iot](https://github.com/rulego/rulego-components-iot) :IoT Scene Component Library
 
 ## Contribution
 
-Any form of contribution is welcome, including submitting issues, suggestions, documentation, tests or code. Please follow these steps:
-
-* Clone the project repository to your local machine
-* Create a new branch and make modifications
-* Submit a merge request to the main branch
-* Wait for review and feedback
+Any form of contribution is welcome, including submitting issues, suggestions, documentation, tests or code. [Contribution Guide](CONTRIBUTION.md)
 
 ## License
 

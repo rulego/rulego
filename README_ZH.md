@@ -13,7 +13,10 @@
 
 <img src="doc/imgs/logo.png" alt="logo" width="100"/>  
 
-`RuleGo`是一个基于`Go`语言的轻量级、高性能、嵌入式、可编排组件式的规则引擎。支持异构系统数据集成，可以对输入消息进行聚合、分发、过滤、转换、丰富和执行各种动作。
+`RuleGo`是一个基于`Go`语言的轻量级、高性能、嵌入式、新一代组件编排规则引擎。它可以帮助你快速构建低耦合、灵活的系统，实时响应和调整业务需求变更。
+
+`RuleGo` 还提供大量可复用的组件，支持对数据进行聚合、过滤、分发、转换、丰富和执行各种动作，也能和各种协议、系统进行联动和集成。
+它在低代码、业务代码编排、数据集成、工作流、大模型智能体、边缘计算、自动化、IoT等多种场景具有广泛的应用潜力。
 
 <h3>您的鼓励是我们前进的动力。如果这个项目对您有帮助，请右上角点个Star吧。</h3>
 
@@ -28,7 +31,7 @@
 * **扩展简单：** 提供丰富灵活的扩展接口，可以很容易地实现自定义组件或者引入第三方组件。
 * **动态加载：** 支持通过`Go plugin` 动态加载组件和扩展组件。
 * **规则链嵌套：** 支持子规则链嵌套，实现流程复用。
-* **内置大量组件：** `消息类型Switch`,`JavaScript Switch`,`JavaScript过滤器`,`JavaScript转换器`,`HTTP推送`，`MQTT推送`，`发送邮件`，`日志记录`
+* **内置大量组件：** `消息路由`,`脚本转换`,`过滤器`,`gRPC`,`HTTP`,`MQTT`,`发送邮件`,`数据库操作`
   等组件。可以自行扩展其他组件。
 * **上下文隔离机制：** 可靠的上下文隔离机制，无需担心高并发情况下的数据串流。
 * **AOP机制：** 允许在不修改规则链或节点的原有逻辑的情况下，对规则链的执行添加额外的行为，或者直接替换原规则链或者节点逻辑。
@@ -47,7 +50,7 @@
 - 或者你想尝试在`Go`语言实现热部署......             
 那`RuleGo`框架会是一个非常好的解决方案。      
 
-#### 典型使用场景
+### 典型使用场景
 
 * **边缘计算：** 可以在边缘服务器部署`RuleGo`，对数据进行预处理，筛选、聚合或者计算后再上报到云端。数据的处理规则和分发规则可以通过规则链动态配置和修改，而不需要重启系统。类似`node-red`系统
 * **物联网：** 收集设备数据上报，经过规则链的规则判断，触发一个或者多个动作，例如：发邮件、发告警、和其他设备或者系统联动。
@@ -68,7 +71,7 @@
 
 ## 规则链运行示例图
 
-  <img src="doc/imgs/rulechain/demo.png" style="height:40%;width:100%;"/>
+<img src="doc/imgs/rulechain/demo.png" style="height:40%;width:100%;"/>
 
 [更多运行模式](http://8.134.32.225:9090/ui/)
 
@@ -87,26 +90,26 @@ go get gitee.com/rulego/rulego
 go get gitcode.com/rulego/rulego
 
 如果遇到无法下载，在go.mod文件增加以下指令：
-replace github.com/rulego/rulego => gitee.com/rulego/rulego version
-replace gitee.com/rulego/rulego => github.com/rulego/rulego version
+replace github.com/rulego/rulego => gitee.com/rulego/rulego
 #or
-replace github.com/rulego/rulego => gitcode.com/rulego/rulego version
-replace gitcode.com/rulego/rulego => github.com/rulego/rulego version
+replace github.com/rulego/rulego => gitcode.com/rulego/rulego
 ```
 ## 使用
 
-RuleGo 使用极其简单和轻量级。只需以下3步：
+`RuleGo` 使用很简单。只需以下3步：
 
 1. 使用JSON定义规则链：
-[规则链DSL](https://rulego.cc/pages/10e1c0/)
+  - [规则链DSL文档](https://rulego.cc/pages/10e1c0/) 
+  - [example_chain.json](testdata/rule/chain_call_rest_api.json)
 
 2. 导入`RuleGo`包，并使用规则链定义，创建一个规则引擎实例：
 
 ```go
 import "github.com/rulego/rulego"
-
+//加载规则链定义文件
+ruleFile := fs.LoadFile("chain_call_rest_api.json")
 //使用规则链定义，创建一个规则引擎实例
-ruleEngine, err := rulego.New("rule01", []byte(ruleFile))
+ruleEngine, err := rulego.New("rule01", ruleFile)
 ```
 
 3. 把消息负荷、消息类型、消息元数据交给规则引擎实例处理，然后规则引擎就会根据规则链的定义处理消息：
@@ -121,22 +124,20 @@ msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":
 //把消息交给规则引擎处理
 ruleEngine.OnMsg(msg)
 ```
-
+>可以在不重启应用的情况下实时更新规则链逻辑
 ### 规则引擎管理API
 
-动态更新规则链
-
+- 动态更新规则链
 ```go
-//更新根规则链
-err := ruleEngine.ReloadSelf([]byte(ruleFile))
+//动态更新规则链逻辑
+err := ruleEngine.ReloadSelf(ruleFile)
 //更新规则链下某个节点
-ruleEngine.ReloadChild("rule_chain_test", nodeFile)
+ruleEngine.ReloadChild("node01", nodeFile)
 //获取规则链定义
 ruleEngine.DSL()
 ```
 
-规则引擎实例管理：
-
+- 规则引擎实例管理：
 ```go
 //加载文件夹所有规则链定义到规则引擎池
 rulego.Load("/rules", rulego.WithConfig(config))
@@ -146,10 +147,7 @@ ruleEngine, ok := rulego.Get("rule01")
 rulego.Del("rule01")
 ```
 
-配置：
-
-详见[文档](https://rulego.cc/pages/d59341/)
-
+- 配置：[文档](https://rulego.cc/pages/d59341/)
 ```go
 //创建一个默认的配置
 config := rulego.NewConfig()
@@ -160,29 +158,29 @@ config.OnDebug = func (chainId,flowType string, nodeId string, msg types.RuleMsg
 //使用配置
 ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(config))
 ```
-### 规则链定义DSL
+
+### 规则链定义
 [规则链定义DSL](https://rulego.cc/pages/10e1c0/)
 
-### 节点组件
+### 规则链节点组件
+`RuleGo` 的核心特性是组件化，所有业务逻辑都是组件，并能灵活配置和重用它们。目前RuleGo 已经内置了大量常用的组件。
 - [标准组件](https://rulego.cc/pages/88fc3c/) 
-- [rulego-components](https://github.com/rulego/rulego-components)  [文档](https://rulego.cc/pages/d7fc43/) 
+- [rulego-components](https://github.com/rulego/rulego-components)  :[文档](https://rulego.cc/pages/d7fc43/) 
 - [rulego-components-ai](https://github.com/rulego/rulego-components-ai) 
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) 
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot) 
-- [自定义节点组件示例](examples/custom_component) [文档](https://rulego.cc/pages/caed1b/)
+- [自定义节点组件示例](examples/custom_component) :[文档](https://rulego.cc/pages/caed1b/)
 
 ## 数据集成
-`RuleGo` 提供`Endpoint`模块对异构系统进行统一的数据集成和处理。详细参考： [Endpoint](endpoint/README_ZH.md)
+`RuleGo` 提供`Endpoint`规则引擎输入端模块，对异构系统进行统一的数据接入和集成。详细参考： [Endpoint](endpoint/README_ZH.md)
 
 ### Endpoint组件
 - [Endpoint组件](https://rulego.cc/pages/691dd3/)
 - [Endpoint DSL](https://rulego.cc/pages/390ad7/)
 
 ## 性能
-
-`RuleGo` 大部分工作都在启动时完成，执行规则链时几乎不会额外增加系统开销，资源占用极低，特别适合在边缘服务器运行。
-另外RuleGo使用有向无环图来表示规则链，每个输入消息只需要沿着图中的路径进行处理，无需匹配所有的规则，
-这大大提高了消息处理的效率和速度，也节省了资源和时间。路由算法能实现：不管规则链节点数量是多少，都不会影响节点路由性能。
+`RuleGo` 大部分工作都在初始化时完成，执行规则链时几乎不会额外增加系统开销，资源占用极低，特别适合在边缘服务器运行。
+另外RuleGo使用有向无环图来表示规则链，每个输入消息只需要沿着图中的路径进行处理，无需匹配所有的规则， 这大大提高了消息处理和路由的效率，也节省了系统资源。
 
 性能测试用例：
 ```
@@ -197,26 +195,23 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 ## 生态
 
 - [RuleGo-Editor](https://editor.rulego.cc/) ：规则链可视化编辑器
-- [RuleGo-CI](http://8.134.32.225:9090/ui/) ：CI/CD应用
+- [RuleGo-Server](http://8.134.32.225:9090/ui/) ：RuleGo Server
 - [rulego-components](https://gitee.com/rulego/rulego-components) ：扩展组件库
-- [examples/server](examples/server) ：独立运行的示例工程
-- [examples](examples) : 更多示例
+- [rulego-components-ai](https://github.com/rulego/rulego-components-ai) ：AI场景组件库
+- [rulego-components-ci](https://github.com/rulego/rulego-components-ci) ：CI/CD场景组件库
+- [rulego-components-iot](https://github.com/rulego/rulego-components-iot) ：IoT场景组件库
 
 ## 贡献
 
-欢迎任何形式的贡献，包括提交问题、建议、文档、测试或代码。请遵循以下步骤：
-
-* 克隆项目仓库到本地
-* 创建一个新的分支并进行修改
-* 提交一个合并请求到主分支
-* 等待审核和反馈
+欢迎任何形式的贡献，包括提交问题、建议、文档、测试或代码。[贡献指南](CONTRIBUTION_CN.md)
 
 ## 交流群
 
 QQ群号：**720103251**     
-<img src="doc/imgs/qq.png">
+<img src="doc/imgs/qq.png"  width="258">
 
-[🎈加入社区讨论](https://rulego.cc/pages/257c28/)
+微信(加好友拉入群)：**rulegoteam**     
+<img src="doc/imgs/wechat.png" width="258">
 
 ## 许可
 
