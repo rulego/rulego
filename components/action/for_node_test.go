@@ -58,6 +58,7 @@ func TestForNode(t *testing.T) {
 			index := msg.Metadata.GetValue(KeyLoopIndex)
 			msg.Metadata.PutValue("add"+index, "value"+index)
 			rangeType := msg.Metadata.GetValue("rangeType")
+			mode := msg.Metadata.GetValue("mode")
 			if rangeType == "rangeNum" {
 				item := msg.Metadata.GetValue(KeyLoopItem)
 				i, _ := strconv.Atoi(index)
@@ -66,6 +67,12 @@ func TestForNode(t *testing.T) {
 			} else if rangeType == "rangeObject" {
 				key := msg.Metadata.GetValue(KeyLoopKey)
 				assert.True(t, key != "")
+			} else if mode == "2" {
+				if index == "0" && rangeType == "rangeNum" {
+					assert.Equal(t, data1, msg.Data)
+				} else if index == "1" {
+					assert.Equal(t, "0", msg.Data)
+				}
 			} else {
 				if index == "0" {
 					assert.Equal(t, data1, msg.Data)
@@ -73,7 +80,9 @@ func TestForNode(t *testing.T) {
 					assert.Equal(t, data2, msg.Data)
 				}
 			}
-
+			if mode == "2" {
+				msg.Data = index
+			}
 			ctx.TellSuccess(msg)
 		})
 		childrenNode1, err := test.CreateAndInitNode("functions", types.Configuration{
@@ -115,6 +124,32 @@ func TestForNode(t *testing.T) {
 			"do":    "node1",
 		}, Registry)
 		assert.Nil(t, err)
+
+		node7, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"range": "msg.items",
+			"do":    "node1",
+		}, Registry)
+		node8, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"range": "msg.items",
+			"do":    "node1",
+			"mode":  MergeValues,
+		}, Registry)
+		node9, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"range": "msg.items",
+			"do":    "node1",
+			"mode":  ReplaceValues,
+		}, Registry)
+
+		node10, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"range": "1..3",
+			"do":    "node1",
+			"mode":  ReplaceValues,
+		}, Registry)
+		node11, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"range": "",
+			"do":    "node1",
+			"mode":  ReplaceValues,
+		}, Registry)
 
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
@@ -181,6 +216,83 @@ func TestForNode(t *testing.T) {
 				},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					//fmt.Println(msg)
+				},
+			},
+			{
+				Node: node7,
+				MsgList: []test.Msg{
+					{
+						MetaData:   types.BuildMetadata(map[string]string{}),
+						MsgType:    "ACTIVITY_EVENT1",
+						Data:       "{\"humidity\":90,\"temperature\":41,\"items\":" + "[" + data1 + "," + data2 + "]" + "}",
+						AfterSleep: time.Millisecond * 20,
+					},
+				},
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":"+"["+data1+","+data2+"]"+"}", msg.Data)
+				},
+			},
+			{
+				Node: node8,
+				MsgList: []test.Msg{
+					{
+						MetaData:   types.BuildMetadata(map[string]string{}),
+						MsgType:    "ACTIVITY_EVENT1",
+						Data:       "{\"humidity\":90,\"temperature\":41,\"items\":" + "[" + data1 + "," + data2 + "]" + "}",
+						AfterSleep: time.Millisecond * 20,
+					},
+				},
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, "["+data1+","+data2+"]", msg.Data)
+				},
+			},
+			{
+				Node: node9,
+				MsgList: []test.Msg{
+					{
+						MetaData: types.BuildMetadata(map[string]string{
+							"mode": "2",
+						}),
+						MsgType:    "ACTIVITY_EVENT1",
+						Data:       "{\"humidity\":90,\"temperature\":41,\"items\":" + "[" + data1 + "," + data2 + "]" + "}",
+						AfterSleep: time.Millisecond * 20,
+					},
+				},
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, "1", msg.Data)
+				},
+			},
+			{
+				Node: node10,
+				MsgList: []test.Msg{
+					{
+						MetaData: types.BuildMetadata(map[string]string{
+							"mode": "2",
+						}),
+						MsgType:    "ACTIVITY_EVENT1",
+						Data:       "{\"humidity\":90,\"temperature\":41,\"items\":" + "[" + data1 + "," + data2 + "]" + "}",
+						AfterSleep: time.Millisecond * 20,
+					},
+				},
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, "2", msg.Data)
+				},
+			},
+			{
+				Node: node11,
+				MsgList: []test.Msg{
+					{
+						MetaData: types.BuildMetadata(map[string]string{
+							"mode":      "2",
+							"rangeType": "rangeObject",
+						}),
+						MsgType:    "ACTIVITY_EVENT1",
+						Data:       "{\"humidity\":90,\"temperature\":41,\"items\":" + "[" + data1 + "," + data2 + "]" + "}",
+						AfterSleep: time.Millisecond * 20,
+					},
+				},
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, "2", msg.Data)
 				},
 			},
 		}

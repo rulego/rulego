@@ -36,6 +36,7 @@ import (
 	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"strconv"
@@ -50,6 +51,14 @@ const (
 	KeyLoopKey = "_loopKey"
 	// KeyLoopItem is the current item during iteration.
 	KeyLoopItem = "_loopItem"
+)
+const (
+	// DoNotProcess indicates that the iterated values should not be processed.
+	DoNotProcess = 0
+	// MergeValues indicates that the iterated values should be merged.
+	MergeValues = 1
+	// ReplaceValues indicates that the iterated values should be replaced and passed to the next iteration.
+	ReplaceValues = 2
 )
 
 func init() {
@@ -70,6 +79,8 @@ type ForNodeConfiguration struct {
 	//e.g., chain:rule01, where the item will start executing from the sub-chain rule01 until the chain completes,
 	//then returns to the starting point of the iteration.
 	Do string
+	// Mode 0:不处理msg，1：合并遍历msg.Data，2：替换msg
+	Mode int
 }
 
 // ForNode iterates over msg or a specified field item value in msg to the next node.
@@ -124,6 +135,27 @@ func (x *ForNode) Init(_ types.Config, configuration types.Configuration) error 
 	return x.formDoVar()
 }
 
+func (x *ForNode) toMap(data string) interface{} {
+	var dataMap interface{}
+	if err := json.Unmarshal([]byte(data), &dataMap); err == nil {
+		return dataMap
+	} else {
+		return data
+	}
+}
+
+func (x *ForNode) toList(dataType types.DataType, itemDataList []string) []interface{} {
+	var resultData []interface{}
+	for _, itemData := range itemDataList {
+		if dataType == types.JSON {
+			resultData = append(resultData, x.toMap(itemData))
+		} else {
+			resultData = append(resultData, itemData)
+		}
+	}
+	return resultData
+}
+
 // OnMsg processes the message.
 func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var err error
@@ -138,19 +170,33 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		} else {
 			data = out
 		}
+	} else {
+		data = x.toMap(inData)
 	}
 	ctxWithCancel, cancelFunc := context.WithCancel(ctx.GetContext())
 	defer cancelFunc()
 
+	var resultData []interface{}
+	var itemDataList []string
+	var lastMsg types.RuleMsg
 	switch v := data.(type) {
 	case []interface{}:
 		for index, item := range v {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
-			msg.Data = str.ToString(item)
-			msg.Metadata.PutValue(KeyLoopItem, msg.Data)
+			if x.Config.Mode != ReplaceValues || index == 0 {
+				msg.Data = str.ToString(item)
+				msg.Metadata.PutValue(KeyLoopItem, msg.Data)
+			} else {
+				msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
+			}
+
 			// 执行并，检查是否有取消请求
-			if err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
+			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
 				break
+			} else if x.Config.Mode == MergeValues {
+				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
+			} else if x.Config.Mode == ReplaceValues {
+				msg = lastMsg
 			}
 		}
 	case []int:
@@ -158,8 +204,12 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
 			// 执行并，检查是否有取消请求
-			if err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
+			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
 				break
+			} else if x.Config.Mode == MergeValues {
+				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
+			} else if x.Config.Mode == ReplaceValues {
+				msg = lastMsg
 			}
 		}
 	case []int64:
@@ -167,8 +217,12 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
 			// 执行并，检查是否有取消请求
-			if err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
+			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
 				break
+			} else if x.Config.Mode == MergeValues {
+				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
+			} else if x.Config.Mode == ReplaceValues {
+				msg = lastMsg
 			}
 		}
 	case []float64:
@@ -176,8 +230,12 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
 			// 执行并，检查是否有取消请求
-			if err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
+			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
 				break
+			} else if x.Config.Mode == MergeValues {
+				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
+			} else if x.Config.Mode == ReplaceValues {
+				msg = lastMsg
 			}
 		}
 	case map[string]interface{}:
@@ -185,21 +243,35 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		for k, item := range v {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			msg.Metadata.PutValue(KeyLoopKey, k)
-			msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
+			if x.Config.Mode != ReplaceValues || index == 0 {
+				msg.Data = str.ToString(item)
+				msg.Metadata.PutValue(KeyLoopItem, msg.Data)
+			} else {
+				msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
+			}
 			// 执行并，检查是否有取消请求
-			if err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
+			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
 				break
+			} else if x.Config.Mode == MergeValues {
+				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
+			} else if x.Config.Mode == ReplaceValues {
+				msg = lastMsg
 			}
 			index++
 		}
 	default:
-		err = errors.New("value is not a supported. must array slice or struct type")
+		err = errors.New("must array slice or struct type")
 	}
-	//不修改in data
-	msg.Data = inData
+
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
+		if x.Config.Mode == DoNotProcess {
+			//不修改in data
+			msg.Data = inData
+		} else if x.Config.Mode == MergeValues {
+			msg.Data = str.ToString(resultData)
+		}
 		ctx.TellSuccess(msg)
 	}
 }
@@ -209,11 +281,13 @@ func (x *ForNode) Destroy() {
 }
 
 // executeItem processes each item during iteration.
-func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleContext, fromMsg types.RuleMsg) error {
+func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleContext, fromMsg types.RuleMsg) (types.RuleMsg, []string, error) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	var returnErr error
 	var lock sync.Mutex
+	var msgData []string
+	var lastMsg types.RuleMsg
 	if x.ruleNodeId.Type == types.CHAIN {
 		ctx.TellFlow(ctx.GetContext(), x.ruleNodeId.Id, fromMsg, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			if err != nil {
@@ -221,10 +295,12 @@ func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleConte
 			} else {
 				lock.Lock()
 				defer lock.Unlock()
+				lastMsg = msg
 				// copy metadata
 				for k, v := range msg.Metadata {
 					fromMsg.Metadata.PutValue(k, v)
 				}
+				msgData = append(msgData, msg.Data)
 			}
 		}, func() {
 			wg.Done()
@@ -236,10 +312,12 @@ func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleConte
 			} else {
 				lock.Lock()
 				defer lock.Unlock()
+				lastMsg = msg
 				// copy metadata
 				for k, v := range msg.Metadata {
 					fromMsg.Metadata.PutValue(k, v)
 				}
+				msgData = append(msgData, msg.Data)
 			}
 		}, func() {
 			wg.Done()
@@ -248,9 +326,9 @@ func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleConte
 	wg.Wait()
 
 	if returnErr != nil {
-		return returnErr
+		return lastMsg, msgData, returnErr
 	} else {
-		return ctxWithCancel.Err()
+		return lastMsg, msgData, ctxWithCancel.Err()
 	}
 }
 
