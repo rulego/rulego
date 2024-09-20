@@ -55,6 +55,10 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 					}
 					jsonStr, _ := json.Marshal(log)
 					exchange.Out.SetBody(jsonStr)
+					//写入报错
+					if exchange.Out.GetError() != nil {
+						s.RemoveOnDebugObserver(clientId)
+					}
 				})
 			}
 		case endpointApi.EventDisconnect:

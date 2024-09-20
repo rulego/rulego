@@ -180,7 +180,8 @@ func (r *ResponseMessage) SetBody(body []byte) {
 		defer r.locker.Unlock()
 		err := r.conn.WriteMessage(r.messageType, body)
 		if err != nil {
-			log.Println("write:", err)
+			r.SetError(err)
+			log.Println("websocket SetBody error:", err)
 		}
 	}
 }
