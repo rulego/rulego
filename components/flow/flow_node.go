@@ -90,6 +90,8 @@ func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			targetRelationType = relationType
 			targetErr = err
 		}
+		//删除掉元数据
+		onEndMsg.Metadata = nil
 		msgs = append(msgs, types.WrapperMsg{
 			Msg:    onEndMsg,
 			Err:    errStr,

@@ -141,13 +141,13 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 				if atomic.LoadInt32(&currentMatchedCount) >= int32(x.Config.MatchNum) {
 					if atomic.CompareAndSwapInt32(&completed, 0, 1) {
-						wrapperMsg.Data = str.ToString(filterEmpty(msgs))
+						wrapperMsg.Data = str.ToString(filterEmptyAndRemoveMeta(msgs))
 						mergeMetadata(msgs, &wrapperMsg)
 						c <- true
 					}
 				} else if atomic.LoadInt32(&endCount) >= x.Length {
 					if atomic.CompareAndSwapInt32(&completed, 0, 1) {
-						wrapperMsg.Data = str.ToString(filterEmpty(msgs))
+						wrapperMsg.Data = str.ToString(filterEmptyAndRemoveMeta(msgs))
 						mergeMetadata(msgs, &wrapperMsg)
 						c <- false
 					}
@@ -176,10 +176,11 @@ func (x *GroupActionNode) Destroy() {
 }
 
 // 过滤空值，返回新的数组
-func filterEmpty(msgs []types.WrapperMsg) []types.WrapperMsg {
+func filterEmptyAndRemoveMeta(msgs []types.WrapperMsg) []types.WrapperMsg {
 	var result []types.WrapperMsg
 	for _, msg := range msgs {
 		if msg.NodeId != "" {
+			msg.Msg.Metadata = nil
 			result = append(result, msg)
 		}
 	}
