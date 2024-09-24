@@ -1,0 +1,99 @@
+{
+  "ruleChain": {
+    "id": "frcYgBtVbDaV",
+    "name": "测试合并节点",
+    "debugMode": true,
+    "root": true,
+    "additionalInfo": {
+      "createTime": "2024/09/24 16:56:52",
+      "description": "",
+      "layoutX": "280",
+      "layoutY": "280",
+      "updateTime": "2024/09/24 21:50:38",
+      "username": "admin"
+    }
+  },
+  "metadata": {
+    "endpoints": [],
+    "nodes": [
+      {
+        "id": "node_a",
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 490,
+          "layoutY": 280
+        },
+        "type": "jsTransform",
+        "name": "A",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "msg.a=\"aa\"\nreturn {'msg':msg,'metadata':metadata,'msgType':msgType};"
+        }
+      },
+      {
+        "id": "node_b",
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 730,
+          "layoutY": 210
+        },
+        "type": "jsTransform",
+        "name": "B",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "msg.b=\"bb\"\nreturn {'msg':msg,'metadata':metadata,'msgType':msgType};"
+        }
+      },
+      {
+        "id": "node_c",
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 730,
+          "layoutY": 340
+        },
+        "type": "jsTransform",
+        "name": "C",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "msg.c=\"cc\"\nreturn {'msg':msg,'metadata':metadata,'msgType':msgType};"
+        }
+      },
+      {
+        "id": "node_d",
+        "additionalInfo": {
+          "description": "",
+          "layoutX": 1010,
+          "layoutY": 260
+        },
+        "type": "join",
+        "name": "D",
+        "debugMode": false,
+        "configuration": {
+          "timeout": 1
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "node_a",
+        "toId": "node_b",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_a",
+        "toId": "node_c",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_b",
+        "toId": "node_d",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_c",
+        "toId": "node_d",
+        "type": "Success"
+      }
+    ]
+  }
+}

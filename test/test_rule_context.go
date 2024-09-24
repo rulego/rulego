@@ -204,3 +204,7 @@ func (ctx *NodeTestRuleContext) OnDebug(ruleChainId string, flowType string, nod
 func (ctx *NodeTestRuleContext) SetExecuteNode(nodeId string, relationTypes ...string) {
 
 }
+func (ctx *NodeTestRuleContext) TellCollect(msg types.RuleMsg, callback func(msgList []types.WrapperMsg)) bool {
+	callback(nil)
+	return true
+}
