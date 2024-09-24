@@ -221,6 +221,9 @@ func ExecuteRuleRouter(url string) endpointApi.Router {
 		var paths = []string{config.C.DataDir, constants.DirWorkflows, username, constants.DirWorkflowsRule}
 		msg.Metadata.PutValue(constants.KeyWorkDir, path.Join(paths...))
 		return true
+	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		exchange.Out.Headers().Set("Content-Type", "application/json")
+		return true
 	}).To("chain:${chainId}").SetOpts(
 		types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
 			service.EventServiceImpl.SaveRunLog(ctx, snapshot)
@@ -233,7 +236,6 @@ func ExecuteRuleRouter(url string) endpointApi.Router {
 		} else {
 			//把处理结果响应给客户端，http endpoint 必须增加 Wait()，否则无法正常响应
 			outMsg := exchange.Out.GetMsg()
-			exchange.Out.Headers().Set("Content-Type", "application/json")
 			exchange.Out.SetBody([]byte(outMsg.Data))
 		}
 		return true
