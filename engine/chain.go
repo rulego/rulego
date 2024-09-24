@@ -52,6 +52,8 @@ type RuleChainCtx struct {
 	nodes map[types.RuleNodeId]types.NodeCtx
 	// nodeRoutes is a map of node routing relationships.
 	nodeRoutes map[types.RuleNodeId][]types.RuleNodeRelation
+	// parentNodeIds is a map of parent node identifiers.
+	parentNodeIds map[types.RuleNodeId][]types.RuleNodeId
 	// relationCache caches the outgoing node lists based on the incoming node and relationship.
 	relationCache map[RelationCache][]types.NodeCtx
 	// rootRuleContext is the root context of the rule chain.
@@ -91,6 +93,7 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		nodes:              make(map[types.RuleNodeId]types.NodeCtx),
 		nodeRoutes:         make(map[types.RuleNodeId][]types.RuleNodeRelation),
 		relationCache:      make(map[RelationCache][]types.NodeCtx),
+		parentNodeIds:      make(map[types.RuleNodeId][]types.RuleNodeId),
 		componentsRegistry: config.ComponentsRegistry,
 		initialized:        true,
 		aspects:            aspects,
@@ -141,6 +144,15 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 			nodeRelations = []types.RuleNodeRelation{ruleNodeRelation}
 		}
 		ruleChainCtx.nodeRoutes[inNodeId] = nodeRelations
+
+		// 记录父节点
+		parentNodeIds, ok := ruleChainCtx.parentNodeIds[outNodeId]
+		if ok {
+			parentNodeIds = append(parentNodeIds, inNodeId)
+		} else {
+			parentNodeIds = []types.RuleNodeId{inNodeId}
+		}
+		ruleChainCtx.parentNodeIds[outNodeId] = parentNodeIds
 	}
 	// Load sub-rule chains.
 	for _, item := range ruleChainDef.Metadata.RuleChainConnections {
@@ -159,6 +171,15 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 			nodeRelations = []types.RuleNodeRelation{ruleChainRelation}
 		}
 		ruleChainCtx.nodeRoutes[inNodeId] = nodeRelations
+
+		// 记录父节点
+		parentNodeIds, ok := ruleChainCtx.parentNodeIds[outNodeId]
+		if ok {
+			parentNodeIds = append(parentNodeIds, inNodeId)
+		} else {
+			parentNodeIds = []types.RuleNodeId{inNodeId}
+		}
+		ruleChainCtx.parentNodeIds[outNodeId] = parentNodeIds
 	}
 	// Initialize the root rule context.
 	if firstNode, ok := ruleChainCtx.GetFirstNode(); ok {
@@ -214,6 +235,13 @@ func (rc *RuleChainCtx) GetNodeRoutes(id types.RuleNodeId) ([]types.RuleNodeRela
 	defer rc.RUnlock()
 	relations, ok := rc.nodeRoutes[id]
 	return relations, ok
+}
+
+func (rc *RuleChainCtx) GetParentNodeIds(id types.RuleNodeId) ([]types.RuleNodeId, bool) {
+	rc.RLock()
+	defer rc.RUnlock()
+	nodeIds, ok := rc.parentNodeIds[id]
+	return nodeIds, ok
 }
 
 // GetNextNodes 获取当前节点指定关系的子节点

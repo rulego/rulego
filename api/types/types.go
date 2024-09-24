@@ -213,6 +213,9 @@ type RuleContext interface {
 	// If relationTypes is empty, execute the current node; otherwise,
 	// find and execute the child nodes of the current node.
 	SetExecuteNode(nodeId string, relationTypes ...string)
+	// TellCollect gathers the execution results from multiple nodes and registers a callback function to collect the result list.
+	// If it is the first time to register, it returns true; otherwise, it returns false.
+	TellCollect(msg RuleMsg, callback func(msgList []WrapperMsg)) bool
 }
 
 // RuleContextOption is a function type for modifying RuleContext options.

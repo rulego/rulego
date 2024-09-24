@@ -23,6 +23,7 @@ import (
 	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/str"
 	"os"
 	"reflect"
@@ -1343,4 +1344,28 @@ func TestDoOnEnd(t *testing.T) {
 	}))
 	time.Sleep(time.Millisecond * 100)
 	assert.Equal(t, int32(1), count)
+}
+
+func TestJoinNode(t *testing.T) {
+	var ruleChainFile = loadFile("test_join_node.json")
+	var wg sync.WaitGroup
+	wg.Add(1)
+	config := NewConfig(types.WithDefaultPool())
+	ruleEngine, err := New("testJoinNode", ruleChainFile, WithConfig(config))
+	assert.Nil(t, err)
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
+	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		var result []map[string]interface{}
+		json.Unmarshal([]byte(msg.Data), &result)
+		assert.Equal(t, types.Success, relationType)
+		assert.Equal(t, 2, len(result))
+		assert.Equal(t, "node_c", result[0]["nodeId"])
+		assert.Equal(t, "node_b", result[1]["nodeId"])
+	}), types.WithOnAllNodeCompleted(func() {
+		wg.Done()
+	}))
+	time.Sleep(time.Millisecond * 100)
+	wg.Wait()
 }

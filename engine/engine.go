@@ -37,6 +37,95 @@ var _ types.RuleEngine = (*RuleEngine)(nil)
 // BuiltinsAspects holds a list of built-in aspects for the rule engine.
 var BuiltinsAspects = []types.Aspect{&aspect.Debug{}}
 
+type ContextObserver struct {
+	// 记录已经执行完的节点
+	executedNodes sync.Map
+	nodeInMsgList map[string][]types.WrapperMsg
+	nodeDoneEvent map[string]joinNodeCallback
+	sync.RWMutex
+}
+type joinNodeCallback struct {
+	joinNodeId string
+	parentIds  []string
+	callback   func([]types.WrapperMsg)
+}
+
+func (c *ContextObserver) addInMsg(joinNodeId, fromId string, msg types.RuleMsg, errStr string) bool {
+	c.Lock()
+	defer c.Unlock()
+	if c.nodeInMsgList == nil {
+		c.nodeInMsgList = make(map[string][]types.WrapperMsg)
+	}
+	if list, ok := c.nodeInMsgList[joinNodeId]; ok {
+		list = append(list, types.WrapperMsg{
+			Msg:    msg,
+			Err:    errStr,
+			NodeId: fromId,
+		})
+		c.nodeInMsgList[joinNodeId] = list
+		return true
+	} else {
+		c.nodeInMsgList[joinNodeId] = []types.WrapperMsg{
+			{
+				Msg:    msg,
+				Err:    errStr,
+				NodeId: fromId,
+			},
+		}
+		return false
+	}
+}
+
+func (c *ContextObserver) getInMsgList(joinNodeId string) []types.WrapperMsg {
+	if c.nodeInMsgList == nil {
+		return nil
+	}
+	c.RLock()
+	defer c.RUnlock()
+	return c.nodeInMsgList[joinNodeId]
+}
+
+func (c *ContextObserver) registerNodeDoneEvent(joinNodeId string, parentIds []string, callback func([]types.WrapperMsg)) {
+	c.Lock()
+	defer c.Unlock()
+	if c.nodeDoneEvent == nil {
+		c.nodeDoneEvent = make(map[string]joinNodeCallback)
+	}
+	c.nodeDoneEvent[joinNodeId] = joinNodeCallback{
+		joinNodeId: joinNodeId,
+		parentIds:  parentIds,
+		callback:   callback,
+	}
+}
+
+func (c *ContextObserver) checkNodesDone(nodeIds ...string) bool {
+	for _, nodeId := range nodeIds {
+		if _, ok := c.executedNodes.Load(nodeId); !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *ContextObserver) executedNode(nodeId string) {
+	c.executedNodes.Store(nodeId, true)
+
+	c.checkAndTrigger()
+}
+
+func (c *ContextObserver) checkAndTrigger() {
+	if c.nodeDoneEvent != nil {
+		c.Lock()
+		defer c.Unlock()
+		for _, item := range c.nodeDoneEvent {
+			if c.checkNodesDone(item.parentIds...) {
+				delete(c.nodeDoneEvent, item.joinNodeId)
+				item.callback(c.nodeInMsgList[item.joinNodeId])
+			}
+		}
+	}
+}
+
 // DefaultRuleContext is the default context for message processing in the rule engine.
 type DefaultRuleContext struct {
 	// Context for sharing semaphores and data across different components.
@@ -80,6 +169,7 @@ type DefaultRuleContext struct {
 	initErr     error
 	// used when the first node of the rule chain is processed.
 	firstNodeRelationTypes []string
+	observer               *ContextObserver
 }
 
 // NewRuleContext creates a new instance of the default rule engine message processing context.
@@ -112,6 +202,7 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 		aroundAspects: aroundAspects,
 		beforeAspects: beforeAspects,
 		afterAspects:  afterAspects,
+		observer:      &ContextObserver{},
 	}
 }
 
@@ -239,6 +330,7 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		beforeAspects: ctx.beforeAspects,
 		afterAspects:  ctx.afterAspects,
 		runSnapshot:   ctx.runSnapshot,
+		observer:      ctx.observer,
 	}
 }
 
@@ -264,11 +356,45 @@ func (ctx *DefaultRuleContext) TellNextOrElse(msg types.RuleMsg, defaultRelation
 	ctx.tellOrElse(msg, nil, defaultRelationType, relationTypes...)
 }
 
+func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgList []types.WrapperMsg)) bool {
+
+	selfNodeId := ctx.GetSelfId()
+	fromId := ""
+	if ctx.from != nil {
+		fromId = ctx.from.GetNodeId().Id
+	}
+	if ctx.observer.addInMsg(selfNodeId, fromId, msg, "") {
+		//因为已经存在一条合并链，则当前链提前通知父节点
+		if ctx.parentRuleCtx != nil {
+			ctx.parentRuleCtx.childDone()
+		}
+		return false
+	} else {
+		var parentIds []string
+		if nodes, ok := ctx.ruleChainCtx.GetParentNodeIds(ctx.self.GetNodeId()); ok {
+			for _, nodeId := range nodes {
+				parentIds = append(parentIds, nodeId.Id)
+			}
+		}
+		ctx.observer.registerNodeDoneEvent(selfNodeId, parentIds, func(inMsgList []types.WrapperMsg) {
+			callback(inMsgList)
+		})
+		if ctx.from != nil {
+			ctx.observer.executedNode(ctx.from.GetNodeId().Id)
+		}
+		return true
+	}
+
+}
+
 func (ctx *DefaultRuleContext) NewMsg(msgType string, metaData types.Metadata, data string) types.RuleMsg {
 	return types.NewMsg(0, msgType, types.JSON, metaData, data)
 }
 
 func (ctx *DefaultRuleContext) GetSelfId() string {
+	if ctx.self == nil {
+		return ""
+	}
 	return ctx.self.GetNodeId().Id
 }
 
@@ -419,7 +545,6 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 	} else {
 		ctx.childDone()
 	}
-
 }
 
 func (ctx *DefaultRuleContext) SetCallbackFunc(functionName string, f interface{}) {
@@ -506,15 +631,20 @@ func (ctx *DefaultRuleContext) childReady() {
 // 如果返回数量0，表示该分支链条已经都执行完成，递归父节点，直到所有节点都处理完，则触发onAllNodeCompleted事件。
 func (ctx *DefaultRuleContext) childDone() {
 	if atomic.AddInt32(&ctx.waitingCount, -1) <= 0 {
-		//该节点已经执行完成，通知父节点
-		if ctx.parentRuleCtx != nil {
-			ctx.parentRuleCtx.childDone()
-		}
+		if atomic.CompareAndSwapInt32(&ctx.onAllNodeCompletedDone, 0, 1) {
 
-		//完成回调
-		if ctx.onAllNodeCompleted != nil && atomic.LoadInt32(&ctx.onAllNodeCompletedDone) != 1 {
-			atomic.StoreInt32(&ctx.onAllNodeCompletedDone, 1)
-			ctx.onAllNodeCompleted()
+			//该节点已经执行完成，通知父节点
+			if ctx.parentRuleCtx != nil {
+				ctx.parentRuleCtx.childDone()
+			}
+			if ctx.parentRuleCtx == nil || ctx.GetSelfId() != ctx.parentRuleCtx.GetSelfId() {
+				//记录当前节点执行完成
+				ctx.observer.executedNode(ctx.GetSelfId())
+			}
+			//完成回调
+			if ctx.onAllNodeCompleted != nil {
+				ctx.onAllNodeCompleted()
+			}
 		}
 	}
 }
