@@ -191,6 +191,8 @@ type Router interface {
 	IsDisable() bool
 	// Definition returns the DSL definition of the router.If not set, it will be nil
 	Definition() *types.RouterDsl
+	SetParams(args ...interface{})
+	GetParams() []interface{}
 }
 
 // Process is a function type defining a processing operation in a routing context.
