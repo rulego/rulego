@@ -266,6 +266,8 @@ type Router struct {
 	disable uint32
 	//路由定义，如果没设置会返回nil
 	def *types.RouterDsl
+	//配置参数
+	params []interface{}
 }
 
 // RouterOption 选项函数
@@ -397,6 +399,14 @@ func (r *Router) Disable(disable bool) endpoint.Router {
 // IsDisable 是否是不可用状态 true:不可用，false:可以
 func (r *Router) IsDisable() bool {
 	return atomic.LoadUint32(&r.disable) == 1
+}
+
+func (r *Router) SetParams(args ...interface{}) {
+	r.params = args
+}
+
+func (r *Router) GetParams() []interface{} {
+	return r.params
 }
 
 // BaseEndpoint 基础端点

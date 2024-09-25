@@ -253,13 +253,65 @@ func (rest *Rest) Destroy() {
 	_ = rest.Close()
 }
 
-func (rest *Rest) Close() error {
+func (rest *Rest) Restart() error {
 	if rest.Server != nil {
-		return rest.Server.Shutdown(context.Background())
+		if err := rest.Server.Shutdown(context.Background()); err != nil {
+			return err
+		}
 	}
 	if rest.router != nil {
 		rest.router = httprouter.New()
 	}
+	rest.started = false
+
+	if err := rest.Start(); err != nil {
+		return err
+	}
+	if rest.SharedNode.InstanceId != "" {
+		if shared, err := rest.SharedNode.Get(); err == nil {
+			return shared.Restart()
+		} else {
+			return err
+		}
+	}
+
+	var oldRouter = make(map[string]endpoint.Router)
+	rest.Lock()
+	for id, router := range rest.RouterStorage {
+		oldRouter[id] = router
+	}
+	rest.Unlock()
+
+	rest.RouterStorage = nil
+	for _, router := range oldRouter {
+		if _, err := rest.AddRouter(router, router.GetParams()...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (rest *Rest) Close() error {
+	if rest.Server != nil {
+		if err := rest.Server.Shutdown(context.Background()); err != nil {
+			return err
+		}
+	}
+	if rest.router != nil {
+		rest.router = httprouter.New()
+	}
+	if rest.SharedNode.InstanceId != "" {
+		if shared, err := rest.SharedNode.Get(); err == nil {
+			rest.RLock()
+			defer rest.RUnlock()
+			for key := range rest.RouterStorage {
+				shared.deleteRouter(key)
+			}
+			//重启共享服务
+			return shared.Restart()
+		}
+	}
+
 	rest.started = false
 	rest.BaseEndpoint.Destroy()
 	return nil
@@ -280,13 +332,13 @@ func (rest *Rest) AddRouter(router endpoint.Router, params ...interface{}) (id s
 				err = fmt.Errorf("addRouter err :%v", e)
 			}
 		}()
-		var method = strings.ToUpper(str.ToString(params[0]))
-		rest.addRouter(method, router)
-		return router.GetId(), nil
+		err2 := rest.addRouter(strings.ToUpper(str.ToString(params[0])), router)
+		return router.GetId(), err2
 	}
 }
 
 func (rest *Rest) RemoveRouter(routerId string, params ...interface{}) error {
+	routerId = strings.TrimSpace(routerId)
 	rest.Lock()
 	defer rest.Unlock()
 	if rest.RouterStorage != nil {
@@ -300,14 +352,18 @@ func (rest *Rest) RemoveRouter(routerId string, params ...interface{}) error {
 	return nil
 }
 
+func (rest *Rest) deleteRouter(routerId string) {
+	routerId = strings.TrimSpace(routerId)
+	rest.Lock()
+	defer rest.Unlock()
+	if rest.RouterStorage != nil {
+		delete(rest.RouterStorage, routerId)
+	}
+}
+
 func (rest *Rest) Start() error {
-	if !rest.SharedNode.IsInit() {
-		err := rest.SharedNode.Init(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
-			return rest.initServer()
-		})
-		if err != nil {
-			return err
-		}
+	if err := rest.checkIsInitSharedNode(); err != nil {
+		return err
 	}
 	if netResource, err := rest.SharedNode.Get(); err == nil {
 		return netResource.startServer()
@@ -332,27 +388,38 @@ func (rest *Rest) Listen() (net.Listener, error) {
 //
 // For GET, POST, PUT, PATCH and DELETE requests the respective shortcut
 // functions can be used.
-func (rest *Rest) addRouter(method string, routers ...endpoint.Router) *Rest {
+func (rest *Rest) addRouter(method string, routers ...endpoint.Router) error {
 	method = strings.ToUpper(method)
 
 	rest.Lock()
 	defer rest.Unlock()
-	if rest.router == nil {
-		rest.router = httprouter.New()
-	}
 
 	if rest.RouterStorage == nil {
 		rest.RouterStorage = make(map[string]endpoint.Router)
 	}
 	for _, item := range routers {
+		path := strings.TrimSpace(item.FromToString())
 		if id := item.GetId(); id == "" {
-			item.SetId(rest.routerKey(method, item.FromToString()))
+			item.SetId(rest.routerKey(method, path))
 		}
 		//存储路由
+		item.SetParams(method)
 		rest.RouterStorage[item.GetId()] = item
-		rest.Router().Handle(method, item.FromToString(), rest.handler(item))
+		if rest.SharedNode.InstanceId != "" {
+			if shared, err := rest.SharedNode.Get(); err == nil {
+				return shared.addRouter(method, item)
+			} else {
+				return err
+			}
+		} else {
+			if rest.router == nil {
+				rest.router = httprouter.New()
+			}
+			rest.router.Handle(method, path, rest.handler(item))
+		}
+
 	}
-	return rest
+	return nil
 }
 
 func (rest *Rest) GET(routers ...endpoint.Router) *Rest {
@@ -391,29 +458,30 @@ func (rest *Rest) DELETE(routers ...endpoint.Router) *Rest {
 }
 
 func (rest *Rest) GlobalOPTIONS(handler http.Handler) *Rest {
-	if rest.router == nil {
-		rest.router = httprouter.New()
-		rest.router.GlobalOPTIONS = handler
-	} else {
-		rest.router.GlobalOPTIONS = handler
-	}
+	rest.Router().GlobalOPTIONS = handler
 	return rest
 }
 
-func (rest *Rest) Router() *httprouter.Router {
+func (rest *Rest) checkIsInitSharedNode() error {
 	if !rest.SharedNode.IsInit() {
-		_ = rest.SharedNode.Init(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
+		err := rest.SharedNode.Init(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
 			return rest.initServer()
 		})
+		if err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+func (rest *Rest) Router() *httprouter.Router {
+	rest.checkIsInitSharedNode()
 
 	if fromPool, err := rest.SharedNode.Get(); err != nil {
 		rest.Printf("get router err :%v", err)
 		return httprouter.New()
-	} else if fromPool.IsFromPool() {
-		return fromPool.router
 	} else {
-		return rest.router
+		return fromPool.router
 	}
 }
 
