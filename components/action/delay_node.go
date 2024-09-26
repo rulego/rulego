@@ -47,10 +47,10 @@ func init() {
 
 // DelayNodeConfiguration 节点配置
 type DelayNodeConfiguration struct {
-	//延迟时间，单位秒
-	PeriodInSeconds int
 	//最大允许挂起消息的数量
 	MaxPendingMsgs int
+	//延迟时间，单位秒
+	PeriodInSeconds int
 	//通过 ${metadata.key} 从元数据变量中获取或者通过 ${msg.key} 从消息负荷中获取，延迟时间，如果该值有值，优先取该值。
 	PeriodInSecondsPattern string
 	//是否覆盖周期内的消息
@@ -113,11 +113,11 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			ctx.TellFailure(msg, fmt.Errorf("msg not found"))
 		}
 
-	} else if x.LastPendingMsgId.Load().(string) != "" {
+	} else if oldMsgId := x.LastPendingMsgId.Load().(string); oldMsgId != "" {
 		//如果是覆盖模式，替换队列里的消息
 		x.mu.Lock()
-		x.PendingMsgs[x.LastPendingMsgId.Load().(string)] = msg
 		defer x.mu.Unlock()
+		x.PendingMsgs[oldMsgId] = msg
 	} else {
 		//获取队列长度
 		x.mu.Lock()
@@ -126,7 +126,7 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 		if length < x.Config.MaxPendingMsgs {
 			periodInSeconds := x.Config.PeriodInSeconds
-			//从Metadata获取延迟时间
+			//从变量中获取延迟时间
 			if x.Config.PeriodInSecondsPattern != "" {
 				evn := base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 				if v, err := strconv.Atoi(str.ExecuteTemplate(x.Config.PeriodInSecondsPattern, evn)); err != nil {
@@ -142,7 +142,7 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			}
 			x.mu.Lock()
 			x.PendingMsgs[msg.Id] = msg
-			defer x.mu.Unlock()
+			x.mu.Unlock()
 
 			ackMsg := msg.Copy()
 			ackMsg.Type = DelayNodeMsgType
