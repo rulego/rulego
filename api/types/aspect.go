@@ -78,10 +78,11 @@ type AroundAspect interface {
 	NodeAspect
 	//Around is the advice that executes around the node OnMsg method. The returned Msg will be used as the input for the next advice and the next node OnMsg method.
 	//Around 节点 OnMsg 方法执行环绕的增强点。返回的Msg将作为下一个增强点和下一个节点 OnMsg 方法的入参。
-	//If it returns false: the engine will not call the next node's OnMsg method, and the aspect needs to execute the tellNext method, otherwise the rule chain will not end.
-	//如果返回false:引擎不会调用下一个节点的OnMsg方法，需要切面执行tellNext方法，否则规则链不会结束。
-	//If it returns true: the engine will call the next node's OnMsg method.
-	//如果返回true：引擎会调用下一个节点的OnMsg方法。
+	//If the return is false: the engine will not call the current node's OnMsg method,
+	//it needs to be manually triggered by Aspect, such as: ctx.Self().OnMsg (ctx, msg), or skip the current node's logic: ctx.TellNext .
+	//如果返回false:引擎不会调用当前节点的OnMsg方法，需要Aspect手动触发，如：ctx.Self().OnMsg(ctx, msg)，或者跳过当前节点逻辑,如:ctx.TellNext。
+	//If it returns true: the engine will call the current node's OnMsg method.
+	//如果返回true：引擎执行当前节点逻辑。
 	Around(ctx RuleContext, msg RuleMsg, relationType string) (RuleMsg, bool)
 }
 
