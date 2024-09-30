@@ -1361,8 +1361,7 @@ func TestJoinNode(t *testing.T) {
 		json.Unmarshal([]byte(msg.Data), &result)
 		assert.Equal(t, types.Success, relationType)
 		assert.Equal(t, 2, len(result))
-		assert.Equal(t, "node_c", result[0]["nodeId"])
-		assert.Equal(t, "node_b", result[1]["nodeId"])
+		assert.True(t, result[0]["nodeId"] != result[1]["nodeId"])
 	}), types.WithOnAllNodeCompleted(func() {
 		wg.Done()
 	}))

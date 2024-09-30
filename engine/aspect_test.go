@@ -435,3 +435,90 @@ func (aspect *BeforeCreateErrAspect) OnReload(chainCtx types.NodeCtx, nodeCtx ty
 	atomic.AddInt32(aspect.Count, 1)
 	return nil
 }
+
+type AroundAspect struct {
+	Name string
+}
+
+func (aspect *AroundAspect) Order() int {
+	return 5
+}
+
+func (aspect *AroundAspect) New() types.Aspect {
+	return &AroundAspect{}
+}
+
+func (aspect *AroundAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
+	return true
+}
+
+func (aspect *AroundAspect) Around(ctx types.RuleContext, msg types.RuleMsg, relationType string) (types.RuleMsg, bool) {
+	fmt.Printf("debug Around before ruleChainId:%s,flowType:%s,nodeId:%s,msg:%+v,relationType:%s", ctx.RuleChain().GetNodeId().Id, "Around", ctx.Self().GetNodeId().Id, msg, relationType)
+	fmt.Println()
+	msg.Metadata.PutValue(ctx.GetSelfId()+"_before", ctx.GetSelfId()+"_before")
+	// 执行当前节点
+	ctx.Self().OnMsg(ctx, msg)
+	fmt.Printf("debug Around after ruleChainId:%s,flowType:%s,nodeId:%s,msg:%+v,relationType:%s", ctx.RuleChain().GetNodeId().Id, "Around", ctx.Self().GetNodeId().Id, msg, relationType)
+	fmt.Println()
+	//返回false,脱离框架不重复执行该节点逻辑
+	return msg, false
+}
+
+func TestAroundAspect(t *testing.T) {
+	var chain = `
+{
+  "ruleChain": {
+    "id": "rule8848",
+    "name": "测试规则链",
+    "root": true
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "s1",
+        "type": "jsFilter",
+        "name": "过滤",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return msg.role=='admin';"
+        }
+      },
+      {
+        "id": "s2",
+        "type": "jsTransform",
+        "name": "转换",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "msg.userName=msg.userName+'NO-1';\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+        }
+      }
+    ],
+    "connections": [
+         {
+        "fromId": "s1",
+        "toId": "s2",
+        "type": "False"
+      }
+    ]
+  }
+}
+
+`
+	chainId := "test_around_aspect"
+
+	config := NewConfig()
+
+	ruleEngine, err := DefaultPool.New(chainId, []byte(chain), WithConfig(config), types.WithAspects(
+		&AroundAspect{Name: "AroundAspect1"},
+	))
+	if err != nil {
+		t.Error(err)
+	}
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
+
+	ruleEngine.OnMsg(msg)
+
+	time.Sleep(time.Millisecond * 200)
+}
