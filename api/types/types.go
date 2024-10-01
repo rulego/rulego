@@ -216,6 +216,10 @@ type RuleContext interface {
 	// TellCollect gathers the execution results from multiple nodes and registers a callback function to collect the result list.
 	// If it is the first time to register, it returns true; otherwise, it returns false.
 	TellCollect(msg RuleMsg, callback func(msgList []WrapperMsg)) bool
+	// GetOut retrieves the OUT message.
+	GetOut() RuleMsg
+	// GetErr retrieves the IN or OUT error.
+	GetErr() error
 }
 
 // RuleContextOption is a function type for modifying RuleContext options.

@@ -438,6 +438,7 @@ func (aspect *BeforeCreateErrAspect) OnReload(chainCtx types.NodeCtx, nodeCtx ty
 
 type AroundAspect struct {
 	Name string
+	t    *testing.T
 }
 
 func (aspect *AroundAspect) Order() int {
@@ -445,7 +446,7 @@ func (aspect *AroundAspect) Order() int {
 }
 
 func (aspect *AroundAspect) New() types.Aspect {
-	return &AroundAspect{}
+	return &AroundAspect{t: aspect.t}
 }
 
 func (aspect *AroundAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
@@ -453,13 +454,37 @@ func (aspect *AroundAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, r
 }
 
 func (aspect *AroundAspect) Around(ctx types.RuleContext, msg types.RuleMsg, relationType string) (types.RuleMsg, bool) {
-	fmt.Printf("debug Around before ruleChainId:%s,flowType:%s,nodeId:%s,msg:%+v,relationType:%s", ctx.RuleChain().GetNodeId().Id, "Around", ctx.Self().GetNodeId().Id, msg, relationType)
-	fmt.Println()
+	//fmt.Printf("debug Around before ruleChainId:%s,flowType:%s,nodeId:%s,msg:%+v,relationType:%s", ctx.RuleChain().GetNodeId().Id, "Around", ctx.Self().GetNodeId().Id, msg, relationType)
+	//fmt.Println()
 	msg.Metadata.PutValue(ctx.GetSelfId()+"_before", ctx.GetSelfId()+"_before")
+	if ctx.GetSelfId() == "s3" {
+		//s3 in not err
+		assert.Nil(aspect.t, ctx.GetErr())
+	}
+	if ctx.GetSelfId() == "s4" {
+		//s4 in err
+		assert.NotNil(aspect.t, ctx.GetErr())
+	}
 	// 执行当前节点
 	ctx.Self().OnMsg(ctx, msg)
-	fmt.Printf("debug Around after ruleChainId:%s,flowType:%s,nodeId:%s,msg:%+v,relationType:%s", ctx.RuleChain().GetNodeId().Id, "Around", ctx.Self().GetNodeId().Id, msg, relationType)
-	fmt.Println()
+	// 节点执行完之后逻辑
+	if ctx.GetSelfId() == "s1" {
+		msg.Metadata.PutValue(ctx.GetSelfId()+"_after", ctx.GetSelfId()+"_after")
+	}
+	if ctx.GetSelfId() == "s2" {
+		assert.Equal(aspect.t, "{\"temperature\":41,\"userName\":\"NO-1\"}", ctx.GetOut().Data)
+	}
+	if ctx.GetSelfId() == "s3" {
+		//s3 out err
+		assert.NotNil(aspect.t, ctx.GetErr())
+	}
+	if ctx.GetSelfId() == "s4" {
+		//s4 out not err
+		assert.Nil(aspect.t, ctx.GetErr())
+	}
+	//fmt.Println(ctx.GetOut())
+	//fmt.Printf("debug Around after ruleChainId:%s,flowType:%s,nodeId:%s,msg:%+v,relationType:%s", ctx.RuleChain().GetNodeId().Id, "Around", ctx.Self().GetNodeId().Id, msg, relationType)
+	//fmt.Println()
 	//返回false,脱离框架不重复执行该节点逻辑
 	return msg, false
 }
@@ -487,9 +512,24 @@ func TestAroundAspect(t *testing.T) {
         "id": "s2",
         "type": "jsTransform",
         "name": "转换",
-        "debugMode": true,
         "configuration": {
-          "jsScript": "msg.userName=msg.userName+'NO-1';\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+          "jsScript": "msg.userName='NO-1';\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+        }
+      },
+      {
+        "id": "s3",
+        "type": "jsTransform",
+        "name": "转换错误",
+        "configuration": {
+          "jsScript": "xx.userName='错误';\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+        }
+      },
+      {
+        "id": "s4",
+        "type": "jsTransform",
+        "name": "转换",
+        "configuration": {
+          "jsScript": " return {'msg':msg,'metadata':metadata,'msgType':msgType};"
         }
       }
     ],
@@ -498,6 +538,14 @@ func TestAroundAspect(t *testing.T) {
         "fromId": "s1",
         "toId": "s2",
         "type": "False"
+      }, {
+        "fromId": "s2",
+        "toId": "s3",
+        "type": "Success"
+      }, {
+        "fromId": "s3",
+        "toId": "s4",
+        "type": "Failure"
       }
     ]
   }
@@ -509,7 +557,7 @@ func TestAroundAspect(t *testing.T) {
 	config := NewConfig()
 
 	ruleEngine, err := DefaultPool.New(chainId, []byte(chain), WithConfig(config), types.WithAspects(
-		&AroundAspect{Name: "AroundAspect1"},
+		&AroundAspect{Name: "AroundAspect1", t: t},
 	))
 	if err != nil {
 		t.Error(err)
@@ -518,7 +566,9 @@ func TestAroundAspect(t *testing.T) {
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 
-	ruleEngine.OnMsg(msg)
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		fmt.Println("end")
+	}))
 
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Millisecond * 20000)
 }
