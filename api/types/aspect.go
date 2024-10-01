@@ -76,11 +76,11 @@ type AfterAspect interface {
 // AroundAspect 节点 OnMsg 方法执行环绕增强点接口
 type AroundAspect interface {
 	NodeAspect
-	//Around is the advice that executes around the node OnMsg method. The returned Msg will be used as the input for the next advice and the next node OnMsg method.
-	//Around 节点 OnMsg 方法执行环绕的增强点。返回的Msg将作为下一个增强点和下一个节点 OnMsg 方法的入参。
+	//Around is the advice that executes around the node OnMsg method. The returned Msg will be used as the input for the next advice.
+	//Around 节点 OnMsg 方法执行环绕的增强点。TODO msg返回值无法影响下一个节点入参，请用 before 切面或者通过 ctx.TellNext(msg, relationType) 控制。
 	//If the return is false: the engine will not call the current node's OnMsg method,
-	//it needs to be manually triggered by Aspect, such as: ctx.Self().OnMsg (ctx, msg), or skip the current node's logic: ctx.TellNext .
-	//如果返回false:引擎不会调用当前节点的OnMsg方法，需要Aspect手动触发，如：ctx.Self().OnMsg(ctx, msg)，或者跳过当前节点逻辑,如:ctx.TellNext。
+	//it needs to be manually triggered by Aspect, such as: ctx.Self().OnMsg (ctx, msg), Or control the flow through ctx.TellNext.
+	//如果返回false:引擎不会调用当前节点的OnMsg方法，需要Aspect手动触发，如：ctx.Self().OnMsg(ctx, msg)，或者通过 ctx.TellNext(msg, relationType) 控制流程。
 	//If it returns true: the engine will call the current node's OnMsg method.
 	//如果返回true：引擎执行当前节点逻辑。
 	Around(ctx RuleContext, msg RuleMsg, relationType string) (RuleMsg, bool)

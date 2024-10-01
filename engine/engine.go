@@ -166,10 +166,13 @@ type DefaultRuleContext struct {
 	afterAspects []types.AfterAspect
 	// Runtime snapshot for debugging and logging.
 	runSnapshot *RunSnapshot
-	initErr     error
-	// used when the first node of the rule chain is processed.
-	firstNodeRelationTypes []string
-	observer               *ContextObserver
+	observer    *ContextObserver
+	// first node relationType
+	relationTypes []string
+	// OUT msg
+	out types.RuleMsg
+	// IN or OUT err
+	err error
 }
 
 // NewRuleContext creates a new instance of the default rule engine message processing context.
@@ -331,6 +334,7 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		afterAspects:  ctx.afterAspects,
 		runSnapshot:   ctx.runSnapshot,
 		observer:      ctx.observer,
+		err:           ctx.err,
 	}
 }
 
@@ -606,12 +610,20 @@ func (ctx *DefaultRuleContext) SetExecuteNode(nodeId string, relationTypes ...st
 	//如果relationTypes为空，则执行当前节点
 	ctx.isFirst = len(relationTypes) == 0
 	//否则通过relationTypes查找子节点执行
-	ctx.firstNodeRelationTypes = relationTypes
+	ctx.relationTypes = relationTypes
 	if node, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
 		ctx.self = node
 	} else {
-		ctx.initErr = fmt.Errorf("SetExecuteNode node id=%s not found", nodeId)
+		ctx.err = fmt.Errorf("SetExecuteNode node id=%s not found", nodeId)
 	}
+}
+
+func (ctx *DefaultRuleContext) GetOut() types.RuleMsg {
+	return ctx.out
+}
+
+func (ctx *DefaultRuleContext) GetErr() error {
+	return ctx.err
 }
 
 // IsDebugMode 是否调试模式，优先使用规则链指定的调试模式
@@ -677,6 +689,8 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 // tellNext 通知执行子节点，如果是当前第一个节点则执行当前节点
 // 如果找不到relationTypes对应的节点，而且defaultRelationType非默认值，则通过defaultRelationType查找节点
 func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultRelationType string, relationTypes ...string) {
+	ctx.out = msg
+	ctx.err = err
 	//msgCopy := msg.Copy()
 	if ctx.isFirst {
 		ctx.tellSelf(msg, err, relationTypes...)
@@ -1091,8 +1105,8 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 			e.onErrHandler(msg, rootCtxCopy, errors.New("the rule chain has no nodes"))
 			return
 		}
-		if rootCtxCopy.initErr != nil {
-			e.onErrHandler(msg, rootCtxCopy, rootCtxCopy.initErr)
+		if rootCtxCopy.err != nil {
+			e.onErrHandler(msg, rootCtxCopy, rootCtxCopy.err)
 			return
 		}
 		// Execute start aspects and update the message accordingly.
@@ -1120,7 +1134,7 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 				e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 			}
 			// Process the message through the rule chain.
-			rootCtxCopy.TellNext(msg, rootCtxCopy.firstNodeRelationTypes...)
+			rootCtxCopy.TellNext(msg, rootCtxCopy.relationTypes...)
 			// Block until all nodes have completed.
 			<-c
 		} else {
@@ -1129,7 +1143,7 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 				e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 			}
 			// Process the message through the rule chain.
-			rootCtxCopy.TellNext(msg, rootCtxCopy.firstNodeRelationTypes...)
+			rootCtxCopy.TellNext(msg, rootCtxCopy.relationTypes...)
 		}
 
 	} else {
