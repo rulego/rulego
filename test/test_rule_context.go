@@ -41,6 +41,7 @@ type NodeTestRuleContext struct {
 	onAllNodeCompleted func()
 	onEndFunc          types.OnEndFunc
 	childrenNodes      sync.Map
+	out                types.RuleMsg
 }
 
 func NewRuleContext(config types.Config, callback func(msg types.RuleMsg, relationType string, err error)) types.RuleContext {
@@ -207,4 +208,12 @@ func (ctx *NodeTestRuleContext) SetExecuteNode(nodeId string, relationTypes ...s
 func (ctx *NodeTestRuleContext) TellCollect(msg types.RuleMsg, callback func(msgList []types.WrapperMsg)) bool {
 	callback(nil)
 	return true
+}
+
+func (ctx *NodeTestRuleContext) GetOut() types.RuleMsg {
+	return ctx.out
+}
+
+func (ctx *NodeTestRuleContext) GetErr() error {
+	return nil
 }
