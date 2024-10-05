@@ -40,6 +40,8 @@ type Config struct {
 	Global types.Metadata `ini:"global"`
 	// 节点池文件，规则链json格式
 	NodePoolFile string `ini:"node_pool_file"`
+	// 是否保存运行日志到文件
+	SaveRunLog bool `ini:"save_run_log"`
 }
 type Mqtt struct {
 	//是否启用mqtt

@@ -202,6 +202,13 @@ func SaveConfiguration(url string) endpointApi.Router {
 
 // ExecuteRuleRouter 处理请求，并转发到规则引擎，同步等待规则链执行结果返回给调用方
 func ExecuteRuleRouter(url string) endpointApi.Router {
+	var opts []types.RuleContextOption
+	if config.C.SaveRunLog {
+		opts = append(opts, types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
+			_ = service.EventServiceImpl.SaveRunLog(ctx, snapshot)
+		}))
+	}
+
 	return endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(GetRuleGoFunc)).From(url).Process(AuthProcess).Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		msgId := exchange.In.GetParam("msgId")
@@ -224,10 +231,7 @@ func ExecuteRuleRouter(url string) endpointApi.Router {
 	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		return true
-	}).To("chain:${chainId}").SetOpts(
-		types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
-			service.EventServiceImpl.SaveRunLog(ctx, snapshot)
-		})).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	}).To("chain:${chainId}").SetOpts(opts...).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		err := exchange.Out.GetError()
 		if err != nil {
 			//错误
@@ -244,6 +248,12 @@ func ExecuteRuleRouter(url string) endpointApi.Router {
 
 // PostMsgRouter 处理请求，并转发到规则引擎
 func PostMsgRouter(url string) endpointApi.Router {
+	var opts []types.RuleContextOption
+	if config.C.SaveRunLog {
+		opts = append(opts, types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
+			_ = service.EventServiceImpl.SaveRunLog(ctx, snapshot)
+		}))
+	}
 	return endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(GetRuleGoFunc)).From(url).Process(AuthProcess).Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		msgId := exchange.In.GetParam("msgId")
@@ -263,10 +273,7 @@ func PostMsgRouter(url string) endpointApi.Router {
 		var paths = []string{config.C.DataDir, constants.DirWorkflows, username, constants.DirWorkflowsRule}
 		msg.Metadata.PutValue(constants.KeyWorkDir, path.Join(paths...))
 		return true
-	}).To("chain:${chainId}").SetOpts(
-		types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
-			service.EventServiceImpl.SaveRunLog(ctx, snapshot)
-		})).End()
+	}).To("chain:${chainId}").SetOpts(opts...).End()
 }
 
 // userNotFound 用户不存在
