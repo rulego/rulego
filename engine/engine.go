@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/builtin/aspect"
+	"github.com/rulego/rulego/builtin/funcs"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -1190,6 +1191,10 @@ func NewConfig(opts ...types.Option) types.Config {
 	}
 	if c.ComponentsRegistry == nil {
 		c.ComponentsRegistry = Registry
+	}
+	// register all udfs
+	for name, f := range funcs.UdfMap.GetAll() {
+		c.RegisterUdf(name, f)
 	}
 	return c
 }
