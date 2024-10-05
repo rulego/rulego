@@ -40,9 +40,9 @@ func (s *EventDao) SaveRunLog(ctx types.RuleContext, snapshot types.RuleChainRun
 		logger.Logger.Printf("dao/EventDao:SaveRunLog marshal error", err)
 		return err
 	} else {
-		v, _ := json.Format(byteV)
+		//v, _ := json.Format(byteV)
 		//保存规则链到文件
-		if err = fs.SaveFile(filepath.Join(pathStr, snapshot.Id), v); err != nil {
+		if err = fs.SaveFile(filepath.Join(pathStr, snapshot.Id), byteV); err != nil {
 			logger.Logger.Printf("dao/EventDao:SaveRunLog save file error", err)
 			return err
 		}

@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"bufio"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -8,17 +9,26 @@ import (
 
 // SaveFile A function that saves a file to a given path, overwriting it if it exists
 func SaveFile(path string, data []byte) error {
-	// Open the file with write-only and create flags, and 0666 permission
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	// Create or truncate the file
+	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-	// Write the data to the file
-	_, err = file.Write(data)
+
+	// Write the data to the file using buffered writer for better performance
+	writer := bufio.NewWriter(file)
+	_, err = writer.Write(data)
 	if err != nil {
 		return err
 	}
+
+	// Flush the buffered data to the file
+	err = writer.Flush()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
