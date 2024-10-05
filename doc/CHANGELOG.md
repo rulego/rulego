@@ -1,4 +1,26 @@
 # CHANGELOG
+## [v0.25.0] 2024/10/07
+
+- feat:增加并行网关节点组件
+- feat:增加合并汇聚节点组件
+- feat:for节点组件增加合并遍历结果选项
+- feat:节点组和子规则链节点移除合并metadata
+- feat:ruleContext允许获得Out Message和error
+- feat:websocket endpoint setBody返回错误
+- feat:增加js内置函数注册器
+- fix:http endpoint无法使用节点池
+- chore:增加贡献文档
+- chore:升级依赖
+- perf(server):优化保存运行日志
+- fix(server):实时执行日志需要过滤其他规则链数据
+- fix(server):实时日志响应错误，需要移除客户端
+- feat(rulego-components):增加gRPC客户端节点组件
+- feat(rulego-components):增加git push节点组件
+- feat(rulego-components):增加git create tag节点组件
+- feat(rulego-components):增加git commit节点组件
+- feat(rulego-editor):增加最新版本节点配置
+- feat(rulego-editor):允许跨规则链复制节点
+
 ## [v0.24.0] 2024/09/09
 
 - feat:增加节点连接资源复用机制
