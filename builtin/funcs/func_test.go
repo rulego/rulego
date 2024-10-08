@@ -24,49 +24,53 @@ import (
 func TestBuiltinFunc(t *testing.T) {
 
 	t.Run("TestTemplateFuncMap", func(t *testing.T) {
-		TemplateFuncMap.RegisterAll(map[string]any{
+		TemplateFunc.RegisterAll(map[string]any{
 			"test": func(a int) int {
 				return a + 1
 			},
 		})
-		TemplateFuncMap.Register("test2", func(a int) int {
+		TemplateFunc.Register("test2", func(a int) int {
 			return a + 1
 		})
-		cp := TemplateFuncMap.GetAll()
+		cp := TemplateFunc.GetAll()
 		_, ok := cp["test"]
 		assert.True(t, ok)
 		_, ok = cp["test2"]
 		assert.True(t, ok)
 
-		TemplateFuncMap.UnRegister("test")
-		_, ok = TemplateFuncMap.Get("test")
+		TemplateFunc.UnRegister("test")
+		_, ok = TemplateFunc.Get("test")
 		assert.False(t, ok)
 
-		_, ok = TemplateFuncMap.Get("test2")
+		_, ok = TemplateFunc.Get("test2")
 		assert.True(t, ok)
 
-		TemplateFuncMap.UnRegister("test2")
-		_, ok = TemplateFuncMap.Get("test2")
+		TemplateFunc.UnRegister("test2")
+		_, ok = TemplateFunc.Get("test2")
 		assert.False(t, ok)
 	})
 
 	t.Run("TestUdfFuncMap", func(t *testing.T) {
-		UdfMap.RegisterAll(map[string]any{
+		ScriptFunc.RegisterAll(map[string]any{
 			"test": func(a int) int {
 				return a + 1
 			},
 		})
-		UdfMap.Register("test2", func(a int) int {
+		ScriptFunc.Register("test2", func(a int) int {
 			return a + 1
 		})
-		cp := UdfMap.GetAll()
+		cp := ScriptFunc.GetAll()
 		_, ok := cp["test"]
 		assert.True(t, ok)
 		_, ok = cp["test2"]
 		assert.True(t, ok)
 
-		names := UdfMap.Names()
-		assert.Equal(t, len(UdfMap.GetAll()), len(names))
+		names := ScriptFunc.Names()
+		var num = 0
+		for range cp {
+			num++
+		}
+		assert.Equal(t, num, len(names))
 		var checkName = false
 		for _, name := range names {
 			if name == "test" || name == "test2" {
@@ -75,16 +79,27 @@ func TestBuiltinFunc(t *testing.T) {
 		}
 		assert.True(t, checkName)
 
-		UdfMap.UnRegister("test")
-		_, ok = UdfMap.Get("test")
+		ScriptFunc.UnRegister("test")
+		_, ok = ScriptFunc.Get("test")
 		assert.False(t, ok)
 
-		_, ok = UdfMap.Get("test2")
+		_, ok = ScriptFunc.Get("test2")
 		assert.True(t, ok)
 
-		UdfMap.UnRegister("test2")
-		_, ok = UdfMap.Get("test2")
+		ScriptFunc.UnRegister("test2")
+		_, ok = ScriptFunc.Get("test2")
 		assert.False(t, ok)
 	})
 
+	t.Run("TestFuncMap", func(t *testing.T) {
+		var testMap = NewFuncMap[string]()
+		testMap.RegisterAll(map[string]string{
+			"test1": "test1",
+			"test2": "test2",
+		})
+		for k, v := range testMap.GetAll() {
+			assert.Equal(t, k, v)
+		}
+		assert.Equal(t, len(testMap.Names()), 2)
+	})
 }

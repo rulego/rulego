@@ -1193,7 +1193,7 @@ func NewConfig(opts ...types.Option) types.Config {
 		c.ComponentsRegistry = Registry
 	}
 	// register all udfs
-	for name, f := range funcs.UdfMap.GetAll() {
+	for name, f := range funcs.ScriptFunc.GetAll() {
 		c.RegisterUdf(name, f)
 	}
 	return c
