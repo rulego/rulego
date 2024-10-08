@@ -21,14 +21,14 @@ import (
 	"sync"
 )
 
-// TemplateFuncMap 内置模板函数
-var TemplateFuncMap funcMap
+// TemplateFunc 内置模板函数
+var TemplateFunc = NewFuncMap[any]()
 
-// UdfMap 内置Js用户函数
-var UdfMap funcMap
+// ScriptFunc 内置Js用户函数
+var ScriptFunc = NewFuncMap[any]()
 
 func init() {
-	TemplateFuncMap.Register("escape", func(s string) string {
+	TemplateFunc.Register("escape", func(s string) string {
 		var replacer = strings.NewReplacer(
 			"\\", "\\\\", // 反斜杠
 			"\"", "\\\"", // 双引号
@@ -40,66 +40,58 @@ func init() {
 	})
 }
 
-type funcMap struct {
-	v map[string]any
+// FuncMap 是一个泛型映射，用于存储函数
+type FuncMap[T any] struct {
+	v map[string]T
 	sync.RWMutex
 }
 
-func (x *funcMap) Register(name string, value any) {
+// NewFuncMap 创建一个新的FuncMap实例
+func NewFuncMap[T any]() *FuncMap[T] {
+	return &FuncMap[T]{v: make(map[string]T)}
+}
+
+func (x *FuncMap[T]) Register(name string, value T) {
 	x.Lock()
 	defer x.Unlock()
-	if x.v == nil {
-		x.v = make(map[string]any)
-	}
 	x.v[name] = value
 }
 
-func (x *funcMap) RegisterAll(values map[string]any) {
+func (x *FuncMap[T]) RegisterAll(values map[string]T) {
 	x.Lock()
 	defer x.Unlock()
-	if x.v == nil {
-		x.v = make(map[string]any)
-	}
 	for k, v := range values {
 		x.v[k] = v
 	}
 }
 
-func (x *funcMap) UnRegister(name string) {
+func (x *FuncMap[T]) UnRegister(name string) {
 	x.Lock()
 	defer x.Unlock()
-	if x.v != nil {
-		delete(x.v, name)
-	}
+	delete(x.v, name)
 }
 
-func (x *funcMap) Get(name string) (any, bool) {
+func (x *FuncMap[T]) Get(name string) (T, bool) {
 	x.RLock()
 	defer x.RUnlock()
-	if x.v != nil {
-		f, ok := x.v[name]
-		return f, ok
-	}
-	return nil, false
+	f, ok := x.v[name]
+	return f, ok
 }
 
-func (x *funcMap) GetAll() map[string]any {
+func (x *FuncMap[T]) GetAll() map[string]T {
 	x.RLock()
 	defer x.RUnlock()
-	if x.v == nil {
-		return nil
-	}
-	cp := make(map[string]any)
+	cp := make(map[string]T)
 	for k, v := range x.v {
 		cp[k] = v
 	}
 	return cp
 }
 
-func (x *funcMap) Names() []string {
+func (x *FuncMap[T]) Names() []string {
 	x.RLock()
 	defer x.RUnlock()
-	var keys = make([]string, 0, len(x.v))
+	var keys []string
 	for k := range x.v {
 		keys = append(keys, k)
 	}

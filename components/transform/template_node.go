@@ -91,11 +91,11 @@ func (x *TemplateNode) Init(ruleConfig types.Config, configuration types.Configu
 			// 从文件路径加载模板
 			filePath := strings.TrimPrefix(x.Config.Template, "file:")
 			x.templateName = filepath.Base(filePath)
-			x.templateEngine, err = template.New(x.templateName).Funcs(funcs.TemplateFuncMap.GetAll()).ParseFiles(filePath)
+			x.templateEngine, err = template.New(x.templateName).Funcs(funcs.TemplateFunc.GetAll()).ParseFiles(filePath)
 		} else {
 			x.templateName = TemplateName
 			// 使用模板内容
-			x.templateEngine, err = template.New(x.templateName).Funcs(funcs.TemplateFuncMap.GetAll()).Parse(x.Config.Template)
+			x.templateEngine, err = template.New(x.templateName).Funcs(funcs.TemplateFunc.GetAll()).Parse(x.Config.Template)
 		}
 	}
 	return err
