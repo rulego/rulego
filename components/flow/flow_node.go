@@ -74,6 +74,8 @@ func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	//使用一个互斥锁来保护对msgs切片的并发写入
 	var mu sync.Mutex
 	ctx.TellFlow(ctx.GetContext(), x.Config.TargetId, msg, func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
+		mu.Lock()
+		defer mu.Unlock()
 		errStr := ""
 		if err == nil {
 			for k, v := range onEndMsg.Metadata.Values() {
@@ -83,9 +85,7 @@ func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			errStr = err.Error()
 		}
 		selfId := nodeCtx.GetSelfId()
-		//使用互斥锁来保证对msgs切片的原子操作
-		mu.Lock()
-		defer mu.Unlock()
+
 		if relationType == types.Failure {
 			targetRelationType = relationType
 			targetErr = err

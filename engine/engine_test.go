@@ -286,6 +286,10 @@ func TestSubRuleChain(t *testing.T) {
 	for i := 0; i < maxTimes; i++ {
 		metaData := types.NewMetadata()
 		metaData.PutValue("productType", "productType01")
+		metaData.PutValue("name1", "name1")
+		metaData.PutValue("name2", "name2")
+		metaData.PutValue("name3", "name3")
+		metaData.PutValue("name4", "name4")
 		msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "aa")
 
 		//处理消息并得到处理结果
@@ -303,6 +307,8 @@ func TestSubRuleChain(t *testing.T) {
 				assert.Equal(t, true, strings.Contains(msg.Data, `"data":"{\"bb\":22}"`))
 				v := msg.Metadata.GetValue("test")
 				assert.Equal(t, v, "Modified by sub chain")
+				v = msg.Metadata.GetValue("test_s3")
+				assert.Equal(t, v, "Modified by sub chain node sub_s3")
 			}
 		}))
 
@@ -328,7 +334,7 @@ func TestRuleChainDebugMode(t *testing.T) {
 		}
 	}
 	chainId := str.RandomStr(10)
-	ruleFile := loadFile("./sub_chain.json")
+	ruleFile := loadFile("./test_debug_mode_chain.json")
 	ruleEngine, err := New(chainId, ruleFile, WithConfig(config))
 	assert.Nil(t, err)
 	defer Del(chainId)
