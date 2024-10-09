@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+// Package types defines the core interfaces for components, nodes, and rule engines in the RuleGo framework.
+// It provides the contract that all implementations must follow, ensuring consistency and interoperability
+// across the system.
 package types
 
 import (

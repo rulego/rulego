@@ -14,20 +14,38 @@
  * limitations under the License.
  */
 
-// Package impl /**
-
+// Package impl provides the implementation of the endpoint module.
+// It includes structures and methods for handling endpoints, routers,
+// and message processing in the RuleGo framework.
+//
+// This package contains the core components for building and managing
+// endpoints, which are used to receive and process incoming data from
+// various sources (e.g., HTTP, MQTT, Kafka) before passing it to the
+// rule engine for further processing.
+//
+// Key components in this package include:
+// - From: Represents the source of incoming data
+// - To: Represents the destination for processed data
+// - Router: Manages the routing of messages between From and To
+// - DynamicEndpoint: Implements a configurable and updatable endpoint
+//
+// The implementation in this package allows for flexible configuration
+// and dynamic updates of endpoints, enabling RuleGo to adapt to various
+// input sources and protocols while maintaining a consistent interface
+// for data processing and rule execution.
 package impl
 
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+	"sync/atomic"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/utils/str"
-	"strings"
-	"sync"
-	"sync/atomic"
 )
 
 const (

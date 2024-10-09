@@ -14,16 +14,19 @@
  * limitations under the License.
  */
 
+// Package node_pool manages shared node resources, allowing for efficient reuse of node instances
+// across different rule chains and executions.
 package node_pool
 
 import (
 	"errors"
 	"fmt"
+	"sync"
+
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/engine"
-	"sync"
 )
 
 var (

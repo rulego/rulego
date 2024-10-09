@@ -14,12 +14,29 @@
  * limitations under the License.
  */
 
+// Package processor provides built-in processor implementations for the RuleGo rule engine.
+//
+// This package implements various processors that can be used within rule chains,
+// allowing for custom logic to be integrated into rule chains. It includes pre-defined
+// processors such as HTTP request and response processing, as well as the ability to
+// create custom processors.
+//
+// Key components:
+// - InBuiltins: A collection of built-in in processors that can be called by name through endpoint DSL.
+// - OutBuiltins: A collection of built-in out processors that can be called by name through endpoint DSL.
+//
+// The package supports features such as:
+// - Registering and accessing processors by name
+// - Retrieving all registered processors
+// - Unregistering processors
+// - Retrieving processor names
 package processor
 
 import (
+	"sync"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
-	"sync"
 )
 
 const (

@@ -14,13 +14,31 @@
  * limitations under the License.
  */
 
+// Package reflect provides utility functions for reflection-based operations.
+// It includes functions for extracting component configurations, generating
+// component forms, and working with struct fields.
+//
+// This package is particularly useful for introspecting and manipulating
+// RuleGo components at runtime, allowing for dynamic configuration and
+// form generation based on the structure of component types.
+//
+// Key features:
+// - GetComponentForm: Generates a form structure for a given component
+// - GetComponentConfig: Extracts configuration information from a component
+// - GetFields: Retrieves field information from struct types
+// - SetField: Sets field values in structs using reflection
+//
+// The functions in this package are designed to work with the RuleGo
+// component system, providing flexibility and ease of use when dealing
+// with various component types and their configurations.
 package reflect
 
 import (
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/utils/str"
 	"reflect"
 	"strings"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/str"
 )
 
 // GetComponentForm 获取组件的表单结构

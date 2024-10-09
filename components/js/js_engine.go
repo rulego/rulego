@@ -14,16 +14,38 @@
  * limitations under the License.
  */
 
+// Package js provides JavaScript execution capabilities for the RuleGo rule engine.
+//
+// This package implements a JavaScript engine using the goja library, allowing
+// for the execution of JavaScript code within the rule engine. It includes
+// functionality for creating and managing JavaScript virtual machines,
+// compiling and caching JavaScript programs, and executing JavaScript code
+// with access to global variables and user-defined functions.
+//
+// Key components:
+// - GojaJsEngine: The main struct representing the JavaScript engine.
+// - NewGojaJsEngine: Function to create a new instance of the JavaScript engine.
+// - PreCompileJs: Method to precompile user-defined JavaScript functions.
+//
+// The package supports features such as:
+// - Pooling of JavaScript VMs for efficient reuse
+// - Precompilation of JavaScript code for improved performance
+// - Integration with the RuleGo configuration system
+// - Access to global variables and functions within JavaScript code
+//
+// This package is crucial for components that require JavaScript execution,
+// such as the JsTransformNode and JsFilterNode in the action package.
 package js
 
 import (
 	"errors"
 	"fmt"
-	"github.com/dop251/goja"
-	"github.com/rulego/rulego/api/types"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/dop251/goja"
+	"github.com/rulego/rulego/api/types"
 )
 
 const (

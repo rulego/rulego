@@ -14,11 +14,32 @@
  * limitations under the License.
  */
 
+// Package websocket provides a WebSocket endpoint implementation for the RuleGo framework.
+// It allows creating WebSocket servers that can receive and process incoming WebSocket messages,
+// routing them to appropriate rule chains or components for further processing.
+//
+// Key components in this package include:
+// - Endpoint (alias Websocket): Implements the WebSocket server and message handling
+// - RequestMessage: Represents an incoming WebSocket message
+// - ResponseMessage: Represents the WebSocket message to be sent back
+//
+// The WebSocket endpoint supports dynamic routing configuration, allowing users to
+// define message patterns and their corresponding rule chain or component destinations.
+// It also provides flexibility in handling different WebSocket message types and formats.
+//
+// This package integrates with the broader RuleGo ecosystem, enabling seamless
+// data flow from WebSocket messages to rule processing and back to WebSocket responses.
 package websocket
 
 import (
 	"errors"
 	"fmt"
+	"log"
+	"net/http"
+	"net/textproto"
+	"strconv"
+	"sync"
+
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
@@ -27,11 +48,6 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/runtime"
 	"github.com/rulego/rulego/utils/str"
-	"log"
-	"net/http"
-	"net/textproto"
-	"strconv"
-	"sync"
 )
 
 // Type 组件类型

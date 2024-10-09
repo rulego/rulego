@@ -18,6 +18,7 @@ package engine
 
 import (
 	"errors"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/str"
 )
@@ -26,44 +27,38 @@ const (
 	defaultNodeIdPrefix = "node"
 )
 
-// RuleNodeCtx defines an instance of a node component within the rule engine.
+// RuleNodeCtx represents an instance of a node component within the rule engine.
 type RuleNodeCtx struct {
-	// Node is the instance of the component.
-	types.Node
-	// ChainCtx is the context of the rule chain configuration.
-	ChainCtx *RuleChainCtx
-	// SelfDefinition is the configuration of the component itself.
-	SelfDefinition *types.RuleNode
-	// config is the configuration of the rule engine.
-	config types.Config
-	// aspects is a list of AOP (Aspect-Oriented Programming) aspects.
-	aspects           types.AspectList
-	isInitNetResource bool
+	types.Node                         // Instance of the component
+	ChainCtx          *RuleChainCtx    // Context of the rule chain configuration
+	SelfDefinition    *types.RuleNode  // Configuration of the component itself
+	config            types.Config     // Configuration of the rule engine
+	aspects           types.AspectList // List of AOP (Aspect-Oriented Programming) aspects
+	isInitNetResource bool             // Indicates if network resources should be initialized
 }
 
-// InitRuleNodeCtx initializes a RuleNodeCtx with the given configuration, chain context, and self-definition.
-// It attempts to create a new node based on the type defined in selfDefinition.
+// InitRuleNodeCtx initializes a RuleNodeCtx with the given parameters.
 func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.AspectList, selfDefinition *types.RuleNode) (*RuleNodeCtx, error) {
 	return initRuleNodeCtx(config, chainCtx, aspects, selfDefinition, false)
 }
 
+// InitNetResourceNodeCtx initializes a RuleNodeCtx with network resources.
 func InitNetResourceNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.AspectList, selfDefinition *types.RuleNode) (*RuleNodeCtx, error) {
 	return initRuleNodeCtx(config, chainCtx, aspects, selfDefinition, true)
 }
 
+// initRuleNodeCtx is the core initialization function for RuleNodeCtx.
 func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.AspectList, selfDefinition *types.RuleNode, isInitNetResource bool) (*RuleNodeCtx, error) {
 	// Retrieve aspects for the engine.
 	_, nodeBeforeInitAspects, _, _, _ := aspects.GetEngineAspects()
-	// Iterate over the nodeBeforeInitAspects and call OnNodeBeforeInit on each aspect.
 	for _, aspect := range nodeBeforeInitAspects {
 		if err := aspect.OnNodeBeforeInit(selfDefinition); err != nil {
 			return nil, err
 		}
 	}
-	// Attempt to create a new node from the components registry using the type specified in selfDefinition.
+
 	node, err := config.ComponentsRegistry.NewNode(selfDefinition.Type)
 	if err != nil {
-		// If there is an error in creating the node, return a RuleNodeCtx with the provided context and definition.
 		return &RuleNodeCtx{
 			ChainCtx:          chainCtx,
 			SelfDefinition:    selfDefinition,
@@ -101,18 +96,22 @@ func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 	}
 }
 
+// Config returns the configuration of the rule engine.
 func (rn *RuleNodeCtx) Config() types.Config {
 	return rn.config
 }
 
+// IsDebugMode returns whether the node is in debug mode.
 func (rn *RuleNodeCtx) IsDebugMode() bool {
 	return rn.SelfDefinition.DebugMode
 }
 
+// GetNodeId returns the ID of the node.
 func (rn *RuleNodeCtx) GetNodeId() types.RuleNodeId {
 	return types.RuleNodeId{Id: rn.SelfDefinition.Id, Type: types.NODE}
 }
 
+// ReloadSelf reloads the node from a byte slice definition.
 func (rn *RuleNodeCtx) ReloadSelf(def []byte) error {
 	if node, err := rn.config.Parser.DecodeRuleNode(def); err == nil {
 		return rn.ReloadSelfFromDef(node)
@@ -121,6 +120,7 @@ func (rn *RuleNodeCtx) ReloadSelf(def []byte) error {
 	}
 }
 
+// ReloadSelfFromDef reloads the node from a RuleNode definition.
 func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
 	chainCtx := rn.ChainCtx
 	var ctx *RuleNodeCtx
@@ -131,9 +131,7 @@ func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
 		ctx, err = initRuleNodeCtx(rn.config, chainCtx, chainCtx.aspects, &def, rn.isInitNetResource)
 	}
 	if err == nil {
-		//先销毁
 		rn.Destroy()
-		//重新加载
 		rn.Copy(ctx)
 		return nil
 	} else {
@@ -141,20 +139,23 @@ func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
 	}
 }
 
+// ReloadChild is not supported for RuleNodeCtx.
 func (rn *RuleNodeCtx) ReloadChild(_ types.RuleNodeId, _ []byte) error {
 	return errors.New("not support this func")
 }
 
+// GetNodeById is not supported for RuleNodeCtx.
 func (rn *RuleNodeCtx) GetNodeById(_ types.RuleNodeId) (types.NodeCtx, bool) {
 	return nil, false
 }
 
+// DSL returns the DSL representation of the node.
 func (rn *RuleNodeCtx) DSL() []byte {
 	v, _ := rn.config.Parser.EncodeRuleNode(rn.SelfDefinition)
 	return v
 }
 
-// Copy 复制
+// Copy copies the contents of a new RuleNodeCtx into this one.
 func (rn *RuleNodeCtx) Copy(newCtx *RuleNodeCtx) {
 	rn.Node = newCtx.Node
 	rn.config = newCtx.config
@@ -162,44 +163,46 @@ func (rn *RuleNodeCtx) Copy(newCtx *RuleNodeCtx) {
 	rn.SelfDefinition = newCtx.SelfDefinition
 }
 
-// 使用全局配置替换节点占位符配置，例如：${global.propertyKey}
+// processVariables replaces placeholders in the node configuration with global and chain-specific variables.
 func processVariables(config types.Config, chainCtx *RuleChainCtx, configuration types.Configuration) (types.Configuration, error) {
-	var result = make(types.Configuration)
+	result := make(types.Configuration)
 	globalEnv := make(map[string]string)
 
 	if config.Properties != nil {
 		globalEnv = config.Properties.Values()
 	}
 
-	var varsEnv map[string]string
-	var decryptSecrets map[string]string
+	var varsEnv, decryptSecrets map[string]string
 
 	if chainCtx != nil {
 		varsEnv = copyMap(chainCtx.vars)
-		//解密Secrets
 		decryptSecrets = copyMap(chainCtx.decryptSecrets)
 	}
-	var env = map[string]interface{}{
+
+	env := map[string]interface{}{
 		types.Global: globalEnv,
 		types.Vars:   varsEnv,
 	}
+
 	for key, value := range configuration {
 		if strV, ok := value.(string); ok {
-			v := str.ExecuteTemplate(strV, env)
-			result[key] = v
+			result[key] = str.ExecuteTemplate(strV, env)
 		} else {
 			result[key] = value
 		}
 	}
+
 	if varsEnv != nil {
 		result[types.Vars] = varsEnv
 	}
 	if decryptSecrets != nil {
 		result[types.Secrets] = decryptSecrets
 	}
+
 	return result, nil
 }
 
+// copyMap creates a shallow copy of a string map.
 func copyMap(inputMap map[string]string) map[string]string {
 	result := make(map[string]string)
 	for key, value := range inputMap {

@@ -14,6 +14,16 @@
  * limitations under the License.
  */
 
+// Package json provides utility functions for JSON marshaling, unmarshaling, and formatting.
+// It includes custom implementations to handle HTML escaping and pretty-printing of JSON data.
+//
+// This package extends the standard encoding/json package with additional functionality:
+// - Custom marshaling with optional HTML escaping
+// - Simplified unmarshaling
+// - JSON formatting for improved readability
+//
+// The functions in this package are designed to be easy to use while providing
+// flexibility for common JSON operations in the RuleGo project.
 package json
 
 import (

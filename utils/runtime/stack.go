@@ -14,6 +14,20 @@
  * limitations under the License.
  */
 
+// Package runtime provides utilities for runtime-related operations.
+// This package includes functions for retrieving stack traces and other
+// runtime information that can be useful for debugging and logging purposes.
+//
+// The Stack function in this package returns a formatted string containing
+// the stack trace of the current goroutine, excluding the first two stack frames.
+// This is particularly useful for error reporting and debugging complex call chains.
+//
+// Usage example:
+//
+//	stackTrace := runtime.Stack()
+//	fmt.Println("Current stack trace:", stackTrace)
+//
+// Note: The stack trace includes file names and line numbers for each call in the stack.
 package runtime
 
 import (

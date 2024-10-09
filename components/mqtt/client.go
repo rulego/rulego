@@ -14,15 +14,36 @@
  * limitations under the License.
  */
 
+// Package mqtt provides MQTT client functionality for the RuleGo rule engine.
+//
+// This package implements an MQTT client using the Paho MQTT library, allowing
+// for communication with MQTT brokers. It includes functionality for connecting
+// to MQTT brokers, publishing messages, and subscribing to topics.
+//
+// Key components:
+// - Config: Struct for configuring the MQTT client connection.
+// - Client: The main struct representing the MQTT client.
+// - Handler: Struct for defining subscription handlers.
+//
+// The package supports features such as:
+// - TLS/SSL connections
+// - Authentication with username and password
+// - Automatic reconnection
+// - QoS levels for publishing and subscribing
+// - Custom message handlers for subscriptions
+//
+// This package is crucial for components that require MQTT communication,
+// such as the MqttNode in the external package.
 package mqtt
 
 import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"log"
+
 	paho "github.com/eclipse/paho.mqtt.golang"
 	string2 "github.com/rulego/rulego/utils/str"
-	"log"
 
 	"io/ioutil"
 	"sync"

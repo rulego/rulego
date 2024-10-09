@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
+// Package base provides foundational components and utilities for the RuleGo rule engine.
 package base
 
 import (
 	"errors"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/utils/json"
 	"strings"
 	"sync"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/json"
 )
 
 var (

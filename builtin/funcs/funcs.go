@@ -14,6 +14,23 @@
  * limitations under the License.
  */
 
+// Package funcs provides built-in function implementations for the RuleGo rule engine.
+//
+// This package implements various functions that can be used within rule chains,
+// allowing for custom logic to be integrated into rule chains. It includes pre-defined
+// functions such as string manipulation and mathematical operations, as well as the
+// ability to create custom functions.
+//
+// Key components:
+// - FuncMap: A generic map for storing functions
+// - TemplateFunc: A map for storing template functions
+// - ScriptFunc: A map for storing script functions
+//
+// The package supports features such as:
+// - Registering and accessing functions by name
+// - Retrieving all registered functions
+// - Unregistering functions
+// - Retrieving function names
 package funcs
 
 import (

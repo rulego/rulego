@@ -14,12 +14,31 @@
  * limitations under the License.
  */
 
+// Package mqtt provides an MQTT endpoint implementation for the RuleGo framework.
+// It allows creating MQTT clients that can subscribe to topics and process incoming MQTT messages,
+// routing them to appropriate rule chains or components for further processing.
+//
+// Key components in this package include:
+// - Endpoint (alias Mqtt): Implements the MQTT client and message handling
+// - RequestMessage: Represents an incoming MQTT message
+// - ResponseMessage: Represents the MQTT message to be published as a response
+//
+// The MQTT endpoint supports dynamic routing configuration, allowing users to
+// define topic subscriptions and their corresponding rule chain or component destinations.
+// It also provides flexibility in handling different MQTT QoS levels and message formats.
+//
+// This package integrates with the broader RuleGo ecosystem, enabling seamless
+// data flow from MQTT messages to rule processing and back to MQTT responses.
 package mqtt
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"net/textproto"
+	"strconv"
+	"time"
+
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
@@ -28,9 +47,6 @@ import (
 	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/runtime"
-	"net/textproto"
-	"strconv"
-	"time"
 )
 
 // Type 组件类型
