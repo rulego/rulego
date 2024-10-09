@@ -22,26 +22,12 @@
         "configuration": {
           "jsScript": "metadata['test']='Modified by sub chain';\n metadata['index']=52;\n msgType='TEST_MSG_TYPE2';var msg2={};\n  msg2['bb']=22\n return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
         }
-      },
-      {
-        "id": "sub_s3",
-        "type": "jsTransform",
-        "name": "转换3",
-        "debugMode": true,
-        "configuration": {
-          "jsScript": "metadata['test_s3']='Modified by sub chain node sub_s3';\n metadata['index']=52;\n msgType='TEST_MSG_TYPE2';var msg2={};\n  msg2['bb']=22\n return {'msg':msg2,'metadata':metadata,'msgType':msgType};"
-        }
       }
     ],
     "connections": [
       {
         "fromId": "sub_s1",
         "toId": "sub_s2",
-        "type": "True"
-      },
-      {
-        "fromId": "sub_s1",
-        "toId": "sub_s3",
         "type": "True"
       }
     ]
