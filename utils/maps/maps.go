@@ -14,11 +14,51 @@
  * limitations under the License.
  */
 
+// Package maps provides utility functions for working with maps and structs.
+// It includes functions for converting between maps and structs, as well as
+// retrieving nested values from maps using dot notation.
+//
+// This package is particularly useful when dealing with dynamic data structures
+// or when working with configuration data that needs to be converted between
+// different formats.
+//
+// Key features:
+// - Map2Struct: Converts a map to a struct using reflection
+// - Get: Retrieves nested values from maps using dot notation
+// - Support for weakly typed input when converting maps to structs
+// - Handling of time.Duration conversions from string representations
+//
+// Usage example:
+//
+//	input := map[string]interface{}{
+//		"name": "John Doe",
+//		"age":  30,
+//		"address": map[string]interface{}{
+//			"street": "123 Main St",
+//			"city":   "Anytown",
+//		},
+//	}
+//
+//	// Retrieve a nested value
+//	city := maps.Get(input, "address.city")
+//
+//	// Convert map to struct
+//	type Person struct {
+//		Name    string
+//		Age     int
+//		Address struct {
+//			Street string
+//			City   string
+//		}
+//	}
+//	var person Person
+//	err := maps.Map2Struct(input, &person)
 package maps
 
 import (
-	"github.com/mitchellh/mapstructure"
 	"strings"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 // Map2Struct Decode takes an input structure and uses reflection to translate it to

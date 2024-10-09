@@ -14,6 +14,21 @@
  * limitations under the License.
  */
 
+// Package net provides a network endpoint implementation for the RuleGo framework.
+// It allows creating TCP/UDP servers that can receive and process incoming network messages,
+// routing them to appropriate rule chains or components for further processing.
+//
+// Key components in this package include:
+// - Endpoint (alias Net): Implements the network server and message handling
+// - RequestMessage: Represents an incoming network message
+// - ResponseMessage: Represents the network message to be sent back
+//
+// The network endpoint supports dynamic routing configuration, allowing users to
+// define message patterns and their corresponding rule chain or component destinations.
+// It also provides flexibility in handling different network protocols and message formats.
+//
+// This package integrates with the broader RuleGo ecosystem, enabling seamless
+// data flow from network messages to rule processing and back to network responses.
 package net
 
 import (
@@ -21,17 +36,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/api/types/endpoint"
-	"github.com/rulego/rulego/endpoint/impl"
-	"github.com/rulego/rulego/utils/maps"
-	"github.com/rulego/rulego/utils/runtime"
 	"log"
 	"net"
 	"net/textproto"
 	"os"
 	"regexp"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
+	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/runtime"
 )
 
 const (

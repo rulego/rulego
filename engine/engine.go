@@ -14,19 +14,33 @@
  * limitations under the License.
  */
 
+// Package engine provides the core functionality for the RuleGo rule engine.
+// It includes implementations for rule contexts, rule engines, and related components
+// that enable the execution and management of rule chains.
+//
+// The engine package is responsible for:
+// - Defining and managing rule contexts (DefaultRuleContext)
+// - Implementing the main rule engine (RuleEngine)
+// - Handling rule chain execution and flow control
+// - Managing built-in aspects and extensions
+// - Providing utilities for rule processing and message handling
+//
+// This package is central to the RuleGo framework, offering the primary mechanisms
+// for rule-based processing and decision making in various applications.
 package engine
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/builtin/aspect"
-	"github.com/rulego/rulego/builtin/funcs"
 	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/builtin/aspect"
+	"github.com/rulego/rulego/builtin/funcs"
 )
 
 // Ensuring DefaultRuleContext implements types.RuleContext interface.
@@ -38,19 +52,25 @@ var _ types.RuleEngine = (*RuleEngine)(nil)
 // BuiltinsAspects holds a list of built-in aspects for the rule engine.
 var BuiltinsAspects = []types.Aspect{&aspect.Debug{}}
 
+// ContextObserver tracks the execution state of nodes in the rule chain.
 type ContextObserver struct {
-	// 记录已经执行完的节点
+	// Map of executed nodes
 	executedNodes sync.Map
+	// Map of input messages for each node
 	nodeInMsgList map[string][]types.WrapperMsg
+	// Map of callbacks for node completion events
 	nodeDoneEvent map[string]joinNodeCallback
 	sync.RWMutex
 }
+
+// joinNodeCallback represents a callback function for when a join node completes.
 type joinNodeCallback struct {
 	joinNodeId string
 	parentIds  []string
 	callback   func([]types.WrapperMsg)
 }
 
+// addInMsg adds an input message for a specific join node.
 func (c *ContextObserver) addInMsg(joinNodeId, fromId string, msg types.RuleMsg, errStr string) bool {
 	c.Lock()
 	defer c.Unlock()
@@ -77,6 +97,7 @@ func (c *ContextObserver) addInMsg(joinNodeId, fromId string, msg types.RuleMsg,
 	}
 }
 
+// getInMsgList retrieves the list of input messages for a specific join node.
 func (c *ContextObserver) getInMsgList(joinNodeId string) []types.WrapperMsg {
 	if c.nodeInMsgList == nil {
 		return nil
@@ -86,6 +107,7 @@ func (c *ContextObserver) getInMsgList(joinNodeId string) []types.WrapperMsg {
 	return c.nodeInMsgList[joinNodeId]
 }
 
+// registerNodeDoneEvent registers a callback for when a join node completes.
 func (c *ContextObserver) registerNodeDoneEvent(joinNodeId string, parentIds []string, callback func([]types.WrapperMsg)) {
 	c.Lock()
 	defer c.Unlock()
@@ -99,6 +121,7 @@ func (c *ContextObserver) registerNodeDoneEvent(joinNodeId string, parentIds []s
 	}
 }
 
+// checkNodesDone checks if all specified nodes have completed execution.
 func (c *ContextObserver) checkNodesDone(nodeIds ...string) bool {
 	for _, nodeId := range nodeIds {
 		if _, ok := c.executedNodes.Load(nodeId); !ok {
@@ -108,12 +131,13 @@ func (c *ContextObserver) checkNodesDone(nodeIds ...string) bool {
 	return true
 }
 
+// executedNode marks a node as executed and checks for any completed join nodes.
 func (c *ContextObserver) executedNode(nodeId string) {
 	c.executedNodes.Store(nodeId, true)
-
 	c.checkAndTrigger()
 }
 
+// checkAndTrigger checks for completed join nodes and triggers their callbacks.
 func (c *ContextObserver) checkAndTrigger() {
 	if c.nodeDoneEvent != nil {
 		c.Lock()

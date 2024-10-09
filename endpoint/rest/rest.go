@@ -14,12 +14,33 @@
  * limitations under the License.
  */
 
+// Package rest provides an HTTP endpoint implementation for the RuleGo framework.
+// It allows creating HTTP servers that can receive and process incoming HTTP requests,
+// routing them to appropriate rule chains or components for further processing.
+//
+// Key components in this package include:
+// - Endpoint (alias Rest): Implements the HTTP server and request handling
+// - RequestMessage: Represents an incoming HTTP request
+// - ResponseMessage: Represents the HTTP response to be sent back
+//
+// The REST endpoint supports dynamic routing configuration, allowing users to
+// define routes and their corresponding rule chain or component destinations.
+// It also provides flexibility in handling different HTTP methods and content types.
+//
+// This package integrates with the broader RuleGo ecosystem, enabling seamless
+// data flow from HTTP requests to rule processing and back to HTTP responses.
 package rest
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/textproto"
+	"strings"
+
 	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
@@ -28,11 +49,6 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/runtime"
 	"github.com/rulego/rulego/utils/str"
-	"io"
-	"net"
-	"net/http"
-	"net/textproto"
-	"strings"
 )
 
 const (

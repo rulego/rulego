@@ -14,41 +14,41 @@
  * limitations under the License.
  */
 
-// Package schedule 用于启动定时任务
-//路由from支持以下cron表达式
-
-//Field name   | Mandatory? | Allowed values  | Allowed special characters
-//----------   | ---------- | --------------  | --------------------------
-//Seconds      | Yes        | 0-59            | * / , -
-//Minutes      | Yes        | 0-59            | * / , -
-//Hours        | Yes        | 0-23            | * / , -
-//Day of month | Yes        | 1-31            | * / , - ?
-//Month        | Yes        | 1-12 or JAN-DEC | * / , -
-//Day of week  | Yes        | 0-6 or SUN-SAT  | * / , - ?
-
-//内置一些特殊表达式：
-//Entry                  | Description                                | Equivalent To
-//-----                  | -----------                                | -------------
-//@yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 0 1 1 *
-//@monthly               | Run once a month, midnight, first of month | 0 0 0 1 * *
-//@weekly                | Run once a week, midnight between Sat/Sun  | 0 0 0 * * 0
-//@daily (or @midnight)  | Run once a day, midnight                   | 0 0 0 * * *
-//@hourly                | Run once an hour, beginning of hour        | 0 0 * * * *
-
+// Package schedule implements scheduled task execution
+// The router's 'from' supports the following cron expressions:
+//
+// Field name   | Mandatory? | Allowed values  | Allowed special characters
+// ----------   | ---------- | --------------  | --------------------------
+// Seconds      | Yes        | 0-59            | * / , -
+// Minutes      | Yes        | 0-59            | * / , -
+// Hours        | Yes        | 0-23            | * / , -
+// Day of month | Yes        | 1-31            | * / , - ?
+// Month        | Yes        | 1-12 or JAN-DEC | * / , -
+// Day of week  | Yes        | 0-6 or SUN-SAT  | * / , - ?
+//
+// Built-in special expressions:
+// Entry                  | Description                                | Equivalent To
+// -----                  | -----------                                | -------------
+// @yearly (or @annually) | Run once a year, midnight, Jan. 1st        | 0 0 0 1 1 *
+// @monthly               | Run once a month, midnight, first of month | 0 0 0 1 * *
+// @weekly                | Run once a week, midnight between Sat/Sun  | 0 0 0 * * 0
+// @daily (or @midnight)  | Run once a day, midnight                   | 0 0 0 * * *
+// @hourly                | Run once an hour, beginning of hour        | 0 0 * * * *
 package schedule
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"net/textproto"
+	"strconv"
+
 	"github.com/gofrs/uuid/v5"
 	"github.com/robfig/cron/v3"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/utils/runtime"
-	"net/textproto"
-	"strconv"
 )
 
 // Type 组件类型

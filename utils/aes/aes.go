@@ -14,6 +14,31 @@
  * limitations under the License.
  */
 
+// Package aes provides encryption and decryption functions using the AES algorithm.
+// It includes functions for generating AES keys, encrypting plaintext, and decrypting ciphertext.
+//
+// The package uses AES-256 encryption in CBC mode with PKCS7 padding.
+// Key generation pads or truncates the provided key to ensure it's always 32 bytes (256 bits).
+//
+// Usage:
+//
+//	key := []byte("your-secret-key")
+//	plaintext := "Hello, World!"
+//
+//	// Encrypt
+//	encrypted, err := aes.Encrypt(plaintext, key)
+//	if err != nil {
+//	    // Handle error
+//	}
+//
+//	// Decrypt
+//	decrypted, err := aes.Decrypt(encrypted, key)
+//	if err != nil {
+//	    // Handle error
+//	}
+//
+// Note: Always use a secure method to generate and store your encryption keys.
+// Never use hardcoded keys in production environments.
 package aes
 
 import (

@@ -14,17 +14,31 @@
  * limitations under the License.
  */
 
+// Package str provides utility functions for string manipulation and processing.
+// It includes functions for template execution, string formatting, and various
+// string operations commonly used in the RuleGo project.
+// Key features:
+// - ExecuteTemplate: Replaces ${} variables in string templates
+// - SprintfDict: Formats strings using a dictionary for variable substitution
+// - ToString: Converts various types to string representations
+// - Random string generation functions
+// - String manipulation utilities (e.g., TrimQuotes, IsEmpty)
+//
+// This package is designed to simplify string-related operations throughout
+// the RuleGo codebase, providing a consistent and efficient way to handle
+// string processing tasks.
 package str
 
 import (
 	"fmt"
-	"github.com/rulego/rulego/utils/json"
-	"github.com/rulego/rulego/utils/maps"
 	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/utils/maps"
 )
 
 const varPatternLeft = "${"

@@ -16,6 +16,9 @@
 
 package str
 
+// Template is an interface for parsing and executing string templates.
+// It provides methods for parsing the template, executing it with provided data,
+// executing it with a data loading function, and checking if it contains variables
 type Template interface {
 	Parse() error
 	Execute(data map[string]any) string
