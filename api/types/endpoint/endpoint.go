@@ -15,13 +15,13 @@
  */
 
 // Package endpoint provides the definitions and structures for endpoints in the rulego.
-
 package endpoint
 
 import (
 	"context"
-	"github.com/rulego/rulego/api/types"
 	"net/textproto"
+
+	"github.com/rulego/rulego/api/types"
 )
 
 // Event constants define various event types in the endpoints.
