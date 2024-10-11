@@ -90,9 +90,13 @@ type AroundAspect interface {
 // StartAspect 规则引擎 OnMsg 方法执行之前的增强点接口
 type StartAspect interface {
 	NodeAspect
-	//Start is the advice that executes before the rule engine OnMsg method. The returned Msg will be used as the input for the next advice and the next node OnMsg method.
-	//Start 规则引擎 OnMsg 方法执行之前的增强点。返回的Msg将作为下一个增强点和下一个节点 OnMsg 方法的入参。
-	Start(ctx RuleContext, msg RuleMsg) RuleMsg
+	// Start is the advice that executes before the rule engine OnMsg method.
+	// The returned Msg will be used as the input for the next advice and the next node OnMsg method.
+	// If an error is returned, the execution will be terminated.
+	// Start 规则引擎 OnMsg 方法执行之前的增强点。
+	// 返回的Msg将作为下一个增强点和下一个节点 OnMsg 方法的入参。
+	// 如果返回错误，则执行将终止。
+	Start(ctx RuleContext, msg RuleMsg) (RuleMsg, error)
 }
 
 // EndAspect is the interface for rule engine post-execution advice

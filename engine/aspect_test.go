@@ -342,9 +342,10 @@ func (aspect *ChainAspect) New() types.Aspect {
 func (aspect *ChainAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
 	return true
 }
-func (aspect *ChainAspect) Start(ctx types.RuleContext, msg types.RuleMsg) types.RuleMsg {
+
+func (aspect *ChainAspect) Start(ctx types.RuleContext, msg types.RuleMsg) (types.RuleMsg, error) {
 	msg.Metadata.PutValue("key1", "addValueOnStart")
-	return msg
+	return msg, nil
 }
 
 func (aspect *ChainAspect) End(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) types.RuleMsg {
