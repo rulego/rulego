@@ -16,6 +16,8 @@
 
 package types
 
+import "github.com/rulego/rulego/api/types/metrics"
+
 // RuleEngineOption defines a function type for configuring a RuleEngine.
 type RuleEngineOption func(RuleEngine) error
 
@@ -76,6 +78,8 @@ type RuleEngine interface {
 	OnMsgAndWait(msg RuleMsg, opts ...RuleContextOption)
 	// RootRuleContext returns the root rule context.
 	RootRuleContext() RuleContext
+	// GetMetrics returns the metrics of the RuleEngine.
+	GetMetrics() *metrics.EngineMetrics
 }
 
 // RuleEnginePool is an interface for a pool of rule engines.
