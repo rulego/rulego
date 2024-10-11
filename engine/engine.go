@@ -33,6 +33,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/rulego/rulego/api/types/metrics"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -50,7 +51,7 @@ var _ types.RuleContext = (*DefaultRuleContext)(nil)
 var _ types.RuleEngine = (*RuleEngine)(nil)
 
 // BuiltinsAspects holds a list of built-in aspects for the rule engine.
-var BuiltinsAspects = []types.Aspect{&aspect.Debug{}}
+var BuiltinsAspects = []types.Aspect{&aspect.Debug{}, &aspect.MetricsAspect{}}
 
 // ContextObserver tracks the execution state of nodes in the rule chain.
 type ContextObserver struct {
@@ -1059,6 +1060,15 @@ func (e *RuleEngine) OnMsgAndWait(msg types.RuleMsg, opts ...types.RuleContextOp
 func (e *RuleEngine) RootRuleContext() types.RuleContext {
 	if e.rootRuleChainCtx != nil {
 		return e.rootRuleChainCtx.rootRuleContext
+	}
+	return nil
+}
+
+func (e *RuleEngine) GetMetrics() *metrics.EngineMetrics {
+	for _, aop := range e.Aspects {
+		if metricsAspect, ok := aop.(*aspect.MetricsAspect); ok {
+			return metricsAspect.GetMetrics()
+		}
 	}
 	return nil
 }

@@ -1,0 +1,63 @@
+{
+  "ruleChain": {
+    "id":"test_metrics",
+    "name": "测试指标"
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "s1",
+        "type": "jsFilter",
+        "name": "过滤",
+        "debugMode": true,
+        "configuration": {
+          "jsScript": "return true;"
+        }
+      },
+      {
+        "id": "s2",
+        "type": "functions",
+        "name": "doErr01",
+        "debugMode": true,
+        "configuration": {
+          "functionName": "doErr"
+        }
+      },
+      {
+        "id": "s3",
+        "type": "functions",
+        "name": "doSuccess01",
+        "debugMode": true,
+        "configuration": {
+          "functionName": "doSuccess"
+        }
+      },
+      {
+        "id": "s4",
+        "type": "functions",
+        "name": "doSuccess02",
+        "debugMode": true,
+        "configuration": {
+          "functionName": "doSuccess"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "s1",
+        "toId": "s2",
+        "type": "True"
+      },
+      {
+        "fromId": "s1",
+        "toId": "s3",
+        "type": "True"
+      },
+      {
+        "fromId": "s1",
+        "toId": "s4",
+        "type": "True"
+      }
+    ]
+  }
+}
