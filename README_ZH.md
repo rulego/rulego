@@ -6,6 +6,7 @@
 [![test](https://github.com/rulego/rulego/workflows/test/badge.svg)](https://github.com/rulego/rulego/actions/workflows/test.yml)
 [![build](https://github.com/rulego/rulego/workflows/build/badge.svg)](https://github.com/rulego/rulego/actions/workflows/build.yml)
 [![QQ交流群-720103251](https://img.shields.io/badge/QQ交流群-720103251-orange)](https://qm.qq.com/q/8RDaYcOry8)
+[![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go?tab=readme-ov-file#iot-internet-of-things)  
 
 [English](README.md)| 简体中文
 
