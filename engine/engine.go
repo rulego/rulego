@@ -858,11 +858,6 @@ func newRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*Rule
 			ruleEngine.id = ruleEngine.rootRuleChainCtx.Id.Id
 		}
 	}
-	// Set the aspect lists.
-	startAspects, endAspects, completedAspects := ruleEngine.Aspects.GetChainAspects()
-	ruleEngine.startAspects = startAspects
-	ruleEngine.endAspects = endAspects
-	ruleEngine.completedAspects = completedAspects
 
 	return ruleEngine, err
 }
@@ -875,7 +870,7 @@ func (e *RuleEngine) SetConfig(config types.Config) {
 }
 
 func (e *RuleEngine) SetAspects(aspects ...types.Aspect) {
-	e.Aspects = append(e.Aspects, aspects...)
+	e.Aspects = aspects
 }
 
 func (e *RuleEngine) SetRuleEnginePool(ruleChainPool types.RuleEnginePool) {
@@ -950,6 +945,7 @@ func (e *RuleEngine) ReloadSelf(dsl []byte, opts ...types.RuleEngineOption) erro
 	for _, opt := range opts {
 		_ = opt(e)
 	}
+	var err error
 	if e.Initialized() {
 		//初始化内置切面
 		if len(e.Aspects) == 0 {
@@ -958,20 +954,26 @@ func (e *RuleEngine) ReloadSelf(dsl []byte, opts ...types.RuleEngineOption) erro
 		e.rootRuleChainCtx.config = e.Config
 		e.rootRuleChainCtx.SetAspects(e.Aspects)
 		//更新规则链
-		err := e.rootRuleChainCtx.ReloadSelf(dsl)
+		err = e.rootRuleChainCtx.ReloadSelf(dsl)
 		//设置子规则链池
 		e.rootRuleChainCtx.SetRuleEnginePool(e.ruleChainPool)
-		return err
 	} else {
 		//初始化内置切面
 		e.initBuiltinsAspects()
+		var rootRuleChainDef types.RuleChain
 		//初始化
-		if rootRuleChainDef, err := e.Config.Parser.DecodeRuleChain(dsl); err == nil {
-			return e.initChain(rootRuleChainDef)
+		if rootRuleChainDef, err = e.Config.Parser.DecodeRuleChain(dsl); err == nil {
+			err = e.initChain(rootRuleChainDef)
 		} else {
 			return err
 		}
 	}
+	// Set the aspect lists.
+	startAspects, endAspects, completedAspects := e.Aspects.GetChainAspects()
+	e.startAspects = startAspects
+	e.endAspects = endAspects
+	e.completedAspects = completedAspects
+	return err
 }
 
 // ReloadChild 更新根规则链或者其下某个节点
@@ -1134,9 +1136,13 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 			e.onErrHandler(msg, rootCtxCopy, rootCtxCopy.err)
 			return
 		}
+		var err error
 		// Execute start aspects and update the message accordingly.
-		msg = e.onStart(rootCtxCopy, msg)
-
+		msg, err = e.onStart(rootCtxCopy, msg)
+		if err != nil {
+			e.onErrHandler(msg, rootCtxCopy, err)
+			return
+		}
 		// Set up a custom end callback function.
 		customOnEndFunc := rootCtxCopy.onEnd
 		rootCtxCopy.onEnd = func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
@@ -1178,13 +1184,17 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 }
 
 // onStart executes the list of start aspects before the rule chain begins processing a message.
-func (e *RuleEngine) onStart(ctx types.RuleContext, msg types.RuleMsg) types.RuleMsg {
+func (e *RuleEngine) onStart(ctx types.RuleContext, msg types.RuleMsg) (types.RuleMsg, error) {
+	var err error
 	for _, aop := range e.startAspects {
 		if aop.PointCut(ctx, msg, "") {
-			msg = aop.Start(ctx, msg)
+			if err != nil {
+				return msg, err
+			}
+			msg, err = aop.Start(ctx, msg)
 		}
 	}
-	return msg
+	return msg, err
 }
 
 // onEnd executes the list of end aspects when a branch of the rule chain ends.
