@@ -431,7 +431,13 @@ func (rest *Rest) addRouter(method string, routers ...endpoint.Router) error {
 			if rest.router == nil {
 				rest.router = httprouter.New()
 			}
-			rest.router.Handle(method, path, rest.handler(item))
+			isWait := false
+			if from := item.GetFrom(); from != nil {
+				if to := from.GetTo(); to != nil {
+					isWait = to.IsWait()
+				}
+			}
+			rest.router.Handle(method, path, rest.handler(item, isWait))
 		}
 
 	}
@@ -505,7 +511,7 @@ func (rest *Rest) routerKey(method string, from string) string {
 	return method + ":" + from
 }
 
-func (rest *Rest) handler(router endpoint.Router) httprouter.Handle {
+func (rest *Rest) handler(router endpoint.Router, isWait bool) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		defer func() {
 			//捕捉异常
@@ -544,7 +550,12 @@ func (rest *Rest) handler(router endpoint.Router) httprouter.Handle {
 			}
 
 		}
-		rest.DoProcess(r.Context(), router, exchange)
+		var ctx = r.Context()
+		if !isWait {
+			//异步不能使用request context，否则后续执行会取消
+			ctx = context.Background()
+		}
+		rest.DoProcess(ctx, router, exchange)
 	}
 }
 
