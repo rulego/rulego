@@ -505,7 +505,7 @@ func TestMsgTypeSwitch(t *testing.T) {
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, "TEST_MSG_TYPE3", msg.Type)
 		v := msg.Metadata.GetValue("addFrom")
-		assert.Equal(t, "Other", v)
+		assert.Equal(t, "Default", v)
 	}))
 	wg.Wait()
 }

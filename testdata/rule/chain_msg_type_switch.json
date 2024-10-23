@@ -45,7 +45,7 @@
         "name": "s4-transform",
         "debugMode": true,
         "configuration": {
-          "jsScript": "metadata['addFrom']='Other';\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+          "jsScript": "metadata['addFrom']='Default';\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
         }
       }
     ],
@@ -68,7 +68,7 @@
       {
         "fromId": "s1",
         "toId": "s5",
-        "type": "Other"
+        "type": "Default"
       }
     ]
   }
