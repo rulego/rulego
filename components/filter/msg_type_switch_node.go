@@ -26,8 +26,8 @@ import (
 	"github.com/rulego/rulego/api/types"
 )
 
-// KeyDefaultRelationType 如果无法匹配到节点通过other关系查找节点
-const KeyDefaultRelationType = "Other"
+// KeyDefaultRelationType 如果无法匹配到节点通过Default关系查找节点
+const KeyDefaultRelationType = "Default"
 
 // KeyOtherRelationTypeName config配置的默认关系Properties key
 const KeyOtherRelationTypeName = "defaultRelationType"
