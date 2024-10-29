@@ -316,6 +316,15 @@ func (s *RuleEngineService) initRuleGo(logger *log.Logger, workspacePath string,
 	ruleConfig.Properties.PutValue(luaEngine.LoadLuaLibs, s.config.LoadLuaLibs)
 	ruleConfig.Properties.PutValue(action.KeyExecNodeWhitelist, s.config.CmdWhiteList)
 	ruleConfig.Properties.PutValue(action.KeyWorkDir, s.config.DataDir)
+	if s.config.ScriptMaxExecutionTime > 0 {
+		ruleConfig.ScriptMaxExecutionTime = time.Millisecond * time.Duration(s.config.ScriptMaxExecutionTime)
+	}
+	if s.config.EndpointEnabled != nil {
+		ruleConfig.EndpointEnabled = *s.config.EndpointEnabled
+	}
+	if s.config.SecretKey != nil && *s.config.SecretKey != "" {
+		ruleConfig.SecretKey = *s.config.SecretKey
+	}
 	ruleConfig.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		var errStr = ""
 		if err != nil {
