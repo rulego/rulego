@@ -42,6 +42,12 @@ type Config struct {
 	NodePoolFile string `ini:"node_pool_file"`
 	// 是否保存运行日志到文件
 	SaveRunLog bool `ini:"save_run_log"`
+	// ScriptMaxExecutionTime json执行脚本的最大执行时间，单位毫秒
+	ScriptMaxExecutionTime int `ini:"script_max_execution_time"`
+	// EndpointEnabled 是否启用endpoint
+	EndpointEnabled *bool `ini:"endpoint_enabled"`
+	// SecretKey 密钥
+	SecretKey *string `ini:"secret_key"`
 }
 type Mqtt struct {
 	//是否启用mqtt
