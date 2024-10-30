@@ -100,8 +100,6 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		var dataMap interface{}
 		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
 			data = dataMap
-		} else {
-			data = make(map[string]interface{})
 		}
 	}
 	out, err := x.jsEngine.Execute("Transform", data, msg.Metadata.Values(), msg.Type)
