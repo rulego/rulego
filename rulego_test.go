@@ -78,11 +78,11 @@ func TestRuleGo(t *testing.T) {
 
 	p := engine.NewPool()
 	myRuleGo = &RuleGo{
-		ruleEnginePool: p,
+		pool: p,
 	}
 
-	assert.Equal(t, p, myRuleGo.Engine())
-
+	assert.True(t, p == myRuleGo.Pool())
+	assert.False(t, NewRuleGo() == NewRuleGo())
 	config := NewConfig()
 	chainHasSubChainNodeDone := false
 	chainMsgTypeSwitchDone := false
