@@ -83,7 +83,7 @@ func TestNetNode(t *testing.T) {
 			"connectTimeout":    60,
 			"heartbeatInterval": 1,
 		}, Registry)
-		assert.NotNil(t, err)
+		assert.Nil(t, err)
 
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
