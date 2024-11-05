@@ -16,23 +16,21 @@
 
 package external
 
-// 把msg负荷发送到指定协议网络服务器（不支持读取数据），支持协议：tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。
-// 每条消息在内容最后增加结束符：'\n'
-
 import (
-	"errors"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/utils/maps"
 	"net"
 	"sync/atomic"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/maps"
 )
 
 // EndSign 结束符
 const EndSign = '\n'
 
-// NetNotInitErr net 未初始化错误
-var NetNotInitErr = errors.New("net not init error")
+// PingData ping内容
+var PingData = []byte("ping\n")
 
 // 注册节点
 func init() {
@@ -51,9 +49,10 @@ type NetNodeConfiguration struct {
 	HeartbeatInterval int
 }
 
-// NetNode 用于网络协议的数据读取和发送，支持协议：tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。
-// 每条消息在内容最后增加结束符：'\n'
+// NetNode 把消息负荷通过网络协议发送，支持协议：tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。
+// 发送前会在消息负荷最后增加结束符：'\n'
 type NetNode struct {
+	base.SharedNode[net.Conn]
 	// 节点配置
 	Config NetNodeConfiguration
 	// ruleGo配置
@@ -64,8 +63,6 @@ type NetNode struct {
 	heartbeatTimer *time.Timer
 	//心跳间隔
 	heartbeatDuration time.Duration
-	// 用于通知组件已经被销毁
-	stop chan struct{}
 	// 连接是否已经断开，0：没端口；1：端口
 	disconnected int32
 }
@@ -86,29 +83,13 @@ func (x *NetNode) New() types.Node {
 // Init 初始化
 func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	x.ruleConfig = ruleConfig
-	x.stop = make(chan struct{}, 1)
-	// 将配置转换为NetNodeConfiguration结构体
-	err := maps.Map2Struct(configuration, &x.Config)
-	if err == nil {
-		if x.Config.Protocol == "" {
-			x.Config.Protocol = "tcp"
-		}
-		if x.Config.ConnectTimeout <= 0 {
-			x.Config.ConnectTimeout = 60
-		}
-		if x.Config.HeartbeatInterval <= 0 {
-			x.Config.HeartbeatInterval = 60
-		}
-		x.heartbeatDuration = time.Duration(x.Config.HeartbeatInterval) * time.Second
-
-		// 根据配置的协议和地址，创建一个客户端连接
-		err = x.onConnect()
-		//启动ping、重连和读取服务端数据
-		if err == nil {
-			go x.start()
-		}
+	if err := maps.Map2Struct(configuration, &x.Config); err != nil {
+		return err
 	}
-	return err
+	// 设置默认值
+	x.setDefaultConfig()
+	x.heartbeatDuration = time.Duration(x.Config.HeartbeatInterval) * time.Second
+	return x.SharedNode.Init(ruleConfig, x.Type(), x.Config.Server, false, x.initConnect)
 }
 
 // OnMsg 处理消息
@@ -122,89 +103,85 @@ func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy 销毁
 func (x *NetNode) Destroy() {
-	// 发送一个空结构体到chain
-	x.stop <- struct{}{}
-
-	close(x.stop)
-}
-
-// start 启动
-func (x *NetNode) start() {
-
-	// 循环处理服务器的数据和事件
-LOOP:
-	for {
-		// 使用select语句，监听多个通道
-		select {
-		// 如果接收到stop的消息
-		case <-x.stop:
-			x.onDisconnect()
-			// 退出for循环
-			break LOOP
-		// 如果有服务器发送的数据
-		default:
-			if x.isDisconnected() {
-				_ = x.onConnect()
-				//5秒后重连
-				time.Sleep(time.Second * 5)
-			} else {
-				time.Sleep(x.heartbeatDuration)
-			}
-
-		}
-	}
+	x.onDisconnect()
 }
 
 func (x *NetNode) Printf(format string, v ...interface{}) {
 	x.ruleConfig.Logger.Printf(format, v...)
 }
 
-func (x *NetNode) onConnect() error {
-	//如果有旧连接则先关闭
-	if x.conn != nil {
-		_ = x.conn.Close()
+// initConnect 方法简化
+func (x *NetNode) initConnect() (net.Conn, error) {
+	if x.conn != nil && !x.isDisconnected() {
+		return x.conn, nil
 	}
-	// 根据配置的协议和地址，创建一个客户端连接
+
+	x.Locker.Lock()
+	defer x.Locker.Unlock()
+
+	if x.conn != nil && !x.isDisconnected() {
+		return x.conn, nil
+	}
+
 	conn, err := net.DialTimeout(x.Config.Protocol, x.Config.Server, time.Duration(x.Config.ConnectTimeout)*time.Second)
-	if err == nil {
+	if err != nil {
+		return nil, err
+	}
+
+	x.conn = conn
+	x.setDisconnected(false)
+	// 初始化心跳定时器
+	if x.heartbeatTimer == nil {
+		x.heartbeatTimer = time.AfterFunc(x.heartbeatDuration, func() {
+			x.onPing()
+		})
+	} else {
+		x.heartbeatTimer.Reset(x.heartbeatDuration)
+	}
+	return conn, nil
+}
+
+// 重连
+func (x *NetNode) tryReconnect() {
+	conn, err := net.DialTimeout(x.Config.Protocol, x.Config.Server, time.Duration(x.Config.ConnectTimeout)*time.Second)
+	if err != nil {
+		// 5秒后重试
+		x.heartbeatTimer.Reset(5 * time.Second)
+	} else {
+		x.Locker.Lock()
 		x.conn = conn
 		x.setDisconnected(false)
+		x.Locker.Unlock()
 
-		if x.heartbeatTimer != nil {
-			x.heartbeatTimer.Reset(x.heartbeatDuration)
-		} else {
-			// 创建一个心跳定时器，用于定期发送心跳消息
-			x.heartbeatTimer = time.AfterFunc(x.heartbeatDuration, func() {
-				x.onPing()
-			})
-		}
-		x.Printf("connect success:", x.conn.RemoteAddr().String())
-	} else {
-		x.Printf("connect err:", err)
+		x.Printf("Reconnected to: %s", conn.RemoteAddr().String())
+		// 重连成功后，重置为正常的心跳间隔
+		x.heartbeatTimer.Reset(x.heartbeatDuration)
 	}
-	return err
 }
 
 func (x *NetNode) onPing() {
-	// 如果连接已经断开，就跳过
+	// 如果连接已经断开，尝试重连
 	if x.isDisconnected() {
+		x.tryReconnect()
 		return
 	}
-	// 向服务器发送心跳消息
-	_, err := x.conn.Write([]byte("ping\n"))
-	if err != nil {
-		// 如果出现错误，就标记连接断开，并重置重连定时器
-		x.setDisconnected(true)
-	} else {
-		x.heartbeatTimer.Reset(x.heartbeatDuration)
+	// 发送心跳
+	if conn, err := x.SharedNode.Get(); err == nil {
+		if _, err := conn.Write(PingData); err != nil {
+			x.Printf("Ping failed: %v", err)
+			x.setDisconnected(true)
+			x.tryReconnect()
+		} else {
+			x.heartbeatTimer.Reset(x.heartbeatDuration)
+		}
 	}
 }
 
 func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
 	// 向服务器发送数据
-	if x.conn == nil {
-		ctx.TellFailure(msg, NetNotInitErr)
-	} else if _, err := x.conn.Write(data); err != nil {
+	if conn, err := x.SharedNode.Get(); err != nil {
+		ctx.TellFailure(msg, err)
+	} else if _, err := conn.Write(data); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
 		//重置心跳发送间隔
@@ -218,12 +195,13 @@ func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte)
 
 func (x *NetNode) onDisconnect() {
 	if x.conn != nil {
+		// 停止心跳定时器
+		if x.heartbeatTimer != nil {
+			x.heartbeatTimer.Stop()
+		}
 		_ = x.conn.Close()
+		x.setDisconnected(true)
 	}
-	// 停止心跳定时器
-	x.heartbeatTimer.Stop()
-	x.setDisconnected(true)
-	x.Printf("onDisconnect " + x.conn.RemoteAddr().String())
 }
 
 func (x *NetNode) isDisconnected() bool {
@@ -235,5 +213,18 @@ func (x *NetNode) setDisconnected(disconnected bool) {
 		atomic.StoreInt32(&x.disconnected, 1)
 	} else {
 		atomic.StoreInt32(&x.disconnected, 0)
+	}
+}
+
+// 抽取配置默认值设置
+func (x *NetNode) setDefaultConfig() {
+	if x.Config.Protocol == "" {
+		x.Config.Protocol = "tcp"
+	}
+	if x.Config.ConnectTimeout <= 0 {
+		x.Config.ConnectTimeout = 60
+	}
+	if x.Config.HeartbeatInterval <= 0 {
+		x.Config.HeartbeatInterval = 60
 	}
 }
