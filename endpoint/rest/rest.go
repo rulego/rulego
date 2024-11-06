@@ -595,7 +595,7 @@ func (rest *Rest) startServer() error {
 		rest.OnEvent(endpoint.EventInitServer, rest)
 	}
 	if isTls {
-		rest.Printf("started rest server with TLS on :%s", rest.Config.Server)
+		rest.Printf("started rest server with TLS on %s", rest.Config.Server)
 		go func() {
 			defer ln.Close()
 			err = rest.Server.ServeTLS(ln, rest.Config.CertFile, rest.Config.CertKeyFile)
@@ -604,7 +604,7 @@ func (rest *Rest) startServer() error {
 			}
 		}()
 	} else {
-		rest.Printf("started rest server on :%s", rest.Config.Server)
+		rest.Printf("started rest server on %s", rest.Config.Server)
 		go func() {
 			defer ln.Close()
 			err = rest.Server.Serve(ln)

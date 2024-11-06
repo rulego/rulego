@@ -34,7 +34,6 @@ package websocket
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/textproto"
 	"strconv"
@@ -194,10 +193,9 @@ func (r *ResponseMessage) SetBody(body []byte) {
 		// 在写入之前加锁
 		r.locker.Lock()
 		defer r.locker.Unlock()
-		err := r.conn.WriteMessage(r.messageType, body)
-		if err != nil {
+
+		if err := r.conn.WriteMessage(r.messageType, body); err != nil {
 			r.SetError(err)
-			log.Println("websocket SetBody error:", err)
 		}
 	}
 }
@@ -263,6 +261,12 @@ func (ws *Websocket) AddRouter(router endpoint.Router, params ...interface{}) (i
 		}()
 		ws.addRouter(router)
 		return router.GetId(), err
+	}
+}
+
+func (ws *Websocket) Printf(format string, v ...interface{}) {
+	if ws.RuleConfig.Logger != nil {
+		ws.RuleConfig.Logger.Printf(format, v...)
 	}
 }
 
