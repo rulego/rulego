@@ -36,7 +36,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/textproto"
 	"os"
@@ -179,12 +178,11 @@ func (r *ResponseMessage) SetStatusCode(statusCode int) {
 func (r *ResponseMessage) SetBody(body []byte) {
 	r.body = body
 	if r.conn == nil {
-		log.Println("write err: conn is nil")
+		r.SetError(errors.New("write err: conn is nil"))
 		return
 	}
-	_, err := r.conn.Write(body)
-	if err != nil {
-		log.Println("write err:", err)
+	if _, err := r.conn.Write(body); err != nil {
+		r.SetError(err)
 	}
 }
 
@@ -326,7 +324,7 @@ func (ep *Net) Start() error {
 		return err
 	}
 	// 打印服务器启动的信息
-	ep.Printf("started server on :%s", ep.Config.Server)
+	ep.Printf("started server on %s", ep.Config.Server)
 	go func() {
 		// 循环接受客户端的连接请求
 		for {

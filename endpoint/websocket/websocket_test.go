@@ -11,7 +11,6 @@ import (
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
-	"log"
 	"net/http"
 	"os"
 	"reflect"
@@ -150,7 +149,7 @@ func sendMsg(t *testing.T, url string) {
 	// 连接WebSocket服务器
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	defer func() {
 		time.Sleep(time.Millisecond * 200)
@@ -160,13 +159,13 @@ func sendMsg(t *testing.T, url string) {
 	// 发送消息
 	err = conn.WriteMessage(websocket.BinaryMessage, []byte("Hello, world!"))
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 
 	// 读取消息
 	_, p, err := conn.ReadMessage()
 	if err != nil {
-		log.Fatal(err)
+		t.Fatal(err)
 	}
 	assert.Equal(t, "ok", string(p))
 

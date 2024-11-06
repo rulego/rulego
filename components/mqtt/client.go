@@ -40,8 +40,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"log"
-
+	"fmt"
 	paho "github.com/eclipse/paho.mqtt.golang"
 	string2 "github.com/rulego/rulego/utils/str"
 
@@ -116,18 +115,16 @@ func NewClient(ctx context.Context, conf Config) (*Client, error) {
 
 	tlsconfig, err := newTLSConfig(conf.CAFile, conf.CertFile, conf.CertKeyFile)
 	if err != nil {
-		log.Printf("error loading mqtt certificate files,ca_cert=%s,tls_cert=%s,tls_key=%s", conf.CAFile, conf.CertFile, conf.CertKeyFile)
+		return nil, fmt.Errorf("error loading mqtt certificate files,ca_cert=%s,tls_cert=%s,tls_key=%s", conf.CAFile, conf.CertFile, conf.CertKeyFile)
 	}
 	//tls
 	if tlsconfig != nil {
 		opts.SetTLSConfig(tlsconfig)
 	}
-	log.Printf("connecting to mqtt broker,server=%s", conf.Server)
 	b.client = paho.NewClient(opts)
 
 	for {
 		if token := b.client.Connect(); token.Wait() && token.Error() != nil {
-			log.Printf("connecting to mqtt broker failed, will retry in 2s: %s", token.Error())
 			select {
 			case <-ctx.Done():
 				//context被取消或超时，返回错误
@@ -185,13 +182,10 @@ func (b *Client) Publish(topic string, qos byte, data []byte) error {
 	} else {
 		return nil
 	}
-
 }
 
 func (b *Client) onConnected(c paho.Client) {
-	log.Printf("connected to mqtt server")
 	b.subscribe()
-
 }
 
 func (b *Client) subscribe() {
@@ -203,9 +197,7 @@ func (b *Client) subscribe() {
 func (b *Client) subscribeHandler(handler Handler) {
 	topic := handler.Topic
 	for {
-		log.Printf("subscribing to topic,topic=%s,qos=%d", topic, int(handler.Qos))
 		if token := b.client.Subscribe(topic, handler.Qos, handler.Handle).(*paho.SubscribeToken); token.Wait() && (token.Error() != nil || is128Err(token, topic)) { //128 ACK错误
-			log.Printf("subscribe error,topic=%s,qos=%d", topic, int(handler.Qos))
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -220,7 +212,6 @@ func is128Err(token *paho.SubscribeToken, topic string) bool {
 }
 
 func (b *Client) onConnectionLost(c paho.Client, reason error) {
-	log.Printf("mqtt connection error: %s", reason)
 }
 
 func newTLSConfig(CAFile, certFile, certKeyFile string) (*tls.Config, error) {
@@ -234,7 +225,6 @@ func newTLSConfig(CAFile, certFile, certKeyFile string) (*tls.Config, error) {
 	if CAFile != "" {
 		caCert, err := ioutil.ReadFile(CAFile)
 		if err != nil {
-			log.Printf("could not load ca certificate")
 			return nil, err
 		}
 		certPool := x509.NewCertPool()
@@ -247,7 +237,6 @@ func newTLSConfig(CAFile, certFile, certKeyFile string) (*tls.Config, error) {
 	if certFile != "" && certKeyFile != "" {
 		kp, err := tls.LoadX509KeyPair(certFile, certKeyFile)
 		if err != nil {
-			log.Printf("could not load mqtt tls key-pair")
 			return nil, err
 		}
 		tlsConfig.Certificates = []tls.Certificate{kp}
