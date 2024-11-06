@@ -1,4 +1,23 @@
 # CHANGELOG
+## [v0.26.0] 2024/11/07
+
+- feat:增加注释节点
+- feat:增加条件分支节点(switch node)
+- feat:增加规则引擎指标统计模块
+- feat:增加并发限制aspect
+- feat:start aspect 提供错误中断机制
+- feat:提供 NewRuleGo Api
+- feat:net组件允许使用节点池方式
+- fix:flow node 并发读写问题
+- fix:http endpoint 异步执行会出现context canceled
+- refactor:js转换器组件忽略json转换错误
+- refactor:重构内置函数注册器
+- refactor:路由节点默认关系修改成Default
+- chore:完善部分注释
+- fix(server):config.conf允许配置js执行操作参数
+- feat(rulego-components):增加MongoDB节点组件
+- feat(rulego-components):增加redis 发布节点组件
+
 ## [v0.25.0] 2024/10/07
 
 - feat:增加并行网关节点组件
