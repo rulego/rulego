@@ -158,7 +158,6 @@ func (g *GojaJsEngine) NewVm(config types.Config, fromVars map[string]interface{
 	for k, v := range vars {
 		if err := vm.Set(k, v); err != nil {
 			config.Logger.Printf("set variable error,err:" + err.Error())
-			panic(errors.New("set variable error,err:" + err.Error()))
 		}
 	}
 
@@ -170,7 +169,6 @@ func (g *GojaJsEngine) NewVm(config types.Config, fromVars map[string]interface{
 
 	if err != nil {
 		config.Logger.Printf("js vm error,err:" + err.Error())
-		panic(errors.New("js vm error,err:" + err.Error()))
 	}
 	return vm
 }

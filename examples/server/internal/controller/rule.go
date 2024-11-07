@@ -5,12 +5,14 @@ import (
 	"examples/server/config/logger"
 	"examples/server/internal/constants"
 	"examples/server/internal/service"
+	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/builtin/processor"
 	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/json"
 	"net/http"
@@ -288,7 +290,8 @@ func GetRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEnginePool {
 	msg := exchange.In.GetMsg()
 	username := msg.Metadata.GetValue(constants.KeyUsername)
 	if s, ok := service.UserRuleEngineServiceImpl.Get(username); !ok {
-		panic("not found username=" + username)
+		exchange.In.SetError(fmt.Errorf("not found username=%s", username))
+		return engine.DefaultPool
 	} else {
 		return s.Pool
 	}
