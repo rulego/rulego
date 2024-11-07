@@ -131,7 +131,7 @@ func initLogger(c config.Config) *log.Logger {
 	} else {
 		f, err := os.OpenFile(c.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 		return log.New(f, "", log.LstdFlags)
 	}

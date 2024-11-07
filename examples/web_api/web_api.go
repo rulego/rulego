@@ -32,7 +32,6 @@ import (
 
 // 使用router开发web应用
 func main() {
-
 	config := rulego.NewConfig(types.WithDefaultPool())
 	//注册规则链
 	_, _ = rulego.New("default", []byte(chainJsonFile), rulego.WithConfig(config))

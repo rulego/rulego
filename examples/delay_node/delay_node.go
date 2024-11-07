@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	"log"
 	"sync"
 	"time"
 )
@@ -35,7 +36,7 @@ func init() {
 	var err error
 	ruleEngine, err = rulego.New("rule01", []byte(chainJsonFile1), rulego.WithConfig(config))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 
@@ -58,7 +59,7 @@ func main() {
 		fmt.Println("用时:" + time.Since(start).String())
 		useTime := time.Since(start)
 		if useTime < time.Second {
-			panic("延迟组件不生效")
+			log.Fatal("延迟组件不生效")
 		}
 		wg.Done()
 	}))

@@ -24,6 +24,7 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	mqttEndpoint "github.com/rulego/rulego/endpoint/mqtt"
 	"github.com/rulego/rulego/endpoint/rest"
+	"log"
 )
 
 // 使用相同路由逻辑处理http和mqtt数据
@@ -45,7 +46,8 @@ func main() {
 		Server: "127.0.0.1:1883",
 	})
 	if err != nil {
-		panic(err)
+		//退出程序
+		log.Fatal(err)
 	}
 	//添加全局拦截器
 	_mqttEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
@@ -57,7 +59,7 @@ func main() {
 
 	err = _mqttEndpoint.Start()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	//创建http接收服务
 	_restEndpoint, err := endpoint.Registry.New(rest.Type, config, mqtt.Config{
@@ -79,6 +81,6 @@ func main() {
 	//启动http服务
 	err = _restEndpoint.Start()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }

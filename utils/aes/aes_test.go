@@ -27,12 +27,12 @@ func TestAes(t *testing.T) {
 
 	encrypted, err := Encrypt(plaintext, []byte(key))
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	decrypted, err := Decrypt(encrypted, []byte(key))
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	assert.Equal(t, plaintext, decrypted)
 

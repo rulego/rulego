@@ -6,6 +6,7 @@ import (
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	string2 "github.com/rulego/rulego/utils/str"
+	"log"
 	"time"
 )
 
@@ -22,7 +23,7 @@ func main() {
 	//注册插件组件
 	err := rulego.Registry.RegisterPlugin("test", "./plugin.so")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	config := rulego.NewConfig()
 
