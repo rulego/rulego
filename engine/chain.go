@@ -267,7 +267,7 @@ func (rc *RuleChainCtx) Type() string {
 
 // New creates a new instance (not supported for RuleChainCtx)
 func (rc *RuleChainCtx) New() types.Node {
-	panic("not support this func")
+	panic("not support this method")
 }
 
 // Init initializes the rule chain context

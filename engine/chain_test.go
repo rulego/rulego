@@ -34,7 +34,7 @@ func TestChainCtx(t *testing.T) {
 		defer func() {
 			//捕捉异常
 			if e := recover(); e != nil {
-				assert.Equal(t, "not support this func", fmt.Sprintf("%s", e))
+				assert.Equal(t, "not support this method", fmt.Sprintf("%s", e))
 			}
 		}()
 		ruleChainDef.Metadata.RuleChainConnections = []types.RuleChainConnection{
