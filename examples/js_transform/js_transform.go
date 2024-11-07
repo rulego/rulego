@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	"log"
 	"time"
 )
 
@@ -34,7 +35,7 @@ func main() {
 	//js处理
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile1), rulego.WithConfig(config))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	msg1 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
@@ -48,7 +49,7 @@ func main() {
 	//js处理后，并调用http推送
 	ruleEngine2, err := rulego.New("rule02", []byte(chainJsonFile2), rulego.WithConfig(config))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	msg2 := types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":30}")

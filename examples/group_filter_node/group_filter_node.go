@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	"log"
 	"strings"
 	"time"
 )
@@ -32,7 +33,7 @@ func init() {
 	var err error
 	ruleEngine, err = rulego.New("rule01", []byte(chainJsonFile1), rulego.WithConfig(config))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	"log"
 	"time"
 )
 
@@ -41,7 +42,7 @@ func main() {
 	config := rulego.NewConfig()
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile), rulego.WithConfig(config))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")

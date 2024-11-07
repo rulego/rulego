@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +38,7 @@ func main() {
 	//js处理后，并调用http推送
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile), rulego.WithConfig(config))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	var i = 1

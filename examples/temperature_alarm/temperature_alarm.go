@@ -19,6 +19,7 @@ package main
 import (
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	"log"
 	"time"
 )
 
@@ -29,7 +30,7 @@ func main() {
 	//初始化规则引擎实例
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile), rulego.WithConfig(config))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	//消息1 温度正常，没大于50度

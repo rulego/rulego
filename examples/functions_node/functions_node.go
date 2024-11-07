@@ -21,6 +21,7 @@ import (
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/action"
+	"log"
 	"time"
 )
 
@@ -51,7 +52,7 @@ func init() {
 	var err error
 	ruleEngine, err = rulego.New("rule01", []byte(chainJsonFile), rulego.WithConfig(config))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 
