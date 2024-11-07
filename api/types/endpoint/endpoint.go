@@ -193,6 +193,8 @@ type Router interface {
 	Definition() *types.RouterDsl
 	SetParams(args ...interface{})
 	GetParams() []interface{}
+	// Err returns the error associated with the router initialization.
+	Err() error
 }
 
 // Process is a function type defining a processing operation in a routing context.

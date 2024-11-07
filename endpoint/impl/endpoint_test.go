@@ -253,26 +253,14 @@ func TestEndpoint(t *testing.T) {
 	})
 
 	t.Run("ExecuteComponentVar", func(t *testing.T) {
-		defer func() {
-			//捕捉异常
-			if e := recover(); e != nil {
-				errStr := fmt.Sprintf("%v", e)
-				assert.Equal(t, "executor=component, path not support variables", errStr)
-			}
-		}()
-		_ = NewRouter().From(from).To("component:${componentType}", configuration).End()
+		router := NewRouter().From(from).To("component:${componentType}", configuration).End()
+		assert.Equal(t, "executor=component, path not support variables", router.Err().Error())
 	})
 
 	//测试组件不存在
 	t.Run("ExecuteComponentNotFount", func(t *testing.T) {
-		defer func() {
-			//捕捉异常
-			if e := recover(); e != nil {
-				errStr := fmt.Sprintf("%v", e)
-				assert.Equal(t, "component not found. componentType=aa", errStr)
-			}
-		}()
-		_ = NewRouter().From(from).To("component:aa", configuration).End()
+		router := NewRouter().From(from).To("component:aa", configuration).End()
+		assert.Equal(t, "component not found. componentType=aa", router.Err().Error())
 	})
 
 	t.Run("ExecuteComponentAndWait", func(t *testing.T) {
