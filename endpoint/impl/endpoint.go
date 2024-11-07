@@ -129,14 +129,16 @@ func (f *From) To(to string, configs ...types.Configuration) endpoint.To {
 	//获取To执行器
 	if executor, ok := DefaultExecutorFactory.New(executorType); ok {
 		if f.to.HasVars && !executor.IsPathSupportVar() {
-			panic(fmt.Errorf("executor=%s, path not support variables", executorType))
+			f.Router.err = fmt.Errorf("executor=%s, path not support variables", executorType)
+			return f.to
 		}
 		f.to.ToPath = strings.TrimSpace(to[len(executorType)+1:])
 		toConfig[pathKey] = f.to.ToPath
 		//初始化组件
 		err := executor.Init(f.Router.Config, toConfig)
 		if err != nil {
-			panic(err)
+			f.Router.err = err
+			return f.to
 		}
 		f.to.executor = executor
 	} else {
@@ -276,7 +278,7 @@ type Router struct {
 	id     string
 	//输入
 	from *From
-	//规则链池，默认使用rulego.DefaultPool
+	//规则链池，默认使用engine.DefaultPool
 	RuleGo types.RuleEnginePool
 	//动态获取规则链池函数
 	ruleGoFunc func(exchange *endpoint.Exchange) types.RuleEnginePool
@@ -286,41 +288,12 @@ type Router struct {
 	def *types.RouterDsl
 	//配置参数
 	params []interface{}
+	//记录初始化的错误
+	err error
 }
 
 // RouterOption 选项函数
 type RouterOption = endpoint.RouterOption
-
-//// WithRuleGoFunc 动态获取规则链池函数
-//func WithRuleGoFunc(f func(exchange *endpoint.Exchange) types.RuleEnginePool) RouterOption {
-//	return func(re *Router) error {
-//		re.ruleGoFunc = f
-//		return nil
-//	}
-//}
-//
-//// WithRuleGo 更改规则链池，默认使用rulego.DefaultPool
-//func WithRuleGo(RuleGo types.RuleEnginePool) RouterOption {
-//	return func(re *Router) error {
-//		re.RuleGo = RuleGo
-//		return nil
-//	}
-//}
-//
-//// WithRuleConfig 更改规则引擎配置
-//func WithRuleConfig(config types.Config) RouterOption {
-//	return func(re *Router) error {
-//		re.Config = config
-//		return nil
-//	}
-//}
-//
-//func WithContextFunc(ctx func(ctx context.Context, exchange *endpoint.Exchange) context.Context) RouterOption {
-//	return func(re *Router) error {
-//		re.ContextFunc = ctx
-//		return nil
-//	}
-//}
 
 // NewRouter 创建新的路由
 func NewRouter(opts ...RouterOption) endpoint.Router {
@@ -426,6 +399,9 @@ func (r *Router) SetParams(args ...interface{}) {
 func (r *Router) GetParams() []interface{} {
 	return r.params
 }
+func (r *Router) Err() error {
+	return r.err
+}
 
 // BaseEndpoint 基础端点
 // 实现全局拦截器基础方法
@@ -475,7 +451,7 @@ func (e *BaseEndpoint) DoProcess(baseCtx context.Context, router endpoint.Router
 func (e *BaseEndpoint) createContext(baseCtx context.Context, router endpoint.Router, exchange *endpoint.Exchange) context.Context {
 	if router.GetContextFunc() != nil {
 		if ctx := router.GetContextFunc()(baseCtx, exchange); ctx == nil {
-			panic("ContextFunc returned nil")
+			return context.Background()
 		} else {
 			exchange.Context = ctx
 			return ctx
