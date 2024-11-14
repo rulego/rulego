@@ -14,6 +14,7 @@ import (
 	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/utils/str"
 	"log"
 	"os"
 	"path"
@@ -192,10 +193,10 @@ func (s *RuleEngineService) List() []types.RuleChain {
 	sort.Slice(ruleChains, func(i, j int) bool {
 		var iTime, jTime string
 		if v, ok := ruleChains[i].RuleChain.GetAdditionalInfo(updateTimeKey); ok {
-			iTime = v
+			iTime = str.ToString(v)
 		}
 		if v, ok := ruleChains[j].RuleChain.GetAdditionalInfo(updateTimeKey); ok {
-			jTime = v
+			jTime = str.ToString(v)
 		}
 		return iTime > jTime
 	})
@@ -431,7 +432,7 @@ func (s *RuleEngineService) loadRules(folderPath string) error {
 func (s *RuleEngineService) fillAdditionalInfo(def *types.RuleChain) {
 	//修改更新时间
 	if def.RuleChain.AdditionalInfo == nil {
-		def.RuleChain.AdditionalInfo = make(map[string]string)
+		def.RuleChain.AdditionalInfo = make(map[string]interface{})
 	}
 	def.RuleChain.AdditionalInfo[constants.KeyUsername] = s.username
 	nowStr := time.Now().Format("2006/01/02 15:04:05")

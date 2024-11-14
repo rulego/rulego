@@ -38,11 +38,11 @@ type RuleChainBaseInfo struct {
 	// Configuration contains the configuration information of the rule chain.
 	Configuration Configuration `json:"configuration,omitempty"`
 	// AdditionalInfo is an extension field.
-	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
+	AdditionalInfo map[string]interface{} `json:"additionalInfo,omitempty"`
 }
 
 // GetAdditionalInfo retrieves additional information by key.
-func (r RuleChainBaseInfo) GetAdditionalInfo(key string) (string, bool) {
+func (r RuleChainBaseInfo) GetAdditionalInfo(key string) (interface{}, bool) {
 	if r.AdditionalInfo == nil {
 		return "", false
 	}
@@ -51,9 +51,9 @@ func (r RuleChainBaseInfo) GetAdditionalInfo(key string) (string, bool) {
 }
 
 // PutAdditionalInfo adds additional information by key and value.
-func (r RuleChainBaseInfo) PutAdditionalInfo(key, value string) {
+func (r RuleChainBaseInfo) PutAdditionalInfo(key string, value interface{}) {
 	if r.AdditionalInfo == nil {
-		r.AdditionalInfo = make(map[string]string)
+		r.AdditionalInfo = make(map[string]interface{})
 	}
 	r.AdditionalInfo[key] = value
 }
@@ -79,7 +79,7 @@ type RuleNode struct {
 	// Id is the unique identifier of the node, which can be any string.
 	Id string `json:"id"`
 	// AdditionalInfo is an extension field for visualization position information (reserved field).
-	AdditionalInfo NodeAdditionalInfo `json:"additionalInfo,omitempty"`
+	AdditionalInfo map[string]interface{} `json:"additionalInfo,omitempty"`
 	// Type is the type of the node, which determines the logic and behavior of the node. It should match one of the node types registered in the rule engine.
 	Type string `json:"type"`
 	// Name is the name of the node, which can be any string.
@@ -133,7 +133,7 @@ type RuleChainRunSnapshot struct {
 	// Logs are the logs for each node.
 	Logs []RuleNodeRunLog `json:"logs"`
 	// AdditionalInfo is an extension field.
-	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
+	AdditionalInfo map[string]interface{} `json:"additionalInfo,omitempty"`
 }
 
 // RuleNodeRunLog is the log for a node.
@@ -178,7 +178,7 @@ type RouterDsl struct {
 	// To is the destination for the router.
 	To ToDsl `json:"to"`
 	// AdditionalInfo is an extension field.
-	AdditionalInfo map[string]string `json:"additionalInfo,omitempty"`
+	AdditionalInfo map[string]interface{} `json:"additionalInfo,omitempty"`
 }
 
 // FromDsl defines the source for an endpoint router.

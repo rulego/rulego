@@ -8,6 +8,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/utils/str"
 	"os"
 	"path"
 	"path/filepath"
@@ -40,7 +41,7 @@ func (d *WorkflowDao) Create(project model.Workflow) error {
 		RuleChain: types.RuleChainBaseInfo{
 			ID:   project.Name,
 			Name: project.Name,
-			AdditionalInfo: map[string]string{
+			AdditionalInfo: map[string]interface{}{
 				"createTime":  now,
 				"updateTime":  now,
 				"description": project.Description,
@@ -73,18 +74,18 @@ func (d *WorkflowDao) List(username string) []model.Workflow {
 			var ruleChain types.RuleChain
 			var createTime, updateTime int64
 			var description string
-			var additionalInfo map[string]string
+			var additionalInfo map[string]interface{}
 			if err := json.Unmarshal(dsl, &ruleChain); err == nil {
 				additionalInfo = ruleChain.RuleChain.AdditionalInfo
 				if additionalInfo != nil {
 					if createTimeStr, ok := additionalInfo["createTime"]; ok {
-						createTime, _ = strconv.ParseInt(createTimeStr, 10, 64)
+						createTime, _ = strconv.ParseInt(str.ToString(createTimeStr), 10, 64)
 					}
 					if updateTimeStr, ok := additionalInfo["updateTime"]; ok {
-						updateTime, _ = strconv.ParseInt(updateTimeStr, 10, 64)
+						updateTime, _ = strconv.ParseInt(str.ToString(updateTimeStr), 10, 64)
 					}
 					if descriptionStr, ok := additionalInfo["description"]; ok {
-						description = descriptionStr
+						description = str.ToString(descriptionStr)
 					}
 				}
 			}
