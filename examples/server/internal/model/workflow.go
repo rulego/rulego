@@ -13,7 +13,7 @@ type Workflow struct {
 	// 更新时间
 	UpdateTime int64 `json:"updateTime"`
 	// 扩展信息
-	AdditionalInfo map[string]string `json:"additionalInfo"`
+	AdditionalInfo map[string]interface{} `json:"additionalInfo"`
 	//规则链定义
 	RuleChain string `json:"rulechain"`
 }

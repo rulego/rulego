@@ -76,11 +76,6 @@ func TestParser(t *testing.T) {
 	var expectMap map[string]interface{}
 	err = json.Unmarshal([]byte(`{
 	  "id": "s2",
-	  "additionalInfo": {
-		"description": "",
-		"layoutX": 0,
-		"layoutY": 0
-	  },
 	  "type": "jsTransform",
 	  "name": "转换",
 	  "debugMode": true,

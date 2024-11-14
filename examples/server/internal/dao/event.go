@@ -8,6 +8,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/utils/str"
 	"os"
 	"path"
 	"path/filepath"
@@ -139,7 +140,7 @@ func (s *EventDao) Get(username, chainId, snapshotId string) (types.RuleChainRun
 func (s *EventDao) getUserNameFromSnapshot(snapshot types.RuleChainRunSnapshot) string {
 	var username = config.C.DefaultUsername
 	if v, ok := snapshot.RuleChain.RuleChain.AdditionalInfo[constants.KeyUsername]; ok {
-		return v
+		return str.ToString(v)
 	}
 	return username
 }
