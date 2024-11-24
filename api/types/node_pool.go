@@ -28,6 +28,7 @@ type SharedNodeCtx interface {
 	NodeCtx
 	// GetInstance Obtain shared component resource instance
 	GetInstance() (interface{}, error)
+	GetNode() interface{}
 }
 
 type NodePool interface {

@@ -199,6 +199,12 @@ func (n *sharedNodeCtx) GetInstance() (interface{}, error) {
 	}
 	return n.RuleNodeCtx.Node.(types.SharedNode).GetInstance()
 }
+func (n *sharedNodeCtx) GetNode() interface{} {
+	if n.EndpointCtx != nil {
+		return n.EndpointCtx.Endpoint
+	}
+	return n.RuleNodeCtx.Node
+}
 
 func (n *sharedNodeCtx) DSL() []byte {
 	if n.EndpointCtx != nil {
