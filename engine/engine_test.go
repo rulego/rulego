@@ -47,7 +47,8 @@ var ruleChainFile = `{
             "id": "test01",
             "name": "testRuleChain01",
             "debugMode": true,
-            "root": true
+            "root": true,
+            "disabled": false
           },
           "metadata": {
             "firstNodeIndex": 0,

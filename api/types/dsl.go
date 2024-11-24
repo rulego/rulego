@@ -35,6 +35,8 @@ type RuleChainBaseInfo struct {
 	DebugMode bool `json:"debugMode"`
 	// Root indicates whether this rule chain is a root or a sub-rule chain. (Used only as a marker, not applied in actual logic)
 	Root bool `json:"root"`
+	// Disabled indicates whether the rule chain is disabled.
+	Disabled bool `json:"disabled"`
 	// Configuration contains the configuration information of the rule chain.
 	Configuration Configuration `json:"configuration,omitempty"`
 	// AdditionalInfo is an extension field.
