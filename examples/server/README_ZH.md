@@ -27,36 +27,34 @@
     - GET /api/v1/components
 
 * 执行规则链并得到执行结果API
-    - POST /api/v1/rule/:chainId/execute/:msgType
+    - POST /api/v1/rules/:chainId/execute/:msgType
     - chainId：处理数据的规则链ID
     - msgType：消息类型
     - body：消息体
   
 * 往规则链上报数据API，不关注执行结果
-  - POST /api/v1/rule/:chainId/notify/:msgType
+  - POST /api/v1/rules/:chainId/notify/:msgType
   - chainId：处理数据的规则链ID
   - msgType：消息类型
   - body：消息体
   
 * 查询规则链
-    - GET /api/v1/rule/{chainId}/{nodeId}
+    - GET /api/v1/rules/{chainId}
     - chainId：规则链ID
-    - nodeId:空则查询规则链定义，否则查询规则链指定节点ID节点定义
 
 * 保存或更新规则链
-    - POST /api/v1/rule/{chainId}/{nodeId}
+    - POST /api/v1/rule/{chainId}
     - chainId：规则链ID
-    - nodeId：空则更新规则链定义，否则更新规则链指定节点ID节点定义
-    - body：更新内容
+    - body：更新规则链DSL内容
   
 * 保存规则链Configuration
-    - POST /api/v1/rule/:chainId/saveConfig/:varType
+    - POST /api/v1/rules/:chainId/config/:varType
     - chainId：规则链ID
     - varType: vars/secrets 变量/秘钥
     - body：配置内容
 
 * 获取节点调试日志API
-    - Get /api/v1/event/debug?&chainId={chainId}&nodeId={nodeId}
+    - Get /api/v1/logs/debug?&chainId={chainId}&nodeId={nodeId}
     - chainId：规则链ID
     - nodeId：节点ID
 
@@ -115,17 +113,6 @@ debug = true
 max_node_log_size =40
 # 节点池文件，规则链json格式，示例：./node_pool.json
 node_pool_file=./node_pool.json
-
-# mqtt 配置
-[mqtt]
-# 是否开启mqtt
-enabled = false
-# mqtt server
-server = 127.0.0.1:1883
-# 订阅主题，多个与`,`号隔开。默认:#
-topics = `#`
-# 订阅数据交给哪个规则链处理
-to_chain_id = chain_call_rest_api
 
 # 全局自定义配置，组件可以通过${global.xxx}方式取值
 [global]

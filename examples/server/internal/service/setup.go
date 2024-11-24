@@ -1,6 +1,8 @@
 package service
 
-import "examples/server/config"
+import (
+	"examples/server/config"
+)
 
 func Setup(config config.Config) error {
 
@@ -9,7 +11,6 @@ func Setup(config config.Config) error {
 	} else {
 		UserServiceImpl = s
 	}
-
 	if s, err := NewUserRuleEngineServiceImpl(config); err != nil {
 		return err
 	} else {
@@ -21,6 +22,5 @@ func Setup(config config.Config) error {
 	} else {
 		EventServiceImpl = s
 	}
-
 	return nil
 }
