@@ -28,7 +28,7 @@ import (
 	"github.com/rulego/rulego/node_pool"
 	"gopkg.in/ini.v1"
 	"log"
-	//_ "net/http/pprof"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -77,7 +77,7 @@ func main() {
 
 	log.Printf("use config file=%s \n", configFile)
 
-	if err := loadNodePool(c.NodePoolFile); err != nil {
+	if err := loadNodePool(c); err != nil {
 		log.Fatal("loadNodePool error:", err)
 	} else {
 		log.Printf("loadNodePool file=%s \n", c.NodePoolFile)
@@ -87,11 +87,15 @@ func main() {
 	if err := service.Setup(c); err != nil {
 		log.Fatal("setup service error:", err)
 	}
-	var mqttEndpoint endpointApi.Endpoint
-	//创建mqtt接入服务
-	if c.Mqtt.Enabled {
-		mqttEndpoint, _ = router.MqttServe(c, logger.Logger)
-	}
+	/////初始化核心引擎服务
+	//if err := service.InitCoreEngineService(c); err != nil {
+	//	log.Fatal("init core engine server error:", err)
+	//}
+	//var mqttEndpoint endpointApi.Endpoint
+	////创建mqtt接入服务
+	//if c.Mqtt.Enabled {
+	//	mqttEndpoint, _ = router.MqttServe(c, logger.Logger)
+	//}
 	//创建rest服务
 	restEndpoint := router.NewRestServe(c)
 	restEndpoint.OnEvent = func(eventName string, params ...interface{}) {
@@ -116,9 +120,9 @@ func main() {
 		if restEndpoint != nil {
 			restEndpoint.Destroy()
 		}
-		if mqttEndpoint != nil {
-			mqttEndpoint.Destroy()
-		}
+		//if mqttEndpoint != nil {
+		//	mqttEndpoint.Destroy()
+		//}
 		log.Println("stopped server")
 		os.Exit(0)
 	}
@@ -137,7 +141,8 @@ func initLogger(c config.Config) *log.Logger {
 	}
 }
 
-func loadNodePool(file string) error {
+func loadNodePool(c config.Config) error {
+	file := c.NodePoolFile
 	if file != "" {
 		if buf, err := os.ReadFile(file); err != nil {
 			return err

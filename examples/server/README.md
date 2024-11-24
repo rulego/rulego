@@ -29,36 +29,36 @@ The following features are provided:
   - GET /api/v1/components
 
 * Execute the rule chain and get the execution result API
-  - POST /api/v1/rule/:chainId/execute/:msgType
+  - POST /api/v1/rules/:chainId/execute/:msgType
   - chainId: The rule chain ID that processes the data
   - msgType: Message type
   - body: Message body
 
 * Report data to the rule chain API, without focusing on the execution result
-  - POST /api/v1/rule/:chainId/notify/:msgType
+  - POST /api/v1/rules/:chainId/notify/:msgType
   - chainId: The rule chain ID that processes the data
   - msgType: Message type
   - body: Message body
 
 * Query rule chain
-  - GET /api/v1/rule/{chainId}/{nodeId}
+  - GET /api/v1/rules/{chainId}/{nodeId}
   - chainId: Rule chain ID
   - nodeId: If empty, query the rule chain definition; otherwise, query the specified node ID in the rule chain
 
 * Save or update rule chain
-  - POST /api/v1/rule/{chainId}/{nodeId}
+  - POST /api/v1/rules/{chainId}
   - chainId: Rule chain ID
   - nodeId: If empty, update the rule chain definition; otherwise, update the specified node ID in the rule chain
   - body: Update content
 
 * Save rule chain Configuration
-  - POST /api/v1/rule/:chainId/saveConfig/:varType
+  - POST /api/v1/rules/:chainId/config/:varType
   - chainId: Rule chain ID
   - varType: vars/secrets
   - body: Configuration content
 
 * Get node debugging log API
-  - Get /api/v1/event/debug?&chainId={chainId}&nodeId={nodeId}
+  - Get /api/v1/logs/debug?&chainId={chainId}&nodeId={nodeId}
   - chainId: Rule chain ID
   - nodeId: Node ID
 
@@ -117,17 +117,6 @@ debug = true
 max_node_log_size =40
 # Node pool file
 node_pool_file=./node_pool.json
-
-# mqtt configuration
-[mqtt]
-# Whether to enable mqtt
-enabled = false
-# mqtt server
-server = 127.0.0.1:1883
-# Subscription topics, separated by `,`. Default: #
-topics = `#`
-# Which rule chain to handle the subscribed data
-to_chain_id = chain_call_rest_api
 
 # Global custom configuration, components can take values through the ${global.xxx}
 [global]

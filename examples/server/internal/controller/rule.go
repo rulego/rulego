@@ -5,78 +5,28 @@ import (
 	"examples/server/config/logger"
 	"examples/server/internal/constants"
 	"examples/server/internal/service"
-	"fmt"
-	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
-	"github.com/rulego/rulego/builtin/processor"
-	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/endpoint"
-	"github.com/rulego/rulego/engine"
-	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/json"
 	"net/http"
 	"path"
+	"strconv"
 )
 
-var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-	msg := exchange.In.GetMsg()
-	username := exchange.In.Headers().Get(constants.KeyUsername)
-	if username == "" {
-		username = config.C.DefaultUsername
-	}
-	msg.Metadata.PutValue(constants.KeyUsername, username)
-	//TODO JWT 权限校验
-	return true
+var Rule = &rule{}
+
+type rule struct {
 }
 
-// ComponentsRouter 创建获取规则引擎节点组件列表路由
-func ComponentsRouter(url string) endpointApi.Router {
-	return endpoint.NewRouter().From(url).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		nodePool, _ := node_pool.DefaultNodePool.GetAllDef()
-		//响应endpoint和节点组件配置表单列表
-		list, err := json.Marshal(map[string]interface{}{
-			//endpoint组件
-			"endpoints": endpoint.Registry.GetComponentForms().Values(),
-			//节点组件
-			"nodes": rulego.Registry.GetComponentForms().Values(),
-			//组件配置内置选项
-			"builtins": map[string]interface{}{
-				// functions节点组件
-				"functions": map[string]interface{}{
-					//函数名选项
-					"functionName": action.Functions.Names(),
-				},
-				//endpoints内置路由选项
-				"endpoints": map[string]interface{}{
-					//in 处理器列表
-					"inProcessors": processor.InBuiltins.Names(),
-					//in 处理器列表
-					"outProcessors": processor.OutBuiltins.Names(),
-				},
-				//共享节点池
-				"nodePool": nodePool,
-			},
-		})
-		if err != nil {
-			exchange.Out.SetStatusCode(http.StatusInternalServerError)
-			exchange.Out.SetBody([]byte(err.Error()))
-		} else {
-			exchange.Out.SetBody(list)
-		}
-		return true
-	}).End()
-}
-
-// GetDslRouter 创建获取指定规则链路由
-func GetDslRouter(url string) endpointApi.Router {
+// Get 创建获取指定规则链路由
+func (c *rule) Get(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		chainId := msg.Metadata.GetValue(constants.KeyChainId)
-		nodeId := msg.Metadata.GetValue(constants.KeyNodeId)
+		chainId := msg.Metadata.GetValue(constants.KeyId)
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-			if def, err := s.GetDsl(chainId, nodeId); err == nil {
+			if def, err := s.Get(chainId); err == nil {
 				exchange.Out.SetBody(def)
 			} else {
 				exchange.Out.SetStatusCode(http.StatusNotFound)
@@ -89,15 +39,33 @@ func GetDslRouter(url string) endpointApi.Router {
 	}).End()
 }
 
-// SaveDslRouter 创建保存/更新指定规则链路由
-func SaveDslRouter(url string) endpointApi.Router {
+// GetLatest 获取最近修改的规则链
+func (c *rule) GetLatest(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		chainId := msg.Metadata.GetValue(constants.KeyChainId)
-		nodeId := msg.Metadata.GetValue(constants.KeyNodeId)
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-			if err := s.SaveDsl(chainId, nodeId, exchange.In.Body()); err == nil {
+			if def, err := s.GetLatest(); err == nil {
+				exchange.Out.SetBody(def)
+			} else {
+				exchange.Out.SetStatusCode(http.StatusNotFound)
+				return false
+			}
+		} else {
+			return userNotFound(username, exchange)
+		}
+		return true
+	}).End()
+}
+
+// Save 创建保存/更新指定规则链路由
+func (c *rule) Save(url string) endpointApi.Router {
+	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		chainId := msg.Metadata.GetValue(constants.KeyId)
+		username := msg.Metadata.GetValue(constants.KeyUsername)
+		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
+			if err := s.Save(chainId, exchange.In.Body()); err == nil {
 				exchange.Out.SetStatusCode(http.StatusOK)
 			} else {
 				logger.Logger.Println(err)
@@ -111,14 +79,43 @@ func SaveDslRouter(url string) endpointApi.Router {
 	}).End()
 }
 
-// ListDslRouter 创建获取所有规则链路由
-func ListDslRouter(url string) endpointApi.Router {
+// List 创建获取所有规则链路由
+func (c *rule) List(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		username := msg.Metadata.GetValue(constants.KeyUsername)
+		keywords := msg.Metadata.GetValue(constants.KeyKeywords)
+		chainTypeStr := msg.Metadata.GetValue(constants.KeyType)
+		var page = 1
+		var size = 20
+		currentStr := msg.Metadata.GetValue(constants.KeyPage)
+		if i, err := strconv.Atoi(currentStr); err == nil {
+			page = i
+		}
+		pageSizeStr := msg.Metadata.GetValue(constants.KeySize)
+		if i, err := strconv.Atoi(pageSizeStr); err == nil {
+			size = i
+		}
+		chainType := 0
+		if i, err := strconv.Atoi(chainTypeStr); err == nil {
+			chainType = i
+		}
+
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-			if list, err := json.Marshal(s.List()); err == nil {
-				exchange.Out.SetBody(list)
+			list, count, err := s.List(keywords, chainType, size, page)
+			if err != nil {
+				exchange.Out.SetStatusCode(http.StatusInternalServerError)
+				exchange.Out.SetBody([]byte(err.Error()))
+				return true
+			}
+			result := map[string]interface{}{
+				"total": count,
+				"page":  page,
+				"size":  size,
+				"items": list,
+			}
+			if v, err := json.Marshal(result); err == nil {
+				exchange.Out.SetBody(v)
 			} else {
 				logger.Logger.Println(err)
 				exchange.Out.SetStatusCode(http.StatusBadRequest)
@@ -131,11 +128,11 @@ func ListDslRouter(url string) endpointApi.Router {
 	}).End()
 }
 
-// DeleteDslRouter 创建删除指定规则链路由
-func DeleteDslRouter(url string) endpointApi.Router {
+// Delete 创建删除指定规则链路由
+func (c *rule) Delete(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		chainId := msg.Metadata.GetValue(constants.KeyChainId)
+		chainId := msg.Metadata.GetValue(constants.KeyId)
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 			if err := s.Delete(chainId); err == nil {
@@ -153,10 +150,10 @@ func DeleteDslRouter(url string) endpointApi.Router {
 }
 
 // SaveBaseInfo 保存规则链扩展信息
-func SaveBaseInfo(url string) endpointApi.Router {
+func (c *rule) SaveBaseInfo(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		chainId := msg.Metadata.GetValue(constants.KeyChainId)
+		chainId := msg.Metadata.GetValue(constants.KeyId)
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		var req types.RuleChainBaseInfo
 		if err := json.Unmarshal([]byte(msg.Data), &req); err != nil {
@@ -178,10 +175,10 @@ func SaveBaseInfo(url string) endpointApi.Router {
 }
 
 // SaveConfiguration 保存规则链配置
-func SaveConfiguration(url string) endpointApi.Router {
+func (c *rule) SaveConfiguration(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		chainId := msg.Metadata.GetValue(constants.KeyChainId)
+		chainId := msg.Metadata.GetValue(constants.KeyId)
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		varType := msg.Metadata.GetValue(constants.KeyVarType)
 		var req interface{}
@@ -202,8 +199,12 @@ func SaveConfiguration(url string) endpointApi.Router {
 	}).End()
 }
 
-// ExecuteRuleRouter 处理请求，并转发到规则引擎，同步等待规则链执行结果返回给调用方
-func ExecuteRuleRouter(url string) endpointApi.Router {
+// Execute 处理请求，并转发到规则引擎，同步等待规则链执行结果返回给调用方
+// .To("chain:${id}") 这段逻辑相当于：
+//
+//	engine,err:=pool.Get(chainId)
+//	engine.OnMsgAndWait(msg)
+func (c *rule) Execute(url string) endpointApi.Router {
 	var opts []types.RuleContextOption
 	if config.C.SaveRunLog {
 		opts = append(opts, types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
@@ -233,7 +234,7 @@ func ExecuteRuleRouter(url string) endpointApi.Router {
 	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		return true
-	}).To("chain:${chainId}").SetOpts(opts...).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	}).To("chain:${id}").SetOpts(opts...).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		err := exchange.Out.GetError()
 		if err != nil {
 			//错误
@@ -248,8 +249,12 @@ func ExecuteRuleRouter(url string) endpointApi.Router {
 	}).Wait().End()
 }
 
-// PostMsgRouter 处理请求，并转发到规则引擎
-func PostMsgRouter(url string) endpointApi.Router {
+// PostMsg 处理请求，并转发到规则引擎
+// .To("chain:${id}") 这段逻辑相当于：
+//
+//	engine,err:=pool.Get(chainId)
+//	engine.OnMsg(msg)
+func (c *rule) PostMsg(url string) endpointApi.Router {
 	var opts []types.RuleContextOption
 	if config.C.SaveRunLog {
 		opts = append(opts, types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
@@ -258,7 +263,7 @@ func PostMsgRouter(url string) endpointApi.Router {
 	}
 	return endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(GetRuleGoFunc)).From(url).Process(AuthProcess).Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		msgId := exchange.In.GetParam("msgId")
+		msgId := exchange.In.GetParam(constants.KeyMsgId)
 		if msgId != "" {
 			msg.Id = msgId
 		}
@@ -267,7 +272,7 @@ func PostMsgRouter(url string) endpointApi.Router {
 		for k := range headers {
 			msg.Metadata.PutValue(k, headers.Get(k))
 		}
-		msgType := msg.Metadata.GetValue("msgType")
+		msgType := msg.Metadata.GetValue(constants.KeyMsgType)
 		//获取消息类型
 		msg.Type = msgType
 		username := msg.Metadata.GetValue(constants.KeyUsername)
@@ -275,24 +280,35 @@ func PostMsgRouter(url string) endpointApi.Router {
 		var paths = []string{config.C.DataDir, constants.DirWorkflows, username, constants.DirWorkflowsRule}
 		msg.Metadata.PutValue(constants.KeyWorkDir, path.Join(paths...))
 		return true
-	}).To("chain:${chainId}").SetOpts(opts...).End()
+	}).To("chain:${id}").SetOpts(opts...).End()
 }
 
-// userNotFound 用户不存在
-func userNotFound(username string, exchange *endpointApi.Exchange) bool {
-	exchange.Out.SetStatusCode(http.StatusBadRequest)
-	exchange.Out.SetBody([]byte("no found username for" + username))
-	return false
-}
+// Operate 部署/下架规则链
+func (c *rule) Operate(url string) endpointApi.Router {
+	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		chainId := msg.Metadata.GetValue(constants.KeyId)
+		opType := msg.Metadata.GetValue(constants.KeyType)
+		username := msg.Metadata.GetValue(constants.KeyUsername)
+		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
+			if opType == constants.OperateDeploy {
+				if err := s.Deploy(chainId); err != nil {
+					exchange.Out.SetStatusCode(http.StatusBadRequest)
+					exchange.Out.SetBody([]byte(err.Error()))
+				}
+			} else if opType == constants.OperateUndeploy {
+				if err := s.Undeploy(chainId); err != nil {
+					exchange.Out.SetStatusCode(http.StatusBadRequest)
+					exchange.Out.SetBody([]byte(err.Error()))
+				}
+			} else {
+				exchange.Out.SetStatusCode(http.StatusBadRequest)
+				exchange.Out.SetBody([]byte("没有该操作类型:" + opType))
+			}
 
-// GetRuleGoFunc 动态获取指定用户规则链池
-func GetRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEnginePool {
-	msg := exchange.In.GetMsg()
-	username := msg.Metadata.GetValue(constants.KeyUsername)
-	if s, ok := service.UserRuleEngineServiceImpl.Get(username); !ok {
-		exchange.In.SetError(fmt.Errorf("not found username=%s", username))
-		return engine.DefaultPool
-	} else {
-		return s.Pool
-	}
+		} else {
+			return userNotFound(username, exchange)
+		}
+		return true
+	}).End()
 }

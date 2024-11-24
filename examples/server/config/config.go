@@ -1,8 +1,8 @@
 package config
 
 import (
+	"examples/server/internal/constants"
 	"github.com/rulego/rulego/api/types"
-	"time"
 )
 
 var C Config
@@ -13,6 +13,9 @@ func Get() *Config {
 
 func Set(c Config) {
 	C = c
+	if C.EventBusChainId == "" {
+		C.EventBusChainId = constants.KeyDefaultIntegrationChainId
+	}
 }
 
 type Config struct {
@@ -34,8 +37,6 @@ type Config struct {
 	MaxNodeLogSize int `ini:"max_node_log_size"`
 	//静态文件路径映射，例如:/ui/*filepath=/home/demo/dist,/images/*filepath=/home/demo/dist/images
 	ResourceMapping string `ini:"resource_mapping"`
-	// Mqtt mqtt配置
-	Mqtt Mqtt `ini:"mqtt"`
 	// 全局自定义配置，组件可以通过${global.xxx}方式取值
 	Global types.Metadata `ini:"global"`
 	// 节点池文件，规则链json格式
@@ -48,29 +49,8 @@ type Config struct {
 	EndpointEnabled *bool `ini:"endpoint_enabled"`
 	// SecretKey 密钥
 	SecretKey *string `ini:"secret_key"`
-}
-type Mqtt struct {
-	//是否启用mqtt
-	Enabled bool `ini:"enabled"`
-	//mqtt broker 地址
-	Server string `ini:"server"`
-	//用户名
-	Username string `ini:"username"`
-	//密码
-	Password string `ini:"password"`
-	//重连重试间隔
-	MaxReconnectInterval time.Duration `ini:"max_reconnec_tinterval"`
-	QOS                  uint8         `ini:"qos"`
-	CleanSession         bool          `ini:"clean_session"`
-	//client Id
-	ClientID    string `ini:"client_id"`
-	CAFile      string `ini:"ca_file"`
-	CertFile    string `ini:"cert_file"`
-	CertKeyFile string `ini:"cert_key_file"`
-	//订阅主题,多个与逗号隔开
-	Topics string `ini:"topics"`
-	//订阅主题对应交给那个规则链id处理
-	ToChainId string `ini:"to_chain_id"`
+	// EventBusChainId 核心规则链Id
+	EventBusChainId string `ini:"event_bus_chain_id"`
 }
 
 // DefaultConfig 默认配置
@@ -82,9 +62,4 @@ var DefaultConfig = Config{
 	Server:          ":9090",
 	DefaultUsername: "admin",
 	MaxNodeLogSize:  40,
-	Mqtt: Mqtt{
-		Server:       "172.0.0.1:1883",
-		CleanSession: true,
-		ToChainId:    "chain_call_rest_api",
-	},
 }

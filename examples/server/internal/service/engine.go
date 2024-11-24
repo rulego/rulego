@@ -6,6 +6,7 @@ import (
 	"examples/server/config/logger"
 	"examples/server/internal/constants"
 	"examples/server/internal/dao"
+	"fmt"
 	"github.com/dop251/goja"
 	"github.com/rulego/rulego"
 	luaEngine "github.com/rulego/rulego-components/pkg/lua_engine"
@@ -14,11 +15,9 @@ import (
 	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
-	"github.com/rulego/rulego/utils/str"
 	"log"
 	"os"
 	"path"
-	"sort"
 	"sync"
 	"time"
 )
@@ -69,7 +68,7 @@ func (s *UserRuleEngineService) Get(username string) (*RuleEngineService, bool) 
 }
 
 func (s *UserRuleEngineService) Init(username string) (*RuleEngineService, error) {
-	if v, err := NewRuleEngineService(s.config, username); err == nil {
+	if v, err := NewRuleEngineServiceAndInitRuleGo(s.config, username); err == nil {
 		s.locker.Lock()
 		s.Pool[username] = v
 		s.locker.Unlock()
@@ -91,9 +90,19 @@ type RuleEngineService struct {
 	onDebugObserver    map[string]*DebugObserver
 	ruleDao            *dao.RuleDao
 	locker             sync.RWMutex
+	userSettingDao     *dao.UserSettingDao
 }
 
-func NewRuleEngineService(c config.Config, username string) (*RuleEngineService, error) {
+func NewRuleEngineServiceAndInitRuleGo(c config.Config, username string) (*RuleEngineService, error) {
+	ruleConfig := rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger.Logger), types.WithNetPool(node_pool.DefaultNodePool))
+	service, err := NewRuleEngineService(c, ruleConfig, username)
+	if err != nil {
+		return nil, err
+	}
+	service.InitRuleGo(logger.Logger, c.DataDir, username)
+	return service, nil
+}
+func NewRuleEngineService(c config.Config, ruleConfig types.Config, username string) (*RuleEngineService, error) {
 	var pool = &rulego.RuleGo{}
 	ruleDao, err := dao.NewRuleDao(c)
 	if err != nil {
@@ -103,6 +112,7 @@ func NewRuleEngineService(c config.Config, username string) (*RuleEngineService,
 	if maxNodeLogSize == 0 {
 		maxNodeLogSize = 40
 	}
+	userSettingDao, err := dao.NewUserSettingDao(c, fmt.Sprintf("%s/%s/%s", c.DataDir, constants.DirWorkflows, username))
 	service := &RuleEngineService{
 		Pool:            pool,
 		username:        username,
@@ -112,95 +122,80 @@ func NewRuleEngineService(c config.Config, username string) (*RuleEngineService,
 		//基于内存的节点调试数据管理器
 		ruleChainDebugData: NewRuleChainDebugData(maxNodeLogSize),
 		ruleDao:            ruleDao,
+		ruleConfig:         ruleConfig,
+		userSettingDao:     userSettingDao,
 	}
-	service.initRuleGo(logger.Logger, c.DataDir, username)
 	return service, nil
 }
-
 func (s *RuleEngineService) GetRuleConfig() types.Config {
 	return s.ruleConfig
 }
 
-func (s *RuleEngineService) Get(chainId string) (types.RuleChain, bool) {
+func (s *RuleEngineService) ExecuteAndWait(chainId string, msg types.RuleMsg, opts ...types.RuleContextOption) error {
 	if e, ok := s.Pool.Get(chainId); ok {
-		return e.Definition(), true
+		e.OnMsgAndWait(msg, opts...)
+		return nil
+	} else {
+		return fmt.Errorf("user:%s chainId:%s not found", chainId, s.username)
 	}
-	return types.RuleChain{}, false
+}
+func (s *RuleEngineService) Execute(chainId string, msg types.RuleMsg, opts ...types.RuleContextOption) error {
+	if e, ok := s.Pool.Get(chainId); ok {
+		e.OnMsg(msg, opts...)
+		return nil
+	} else {
+		return fmt.Errorf("user:%s chainId:%s not found", chainId, s.username)
+	}
 }
 
-// GetDsl 获取DSL
-func (s *RuleEngineService) GetDsl(chainId, nodeId string) ([]byte, error) {
-	var def []byte
-	if chainId != "" {
-		ruleEngine, ok := s.Pool.Get(chainId)
-		if ok {
-			if nodeId == "" {
-				def = ruleEngine.DSL()
-			} else {
-				def = ruleEngine.NodeDSL(types.EmptyRuleNodeId, types.RuleNodeId{Id: nodeId, Type: types.NODE})
-				if def == nil {
-					def = ruleEngine.NodeDSL(types.EmptyRuleNodeId, types.RuleNodeId{Id: nodeId, Type: types.CHAIN})
-				}
-			}
-			return def, nil
-		}
-	}
-	return nil, constants.ErrNotFound
+// Get 获取DSL
+func (s *RuleEngineService) Get(chainId string) ([]byte, error) {
+	return s.ruleDao.Get(s.username, chainId)
+}
+func (s *RuleEngineService) GetLatest() ([]byte, error) {
+	chainId := s.userSettingDao.Get(constants.SettingKeyLatestChainId)
+	return s.ruleDao.Get(s.username, chainId)
 }
 
-// SaveDsl 保存或者更新DSL
-func (s *RuleEngineService) SaveDsl(chainId, nodeId string, def []byte) error {
+// Save 保存或者更新DSL
+func (s *RuleEngineService) Save(chainId string, def []byte) error {
+	//设置最新修改规则链
+	_ = s.userSettingDao.Save(constants.SettingKeyLatestChainId, chainId)
+
 	var err error
-	if chainId != "" {
-		ruleEngine, ok := s.Pool.Get(chainId)
-		if ok {
-			if nodeId == "" {
-				err = ruleEngine.ReloadSelf(def)
-			} else {
-				err = ruleEngine.ReloadChild(nodeId, def)
-			}
-		} else {
-			ruleEngine, err = s.Pool.New(chainId, def, rulego.WithConfig(s.ruleConfig))
-		}
+	var ruleChain types.RuleChain
+	err = json.Unmarshal(def, &ruleChain)
+	if err != nil {
+		return err
+	}
+	//修改更新时间
+	s.fillAdditionalInfo(&ruleChain)
+
+	if !ruleChain.RuleChain.Disabled {
+		err = s.Redeploy(chainId, def)
 		if err != nil {
+			ruleChain.RuleChain.Disabled = true
+			ruleChain.RuleChain.PutAdditionalInfo("message", err.Error())
 			return err
 		}
-		self := ruleEngine.RootRuleChainCtx().Definition()
-		//修改更新时间
-		s.fillAdditionalInfo(self)
-		//持久化规则链
-		return s.ruleDao.Save(s.username, chainId, def)
+	} else {
+		s.Pool.Del(chainId)
 	}
-
-	return err
-}
-
-func (s *RuleEngineService) GetEngine(chainId string) (types.RuleEngine, bool) {
-	return s.Pool.Get(chainId)
+	b, err := json.Marshal(ruleChain)
+	if err != nil {
+		return err
+	}
+	//持久化规则链
+	err = s.ruleDao.Save(s.username, chainId, b)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // List 获取所有规则链
-func (s *RuleEngineService) List() []types.RuleChain {
-	var ruleChains = make([]types.RuleChain, 0)
-
-	s.Pool.Range(func(key, value any) bool {
-		engine := value.(types.RuleEngine)
-		ruleChains = append(ruleChains, engine.Definition())
-		return true
-	})
-
-	var updateTimeKey = "updateTime"
-	sort.Slice(ruleChains, func(i, j int) bool {
-		var iTime, jTime string
-		if v, ok := ruleChains[i].RuleChain.GetAdditionalInfo(updateTimeKey); ok {
-			iTime = str.ToString(v)
-		}
-		if v, ok := ruleChains[j].RuleChain.GetAdditionalInfo(updateTimeKey); ok {
-			jTime = str.ToString(v)
-		}
-		return iTime > jTime
-	})
-	return ruleChains
+func (s *RuleEngineService) List(keywords string, chainType int, size, page int) ([]types.RuleChain, int, error) {
+	return s.ruleDao.List(s.username, keywords, chainType, size, page)
 }
 
 // Delete 删除规则链
@@ -216,6 +211,9 @@ func (s *RuleEngineService) Delete(chainId string) error {
 // SaveBaseInfo 保存规则链基本信息
 func (s *RuleEngineService) SaveBaseInfo(chainId string, baseInfo types.RuleChainBaseInfo) error {
 	if chainId != "" {
+		//设置最新修改规则链
+		_ = s.userSettingDao.Save(constants.SettingKeyLatestChainId, chainId)
+
 		ruleEngine, ok := s.Pool.Get(chainId)
 		if ok {
 			def := ruleEngine.RootRuleChainCtx().Definition()
@@ -241,13 +239,16 @@ func (s *RuleEngineService) SaveBaseInfo(chainId string, baseInfo types.RuleChai
 		def, _ := json.Format(ruleEngine.DSL())
 		return s.ruleDao.Save(s.username, chainId, def)
 	} else {
-		return errors.New("not found for" + chainId)
+		return errors.New("找不到规则链：" + chainId)
 	}
 }
 
 // SaveConfiguration 保存规则链配置
 func (s *RuleEngineService) SaveConfiguration(chainId string, key string, configuration interface{}) error {
 	if chainId != "" {
+		//设置最新修改规则链
+		_ = s.userSettingDao.Save(constants.SettingKeyLatestChainId, chainId)
+
 		ruleEngine, ok := s.Pool.Get(chainId)
 		if ok {
 			self := ruleEngine.RootRuleChainCtx().Definition()
@@ -264,13 +265,67 @@ func (s *RuleEngineService) SaveConfiguration(chainId string, key string, config
 			}
 			def, _ := json.Format(ruleEngine.DSL())
 			return s.ruleDao.Save(s.username, chainId, def)
-
 		} else {
-			return errors.New("not found for" + chainId)
+			return errors.New("找不到规则链：" + chainId)
 		}
 	} else {
-		return errors.New("not found for" + chainId)
+		return errors.New("chainId 不能为空")
 	}
+}
+
+func (s *RuleEngineService) Redeploy(chainId string, def []byte) error {
+	ruleEngine, ok := s.Pool.Get(chainId)
+	if ok {
+		return ruleEngine.ReloadSelf(def)
+	} else if _, err := s.Pool.New(chainId, def, rulego.WithConfig(s.ruleConfig)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *RuleEngineService) Undeploy(chainId string) error {
+	def, err := s.Get(chainId)
+	var ruleChain types.RuleChain
+	err = json.Unmarshal(def, &ruleChain)
+	if err != nil {
+		return err
+	}
+	s.Pool.Del(chainId)
+
+	ruleChain.RuleChain.Disabled = true
+
+	b, err := json.Marshal(ruleChain)
+	if err != nil {
+		return err
+	}
+	//持久化规则链
+	err = s.ruleDao.Save(s.username, chainId, b)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (s *RuleEngineService) Deploy(chainId string) error {
+
+	def, err := s.Get(chainId)
+	var ruleChain types.RuleChain
+	err = json.Unmarshal(def, &ruleChain)
+	if err != nil {
+		return err
+	}
+
+	ruleChain.RuleChain.Disabled = false
+
+	if b, err := json.Marshal(ruleChain); err != nil {
+		return err
+	} else {
+		return s.Save(chainId, b)
+	}
+
+}
+
+func (s *RuleEngineService) GetEngine(chainId string) (types.RuleEngine, bool) {
+	return s.Pool.Get(chainId)
 }
 
 // OnDebug 调试日志
@@ -305,10 +360,9 @@ func (s *RuleEngineService) DebugData() *RuleChainDebugData {
 	return s.ruleChainDebugData
 }
 
-// 初始化规则链池
-func (s *RuleEngineService) initRuleGo(logger *log.Logger, workspacePath string, username string) {
-
-	ruleConfig := rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger), types.WithNetPool(node_pool.DefaultNodePool))
+// InitRuleGo 初始化规则链池
+func (s *RuleEngineService) InitRuleGo(logger *log.Logger, workspacePath string, username string) {
+	var ruleConfig = s.ruleConfig
 	//加载自定义配置
 	for k, v := range s.config.Global {
 		ruleConfig.Properties.PutValue(k, v)
