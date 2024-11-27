@@ -77,6 +77,8 @@ type RestApiCallNodeConfiguration struct {
 	Headers map[string]string
 	//ReadTimeoutMs 超时，单位毫秒，默认0:不限制
 	ReadTimeoutMs int
+	//禁用证书验证
+	InsecureSkipVerify bool
 	//MaxParallelRequestsCount 连接池大小，默认200。0代表不限制
 	MaxParallelRequestsCount int
 	//EnableProxy 是否开启代理
@@ -219,7 +221,7 @@ func (x *RestApiCallNode) Destroy() {
 
 func NewHttpClient(config RestApiCallNodeConfiguration) *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: false}
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: config.InsecureSkipVerify}
 	transport.MaxConnsPerHost = config.MaxParallelRequestsCount
 	if config.EnableProxy && !config.UseSystemProxyProperties {
 		//开启代理
