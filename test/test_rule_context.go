@@ -146,6 +146,11 @@ func (ctx *NodeTestRuleContext) TellFlow(chainCtx context.Context, chainId strin
 		if onAllNodeCompleted != nil {
 			onAllNodeCompleted()
 		}
+	} else if chainId == "toTrue" {
+		endFunc(ctx, msg, nil, types.True)
+		if onAllNodeCompleted != nil {
+			onAllNodeCompleted()
+		}
 	} else {
 		endFunc(ctx, msg, nil, types.Success)
 		if onAllNodeCompleted != nil {
