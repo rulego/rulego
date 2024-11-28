@@ -25,7 +25,7 @@ func NewRuleDao(config config.Config) (*RuleDao, error) {
 }
 
 // List chainType- 0: 规则链，1：根规则链，2：子规则链
-func (d *RuleDao) List(username string, keywords string, chainType int, size, page int) ([]types.RuleChain, int, error) {
+func (d *RuleDao) List(username string, keywords string, root *bool, disabled *bool, size, page int) ([]types.RuleChain, int, error) {
 	var paths []string
 	paths = append(paths, d.config.DataDir, constants.DirWorkflows)
 	paths = append(paths, username, constants.DirWorkflowsRule)
@@ -41,8 +41,8 @@ func (d *RuleDao) List(username string, keywords string, chainType int, size, pa
 
 	var ruleChains []types.RuleChain
 	totalCount := 0
-	//是否搜索根规则链
-	findRoot := chainType == 1
+	////是否搜索根规则链
+	//findRoot := root==nil||*root
 	// 遍历文件
 	for _, file := range files {
 		if file.IsDir() {
@@ -64,11 +64,14 @@ func (d *RuleDao) List(username string, keywords string, chainType int, size, pa
 			if err != nil {
 				continue
 			}
-			if keywords == "" && (chainType == 0 || ruleChain.RuleChain.Root == findRoot) {
+			if keywords == "" &&
+				(root == nil || ruleChain.RuleChain.Root == *root) &&
+				(disabled == nil || ruleChain.RuleChain.Disabled == *disabled) {
 				ruleChains = append(ruleChains, ruleChain)
 				totalCount++
 			} else if keywords != "" &&
-				(chainType == 0 || ruleChain.RuleChain.Root == findRoot) &&
+				(root == nil || ruleChain.RuleChain.Root == *root) &&
+				(disabled == nil || ruleChain.RuleChain.Disabled == *disabled) &&
 				(strings.Contains(ruleChain.RuleChain.Name, keywords) || strings.Contains(ruleChain.RuleChain.ID, keywords)) {
 				ruleChains = append(ruleChains, ruleChain)
 				totalCount++

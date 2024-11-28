@@ -18,6 +18,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -103,7 +104,7 @@ func NewRuleEngineServiceAndInitRuleGo(c config.Config, username string) (*RuleE
 	return service, nil
 }
 func NewRuleEngineService(c config.Config, ruleConfig types.Config, username string) (*RuleEngineService, error) {
-	var pool = &rulego.RuleGo{}
+	var pool = rulego.NewRuleGo()
 	ruleDao, err := dao.NewRuleDao(c)
 	if err != nil {
 		return nil, err
@@ -157,8 +158,8 @@ func (s *RuleEngineService) GetLatest() ([]byte, error) {
 	return s.ruleDao.Get(s.username, chainId)
 }
 
-// Save 保存或者更新DSL
-func (s *RuleEngineService) Save(chainId string, def []byte) error {
+// SaveAndLoad 保存或者更新DSL,并根据规则链状态部署或下架规则
+func (s *RuleEngineService) SaveAndLoad(chainId string, def []byte) error {
 	//设置最新修改规则链
 	_ = s.userSettingDao.Save(constants.SettingKeyLatestChainId, chainId)
 
@@ -171,31 +172,27 @@ func (s *RuleEngineService) Save(chainId string, def []byte) error {
 	//修改更新时间
 	s.fillAdditionalInfo(&ruleChain)
 
-	if !ruleChain.RuleChain.Disabled {
-		err = s.Redeploy(chainId, def)
-		if err != nil {
-			ruleChain.RuleChain.Disabled = true
-			ruleChain.RuleChain.PutAdditionalInfo("message", err.Error())
-			return err
-		}
-	} else {
-		s.Pool.Del(chainId)
-	}
 	b, err := json.Marshal(ruleChain)
 	if err != nil {
 		return err
 	}
 	//持久化规则链
-	err = s.ruleDao.Save(s.username, chainId, b)
-	if err != nil {
+	if err = s.ruleDao.Save(s.username, chainId, b); err != nil {
 		return err
 	}
-	return nil
+
+	if ruleChain.RuleChain.Disabled {
+		//下架规则
+		return s.Undeploy(chainId)
+	} else {
+		//部署规则链
+		return s.Deploy(chainId)
+	}
 }
 
 // List 获取所有规则链
-func (s *RuleEngineService) List(keywords string, chainType int, size, page int) ([]types.RuleChain, int, error) {
-	return s.ruleDao.List(s.username, keywords, chainType, size, page)
+func (s *RuleEngineService) List(keywords string, root *bool, disabled *bool, size, page int) ([]types.RuleChain, int, error) {
+	return s.ruleDao.List(s.username, keywords, root, disabled, size, page)
 }
 
 // Delete 删除规则链
@@ -273,16 +270,66 @@ func (s *RuleEngineService) SaveConfiguration(chainId string, key string, config
 	}
 }
 
-func (s *RuleEngineService) Redeploy(chainId string, def []byte) error {
-	ruleEngine, ok := s.Pool.Get(chainId)
-	if ok {
-		return ruleEngine.ReloadSelf(def)
-	} else if _, err := s.Pool.New(chainId, def, rulego.WithConfig(s.ruleConfig)); err != nil {
+// Deploy 部署规则链，创建规则链引擎实例，并发规则链状态disabled设置成启用状态
+func (s *RuleEngineService) Deploy(chainId string) error {
+	var def []byte
+	var err error
+	def, err = s.Get(chainId)
+
+	var ruleChain types.RuleChain
+	err = json.Unmarshal(def, &ruleChain)
+	if err != nil {
+		return err
+	}
+
+	ruleChain.RuleChain.Disabled = false
+
+	def, err = json.Marshal(ruleChain)
+
+	if def, err = json.Marshal(ruleChain); err != nil {
+		return err
+	} else {
+		ruleEngine, ok := s.Pool.Get(chainId)
+		if ok {
+			err = ruleEngine.ReloadSelf(def)
+		} else {
+			_, err = s.Pool.New(chainId, def, rulego.WithConfig(s.ruleConfig))
+		}
+		saveErr := s.saveRuleChain(ruleChain, err)
+		if saveErr != nil {
+			s.ruleConfig.Logger.Printf("saveRuleChain err: %s", saveErr)
+		}
+		return err
+	}
+}
+
+// Load 加载规则链，创建规则链引擎实例，如果规则链状态=disabled则不创建
+func (s *RuleEngineService) Load(chainId string) error {
+	var def []byte
+	var err error
+	def, err = s.Get(chainId)
+	if ruleEngine, ok := s.Pool.Get(chainId); ok {
+		err = ruleEngine.ReloadSelf(def)
+	} else {
+		_, err = s.Pool.New(chainId, def, rulego.WithConfig(s.ruleConfig))
+	}
+	if err != nil {
+		s.ruleConfig.Logger.Printf("chainId:%s load err: %s", chainId, err.Error())
+		var ruleChain types.RuleChain
+		jsonErr := json.Unmarshal(def, &ruleChain)
+		if jsonErr != nil {
+			return jsonErr
+		}
+		saveErr := s.saveRuleChain(ruleChain, err)
+		if saveErr != nil {
+			s.ruleConfig.Logger.Printf("saveRuleChain err: %s", saveErr.Error())
+		}
 		return err
 	}
 	return nil
 }
 
+// Undeploy 下架规则链引擎实例，并把规则链状态置为disabled
 func (s *RuleEngineService) Undeploy(chainId string) error {
 	def, err := s.Get(chainId)
 	var ruleChain types.RuleChain
@@ -305,25 +352,19 @@ func (s *RuleEngineService) Undeploy(chainId string) error {
 	}
 	return nil
 }
-func (s *RuleEngineService) Deploy(chainId string) error {
 
-	def, err := s.Get(chainId)
-	var ruleChain types.RuleChain
-	err = json.Unmarshal(def, &ruleChain)
-	if err != nil {
-		return err
+// saveRuleChain 持久化规则链
+func (s *RuleEngineService) saveRuleChain(ruleChain types.RuleChain, whenErr error) error {
+	if whenErr != nil {
+		ruleChain.RuleChain.Disabled = true
+		ruleChain.RuleChain.PutAdditionalInfo(constants.AddiKeyMessage, whenErr.Error())
 	}
-
-	ruleChain.RuleChain.Disabled = false
-
-	if b, err := json.Marshal(ruleChain); err != nil {
+	if def, err := json.Marshal(ruleChain); err != nil {
 		return err
 	} else {
-		return s.Save(chainId, b)
+		return s.ruleDao.Save(s.username, ruleChain.RuleChain.ID, def)
 	}
-
 }
-
 func (s *RuleEngineService) GetEngine(chainId string) (types.RuleEngine, bool) {
 	return s.Pool.Get(chainId)
 }
@@ -474,10 +515,20 @@ func (s *RuleEngineService) loadPlugins(folderPath string) error {
 func (s *RuleEngineService) loadRules(folderPath string) error {
 	//创建文件夹
 	_ = fs.CreateDirs(folderPath)
-	//遍历所有文件
-	err := s.Pool.Load(folderPath, rulego.WithConfig(s.ruleConfig))
+	//遍历所有.json文件
+	folderPath = folderPath + "/*.json"
+	// Get all file paths that match the pattern.
+	paths, err := fs.GetFilePaths(folderPath)
 	if err != nil {
-		s.logger.Fatal("parser rule file error:", err)
+		return err
+	}
+	// Load each file and create a new rule engine instance from its contents.
+	for _, path := range paths {
+		fileName := filepath.Base(path)
+		chainId := fileName[:len(fileName)-len(filepath.Ext(fileName))]
+		if err = s.Load(chainId); err != nil {
+			s.logger.Printf("load rule chain error: %s", err.Error())
+		}
 	}
 	return err
 }

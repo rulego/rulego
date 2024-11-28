@@ -22,6 +22,8 @@ const (
 	KeyKeywords        = "keywords"
 	KeyType            = "type"
 	KeyLang            = "lang"
+	KeyRoot            = "root"
+	KeyDisabled        = "disabled"
 	KeyWebhookSecret   = "webhookSecret"
 	KeyIntegrationType = "integrationType"
 	// KeyWorkDir 工作目录
@@ -47,6 +49,10 @@ const (
 )
 const (
 	RuleChainFileSuffix = ".json"
+)
+const (
+	// AddiKeyMessage 记录规则链加载错误，扩展字段错误信息Key
+	AddiKeyMessage = "message"
 )
 
 //const (
