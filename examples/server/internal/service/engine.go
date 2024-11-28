@@ -105,7 +105,7 @@ func NewRuleEngineServiceAndInitRuleGo(c config.Config, username string) (*RuleE
 }
 func NewRuleEngineService(c config.Config, ruleConfig types.Config, username string) (*RuleEngineService, error) {
 	var pool = rulego.NewRuleGo()
-	ruleDao, err := dao.NewRuleDao(c)
+	ruleDao, err := dao.NewRuleDao(c, username)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,8 @@ const (
 	DirLocales       = "locales"
 	DirWorkflowsRun  = "runs"
 	DirWorkflowsRule = "rules"
+	// FileNameIndex 索引文件名
+	FileNameIndex = "index"
 )
 
 const (
@@ -30,6 +32,7 @@ const (
 	KeyWorkDir = "workDir"
 	// KeyDefaultIntegrationChainId 应用集成规则链ID
 	KeyDefaultIntegrationChainId = "$event_bus"
+	KeyUpdateTime                = "updateTime"
 )
 
 const (
