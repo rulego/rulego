@@ -45,6 +45,22 @@ func TestFlowNode(t *testing.T) {
 		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"targetId": "rule01",
 		}, Registry)
+		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"targetId": "toTrue",
+			"extend":   false,
+		}, Registry)
+		node4, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"targetId": "toTrue",
+			"extend":   false,
+		}, Registry)
+		node5, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"targetId": "toTrue",
+			"extend":   true,
+		}, Registry)
+		node6, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"targetId": "notfound",
+			"extend":   true,
+		}, Registry)
 
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
@@ -70,6 +86,34 @@ func TestFlowNode(t *testing.T) {
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Success, relationType)
+				},
+			},
+			{
+				Node:    node3,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+				},
+			},
+			{
+				Node:    node4,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+				},
+			},
+			{
+				Node:    node5,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.True, relationType)
+				},
+			},
+			{
+				Node:    node6,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Failure, relationType)
 				},
 			},
 		}

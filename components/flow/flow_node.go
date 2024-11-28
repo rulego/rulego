@@ -41,11 +41,14 @@ func init() {
 type ChainNodeConfiguration struct {
 	//TargetId 子规则链ID
 	TargetId string
+	//Extend true：继承子规则链的关系和输出，false:合并子规则链的关系和输出
+	Extend bool
 }
 
 // ChainNode 子规则链
 // 如果找不到规则链，则把消息通过`Failure`关系发送到下一个节点
-// 子规则链所有分支执行完后，把每个结束节点处理的消息合后通过`Success`关系发送到下一个节点。消息格式：[]WrapperMsg
+// Extend=true 子规则链的每一个输出和关系作为下一个节点的输入，不合并子规则链的关系和输出
+// Extend=false 子规则链所有分支执行完后，把每个结束节点处理的消息合后通过`Success`关系发送到下一个节点。消息格式：[]WrapperMsg
 type ChainNode struct {
 	//节点配置
 	Config ChainNodeConfiguration
@@ -67,6 +70,27 @@ func (x *ChainNode) Init(ruleConfig types.Config, configuration types.Configurat
 
 // OnMsg 处理消息
 func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	if x.Config.Extend {
+		x.TellFlowAndNoMerge(ctx, msg)
+	} else {
+		x.TellFlowAndMerge(ctx, msg)
+	}
+}
+
+// TellFlowAndNoMerge 不合并子规则链结果
+func (x *ChainNode) TellFlowAndNoMerge(ctx types.RuleContext, msg types.RuleMsg) {
+	ctx.TellFlow(ctx.GetContext(), x.Config.TargetId, msg, func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
+		if err != nil {
+			ctx.TellFailure(onEndMsg, err)
+		} else {
+			ctx.TellNext(onEndMsg, relationType)
+		}
+
+	}, nil)
+}
+
+// TellFlowAndMerge 合并子规则链结果
+func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg) {
 	var wrapperMsg = msg.Copy()
 	var msgs []types.WrapperMsg
 	var targetRelationType = types.Success
