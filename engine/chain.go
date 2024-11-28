@@ -324,6 +324,9 @@ func (rc *RuleChainCtx) ReloadSelf(def []byte) error {
 
 // ReloadSelfFromDef reloads the rule chain from a RuleChain definition
 func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
+	if def.RuleChain.Disabled {
+		return ErrDisabled
+	}
 	if ctx, err := InitRuleChainCtx(rc.config, rc.aspects, &def); err == nil {
 		rc.Destroy()
 		rc.Copy(ctx)

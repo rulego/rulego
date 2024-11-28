@@ -1375,3 +1375,26 @@ func TestJoinNode(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 	wg.Wait()
 }
+
+func TestDisabled(t *testing.T) {
+	config := NewConfig(types.WithDefaultPool())
+	defStr := ruleChainFile
+
+	e, err := New("testDisabled1", []byte(defStr), WithConfig(config))
+	assert.Nil(t, err)
+
+	defStr = strings.Replace(defStr, "\"disabled\": false", "\"disabled\": true", -1)
+	err = e.ReloadSelf([]byte(defStr))
+	assert.Equal(t, ErrDisabled.Error(), err.Error())
+
+	defStr = strings.Replace(defStr, "\"disabled\": true", "\"disabled\": false", -1)
+	err = e.ReloadSelf([]byte(defStr))
+	assert.Nil(t, err)
+
+	err = e.Reload()
+	assert.Nil(t, err)
+
+	defStr = strings.Replace(ruleChainFile, "\"disabled\": false", "\"disabled\": true", -1)
+	_, err = New("testDisabled2", []byte(defStr), WithConfig(config))
+	assert.Equal(t, ErrDisabled.Error(), err.Error())
+}

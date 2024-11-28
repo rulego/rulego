@@ -50,6 +50,8 @@ var _ types.RuleContext = (*DefaultRuleContext)(nil)
 // Ensuring RuleEngine implements types.RuleEngine interface.
 var _ types.RuleEngine = (*RuleEngine)(nil)
 
+var ErrDisabled = errors.New("the rule chain has been disabled")
+
 // BuiltinsAspects holds a list of built-in aspects for the rule engine.
 var BuiltinsAspects = []types.Aspect{&aspect.Debug{}, &aspect.MetricsAspect{}}
 
@@ -919,6 +921,9 @@ func (e *RuleEngine) initBuiltinsAspects() {
 }
 
 func (e *RuleEngine) initChain(def types.RuleChain) error {
+	if def.RuleChain.Disabled {
+		return ErrDisabled
+	}
 	if ctx, err := InitRuleChainCtx(e.Config, e.Aspects, &def); err == nil {
 		if e.rootRuleChainCtx != nil {
 			ctx.Id = e.rootRuleChainCtx.Id
