@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"path"
 	"strconv"
+	"strings"
 )
 
 var Rule = &rule{}
@@ -65,7 +66,7 @@ func (c *rule) Save(url string) endpointApi.Router {
 		chainId := msg.Metadata.GetValue(constants.KeyId)
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-			if err := s.Save(chainId, exchange.In.Body()); err == nil {
+			if err := s.SaveAndLoad(chainId, exchange.In.Body()); err == nil {
 				exchange.Out.SetStatusCode(http.StatusOK)
 			} else {
 				logger.Logger.Println(err)
@@ -84,8 +85,9 @@ func (c *rule) List(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		username := msg.Metadata.GetValue(constants.KeyUsername)
-		keywords := msg.Metadata.GetValue(constants.KeyKeywords)
-		chainTypeStr := msg.Metadata.GetValue(constants.KeyType)
+		keywords := strings.TrimSpace(msg.Metadata.GetValue(constants.KeyKeywords))
+		rootStr := strings.TrimSpace(msg.Metadata.GetValue(constants.KeyRoot))
+		rootDisabled := strings.TrimSpace(msg.Metadata.GetValue(constants.KeyDisabled))
 		var page = 1
 		var size = 20
 		currentStr := msg.Metadata.GetValue(constants.KeyPage)
@@ -96,13 +98,17 @@ func (c *rule) List(url string) endpointApi.Router {
 		if i, err := strconv.Atoi(pageSizeStr); err == nil {
 			size = i
 		}
-		chainType := 0
-		if i, err := strconv.Atoi(chainTypeStr); err == nil {
-			chainType = i
+		var root *bool
+		var disabled *bool
+		if i, err := strconv.ParseBool(rootStr); err == nil {
+			root = &i
+		}
+		if i, err := strconv.ParseBool(rootDisabled); err == nil {
+			disabled = &i
 		}
 
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-			list, count, err := s.List(keywords, chainType, size, page)
+			list, count, err := s.List(keywords, root, disabled, size, page)
 			if err != nil {
 				exchange.Out.SetStatusCode(http.StatusInternalServerError)
 				exchange.Out.SetBody([]byte(err.Error()))
