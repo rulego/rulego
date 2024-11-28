@@ -5,6 +5,7 @@ import (
 	"examples/server/internal/model"
 	"github.com/rulego/rulego/utils/maps"
 	"path"
+	"strings"
 )
 
 const (
@@ -36,7 +37,7 @@ func (d *UserSettingDao) Delete(key string) error {
 	return d.fs.Delete(SettingsSectionName, key)
 }
 func (d *UserSettingDao) Get(key string) string {
-	return d.fs.Get(SettingsSectionName, key)
+	return strings.TrimSpace(d.fs.Get(SettingsSectionName, key))
 }
 
 func (d *UserSettingDao) Setting() model.UserSetting {

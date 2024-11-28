@@ -307,6 +307,11 @@ func (c *rule) Operate(url string) endpointApi.Router {
 					exchange.Out.SetStatusCode(http.StatusBadRequest)
 					exchange.Out.SetBody([]byte(err.Error()))
 				}
+			} else if opType == constants.OperateSetToMain {
+				if err := s.SetMainChainId(chainId); err != nil {
+					exchange.Out.SetStatusCode(http.StatusBadRequest)
+					exchange.Out.SetBody([]byte(err.Error()))
+				}
 			} else {
 				exchange.Out.SetStatusCode(http.StatusBadRequest)
 				exchange.Out.SetBody([]byte("没有该操作类型:" + opType))

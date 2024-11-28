@@ -36,14 +36,18 @@ const (
 )
 
 const (
-	OperateDeploy   = "start"
+	// OperateDeploy 部署
+	OperateDeploy = "start"
+	// OperateUndeploy 下架
 	OperateUndeploy = "stop"
+	// OperateSetToMain 设置成主规则链
+	OperateSetToMain = "set-to-main"
 )
 const (
 	// SettingKeyLatestChainId 最新打开的规则链
 	SettingKeyLatestChainId = "latestChainId"
-	// SettingKeyCoreChainId 默认规则链，server所有事件都会发送至此
-	SettingKeyCoreChainId = "coreChainId"
+	// SettingKeyMainChainId 主规则链，server所有事件都会发送至此
+	SettingKeyMainChainId = "mainChainId"
 )
 
 const (
