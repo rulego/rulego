@@ -92,6 +92,7 @@ type RuleEngineService struct {
 	ruleDao            *dao.RuleDao
 	locker             sync.RWMutex
 	userSettingDao     *dao.UserSettingDao
+	mainRuleEngine     types.RuleEngine
 }
 
 func NewRuleEngineServiceAndInitRuleGo(c config.Config, username string) (*RuleEngineService, error) {
@@ -353,6 +354,23 @@ func (s *RuleEngineService) Undeploy(chainId string) error {
 	return nil
 }
 
+// SetMainChainId 设置主规则链
+func (s *RuleEngineService) SetMainChainId(chainId string) error {
+	if chainId == "" {
+		return errors.New("chainId 不能为空")
+	}
+	if err := s.userSettingDao.Save(constants.SettingKeyMainChainId, chainId); err != nil {
+		return err
+	} else {
+		if e, ok := s.Pool.Get(chainId); !ok {
+			return fmt.Errorf("请先部署规则链")
+		} else {
+			s.mainRuleEngine = e
+			return nil
+		}
+	}
+}
+
 // saveRuleChain 持久化规则链
 func (s *RuleEngineService) saveRuleChain(ruleChain types.RuleChain, whenErr error) error {
 	if whenErr != nil {
@@ -523,14 +541,26 @@ func (s *RuleEngineService) loadRules(folderPath string) error {
 		return err
 	}
 	// Load each file and create a new rule engine instance from its contents.
-	for _, path := range paths {
-		fileName := filepath.Base(path)
+	for _, p := range paths {
+		fileName := filepath.Base(p)
 		chainId := fileName[:len(fileName)-len(filepath.Ext(fileName))]
 		if err = s.Load(chainId); err != nil {
 			s.logger.Printf("load rule chain error: %s", err.Error())
 		}
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	//加载主规则链
+	if mainChainId := s.userSettingDao.Get(constants.SettingKeyMainChainId); mainChainId != "" {
+		if err := s.SetMainChainId(mainChainId); err != nil {
+			s.logger.Printf("load main rule chain error: %s", err.Error())
+		}
+	} else {
+		s.logger.Printf("main chain id is empty")
+	}
+
+	return nil
 }
 
 // fillAdditionalInfo 填充扩展字段
