@@ -33,12 +33,31 @@ func TestGroupFilterNode(t *testing.T) {
 		}, Registry)
 	})
 
-	t.Run("InitNode", func(t *testing.T) {
+	t.Run("InitNode1", func(t *testing.T) {
 		test.NodeInit(t, targetNodeType, types.Configuration{
 			"allMatches": true,
 		}, types.Configuration{
 			"allMatches": true,
 		}, Registry)
+	})
+	t.Run("InitNode2", func(t *testing.T) {
+		node1, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"matchNum": 2,
+			"nodeIds":  "s1,s2",
+			"timeout":  10,
+		}, Registry)
+		node2, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"matchNum": 2,
+			"nodeIds":  []string{"s1", "s2"},
+			"timeout":  10,
+		}, Registry)
+		node3, _ := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"matchNum": 2,
+			"nodeIds":  []interface{}{"s1", "s2"},
+			"timeout":  10,
+		}, Registry)
+		assert.Equal(t, node1.(*GroupFilterNode).NodeIdList, node2.(*GroupFilterNode).NodeIdList)
+		assert.Equal(t, node3.(*GroupFilterNode).NodeIdList, node2.(*GroupFilterNode).NodeIdList)
 	})
 
 	t.Run("DefaultConfig", func(t *testing.T) {

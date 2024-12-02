@@ -40,8 +40,8 @@ type GroupActionNodeConfiguration struct {
 	//MatchNum>0，则表示任意匹配 MatchNum 个节点是 MatchRelationType 指定类型，发送到`Success`链，否则发送到`Failure`链。
 	//MatchNum>=len(NodeIds)则等价于MatchNum=0
 	MatchNum int
-	//NodeIds 组内节点ID列表，多个ID与`,`隔开
-	NodeIds string
+	//NodeIds 组内节点ID列表，多个ID与`,`隔开，也可以使用[]string格式指定节点列表
+	NodeIds interface{}
 	//Timeout 执行超时，单位秒，默认0：代表不限制。
 	Timeout int
 }
@@ -70,7 +70,16 @@ func (x *GroupActionNode) New() types.Node {
 // Init 初始化
 func (x *GroupActionNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
-	nodeIds := strings.Split(x.Config.NodeIds, ",")
+	var nodeIds []string
+	if v, ok := x.Config.NodeIds.(string); ok {
+		nodeIds = strings.Split(v, ",")
+	} else if v, ok := x.Config.NodeIds.([]string); ok {
+		nodeIds = v
+	} else if v, ok := x.Config.NodeIds.([]interface{}); ok {
+		for _, item := range v {
+			nodeIds = append(nodeIds, str.ToString(item))
+		}
+	}
 	for _, nodeId := range nodeIds {
 		if v := strings.TrimSpace(nodeId); v != "" {
 			x.NodeIdList = append(x.NodeIdList, v)
