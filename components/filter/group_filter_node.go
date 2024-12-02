@@ -21,6 +21,7 @@ import (
 	"errors"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/str"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -34,8 +35,8 @@ func init() {
 type GroupFilterNodeConfiguration struct {
 	//AllMatches 是否要求所有节点都匹配才发送到True链，如果为false，则只要有任何一个节点匹配就发送到True链
 	AllMatches bool
-	//NodeIds 组内节点ID列表，多个ID与`,`隔开
-	NodeIds string
+	//NodeIds 组内节点ID列表，多个ID与`,`隔开，也可以使用[]string格式指定节点列表
+	NodeIds interface{}
 	//Timeout 执行超时，单位秒，默认0：代表不限制。
 	Timeout int
 }
@@ -63,7 +64,16 @@ func (x *GroupFilterNode) New() types.Node {
 // Init 初始化
 func (x *GroupFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
-	nodeIds := strings.Split(x.Config.NodeIds, ",")
+	var nodeIds []string
+	if v, ok := x.Config.NodeIds.(string); ok {
+		nodeIds = strings.Split(v, ",")
+	} else if v, ok := x.Config.NodeIds.([]string); ok {
+		nodeIds = v
+	} else if v, ok := x.Config.NodeIds.([]interface{}); ok {
+		for _, item := range v {
+			nodeIds = append(nodeIds, str.ToString(item))
+		}
+	}
 	for _, nodeId := range nodeIds {
 		if v := strings.Trim(nodeId, ""); v != "" {
 			x.NodeIdList = append(x.NodeIdList, v)
