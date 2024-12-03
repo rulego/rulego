@@ -14,7 +14,7 @@ import (
 // userNotFound 用户不存在
 func userNotFound(username string, exchange *endpointApi.Exchange) bool {
 	exchange.Out.SetStatusCode(http.StatusBadRequest)
-	exchange.Out.SetBody([]byte("no found username for" + username))
+	exchange.Out.SetBody([]byte("no found username for:" + username))
 	return false
 }
 
