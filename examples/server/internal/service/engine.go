@@ -52,7 +52,20 @@ func NewUserRuleEngineServiceImpl(c config.Config) (*UserRuleEngineService, erro
 			}
 		}
 	}
+	//检查是否有默认用户
+	if _, ok := s.Get(c.DefaultUsername); !ok {
+		if err := s.createUser(c.DefaultUsername); err != nil {
+			logger.Logger.Println("Init "+c.DefaultUsername+" error:", err.Error())
+		}
+	}
 	return s, err
+}
+
+// 创建用户
+func (s *UserRuleEngineService) createUser(username string) error {
+	_ = fs.CreateDirs(path.Join(s.config.DataDir, constants.DirWorkflows, s.config.DefaultUsername, constants.DirWorkflowsRule))
+	_, err := s.Init(username)
+	return err
 }
 
 // Get 根据用户获取规则引擎池
