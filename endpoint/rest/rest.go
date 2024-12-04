@@ -127,7 +127,7 @@ func (r *RequestMessage) GetMsg() *types.RuleMsg {
 			dataType = types.JSON
 			data = str.ToString(r.request.URL.Query())
 		} else {
-			if contentType := r.Headers().Get(ContentTypeKey); contentType == JsonContextType {
+			if contentType := r.Headers().Get(ContentTypeKey); strings.HasPrefix(contentType, JsonContextType) {
 				dataType = types.JSON
 			}
 			data = string(r.Body())
