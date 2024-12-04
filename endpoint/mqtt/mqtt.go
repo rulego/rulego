@@ -52,6 +52,7 @@ import (
 // Type 组件类型
 const Type = types.EndpointTypePrefix + "mqtt"
 const (
+	KeyRequestTopic = "topic"
 	// KeyResponseTopic 响应主题metadataKey
 	KeyResponseTopic = "responseTopic"
 	// KeyResponseQos 响应Qos metadataKey
@@ -83,7 +84,7 @@ func (r *RequestMessage) Headers() textproto.MIMEHeader {
 		r.headers = make(map[string][]string)
 	}
 	if r.request != nil {
-		r.headers.Set("topic", r.request.Topic())
+		r.headers.Set(KeyRequestTopic, r.request.Topic())
 	}
 	return r.headers
 }
@@ -109,9 +110,7 @@ func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	if r.msg == nil {
 		//默认指定是JSON格式，如果不是该类型，请在process函数中修改
 		ruleMsg := types.NewMsg(0, r.From(), types.JSON, types.NewMetadata(), string(r.Body()))
-
-		ruleMsg.Metadata.PutValue("topic", r.From())
-
+		ruleMsg.Metadata.PutValue(KeyRequestTopic, r.From())
 		r.msg = &ruleMsg
 	}
 	return r.msg
