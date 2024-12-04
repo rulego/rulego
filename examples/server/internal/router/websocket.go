@@ -72,7 +72,7 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 			}
 		}
 	}
-	_, _ = wsEndpoint.AddRouter(controller.Log.WsNodeLogRouter(apiBasePath + "/event/ws/:chainId/:clientId"))
+	_, _ = wsEndpoint.AddRouter(controller.Log.WsNodeLogRouter(apiBasePath + "/" + moduleLogs + "/ws/:chainId/:clientId"))
 
 	return wsEndpoint
 }
