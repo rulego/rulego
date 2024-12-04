@@ -33,6 +33,8 @@
 package processor
 
 import (
+	"encoding/hex"
+	"strings"
 	"sync"
 
 	"github.com/rulego/rulego/api/types"
@@ -44,6 +46,7 @@ const (
 	HeaderKeyContentType = "Content-Type"
 	// HeaderValueApplicationJson Content-Type header value
 	HeaderValueApplicationJson = "application/json"
+	KeyTopic                   = "topic"
 )
 
 // InBuiltins is a collection of built-in in processors that can be called by name through endpoint DSL.
@@ -62,6 +65,23 @@ func init() {
 		}
 		return true
 	})
+	// Register a processor to set the message data type to JSON.
+	InBuiltins.Register("setJsonDataType", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		msg.DataType = types.JSON
+		exchange.Out.Headers().Set(HeaderKeyContentType, HeaderValueApplicationJson)
+		return true
+	})
+
+	// Register a processor to convert the binary bytes message data to hexadecimal.
+	InBuiltins.Register("toHex", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		from := exchange.In.From()
+		ruleMsg := types.NewMsg(0, from, types.TEXT, types.NewMetadata(), strings.ToUpper(hex.EncodeToString(exchange.In.Body())))
+		ruleMsg.Metadata.PutValue(KeyTopic, from)
+		exchange.In.SetMsg(&ruleMsg)
+		return true
+	})
+
 	// Register a processor to respond to the HTTP client with the message.
 	OutBuiltins.Register("responseToBody", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		if err := exchange.Out.GetError(); err != nil {
