@@ -482,22 +482,19 @@ func (s *RuleEngineService) InitRuleGo(logger *log.Logger, workspacePath string,
 	jsPath := path.Join(workspacePath, "js")
 	err := s.loadJs(jsPath)
 	if err != nil {
-		logger.Fatal("parser js file error:", err)
+		s.logger.Printf("parser js file error:", err)
 	}
 
 	//加载组件插件
 	pluginsPath := path.Join(workspacePath, "plugins")
 	err = s.loadPlugins(pluginsPath)
 	if err != nil {
-		logger.Fatal("parser plugin file error:", err)
+		s.logger.Printf("parser plugin file error:", err)
 	}
 
 	//加载规则链
 	rulesPath := path.Join(workspacePath, constants.DirWorkflows, username, constants.DirWorkflowsRule)
-	err = s.loadRules(rulesPath)
-	if err != nil {
-		logger.Fatal("parser rule file error:", err)
-	}
+	_ = s.loadRules(rulesPath)
 }
 
 // 加载js
