@@ -125,6 +125,7 @@ type RuleChainConnection struct {
 
 // RuleChainRunSnapshot is a snapshot of the rule chain execution log.
 type RuleChainRunSnapshot struct {
+	// Deprecated: User ctx.RuleChain() instead.
 	RuleChain
 	// Id is the execution ID.
 	Id string `json:"id"`
