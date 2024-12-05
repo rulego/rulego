@@ -53,7 +53,12 @@ func (s *EventDao) SaveRunLog(ctx types.RuleContext, snapshot types.RuleChainRun
 
 func (s *EventDao) Delete(username string, chainId, id string) error {
 	var paths = []string{s.config.DataDir, constants.DirWorkflows}
-	paths = append(paths, username, constants.DirWorkflowsRun, chainId, id)
+	if id != "" {
+		paths = append(paths, username, constants.DirWorkflowsRun, chainId, id)
+	} else {
+		paths = append(paths, username, constants.DirWorkflowsRun, chainId)
+	}
+
 	pathStr := path.Join(paths...)
 	return os.RemoveAll(pathStr)
 }
