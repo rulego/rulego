@@ -8,7 +8,6 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
-	"github.com/rulego/rulego/utils/str"
 	"os"
 	"path"
 	"path/filepath"
@@ -27,8 +26,7 @@ func NewEventDao(config config.Config) (*EventDao, error) {
 }
 
 // SaveRunLog 保存工作流运行日志快照
-func (s *EventDao) SaveRunLog(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) error {
-	var username = s.getUserNameFromSnapshot(snapshot)
+func (s *EventDao) SaveRunLog(username string, ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) error {
 	var paths = []string{s.config.DataDir, constants.DirWorkflows}
 	chainId := ctx.RuleChain().GetNodeId().Id
 	paths = append(paths, username, constants.DirWorkflowsRun, chainId)
@@ -140,12 +138,4 @@ func (s *EventDao) Get(username, chainId, snapshotId string) (types.RuleChainRun
 	} else {
 		return snapshot, nil
 	}
-}
-
-func (s *EventDao) getUserNameFromSnapshot(snapshot types.RuleChainRunSnapshot) string {
-	var username = config.C.DefaultUsername
-	if v, ok := snapshot.RuleChain.RuleChain.AdditionalInfo[constants.KeyUsername]; ok {
-		return str.ToString(v)
-	}
-	return username
 }

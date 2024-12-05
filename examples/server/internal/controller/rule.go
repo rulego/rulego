@@ -9,6 +9,7 @@ import (
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/utils/str"
 	"net/http"
 	"path"
 	"strconv"
@@ -213,9 +214,7 @@ func (c *rule) SaveConfiguration(url string) endpointApi.Router {
 func (c *rule) Execute(url string) endpointApi.Router {
 	var opts []types.RuleContextOption
 	if config.C.SaveRunLog {
-		opts = append(opts, types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
-			_ = service.EventServiceImpl.SaveRunLog(ctx, snapshot)
-		}))
+		opts = append(opts, c.addWithOnRuleChainCompleted())
 	}
 
 	return endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(GetRuleGoFunc)).From(url).Process(AuthProcess).Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
@@ -263,9 +262,7 @@ func (c *rule) Execute(url string) endpointApi.Router {
 func (c *rule) PostMsg(url string) endpointApi.Router {
 	var opts []types.RuleContextOption
 	if config.C.SaveRunLog {
-		opts = append(opts, types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
-			_ = service.EventServiceImpl.SaveRunLog(ctx, snapshot)
-		}))
+		opts = append(opts, c.addWithOnRuleChainCompleted())
 	}
 	return endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(GetRuleGoFunc)).From(url).Process(AuthProcess).Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -287,6 +284,20 @@ func (c *rule) PostMsg(url string) endpointApi.Router {
 		msg.Metadata.PutValue(constants.KeyWorkDir, path.Join(paths...))
 		return true
 	}).To("chain:${id}").SetOpts(opts...).End()
+}
+
+func (c *rule) addWithOnRuleChainCompleted() types.RuleContextOption {
+	return types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
+		var username = config.C.DefaultUsername
+		if chainCtx, ok := ctx.RuleChain().(types.ChainCtx); ok {
+			if def := chainCtx.Definition(); def != nil {
+				if v, ok := def.RuleChain.GetAdditionalInfo(constants.KeyUsername); ok {
+					username = str.ToString(v)
+				}
+			}
+		}
+		_ = service.EventServiceImpl.SaveRunLog(username, ctx, snapshot)
+	})
 }
 
 // Operate 部署/下架规则链
