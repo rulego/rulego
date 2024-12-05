@@ -19,9 +19,10 @@
 * 实时推送执行日志。
 * 保存执行快照。
 * 组件列表API。
-* 订阅MQTT数据，并根据根规则链定义交给规则引擎处理。
 
 ## HTTP API
+
+[API 文档](https://apifox.com/apidoc/shared-d17a63fe-2201-4e37-89fb-f2e8c1cbaf40/234016936e0)
 
 * 获取所有组件列表
     - GET /api/v1/components

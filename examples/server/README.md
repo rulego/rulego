@@ -21,9 +21,10 @@ The following features are provided:
 * Real-time push execution log.
 * Save execution snapshot.
 * Component list API.
-* Subscribe to MQTT data and hand it over to the rule engine for processing according to the root rule chain definition.
 
 ## HTTP API
+
+[API Doc](https://apifox.com/apidoc/shared-d17a63fe-2201-4e37-89fb-f2e8c1cbaf40/234016936e0)
 
 * Get all component lists
   - GET /api/v1/components
