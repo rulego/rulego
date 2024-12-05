@@ -186,12 +186,13 @@ func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte)
 		ctx.TellFailure(msg, err)
 	} else if _, err := conn.Write(data); err != nil {
 		ctx.TellFailure(msg, err)
+		x.setDisconnected(true)
 	} else {
 		//重置心跳发送间隔
 		if x.heartbeatTimer != nil {
 			x.heartbeatTimer.Reset(x.heartbeatDuration)
 		}
-		//发送到下一个阶段
+		//发送到下一个节点
 		ctx.TellSuccess(msg)
 	}
 }
