@@ -47,7 +47,6 @@ type NetNodeConfiguration struct {
 	ConnectTimeout int
 	// 心跳间隔，用于定期发送心跳消息，单位为秒，如果=0，则不发心跳包。默认60
 	HeartbeatInterval int
-	EndSign           string
 }
 
 // NetNode 把消息负荷通过网络协议发送，支持协议：tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。
@@ -66,6 +65,8 @@ type NetNode struct {
 	heartbeatDuration time.Duration
 	// 连接是否已经断开，0：没端口；1：端口
 	disconnected int32
+	//断开连接次数
+	disconnectedCount int32
 }
 
 // Type 组件类型
@@ -155,7 +156,6 @@ func (x *NetNode) tryReconnect() {
 		x.conn = conn
 		x.setDisconnected(false)
 		x.Locker.Unlock()
-
 		x.Printf("Reconnected to: %s", conn.RemoteAddr().String())
 		// 重连成功后，重置为正常的心跳间隔
 		x.heartbeatTimer.Reset(x.heartbeatDuration)
@@ -185,8 +185,14 @@ func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte)
 	if conn, err := x.SharedNode.Get(); err != nil {
 		ctx.TellFailure(msg, err)
 	} else if _, err := conn.Write(data); err != nil {
-		ctx.TellFailure(msg, err)
-		x.setDisconnected(true)
+		if atomic.LoadInt32(&x.disconnectedCount) == 0 {
+			x.setDisconnected(true)
+			//重试一次
+			x.onWrite(ctx, msg, data)
+		} else {
+			x.setDisconnected(true)
+			ctx.TellFailure(msg, err)
+		}
 	} else {
 		//重置心跳发送间隔
 		if x.heartbeatTimer != nil {
@@ -214,13 +220,15 @@ func (x *NetNode) isDisconnected() bool {
 
 func (x *NetNode) setDisconnected(disconnected bool) {
 	if disconnected {
+		atomic.AddInt32(&x.disconnectedCount, 1)
 		atomic.StoreInt32(&x.disconnected, 1)
 	} else {
+		atomic.StoreInt32(&x.disconnectedCount, 0)
 		atomic.StoreInt32(&x.disconnected, 0)
 	}
 }
 
-// 抽取配置默认值设置
+// 默认值设置
 func (x *NetNode) setDefaultConfig() {
 	if x.Config.Protocol == "" {
 		x.Config.Protocol = "tcp"
