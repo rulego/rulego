@@ -87,7 +87,7 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	restEndpoint.GET(controller.Log.GetDebugLogs(apiBasePath + "/" + moduleLogs + "/debug"))
 	//获取规则链运行日志列表
 	restEndpoint.GET(controller.Log.List(apiBasePath + "/" + moduleLogs + "/runs"))
-	restEndpoint.DELETE(controller.Log.Delete(apiBasePath + "/" + moduleLogs + "/runs/:id/:chainId"))
+	restEndpoint.DELETE(controller.Log.Delete(apiBasePath + "/" + moduleLogs + "/runs"))
 
 	restEndpoint.GET(controller.Locale.Locales(apiBasePath + "/" + moduleLocales))
 	restEndpoint.POST(controller.Locale.Save(apiBasePath + "/" + moduleLocales))
