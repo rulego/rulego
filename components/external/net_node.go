@@ -45,8 +45,9 @@ type NetNodeConfiguration struct {
 	Server string
 	// 连接超时，单位为秒，如果<=0 则默认60
 	ConnectTimeout int
-	// 心跳间隔，用于定期发送心跳消息，单位为秒，如果<=0 则默认60
+	// 心跳间隔，用于定期发送心跳消息，单位为秒，如果=0，则不发心跳包。默认60
 	HeartbeatInterval int
+	EndSign           string
 }
 
 // NetNode 把消息负荷通过网络协议发送，支持协议：tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。
@@ -130,13 +131,15 @@ func (x *NetNode) initConnect() (net.Conn, error) {
 
 	x.conn = conn
 	x.setDisconnected(false)
-	// 初始化心跳定时器
-	if x.heartbeatTimer == nil {
-		x.heartbeatTimer = time.AfterFunc(x.heartbeatDuration, func() {
-			x.onPing()
-		})
-	} else {
-		x.heartbeatTimer.Reset(x.heartbeatDuration)
+	if x.heartbeatDuration != 0 {
+		// 初始化心跳定时器
+		if x.heartbeatTimer == nil {
+			x.heartbeatTimer = time.AfterFunc(x.heartbeatDuration, func() {
+				x.onPing()
+			})
+		} else {
+			x.heartbeatTimer.Reset(x.heartbeatDuration)
+		}
 	}
 	return conn, nil
 }
@@ -224,7 +227,7 @@ func (x *NetNode) setDefaultConfig() {
 	if x.Config.ConnectTimeout <= 0 {
 		x.Config.ConnectTimeout = 60
 	}
-	if x.Config.HeartbeatInterval <= 0 {
+	if x.Config.HeartbeatInterval < 0 {
 		x.Config.HeartbeatInterval = 60
 	}
 }
