@@ -2,25 +2,13 @@
 
 English| [中文](README_ZH.md)
 
-This example project demonstrates how to use RuleGo as an independently running rule engine service. This project also serves as a scaffold for developing RuleGo applications. You can develop further based on this project, or you can directly download the executable [releases](https://github.com/rulego/rulego/releases).
+`RuleGo-Server` is a standalone rule engine service, and this project is also a scaffold for developing RuleGo applications. You can perform secondary development based on this project, or you can directly download the executable [binary files](https://github.com/rulego/rulego/releases).
 
-Here is the translation:
+Visual Editor:[RuleGo-Editor](https://editor.rulego.cc/), configure the HTTP API of this project to manage and debug rule chains.
 
-Front-end online debugging interface: [example.rulego.cc](https://example.rulego.cc/).
+- Experience Address 1: [http://8.134.32.225:9090/editor/](http://8.134.32.225:9090/editor/)
+- Experience Address 2: [http://8.134.32.225:9090/ui/](http://8.134.32.225:9090/ui/)
 
-Additionally, the rule chain editor tool: [RuleGo-Editor](https://editor.rulego.cc/), configure the project's HTTP API for rule chain management and debugging.
-
-The following features are provided:
-
-* Execute the rule chain and get the execution result API.
-* Report data to the rule chain API, without focusing on the execution result.
-* Create rule chain API.
-* Update rule chain API.
-* Get node debugging log API.
-* Execute the rule chain and get the execution result API.
-* Real-time push execution log.
-* Save execution snapshot.
-* Component list API.
 
 ## HTTP API
 
@@ -99,6 +87,14 @@ Start in the background
 ```shell
 nohup ./server -c="./config.conf" >> console.log &
 ```
+## RuleGo-Editor
+RuleGo-Editor is the UI interface of RuleGo-Server, which allows for the visual management, debugging, and deployment of rule chains.
+
+Usage steps:
+- Unzip the downloaded `editor.zip` to the current directory and visit `http://localhost:9090/` in your browser to access RuleGo-Editor.
+- You can modify the `rulego-editor` directory through the resource_mapping configuration in `config.conf`.
+
+>RuleGo-Editor is for learning purposes only. For commercial use, please purchase a license from us. Email: rulego@outlook.com
 
 ## Configuration file parameters
 ```ini
@@ -116,6 +112,8 @@ default_username = admin
 debug = true
 # Maximum node log size, default 40
 max_node_log_size =40
+# Resource mapping
+resource_mapping = /editor/*filepath=./editor,/images/*filepath=./editor/images
 # Node pool file
 node_pool_file=./node_pool.json
 

@@ -170,6 +170,10 @@ The core feature of `RuleGo` is its component-based architecture, where all busi
 - [Endpoint Components](https://rulego.cc/en/pages/691dd3/)
 - [Endpoint DSL](https://rulego.cc/en/pages/390ad7/)
 
+### RuleGo-Server
+We provide a rule engine service based on `RuleGo`: [RuleGo-Server](examples/server) ,
+and a front-end visual editor: [RuleGo-Editor](https://editor.rulego.cc/) .
+RuleGo-Server can be deployed as a standalone middleware, offering operations such as rule chain management, debugging, deployment, and node component management.
 ## Performance
 
 `RuleGo` completes most of its work during initialization, so running the rule chain almost doesn't add extra overhead to the system, and the resource consumption is extremely low, making it particularly suitable for running on edge servers.
