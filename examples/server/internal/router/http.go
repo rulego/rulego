@@ -7,6 +7,7 @@ import (
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
 	"net/http"
 	"strings"
@@ -29,7 +30,12 @@ const (
 func NewRestServe(config config.Config) *rest.Endpoint {
 	//初始化日志
 	addr := config.Server
-	logger.Logger.Println("rest serve initialised.addr=" + addr)
+	if strings.HasPrefix(addr, ":") {
+		logger.Logger.Println("RuleGo-Server now running at http://127.0.0.1" + addr)
+	} else {
+		logger.Logger.Println("RuleGo-Server now running at http://" + addr)
+	}
+
 	restEndpoint := &rest.Endpoint{
 		Config: rest.Config{
 			Server:    addr,
@@ -40,23 +46,17 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	//添加全局拦截器
 	restEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		exchange.Out.Headers().Set(ContentTypeKey, JsonContextType)
-		//exchange.Out.Headers().Set("Content-Type", "application/json")
-		//exchange.Out.Headers().Set("Access-Control-Allow-Origin", "*")
 		return true
 	})
-	////设置跨域
-	//restEndpoint.GlobalOPTIONS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	//	if r.Header.Get("Access-Control-Request-Method") != "" {
-	//		// 设置 CORS 相关的响应头
-	//		header := w.Header()
-	//		header.Set("Access-Control-Allow-Methods", "*")
-	//		header.Set("Access-Control-Allow-Headers", "*")
-	//		header.Set("Access-Control-Allow-Origin", "*")
-	//	}
-	//	// 返回 204 状态码
-	//	w.WriteHeader(http.StatusNoContent)
-	//}))
-
+	//重定向UI界面
+	restEndpoint.GET(endpoint.NewRouter().From("/").Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		r, ok1 := exchange.In.(*rest.RequestMessage)
+		w, ok2 := exchange.Out.(*rest.ResponseMessage)
+		if ok1 && ok2 {
+			http.Redirect(w.Response(), r.Request(), "/editor/", http.StatusFound)
+		}
+		return false
+	}).End())
 	//创建获取所有规则引擎组件列表路由
 	restEndpoint.GET(controller.Node.Components(apiBasePath + "/components"))
 	//获取所有共享组件
