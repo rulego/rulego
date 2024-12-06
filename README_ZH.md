@@ -179,6 +179,11 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 - [Endpoint组件](https://rulego.cc/pages/691dd3/)
 - [Endpoint DSL](https://rulego.cc/pages/390ad7/)
 
+### RuleGo-Server
+我们提供了一个基于`RuleGo`的规则引擎服务：[RuleGo-Server](examples/server) ，
+以及配套的前端可视化编辑器：[RuleGo-Editor](https://editor.rulego.cc/) 。
+RuleGo-Server 可以作为一个独立部署的中间件，提供规则链管理、调试、部署，以及节点组件管理等操作。
+
 ## 性能
 `RuleGo` 大部分工作都在初始化时完成，执行规则链时几乎不会额外增加系统开销，资源占用极低，特别适合在边缘服务器运行。
 另外RuleGo使用有向无环图来表示规则链，每个输入消息只需要沿着图中的路径进行处理，无需匹配所有的规则， 这大大提高了消息处理和路由的效率，也节省了系统资源。

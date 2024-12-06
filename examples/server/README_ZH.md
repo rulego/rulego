@@ -2,23 +2,12 @@
 
 [English](README.md)| 中文
 
-该示例工程演示如何把RuleGo作为一个独立运行的规则引擎服务，该工程也是一个开发RuleGo应用的脚手架。你可以基于该工程进行二次开发，也可以直接下载可执行[二进制文件](https://github.com/rulego/rulego/releases)。
+`RuleGo-Server`一个独立运行的规则引擎服务，该工程也是一个开发RuleGo应用的脚手架。你可以基于该工程进行二次开发，也可以直接下载可执行[二进制文件](https://github.com/rulego/rulego/releases)。
 
-前端在线调试界面：[example.rulego.cc](https://example.rulego.cc/) 。
+可视化编辑器：[RuleGo-Editor](https://editor.rulego.cc/) ，配置该工程HTTP API，可以对规则链管理和调试。
 
-另外规则链编辑器工具：[RuleGo-Editor](https://editor.rulego.cc/) ，配置该工程HTTP API，可以对规则链管理和调试。
-
-该工程提供以下功能：
-
-* 执行规则链并得到执行结果API
-* 往规则链上报数据API，不关注执行结果。
-* 创建规则链API。
-* 更新规则链API。
-* 获取节点调试日志API。
-* 执行规则链并得到执行结果API。
-* 实时推送执行日志。
-* 保存执行快照。
-* 组件列表API。
+- 体验地址1：[http://8.134.32.225:9090/editor/](http://8.134.32.225:9090/editor/)
+- 体验地址2：[http://8.134.32.225:9090/ui/](http://8.134.32.225:9090/ui/)
 
 ## HTTP API
 
@@ -95,7 +84,14 @@ go build -tags with_extend .
 ```shell
 nohup ./server -c="./config.conf" >> console.log &
 ```
+## RuleGo-Editor
+RuleGo-Editor 是 RuleGo-Server 的UI界面，可以对规则链进行可视化管理，调试，部署等。
 
+使用步骤：
+- 解压下载好的`editor.zip`到当前目录，打开浏览器访问`http://localhost:9090/` ，即可访问RuleGo-Editor。
+- 可以通过`config.conf`的 resource_mapping配置修改rulego-editor目录。
+
+> RuleGo-Editor仅用于学习，商用请向我们购买授权。Email：rulego@outlook.com
 ## 配置文件参数
 ```ini
 # 数据目录
@@ -112,6 +108,8 @@ default_username = admin
 debug = true
 # 最大节点日志大小，默认40
 max_node_log_size =40
+# 资源映射，支持通配符，多个映射用逗号分隔，格式：/url/*filepath=/path/to/file
+resource_mapping = /editor/*filepath=./editor,/images/*filepath=./editor/images
 # 节点池文件，规则链json格式，示例：./node_pool.json
 node_pool_file=./node_pool.json
 
