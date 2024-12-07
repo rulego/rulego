@@ -1,4 +1,41 @@
 # CHANGELOG
+## [v0.27.0] 2024/12/08
+
+- feat:允许获得endpoint router错误
+- feat:规则链DSL增加Disabled字段
+- feat(endpoint/rest):允许设置跨域
+- feat(restApiCallNode):允许配置不校验证书
+- feat(flow):子规则链允许设置成继承模式
+- feat:如果规则链Disabled，则初始化引擎错误
+- feat(groupActionNode):节点ID列表允许string和数组格式
+- feat(builtin):增加toHex和setJsonDataType内置函数
+- feat(netNode):支持不发送心跳包
+- fix(endpoint/rest):类型识别错误
+- opt(netNode):优化重连机制
+- refactor:dsl additionInfo 改成map[string]interface{}类型
+- refactor:删除log依赖
+- refactor(server):重构rulego-server api
+- feat(server):规则链存储增加索引
+- feat(server):自动创建默认用户
+- feat(server):增加部署、停用规则链API
+- feat(server):允许通过Disabled字段搜索规则链
+- feat(server):增加默认的前端访问路由
+- fix(server):启动错误退出
+- ci(server):减少编译包文件大小
+- ci(server):提供RuleGo-Editor编辑器离线部署包
+### RuleGo-Editor[v0.27.0]
+- feat(rulego-editor):规则链列表管理
+- feat(rulego-editor):显示规则链状态和标题
+- feat(rulego-editor):打开规则链
+- feat(rulego-editor):编辑规则链
+- feat(rulego-editor):查询规则链集成URL
+- feat(rulego-editor):优化导入导出
+- feat(rulego-editor):组件管理
+- feat(rulego-editor):后台API配置持久化
+- feat(rulego-editor):规则链部署/下线操作
+- feat(rulego-editor):增加框选、撤销、重做、小地图、全屏操作工具
+- feat(rulego-editor):子规则链节点允许通过下拉选取子规则链
+
 ## [v0.26.0] 2024/11/07
 
 - feat:增加注释节点
