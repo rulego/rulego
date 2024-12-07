@@ -62,4 +62,5 @@ var DefaultConfig = Config{
 	Server:          ":9090",
 	DefaultUsername: "admin",
 	MaxNodeLogSize:  40,
+	ResourceMapping: "/editor/*filepath=./editor,/images/*filepath=./editor/images",
 }
