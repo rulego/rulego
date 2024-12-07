@@ -495,7 +495,7 @@ func (r *ExecutorFactory) Register(name string, executor endpoint.Executor) {
 // New 根据类型创建to端执行器实例
 func (r *ExecutorFactory) New(name string) (endpoint.Executor, bool) {
 	r.RLock()
-	r.RUnlock()
+	defer r.RUnlock()
 	h, ok := r.executors[name]
 	if ok {
 		return h.New(), true
