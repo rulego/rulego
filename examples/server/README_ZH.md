@@ -89,7 +89,8 @@ RuleGo-Editor 是 RuleGo-Server 的UI界面，可以对规则链进行可视化�
 
 使用步骤：
 - 解压下载好的`editor.zip`到当前目录，打开浏览器访问`http://localhost:9090/` ，即可访问RuleGo-Editor。
-- 可以通过`config.conf`的 resource_mapping配置修改rulego-editor目录。
+- 可以通过`config.conf`的 resource_mapping 配置修改rulego-editor目录。
+- 可以通过`editor/config/config.js`的 baseUrl 配置修改rulego-editor后端api地址。
 
 > RuleGo-Editor仅用于学习，商用请向我们购买授权。Email：rulego@outlook.com
 ## 配置文件参数

@@ -92,7 +92,8 @@ RuleGo-Editor is the UI interface of RuleGo-Server, which allows for the visual 
 
 Usage steps:
 - Unzip the downloaded `editor.zip` to the current directory and visit `http://localhost:9090/` in your browser to access RuleGo-Editor.
-- You can modify the `rulego-editor` directory through the resource_mapping configuration in `config.conf`.
+- - The directory for rulego-editor can be modified by configuring the `resource_mapping` in `config.conf`.
+- The backend API address for rulego-editor can be modified by configuring the `baseUrl` in `editor/config/config.js`.
 
 >RuleGo-Editor is for learning purposes only. For commercial use, please purchase a license from us. Email: rulego@outlook.com
 
