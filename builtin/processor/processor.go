@@ -89,6 +89,8 @@ func init() {
 			exchange.Out.SetStatusCode(400)
 			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 		} else if exchange.Out.GetMsg() != nil {
+			exchange.Lock()
+			defer exchange.Unlock()
 			// Set the response body with the message data.
 			if exchange.Out.GetMsg().DataType == types.JSON && exchange.Out.Headers().Get(HeaderKeyContentType) == "" {
 				exchange.Out.Headers().Set(HeaderKeyContentType, HeaderValueApplicationJson)
@@ -105,6 +107,8 @@ func init() {
 			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 		} else if exchange.Out.GetMsg() != nil {
 			msg := exchange.Out.GetMsg()
+			exchange.Lock()
+			defer exchange.Unlock()
 			for k, v := range msg.Metadata {
 				exchange.Out.Headers().Set(k, v)
 			}
