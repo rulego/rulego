@@ -2,7 +2,7 @@
 
 [English](README.md)| 中文
 
-`RuleGo-Server`一个独立运行的规则引擎服务，该工程也是一个开发RuleGo应用的脚手架。你可以基于该工程进行二次开发，也可以直接下载可执行[二进制文件](https://github.com/rulego/rulego/releases)。
+`RuleGo-Server`一个独立运行的开箱即用规则引擎服务，该工程也是一个开发RuleGo应用的脚手架。你可以基于该工程进行二次开发，也可以直接下载可执行[二进制文件](https://github.com/rulego/rulego/releases)。
 
 可视化编辑器：[RuleGo-Editor](https://editor.rulego.cc/) ，配置该工程HTTP API，可以对规则链管理和调试。
 
