@@ -2,7 +2,7 @@
 
 English| [中文](README_ZH.md)
 
-`RuleGo-Server` is a standalone rule engine service, and this project is also a scaffold for developing RuleGo applications. You can perform secondary development based on this project, or you can directly download the executable [binary files](https://github.com/rulego/rulego/releases).
+`RuleGo-Server` is a ready-to-use standalone rule engine service, and this project is also a scaffold for developing RuleGo applications. You can perform secondary development based on this project, or you can directly download the executable [binary files](https://github.com/rulego/rulego/releases).
 
 Visual Editor:[RuleGo-Editor](https://editor.rulego.cc/), configure the HTTP API of this project to manage and debug rule chains.
 
