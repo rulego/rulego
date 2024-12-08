@@ -20,6 +20,7 @@ package endpoint
 import (
 	"context"
 	"net/textproto"
+	"sync"
 
 	"github.com/rulego/rulego/api/types"
 )
@@ -118,6 +119,7 @@ type Exchange struct {
 	Out Message
 	// Context provides a context for the exchange.
 	Context context.Context
+	sync.RWMutex
 }
 
 // From is an interface representing the source of data in a routing operation.
