@@ -73,6 +73,7 @@ Other extension component library tags:
 - To register the AI extension component [rulego-components-ai](https://github.com/rulego/rulego-components-ai), compile with the `with_ai` tag.
 - To register the CI/CD extension component [rulego-components-ci](https://github.com/rulego/rulego-components-ci), compile with the `with_ci` tag.
 - To register the IoT extension component [rulego-components-iot](https://github.com/rulego/rulego-components-iot), compile with the `with_iot` tag.
+- To register the ETL extension component [rulego-components-etl](https://github.com/rulego/rulego-components-etl), compile with the `with_etl` tag.
 
 If you need to include multiple extension component libraries at the same time, you can compile with the `go build -tags "with_extend,with_ai,with_ci,with_iot" .` tag.
 
