@@ -33,6 +33,7 @@ const (
 	// KeyDefaultIntegrationChainId 应用集成规则链ID
 	KeyDefaultIntegrationChainId = "$event_bus"
 	KeyUpdateTime                = "updateTime"
+	KeyHeadersToMetadata         = "headersToMetadata"
 )
 
 const (

@@ -11,7 +11,6 @@ import (
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/str"
 	"net/http"
-	"path"
 	"strconv"
 	"strings"
 )
@@ -205,6 +204,29 @@ func (c *rule) SaveConfiguration(url string) endpointApi.Router {
 		return true
 	}).End()
 }
+func (c *rule) transformMsg(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	msg := exchange.In.GetMsg()
+	msgId := exchange.In.GetParam(constants.KeyMsgId)
+	if msgId != "" {
+		msg.Id = msgId
+	}
+	//获取消息类型
+	msg.Type = msg.Metadata.GetValue(constants.KeyMsgType)
+	//把http header放入消息元数据
+	if msg.Metadata.GetValue(constants.KeyHeadersToMetadata) == "true" {
+		headers := exchange.In.Headers()
+		for k := range headers {
+			msg.Metadata.PutValue(k, headers.Get(k))
+		}
+	}
+	//if msg.Metadata.GetValue(constants.KeySetWorkDir)=="true"{
+	//	username := msg.Metadata.GetValue(constants.KeyUsername)
+	//	//设置工作目录
+	//	var paths = []string{config.C.DataDir, constants.DirWorkflows, username, constants.DirWorkflowsRule}
+	//	msg.Metadata.PutValue(constants.KeyWorkDir, path.Join(paths...)
+	//}
+	return true
+}
 
 // Execute 处理请求，并转发到规则引擎，同步等待规则链执行结果返回给调用方
 // .To("chain:${id}") 这段逻辑相当于：
@@ -217,29 +239,13 @@ func (c *rule) Execute(url string) endpointApi.Router {
 		opts = append(opts, c.addWithOnRuleChainCompleted())
 	}
 
-	return endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(GetRuleGoFunc)).From(url).Process(AuthProcess).Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		msg := exchange.In.GetMsg()
-		msgId := exchange.In.GetParam("msgId")
-		if msgId != "" {
-			msg.Id = msgId
-		}
-		msgType := msg.Metadata.GetValue("msgType")
-		//获取消息类型
-		msg.Type = msgType
-		//把http header放入消息元数据
-		headers := exchange.In.Headers()
-		for k := range headers {
-			msg.Metadata.PutValue(k, headers.Get(k))
-		}
-		username := msg.Metadata.GetValue(constants.KeyUsername)
-		//设置工作目录
-		var paths = []string{config.C.DataDir, constants.DirWorkflows, username, constants.DirWorkflowsRule}
-		msg.Metadata.PutValue(constants.KeyWorkDir, path.Join(paths...))
-		return true
-	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		exchange.Out.Headers().Set("Content-Type", "application/json")
-		return true
-	}).To("chain:${id}").SetOpts(opts...).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	return endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(GetRuleGoFunc)).
+		From(url).
+		Process(AuthProcess).Transform(c.transformMsg).
+		Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+			exchange.Out.Headers().Set("Content-Type", "application/json")
+			return true
+		}).To("chain:${id}").SetOpts(opts...).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		err := exchange.Out.GetError()
 		if err != nil {
 			//错误
@@ -264,26 +270,8 @@ func (c *rule) PostMsg(url string) endpointApi.Router {
 	if config.C.SaveRunLog {
 		opts = append(opts, c.addWithOnRuleChainCompleted())
 	}
-	return endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(GetRuleGoFunc)).From(url).Process(AuthProcess).Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		msg := exchange.In.GetMsg()
-		msgId := exchange.In.GetParam(constants.KeyMsgId)
-		if msgId != "" {
-			msg.Id = msgId
-		}
-		//把http header放入消息元数据
-		headers := exchange.In.Headers()
-		for k := range headers {
-			msg.Metadata.PutValue(k, headers.Get(k))
-		}
-		msgType := msg.Metadata.GetValue(constants.KeyMsgType)
-		//获取消息类型
-		msg.Type = msgType
-		username := msg.Metadata.GetValue(constants.KeyUsername)
-		//设置工作目录
-		var paths = []string{config.C.DataDir, constants.DirWorkflows, username, constants.DirWorkflowsRule}
-		msg.Metadata.PutValue(constants.KeyWorkDir, path.Join(paths...))
-		return true
-	}).To("chain:${id}").SetOpts(opts...).End()
+	return endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(GetRuleGoFunc)).
+		From(url).Process(AuthProcess).Transform(c.transformMsg).To("chain:${id}").SetOpts(opts...).End()
 }
 
 func (c *rule) addWithOnRuleChainCompleted() types.RuleContextOption {
