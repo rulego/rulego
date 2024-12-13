@@ -64,11 +64,11 @@ func ExecuteTemplate(original string, dict map[string]interface{}) string {
 		if len(matches) < 2 {
 			return s // 如果没有匹配到，返回原字符串
 		}
-		result := ToString(maps.Get(dict, strings.TrimSpace(matches[1])))
-		if result == "" {
+		v := maps.Get(dict, strings.TrimSpace(matches[1]))
+		if v == nil {
 			return s
 		} else {
-			return result
+			return ToString(v)
 		}
 	})
 	return replaced
@@ -87,8 +87,8 @@ func SprintfDict(original string, dict map[string]string) string {
 		if len(matches) < 2 {
 			return s // 如果没有匹配到，返回原字符串
 		}
-		result := dict[strings.TrimSpace(matches[1])]
-		if result == "" {
+		result, ok := dict[strings.TrimSpace(matches[1])]
+		if !ok {
 			return s
 		} else {
 			return result

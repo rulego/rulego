@@ -28,8 +28,9 @@ func TestSprintfDict(t *testing.T) {
 	dict := map[string]string{
 		"name": "Alice",
 		"age":  "18",
+		"addr": "",
 	}
-	s := SprintfDict("Hello, ${name}. You are ${age} years old.", dict)
+	s := SprintfDict("Hello, ${name}. You are ${age} years old.${addr}", dict)
 	assert.Equal(t, "Hello, Alice. You are 18 years old.", s)
 }
 
@@ -43,12 +44,13 @@ func TestExecuteTemplate(t *testing.T) {
 			},
 			"location": map[string]interface{}{
 				"city": "GZ",
+				"addr": "",
 			},
 		},
 	}
 
-	s := ExecuteTemplate("Hello, ${name}. You are ${age} years old. I am an ${info.job.title} from ${info.location.city}. ${unknown}", dict)
-	assert.Equal(t, "Hello, Alice. You are 18 years old. I am an Engineer from GZ. ${unknown}", s)
+	s := ExecuteTemplate("Hello, ${name}. You are ${age} years old. I am an ${info.job.title} from ${info.location.city} ${info.location.addr}. ${unknown}", dict)
+	assert.Equal(t, "Hello, Alice. You are 18 years old. I am an Engineer from GZ . ${unknown}", s)
 
 	s = ExecuteTemplate("Hello, Alice.", dict)
 	assert.Equal(t, "Hello, Alice.", s)
