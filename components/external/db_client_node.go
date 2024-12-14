@@ -24,6 +24,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"strings"
@@ -67,13 +68,14 @@ type DbClientNode struct {
 	Config DbClientNodeConfiguration
 	client *sql.DB
 	//操作类型 SELECT\UPDATE\INSERT\DELETE
-	opType         string
-	sqlTemplate    str.Template
-	paramsTemplate []str.Template
+	opType string
+	//sqlTemplate    str.Template
+	//paramsTemplate []str.Template
 	//sql是否有变量
 	sqlHasVar bool
 	//参数是否有变量
-	paramsHasVar bool
+	paramsHasVar   bool
+	paramsTemplate []el.Template
 }
 
 // Type 返回组件类型
@@ -116,9 +118,13 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 
 		//检查是参数否有变量
 		for _, item := range x.Config.Params {
-			if v, ok := item.(string); ok && str.CheckHasVar(v) {
+			temp, err := el.NewTemplate(item)
+			if err != nil {
+				return err
+			}
+			x.paramsTemplate = append(x.paramsTemplate, temp)
+			if !temp.IsNotVar() {
 				x.paramsHasVar = true
-				break
 			}
 		}
 
@@ -151,17 +157,14 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 
 	var params []interface{}
-	if x.paramsHasVar {
-		//转换参数变量
-		for _, item := range x.Config.Params {
-			if v, ok := item.(string); ok {
-				params = append(params, str.ExecuteTemplate(v, evn))
-			} else {
-				params = append(params, item)
-			}
+	//转换参数变量
+	for _, item := range x.paramsTemplate {
+		param, err := item.Execute(evn)
+		if err != nil {
+			ctx.TellFailure(msg, err)
+			return
 		}
-	} else {
-		params = x.Config.Params
+		params = append(params, param)
 	}
 	client, err := x.SharedNode.Get()
 	if err != nil {
