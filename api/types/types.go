@@ -193,7 +193,10 @@ type RuleContext interface {
 	// Config retrieves the configuration of the rule engine.
 	Config() Config
 	// SubmitTack submits an asynchronous task for execution.
+	//Deprecated: Use Flow SubmitTask instead.
 	SubmitTack(task func())
+	// SubmitTask submits an asynchronous task for execution.
+	SubmitTask(task func())
 	// SetEndFunc sets the callback function for when the current message processing ends.
 	SetEndFunc(f OnEndFunc) RuleContext
 	// GetEndFunc retrieves the callback function for when the current message processing ends.

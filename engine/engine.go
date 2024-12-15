@@ -464,10 +464,15 @@ func (ctx *DefaultRuleContext) GetContext() context.Context {
 	return ctx.context
 }
 
+// Deprecated: Use Flow SubmitTask instead.
 func (ctx *DefaultRuleContext) SubmitTack(task func()) {
+	ctx.SubmitTask(task)
+}
+
+func (ctx *DefaultRuleContext) SubmitTask(task func()) {
 	if ctx.pool != nil {
 		if err := ctx.pool.Submit(task); err != nil {
-			ctx.config.Logger.Printf("SubmitTack error:%s", err)
+			ctx.config.Logger.Printf("SubmitTask error:%s", err)
 		}
 	} else {
 		go task()
@@ -563,14 +568,14 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 	//全局回调
 	//通过`Config.OnEnd`设置
 	if ctx.config.OnEnd != nil {
-		ctx.SubmitTack(func() {
+		ctx.SubmitTask(func() {
 			ctx.config.OnEnd(msg, err)
 		})
 	}
 	//单条消息的context回调
 	//通过OnMsgWithEndFunc(msg, endFunc)设置
 	if ctx.onEnd != nil {
-		ctx.SubmitTack(func() {
+		ctx.SubmitTask(func() {
 			ctx.onEnd(ctx, msg, err, relationType)
 			ctx.childDone()
 		})
@@ -618,7 +623,7 @@ func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, node
 	msgCopy := msg.Copy()
 	if ctx.IsDebugMode() {
 		//异步记录日志
-		ctx.SubmitTack(func() {
+		ctx.SubmitTask(func() {
 			if ctx.config.OnDebug != nil {
 				ctx.config.OnDebug(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
 			}
@@ -700,7 +705,7 @@ func (ctx *DefaultRuleContext) getNextNodes(relationType string) ([]types.NodeCt
 // tellSelf 执行自身节点
 func (ctx *DefaultRuleContext) tellSelf(msg types.RuleMsg, err error, relationTypes ...string) {
 	msgCopy := msg.Copy()
-	ctx.SubmitTack(func() {
+	ctx.SubmitTask(func() {
 		if ctx.self != nil {
 			ctx.tellNext(msgCopy, ctx.self, "")
 		} else {
@@ -745,7 +750,7 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 						ctx.childReady()
 						msgCopy := msg.Copy()
 						//通知执行子节点
-						ctx.SubmitTack(func() {
+						ctx.SubmitTask(func() {
 							ctx.tellNext(msgCopy, tmp, relationType)
 						})
 					}

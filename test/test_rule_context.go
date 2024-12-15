@@ -115,8 +115,10 @@ func (ctx *NodeTestRuleContext) RuleChain() types.NodeCtx {
 func (ctx *NodeTestRuleContext) Config() types.Config {
 	return ctx.config
 }
-
 func (ctx *NodeTestRuleContext) SubmitTack(task func()) {
+	ctx.SubmitTask(task)
+}
+func (ctx *NodeTestRuleContext) SubmitTask(task func()) {
 	go task()
 }
 
