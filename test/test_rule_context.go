@@ -166,7 +166,10 @@ func (ctx *NodeTestRuleContext) TellNode(context context.Context, nodeId string,
 	if v, ok := ctx.childrenNodes.Load(nodeId); ok {
 		ctx.selfId = nodeId
 		subCtx := NewRuleContext(ctx.config, func(msg types.RuleMsg, relationType string, err error) {
-			callback(ctx, msg, err, relationType)
+			if callback != nil {
+				callback(ctx, msg, err, relationType)
+			}
+
 			if onAllNodeCompleted != nil {
 				onAllNodeCompleted()
 			}
@@ -174,7 +177,9 @@ func (ctx *NodeTestRuleContext) TellNode(context context.Context, nodeId string,
 
 		v.(types.Node).OnMsg(subCtx, msg)
 	} else {
-		callback(ctx, msg, fmt.Errorf("node id=%s not found", nodeId), types.Failure)
+		if callback != nil {
+			callback(ctx, msg, fmt.Errorf("node id=%s not found", nodeId), types.Failure)
+		}
 		if onAllNodeCompleted != nil {
 			onAllNodeCompleted()
 		}

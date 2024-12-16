@@ -59,6 +59,8 @@ const (
 	MergeValues = 1
 	// ReplaceValues indicates that the iterated values should be replaced and passed to the next iteration.
 	ReplaceValues = 2
+	// AsyncProcess 异步处理每一项item，不关注结果
+	AsyncProcess = 3
 )
 
 func init() {
@@ -79,7 +81,7 @@ type ForNodeConfiguration struct {
 	//e.g., chain:rule01, where the item will start executing from the sub-chain rule01 until the chain completes,
 	//then returns to the starting point of the iteration.
 	Do string
-	// Mode 0:不处理msg，1：合并遍历msg.Data，2：替换msg
+	// Mode 0:不处理msg，1：合并遍历msg.Data，2：替换msg,3:异步处理每一项
 	Mode int
 }
 
@@ -191,7 +193,7 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			}
 
 			// 执行并，检查是否有取消请求
-			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
+			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg, x.Config.Mode); err != nil {
 				break
 			} else if x.Config.Mode == MergeValues {
 				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
@@ -204,7 +206,7 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
 			// 执行并，检查是否有取消请求
-			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
+			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg, x.Config.Mode); err != nil {
 				break
 			} else if x.Config.Mode == MergeValues {
 				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
@@ -217,7 +219,7 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
 			// 执行并，检查是否有取消请求
-			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
+			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg, x.Config.Mode); err != nil {
 				break
 			} else if x.Config.Mode == MergeValues {
 				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
@@ -230,7 +232,7 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
 			// 执行并，检查是否有取消请求
-			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
+			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg, x.Config.Mode); err != nil {
 				break
 			} else if x.Config.Mode == MergeValues {
 				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
@@ -250,7 +252,7 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
 			}
 			// 执行并，检查是否有取消请求
-			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg); err != nil {
+			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg, x.Config.Mode); err != nil {
 				break
 			} else if x.Config.Mode == MergeValues {
 				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
@@ -266,7 +268,7 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
-		if x.Config.Mode == DoNotProcess {
+		if x.Config.Mode == DoNotProcess || x.Config.Mode == AsyncProcess {
 			//不修改in data
 			msg.Data = inData
 		} else if x.Config.Mode == MergeValues {
@@ -281,7 +283,11 @@ func (x *ForNode) Destroy() {
 }
 
 // executeItem processes each item during iteration.
-func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleContext, fromMsg types.RuleMsg) (types.RuleMsg, []string, error) {
+func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleContext, fromMsg types.RuleMsg, mode int) (types.RuleMsg, []string, error) {
+	if mode == AsyncProcess {
+		//异步
+		return fromMsg, nil, x.asyncExecuteItem(ctxWithCancel, ctx, fromMsg)
+	}
 	var wg sync.WaitGroup
 	wg.Add(1)
 	var returnErr error
@@ -330,6 +336,17 @@ func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleConte
 	} else {
 		return lastMsg, msgData, ctxWithCancel.Err()
 	}
+}
+
+// 异步执行每一项
+func (x *ForNode) asyncExecuteItem(ctxWithCancel context.Context, ctx types.RuleContext, fromMsg types.RuleMsg) error {
+	fromMsg = fromMsg.Copy()
+	if x.ruleNodeId.Type == types.CHAIN {
+		ctx.TellFlow(ctx.GetContext(), x.ruleNodeId.Id, fromMsg, nil, nil)
+	} else {
+		ctx.TellNode(ctx.GetContext(), x.ruleNodeId.Id, fromMsg, false, nil, nil)
+	}
+	return ctxWithCancel.Err()
 }
 
 // formDoVar forms the Do variable from the configuration.
