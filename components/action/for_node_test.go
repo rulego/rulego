@@ -151,6 +151,12 @@ func TestForNode(t *testing.T) {
 			"mode":  ReplaceValues,
 		}, Registry)
 
+		node12, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"range": "",
+			"do":    "node1",
+			"mode":  AsyncProcess,
+		}, Registry)
+
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
 
@@ -293,6 +299,23 @@ func TestForNode(t *testing.T) {
 				},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, "2", msg.Data)
+				},
+			},
+			{
+				Node: node12,
+				MsgList: []test.Msg{
+					{
+						MetaData: types.BuildMetadata(map[string]string{
+							"mode":      "3",
+							"rangeType": "rangeObject",
+						}),
+						MsgType:    "ACTIVITY_EVENT1",
+						Data:       "{\"humidity\":90,\"temperature\":41,\"items\":" + "[" + data1 + "," + data2 + "]" + "}",
+						AfterSleep: time.Millisecond * 20,
+					},
+				},
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":"+"["+data1+","+data2+"]"+"}", msg.Data)
 				},
 			},
 		}
