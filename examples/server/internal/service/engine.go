@@ -15,6 +15,7 @@ import (
 	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/utils/maps"
 	"log"
 	"os"
 	"path"
@@ -232,6 +233,7 @@ func (s *RuleEngineService) SaveBaseInfo(chainId string, baseInfo types.RuleChai
 			def.RuleChain.Name = baseInfo.Name
 			def.RuleChain.Root = baseInfo.Root
 			def.RuleChain.DebugMode = baseInfo.DebugMode
+			_ = maps.Map2Struct(baseInfo.Configuration, &def.RuleChain.Configuration)
 			//填充更新时间
 			s.fillAdditionalInfo(def)
 		} else {
