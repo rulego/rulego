@@ -274,6 +274,13 @@ func (ws *Websocket) Start() error {
 	if ws.OnEvent != nil {
 		ws.OnEvent(endpoint.EventInitServer, ws.Rest.Server)
 	}
+	if ws.Rest.Config.AllowCors || ws.Config.AllowCors {
+		ws.Upgrader = websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true // 允许所有跨域请求
+			},
+		}
+	}
 	if ws.Rest.Started() {
 		return nil
 	}
