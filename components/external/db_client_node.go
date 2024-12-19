@@ -105,34 +105,30 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 		if x.Config.Sql == "" {
 			return errors.New("sql can not empty")
 		}
-		words := strings.Fields(x.Config.Sql)
-		// opType = SELECT\UPDATE\INSERT\DELETE
-		x.opType = strings.ToUpper(words[0])
-		//检查操作类型是否支持
-		switch x.opType {
-		case SELECT, UPDATE, INSERT, DELETE:
-			// do nothing
-		default:
-			return fmt.Errorf("unsupported sql statement: %s", x.Config.Sql)
-		}
-
-		//检查是参数否有变量
-		for _, item := range x.Config.Params {
-			temp, err := el.NewTemplate(item)
-			if err != nil {
-				return err
-			}
-			x.paramsTemplate = append(x.paramsTemplate, temp)
-			if !temp.IsNotVar() {
-				x.paramsHasVar = true
-			}
-		}
-
 		//检查是否需要转换成$1风格占位符
 		x.Config.Sql = str.ConvertDollarPlaceholder(x.Config.Sql, x.Config.DriverName)
 		if str.CheckHasVar(x.Config.Sql) {
 			x.sqlHasVar = true
 		}
+		if !x.sqlHasVar {
+			x.opType = x.getOpType(x.Config.Sql)
+			if err = x.checkOpType(x.opType, x.Config.Sql); err != nil {
+				return err
+			}
+		}
+		//检查是参数否有变量
+		for _, item := range x.Config.Params {
+
+			if temp, err := el.NewTemplate(item); err != nil {
+				return err
+			} else {
+				x.paramsTemplate = append(x.paramsTemplate, temp)
+				if !temp.IsNotVar() {
+					x.paramsHasVar = true
+				}
+			}
+		}
+
 	}
 	//初始化客户端
 	return x.SharedNode.Init(ruleConfig, x.Type(), x.Config.Dsn, true, func() (*sql.DB, error) {
@@ -154,8 +150,16 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if x.sqlHasVar {
 		//转换sql变量
 		sqlStr = str.ExecuteTemplate(x.Config.Sql, evn)
+		sqlStr = str.ConvertDollarPlaceholder(sqlStr, x.Config.DriverName)
 	}
-
+	opType := x.opType
+	if opType == "" {
+		opType = x.getOpType(sqlStr)
+		if err := x.checkOpType(opType, sqlStr); err != nil {
+			ctx.TellFailure(msg, err)
+			return
+		}
+	}
 	var params []interface{}
 	//转换参数变量
 	for _, item := range x.paramsTemplate {
@@ -171,7 +175,7 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.TellFailure(msg, err)
 		return
 	}
-	switch x.opType {
+	switch opType {
 	case SELECT:
 		data, err = x.query(client, sqlStr, params, x.Config.GetOne)
 	case UPDATE:
@@ -187,7 +191,7 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
-		switch x.opType {
+		switch opType {
 		case SELECT:
 			msg.Data = str.ToString(data)
 		case UPDATE, DELETE:
@@ -337,5 +341,23 @@ func (x *DbClientNode) initClient() (*sql.DB, error) {
 		}
 		err = x.client.Ping()
 		return x.client, err
+	}
+}
+
+func (x *DbClientNode) getOpType(sql string) string {
+	if sql == "" {
+		return ""
+	}
+	words := strings.Fields(sql)
+	return strings.ToUpper(words[0])
+}
+
+func (x *DbClientNode) checkOpType(opType string, sql string) error {
+	//检查操作类型是否支持
+	switch opType {
+	case SELECT, UPDATE, INSERT, DELETE:
+		return nil
+	default:
+		return fmt.Errorf("unsupported sql statement: %s", sql)
 	}
 }
