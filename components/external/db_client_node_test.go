@@ -93,6 +93,13 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 		"driverName": driverName,
 		"dsn":        dsn,
 	}, Registry)
+	node5_2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "${metadata.sql}",
+		"params":     []interface{}{"${metadata.id}"},
+		"getOne":     true,
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
 	node6, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "delete from users",
 		"params":     nil,
@@ -105,6 +112,7 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 	metaData.PutValue("id", "1")
 	metaData.PutValue("name", "test01")
 	metaData.PutValue("age", "18")
+	metaData.PutValue("sql", "select * from users where id = ?")
 
 	updateMetaData := types.BuildMetadata(make(map[string]string))
 	updateMetaData.PutValue("id", "1")
@@ -213,6 +221,23 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 			},
 		},
 		{
+			Node:    node5_2,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				if err != nil {
+					if _, ok := err.(*net.OpError); ok {
+						// skip test
+					} else {
+						t.Fatal("bad", err.Error())
+					}
+				} else {
+					var u = testUser{}
+					_ = json.Unmarshal([]byte(msg.Data), &u)
+					assert.Equal(t, "test01", u.Name)
+				}
+			},
+		},
+		{
 			Node:    node6,
 			MsgList: msgList,
 			Callback: func(msg types.RuleMsg, relationType string, err error) {
@@ -230,6 +255,7 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 	}
 	for _, item := range nodeList {
 		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
+		time.Sleep(time.Millisecond * 20)
 	}
 	time.Sleep(time.Millisecond * 200)
 }
