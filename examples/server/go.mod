@@ -1,6 +1,6 @@
 module examples/server
 
-go 1.22
+go 1.22.0
 
 require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
@@ -10,6 +10,7 @@ require (
 	github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203
 	github.com/rulego/rulego-components-ci v0.23.1-0.20240911044948-1ce8aea8c504
 	github.com/rulego/rulego-components-etl v0.0.0-20241211023604-7edb89a02438
+	github.com/rulego/rulego-components-iot v0.0.0-20241224090639-1f08d4405ecc
 	gopkg.in/ini.v1 v1.67.0
 )
 
@@ -60,6 +61,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/google/uuid v1.4.0 // indirect
+	github.com/gopcua/opcua v0.6.1 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
@@ -110,7 +112,7 @@ require (
 	github.com/siddontang/go v0.0.0-20180604090527-bdc77568d726 // indirect
 	github.com/siddontang/go-log v0.0.0-20180807004314-8d05993dda07 // indirect
 	github.com/skeema/knownhosts v1.2.1 // indirect
-	github.com/stretchr/testify v1.9.0 // indirect
+	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
