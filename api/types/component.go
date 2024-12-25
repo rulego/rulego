@@ -86,6 +86,8 @@ type ComponentForm struct {
 	//过滤器节点类型默认是：True/False/Failure；其他节点类型默认是Success/Failure
 	//如果是空，表示用户可以自定义连接关系
 	RelationTypes *[]string `json:"relationTypes"`
+	//是否禁用，如果禁用在editor不显示
+	Disabled bool `json:"disabled"`
 }
 
 // ComponentFormField 组件配置字段
@@ -101,9 +103,20 @@ type ComponentFormField struct {
 	//Desc 字段说明，通过tag:desc获取
 	Desc string `json:"desc"`
 	//Validate 校验规则，通过tag:validate获取
+	//Deprecated: 使用 Rules 代替
 	Validate string `json:"validate"`
+	//Rules 前端界面校验规则
+	// 示例: [
+	// {required: true, message: '该字段是必须的'},
+	// ]
+	Rules []map[string]interface{} `json:"rules"`
 	//Fields 嵌套字段
 	Fields ComponentFormFieldList `json:"fields"`
+	//表单组件配置
+	//示例:{
+	//	"type": "codeEditor",
+	//}
+	Component map[string]interface{} `json:"component"`
 }
 
 // SafeComponentSlice 安全的组件列表切片
