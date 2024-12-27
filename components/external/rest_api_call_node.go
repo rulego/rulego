@@ -123,7 +123,7 @@ func (x *RestApiCallNode) New() types.Node {
 	config := RestApiCallNodeConfiguration{
 		RequestMethod:            "POST",
 		MaxParallelRequestsCount: 200,
-		ReadTimeoutMs:            0,
+		ReadTimeoutMs:            2000,
 		Headers:                  headers,
 	}
 	return &RestApiCallNode{Config: config}
