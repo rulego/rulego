@@ -682,11 +682,11 @@ func TestExecuteNode(t *testing.T) {
 	config := NewConfig()
 	var err error
 	chainId := "executeNode_rule01"
-	b := loadFile("./chain_call_rest_api.json")
+	b := loadFile("./test_group_filter_node.json")
 	ruleEngine, err := New(chainId, b, WithConfig(config))
 
 	chainId2 := "executeNode_rule02"
-	chainJson2 := strings.Replace(string(b), "test_group_filter_node", chainId2, -1)
+	chainJson2 := strings.Replace(string(b), chainId, chainId2, -1)
 	_, err = New(chainId2, []byte(chainJson2), WithConfig(config))
 
 	assert.Nil(t, err)
@@ -736,7 +736,7 @@ func TestExecuteNode(t *testing.T) {
 		}, nil)
 
 		ctx.TellChainNode(context.Background(), chainId2, "s2", msg, true, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-			assert.Equal(t, types.Success, relationType)
+			assert.Equal(t, types.True, relationType)
 			wg.Done()
 		}, nil)
 		//ctx.TellChainNode(context.Background(), chainId2, "s2", msg, false, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
