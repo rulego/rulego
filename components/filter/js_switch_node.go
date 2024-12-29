@@ -98,7 +98,7 @@ func (x *JsSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 	}
 
-	out, err := x.jsEngine.Execute(ctx.GetContext(), "Switch", data, msg.Metadata.Values(), msg.Type)
+	out, err := x.jsEngine.Execute(ctx, "Switch", data, msg.Metadata.Values(), msg.Type)
 
 	if err != nil {
 		ctx.TellFailure(msg, err)

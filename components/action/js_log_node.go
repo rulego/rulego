@@ -102,7 +102,7 @@ func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			data = dataMap
 		}
 	}
-	out, err := x.jsEngine.Execute(ctx.GetContext(), "ToString", data, msg.Metadata.Values(), msg.Type)
+	out, err := x.jsEngine.Execute(ctx, "ToString", data, msg.Metadata.Values(), msg.Type)
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {

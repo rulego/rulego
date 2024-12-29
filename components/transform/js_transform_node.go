@@ -103,7 +103,7 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			data = dataMap
 		}
 	}
-	out, err := x.jsEngine.Execute(ctx.GetContext(), "Transform", data, msg.Metadata.Values(), msg.Type)
+	out, err := x.jsEngine.Execute(ctx, "Transform", data, msg.Metadata.Values(), msg.Type)
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {

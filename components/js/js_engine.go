@@ -38,7 +38,6 @@
 package js
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -175,7 +174,7 @@ func (g *GojaJsEngine) NewVm(config types.Config, fromVars map[string]interface{
 }
 
 // Execute Execute JavaScript script
-func (g *GojaJsEngine) Execute(ctx context.Context, functionName string, argumentList ...interface{}) (out interface{}, err error) {
+func (g *GojaJsEngine) Execute(ctx types.RuleContext, functionName string, argumentList ...interface{}) (out interface{}, err error) {
 	defer func() {
 		if caught := recover(); caught != nil {
 			err = fmt.Errorf("%s", caught)
