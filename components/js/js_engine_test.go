@@ -17,13 +17,15 @@
 package js
 
 import (
-	"github.com/dop251/goja"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/test/assert"
+	"context"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/dop251/goja"
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/test/assert"
 )
 
 func TestJsEngine(t *testing.T) {
@@ -170,10 +172,10 @@ func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.
 	var response interface{}
 	var err error
 	if index == 3 || index == 5 {
-		response, err = jsEngine.Execute("Filter", "bb", metadata, "aa")
+		response, err = jsEngine.Execute(context.Background(), "Filter", "bb", metadata, "aa")
 		assert.Nil(t, err)
 		assert.Equal(t, false, response.(bool))
-		response, err = jsEngine.Execute("Transform", "bb", metadata, "aa")
+		response, err = jsEngine.Execute(context.Background(), "Transform", "bb", metadata, "aa")
 		r, ok := response.(map[string]interface{})
 		assert.True(t, ok)
 		assert.Equal(t, int64(8), r["add"])
@@ -181,33 +183,33 @@ func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.
 		assert.Equal(t, true, r["isNumber"])
 		assert.Equal(t, time.Now().Format("20060102"), r["today"])
 
-		response, err = jsEngine.Execute("add3", "bb", metadata, "aa")
+		response, err = jsEngine.Execute(context.Background(), "add3", "bb", metadata, "aa")
 		assert.Equal(t, int64(9), response)
 	} else if index == 6 {
-		response, err = jsEngine.Execute("GetValue", "bb", metadata, "aa")
+		response, err = jsEngine.Execute(context.Background(), "GetValue", "bb", metadata, "aa")
 		assert.Nil(t, err)
 		assert.Equal(t, "lala", response.(string))
 	} else if index == 7 {
-		response, err = jsEngine.Execute("CallGolangFunc1", "bb", metadata, "aa")
+		response, err = jsEngine.Execute(context.Background(), "CallGolangFunc1", "bb", metadata, "aa")
 		assert.Nil(t, err)
 		assert.Equal(t, int64(6), response.(int64))
 	} else if index == 8 {
-		response, err = jsEngine.Execute("CallGolangFunc2", metadata, metadata, "testMsgType")
+		response, err = jsEngine.Execute(context.Background(), "CallGolangFunc2", metadata, metadata, "testMsgType")
 		assert.Nil(t, err)
 		assert.Equal(t, "returnFromGo", response.(map[string]string)["returnFromGo"])
 
-		response, err = jsEngine.Execute("timeoutFunc", metadata, metadata, "testMsgType")
+		response, err = jsEngine.Execute(context.Background(), "timeoutFunc", metadata, metadata, "testMsgType")
 		assert.Equal(t, true, strings.HasPrefix(err.Error(), "execution timeout"))
 
-		response, err = jsEngine.Execute("aa", metadata, metadata, "testMsgType")
+		response, err = jsEngine.Execute(context.Background(), "aa", metadata, metadata, "testMsgType")
 		assert.NotNil(t, err)
 
 	} else {
-		response, err = jsEngine.Execute("Filter", "aa", metadata, "aa")
+		response, err = jsEngine.Execute(context.Background(), "Filter", "aa", metadata, "aa")
 		assert.Nil(t, err)
 		assert.Equal(t, true, response.(bool))
 	}
-	response, err = jsEngine.Execute("add2", 5, 4)
+	response, err = jsEngine.Execute(context.Background(), "add2", 5, 4)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(9), response.(int64))
 
