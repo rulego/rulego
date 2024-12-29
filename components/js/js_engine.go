@@ -51,6 +51,7 @@ import (
 const (
 	//GlobalKey  global properties key,call them through the global.xx method
 	GlobalKey = "global"
+	CtxKey    = "$ctx"
 )
 
 // GojaJsEngine goja js engine
@@ -183,7 +184,7 @@ func (g *GojaJsEngine) Execute(ctx types.RuleContext, functionName string, argum
 
 	vm := g.vmPool.Get().(*goja.Runtime)
 
-	vm.Set("$ctx", ctx)
+	vm.Set(CtxKey, ctx)
 
 	state := g.setTimeout(vm)
 
