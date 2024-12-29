@@ -131,7 +131,7 @@ func TestNew(t *testing.T) {
 	ep, ok := Get("e_http")
 	assert.True(t, ok)
 	_ = ep.Reload([]byte(newDsl))
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Millisecond * 500)
 
 	sendMsg(t, "http://127.0.0.1:9090/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Failure)
