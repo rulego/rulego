@@ -315,7 +315,7 @@ type JsEngine interface {
 	// ctx is the message chain context.
 	// functionName is the name of the function to execute.
 	// argumentList is the list of arguments for the function.
-	Execute(ctx context.Context, functionName string, argumentList ...interface{}) (interface{}, error)
+	Execute(ctx RuleContext, functionName string, argumentList ...interface{}) (interface{}, error)
 	// Stop releases the resources of the JS engine.
 	Stop()
 }

@@ -93,7 +93,7 @@ func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 	}
 
-	out, err := x.jsEngine.Execute(ctx.GetContext(), "Filter", data, msg.Metadata.Values(), msg.Type)
+	out, err := x.jsEngine.Execute(ctx, "Filter", data, msg.Metadata.Values(), msg.Type)
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
