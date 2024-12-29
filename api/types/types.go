@@ -312,9 +312,10 @@ func WithTellNext(fromNodeId string, relationTypes ...string) RuleContextOption 
 // JsEngine is a JavaScript script engine interface.
 type JsEngine interface {
 	// Execute runs a specified function in the JS script, which is initialized when the JsEngine instance is created.
+	// ctx is the message chain context.
 	// functionName is the name of the function to execute.
 	// argumentList is the list of arguments for the function.
-	Execute(functionName string, argumentList ...interface{}) (interface{}, error)
+	Execute(ctx RuleContext, functionName string, argumentList ...interface{}) (interface{}, error)
 	// Stop releases the resources of the JS engine.
 	Stop()
 }

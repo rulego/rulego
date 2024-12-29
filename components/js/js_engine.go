@@ -51,6 +51,7 @@ import (
 const (
 	//GlobalKey  global properties key,call them through the global.xx method
 	GlobalKey = "global"
+	CtxKey    = "$ctx"
 )
 
 // GojaJsEngine goja js engine
@@ -174,7 +175,7 @@ func (g *GojaJsEngine) NewVm(config types.Config, fromVars map[string]interface{
 }
 
 // Execute Execute JavaScript script
-func (g *GojaJsEngine) Execute(functionName string, argumentList ...interface{}) (out interface{}, err error) {
+func (g *GojaJsEngine) Execute(ctx types.RuleContext, functionName string, argumentList ...interface{}) (out interface{}, err error) {
 	defer func() {
 		if caught := recover(); caught != nil {
 			err = fmt.Errorf("%s", caught)
@@ -182,6 +183,8 @@ func (g *GojaJsEngine) Execute(functionName string, argumentList ...interface{})
 	}()
 
 	vm := g.vmPool.Get().(*goja.Runtime)
+
+	vm.Set(CtxKey, ctx)
 
 	state := g.setTimeout(vm)
 

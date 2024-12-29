@@ -28,6 +28,7 @@ package filter
 //      }
 import (
 	"fmt"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/js"
@@ -92,7 +93,7 @@ func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 	}
 
-	out, err := x.jsEngine.Execute("Filter", data, msg.Metadata.Values(), msg.Type)
+	out, err := x.jsEngine.Execute(ctx, "Filter", data, msg.Metadata.Values(), msg.Type)
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
