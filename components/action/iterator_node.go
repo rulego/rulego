@@ -19,13 +19,14 @@ package action
 import (
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/js"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"strings"
 )
 
 func init() {
@@ -122,7 +123,7 @@ func (x *IteratorNode) Destroy() {
 // 处理每条item
 func (x *IteratorNode) executeItem(ctx types.RuleContext, msg types.RuleMsg, item interface{}, index interface{}) error {
 	if x.jsEngine != nil {
-		if out, err := x.jsEngine.Execute("ItemFilter", item, index, msg.Metadata.Values()); err != nil {
+		if out, err := x.jsEngine.Execute(ctx.GetContext(), "ItemFilter", item, index, msg.Metadata.Values()); err != nil {
 			ctx.TellFailure(msg, err)
 			//出现错误中断遍历
 			return err
