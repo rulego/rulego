@@ -69,7 +69,7 @@ func TestRestApiCallNode(t *testing.T) {
 
 	t.Run("OnMsg", func(t *testing.T) {
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"restEndpointUrlPattern": "https://gitee.com",
+			"restEndpointUrlPattern": "https://rulego.cc/notfound",
 			"requestMethod":          "POST",
 		}, Registry)
 		assert.Nil(t, err)
@@ -112,7 +112,7 @@ func TestRestApiCallNode(t *testing.T) {
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					code := msg.Metadata.GetValue(statusCodeMetadataKey)
-					assert.Equal(t, "404", code)
+					assert.Equal(t, "405", code)
 				},
 			},
 			{
