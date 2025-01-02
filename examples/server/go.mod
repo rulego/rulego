@@ -6,7 +6,7 @@ require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/gorilla/websocket v1.5.0
 	github.com/rulego/rulego v0.27.0
-	github.com/rulego/rulego-components v0.27.1-0.20241227055603-e5c4e483d08e
+	github.com/rulego/rulego-components v0.27.1-0.20250102094357-1af3cc1179b9
 	github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203
 	github.com/rulego/rulego-components-ci v0.25.1-0.20241227153052-f237d9f02a0a
 	github.com/rulego/rulego-components-etl v0.0.0-20241227154425-bfc06d2ce873
