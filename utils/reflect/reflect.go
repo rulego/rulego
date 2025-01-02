@@ -34,6 +34,7 @@
 package reflect
 
 import (
+	"github.com/rulego/rulego/api/types/endpoint"
 	"reflect"
 	"strings"
 
@@ -58,6 +59,8 @@ func GetComponentForm(component types.Node) types.ComponentForm {
 	} else if strings.Contains(strings.ToLower(componentForm.Label), "filter") {
 		relationTypes = []string{types.True, types.False, types.Failure}
 	} else if strings.Contains(strings.ToLower(componentForm.Label), "switch") {
+		relationTypes = []string{}
+	} else if _, ok := component.(endpoint.Endpoint); ok {
 		relationTypes = []string{}
 	}
 	componentForm.RelationTypes = &relationTypes
