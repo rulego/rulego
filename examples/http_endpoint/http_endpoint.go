@@ -26,6 +26,8 @@ import (
 	"github.com/rulego/rulego/endpoint/rest"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 // 处理http路由
@@ -215,6 +217,17 @@ func main() {
 
 	//并启动服务
 	_ = restEndpoint.Start()
+	sigs := make(chan os.Signal, 1)
+	// 监听系统信号，包括中断信号和终止信号
+	signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case <-sigs:
+		if restEndpoint != nil {
+			restEndpoint.Destroy()
+		}
+		os.Exit(0)
+	}
 }
 
 var defaultChain1 = `
@@ -231,7 +244,7 @@ var defaultChain1 = `
         "name": "转换",
         "debugMode": true,
         "configuration": {
-          "jsScript": "metadata['name']='defaultTest02';\n metadata['index']=11;\n msg['addField']='defaultAddValue2'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+          "jsScript": "msg=msg||{};metadata['name']='defaultTest02';\n metadata['index']=11;\n msg['addField']='defaultAddValue2'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
         }
       },
       {
