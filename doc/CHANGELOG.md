@@ -1,4 +1,22 @@
 # CHANGELOG
+## [v0.28.0] 2025/01/09
+- feat(components):增加opcua endpoint组件 @dimon
+- feat(components):增加opcua读节点组件 @dimon
+- feat(components):增加opcua写节点组件 @dimon
+- feat(components):增加gRPC 流endpoint组件 @付晨阳
+- feat(components):增加Mysql CDC endpoint组件
+- feat(components):增加OpenTelemetry组件
+- feat(components):endpoint/ws 支持配置跨域
+- feat:for节点增加异步模式
+- feat:js引擎注入RuleContext @Husky
+- fix:解决规则链有多个结束点，会导出endpoint异常
+- fix:str.ExecuteTemplate 空参数问题
+- fix(server):save api无法保存vars
+- opt(components):优化 dbClient组件获取参数
+- opt:优化节点表单定义
+- opt:restApiCall节点读超时默认值改成2000ms
+- opt(components):redis endpoint组件接收数据后XDel @Brian B. Williams
+
 ## [v0.27.0] 2024/12/08
 
 - feat:允许获得endpoint router错误
