@@ -9,6 +9,14 @@ Visual Editor:[RuleGo-Editor](https://editor.rulego.cc/), configure the HTTP API
 - Experience Address 1: [http://8.134.32.225:9090/editor/](http://8.134.32.225:9090/editor/)
 - Experience Address 2: [http://8.134.32.225:9090/ui/](http://8.134.32.225:9090/ui/)
 
+## Features
+- A ready-to-use rule engine service that runs independently based on RuleGo
+- For edge computing, IoT, large model orchestration, application orchestration, data processing gateways, automation, and other application scenarios
+- Automatically scans components and component forms for use by the editor
+- Supports visual management, debugging, deployment, and providing APIs for executing rule chains
+- Supports RuleGo-Editor for visual front-end
+- Simple deployment, ready to use, no database required
+- Lightweight, low memory usage, high performance
 
 ## HTTP API
 
