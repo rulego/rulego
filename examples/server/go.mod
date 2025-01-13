@@ -8,7 +8,7 @@ require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/gorilla/websocket v1.5.0
 	github.com/rulego/rulego v0.27.1-0.20250104080653-1dec14655d35
-	github.com/rulego/rulego-components v0.27.1-0.20250107050008-ec64df18cca3
+	github.com/rulego/rulego-components v0.28.1-0.20250113112119-13c49228e14c
 	github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203
 	github.com/rulego/rulego-components-ci v0.25.1-0.20241227153052-f237d9f02a0a
 	github.com/rulego/rulego-components-etl v0.0.0-20241227154425-bfc06d2ce873
@@ -25,6 +25,8 @@ require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230828082145-3c4c8a2d2371 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
+	github.com/WuKongIM/WuKongIMGoProto v1.0.21 // indirect
+	github.com/WuKongIM/WuKongIMGoSDK v1.0.0 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/aws/aws-sdk-go v1.34.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -100,6 +102,7 @@ require (
 	github.com/pingcap/log v1.1.1-0.20230317032135-a0d097d16e22 // indirect
 	github.com/pingcap/tidb/pkg/parser v0.0.0-20241118164214-4f047be191be // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
@@ -124,6 +127,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/vadv/gopher-lua-libs v0.5.0 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
