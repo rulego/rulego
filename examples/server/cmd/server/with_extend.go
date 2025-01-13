@@ -11,6 +11,7 @@ import (
 	_ "github.com/rulego/rulego-components/endpoint/rabbitmq"
 	_ "github.com/rulego/rulego-components/endpoint/redis"
 	_ "github.com/rulego/rulego-components/endpoint/redis_stream"
+	_ "github.com/rulego/rulego-components/endpoint/wukongim"
 	_ "github.com/rulego/rulego-components/external/grpc" //编译后文件大约增加7M
 	_ "github.com/rulego/rulego-components/external/kafka"
 	_ "github.com/rulego/rulego-components/external/mongodb"
@@ -19,6 +20,7 @@ import (
 	_ "github.com/rulego/rulego-components/external/otel"
 	_ "github.com/rulego/rulego-components/external/rabbitmq"
 	_ "github.com/rulego/rulego-components/external/redis"
+	_ "github.com/rulego/rulego-components/external/wukongim"
 	_ "github.com/rulego/rulego-components/filter"
 	_ "github.com/rulego/rulego-components/transform"
 )
