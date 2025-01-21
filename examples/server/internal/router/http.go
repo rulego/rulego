@@ -4,13 +4,14 @@ import (
 	"examples/server/config"
 	"examples/server/config/logger"
 	"examples/server/internal/controller"
+	"net/http"
+	"strings"
+
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
-	"net/http"
-	"strings"
 )
 
 const (
@@ -91,6 +92,8 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 
 	restEndpoint.GET(controller.Locale.Locales(apiBasePath + "/" + moduleLocales))
 	restEndpoint.POST(controller.Locale.Save(apiBasePath + "/" + moduleLocales))
+	//创建用户登录路由
+	restEndpoint.POST(controller.Base.Login(apiBasePath + "/login"))
 
 	//静态文件映射
 	loadServeFiles(config, restEndpoint)

@@ -23,15 +23,16 @@ import (
 	"examples/server/internal/service"
 	"flag"
 	"fmt"
-	endpointApi "github.com/rulego/rulego/api/types/endpoint"
-	"github.com/rulego/rulego/endpoint/rest"
-	"github.com/rulego/rulego/node_pool"
-	"gopkg.in/ini.v1"
 	"log"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
+
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/endpoint/rest"
+	"github.com/rulego/rulego/node_pool"
+	"gopkg.in/ini.v1"
 )
 
 const (
@@ -70,6 +71,9 @@ func main() {
 		}
 		if section, err := cfg.GetSection("global"); err == nil {
 			c.Global = section.KeysHash()
+		}
+		if section, err := cfg.GetSection("users"); err == nil {
+			c.Users = section.KeysHash()
 		}
 	}
 	config.Set(c)

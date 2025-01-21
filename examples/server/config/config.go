@@ -2,6 +2,7 @@ package config
 
 import (
 	"examples/server/internal/constants"
+
 	"github.com/rulego/rulego/api/types"
 )
 
@@ -51,6 +52,12 @@ type Config struct {
 	SecretKey *string `ini:"secret_key"`
 	// EventBusChainId 核心规则链Id
 	EventBusChainId string `ini:"event_bus_chain_id"`
+	// JwtSecretKey jwt密钥
+	JwtSecretKey string `ini:"jwt_secret_key"`
+	// 用户列表
+	Users types.Metadata `ini:"users"`
+	// 角色列表
+	Roles []string `ini:"roles"`
 }
 
 // DefaultConfig 默认配置
@@ -63,4 +70,9 @@ var DefaultConfig = Config{
 	DefaultUsername: "admin",
 	MaxNodeLogSize:  40,
 	ResourceMapping: "/editor/*filepath=./editor,/images/*filepath=./editor/images",
+	JwtSecretKey:    "fieldshaveeyesandwoodshaveearssraeevahsdoowdnaseyeevahsdleif",
+	Users: map[string]string{
+		"admin": "admin",
+		"foo":   "bar",
+	},
 }
