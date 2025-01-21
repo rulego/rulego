@@ -35,6 +35,12 @@ func userNotFound(username string, exchange *endpointApi.Exchange) bool {
 	return false
 }
 
+func unauthorized(username string, exchange *endpointApi.Exchange) bool {
+	exchange.Out.SetStatusCode(http.StatusUnauthorized)
+	exchange.Out.SetBody([]byte("unauthorized for:" + username))
+	return false
+}
+
 // GetRuleGoFunc 动态获取指定用户规则链池
 func GetRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEnginePool {
 	msg := exchange.In.GetMsg()
@@ -91,7 +97,7 @@ func (c *base) Login(url string) endpointApi.Router {
 				return true
 
 			} else {
-				return userNotFound(user.Username, exchange)
+				return unauthorized(user.Username, exchange)
 			}
 		}
 		return true
