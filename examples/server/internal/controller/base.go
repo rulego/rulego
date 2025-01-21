@@ -35,6 +35,7 @@ func userNotFound(username string, exchange *endpointApi.Exchange) bool {
 	return false
 }
 
+// unauthorized 用户未授权
 func unauthorized(username string, exchange *endpointApi.Exchange) bool {
 	exchange.Out.SetStatusCode(http.StatusUnauthorized)
 	exchange.Out.SetBody([]byte("unauthorized for:" + username))
@@ -54,14 +55,35 @@ func GetRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEnginePool {
 }
 
 var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-	msg := exchange.In.GetMsg()
-	username := exchange.In.Headers().Get(constants.KeyUsername)
-	if username == "" {
-		username = config.C.DefaultUsername
+	claim, err := parseToken(exchange.In.Headers().Get("Authorization"))
+	if err != nil {
+		exchange.Out.SetStatusCode(http.StatusInternalServerError)
+		exchange.Out.SetBody([]byte("parse token error:" + err.Error()))
+		return false
 	}
-	msg.Metadata.PutValue(constants.KeyUsername, username)
+	msg := exchange.In.GetMsg()
+	msg.Metadata.PutValue(constants.KeyUsername, claim.Username)
 	//TODO JWT 权限校验
 	return true
+}
+
+func parseToken(token string) (*RuleGoClaim, error) {
+	if len(token) == 0 {
+		return nil, fmt.Errorf("token is empty")
+	}
+	token = token[len("Bearer "):]
+	claims := &RuleGoClaim{}
+	tk, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(config.Get().JwtSecretKey), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if claims, ok := tk.Claims.(*RuleGoClaim); ok && tk.Valid {
+		return claims, nil
+	} else {
+		return nil, fmt.Errorf("token is invalid")
+	}
 }
 
 func (c *base) Login(url string) endpointApi.Router {
