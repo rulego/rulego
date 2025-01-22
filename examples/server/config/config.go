@@ -56,8 +56,6 @@ type Config struct {
 	JwtSecretKey string `ini:"jwt_secret_key"`
 	// 用户列表
 	Users types.Metadata `ini:"users"`
-	// 角色列表
-	Roles []string `ini:"roles"`
 }
 
 // DefaultConfig 默认配置
@@ -70,9 +68,4 @@ var DefaultConfig = Config{
 	DefaultUsername: "admin",
 	MaxNodeLogSize:  40,
 	ResourceMapping: "/editor/*filepath=./editor,/images/*filepath=./editor/images",
-	JwtSecretKey:    "fieldshaveeyesandwoodshaveearssraeevahsdoowdnaseyeevahsdleif",
-	Users: map[string]string{
-		"admin": "admin",
-		"foo":   "bar",
-	},
 }
