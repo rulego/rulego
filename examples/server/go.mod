@@ -8,7 +8,7 @@ require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/gorilla/websocket v1.5.0
 	github.com/rulego/rulego v0.27.1-0.20250104080653-1dec14655d35
-	github.com/rulego/rulego-components v0.28.1-0.20250113112119-13c49228e14c
+	github.com/rulego/rulego-components v0.28.1-0.20250120074527-c033896fc82b
 	github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203
 	github.com/rulego/rulego-components-ci v0.25.1-0.20241227153052-f237d9f02a0a
 	github.com/rulego/rulego-components-etl v0.0.0-20241227154425-bfc06d2ce873
@@ -29,6 +29,7 @@ require (
 	github.com/WuKongIM/WuKongIMGoSDK v1.0.0 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/aws/aws-sdk-go v1.34.0 // indirect
+	github.com/beanstalkd/go-beanstalk v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bufbuild/protocompile v0.10.0 // indirect
 	github.com/cbroglie/mustache v1.0.1 // indirect
