@@ -34,6 +34,8 @@ github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPd
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/aws/aws-sdk-go v1.34.0 h1:brux2dRrlwCF5JhTL7MUT3WUwo9zfDHZZp3+g3Mvlmo=
 github.com/aws/aws-sdk-go v1.34.0/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
+github.com/beanstalkd/go-beanstalk v0.2.0 h1:6UOJugnu47uNB2jJO/lxyDgeD1Yds7owYi1USELqexA=
+github.com/beanstalkd/go-beanstalk v0.2.0/go.mod h1:/G8YTyChOtpOArwLTQPY1CHB+i212+av35bkPXXj56Y=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
@@ -326,8 +328,8 @@ github.com/robfig/cron/v3 v3.0.1/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzG
 github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTEfhy4qGm1nDQc=
 github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR38lUII=
 github.com/rogpeppe/go-internal v1.13.1/go.mod h1:uMEvuHeurkdAXX61udpOXGD/AzZDWNMNyH2VO9fmH0o=
-github.com/rulego/rulego-components v0.28.1-0.20250113112119-13c49228e14c h1:Wm0PIuUEd3RkdV+Zrnew4CEXTPpPegzLjfPhbCYn/mU=
-github.com/rulego/rulego-components v0.28.1-0.20250113112119-13c49228e14c/go.mod h1:X7mBYen0RSfdUS2V+V+318KeQMG0PPHM4tZUtcW3QWE=
+github.com/rulego/rulego-components v0.28.1-0.20250120074527-c033896fc82b h1:qjHq25x7URGiTddnn0r+7GHTuUZtdR/qe0Esln2IQVQ=
+github.com/rulego/rulego-components v0.28.1-0.20250120074527-c033896fc82b/go.mod h1:0lJameQ3Q1BVeaZY9f+jrsfTBp7f1PfyE0cxC9rzZa8=
 github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203 h1:x1p3pIdAOC/QaL+O8w76liBaTs1V6WlRfIG94T0zTHk=
 github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203/go.mod h1:oSerau1PdeGilh/FR7sKW0yAikXsWLn4Qh0qH9mBlsc=
 github.com/rulego/rulego-components-ci v0.25.1-0.20241227153052-f237d9f02a0a h1:YIrlXNWJQ3mBKj2tdrIj1+qCoXfue/7okYd0Pof5woc=
