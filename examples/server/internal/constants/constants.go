@@ -62,6 +62,10 @@ const (
 	// AddiKeyMessage 记录规则链加载错误，扩展字段错误信息Key
 	AddiKeyMessage = "message"
 )
+const (
+	KeyAuthorization = "Authorization"
+	KeyBearer        = "Bearer "
+)
 
 //const (
 //	DefaultPoolDef = `

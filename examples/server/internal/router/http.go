@@ -65,7 +65,7 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 
 	//获取所有规则链列表
 	restEndpoint.GET(controller.Rule.List(apiBasePath + "/" + moduleFlows))
-	//获取最新修改的规则链DSL 实际是：/api/v1/chains/get/latest
+	//获取最新修改的规则链DSL 实际是：/api/v1/rules/get/latest
 	restEndpoint.GET(controller.Rule.GetLatest(apiBasePath + "/" + moduleFlows + "/:id/latest"))
 	//获取规则链DSL
 	restEndpoint.GET(controller.Rule.Get(apiBasePath + "/" + moduleFlows + "/:id"))
