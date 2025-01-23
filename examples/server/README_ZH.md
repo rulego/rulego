@@ -123,6 +123,18 @@ max_node_log_size =40
 resource_mapping = /editor/*filepath=./editor,/images/*filepath=./editor/images
 # 节点池文件，规则链json格式，示例：./node_pool.json
 node_pool_file=./node_pool.json
+# save run log to file
+save_run_log = false
+# script max execution time
+script_max_execution_time = 5000
+# api是否开启jwt认证
+require_auth = false
+# jwt secret key
+jwt_secret_key = r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1
+# jwt expire time，单位毫秒
+jwt_expire_time = 43200000
+# jwt issuer
+jwt_issuer = rulego.cc
 
 # 全局自定义配置，组件可以通过${global.xxx}方式取值
 [global]
@@ -130,4 +142,8 @@ node_pool_file=./node_pool.json
 sqlDriver = mysql
 sqlDsn = root:root@tcp(127.0.0.1:3306)/test
 
+# users list 
+[users]
+admin = admin
+user01 = user01
 ```

@@ -55,15 +55,20 @@ func GetRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEnginePool {
 }
 
 var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-	claim, err := parseToken(exchange.In.Headers().Get("Authorization"))
+	if !config.Get().RequireAuth {
+		//允许匿名访问
+		msg := exchange.In.GetMsg()
+		msg.Metadata.PutValue(constants.KeyUsername, config.C.DefaultUsername)
+		return true
+	}
+	claim, err := parseToken(exchange.In.Headers().Get(constants.KeyAuthorization))
 	if err != nil {
-		exchange.Out.SetStatusCode(http.StatusInternalServerError)
-		exchange.Out.SetBody([]byte("parse token error:" + err.Error()))
+		exchange.Out.SetStatusCode(http.StatusUnauthorized)
+		exchange.Out.SetBody([]byte(err.Error()))
 		return false
 	}
 	msg := exchange.In.GetMsg()
 	msg.Metadata.PutValue(constants.KeyUsername, claim.Username)
-	//TODO JWT 权限校验
 	return true
 }
 
@@ -71,10 +76,10 @@ func parseToken(token string) (*RuleGoClaim, error) {
 	if len(token) == 0 {
 		return nil, fmt.Errorf("token is empty")
 	}
-	token = token[len("Bearer "):]
+	token = token[len(constants.KeyBearer):]
 	claims := &RuleGoClaim{}
 	tk, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(config.Get().JwtSecretKey), nil
+		return []byte(config.C.JwtSecretKey), nil
 	})
 	if err != nil {
 		return nil, err
@@ -98,8 +103,8 @@ func (c *base) Login(url string) endpointApi.Router {
 				claim := RuleGoClaim{
 					Username: user.Username,
 					StandardClaims: jwt.StandardClaims{
-						ExpiresAt: time.Now().Add(2 * time.Hour).Unix(), // 设置 Token 过期时间为 2 小时后
-						Issuer:    "rulego.cc",                          // 设置 Token 的签发者
+						ExpiresAt: time.Now().Add(time.Duration(config.C.JwtExpireTime) * time.Millisecond).Unix(), // 设置 Token 过期时间
+						Issuer:    config.C.JwtIssuer,                                                              // 设置 Token 的签发者
 					},
 				}
 				token, err := createToken(claim)
@@ -107,8 +112,9 @@ func (c *base) Login(url string) endpointApi.Router {
 					exchange.Out.SetStatusCode(http.StatusInternalServerError)
 					exchange.Out.SetBody([]byte(err.Error()))
 				}
-				result, err := json.Marshal(map[string]string{
-					"token": *token,
+				result, err := json.Marshal(map[string]interface{}{
+					"token":     *token,
+					"expiresAt": claim.ExpiresAt,
 				})
 				if err != nil {
 					exchange.Out.SetStatusCode(http.StatusInternalServerError)

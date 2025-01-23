@@ -52,8 +52,15 @@ type Config struct {
 	SecretKey *string `ini:"secret_key"`
 	// EventBusChainId 核心规则链Id
 	EventBusChainId string `ini:"event_bus_chain_id"`
+
+	//RequireAuth api访问是否需要验证，默认不需要
+	RequireAuth bool `ini:"require_auth"`
 	// JwtSecretKey jwt密钥
 	JwtSecretKey string `ini:"jwt_secret_key"`
+	// JwtExpireTime jwt过期时间，单位毫秒
+	JwtExpireTime int `ini:"jwt_expire_time"`
+	// JwtIssuer jwt签发者
+	JwtIssuer string `ini:"jwt_issuer"`
 	// 用户列表
 	Users types.Metadata `ini:"users"`
 }
@@ -68,4 +75,10 @@ var DefaultConfig = Config{
 	DefaultUsername: "admin",
 	MaxNodeLogSize:  40,
 	ResourceMapping: "/editor/*filepath=./editor,/images/*filepath=./editor/images",
+	JwtSecretKey:    "r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1",
+	JwtExpireTime:   43200000, //12小时
+	JwtIssuer:       "rulego.cc",
+	Users: types.Metadata{
+		"admin": "admin",
+	},
 }

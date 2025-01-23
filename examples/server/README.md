@@ -126,10 +126,27 @@ max_node_log_size =40
 resource_mapping = /editor/*filepath=./editor,/images/*filepath=./editor/images
 # Node pool file
 node_pool_file=./node_pool.json
+# save run log to file
+save_run_log = false
+# script max execution time
+script_max_execution_time = 5000
+# Is the API enabled with JWT authentication
+require_auth = false
+# jwt secret key
+jwt_secret_key = r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1
+# jwt expire time (ms)
+jwt_expire_time = 43200000
+# jwt issuer
+jwt_issuer = rulego.cc
 
 # Global custom configuration, components can take values through the ${global.xxx}
 [global]
 # example
 sqlDriver = mysql
 sqlDsn = root:root@tcp(127.0.0.1:3306)/test
+
+# users list 
+[users]
+admin = admin
+user01 = user01
 ```
