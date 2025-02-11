@@ -7,6 +7,7 @@ import (
 	"examples/server/internal/service"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -55,7 +56,8 @@ func GetRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEnginePool {
 }
 
 var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-	if !config.Get().RequireAuth {
+	authorization := exchange.In.Headers().Get(constants.KeyAuthorization)
+	if !config.Get().RequireAuth && authorization == "" {
 		//允许匿名访问
 		msg := exchange.In.GetMsg()
 		msg.Metadata.PutValue(constants.KeyUsername, config.C.DefaultUsername)
@@ -99,6 +101,8 @@ func (c *base) Login(url string) endpointApi.Router {
 			exchange.Out.SetStatusCode(http.StatusBadRequest)
 			exchange.Out.SetBody([]byte(err.Error()))
 		} else {
+			user.Username = strings.TrimSpace(user.Username)
+			user.Password = strings.TrimSpace(user.Password)
 			if b := validatePassword(user); b {
 				claim := RuleGoClaim{
 					Username: user.Username,
@@ -144,6 +148,9 @@ func createToken(claim jwt.Claims) (*string, error) {
 }
 
 func validatePassword(user model.User) bool {
+	if user.Username == "" {
+		return false
+	}
 	users := config.Get().Users
 	if users != nil && config.Get().Users[user.Username] == user.Password {
 		return true
