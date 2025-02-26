@@ -6,13 +6,14 @@ toolchain go1.22.10
 
 require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.5.0
-	github.com/rulego/rulego v0.27.1-0.20250104080653-1dec14655d35
+	github.com/rulego/rulego v0.28.0
 	github.com/rulego/rulego-components v0.28.1-0.20250120074527-c033896fc82b
-	github.com/rulego/rulego-components-ai v0.0.0-20240425011741-82f8560f0203
+	github.com/rulego/rulego-components-ai v0.0.0-20250213104223-094dc77595bd
 	github.com/rulego/rulego-components-ci v0.25.1-0.20241227153052-f237d9f02a0a
 	github.com/rulego/rulego-components-etl v0.0.0-20241227154425-bfc06d2ce873
-	github.com/rulego/rulego-components-iot v0.0.0-20241227152342-1a9d22f18a3a
+	github.com/rulego/rulego-components-iot v0.28.1-0.20250226082603-56d27f06912b
 	gopkg.in/ini.v1 v1.67.0
 )
 
@@ -62,9 +63,9 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
+	github.com/goburrow/serial v0.1.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gofrs/uuid/v5 v5.0.0 // indirect
-	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -116,13 +117,14 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/redis/go-redis/v9 v9.5.2 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/sashabaranov/go-openai v1.22.0 // indirect
+	github.com/sashabaranov/go-openai v1.37.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.24.7 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/siddontang/go v0.0.0-20180604090527-bdc77568d726 // indirect
 	github.com/siddontang/go-log v0.0.0-20180807004314-8d05993dda07 // indirect
+	github.com/simonvetter/modbus v1.6.3 // indirect
 	github.com/skeema/knownhosts v1.2.1 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
