@@ -61,7 +61,7 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 	// Retrieve aspects for the engine
 	chainBeforeInitAspects, _, _, afterReloadAspects, destroyAspects := aspects.GetEngineAspects()
 	for _, aspect := range chainBeforeInitAspects {
-		if err := aspect.OnChainBeforeInit(ruleChainDef); err != nil {
+		if err := aspect.OnChainBeforeInit(config, ruleChainDef); err != nil {
 			return nil, err
 		}
 	}

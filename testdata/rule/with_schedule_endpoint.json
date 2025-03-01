@@ -1,7 +1,8 @@
 {
   "ruleChain": {
     "id": "withScheduleEndpoint",
-    "name": "内置定时输入端规则链"
+    "name": "内置定时输入端规则链",
+    "root": true
   },
 
   "metadata": {
