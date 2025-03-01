@@ -32,6 +32,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
@@ -208,10 +209,10 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Data = string(b)
 			ctx.TellSuccess(msg)
 		} else {
-			msg.Metadata.PutValue(errorBodyMetadataKey, string(b))
-			ctx.TellNext(msg, types.Failure)
+			strB := string(b)
+			msg.Metadata.PutValue(errorBodyMetadataKey, strB)
+			ctx.TellFailure(msg, errors.New(strB))
 		}
-
 	}
 }
 
