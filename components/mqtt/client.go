@@ -128,7 +128,7 @@ func NewClient(ctx context.Context, conf Config) (*Client, error) {
 			select {
 			case <-ctx.Done():
 				//context被取消或超时，返回错误
-				return nil, ctx.Err()
+				return nil, token.Error()
 			case <-time.After(2 * time.Second):
 				//定时器到期，继续重试
 			}
