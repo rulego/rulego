@@ -123,7 +123,7 @@ type OnChainBeforeInitAspect interface {
 	Aspect
 	// OnChainBeforeInit is the advice that executes before the rule engine initialization.
 	// OnChainBeforeInit 规则引擎初始化之前的增强点，如果返回错误，则创建失败
-	OnChainBeforeInit(def *RuleChain) error
+	OnChainBeforeInit(config Config, def *RuleChain) error
 }
 
 // OnNodeBeforeInitAspect is the interface for rule node initialization before advice
@@ -132,7 +132,7 @@ type OnNodeBeforeInitAspect interface {
 	Aspect
 	// OnNodeBeforeInit is the advice that executes before the rule node initialization.
 	// OnNodeBeforeInit 规则节点初始化之前的增强点，如果返回错误，则创建失败
-	OnNodeBeforeInit(def *RuleNode) error
+	OnNodeBeforeInit(config Config, def *RuleNode) error
 }
 
 // OnCreatedAspect is the interface for rule engine creation success advice
