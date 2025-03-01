@@ -131,7 +131,7 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 
 	}
 	//初始化客户端
-	return x.SharedNode.Init(ruleConfig, x.Type(), x.Config.Dsn, true, func() (*sql.DB, error) {
+	return x.SharedNode.Init(ruleConfig, x.Type(), x.Config.Dsn, ruleConfig.NodeClientInitNow, func() (*sql.DB, error) {
 		return x.initClient()
 	})
 }

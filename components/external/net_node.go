@@ -91,7 +91,7 @@ func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	// 设置默认值
 	x.setDefaultConfig()
 	x.heartbeatDuration = time.Duration(x.Config.HeartbeatInterval) * time.Second
-	return x.SharedNode.Init(ruleConfig, x.Type(), x.Config.Server, false, x.initConnect)
+	return x.SharedNode.Init(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow, x.initConnect)
 }
 
 // OnMsg 处理消息
