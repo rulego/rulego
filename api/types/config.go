@@ -64,7 +64,12 @@ type Config struct {
 	SecretKey string
 	// EndpointEnabled indicates whether the endpoint module in the rule chain DSL is enabled.
 	EndpointEnabled bool
-	NetPool         NodePool
+	// NetPool is the interface for a shared Component Pool.
+	NetPool NodePool
+	// NodeClientInitNow indicates whether to initialize the net client node immediately after creation.
+	//True: During the component's Init phase, the client connection is established. If the client initialization fails, the rule chain initialization fails.
+	//False: During the component's OnMsg phase, the client connection is established.
+	NodeClientInitNow bool
 }
 
 // RegisterUdf registers a custom function. Function names can be repeated for different script types.
