@@ -52,7 +52,7 @@ func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 	// Retrieve aspects for the engine.
 	_, nodeBeforeInitAspects, _, _, _ := aspects.GetEngineAspects()
 	for _, aspect := range nodeBeforeInitAspects {
-		if err := aspect.OnNodeBeforeInit(selfDefinition); err != nil {
+		if err := aspect.OnNodeBeforeInit(config, selfDefinition); err != nil {
 			return nil, err
 		}
 	}

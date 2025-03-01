@@ -70,6 +70,8 @@ type Config struct {
 	//True: During the component's Init phase, the client connection is established. If the client initialization fails, the rule chain initialization fails.
 	//False: During the component's OnMsg phase, the client connection is established.
 	NodeClientInitNow bool
+	// AllowCycle indicates whether nodes in the rule chain are allowed to form cycles.
+	AllowCycle bool
 }
 
 // RegisterUdf registers a custom function. Function names can be repeated for different script types.

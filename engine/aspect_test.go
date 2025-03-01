@@ -289,11 +289,11 @@ func (aspect *EngineAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, r
 	return true
 }
 
-func (aspect *EngineAspect) OnChainBeforeInit(def *types.RuleChain) error {
+func (aspect *EngineAspect) OnChainBeforeInit(config types.Config, def *types.RuleChain) error {
 	return nil
 }
 
-func (aspect *EngineAspect) OnNodeBeforeInit(def *types.RuleNode) error {
+func (aspect *EngineAspect) OnNodeBeforeInit(config types.Config, def *types.RuleNode) error {
 	return nil
 }
 
@@ -412,7 +412,7 @@ func (aspect *BeforeCreateErrAspect) New() types.Aspect {
 	return &BeforeCreateErrAspect{Count: aspect.Count}
 }
 
-func (aspect *BeforeCreateErrAspect) OnChainBeforeInit(def *types.RuleChain) error {
+func (aspect *BeforeCreateErrAspect) OnChainBeforeInit(config types.Config, def *types.RuleChain) error {
 	atomic.AddInt32(aspect.Count, 1)
 	if def != nil {
 		if def.RuleChain.ID == "test02" {
@@ -422,7 +422,7 @@ func (aspect *BeforeCreateErrAspect) OnChainBeforeInit(def *types.RuleChain) err
 	return nil
 }
 
-func (aspect *BeforeCreateErrAspect) OnNodeBeforeInit(def *types.RuleNode) error {
+func (aspect *BeforeCreateErrAspect) OnNodeBeforeInit(config types.Config, def *types.RuleNode) error {
 	atomic.AddInt32(aspect.Count, 1)
 	return nil
 }

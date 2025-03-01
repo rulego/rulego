@@ -53,7 +53,7 @@ var _ types.RuleEngine = (*RuleEngine)(nil)
 var ErrDisabled = errors.New("the rule chain has been disabled")
 
 // BuiltinsAspects holds a list of built-in aspects for the rule engine.
-var BuiltinsAspects = []types.Aspect{&aspect.Debug{}, &aspect.MetricsAspect{}}
+var BuiltinsAspects = []types.Aspect{&aspect.Validator{}, &aspect.Debug{}, &aspect.MetricsAspect{}}
 
 // ContextObserver tracks the execution state of nodes in the rule chain.
 type ContextObserver struct {
