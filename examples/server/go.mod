@@ -8,12 +8,12 @@ require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.5.0
-	github.com/rulego/rulego v0.28.0
-	github.com/rulego/rulego-components v0.28.1-0.20250120074527-c033896fc82b
+	github.com/rulego/rulego v0.28.1-0.20250303030309-8a606a85b652
+	github.com/rulego/rulego-components v0.28.1-0.20250303031234-2d5fb6739384
 	github.com/rulego/rulego-components-ai v0.0.0-20250213104223-094dc77595bd
 	github.com/rulego/rulego-components-ci v0.25.1-0.20241227153052-f237d9f02a0a
-	github.com/rulego/rulego-components-etl v0.0.0-20241227154425-bfc06d2ce873
-	github.com/rulego/rulego-components-iot v0.28.1-0.20250226082603-56d27f06912b
+	github.com/rulego/rulego-components-etl v0.28.1-0.20250304065357-21d08aa21091
+	github.com/rulego/rulego-components-iot v0.28.1-0.20250303031136-c4e1f7bf61ba
 	gopkg.in/ini.v1 v1.67.0
 )
 
@@ -179,3 +179,4 @@ replace github.com/rulego/rulego => ../../../rulego
 //replace github.com/rulego/rulego-components-ci => ../../../rulego-components-ci
 
 //replace github.com/rulego/rulego-components-iot => ../../../rulego-components-iot
+//replace github.com/rulego/rulego-components-etl => ../../../rulego-components-etl
