@@ -9,6 +9,7 @@ var UserServiceImpl *UserService
 
 type UserService struct {
 	UserDao *dao.UserDao
+	Config  config.Config
 }
 
 func NewUserService(config config.Config) (*UserService, error) {
@@ -17,6 +18,22 @@ func NewUserService(config config.Config) (*UserService, error) {
 	} else {
 		return &UserService{
 			UserDao: userDao,
+			Config:  config,
 		}, nil
 	}
+}
+
+func (s *UserService) CheckPassword(username, password string) bool {
+	if username == "" {
+		return false
+	}
+	return s.Config.CheckPassword(username, password)
+}
+
+func (s *UserService) GetUsernameByApiKey(apikey string) string {
+	if apikey == "" {
+		return ""
+	}
+	return s.Config.GetUsernameByApiKey(apikey)
+
 }

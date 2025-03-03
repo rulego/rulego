@@ -78,7 +78,8 @@ func main() {
 	}
 	config.Set(c)
 	logger.Set(initLogger(c))
-
+	//初始化用户名、密码、apiKey之间的映射
+	c.InitUserMap()
 	log.Printf("use config file=%s \n", configFile)
 
 	if err := loadNodePool(c); err != nil {

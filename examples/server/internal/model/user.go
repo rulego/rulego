@@ -6,4 +6,6 @@ type User struct {
 	Username string `json:"username"`
 	// 密码
 	Password string `json:"password"`
+	// 访问Key
+	ApiKey string `json:"apiKey"`
 }

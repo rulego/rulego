@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"examples/server/config"
 	"examples/server/internal/constants"
 	"examples/server/internal/model"
@@ -17,6 +18,8 @@ import (
 	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/utils/json"
 )
+
+var ErrIllegalToken = errors.New("illegal token")
 
 var Base = &base{}
 
@@ -63,20 +66,29 @@ var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange
 		msg.Metadata.PutValue(constants.KeyUsername, config.C.DefaultUsername)
 		return true
 	}
-	claim, err := parseToken(exchange.In.Headers().Get(constants.KeyAuthorization))
-	if err != nil {
-		exchange.Out.SetStatusCode(http.StatusUnauthorized)
-		exchange.Out.SetBody([]byte(err.Error()))
-		return false
+	username := getUsernameApiKey(authorization) // "Bearer api_key" 方式
+	if username != "" {
+		msg := exchange.In.GetMsg()
+		msg.Metadata.PutValue(constants.KeyUsername, username)
+		return true
+	} else {
+		claim, err := parseToken(authorization) // "Bearer jwt" 方式
+		if err != nil {
+			exchange.Out.SetStatusCode(http.StatusUnauthorized)
+			exchange.Out.SetBody([]byte(err.Error()))
+			return false
+		}
+		msg := exchange.In.GetMsg()
+		msg.Metadata.PutValue(constants.KeyUsername, claim.Username)
+		return true
 	}
-	msg := exchange.In.GetMsg()
-	msg.Metadata.PutValue(constants.KeyUsername, claim.Username)
-	return true
+
 }
 
 func parseToken(token string) (*RuleGoClaim, error) {
-	if len(token) == 0 {
-		return nil, fmt.Errorf("token is empty")
+	length := len(token)
+	if length == 0 || length <= 7 {
+		return nil, ErrIllegalToken
 	}
 	token = token[len(constants.KeyBearer):]
 	claims := &RuleGoClaim{}
@@ -148,12 +160,12 @@ func createToken(claim jwt.Claims) (*string, error) {
 }
 
 func validatePassword(user model.User) bool {
-	if user.Username == "" {
-		return false
+	return service.UserServiceImpl.CheckPassword(user.Username, user.Password)
+}
+func getUsernameApiKey(token string) string {
+	length := len(token)
+	if length == 0 || length <= 7 {
+		return ""
 	}
-	users := config.Get().Users
-	if users != nil && config.Get().Users[user.Username] == user.Password {
-		return true
-	}
-	return false
+	return service.UserServiceImpl.GetUsernameByApiKey(token[len(constants.KeyBearer):])
 }
