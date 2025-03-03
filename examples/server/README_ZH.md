@@ -59,6 +59,49 @@
 
   当节点debugMode打开后，会记录调试日志。目前该接口日志存放在内存，每个节点保存最新的40条，如果需要获取历史数据，请实现接口存储到数据库。
 
+## 多租户/多用户
+该工程支持多租户/用户，每个用户的规则链数据是隔离的，用户数据存在`data/workflows/{username}`目录下。
+
+用户权限校验默认是关闭，所有操作都是基于默认用户操作。开启权限校验方法：
+
+- 通关过用户名密码获取token，然后通过token访问其他接口。示例:
+```ini
+# api是否开启jwt认证，如果关闭，则以默认用户(admin)身份操作
+require_auth = true
+# jwt secret key
+jwt_secret_key = r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1
+# jwt expire time
+jwt_expire_time = 43200000
+# jwt issuer
+jwt_issuer = rulego.cc
+# 用户列表
+# 配置用户和密码，格式 username=password[,apiKey]，apiKey可选。
+# 如果配置apiKey 调用方可以不需要登录，直接通过apiKey访问其他接口。
+[users]
+admin = admin
+user01 = user01
+```
+前端通过登录接口(`/api/v1/login`)，获取token，然后通过token访问其他接口。示例：
+```shell
+curl -H "Authorization: Bearer token" http://localhost:8080/api/resource
+```
+- 通过`api_key`方式访问其他接口。示例：
+```ini
+# api是否开启jwt认证，如果关闭，则以默认用户(admin)身份操作
+require_auth = true
+# 用户列表
+# 配置用户和密码，格式 username=password[,apiKey]，apiKey可选。
+# 如果配置apiKey 调用方可以不需要登录，直接通过apiKey访问其他接口。
+[users]
+admin = admin,2af255ea-5618-467d-914c-67a8beeca31d
+user01 = user01
+```
+
+然后通过token访问其他接口。示例：
+```shell
+curl -H "Authorization: Bearer apiKey" http://localhost:8080/api/resource
+```
+
 ## server编译
 
 为了节省编译后文件大小，默认不引入扩展组件[rulego-components](https://github.com/rulego/rulego-components) ，默认编译：
@@ -142,7 +185,9 @@ jwt_issuer = rulego.cc
 sqlDriver = mysql
 sqlDsn = root:root@tcp(127.0.0.1:3306)/test
 
-# users list 
+# 用户列表
+# 配置用户和密码，格式 username=password[,apiKey]，apiKey可选。
+# 如果配置apiKey 调用方可以不需要登录，直接通过apiKey访问其他接口。
 [users]
 admin = admin
 user01 = user01

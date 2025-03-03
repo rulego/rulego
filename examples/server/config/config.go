@@ -2,6 +2,7 @@ package config
 
 import (
 	"examples/server/internal/constants"
+	"strings"
 
 	"github.com/rulego/rulego/api/types"
 )
@@ -63,6 +64,43 @@ type Config struct {
 	JwtIssuer string `ini:"jwt_issuer"`
 	// 用户列表
 	Users types.Metadata `ini:"users"`
+
+	//用户名和密码映射
+	UserNamePasswordMap types.Metadata `ini:"-"`
+	//API key和用户名映射
+	ApiKeyUserNameMap types.Metadata `ini:"-"`
+}
+
+func (c *Config) InitUserMap() {
+	if c.Users != nil {
+		c.UserNamePasswordMap = types.Metadata{}
+		for username, passwordAndApiKey := range c.Users {
+			c.UserNamePasswordMap[strings.TrimSpace(username)] = strings.TrimSpace(strings.Split(passwordAndApiKey, ",")[0])
+		}
+		c.ApiKeyUserNameMap = types.Metadata{}
+		for username, passwordAndApiKey := range c.Users {
+			params := strings.Split(passwordAndApiKey, ",")
+			if len(params) > 1 {
+				c.ApiKeyUserNameMap[strings.TrimSpace(params[1])] = strings.TrimSpace(username)
+			}
+		}
+	}
+}
+
+// CheckPassword 检查密码
+func (c *Config) CheckPassword(username, password string) bool {
+	if c.UserNamePasswordMap == nil {
+		return false
+	}
+	return c.UserNamePasswordMap[username] == password
+}
+
+// GetUsernameByApiKey 通过ApiKey获取用户名
+func (c *Config) GetUsernameByApiKey(apikey string) string {
+	if c.ApiKeyUserNameMap == nil {
+		return ""
+	}
+	return c.ApiKeyUserNameMap[apikey]
 }
 
 // DefaultConfig 默认配置

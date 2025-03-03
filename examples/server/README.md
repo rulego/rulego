@@ -61,6 +61,50 @@ Visual Editor:[RuleGo-Editor](https://editor.rulego.cc/), configure the HTTP API
 
   When the node's debugMode is turned on, debugging logs will be recorded. Currently, this interface's logs are stored in memory, with each node saving the latest 40 entries. If historical data is needed, please implement an interface to store it in the database.
 
+## Multi-Tenancy/Multi-User
+
+This project supports multi-tenancy/multi-user, with each user's rule chain data being isolated. User data is stored in the `data/workflows/{username}` directory.
+
+User permission verification is disabled by default, and all operations are performed as the default user. To enable permission verification:
+
+- Obtain a token using a username and password, and then access other interfaces using the token. Example:
+```ini
+# Whether the API requires JWT authentication; if disabled, operations will be performed as the default user (admin)
+require_auth = true
+# JWT secret key
+jwt_secret_key = r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1
+# JWT expiration time (in milliseconds)
+jwt_expire_time = 43200000
+# JWT issuer
+jwt_issuer = rulego.cc
+# User list
+# Configure usernames and passwords in the format username=password[,apiKey], where apiKey is optional.
+# If apiKey is configured, the caller can access other interfaces directly using the apiKey without logging in.
+[users]
+admin = admin
+user01 = user01
+```
+The frontend obtains a token through the login interface (`/api/v1/login`) and then accesses other interfaces using the token. Example:
+```shell
+curl -H "Authorization: Bearer token" http://localhost:8080/api/resource
+```
+
+- Access other interfaces using the `api_key` method. Example:
+```ini
+# Whether the API requires JWT authentication; if disabled, operations will be performed as the default user (admin)
+require_auth = true
+# User list
+# Configure usernames and passwords in the format username=password[,apiKey], where apiKey is optional.
+# If apiKey is configured, the caller can access other interfaces directly using the apiKey without logging in.
+[users]
+admin = admin,2af255ea-5618-467d-914c-67a8beeca31d
+user01 = user01
+```
+Then access other interfaces using the token. Example:
+```shell
+curl -H "Authorization: Bearer apiKey" http://localhost:8080/api/resource
+```
+
 ## server compilation
 
 To save the size of the compiled file, the extension component [rulego-components](https://github.com/rulego/rulego-components) is not included by default. Compile with the default setting:
