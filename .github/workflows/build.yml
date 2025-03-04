@@ -23,17 +23,23 @@ jobs:
       - name: Build for Linux and Windows and Macos
         run: |
           cd examples/server/cmd/server
-          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags with_extend -v -o rulego-server-linux-amd64
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags with_extend -v -o rulego-server-windows-amd64.exe
-          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags with_extend -v -o rulego-server-macos-amd64
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-linux-amd64
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-windows-amd64.exe
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-macos-amd64
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-linux-amd64
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-windows-amd64.exe
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-macos-amd64
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: rulego-server-binaries
           path: |
             examples/server/cmd/server/rulego-server-linux-amd64
             examples/server/cmd/server/rulego-server-windows-amd64.exe
             examples/server/cmd/server/rulego-server-macos-amd64
+            examples/server/cmd/server/rulego-server-all-linux-amd64
+            examples/server/cmd/server/rulego-server-all-windows-amd64.exe
+            examples/server/cmd/server/rulego-server-all-macos-amd64
 #      - name: Create Release
 #        uses: actions/create-release@v1
 #        env:
