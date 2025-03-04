@@ -111,6 +111,8 @@ type NodeConnection struct {
 	// Type is the type of connection, which determines when and how messages are sent from one node to another. It should match one of the connection types supported by the source node type.
 	// For example, a JS filter node might support two connection types: "True" and "False," indicating whether the message passes or fails the filter condition.
 	Type string `json:"type"`
+	// Label is the label of the connection, used for display.
+	Label string `json:"label,omitempty"`
 }
 
 // RuleChainConnection defines the connection between a node and a sub-rule chain.
