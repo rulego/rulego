@@ -166,10 +166,11 @@ func (n *NodePool) GetAllDef() (map[string][]*types.RuleNode, error) {
 			resultErr = err
 			return false
 		}
-		if item, ok := result[ctx.SharedNode().Type()]; !ok {
+		nodeList, ok := result[ctx.SharedNode().Type()]
+		if !ok {
 			result[ctx.SharedNode().Type()] = []*types.RuleNode{&def}
 		} else {
-			item = append(item, &def)
+			result[ctx.SharedNode().Type()] = append(nodeList, &def)
 		}
 		return true
 	})
