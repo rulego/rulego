@@ -1,4 +1,23 @@
 # CHANGELOG
+## [v0.29.0] 2025/03/06
+- feat(components):增加wukongIM节点组件 @dimon
+- feat(components):增加wukongIM输入端组件 @dimon
+- feat(components):增加beanstalkd输入端组件 @dimon
+- feat(components):增加beanstalkd节点组件 @dimon
+- feat(components):增加modbus读写节点组件 @dimon
+- feat(components):完善大模型节点组件
+- feat(components):增加获取git日志节点组件
+- feat:增加规则链校验拦截器
+- feat:校验规则链是否形成环、子规则链不允许探究输入端组件
+- feat:DSL NodeConnection 增加Label字段
+- opt:网络客户端组件运行延迟初始化
+- opt:restApiCall节点组件把响应错误通过err传递到下一个节点
+- feat(server):rulego-server支持多租户和权限校验
+- feat(server):rulego-server支持apiKey访问api
+- refactor:OnNodeBeforeInit 和 OnChainBeforeInitAspect支持获得Config
+- refactor(components):弃用旧版的大模型组件
+- refactor(components):优化mqtt客户端连接失败错误提示
+
 ## [v0.28.0] 2025/01/09
 - feat(components):增加opcua endpoint组件 @dimon
 - feat(components):增加opcua读节点组件 @dimon
