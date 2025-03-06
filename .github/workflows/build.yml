@@ -26,9 +26,15 @@ jobs:
           CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-linux-amd64
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-windows-amd64.exe
           CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-macos-amd64
+          CGO_ENABLED=0 GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-linux-arm64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-macos-arm64
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-windows-arm64.exe
           CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-linux-amd64
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-windows-amd64.exe
           CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-macos-amd64
+          CGO_ENABLED=0 GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-linux-arm64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-macos-arm64
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-windows-arm64.exe
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -37,9 +43,15 @@ jobs:
             examples/server/cmd/server/rulego-server-linux-amd64
             examples/server/cmd/server/rulego-server-windows-amd64.exe
             examples/server/cmd/server/rulego-server-macos-amd64
+            examples/server/cmd/server/rulego-server-linux-arm64
+            examples/server/cmd/server/rulego-server-macos-arm64
+            examples/server/cmd/server/rulego-server-windows-arm64.exe
             examples/server/cmd/server/rulego-server-all-linux-amd64
             examples/server/cmd/server/rulego-server-all-windows-amd64.exe
             examples/server/cmd/server/rulego-server-all-macos-amd64
+            examples/server/cmd/server/rulego-server-all-linux-arm64
+            examples/server/cmd/server/rulego-server-all-macos-arm64
+            examples/server/cmd/server/rulego-server-all-windows-arm64.exe
 #      - name: Create Release
 #        uses: actions/create-release@v1
 #        env:
