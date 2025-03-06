@@ -24,6 +24,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
@@ -52,7 +53,6 @@ func init() {
 }
 
 func main() {
-	//go http.ListenAndServe("0.0.0.0:6060", nil)
 	flag.Parse()
 
 	if ver {
@@ -78,6 +78,17 @@ func main() {
 	}
 	config.Set(c)
 	logger.Set(initLogger(c))
+
+	//pprof
+	if c.Pprof.Enable {
+		addr := c.Pprof.Addr
+		if addr == "" {
+			addr = "0.0.0.0:6060"
+		}
+		log.Printf("pprof enabled, addr=%s \n", addr)
+		go http.ListenAndServe(addr, nil)
+	}
+
 	//初始化用户名、密码、apiKey之间的映射
 	c.InitUserMap()
 	log.Printf("use config file=%s \n", configFile)

@@ -64,11 +64,17 @@ type Config struct {
 	JwtIssuer string `ini:"jwt_issuer"`
 	// 用户列表
 	Users types.Metadata `ini:"users"`
+	// Pprof pprof配置
+	Pprof Pprof `ini:"pprof"`
 
 	//用户名和密码映射
 	UserNamePasswordMap types.Metadata `ini:"-"`
 	//API key和用户名映射
 	ApiKeyUserNameMap types.Metadata `ini:"-"`
+}
+type Pprof struct {
+	Enable bool   `ini:"enable"`
+	Addr   string `ini:"addr"`
 }
 
 func (c *Config) InitUserMap() {
@@ -118,5 +124,9 @@ var DefaultConfig = Config{
 	JwtIssuer:       "rulego.cc",
 	Users: types.Metadata{
 		"admin": "admin",
+	},
+	Pprof: Pprof{
+		Enable: false,
+		Addr:   "0.0.0.0:6060",
 	},
 }
