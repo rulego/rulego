@@ -84,13 +84,13 @@ func init() {
 
 	// Register a processor to respond to the HTTP client with the message.
 	OutBuiltins.Register("responseToBody", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Lock()
+		defer exchange.Unlock()
 		if err := exchange.Out.GetError(); err != nil {
 			// Set error status and body in the response.
 			exchange.Out.SetStatusCode(400)
 			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 		} else if exchange.Out.GetMsg() != nil {
-			exchange.Lock()
-			defer exchange.Unlock()
 			// Set the response body with the message data.
 			if exchange.Out.GetMsg().DataType == types.JSON && exchange.Out.Headers().Get(HeaderKeyContentType) == "" {
 				exchange.Out.Headers().Set(HeaderKeyContentType, HeaderValueApplicationJson)
@@ -101,14 +101,14 @@ func init() {
 	})
 	// Register a processor to add HTTP headers to message metadata.
 	OutBuiltins.Register("metadataToHeaders", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Lock()
+		defer exchange.Unlock()
 		if err := exchange.Out.GetError(); err != nil {
 			// Set error status and body in the response.
 			exchange.Out.SetStatusCode(400)
 			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 		} else if exchange.Out.GetMsg() != nil {
 			msg := exchange.Out.GetMsg()
-			exchange.Lock()
-			defer exchange.Unlock()
 			for k, v := range msg.Metadata {
 				exchange.Out.Headers().Set(k, v)
 			}
