@@ -183,6 +183,13 @@ jwt_expire_time = 43200000
 # jwt issuer
 jwt_issuer = rulego.cc
 
+# pprof config
+[pprof]
+# enable pprof
+enable = false
+# pprof address
+addr = 0.0.0.0:6060
+
 # Global custom configuration, components can take values through the ${global.xxx}
 [global]
 # example

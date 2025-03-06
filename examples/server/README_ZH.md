@@ -179,6 +179,13 @@ jwt_expire_time = 43200000
 # jwt issuer
 jwt_issuer = rulego.cc
 
+# pprof配置
+[pprof]
+# 是否开启pprof
+enable = false
+# pprof地址
+addr = 0.0.0.0:6060
+
 # 全局自定义配置，组件可以通过${global.xxx}方式取值
 [global]
 # 例子
