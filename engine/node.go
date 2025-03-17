@@ -79,6 +79,9 @@ func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 		if isInitNetResource {
 			configuration[types.NodeConfigurationKeyIsInitNetResource] = true
 		}
+		// Add the chain context to the configuration.
+		configuration[types.NodeConfigurationKeyChainCtx] = chainCtx
+		configuration[types.NodeConfigurationKeySelfDefinition] = *selfDefinition
 		// Initialize the node with the processed configuration.
 		if err = node.Init(config, configuration); err != nil {
 			return &RuleNodeCtx{}, err

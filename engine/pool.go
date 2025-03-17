@@ -78,7 +78,7 @@ func (g *Pool) New(id string, rootRuleChainSrc []byte, opts ...types.RuleEngineO
 	} else {
 		opts = append(opts, types.WithRuleEnginePool(g))
 		// Create a new rule engine instance.
-		if ruleEngine, err := newRuleEngine(id, rootRuleChainSrc, opts...); err != nil {
+		if ruleEngine, err := NewRuleEngine(id, rootRuleChainSrc, opts...); err != nil {
 			return nil, err
 		} else {
 			// Store the new rule engine instance in the pool.
