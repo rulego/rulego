@@ -36,6 +36,23 @@ var NodeUtils = &nodeUtils{}
 type nodeUtils struct {
 }
 
+func (n *nodeUtils) GetChainCtx(configuration types.Configuration) types.ChainCtx {
+	if v, ok := configuration[types.NodeConfigurationKeyChainCtx]; ok {
+		if chainCtx, ok := v.(types.ChainCtx); ok {
+			return chainCtx
+		}
+	}
+	return nil
+}
+func (n *nodeUtils) GetSelfDefinition(configuration types.Configuration) types.RuleNode {
+	if v, ok := configuration[types.NodeConfigurationKeySelfDefinition]; ok {
+		if ruleNode, ok := v.(types.RuleNode); ok {
+			return ruleNode
+		}
+	}
+	return types.RuleNode{}
+}
+
 func (n *nodeUtils) GetVars(configuration types.Configuration) map[string]interface{} {
 	if v, ok := configuration[types.Vars]; ok {
 		fromVars := make(map[string]interface{})

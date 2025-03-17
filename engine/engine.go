@@ -845,9 +845,9 @@ type RuleEngine struct {
 	Aspects types.AspectList
 }
 
-// newRuleEngine creates a new RuleEngine instance with the given ID and definition.
+// NewRuleEngine creates a new RuleEngine instance with the given ID and definition.
 // It applies the provided RuleEngineOptions during the creation process.
-func newRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*RuleEngine, error) {
+func NewRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*RuleEngine, error) {
 	if len(def) == 0 {
 		return nil, errors.New("def can not nil")
 	}

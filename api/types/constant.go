@@ -25,8 +25,10 @@ const (
 )
 
 const (
-	Global  = "global"
-	Vars    = "vars"
+	Global = "global"
+	// Vars ruleChain dsl additionalInfo vars key
+	Vars = "vars"
+	// Secrets ruleChain dsl additionalInfo secrets key
 	Secrets = "secrets"
 )
 
@@ -38,6 +40,10 @@ const (
 const (
 	//NodeConfigurationKeyIsInitNetResource 组件配置key是否是初始化网络资源，用于节点组件初始化参数校验区分
 	NodeConfigurationKeyIsInitNetResource = "$initNetResource"
+	// NodeConfigurationKeyChainCtx 获取规则链上下文Key, value类型: ChainCtx
+	NodeConfigurationKeyChainCtx = "$chainCtx"
+	//NodeConfigurationKeySelfDefinition 获取节点定义，value类型: RuleNode
+	NodeConfigurationKeySelfDefinition = "$selfDefinition"
 )
 
 var (
