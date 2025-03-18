@@ -62,6 +62,68 @@ func TestGetComponentsFields(t *testing.T) {
 	assert.Equal(t, length-1, lengthNew)
 }
 
+func TestCustomComponentRegistry(t *testing.T) {
+	// 创建默认和自定义注册表
+	defaultReg := new(RuleComponentRegistry)
+	customReg := new(RuleComponentRegistry)
+	compositeReg := NewCustomComponentRegistry(defaultReg, customReg)
+
+	// 初始化测试组件
+	defaultNode := &NoConfigNode{}
+	customNode := &ConfigHasPtrNode{}
+
+	// 测试注册逻辑
+	t.Run("Register Components", func(t *testing.T) {
+		// 注册默认组件
+		assert.Nil(t, defaultReg.Register(defaultNode))
+		// 注册自定义组件
+		assert.Nil(t, compositeReg.Register(customNode))
+	})
+
+	t.Run("NewNode Fallback Logic", func(t *testing.T) {
+		// 测试获取自定义组件
+		node, err := compositeReg.NewNode("test/configHasPtr")
+		assert.Nil(t, err)
+		assert.Equal(t, customNode.Type(), node.Type())
+
+		// 测试默认组件回退
+		node, err = compositeReg.NewNode("test/noConfig")
+		assert.Nil(t, err)
+		assert.Equal(t, defaultNode.Type(), node.Type())
+
+		// 测试不存在的组件
+		_, err = compositeReg.NewNode("invalid_type")
+		assert.NotNil(t, err)
+	})
+
+	t.Run("Component Merging", func(t *testing.T) {
+		components := compositeReg.GetComponents()
+		// 验证合并结果
+		assert.Equal(t, 2, len(components))
+		_, ok := components["test/noConfig"]
+		assert.True(t, ok)
+		_, ok = components["test/configHasPtr"]
+		assert.True(t, ok)
+	})
+
+	t.Run("Unregister Custom", func(t *testing.T) {
+		// 卸载自定义组件
+		assert.Nil(t, compositeReg.Unregister("test/configHasPtr"))
+		_, err := compositeReg.NewNode("test/configHasPtr")
+		assert.NotNil(t, err)
+
+		// 默认组件应仍然存在
+		_, err = compositeReg.NewNode("test/noConfig")
+		assert.Nil(t, err)
+	})
+
+	// 清理测试组件
+	defer func() {
+		defaultReg.Unregister("test/noConfig")
+		customReg.Unregister("test/configHasPtr")
+	}()
+}
+
 //以下是测试组件
 
 type BaseNode struct {
