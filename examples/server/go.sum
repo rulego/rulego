@@ -17,8 +17,8 @@ github.com/ProtonMail/go-crypto v1.1.5 h1:eoAQfK2dwL+tFSFpr7TbOaPNUbPiJj4fLYwwGE
 github.com/ProtonMail/go-crypto v1.1.5/go.mod h1:rA3QumHc/FZ8pAHreoekgiAbzpNsfQAosU5td4SnOrE=
 github.com/VividCortex/ewma v1.1.1 h1:MnEK4VOv6n0RSY4vtRe3h11qjxL3+t0B8yOL8iMXdcM=
 github.com/VividCortex/ewma v1.1.1/go.mod h1:2Tkkvm3sRDVXaiyucHiACn4cqf7DpdyLvmxzcbUokwA=
-github.com/WuKongIM/WuKongIMGoProto v1.0.21 h1:/thk9l2MawW8ei4NZ/F119cA06+YHP3D/Kil2hCMgYg=
-github.com/WuKongIM/WuKongIMGoProto v1.0.21/go.mod h1:EMPYhZR5K4cFvMCGhWzKlgfVieec1pnioUFgP0ga+ag=
+github.com/WuKongIM/WuKongIMGoProto v1.0.8 h1:NX05PdQGmVjMDqOyauErmUmtysH3Yj2F+MzzThZvkOU=
+github.com/WuKongIM/WuKongIMGoProto v1.0.8/go.mod h1:dUQCRuqwMoyYeLiHTsLBfbiWlVtB+8Gdsyq1M1oeEzg=
 github.com/WuKongIM/WuKongIMGoSDK v1.0.0 h1:CiDcTqtP/5dqdY0uHcqFDEIbAPsdqxDqGxbj6MelcC0=
 github.com/WuKongIM/WuKongIMGoSDK v1.0.0/go.mod h1:dNElu1dkBGPXg53Yjex5JI8s1JWnh6RjCgHYWJ3Vp8s=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
