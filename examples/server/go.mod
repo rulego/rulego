@@ -26,7 +26,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/ProtonMail/go-crypto v1.1.5 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
-	github.com/WuKongIM/WuKongIMGoProto v1.0.21 // indirect
+	github.com/WuKongIM/WuKongIMGoProto v1.0.8 // indirect
 	github.com/WuKongIM/WuKongIMGoSDK v1.0.0 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/aws/aws-sdk-go v1.34.0 // indirect
