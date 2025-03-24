@@ -243,6 +243,7 @@ func (x *DynamicNode) Def() types.ComponentForm {
 		Fields:        fields,
 		RelationTypes: &relationTypes,
 		Version:       version,
+		ComponentKind: types.ComponentKindDynamic,
 	}
 	return componentForm
 }

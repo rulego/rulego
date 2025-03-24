@@ -53,7 +53,7 @@ func GetComponentForm(component types.Node) types.ComponentForm {
 	componentForm.Category = strings.Replace(componentForm.Category, "github.com/rulego/rulego-components/", "", -1)
 	componentForm.Fields = GetFields(configField, configValue)
 	var relationTypes = []string{types.Success, types.Failure}
-
+	componentForm.ComponentKind = types.ComponentKindNative
 	if component.Type() == "iterator" {
 		relationTypes = []string{types.True, types.False, types.Success, types.Failure}
 	} else if strings.Contains(strings.ToLower(componentForm.Label), "filter") {
@@ -62,6 +62,7 @@ func GetComponentForm(component types.Node) types.ComponentForm {
 		relationTypes = []string{}
 	} else if _, ok := component.(endpoint.Endpoint); ok {
 		relationTypes = []string{}
+		componentForm.ComponentKind = types.ComponentKindEndpoint
 	}
 	componentForm.RelationTypes = &relationTypes
 	//如果实现ComponentDefGetter接口，使用接口定义的代替
@@ -95,7 +96,11 @@ func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.Com
 	if def.Version != "" {
 		toComponentForm.Version = def.Version
 	}
+	if def.ComponentKind != "" {
+		toComponentForm.ComponentKind = def.ComponentKind
+	}
 	toComponentForm.Disabled = def.Disabled
+
 	return toComponentForm
 }
 
