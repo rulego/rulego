@@ -17,6 +17,7 @@
 package types
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 )
@@ -27,7 +28,7 @@ type ComponentDefGetter interface {
 	Def() ComponentForm
 }
 
-// ComponentFormList 组件表单类别类型
+// ComponentFormList 组件表单列表
 type ComponentFormList map[string]ComponentForm
 
 func (c ComponentFormList) GetComponent(name string) (ComponentForm, bool) {
@@ -54,6 +55,32 @@ func (c ComponentFormList) Values() []ComponentForm {
 		return values[i].Type < values[j].Type
 	})
 	return values
+}
+
+// GetByPage 根据分页获取数据
+func (c ComponentFormList) GetByPage(page, pageSize int) ([]ComponentForm, int, error) {
+	if page < 1 || pageSize < 1 {
+		return nil, 0, fmt.Errorf("invalid page or pageSize")
+	}
+
+	values := c.Values()
+	total := len(values)
+	if total == 0 {
+		return nil, 0, nil
+	}
+
+	start := (page - 1) * pageSize
+	end := start + pageSize
+
+	if start > total {
+		return nil, 0, fmt.Errorf("page out of range")
+	}
+
+	if end > total {
+		end = total
+	}
+
+	return values[start:end], total, nil
 }
 
 // ComponentFormFieldList 字段列表类型
@@ -88,6 +115,8 @@ type ComponentForm struct {
 	RelationTypes *[]string `json:"relationTypes"`
 	//是否禁用，如果禁用在editor不显示
 	Disabled bool `json:"disabled"`
+	//版本
+	Version string `json:"version"`
 }
 
 // ComponentFormField 组件配置字段

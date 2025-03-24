@@ -12,6 +12,7 @@ import (
 	luaEngine "github.com/rulego/rulego-components/pkg/lua_engine"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/action"
+	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
@@ -115,17 +116,28 @@ type RuleEngineService struct {
 	locker             sync.RWMutex
 	userSettingDao     *dao.UserSettingDao
 	mainRuleEngine     types.RuleEngine
+	componentService   *ComponentService
 }
 
 func NewRuleEngineServiceAndInitRuleGo(c config.Config, username string) (*RuleEngineService, error) {
-	ruleConfig := rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger.Logger), types.WithNetPool(node_pool.DefaultNodePool))
+	//隔离每个用户的自定义组价注册器
+	componentRegistry := engine.NewCustomComponentRegistry(engine.Registry, new(engine.RuleComponentRegistry))
+	ruleConfig := rulego.NewConfig(types.WithDefaultPool(),
+		types.WithLogger(logger.Logger),
+		types.WithComponentsRegistry(componentRegistry),
+		types.WithNetPool(node_pool.DefaultNodePool))
+
 	service, err := NewRuleEngineService(c, ruleConfig, username)
 	if err != nil {
 		return nil, err
 	}
+	//初始化规则链
 	service.InitRuleGo(logger.Logger, c.DataDir, username)
+	//加载自定义组件
+	service.componentService.LoadComponents()
 	return service, nil
 }
+
 func NewRuleEngineService(c config.Config, ruleConfig types.Config, username string) (*RuleEngineService, error) {
 	var pool = rulego.NewRuleGo()
 	ruleDao, err := dao.NewRuleDao(c, username)
@@ -137,6 +149,10 @@ func NewRuleEngineService(c config.Config, ruleConfig types.Config, username str
 		maxNodeLogSize = 40
 	}
 	userSettingDao, err := dao.NewUserSettingDao(c, fmt.Sprintf("%s/%s/%s", c.DataDir, constants.DirWorkflows, username))
+	componentService, err := NewComponentService(ruleConfig, c, username)
+	if err != nil {
+		return nil, err
+	}
 	service := &RuleEngineService{
 		Pool:            pool,
 		username:        username,
@@ -148,11 +164,16 @@ func NewRuleEngineService(c config.Config, ruleConfig types.Config, username str
 		ruleDao:            ruleDao,
 		ruleConfig:         ruleConfig,
 		userSettingDao:     userSettingDao,
+		componentService:   componentService,
 	}
 	return service, nil
 }
 func (s *RuleEngineService) GetRuleConfig() types.Config {
 	return s.ruleConfig
+}
+
+func (s *RuleEngineService) ComponentService() *ComponentService {
+	return s.componentService
 }
 
 func (s *RuleEngineService) ExecuteAndWait(chainId string, msg types.RuleMsg, opts ...types.RuleContextOption) error {
