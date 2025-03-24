@@ -22,6 +22,15 @@ import (
 	"sync"
 )
 
+const (
+	// ComponentKindDynamic Dynamic component
+	ComponentKindDynamic string = "dc"
+	// ComponentKindNative Native component
+	ComponentKindNative string = "nc"
+	// ComponentKindEndpoint Endpoint component
+	ComponentKindEndpoint string = "ec"
+)
+
 // ComponentDefGetter 该接口是可选的，组件可以实现该接口，提供可视化需要的信息，
 // 例如：Label,Desc,RelationTypes。否则使用约定规则提供可视化表单定义
 type ComponentDefGetter interface {
@@ -117,6 +126,8 @@ type ComponentForm struct {
 	Disabled bool `json:"disabled"`
 	//版本
 	Version string `json:"version"`
+	// 组件种类，dc:动态组件 nc:原生组件 ec:endpoint组件
+	ComponentKind string `json:"componentKind"`
 }
 
 // ComponentFormField 组件配置字段
