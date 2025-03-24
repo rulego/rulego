@@ -92,6 +92,9 @@ func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.Com
 	if def.RelationTypes != nil {
 		toComponentForm.RelationTypes = def.RelationTypes
 	}
+	if def.Version != "" {
+		toComponentForm.Version = def.Version
+	}
 	toComponentForm.Disabled = def.Disabled
 	return toComponentForm
 }

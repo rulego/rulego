@@ -186,6 +186,7 @@ func (x *DynamicNode) Def() types.ComponentForm {
 	var icon = "custom-node"
 	var category = "custom"
 	var description string
+	var version string
 	var relationTypes = []string{types.Success, types.Failure}
 	if ruleChain.RuleChain.AdditionalInfo != nil {
 		if v := str.ToString(ruleChain.RuleChain.AdditionalInfo["icon"]); v != "" {
@@ -196,6 +197,9 @@ func (x *DynamicNode) Def() types.ComponentForm {
 		}
 		if v := str.ToString(ruleChain.RuleChain.AdditionalInfo["description"]); v != "" {
 			description = v
+		}
+		if v := str.ToString(ruleChain.RuleChain.AdditionalInfo["version"]); v != "" {
+			version = v
 		}
 		// 获取关系类型
 		relationTypesValue := ruleChain.RuleChain.AdditionalInfo["relationTypes"]
@@ -213,9 +217,9 @@ func (x *DynamicNode) Def() types.ComponentForm {
 	// 获取输入参数定义
 	inputSchemaMap := ruleChain.RuleChain.AdditionalInfo["inputSchema"]
 	var inputSchema schema.JSONSchema
+	var fields types.ComponentFormFieldList
 	if inputSchemaMap != nil {
 		_ = maps.Map2Struct(inputSchemaMap, &inputSchema)
-		var fields types.ComponentFormFieldList
 
 		// 获取字段列表并排序
 		var fieldNames []string
@@ -229,15 +233,16 @@ func (x *DynamicNode) Def() types.ComponentForm {
 			fields = append(fields, field)
 		}
 
-		componentForm = types.ComponentForm{
-			Type:          x.ComponentType,
-			Category:      category,
-			Label:         ruleChain.RuleChain.Name,
-			Desc:          description,
-			Icon:          icon,
-			Fields:        fields,
-			RelationTypes: &relationTypes,
-		}
+	}
+	componentForm = types.ComponentForm{
+		Type:          x.ComponentType,
+		Category:      category,
+		Label:         ruleChain.RuleChain.Name,
+		Desc:          description,
+		Icon:          icon,
+		Fields:        fields,
+		RelationTypes: &relationTypes,
+		Version:       version,
 	}
 	return componentForm
 }

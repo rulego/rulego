@@ -23,6 +23,7 @@ const (
 	moduleNodes      = "nodes"
 	moduleLocales    = "locales"
 	moduleLogs       = "logs"
+	moduleMarket     = "market"
 	ContentTypeKey   = "Content-Type"
 	JsonContextType  = "application/json"
 )
@@ -62,6 +63,22 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	restEndpoint.GET(controller.Node.Components(apiBasePath + "/components"))
 	//获取所有共享组件
 	restEndpoint.GET(controller.Node.ListNodePool(apiBasePath + "/" + moduleNodes + "/shared"))
+
+	//获取组件市场组件列表
+	restEndpoint.GET(controller.Node.MarketNodeList(apiBasePath + "/" + moduleMarket + "/components"))
+	//获取组件市场组件DSL
+	restEndpoint.GET(controller.Node.MarketNodeDSL(apiBasePath + "/" + moduleMarket + "/components/:nodeType"))
+	//更新/发布组件到组件市场
+	restEndpoint.POST(controller.Node.MarketNodeUpgrade(apiBasePath + "/" + moduleMarket + "/components/:nodeType"))
+
+	//获取用户所有自定义动态组件列表
+	restEndpoint.GET(controller.Node.CustomNodeList(apiBasePath + "/" + moduleNodes + "/custom"))
+	//获取自定义动态组件DSL
+	restEndpoint.GET(controller.Node.CustomNodeDSL(apiBasePath + "/" + moduleNodes + "/custom/:nodeType"))
+	//安装/升级自定义动态组件
+	restEndpoint.POST(controller.Node.CustomNodeUpgrade(apiBasePath + "/" + moduleNodes + "/custom/:nodeType"))
+	//卸装自定义动态组件
+	restEndpoint.DELETE(controller.Node.CustomNodeUninstall(apiBasePath + "/" + moduleNodes + "/custom/:nodeType"))
 
 	//获取所有规则链列表
 	restEndpoint.GET(controller.Rule.List(apiBasePath + "/" + moduleFlows))

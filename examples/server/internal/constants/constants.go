@@ -2,10 +2,11 @@ package constants
 
 const (
 	// DirWorkflows 工作流目录
-	DirWorkflows     = "workflows"
-	DirLocales       = "locales"
-	DirWorkflowsRun  = "runs"
-	DirWorkflowsRule = "rules"
+	DirWorkflows          = "workflows"
+	DirLocales            = "locales"
+	DirWorkflowsRun       = "runs"
+	DirWorkflowsRule      = "rules"
+	DirWorkflowsComponent = "components"
 	// FileNameIndex 索引文件名
 	FileNameIndex = "index"
 )
@@ -34,6 +35,7 @@ const (
 	KeyDefaultIntegrationChainId = "$event_bus"
 	KeyUpdateTime                = "updateTime"
 	KeyHeadersToMetadata         = "headersToMetadata"
+	KeyNodeType                  = "nodeType"
 )
 
 const (
