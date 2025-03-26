@@ -115,15 +115,16 @@ func (c *Config) GetUsernameByApiKey(apikey string) string {
 var DefaultConfig = Config{
 	DataDir: "./data",
 	//LogFile:      "./rulego.log",
-	CmdWhiteList:    "cp,scp,mvn,npm,yarn,git,make,cmake,docker,kubectl,helm,ansible,puppet,pytest,python,python3,pip,go,java,dotnet,gcc,g++,ctest",
-	LoadLuaLibs:     "true",
-	Server:          ":9090",
-	DefaultUsername: "admin",
-	MaxNodeLogSize:  40,
-	ResourceMapping: "/editor/*filepath=./editor,/images/*filepath=./editor/images",
-	JwtSecretKey:    "r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1",
-	JwtExpireTime:   43200000, //12小时
-	JwtIssuer:       "rulego.cc",
+	CmdWhiteList:       "cp,scp,mvn,npm,yarn,git,make,cmake,docker,kubectl,helm,ansible,puppet,pytest,python,python3,pip,go,java,dotnet,gcc,g++,ctest",
+	LoadLuaLibs:        "true",
+	Server:             ":9090",
+	DefaultUsername:    "admin",
+	MaxNodeLogSize:     40,
+	ResourceMapping:    "/editor/*filepath=./editor,/images/*filepath=./editor/images",
+	JwtSecretKey:       "r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1",
+	JwtExpireTime:      43200000, //12小时
+	JwtIssuer:          "rulego.cc",
+	MarketplaceBaseUrl: "http://8.134.32.225:9090/api/v1",
 	Users: types.Metadata{
 		"admin": "admin",
 	},
