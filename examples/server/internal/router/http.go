@@ -16,16 +16,16 @@ import (
 
 const (
 	// base HTTP paths.
-	apiVersion       = "v1"
-	apiBasePath      = "/api/" + apiVersion
-	moduleComponents = "components"
-	moduleFlows      = "rules"
-	moduleNodes      = "nodes"
-	moduleLocales    = "locales"
-	moduleLogs       = "logs"
-	moduleMarket     = "market"
-	ContentTypeKey   = "Content-Type"
-	JsonContextType  = "application/json"
+	apiVersion        = "v1"
+	apiBasePath       = "/api/" + apiVersion
+	moduleComponents  = "components"
+	moduleFlows       = "rules"
+	moduleNodes       = "nodes"
+	moduleLocales     = "locales"
+	moduleLogs        = "logs"
+	moduleMarketplace = "marketplace"
+	ContentTypeKey    = "Content-Type"
+	JsonContextType   = "application/json"
 )
 
 // NewRestServe rest服务 接收端点
@@ -65,11 +65,7 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	restEndpoint.GET(controller.Node.ListNodePool(apiBasePath + "/" + moduleNodes + "/shared"))
 
 	//获取组件市场组件列表
-	restEndpoint.GET(controller.Node.MarketNodeList(apiBasePath + "/" + moduleMarket + "/components"))
-	//获取组件市场组件DSL
-	restEndpoint.GET(controller.Node.MarketNodeDSL(apiBasePath + "/" + moduleMarket + "/components/:nodeType"))
-	//更新/发布组件到组件市场
-	restEndpoint.POST(controller.Node.MarketNodeUpgrade(apiBasePath + "/" + moduleMarket + "/components/:nodeType"))
+	restEndpoint.GET(controller.Node.MarketNodeList(apiBasePath + "/" + moduleMarketplace + "/components"))
 
 	//获取用户所有自定义动态组件列表
 	restEndpoint.GET(controller.Node.CustomNodeList(apiBasePath + "/" + moduleNodes + "/custom"))
