@@ -24,6 +24,7 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/schema"
 	"github.com/rulego/rulego/utils/str"
+	"regexp"
 	"strings"
 )
 
@@ -46,52 +47,54 @@ var ErrDSLEmpty = errors.New("dsl is empty")
 // 通过dsl定义组件：
 // dynamicNode := NewDynamicNode("fahrenheit", `
 //
-//		 {
-//		 "ruleChain": {
-//		   "id": "fahrenheit",
-//		   "name": "华氏温度转换",
-//		   "debugMode": false,
-//		   "root": false,
-//		   "additionalInfo": {
-//		     "layoutX": 720,
-//		     "layoutY": 260,
-//	         "description":"this is a description",
-//		     "relationTypes":["Success","Failure"],
-//		     "inputSchema": {
-//		       "type": "object",
-//		       "properties": {
-//		         "appKey": {
-//		           "type": "string"
-//		         }
-//		       },
-//		       "required": ["appKey"]
-//		     }
+//			 {
+//			 "ruleChain": {
+//			   "id": "fahrenheit",
+//			   "name": "华氏温度转换",
+//			   "debugMode": false,
+//			   "root": false,
+//			   "additionalInfo": {
+//			     "layoutX": 720,
+//			     "layoutY": 260,
+//		         "description":"this is a description",
+//			     "relationTypes":["Success","Failure"],
+//			     "inputSchema": {
+//			       "type": "object",
+//			       "properties": {
+//			         "scaleFactor": {
+//			           "type": "number",
+//	                  "title": "换算系数",
+//	                  "default": 1.8
+//			         }
+//			       },
+//			       "required": ["scaleFactor"]
+//			     }
 //
-//		   }
-//		 },
-//		 "metadata": {
-//		   "firstNodeIndex": 0,
-//		   "nodes": [
-//		     {
-//		       "id": "s2",
-//		       "type": "jsTransform",
-//		       "name": "摄氏温度转华氏温度",
-//		       "debugMode": true,
-//		       "configuration": {
-//		         "jsScript": "var newMsg={'appKey':'${vars.appKey}','temperature': msg.temperature*(9/5)+32};\n return {'msg':newMsg,'metadata':metadata,'msgType':msgType};"
-//		       }
-//		     }
-//		   ],
-//		   "connections": [
-//		     {
-//		     }
-//		   ]
-//		 }
-//		}
+//			   }
+//			 },
+//			 "metadata": {
+//			   "firstNodeIndex": 0,
+//			   "nodes": [
+//			     {
+//			       "id": "s2",
+//			       "type": "jsTransform",
+//			       "name": "摄氏温度转华氏温度",
+//			       "debugMode": true,
+//			       "configuration": {
+//			         "jsScript": "var newMsg={'temperature': msg.temperature*${vars.scaleFactor}+32};\n return {'msg':newMsg,'metadata':metadata,'msgType':msgType};"
+//			       }
+//			     }
+//			   ],
+//			   "connections": [
+//			     {
+//			     }
+//			   ]
+//			 }
+//			}
 //
-//	`)
-//	注册组件
-//	Registry.Register(dynamicNode)
+//		`)
+//		注册组件
+//		Registry.Register(dynamicNode)
 type DynamicNode struct {
 	//ComponentType 组件类型
 	ComponentType string
@@ -216,9 +219,9 @@ func (x *DynamicNode) Def() types.ComponentForm {
 
 	// 获取输入参数定义
 	inputSchemaMap := ruleChain.RuleChain.AdditionalInfo["inputSchema"]
-	var inputSchema schema.JSONSchema
 	var fields types.ComponentFormFieldList
 	if inputSchemaMap != nil {
+		var inputSchema schema.JSONSchema
 		_ = maps.Map2Struct(inputSchemaMap, &inputSchema)
 
 		// 获取字段列表并排序
@@ -233,6 +236,8 @@ func (x *DynamicNode) Def() types.ComponentForm {
 			fields = append(fields, field)
 		}
 
+	} else {
+		fields = x.processFieldAuto(x.Dsl)
 	}
 	componentForm = types.ComponentForm{
 		Type:          x.ComponentType,
@@ -246,6 +251,33 @@ func (x *DynamicNode) Def() types.ComponentForm {
 		ComponentKind: types.ComponentKindDynamic,
 	}
 	return componentForm
+}
+
+// 定义正则表达式，匹配 ${vars.xx} 形式的变量
+var regexpVars = regexp.MustCompile(`\$\{vars\.([^\}]+)\}`)
+
+// processFieldAuto 处理自动生成字段 生成规则：提取 ${vars.xx}变量
+func (x *DynamicNode) processFieldAuto(dsl string) types.ComponentFormFieldList {
+	// 找到所有匹配的变量
+	matches := regexpVars.FindAllStringSubmatch(dsl, -1)
+	var vars = make(map[string]struct{})
+	for _, match := range matches {
+		// match[1] 是去掉 ${vars.} 后的变量名
+		vars[match[1]] = struct{}{}
+	}
+	var fields types.ComponentFormFieldList
+	for item, _ := range vars {
+		field := types.ComponentFormField{
+			Name:         item,
+			Label:        item,
+			Type:         "string",
+			DefaultValue: "${vars." + item + "}",
+			Fields:       nil,
+		}
+		fields = append(fields, field)
+	}
+
+	return fields
 }
 
 // processField 处理单个字段，支持嵌套字段
