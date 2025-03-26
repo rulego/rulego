@@ -14,7 +14,9 @@ import (
 	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/str"
+	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -99,12 +101,48 @@ func (c *node) ListNodePool(url string) endpointApi.Router {
 // CustomNodeList 获取用户所有自定义动态组件
 func (c *node) CustomNodeList(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		c.getCustomNodeList(false, exchange)
+		c.getCustomNodeList(false, true, exchange)
 		return true
 	}).End()
 }
 
-func (c *node) getCustomNodeList(getMarketComponents bool, exchange *endpointApi.Exchange) bool {
+type ComponentList struct {
+	Page  int               `json:"page"`
+	Size  int               `json:"size"`
+	Total int               `json:"total"`
+	Items []types.RuleChain `json:"items"`
+}
+
+func (c *node) GetComponentsFromMarketplace(baseUrl, keywords string, currentPage, size int) (ComponentList, error) {
+	// 构造查询参数
+	params := url.Values{}
+	params.Add("keywords", keywords)
+	params.Add("page", strconv.Itoa(currentPage))
+	params.Add("size", strconv.Itoa(size))
+
+	// 拼接完整的 URL
+	fullURL := baseUrl + "?" + params.Encode()
+
+	// 发送 GET 请求
+	resp, err := http.Get(fullURL)
+	if err != nil {
+		return ComponentList{}, err
+	}
+	var componentList ComponentList
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ComponentList{}, err
+	}
+	err = json.Unmarshal(body, &componentList)
+	if err != nil {
+		return ComponentList{}, err
+	}
+	return componentList, nil
+}
+
+// CustomNodeList 获取用户所有自定义动态组件，默认从本地默认用户的自定义组件获取，如果配置了MarketBaseUrl，则从组件市场获取
+// - checkMy:true，检查当前用户对应的组件是否需要升级，是否已安装
+func (c *node) getCustomNodeList(getMarketComponents bool, checkMy bool, exchange *endpointApi.Exchange) bool {
 	msg := exchange.In.GetMsg()
 	username := msg.Metadata.GetValue(constants.KeyUsername)
 	keywords := strings.TrimSpace(msg.Metadata.GetValue(constants.KeyKeywords))
@@ -118,25 +156,52 @@ func (c *node) getCustomNodeList(getMarketComponents bool, exchange *endpointApi
 	if i, err := strconv.Atoi(pageSizeStr); err == nil {
 		size = i
 	}
-	//获取当前用户已经安装的组件
-	var installedList types.ComponentFormList
-	if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-		installedList = s.ComponentService().ComponentsRegistry().GetComponentForms()
-	} else {
-		return userNotFound(username, exchange)
-	}
+
+	var components []types.RuleChain
+	var total int
+	var hasGetFromMarket = false
 	if getMarketComponents {
-		username = config.C.DefaultUsername
+		//从组件市场获取组件
+		if config.C.MarketplaceBaseUrl != "" {
+			componentList, err := c.GetComponentsFromMarketplace(config.C.MarketplaceBaseUrl+"/marketplace/components", keywords, page, size)
+			if err != nil {
+				exchange.Out.SetStatusCode(http.StatusInternalServerError)
+				exchange.Out.SetBody([]byte(err.Error()))
+				return true
+			} else {
+				components = componentList.Items
+				total = componentList.Total
+				hasGetFromMarket = true
+			}
+		} else {
+			username = config.C.DefaultUsername
+		}
 	}
 
-	if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-		list, count, err := s.ComponentService().List(keywords, size, page)
-		if err != nil {
-			exchange.Out.SetStatusCode(http.StatusInternalServerError)
-			exchange.Out.SetBody([]byte(err.Error()))
-			return true
+	if !hasGetFromMarket {
+		var err error
+		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
+			components, total, err = s.ComponentService().List(keywords, size, page)
+			if err != nil {
+				exchange.Out.SetStatusCode(http.StatusInternalServerError)
+				exchange.Out.SetBody([]byte(err.Error()))
+				return true
+			}
+		} else {
+			return userNotFound(username, exchange)
 		}
-		for _, item := range list {
+	}
+
+	if checkMy {
+		//获取当前用户已经安装的组件
+		var installedList types.ComponentFormList
+		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
+			installedList = s.ComponentService().ComponentsRegistry().GetComponentForms()
+		} else {
+			return userNotFound(username, exchange)
+		}
+		//标记已安装、需要升级的组件
+		for _, item := range components {
 			if item.RuleChain.AdditionalInfo == nil {
 				item.RuleChain.AdditionalInfo = map[string]interface{}{}
 			}
@@ -148,21 +213,20 @@ func (c *node) getCustomNodeList(getMarketComponents bool, exchange *endpointApi
 				}
 			}
 		}
-		result := map[string]interface{}{
-			"total": count,
-			"page":  page,
-			"size":  size,
-			"items": list,
-		}
-		if v, err := json.Marshal(result); err == nil {
-			exchange.Out.SetBody(v)
-		} else {
-			logger.Logger.Println(err)
-			exchange.Out.SetStatusCode(http.StatusBadRequest)
-			exchange.Out.SetBody([]byte(err.Error()))
-		}
+	}
+
+	result := map[string]interface{}{
+		"total": total,
+		"page":  page,
+		"size":  size,
+		"items": components,
+	}
+	if v, err := json.Marshal(result); err == nil {
+		exchange.Out.SetBody(v)
 	} else {
-		return userNotFound(username, exchange)
+		logger.Logger.Println(err)
+		exchange.Out.SetStatusCode(http.StatusBadRequest)
+		exchange.Out.SetBody([]byte(err.Error()))
 	}
 	return true
 }

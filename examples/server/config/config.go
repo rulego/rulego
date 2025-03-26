@@ -66,6 +66,8 @@ type Config struct {
 	Users types.Metadata `ini:"users"`
 	// Pprof pprof配置
 	Pprof Pprof `ini:"pprof"`
+	// 组件市场根地址
+	MarketplaceBaseUrl string `ini:"marketplace_base_url"`
 
 	//用户名和密码映射
 	UserNamePasswordMap types.Metadata `ini:"-"`
