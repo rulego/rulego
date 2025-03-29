@@ -20,11 +20,11 @@ import (
 	"errors"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/dsl"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/schema"
 	"github.com/rulego/rulego/utils/str"
-	"regexp"
 	"strings"
 )
 
@@ -81,7 +81,7 @@ var ErrDSLEmpty = errors.New("dsl is empty")
 //			       "name": "摄氏温度转华氏温度",
 //			       "debugMode": true,
 //			       "configuration": {
-//			         "jsScript": "var newMsg={'temperature': msg.temperature*${vars.scaleFactor}+32};\n return {'msg':newMsg,'metadata':metadata,'msgType':msgType};"
+//			         "jsScript": "var newMsg={'temperature': msg.temperature*vars.scaleFactor+32};\n return {'msg':newMsg,'metadata':metadata,'msgType':msgType};"
 //			       }
 //			     }
 //			   ],
@@ -237,7 +237,7 @@ func (x *DynamicNode) Def() types.ComponentForm {
 		}
 
 	} else {
-		fields = x.processFieldAuto(x.Dsl)
+		fields = x.processFieldAuto(ruleChain)
 	}
 	componentForm = types.ComponentForm{
 		Type:          x.ComponentType,
@@ -253,20 +253,12 @@ func (x *DynamicNode) Def() types.ComponentForm {
 	return componentForm
 }
 
-// 定义正则表达式，匹配 ${vars.xx} 形式的变量
-var regexpVars = regexp.MustCompile(`\$\{vars\.([^\}]+)\}`)
-
 // processFieldAuto 处理自动生成字段 生成规则：提取 ${vars.xx}变量
-func (x *DynamicNode) processFieldAuto(dsl string) types.ComponentFormFieldList {
-	// 找到所有匹配的变量
-	matches := regexpVars.FindAllStringSubmatch(dsl, -1)
-	var vars = make(map[string]struct{})
-	for _, match := range matches {
-		// match[1] 是去掉 ${vars.} 后的变量名
-		vars[match[1]] = struct{}{}
-	}
+func (x *DynamicNode) processFieldAuto(def types.RuleChain) types.ComponentFormFieldList {
 	var fields types.ComponentFormFieldList
-	for item, _ := range vars {
+	// 找到所有匹配的变量
+	var vars = dsl.ParseVars(def)
+	for _, item := range vars {
 		field := types.ComponentFormField{
 			Name:         item,
 			Label:        item,

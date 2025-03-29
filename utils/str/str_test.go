@@ -21,6 +21,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 	"math"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -218,6 +219,28 @@ func TestRemoveBraces(t *testing.T) {
 	assert.Equal(t, "hello", RemoveBraces("hello}"))
 	assert.Equal(t, "hello", RemoveBraces("${hello}"))
 	assert.Equal(t, "helloage", RemoveBraces("${hello} ${age}"))
+}
+
+func TestParseVarsWithBraces(t *testing.T) {
+	testStr := "This is a test string with ${vars.name} and ${vars.age} and ${vars.name} again."
+	vars := ParseVarsWithBraces(testStr)
+	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
+	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
+
+	testStr = "This is a test string with vars.name and vars.age and vars.name again."
+	vars = ParseVarsWithBraces(testStr)
+	assert.Equal(t, 0, len(vars))
+}
+func TestParseVars(t *testing.T) {
+	testStr := "This is a test string with ${vars.name} and ${vars.age} and ${vars.name} again."
+	vars := ParseVars(testStr)
+	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
+	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
+
+	testStr = "This is a test string with vars.name and vars.age and vars.name again."
+	vars = ParseVars(testStr)
+	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
+	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
 }
 
 type User struct {
