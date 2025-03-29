@@ -159,7 +159,13 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 				//如果字段类型是结构体，那么递归调用 GetFields 函数，传入字段的类型对象和值对象，获取子字段的信息
 				subFields = GetFields(field, configValue.Field(i))
 			}
-
+			var rules []map[string]interface{}
+			if required {
+				rules = append(rules, map[string]interface{}{
+					"required": true,
+					"message":  "This field is required",
+				})
+			}
 			fields = append(fields,
 				types.ComponentFormField{
 					Name:         str.ToLowerFirst(field.Name),
@@ -167,9 +173,9 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 					DefaultValue: defaultValue,
 					Label:        label,
 					Desc:         desc,
+					Rules:        rules,
 					Validate:     validate,
 					Fields:       subFields,
-					Required:     required,
 				})
 		}
 	}
