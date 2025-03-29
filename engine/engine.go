@@ -842,7 +842,8 @@ type RuleEngine struct {
 	// initialized indicates whether the rule engine has been initialized.
 	initialized bool
 	// Aspects is a list of AOP (Aspect-Oriented Programming) aspects.
-	Aspects types.AspectList
+	Aspects   types.AspectList
+	OnUpdated func(chainId, nodeId string, dsl []byte)
 }
 
 // NewRuleEngine creates a new RuleEngine instance with the given ID and definition.
@@ -968,6 +969,9 @@ func (e *RuleEngine) ReloadSelf(dsl []byte, opts ...types.RuleEngineOption) erro
 		err = e.rootRuleChainCtx.ReloadSelf(dsl)
 		//设置子规则链池
 		e.rootRuleChainCtx.SetRuleEnginePool(e.ruleChainPool)
+		if err == nil && e.OnUpdated != nil {
+			e.OnUpdated(e.id, e.id, dsl)
+		}
 	} else {
 		//初始化内置切面
 		e.initBuiltinsAspects()
@@ -1000,7 +1004,11 @@ func (e *RuleEngine) ReloadChild(ruleNodeId string, dsl []byte) error {
 		return e.ReloadSelf(dsl)
 	} else {
 		//更新根规则链子节点
-		return e.rootRuleChainCtx.ReloadChild(types.RuleNodeId{Id: ruleNodeId}, dsl)
+		err := e.rootRuleChainCtx.ReloadChild(types.RuleNodeId{Id: ruleNodeId}, dsl)
+		if err == nil && e.OnUpdated != nil {
+			e.OnUpdated(e.id, ruleNodeId, e.DSL())
+		}
+		return err
 	}
 }
 
