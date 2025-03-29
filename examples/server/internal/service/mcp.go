@@ -257,11 +257,12 @@ func (s *McpService) AddToolsFromChain(id string, def types.RuleChain) {
 			if len(vars) > 0 {
 				var toolOptions []mcp.ToolOption
 				for _, item := range vars {
-					toolOptions = append(toolOptions, mcp.WithString(item, mcp.Required(), mcp.Description("input param"+item)))
+					toolOptions = append(toolOptions, mcp.WithString(item, mcp.Required(), mcp.Description("input param: "+item)))
 				}
+				toolOptions = append(toolOptions, mcp.WithDescription(desc))
 				tool = mcp.NewTool(id, toolOptions...)
 			} else {
-				tool = mcp.NewTool(id, mcp.WithObject(constants.KeyInMessage, mcp.Description("input message")))
+				tool = mcp.NewTool(id, mcp.WithDescription(desc), mcp.WithObject(constants.KeyInMessage, mcp.Description("input message")))
 			}
 		}
 		// 为工具添加处理器
