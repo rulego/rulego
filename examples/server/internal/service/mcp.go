@@ -253,7 +253,7 @@ func (s *McpService) AddToolsFromChain(id string, def types.RuleChain) {
 			}
 		} else {
 			//自动从所有节点中获取所有变量
-			vars := dsl.ParseVars(def)
+			vars := dsl.ParseVars(types.MsgKey, def)
 			if len(vars) > 0 {
 				var toolOptions []mcp.ToolOption
 				for _, item := range vars {

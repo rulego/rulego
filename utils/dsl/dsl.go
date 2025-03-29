@@ -22,19 +22,21 @@ import (
 	"strings"
 )
 
+const FieldNameScript = "script"
+
 // ParseVars 解析规则链中的变量
-func ParseVars(def types.RuleChain) []string {
+func ParseVars(varPrefix string, def types.RuleChain) []string {
 	var mergeVars = make(map[string]struct{})
 	for _, node := range def.Metadata.Nodes {
 		for fieldName, fieldValue := range node.Configuration {
 			if strV, ok := fieldValue.(string); ok {
 				var vars []string
-				if strings.Contains(strings.ToLower(fieldName), "script") {
-					//脚本通过 vars.xx 方式解析
-					vars = str.ParseVars(strV)
+				if strings.Contains(strings.ToLower(fieldName), FieldNameScript) {
+					//脚本通过 {varPrefix}.xx 方式解析
+					vars = str.ParseVars(varPrefix, strV)
 				} else {
-					//通过 ${vars.xx} 方式解析
-					vars = str.ParseVarsWithBraces(strV)
+					//通过 ${{varPrefix}.xx} 方式解析
+					vars = str.ParseVarsWithBraces(varPrefix, strV)
 				}
 				for _, v := range vars {
 					mergeVars[v] = struct{}{}

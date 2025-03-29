@@ -56,7 +56,7 @@ func TestParseVars(t *testing.T) {
 					"name": "摄氏温度转华氏温度",
 					"debugMode": true,
 					"configuration": {
-						"jsScript": "var newMsg={'temperature': msg.temperature*vars.scaleFactor+32};\n return {'msg':newMsg,'metadata':metadata,'msgType':msgType};"
+						"jsScript": "var newMsg={'temperature': msg.temperature*msg.scaleFactor+32};\n return {'msg':newMsg,'metadata':metadata,'msgType':msgType};"
 					}
 				},
                 {
@@ -65,7 +65,7 @@ func TestParseVars(t *testing.T) {
 					"name": "db query",
 					"debugMode": true,
 					"configuration": {
-						"sql": "${vars.sql}"
+						"sql": "${msg.sql}"
 					}
 				}
 
@@ -80,7 +80,7 @@ func TestParseVars(t *testing.T) {
 		t.Fatalf("Failed to unmarshal input data: %v", err)
 	}
 
-	actualOutput := ParseVars(ruleChain)
+	actualOutput := ParseVars(types.MsgKey, ruleChain)
 	assert.True(t, strings.Contains(strings.Join(actualOutput, ","), "scaleFactor"))
 	assert.True(t, strings.Contains(strings.Join(actualOutput, ","), "sql"))
 }
