@@ -201,6 +201,11 @@ func (g *RuleGo) OnMsg(msg types.RuleMsg) {
 	})
 }
 
+// SetCallbacks sets the callbacks for the rule engine pool.
+func (g *RuleGo) SetCallbacks(callbacks types.Callbacks) {
+	g.Pool().SetCallbacks(callbacks)
+}
+
 // Load loads all rule chain configurations from the specified folder and its subFolders into the rule engine instance pool.
 // The rule chain ID is taken from the ruleChain.id specified in the rule chain file.
 func Load(folderPath string, opts ...types.RuleEngineOption) error {

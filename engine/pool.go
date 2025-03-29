@@ -19,6 +19,7 @@ package engine
 import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/fs"
+	"github.com/rulego/rulego/utils/str"
 	"log"
 	"strings"
 	"sync"
@@ -31,7 +32,8 @@ var DefaultPool = &Pool{}
 // Pool is a pool of rule engine instances.
 type Pool struct {
 	// A concurrent map to store rule engine instances.
-	entries sync.Map
+	entries   sync.Map
+	Callbacks types.Callbacks
 }
 
 // NewPool creates a new instance of a rule engine pool.
@@ -61,8 +63,12 @@ func (g *Pool) Load(folderPath string, opts ...types.RuleEngineOption) error {
 	for _, path := range paths {
 		b := fs.LoadFile(path)
 		if b != nil {
-			if _, err = g.New("", b, opts...); err != nil {
+			if e, err := g.New("", b, opts...); err != nil {
 				log.Println("Load rule chain error:", err)
+			} else {
+				if g.Callbacks.OnNew != nil {
+					g.Callbacks.OnNew(e.Id(), b)
+				}
 			}
 		}
 	}
@@ -84,6 +90,12 @@ func (g *Pool) New(id string, rootRuleChainSrc []byte, opts ...types.RuleEngineO
 			// Store the new rule engine instance in the pool.
 			if ruleEngine.Id() != "" {
 				g.entries.Store(ruleEngine.Id(), ruleEngine)
+			}
+			if g.Callbacks.OnUpdated != nil {
+				ruleEngine.OnUpdated = g.Callbacks.OnUpdated
+			}
+			if g.Callbacks.OnNew != nil {
+				g.Callbacks.OnNew(id, rootRuleChainSrc)
 			}
 			return ruleEngine, err
 		}
@@ -107,6 +119,9 @@ func (g *Pool) Del(id string) {
 	if ok {
 		v.(*RuleEngine).Stop()
 		g.entries.Delete(id)
+		if g.Callbacks.OnDeleted != nil {
+			g.Callbacks.OnDeleted(id)
+		}
 	}
 }
 
@@ -117,6 +132,9 @@ func (g *Pool) Stop() {
 			item.Stop()
 		}
 		g.entries.Delete(key)
+		if g.Callbacks.OnDeleted != nil {
+			g.Callbacks.OnDeleted(str.ToString(key))
+		}
 		return true
 	})
 }
@@ -143,6 +161,10 @@ func (g *Pool) OnMsg(msg types.RuleMsg) {
 		}
 		return true
 	})
+}
+
+func (g *Pool) SetCallbacks(callbacks types.Callbacks) {
+	g.Callbacks = callbacks
 }
 
 // Load loads all rule chain configurations from the specified folder and its subfolders into the default rule engine instance pool.
