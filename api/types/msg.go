@@ -112,6 +112,11 @@ func NewMsg(ts int64, msgType string, dataType DataType, metaData Metadata, data
 	return newMsg(uuId.String(), ts, msgType, dataType, metaData, data)
 }
 
+func NewMsgWithJsonData(data string) RuleMsg {
+	uuId, _ := uuid.NewV4()
+	return newMsg(uuId.String(), 0, "", JSON, NewMetadata(), data)
+}
+
 // newMsg is a helper function to create a new RuleMsg.
 func newMsg(id string, ts int64, msgType string, dataType DataType, metaData Metadata, data string) RuleMsg {
 	if ts <= 0 {

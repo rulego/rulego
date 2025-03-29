@@ -374,3 +374,10 @@ type Script struct {
 	// Content is the script content or custom function.
 	Content interface{}
 }
+
+// Callbacks is a set of callback functions for pool  events.
+type Callbacks struct {
+	OnNew     func(chainId string, dsl []byte)
+	OnUpdated func(chainId, nodeId string, dsl []byte)
+	OnDeleted func(id string)
+}
