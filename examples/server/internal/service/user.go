@@ -37,3 +37,11 @@ func (s *UserService) GetUsernameByApiKey(apikey string) string {
 	return s.Config.GetUsernameByApiKey(apikey)
 
 }
+
+func (s *UserService) GetApiKeyByUsername(username string) string {
+	if username == "" {
+		return ""
+	}
+	return s.Config.GetApiKeyByUsername(username)
+
+}

@@ -117,6 +117,7 @@ type RuleEngineService struct {
 	userSettingDao     *dao.UserSettingDao
 	mainRuleEngine     types.RuleEngine
 	componentService   *ComponentService
+	mcpService         *McpService
 }
 
 func NewRuleEngineServiceAndInitRuleGo(c config.Config, username string) (*RuleEngineService, error) {
@@ -126,6 +127,7 @@ func NewRuleEngineServiceAndInitRuleGo(c config.Config, username string) (*RuleE
 		types.WithLogger(logger.Logger),
 		types.WithComponentsRegistry(componentRegistry),
 		types.WithNetPool(node_pool.DefaultNodePool))
+	ruleConfig.Logger.Printf("init %s data", username)
 
 	service, err := NewRuleEngineService(c, ruleConfig, username)
 	if err != nil {
@@ -135,6 +137,9 @@ func NewRuleEngineServiceAndInitRuleGo(c config.Config, username string) (*RuleE
 	service.InitRuleGo(logger.Logger, c.DataDir, username)
 	//加载自定义组件
 	service.componentService.LoadComponents()
+	if service.mcpService != nil {
+		service.mcpService.LoadTools()
+	}
 	return service, nil
 }
 
@@ -153,6 +158,17 @@ func NewRuleEngineService(c config.Config, ruleConfig types.Config, username str
 	if err != nil {
 		return nil, err
 	}
+	var mcpService *McpService
+	if c.MCP.Enable {
+		mcpService, err = NewMcpService(ruleConfig, c, pool, componentService, username)
+		if err != nil {
+			return nil, err
+		}
+		if c.MCP.LoadChainsAsTool {
+			pool.Pool().SetCallbacks(mcpService.Callbacks())
+		}
+	}
+	componentService.mcpService = mcpService
 	service := &RuleEngineService{
 		Pool:            pool,
 		username:        username,
@@ -165,6 +181,10 @@ func NewRuleEngineService(c config.Config, ruleConfig types.Config, username str
 		ruleConfig:         ruleConfig,
 		userSettingDao:     userSettingDao,
 		componentService:   componentService,
+		mcpService:         mcpService,
+	}
+	if mcpService != nil {
+		mcpService.ruleEngineService = service
 	}
 	return service, nil
 }
@@ -174,6 +194,9 @@ func (s *RuleEngineService) GetRuleConfig() types.Config {
 
 func (s *RuleEngineService) ComponentService() *ComponentService {
 	return s.componentService
+}
+func (s *RuleEngineService) MCPService() *McpService {
+	return s.mcpService
 }
 
 func (s *RuleEngineService) ExecuteAndWait(chainId string, msg types.RuleMsg, opts ...types.RuleContextOption) error {
@@ -359,7 +382,7 @@ func (s *RuleEngineService) Load(chainId string) error {
 		_, err = s.Pool.New(chainId, def, rulego.WithConfig(s.ruleConfig))
 	}
 	if err != nil {
-		s.ruleConfig.Logger.Printf("chainId:%s load err: %s", chainId, err.Error())
+		//s.ruleConfig.Logger.Printf("chainId:%s load error: %s", chainId, err.Error())
 		var ruleChain types.RuleChain
 		jsonErr := json.Unmarshal(def, &ruleChain)
 		if jsonErr != nil {
@@ -581,24 +604,25 @@ func (s *RuleEngineService) loadRules(folderPath string) error {
 	if err != nil {
 		return err
 	}
+	var count = 0
 	// Load each file and create a new rule engine instance from its contents.
 	for _, p := range paths {
 		fileName := filepath.Base(p)
 		chainId := fileName[:len(fileName)-len(filepath.Ext(fileName))]
 		if err = s.Load(chainId); err != nil {
-			s.logger.Printf("load rule chain error: %s", err.Error())
+			s.logger.Printf("load rule chain id:%s error: %s", chainId, err.Error())
+		} else {
+			count++
 		}
 	}
-	if err != nil {
-		return err
-	}
+	s.logger.Printf("%s number of rule chains loaded :%d", s.username, count)
 	//加载主规则链
 	if mainChainId := s.userSettingDao.Get(constants.SettingKeyMainChainId); mainChainId != "" {
 		if err := s.SetMainChainId(mainChainId); err != nil {
-			s.logger.Printf("load main rule chain error: %s", err.Error())
+			s.logger.Printf("load %s main rule chain error: %s", s.username, err.Error())
 		}
 	} else {
-		s.logger.Printf("main chain id is empty")
+		s.logger.Printf("%s main chain id is empty", s.username)
 	}
 
 	return nil

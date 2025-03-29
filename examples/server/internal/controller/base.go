@@ -7,7 +7,11 @@ import (
 	"examples/server/internal/model"
 	"examples/server/internal/service"
 	"fmt"
+	"github.com/rulego/rulego/endpoint/rest"
+	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,17 +63,17 @@ func GetRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEnginePool {
 }
 
 var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	r := exchange.In.(*rest.RequestMessage)
+
 	authorization := exchange.In.Headers().Get(constants.KeyAuthorization)
 	if !config.Get().RequireAuth && authorization == "" {
 		//允许匿名访问
-		msg := exchange.In.GetMsg()
-		msg.Metadata.PutValue(constants.KeyUsername, config.C.DefaultUsername)
+		r.Metadata.PutValue(constants.KeyUsername, config.C.DefaultUsername)
 		return true
 	}
 	username := getUsernameApiKey(authorization) // "Bearer api_key" 方式
 	if username != "" {
-		msg := exchange.In.GetMsg()
-		msg.Metadata.PutValue(constants.KeyUsername, username)
+		r.Metadata.PutValue(constants.KeyUsername, username)
 		return true
 	} else {
 		claim, err := parseToken(authorization) // "Bearer jwt" 方式
@@ -78,11 +82,43 @@ var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange
 			exchange.Out.SetBody([]byte(err.Error()))
 			return false
 		}
-		msg := exchange.In.GetMsg()
-		msg.Metadata.PutValue(constants.KeyUsername, claim.Username)
+		r.Metadata.PutValue(constants.KeyUsername, claim.Username)
 		return true
 	}
 
+}
+
+func GetComponentsFromMarketplace(baseUrl, keywords string, root *bool, currentPage, size int) (ComponentList, error) {
+	// 构造查询参数
+	params := url.Values{}
+	params.Add(constants.KeyKeywords, keywords)
+	params.Add(constants.KeyPage, strconv.Itoa(currentPage))
+	params.Add(constants.KeySize, strconv.Itoa(size))
+	if root != nil {
+		params.Add(constants.KeyRoot, strconv.FormatBool(*root))
+	}
+
+	// 拼接完整的 URL
+	fullURL := baseUrl + "?" + params.Encode()
+
+	// 发送 GET 请求
+	resp, err := http.Get(fullURL)
+	if err != nil {
+		return ComponentList{}, err
+	}
+	var componentList ComponentList
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ComponentList{}, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return ComponentList{}, errors.New(string(body))
+	}
+	err = json.Unmarshal(body, &componentList)
+	if err != nil {
+		return ComponentList{}, err
+	}
+	return componentList, nil
 }
 
 func parseToken(token string) (*RuleGoClaim, error) {

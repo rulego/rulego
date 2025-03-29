@@ -83,55 +83,81 @@ func (c *rule) Save(url string) endpointApi.Router {
 // List 创建获取所有规则链路由
 func (c *rule) List(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		msg := exchange.In.GetMsg()
-		username := msg.Metadata.GetValue(constants.KeyUsername)
-		keywords := strings.TrimSpace(msg.Metadata.GetValue(constants.KeyKeywords))
-		rootStr := strings.TrimSpace(msg.Metadata.GetValue(constants.KeyRoot))
-		rootDisabled := strings.TrimSpace(msg.Metadata.GetValue(constants.KeyDisabled))
-		var page = 1
-		var size = 20
-		currentStr := msg.Metadata.GetValue(constants.KeyPage)
-		if i, err := strconv.Atoi(currentStr); err == nil {
-			page = i
-		}
-		pageSizeStr := msg.Metadata.GetValue(constants.KeySize)
-		if i, err := strconv.Atoi(pageSizeStr); err == nil {
-			size = i
-		}
-		var root *bool
-		var disabled *bool
-		if i, err := strconv.ParseBool(rootStr); err == nil {
-			root = &i
-		}
-		if i, err := strconv.ParseBool(rootDisabled); err == nil {
-			disabled = &i
-		}
+		return c.list(false, exchange)
+	}).End()
+}
 
+func (c *rule) list(getFromMarketplace bool, exchange *endpointApi.Exchange) bool {
+	msg := exchange.In.GetMsg()
+	username := msg.Metadata.GetValue(constants.KeyUsername)
+	keywords := strings.TrimSpace(msg.Metadata.GetValue(constants.KeyKeywords))
+	rootStr := strings.TrimSpace(msg.Metadata.GetValue(constants.KeyRoot))
+	rootDisabled := strings.TrimSpace(msg.Metadata.GetValue(constants.KeyDisabled))
+	var page = 1
+	var size = 20
+	currentStr := msg.Metadata.GetValue(constants.KeyPage)
+	if i, err := strconv.Atoi(currentStr); err == nil {
+		page = i
+	}
+	pageSizeStr := msg.Metadata.GetValue(constants.KeySize)
+	if i, err := strconv.Atoi(pageSizeStr); err == nil {
+		size = i
+	}
+	var root *bool
+	var disabled *bool
+	if i, err := strconv.ParseBool(rootStr); err == nil {
+		root = &i
+	}
+	if i, err := strconv.ParseBool(rootDisabled); err == nil {
+		disabled = &i
+	}
+	var list []types.RuleChain
+	var total int
+	var hasGetFromMarket = false
+	var err error
+	if getFromMarketplace {
+		//从组件市场获取规则链
+		if config.C.MarketplaceBaseUrl != "" {
+			componentList, err := GetComponentsFromMarketplace(config.C.MarketplaceBaseUrl+"/marketplace/chains", keywords, root, page, size)
+			if err != nil {
+				exchange.Out.SetStatusCode(http.StatusInternalServerError)
+				exchange.Out.SetBody([]byte(err.Error()))
+				return true
+			} else {
+				list = componentList.Items
+				total = componentList.Total
+				hasGetFromMarket = true
+			}
+		} else {
+			username = config.C.DefaultUsername
+		}
+	}
+	if !hasGetFromMarket {
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-			list, count, err := s.List(keywords, root, disabled, size, page)
+			list, total, err = s.List(keywords, root, disabled, size, page)
 			if err != nil {
 				exchange.Out.SetStatusCode(http.StatusInternalServerError)
 				exchange.Out.SetBody([]byte(err.Error()))
 				return true
 			}
-			result := map[string]interface{}{
-				"total": count,
-				"page":  page,
-				"size":  size,
-				"items": list,
-			}
-			if v, err := json.Marshal(result); err == nil {
-				exchange.Out.SetBody(v)
-			} else {
-				logger.Logger.Println(err)
-				exchange.Out.SetStatusCode(http.StatusBadRequest)
-				exchange.Out.SetBody([]byte(err.Error()))
-			}
 		} else {
 			return userNotFound(username, exchange)
 		}
-		return true
-	}).End()
+	}
+	result := map[string]interface{}{
+		"total": total,
+		"page":  page,
+		"size":  size,
+		"items": list,
+	}
+	if v, err := json.Marshal(result); err == nil {
+		exchange.Out.SetBody(v)
+	} else {
+		logger.Logger.Println(err)
+		exchange.Out.SetStatusCode(http.StatusBadRequest)
+		exchange.Out.SetBody([]byte(err.Error()))
+	}
+	return true
 }
 
 // Delete 创建删除指定规则链路由
