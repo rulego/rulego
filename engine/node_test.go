@@ -46,7 +46,7 @@ func TestNodeCtx(t *testing.T) {
 			Type: "notFound",
 		}
 		_, err := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
-		assert.Equal(t, "component not found. componentType=notFound", err.Error())
+		assert.Equal(t, "nodeType:notFound for id:s1 new error:component not found. componentType=notFound", err.Error())
 	})
 
 	t.Run("notSupportThisFunc", func(t *testing.T) {

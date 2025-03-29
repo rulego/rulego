@@ -18,6 +18,7 @@ package engine
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/str"
@@ -53,7 +54,7 @@ func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 	_, nodeBeforeInitAspects, _, _, _ := aspects.GetEngineAspects()
 	for _, aspect := range nodeBeforeInitAspects {
 		if err := aspect.OnNodeBeforeInit(config, selfDefinition); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("nodeType:%s for id:%s OnNodeBeforeInit error:%s", selfDefinition.Type, selfDefinition.Id, err.Error())
 		}
 	}
 
@@ -65,7 +66,7 @@ func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 			config:            config,
 			aspects:           aspects,
 			isInitNetResource: isInitNetResource,
-		}, err
+		}, fmt.Errorf("nodeType:%s for id:%s new error:%s", selfDefinition.Type, selfDefinition.Id, err.Error())
 	} else {
 		// If selfDefinition.Configuration is nil, initialize it as an empty configuration.
 		if selfDefinition.Configuration == nil {
@@ -74,7 +75,7 @@ func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 		// Process variables within the configuration.
 		configuration, err := processVariables(config, chainCtx, selfDefinition.Configuration)
 		if err != nil {
-			return &RuleNodeCtx{}, err
+			return &RuleNodeCtx{}, fmt.Errorf("nodeType:%s for id:%s process variables error:%s", selfDefinition.Type, selfDefinition.Id, err.Error())
 		}
 		if isInitNetResource {
 			configuration[types.NodeConfigurationKeyIsInitNetResource] = true
@@ -84,7 +85,7 @@ func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 		configuration[types.NodeConfigurationKeySelfDefinition] = *selfDefinition
 		// Initialize the node with the processed configuration.
 		if err = node.Init(config, configuration); err != nil {
-			return &RuleNodeCtx{}, err
+			return &RuleNodeCtx{}, fmt.Errorf("nodeType:%s for id:%s init error:%s", selfDefinition.Type, selfDefinition.Id, err.Error())
 		} else {
 			// Return a RuleNodeCtx with the initialized node and provided context and definition.
 			return &RuleNodeCtx{

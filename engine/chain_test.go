@@ -58,7 +58,7 @@ func TestChainCtx(t *testing.T) {
 		ruleNode := types.RuleNode{Type: "notFound"}
 		newRuleChainDef.Metadata.Nodes = append(newRuleChainDef.Metadata.Nodes, &ruleNode)
 		err = ctx.Init(NewConfig(), types.Configuration{"selfDefinition": &newRuleChainDef})
-		assert.Equal(t, "component not found. componentType=notFound", err.Error())
+		assert.Equal(t, "nodeType:notFound for id:node0 new error:component not found. componentType=notFound", err.Error())
 	})
 
 	t.Run("ReloadChildNotFound", func(t *testing.T) {
