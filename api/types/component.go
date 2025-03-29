@@ -157,6 +157,8 @@ type ComponentFormField struct {
 	//	"type": "codeEditor",
 	//}
 	Component map[string]interface{} `json:"component"`
+	//是否必填，通过tag:required获取
+	Required bool `json:"required"`
 }
 
 // SafeComponentSlice 安全的组件列表切片

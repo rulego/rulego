@@ -259,12 +259,22 @@ func (x *DynamicNode) processFieldAuto(def types.RuleChain) types.ComponentFormF
 	// 找到所有匹配的变量
 	var vars = dsl.ParseVars(def)
 	for _, item := range vars {
+		var rules []map[string]interface{}
+		var required = true
+		rules = []map[string]interface{}{
+			{
+				"required": true,
+				"message":  "This field is required",
+			},
+		}
 		field := types.ComponentFormField{
 			Name:         item,
 			Label:        item,
 			Type:         "string",
 			DefaultValue: "${vars." + item + "}",
 			Fields:       nil,
+			Rules:        rules,
+			Required:     required,
 		}
 		fields = append(fields, field)
 	}
@@ -275,6 +285,7 @@ func (x *DynamicNode) processFieldAuto(def types.RuleChain) types.ComponentFormF
 // processField 处理单个字段，支持嵌套字段
 func (x *DynamicNode) processField(name string, fieldMap schema.FieldSchema, parentSchema schema.JSONSchema) types.ComponentFormField {
 	var rules []map[string]interface{}
+	var required = false
 	if parentSchema.CheckFieldIsRequired(name) {
 		rules = []map[string]interface{}{
 			{
@@ -282,6 +293,7 @@ func (x *DynamicNode) processField(name string, fieldMap schema.FieldSchema, par
 				"message":  "This field is required",
 			},
 		}
+		required = true
 	}
 
 	field := types.ComponentFormField{
@@ -292,6 +304,7 @@ func (x *DynamicNode) processField(name string, fieldMap schema.FieldSchema, par
 		Fields:       nil,
 		Rules:        rules,
 		Desc:         fieldMap.Description,
+		Required:     required,
 	}
 
 	if fieldMap.Type == "object" && fieldMap.Properties != nil {
