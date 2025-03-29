@@ -338,9 +338,11 @@ func (x *DbClientNode) initClient() (*sql.DB, error) {
 		if err == nil {
 			x.client.SetMaxOpenConns(x.Config.PoolSize)
 			x.client.SetMaxIdleConns(x.Config.PoolSize / 2)
+			err = x.client.Ping()
+			return x.client, err
+		} else {
+			return nil, err
 		}
-		err = x.client.Ping()
-		return x.client, err
 	}
 }
 
