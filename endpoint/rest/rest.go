@@ -69,12 +69,14 @@ type Endpoint = Rest
 
 // RequestMessage http请求消息
 type RequestMessage struct {
-	request *http.Request
-	body    []byte
+	request  *http.Request
+	response http.ResponseWriter
+	body     []byte
 	//路径参数
-	Params httprouter.Params
-	msg    *types.RuleMsg
-	err    error
+	Params   httprouter.Params
+	msg      *types.RuleMsg
+	err      error
+	Metadata types.Metadata
 }
 
 func (r *RequestMessage) Body() []byte {
@@ -132,7 +134,10 @@ func (r *RequestMessage) GetMsg() *types.RuleMsg {
 			}
 			data = string(r.Body())
 		}
-		ruleMsg := types.NewMsg(0, r.From(), dataType, types.NewMetadata(), data)
+		if r.Metadata == nil {
+			r.Metadata = types.NewMetadata()
+		}
+		ruleMsg := types.NewMsg(0, r.From(), dataType, r.Metadata, data)
 		r.msg = &ruleMsg
 	}
 	return r.msg
@@ -155,6 +160,10 @@ func (r *RequestMessage) GetError() error {
 
 func (r *RequestMessage) Request() *http.Request {
 	return r.request
+}
+
+func (r *RequestMessage) Response() http.ResponseWriter {
+	return r.response
 }
 
 // ResponseMessage http响应消息
@@ -220,6 +229,9 @@ func (r *ResponseMessage) GetError() error {
 	return r.err
 }
 
+func (r *ResponseMessage) Request() *http.Request {
+	return r.request
+}
 func (r *ResponseMessage) Response() http.ResponseWriter {
 	return r.response
 }
@@ -528,13 +540,15 @@ func (rest *Rest) handler(router endpoint.Router, isWait bool) httprouter.Handle
 		}()
 		if router.IsDisable() {
 			http.NotFound(w, r)
-			//w.WriteHeader(http.NotFound())
 			return
 		}
+		metadata := types.NewMetadata()
 		exchange := &endpoint.Exchange{
 			In: &RequestMessage{
-				request: r,
-				Params:  params,
+				request:  r,
+				response: w,
+				Params:   params,
+				Metadata: metadata,
 			},
 			Out: &ResponseMessage{
 				request:  r,
@@ -542,18 +556,17 @@ func (rest *Rest) handler(router endpoint.Router, isWait bool) httprouter.Handle
 			},
 		}
 
-		msg := exchange.In.GetMsg()
 		//把路径参数放到msg元数据中
 		for _, param := range params {
-			msg.Metadata.PutValue(param.Key, param.Value)
+			metadata.PutValue(param.Key, param.Value)
 		}
 
 		//把url?参数放到msg元数据中
 		for key, value := range r.URL.Query() {
 			if len(value) > 1 {
-				msg.Metadata.PutValue(key, str.ToString(value))
+				metadata.PutValue(key, str.ToString(value))
 			} else {
-				msg.Metadata.PutValue(key, value[0])
+				metadata.PutValue(key, value[0])
 			}
 
 		}
