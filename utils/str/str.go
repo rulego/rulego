@@ -262,3 +262,45 @@ func ToLowerFirst(s string) string {
 	}
 	return strings.ToLower(s[:1]) + s[1:]
 }
+
+// 定义正则表达式，匹配 ${vars.xx} 形式的变量
+var regexpVarsWithBraces = regexp.MustCompile(`\$\{vars\.([^\}]+)\}`)
+
+// 定义正则表达式，匹配 vars.xx 形式的变量
+var regexpVars = regexp.MustCompile(`vars\.(\w+)`)
+
+// ParseVarsWithBraces 解析字符串中的变量，返回变量名切片，例如：${vars.name} -> [name]
+func ParseVarsWithBraces(s string) []string {
+	// 找到所有匹配的变量
+	matches := regexpVarsWithBraces.FindAllStringSubmatch(s, -1)
+	var vars = make(map[string]struct{})
+	for _, match := range matches {
+		// match[1] 是去掉 ${vars.} 后的变量名
+		vars[match[1]] = struct{}{}
+	}
+	// 将 map 中的变量名转换为切片
+	var result []string
+	for varName := range vars {
+		result = append(result, varName)
+	}
+
+	return result
+}
+
+// ParseVars 解析字符串中的变量，返回变量名切片，例如：vars.name -> [name]
+func ParseVars(s string) []string {
+	// 找到所有匹配的变量
+	matches := regexpVars.FindAllStringSubmatch(s, -1)
+	var vars = make(map[string]struct{})
+	for _, match := range matches {
+		// match[1] 是去掉 ${vars.} 后的变量名
+		vars[match[1]] = struct{}{}
+	}
+	// 将 map 中的变量名转换为切片
+	var result []string
+	for varName := range vars {
+		result = append(result, varName)
+	}
+
+	return result
+}

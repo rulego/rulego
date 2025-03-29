@@ -36,6 +36,7 @@ package reflect
 import (
 	"github.com/rulego/rulego/api/types/endpoint"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/rulego/rulego/api/types"
@@ -146,6 +147,7 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 			label := field.Tag.Get("label")
 			desc := field.Tag.Get("desc")
 			validate := field.Tag.Get("validate")
+			required, _ := strconv.ParseBool(field.Tag.Get("required"))
 			typeName := field.Type.Name()
 			var subFields []types.ComponentFormField
 			if field.Type.Kind() == reflect.Map {
@@ -167,6 +169,7 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 					Desc:         desc,
 					Validate:     validate,
 					Fields:       subFields,
+					Required:     required,
 				})
 		}
 	}
