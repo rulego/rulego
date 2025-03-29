@@ -4,14 +4,14 @@ import (
 	"examples/server/config"
 	"examples/server/config/logger"
 	"examples/server/internal/controller"
-	"net/http"
-	"strings"
-
+	"examples/server/internal/service"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
+	"net/http"
+	"strings"
 )
 
 const (
@@ -26,6 +26,7 @@ const (
 	moduleMarketplace = "marketplace"
 	ContentTypeKey    = "Content-Type"
 	JsonContextType   = "application/json"
+	SSEContextType    = "text/event-stream"
 )
 
 // NewRestServe rest服务 接收端点
@@ -65,7 +66,9 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	restEndpoint.GET(controller.Node.ListNodePool(apiBasePath + "/" + moduleNodes + "/shared"))
 
 	//获取组件市场组件列表
-	restEndpoint.GET(controller.Node.MarketNodeList(apiBasePath + "/" + moduleMarketplace + "/components"))
+	restEndpoint.GET(controller.Node.MarketplaceComponents(apiBasePath + "/" + moduleMarketplace + "/components"))
+	//获取组件市场规则链列表
+	restEndpoint.GET(controller.Rule.MarketplaceChains(apiBasePath + "/" + moduleMarketplace + "/chains"))
 
 	//获取用户所有自定义动态组件列表
 	restEndpoint.GET(controller.Node.CustomNodeList(apiBasePath + "/" + moduleNodes + "/custom"))
@@ -107,6 +110,13 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	restEndpoint.POST(controller.Locale.Save(apiBasePath + "/" + moduleLocales))
 	//创建用户登录路由
 	restEndpoint.POST(controller.Base.Login(apiBasePath + "/login"))
+
+	if config.MCP.Enable {
+		restEndpoint.GET(controller.MCP.Handler(apiBasePath + "/mcp/:apiKey/sse"))
+		restEndpoint.POST(controller.MCP.Handler(apiBasePath + "/mcp/:apiKey/message"))
+		logger.Logger.Println("RuleGo-Server mcp server running at http://127.0.0.1" + addr + apiBasePath + "/mcp/" +
+			service.UserServiceImpl.GetApiKeyByUsername(config.DefaultUsername) + "/sse")
+	}
 
 	//静态文件映射
 	loadServeFiles(config, restEndpoint)

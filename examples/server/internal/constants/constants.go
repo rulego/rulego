@@ -36,6 +36,8 @@ const (
 	KeyUpdateTime                = "updateTime"
 	KeyHeadersToMetadata         = "headersToMetadata"
 	KeyNodeType                  = "nodeType"
+	KeyInMessage                 = "inMessage"
+	KeyBody                      = "body"
 )
 
 const (

@@ -36,6 +36,7 @@ type ComponentService struct {
 	config       config.Config
 	ruleConfig   types.Config
 	componentDao *dao.ComponentDao
+	mcpService   *McpService
 }
 
 func NewComponentService(ruleConfig types.Config, c config.Config, username string) (*ComponentService, error) {
@@ -79,9 +80,7 @@ func (s *ComponentService) LoadComponents() {
 				return
 			}
 		}
-
 	}
-
 }
 
 func (s *ComponentService) ComponentsRegistry() types.ComponentRegistry {
@@ -106,6 +105,9 @@ func (s *ComponentService) Install(node types.Node) error {
 		if err = s.componentDao.Save(s.username, node.Type(), []byte(dynamicNode.Dsl)); err != nil {
 			return err
 		} else {
+			if s.mcpService != nil {
+				s.mcpService.AddToolsFromComponent(node.Type(), dynamicNode.Def())
+			}
 			return nil
 		}
 	} else {
@@ -119,6 +121,9 @@ func (s *ComponentService) Upgrade(node types.Node) error {
 }
 
 func (s *ComponentService) Uninstall(nodeType string) error {
+	if s.mcpService != nil {
+		s.mcpService.DeleteTools(nodeType)
+	}
 	_ = s.ComponentsRegistry().Unregister(nodeType)
 	return s.componentDao.Delete(s.username, nodeType)
 }

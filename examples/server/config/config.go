@@ -68,7 +68,8 @@ type Config struct {
 	Pprof Pprof `ini:"pprof"`
 	// 组件市场根地址
 	MarketplaceBaseUrl string `ini:"marketplace_base_url"`
-
+	// MCP配置
+	MCP MCP `ini:"mcp"`
 	//用户名和密码映射
 	UserNamePasswordMap types.Metadata `ini:"-"`
 	//API key和用户名映射
@@ -77,6 +78,21 @@ type Config struct {
 type Pprof struct {
 	Enable bool   `ini:"enable"`
 	Addr   string `ini:"addr"`
+}
+
+type MCP struct {
+	// 是否启用MCP服务，默认为true
+	Enable bool `ini:"enable"`
+	// 是否把组件作为工MCP具，默认为true
+	LoadComponentsAsTool bool `ini:"load_components_as_tool"`
+	// 是否把规则链作为MCP工具，默认为true
+	LoadChainsAsTool bool `ini:"load_chains_as_tool"`
+	// 是否把API座位MCP工具，默认为true
+	LoadApisAsTool bool `ini:"load_apis_as_tool"`
+	// 排除的规则链ID，多个用逗号分隔。支持*通配符，例如: *Filter
+	ExcludeChains string `ini:"exclude_chains"`
+	// 排除的组件，多个用逗号分隔。支持*通配符，例如: *Filter
+	ExcludeComponents string `ini:"exclude_components"`
 }
 
 func (c *Config) InitUserMap() {
@@ -111,6 +127,19 @@ func (c *Config) GetUsernameByApiKey(apikey string) string {
 	return c.ApiKeyUserNameMap[apikey]
 }
 
+// GetApiKeyByUsername 通过用户名获取ApiKey
+func (c *Config) GetApiKeyByUsername(username string) string {
+	if c.UserNamePasswordMap == nil {
+		return ""
+	}
+	for apikey, u := range c.ApiKeyUserNameMap {
+		if u == username {
+			return apikey
+		}
+	}
+	return ""
+}
+
 // DefaultConfig 默认配置
 var DefaultConfig = Config{
 	DataDir: "./data",
@@ -126,10 +155,17 @@ var DefaultConfig = Config{
 	JwtIssuer:          "rulego.cc",
 	MarketplaceBaseUrl: "http://8.134.32.225:9090/api/v1",
 	Users: types.Metadata{
-		"admin": "admin",
+		"admin": "admin,2af255ea5618467d914c67a8beeca31d",
 	},
 	Pprof: Pprof{
 		Enable: false,
 		Addr:   "0.0.0.0:6060",
+	},
+	MCP: MCP{
+		Enable:               true,
+		LoadComponentsAsTool: true,
+		LoadChainsAsTool:     true,
+		LoadApisAsTool:       true,
+		ExcludeComponents:    "comment,iterator,groupAction,ref,fork,join,*Filter",
 	},
 }

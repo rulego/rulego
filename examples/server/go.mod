@@ -1,13 +1,14 @@
 module examples/server
 
-go 1.22.7
+go 1.23
 
-toolchain go1.22.10
+toolchain go1.23.7
 
 require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.5.0
+	github.com/mark3labs/mcp-go v0.17.0
 	github.com/rulego/rulego v0.28.1-0.20250303030309-8a606a85b652
 	github.com/rulego/rulego-components v0.29.1
 	github.com/rulego/rulego-components-ai v0.29.0
@@ -135,6 +136,7 @@ require (
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
 	github.com/yuin/gluamapper v0.0.0-20150323120927-d836955830e7 // indirect
 	github.com/yuin/gopher-lua v1.1.1 // indirect
