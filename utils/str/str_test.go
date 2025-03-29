@@ -18,6 +18,7 @@ package str
 
 import (
 	"errors"
+	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
 	"math"
 	"reflect"
@@ -223,22 +224,32 @@ func TestRemoveBraces(t *testing.T) {
 
 func TestParseVarsWithBraces(t *testing.T) {
 	testStr := "This is a test string with ${vars.name} and ${vars.age} and ${vars.name} again."
-	vars := ParseVarsWithBraces(testStr)
+	vars := ParseVarsWithBraces(types.Vars, testStr)
+	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
+	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
+
+	testStr = "This is a test string with ${msg.name} and ${msg.age} and ${msg.name} again."
+	vars = ParseVarsWithBraces(types.MsgKey, testStr)
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
 
 	testStr = "This is a test string with vars.name and vars.age and vars.name again."
-	vars = ParseVarsWithBraces(testStr)
+	vars = ParseVarsWithBraces(types.Vars, testStr)
 	assert.Equal(t, 0, len(vars))
 }
 func TestParseVars(t *testing.T) {
 	testStr := "This is a test string with ${vars.name} and ${vars.age} and ${vars.name} again."
-	vars := ParseVars(testStr)
+	vars := ParseVars(types.Vars, testStr)
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
 
 	testStr = "This is a test string with vars.name and vars.age and vars.name again."
-	vars = ParseVars(testStr)
+	vars = ParseVars(types.Vars, testStr)
+	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
+	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
+
+	testStr = "This is a test string with msg.name and msg.age and msg.name again."
+	vars = ParseVars(types.MsgKey, testStr)
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
 }

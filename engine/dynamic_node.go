@@ -257,7 +257,7 @@ func (x *DynamicNode) Def() types.ComponentForm {
 func (x *DynamicNode) processFieldAuto(def types.RuleChain) types.ComponentFormFieldList {
 	var fields types.ComponentFormFieldList
 	// 找到所有匹配的变量
-	var vars = dsl.ParseVars(def)
+	var vars = dsl.ParseVars(types.Vars, def)
 	for _, item := range vars {
 		var rules []map[string]interface{}
 		var required = true
