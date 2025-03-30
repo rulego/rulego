@@ -222,6 +222,7 @@ func (s *McpService) componentToolHandler(componentType string) func(ctx context
 		}, s.Pool)
 		node.OnMsg(ruleCtx, types.NewMsgWithJsonData(message))
 		wg.Wait()
+		node.Destroy()
 		return mcp.NewToolResultText(result), resultErr
 	}
 }
