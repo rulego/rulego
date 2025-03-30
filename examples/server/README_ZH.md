@@ -17,6 +17,7 @@
 - 支持RuleGo-Editor可视化前端
 - 部署简单、开箱即用、不需要数据库
 - 轻量级，内存小，性能高
+- 自动把所有组件和规则链注册成MCP工具，对外提供给AI助手调用。详情：[rulego-server-mcp](https://rulego.cc/pages/rulego-server-mcp/)
 
 ## HTTP API
 
@@ -124,7 +125,7 @@ go build -tags with_extend .
 - 注册IoT扩展组件[rulego-components-iot](https://github.com/rulego/rulego-components-iot) ，使用`with_iot`tag进行编译
 - 注册ETL扩展组件[rulego-components-etl](https://github.com/rulego/rulego-components-etl) ，使用`with_etl`tag进行编译
 
-如果需要同时引入多个扩展组件库，可以使用`go build -tags "with_extend,with_ai,with_ci,with_iot" .` tag进行编译。
+如果需要同时引入多个扩展组件库，可以使用`go build -tags "with_extend,with_ai,with_ci,with_iot,with_etl" .` tag进行编译。
 
 ## server启动
 
@@ -146,6 +147,11 @@ RuleGo-Editor 是 RuleGo-Server 的UI界面，可以对规则链进行可视化�
 - 可以通过`editor/config/config.js`的 baseUrl 配置修改rulego-editor后端api地址。
 
 > RuleGo-Editor仅用于学习，商用请向我们购买授权。Email：rulego@outlook.com
+
+## RuleGo-Server-MCP
+RuleGo-Server 支持 MCP（Model Context Protocol，模型上下文协议），开启后，系统会自动将所有注册的组件、规则链以及 API 注册为 MCP 工具。这使得 AI 助手（如 Windsurf、Cursor、Codeium 等）能够通过 MCP 协议直接调用这些工具，实现与应用系统的深度融合。
+文档: [rulego-server-mcp](https://rulego.cc/pages/rulego-server-mcp/)
+
 ## 配置文件参数
 ```ini
 # 数据目录
@@ -178,6 +184,20 @@ jwt_secret_key = r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1
 jwt_expire_time = 43200000
 # jwt issuer
 jwt_issuer = rulego.cc
+# mcp server config
+[mcp]
+# Whether to enable the MCP service
+enable = true
+# Whether to use the component as an MCP tool
+load_components_as_tool = true
+# Whether to use the rule chain as an MCP tool
+load_chains_as_tool = true
+# Whether to add a rule chain api tool
+load_apis_as_tool = true
+# Exclude component list
+exclude_components = comment,iterator,delay,groupAction,ref,fork,join,*Filter
+# Exclude rule chain list
+exclude_chains =
 
 # pprof配置
 [pprof]

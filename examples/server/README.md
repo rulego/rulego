@@ -17,6 +17,7 @@ Visual Editor:[RuleGo-Editor](https://editor.rulego.cc/), configure the HTTP API
 - Supports RuleGo-Editor for visual front-end
 - Simple deployment, ready to use, no database required
 - Lightweight, low memory usage, high performance
+- Automatically registers all components and rule chains as MCP tools for AI assistants to call. For details: [rulego-server-mcp](https://rulego.cc/en/pages/rulego-server-mcp/)
 
 ## HTTP API
 
@@ -127,7 +128,7 @@ Other extension component library tags:
 - To register the IoT extension component [rulego-components-iot](https://github.com/rulego/rulego-components-iot), compile with the `with_iot` tag.
 - To register the ETL extension component [rulego-components-etl](https://github.com/rulego/rulego-components-etl), compile with the `with_etl` tag.
 
-If you need to include multiple extension component libraries at the same time, you can compile with the `go build -tags "with_extend,with_ai,with_ci,with_iot" .` tag.
+If you need to include multiple extension component libraries at the same time, you can compile with the `go build -tags "with_extend,with_ai,with_ci,with_iot,with_etl" .` tag.
 
 ## server startup
 
@@ -149,6 +150,10 @@ Usage steps:
 - The backend API address for rulego-editor can be modified by configuring the `baseUrl` in `editor/config/config.js`.
 
 >RuleGo-Editor is for learning purposes only. For commercial use, please purchase a license from us. Email: rulego@outlook.com
+
+## RuleGo-Server-MCP
+RuleGo-Server supports MCP (Model Context Protocol). Once enabled, the system automatically registers all components, rule chains, and APIs as MCP tools. This allows AI assistants (such as Windsurf, Cursor, Codeium, etc.) to directly call these tools via the MCP protocol, enabling deep integration with application systems.  
+Documentation: [rulego-server-mcp](https://rulego.cc/en/pages/rulego-server-mcp/)
 
 ## Configuration file parameters
 ```ini
@@ -182,6 +187,20 @@ jwt_secret_key = r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1
 jwt_expire_time = 43200000
 # jwt issuer
 jwt_issuer = rulego.cc
+# mcp server config
+[mcp]
+# Whether to enable the MCP service
+enable = true
+# Whether to use the component as an MCP tool
+load_components_as_tool = true
+# Whether to use the rule chain as an MCP tool
+load_chains_as_tool = true
+# Whether to add a rule chain api tool
+load_apis_as_tool = true
+# Exclude component list
+exclude_components = comment,iterator,delay,groupAction,ref,fork,join,*Filter
+# Exclude rule chain list
+exclude_chains =
 
 # pprof config
 [pprof]
