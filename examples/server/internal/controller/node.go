@@ -10,7 +10,6 @@ import (
 	"github.com/rulego/rulego/builtin/processor"
 	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/endpoint"
-	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/str"
@@ -214,7 +213,7 @@ func (c *node) CustomNodeDSL(url string) endpointApi.Router {
 
 func (c *node) customNodeDSL(username string, exchange *endpointApi.Exchange) bool {
 	msg := exchange.In.GetMsg()
-	nodeType := msg.Metadata.GetValue(constants.KeyNodeType)
+	nodeType := msg.Metadata.GetValue(constants.KeyId)
 	if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 		dsl, err := s.ComponentService().Get(nodeType)
 		if err != nil {
@@ -251,14 +250,13 @@ func (c *node) CustomNodeUpgrade(url string) endpointApi.Router {
 
 func (c *node) customNodeInstall(username string, upgrade bool, exchange *endpointApi.Exchange) bool {
 	msg := exchange.In.GetMsg()
-	nodeType := msg.Metadata.GetValue(constants.KeyNodeType)
+	nodeType := msg.Metadata.GetValue(constants.KeyId)
 	if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
-		customNode := engine.NewDynamicNode(nodeType, string(exchange.In.Body()))
 		var err error
 		if upgrade {
-			err = s.ComponentService().Upgrade(customNode)
+			err = s.ComponentService().Upgrade(nodeType, exchange.In.Body())
 		} else {
-			err = s.ComponentService().Install(customNode)
+			err = s.ComponentService().Install(nodeType, exchange.In.Body())
 		}
 		if err != nil {
 			logger.Logger.Println(err)
@@ -276,7 +274,7 @@ func (c *node) CustomNodeUninstall(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		username := msg.Metadata.GetValue(constants.KeyUsername)
-		nodeType := msg.Metadata.GetValue(constants.KeyNodeType)
+		nodeType := msg.Metadata.GetValue(constants.KeyId)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 			err := s.ComponentService().Uninstall(nodeType)
 			if err != nil {
