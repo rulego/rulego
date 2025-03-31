@@ -17,11 +17,9 @@
 package service
 
 import (
-	"errors"
 	"examples/server/config"
 	"examples/server/internal/constants"
 	"examples/server/internal/dao"
-	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/utils/fs"
@@ -95,29 +93,25 @@ func (s *ComponentService) Get(nodeType string) ([]byte, error) {
 	return s.componentDao.Get(s.username, nodeType)
 }
 
-func (s *ComponentService) Install(node types.Node) error {
-	err := s.ComponentsRegistry().Register(node)
+func (s *ComponentService) Install(id string, dsl []byte) error {
+	dynamicNode := engine.NewDynamicNode(id, string(dsl))
+	err := s.ComponentsRegistry().Register(dynamicNode)
 	if err != nil {
 		return err
 	}
-	dynamicNode, ok := node.(*engine.DynamicNode)
-	if ok {
-		if err = s.componentDao.Save(s.username, node.Type(), []byte(dynamicNode.Dsl)); err != nil {
-			return err
-		} else {
-			if s.mcpService != nil {
-				s.mcpService.AddToolsFromComponent(node.Type(), dynamicNode.Def())
-			}
-			return nil
-		}
+	if err = s.componentDao.Save(s.username, dynamicNode.Type(), []byte(dynamicNode.Dsl)); err != nil {
+		return err
 	} else {
-		return errors.New(fmt.Sprintf("node:%s 类型错误", node.Type()))
+		if s.mcpService != nil {
+			s.mcpService.AddToolsFromComponent(dynamicNode.Type(), dynamicNode.Def())
+		}
+		return nil
 	}
 }
 
-func (s *ComponentService) Upgrade(node types.Node) error {
-	_ = s.ComponentsRegistry().Unregister(node.Type())
-	return s.Install(node)
+func (s *ComponentService) Upgrade(id string, dsl []byte) error {
+	_ = s.ComponentsRegistry().Unregister(id)
+	return s.Install(id, dsl)
 }
 
 func (s *ComponentService) Uninstall(nodeType string) error {

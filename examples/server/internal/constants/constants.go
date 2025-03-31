@@ -35,7 +35,6 @@ const (
 	KeyDefaultIntegrationChainId = "$event_bus"
 	KeyUpdateTime                = "updateTime"
 	KeyHeadersToMetadata         = "headersToMetadata"
-	KeyNodeType                  = "nodeType"
 	KeyInMessage                 = "inMessage"
 	KeyBody                      = "body"
 )

@@ -16,17 +16,18 @@ import (
 
 const (
 	// base HTTP paths.
-	apiVersion        = "v1"
-	apiBasePath       = "/api/" + apiVersion
-	moduleComponents  = "components"
-	moduleFlows       = "rules"
-	moduleNodes       = "nodes"
+	apiVersion  = "v1"
+	apiBasePath = "/api/" + apiVersion
+	moduleFlows = "rules"
+	// moduleDcs 动态组件
+	moduleDynamicComponents = "dynamic-components"
+	// moduleSharedNodes 共享组件
+	moduleSharedNodes = "shared-nodes"
 	moduleLocales     = "locales"
 	moduleLogs        = "logs"
 	moduleMarketplace = "marketplace"
 	ContentTypeKey    = "Content-Type"
 	JsonContextType   = "application/json"
-	SSEContextType    = "text/event-stream"
 )
 
 // NewRestServe rest服务 接收端点
@@ -62,8 +63,9 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	}).End())
 	//创建获取所有规则引擎组件列表路由
 	restEndpoint.GET(controller.Node.Components(apiBasePath + "/components"))
+
 	//获取所有共享组件
-	restEndpoint.GET(controller.Node.ListNodePool(apiBasePath + "/" + moduleNodes + "/shared"))
+	restEndpoint.GET(controller.Node.ListNodePool(apiBasePath + "/" + moduleSharedNodes))
 
 	//获取组件市场组件列表
 	restEndpoint.GET(controller.Node.MarketplaceComponents(apiBasePath + "/" + moduleMarketplace + "/components"))
@@ -71,13 +73,13 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	restEndpoint.GET(controller.Rule.MarketplaceChains(apiBasePath + "/" + moduleMarketplace + "/chains"))
 
 	//获取用户所有自定义动态组件列表
-	restEndpoint.GET(controller.Node.CustomNodeList(apiBasePath + "/" + moduleNodes + "/custom"))
+	restEndpoint.GET(controller.Node.CustomNodeList(apiBasePath + "/" + moduleDynamicComponents))
 	//获取自定义动态组件DSL
-	restEndpoint.GET(controller.Node.CustomNodeDSL(apiBasePath + "/" + moduleNodes + "/custom/:nodeType"))
+	restEndpoint.GET(controller.Node.CustomNodeDSL(apiBasePath + "/" + moduleDynamicComponents + "/:id"))
 	//安装/升级自定义动态组件
-	restEndpoint.POST(controller.Node.CustomNodeUpgrade(apiBasePath + "/" + moduleNodes + "/custom/:nodeType"))
+	restEndpoint.POST(controller.Node.CustomNodeUpgrade(apiBasePath + "/" + moduleDynamicComponents + "/:id"))
 	//卸装自定义动态组件
-	restEndpoint.DELETE(controller.Node.CustomNodeUninstall(apiBasePath + "/" + moduleNodes + "/custom/:nodeType"))
+	restEndpoint.DELETE(controller.Node.CustomNodeUninstall(apiBasePath + "/" + moduleDynamicComponents + "/:id"))
 
 	//获取所有规则链列表
 	restEndpoint.GET(controller.Rule.List(apiBasePath + "/" + moduleFlows))
@@ -104,6 +106,7 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	restEndpoint.GET(controller.Log.GetDebugLogs(apiBasePath + "/" + moduleLogs + "/debug"))
 	//获取规则链运行日志列表
 	restEndpoint.GET(controller.Log.List(apiBasePath + "/" + moduleLogs + "/runs"))
+	//获取规则链运行日志详情
 	restEndpoint.DELETE(controller.Log.Delete(apiBasePath + "/" + moduleLogs + "/runs"))
 
 	restEndpoint.GET(controller.Locale.Locales(apiBasePath + "/" + moduleLocales))
