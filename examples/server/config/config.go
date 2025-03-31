@@ -166,6 +166,6 @@ var DefaultConfig = Config{
 		LoadComponentsAsTool: true,
 		LoadChainsAsTool:     true,
 		LoadApisAsTool:       true,
-		ExcludeComponents:    "comment,iterator,delay,groupAction,ref,fork,join,*Filter",
+		ExcludeComponents:    "comment,iterator,delay,groupAction,ref,fork,join,for,*Filter",
 	},
 }
