@@ -59,8 +59,22 @@ rulego
 5. **创建分支**：`git checkout -b my-feature-branch main`。
 6. **编写代码和测试**：添加你的代码和相应的测试用例。
 7. **格式化代码**：使用`gofmt -s -w .`命令格式化代码。
-8. **提交和推送**：使用`git add .`和`git commit -s -m "fix: add new feature"`提交更改，然后推送到你的Fork仓库。
-9. **创建PR**：在Github上创建PR，并确保填写详细的PR描述。
+8. **提交代码**：使用`git add .`和`git commit -s -m "fix: add new feature"`提交更改。
+    - feat: feature的缩写, 新的功能或特性
+    - fix: bug的修复
+    - docs: 文档修改
+    - style: 格式修改. 比如改变缩进, 空格, 删除多余的空行, 补上漏掉的分号. 总之, 就是不影响代码含义和功能的修改
+    - refactor: 代码重构. 一些不算修复bug也没有加入新功能的代码修改
+    - perf: performance的缩写, 提升代码性能
+    - test: 测试文件的修改
+    - chore: 其他的小改动. 一般为仅仅一两行的改动, 或者连续几次提交的小改动属于这种
+
+   更多详细信息，您可以参考[约定式提交](https://www.conventionalcommits.org/zh-hans/v1.0.0/) 。
+9. **推送代码**：在提交代码之前，请先执行 rebase 操作，以确保您的分支与上游仓库的主分支保持同步。
+   - `git fetch --all`
+   - `git rebase upstream/main`
+   - 将您的分支推送到Github `git push origin my-fix-branch`
+11. **创建PR**：在Github上创建PR，并确保填写详细的PR描述。
 
 ### 4.2 编译源码
 
@@ -106,7 +120,9 @@ go build -tags "with_extend,with_ai,with_ci,with_iot" .
 - [rulego-components-ai](https://github.com/rulego/rulego-components-ai) ：AI场景组件。
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) ：CI/CD场景组件。
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot) ：IoT场景组件。
-- [streamsql]() : 增强边缘计算聚合计算能力的子项目。
+- [rulego-components-etl](https://github.com/rulego/rulego-components-etl) ：ETL场景组件。
+- [streamsql](https://github.com/rulego/streamsql) : 增强边缘计算聚合计算能力的子项目。
+- [rulego-marketplace](https://github.com/rulego/rulego-marketplace) : 组件市场。
 
 ### 5.2 贡献文档
 - 官网文档：[rulego-doc](https://github.com/rulego/rulego-doc)
