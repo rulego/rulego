@@ -93,13 +93,13 @@ func TestExprTransformNode(t *testing.T) {
 		_, err = test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"expr": "msg.aa;",
 		}, Registry)
-		assert.NotNil(t, err)
+		assert.Nil(t, err)
 		_, err = test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"mapping": map[string]string{
 				"name": "msg.aa;",
 			},
 		}, Registry)
-		assert.NotNil(t, err)
+		assert.Nil(t, err)
 		node7, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"mapping": map[string]string{
 				"name": "msg.aa+1",
