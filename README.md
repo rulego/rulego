@@ -161,19 +161,20 @@ The core feature of `RuleGo` is its component-based architecture, where all busi
 - [rulego-components-ai](https://github.com/rulego/rulego-components-ai)
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci)
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot)
+- [rulego-components-etl](https://github.com/rulego/rulego-components-etl)
+- [rulego-marketplace](https://github.com/rulego/rulego-marketplace) :Dynamic component and rule chain marketplace
 - [Custom Node Component Example](examples/custom_component) :[Documentation](https://rulego.cc/en/pages/caed1b/)
 
 ## Data Integration
 `RuleGo` provides the Endpoint module for unified data integration and processing of heterogeneous systems. For details, refer to: [Endpoint](endpoint/README.md)
 
-### Endpoint Components
+### Input Endpoint Components
 - [Endpoint Components](https://rulego.cc/en/pages/691dd3/)
 - [Endpoint DSL](https://rulego.cc/en/pages/390ad7/)
 
 ### RuleGo-Server
-We provide a ready-to-use rule engine service based on `RuleGo`: [RuleGo-Server](examples/server) ,
+We have provided a ready-to-use automation workflow platform based on `RuleGo`: [RuleGo-Server](https://github.com/rulego/rulego-server) ,
 and a front-end visual editor: [RuleGo-Editor](https://editor.rulego.cc/) .
-RuleGo-Server can be deployed as a standalone middleware, offering operations such as rule chain management, debugging, deployment, and node component management.
 ## Performance
 
 `RuleGo` completes most of its work during initialization, so running the rule chain almost doesn't add extra overhead to the system, and the resource consumption is extremely low, making it particularly suitable for running on edge servers.
@@ -190,18 +191,20 @@ Test results: 100 concurrent and 500 concurrent, memory consumption does not cha
 [More performance test cases](https://rulego.cc/en/pages/f60381/)
 
 ## Ecosystem
-
-- [RuleGo-Editor](https://editor.rulego.cc/) :Rule chain visual editor
-- [RuleGo-Server](http://8.134.32.225:9090/ui/) :RuleGo Server
-- [rulego-components](https://github.com/rulego/rulego-components) :Extended Component Library
-- [rulego-components-ai](https://github.com/rulego/rulego-components-ai) :AI Scene Component Library
-- [rulego-components-ci](https://github.com/rulego/rulego-components-ci) :CI/CD Scene Component Libraryr
-- [rulego-components-iot](https://github.com/rulego/rulego-components-iot) :IoT Scene Component Library
+- [RuleGo-Editor](https://editor.rulego.cc/) : Rule chain visual editor
+- [RuleGo-Server](https://github.com/rulego/rulego-server) : Automation workflow platform
+- [rulego-components](https://gitee.com/rulego/rulego-components) : Extension component library
+- [rulego-components-ai](https://github.com/rulego/rulego-components-ai) : AI scenario component library
+- [rulego-components-ci](https://github.com/rulego/rulego-components-ci) : CI/CD scenario component library
+- [rulego-components-iot](https://github.com/rulego/rulego-components-iot) : IoT scenario component library
+- [rulego-components-etl](https://github.com/rulego/rulego-components-etl) : ETL scenario component library
+- [rulego-marketplace](https://github.com/rulego/rulego-marketplace) : Dynamic component and rule chain marketplace
 
 ## Contribution
-
 Any form of contribution is welcome, including submitting issues, suggestions, documentation, tests or code. [Contribution Guide](CONTRIBUTION.md)
 
 ## License
-
 `RuleGo` uses Apache 2.0 license, please refer to [LICENSE](LICENSE) file for details.
+
+## Contact Us
+Email: rulego@outlook.com

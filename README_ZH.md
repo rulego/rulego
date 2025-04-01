@@ -165,19 +165,20 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 - [rulego-components-ai](https://github.com/rulego/rulego-components-ai) 
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) 
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot) 
+- [rulego-components-etl](https://github.com/rulego/rulego-components-etl) 
+- [rulego-marketplace](https://github.com/rulego/rulego-marketplace) ：动态组件和规则链市场
 - [自定义节点组件示例](examples/custom_component) :[文档](https://rulego.cc/pages/caed1b/)
 
 ## 数据集成
 `RuleGo` 提供`Endpoint`规则引擎输入端模块，对异构系统进行统一的数据接入和集成。详细参考： [Endpoint](endpoint/README_ZH.md)
 
-### Endpoint组件
+### Endpoint输入端组件
 - [Endpoint组件](https://rulego.cc/pages/691dd3/)
 - [Endpoint DSL](https://rulego.cc/pages/390ad7/)
 
 ### RuleGo-Server
-我们提供了一个基于`RuleGo`的开箱即用规则引擎服务：[RuleGo-Server](examples/server) ，
+我们提供了一个基于`RuleGo`的开箱即用自动化工作流平台：[RuleGo-Server](https://github.com/rulego/rulego-server) ，
 以及配套的前端可视化编辑器：[RuleGo-Editor](https://editor.rulego.cc/) 。
-RuleGo-Server 可以作为一个独立部署的中间件，提供规则链管理、调试、部署，以及节点组件管理等操作。
 
 ## 性能
 `RuleGo` 大部分工作都在初始化时完成，执行规则链时几乎不会额外增加系统开销，资源占用极低，特别适合在边缘服务器运行。
@@ -196,11 +197,13 @@ RuleGo-Server 可以作为一个独立部署的中间件，提供规则链管理
 ## 生态
 
 - [RuleGo-Editor](https://editor.rulego.cc/) ：规则链可视化编辑器
-- [RuleGo-Server](http://8.134.32.225:9090/ui/) ：RuleGo Server
+- [RuleGo-Server](https://github.com/rulego/rulego-server) ：自动化工作流平台
 - [rulego-components](https://gitee.com/rulego/rulego-components) ：扩展组件库
 - [rulego-components-ai](https://github.com/rulego/rulego-components-ai) ：AI场景组件库
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) ：CI/CD场景组件库
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot) ：IoT场景组件库
+- [rulego-components-etl](https://github.com/rulego/rulego-components-etl) ：ETL场景组件库
+- [rulego-marketplace](https://github.com/rulego/rulego-marketplace) ：动态组件和规则链市场
 
 ## 贡献
 
