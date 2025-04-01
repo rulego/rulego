@@ -37,6 +37,16 @@ type ComponentDefGetter interface {
 	Def() ComponentForm
 }
 
+// CategoryGetter 该接口是可选的，组件可以实现该接口，提供分类，
+type CategoryGetter interface {
+	Category() string
+}
+
+// DescGetter 该接口是可选的，组件可以实现该接口，提供组件描述，
+type DescGetter interface {
+	Desc() string
+}
+
 // ComponentFormList 组件表单列表
 type ComponentFormList map[string]ComponentForm
 

@@ -70,6 +70,12 @@ func GetComponentForm(component types.Node) types.ComponentForm {
 	if componentDefGetter, ok := component.(types.ComponentDefGetter); ok {
 		componentForm = coverComponentForm(componentDefGetter, componentForm)
 	}
+	if categoryGetter, ok := component.(types.CategoryGetter); ok {
+		componentForm.Category = categoryGetter.Category()
+	}
+	if descGetter, ok := component.(types.DescGetter); ok {
+		componentForm.Desc = descGetter.Desc()
+	}
 	return componentForm
 }
 
