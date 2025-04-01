@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/eclipse/paho.mqtt.golang v1.4.3
-	github.com/expr-lang/expr v1.16.9
+	github.com/expr-lang/expr v1.17.2
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/gofrs/uuid/v5 v5.0.0
 	github.com/gorilla/websocket v1.5.0
