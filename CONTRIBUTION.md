@@ -58,8 +58,23 @@ We are committed to providing an open and inclusive community environment. Pleas
 5. **Create a Branch**: `git checkout -b my-feature-branch main`.
 6. **Write Code and Tests**: Add your code and corresponding test cases.
 7. **Format Code**: Format your code using the `gofmt -s -w .` command.
-8. **Commit and Push**: Commit your changes using `git add .` and `git commit -s -m "fix: add new feature"`, then push to your forked repository.
-9. **Create a PR**: Create a PR on Github and ensure you fill in a detailed PR description.
+8. **Commit the code**: Use `git add .` and `git commit -s -m "fix: add new feature"` to commit the changes.
+    - `feat`: Abbreviation for feature, a new functionality or enhancement.
+    - `fix`: Bug fix.
+    - `docs`: Documentation changes.
+    - `style`: Formatting changes. For example, adjusting indentation, spaces, removing extra blank lines, or adding missing semicolons. In short, changes that do not affect the meaning or functionality of the code.
+    - `refactor`: Code refactoring. Modifications that are neither bug fixes nor new feature additions.
+    - `perf`: Abbreviation for performance, improvements to code performance.
+    - `test`: Changes to test files.
+    - `chore`: Other minor changes. Typically one or two lines of changes, or a series of small changes that belong to this category.
+
+   For more detailed information, please refer to [Conventional Commits](https://www.conventionalcommits.org/zh-hans/v1.0.0/).
+
+9. **Push the code**: Before committing the code, please first perform a rebase operation to ensure that your branch is synchronized with the main branch of the upstream repository. 
+   - `git fetch --all`
+   - `git rebase upstream/main`
+   - Push your branch to GitHub: `git push origin my-fix-branch`
+10. **Create a PR**: Create a PR on Github and ensure you fill in a detailed PR description.
 
 ### 4.2 Compiling Source Code
 
@@ -107,7 +122,9 @@ Use the [RuleGo-Editor](https://editor.rulego.cc/) 、[RuleGo-Example](https://e
 - [rulego-components-ai](https://github.com/rulego/rulego-ai) : Components for AI scenarios.
 - [rulego-components-ci](https://github.com/rulego/rulego-ci) : Components for CI/CD scenarios.
 - [rulego-components-iot](https://github.com/rulego/rulego-iot) : Components for IoT scenarios.
-- [streamsql]: A sub-project aimed at enhancing the aggregation computing capabilities of edge computing through SQL statements.
+- [rulego-components-etl](https://github.com/rulego/rulego-components-etl): ETL scenario components.
+- [streamsql](https://github.com/rulego/streamsql): Subproject for enhancing edge computing aggregation capabilities.
+- [rulego-marketplace](https://github.com/rulego/rulego-marketplace): Components marketplace.
 
 ### 5.2 Contribute Documentation
 - Official documentation: [rulego-doc](https://github.com/rulego/rulego-doc) .
