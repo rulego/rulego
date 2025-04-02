@@ -1,4 +1,23 @@
 # CHANGELOG
+## [v0.30.0] 2025/04/03
+- feat:增加动态组件，支持通过规则链DSL定义组件
+- feat:组件注册器增加支持多租户
+- feat:引擎池支持规则引擎实例添加、修改、删除回调
+- feat:组件增加CategoryGetter DescGetter可选接口
+- feat:组件表单增加必填字段
+- feat(server):增加组件市场、组件安装、组件卸载API
+- feat(server):增加MCP服务器
+- feat(server):组件、规则链、rulego-server API支持自动注册成MCP工具
+- feat(server):rulego-server分离到独立仓库维护: https://github.com/rulego/rulego-server
+- feat(server):rulego-server 开源新版本的UI
+- fix:修复共享节点一种类型只能配置一个
+- fix:OutBuiltins lock err
+- fix:[dbClient]连接不成功导致的错误
+- opt:优化组件初始化错误提示
+- opt:rest endpoint组件延迟获取body
+- chore:build.yaml 支持编译成arm64
+- chore:升级github.com/expr-lang/expr至v1.17.2
+
 ## [v0.29.0] 2025/03/06
 - feat(components):增加wukongIM节点组件 @dimon
 - feat(components):增加wukongIM输入端组件 @dimon
