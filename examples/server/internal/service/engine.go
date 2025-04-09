@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"github.com/dop251/goja"
 	"github.com/rulego/rulego"
-	luaEngine "github.com/rulego/rulego-components/pkg/lua_engine"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/engine"
@@ -494,7 +493,7 @@ func (s *RuleEngineService) InitRuleGo(logger *log.Logger, workspacePath string,
 		ruleConfig.Properties.PutValue(k, v)
 	}
 	//加载lua第三方库
-	ruleConfig.Properties.PutValue(luaEngine.LoadLuaLibs, s.config.LoadLuaLibs)
+	ruleConfig.Properties.PutValue(constants.LoadLuaLibs, s.config.LoadLuaLibs)
 	ruleConfig.Properties.PutValue(action.KeyExecNodeWhitelist, s.config.CmdWhiteList)
 	ruleConfig.Properties.PutValue(action.KeyWorkDir, s.config.DataDir)
 	if s.config.ScriptMaxExecutionTime > 0 {
