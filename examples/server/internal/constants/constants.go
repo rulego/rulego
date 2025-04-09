@@ -70,6 +70,9 @@ const (
 	KeyBearer        = "Bearer "
 )
 
+// LoadLuaLibs 加载lua库key
+const LoadLuaLibs = "load_lua_libs"
+
 //const (
 //	DefaultPoolDef = `
 //	{
