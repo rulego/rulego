@@ -395,7 +395,11 @@ func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgL
 	if ctx.from != nil {
 		fromId = ctx.from.GetNodeId().Id
 	}
-	if ctx.observer.addInMsg(selfNodeId, fromId, msg, "") {
+	var errStr string
+	if ctx.GetErr() != nil {
+		errStr = ctx.GetErr().Error()
+	}
+	if ctx.observer.addInMsg(selfNodeId, fromId, msg, errStr) {
 		//因为已经存在一条合并链，则当前链提前通知父节点
 		if ctx.parentRuleCtx != nil {
 			ctx.parentRuleCtx.childDone()
