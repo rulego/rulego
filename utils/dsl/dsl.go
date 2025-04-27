@@ -25,9 +25,13 @@ import (
 const FieldNameScript = "script"
 
 // ParseVars 解析规则链中的变量
-func ParseVars(varPrefix string, def types.RuleChain) []string {
+func ParseVars(varPrefix string, def types.RuleChain, includeNodeId ...string) []string {
 	var mergeVars = make(map[string]struct{})
+	includeNodeIdLen := len(includeNodeId)
 	for _, node := range def.Metadata.Nodes {
+		if includeNodeIdLen > 0 && !str.Contains(includeNodeId, node.Id) {
+			continue
+		}
 		for fieldName, fieldValue := range node.Configuration {
 			if strV, ok := fieldValue.(string); ok {
 				var vars []string
@@ -49,4 +53,14 @@ func ParseVars(varPrefix string, def types.RuleChain) []string {
 		result = append(result, varName)
 	}
 	return result
+}
+
+// IsFlowNode 判断是否是子规则链
+func IsFlowNode(def types.RuleChain, nodeId string) bool {
+	for _, node := range def.Metadata.Nodes {
+		if node.Id == nodeId && node.Type == "flow" {
+			return true
+		}
+	}
+	return false
 }

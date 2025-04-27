@@ -44,6 +44,8 @@ const (
 	NodeConfigurationKeyChainCtx = "$chainCtx"
 	//NodeConfigurationKeySelfDefinition 获取节点定义，value类型: RuleNode
 	NodeConfigurationKeySelfDefinition = "$selfDefinition"
+	//NodeConfigurationKeyRuleChainDefinition 获取规则链定义，应用于动态endpoint的初始化。value类型: *RuleChain
+	NodeConfigurationKeyRuleChainDefinition = "$ruleChainDefinition"
 )
 
 var (
