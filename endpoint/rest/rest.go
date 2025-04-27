@@ -40,6 +40,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"strings"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
@@ -290,7 +291,9 @@ func (rest *Rest) Destroy() {
 
 func (rest *Rest) Restart() error {
 	if rest.Server != nil {
-		if err := rest.Server.Shutdown(context.Background()); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := rest.Server.Shutdown(ctx); err != nil {
 			return err
 		}
 	}
@@ -328,7 +331,9 @@ func (rest *Rest) Restart() error {
 
 func (rest *Rest) Close() error {
 	if rest.Server != nil {
-		if err := rest.Server.Shutdown(context.Background()); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := rest.Server.Shutdown(ctx); err != nil {
 			return err
 		}
 	}
