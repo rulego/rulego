@@ -476,6 +476,15 @@ func (e *BaseEndpoint) Destroy() {
 	e.RouterStorage = make(map[string]endpoint.Router)
 }
 
+func (e *BaseEndpoint) GetRuleChainDefinition(configuration types.Configuration) *types.RuleChain {
+	if v, ok := configuration[types.NodeConfigurationKeyRuleChainDefinition]; ok {
+		if ruleNode, ok := v.(*types.RuleChain); ok {
+			return ruleNode
+		}
+	}
+	return nil
+}
+
 // ExecutorFactory to端执行器工厂
 type ExecutorFactory struct {
 	sync.RWMutex

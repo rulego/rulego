@@ -51,12 +51,14 @@ func (aspect *EndpointAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg,
 	return true
 }
 
-func (aspect *EndpointAspect) OnCreated(chainCtx types.NodeCtx) error {
-	if ctx, ok := chainCtx.(types.ChainCtx); ok {
-		if !ctx.Config().EndpointEnabled {
+func (aspect *EndpointAspect) OnCreated(ctx types.NodeCtx) error {
+	if chainCtx, ok := ctx.(types.ChainCtx); ok {
+		if !chainCtx.Config().EndpointEnabled {
 			return nil
 		}
-		if ruleChainEndpoint, err := NewRuleChainEndpoint(chainCtx.GetNodeId().Id, ctx.Config(), aspect.EndpointPool, ctx.GetRuleEnginePool(), ctx.Definition().Metadata.Endpoints); err != nil {
+		if ruleChainEndpoint, err := NewRuleChainEndpoint(ctx.GetNodeId().Id, chainCtx.Config(),
+			aspect.EndpointPool, chainCtx.GetRuleEnginePool(),
+			chainCtx.Definition(), chainCtx.Definition().Metadata.Endpoints); err != nil {
 			return err
 		} else {
 			aspect.ruleChainEndpoint = ruleChainEndpoint
@@ -73,7 +75,7 @@ func (aspect *EndpointAspect) OnReload(_ types.NodeCtx, ctx types.NodeCtx) error
 		}
 		aspect.ruleChainEndpoint.config = ctx.Config()
 		aspect.ruleChainEndpoint.ruleGoPool = chainCtx.GetRuleEnginePool()
-		return aspect.ruleChainEndpoint.Reload(chainCtx.Definition().Metadata.Endpoints)
+		return aspect.ruleChainEndpoint.Reload(chainCtx.Definition(), chainCtx.Definition().Metadata.Endpoints)
 	}
 	return nil
 }
@@ -92,7 +94,7 @@ type RuleChainEndpoint struct {
 	sync.RWMutex
 }
 
-func NewRuleChainEndpoint(ruleEngineId string, config types.Config, endpointPool endpoint.Pool, ruleGoPool types.RuleEnginePool, defs []*types.EndpointDsl) (*RuleChainEndpoint, error) {
+func NewRuleChainEndpoint(ruleEngineId string, config types.Config, endpointPool endpoint.Pool, ruleGoPool types.RuleEnginePool, ruleChain *types.RuleChain, defs []*types.EndpointDsl) (*RuleChainEndpoint, error) {
 	ruleChainEndpoint := &RuleChainEndpoint{
 		ruleEngineId: ruleEngineId,
 		endpointPool: endpointPool,
@@ -102,7 +104,9 @@ func NewRuleChainEndpoint(ruleEngineId string, config types.Config, endpointPool
 	}
 	for _, item := range defs {
 		ruleChainEndpoint.bindTo(item, ruleEngineId)
-		if err := ruleChainEndpoint.AddEndpointAndStart(item, endpoint.DynamicEndpointOptions.WithConfig(config), endpoint.DynamicEndpointOptions.WithRouterOpts(endpoint.RouterOptions.WithRuleGo(ruleGoPool))); err != nil {
+		if err := ruleChainEndpoint.AddEndpointAndStart(item, endpoint.DynamicEndpointOptions.WithConfig(config),
+			endpoint.DynamicEndpointOptions.WithRouterOpts(endpoint.RouterOptions.WithRuleGo(ruleGoPool)),
+			endpoint.DynamicEndpointOptions.WithRuleChain(ruleChain)); err != nil {
 			return nil, err
 		}
 	}
@@ -120,7 +124,7 @@ func (e *RuleChainEndpoint) Start() error {
 	return nil
 }
 
-func (e *RuleChainEndpoint) Reload(newDefs []*types.EndpointDsl) error {
+func (e *RuleChainEndpoint) Reload(ruleChain *types.RuleChain, newDefs []*types.EndpointDsl) error {
 	var oldDefs []*types.EndpointDsl
 	endpoints := e.GetEndpoints()
 	for _, ep := range endpoints {
@@ -133,14 +137,20 @@ func (e *RuleChainEndpoint) Reload(newDefs []*types.EndpointDsl) error {
 	}
 	for _, item := range added {
 		e.bindTo(item, e.ruleEngineId)
-		if err := e.AddEndpointAndStart(item, endpoint.DynamicEndpointOptions.WithConfig(e.config), endpoint.DynamicEndpointOptions.WithRouterOpts(endpoint.RouterOptions.WithRuleGo(e.ruleGoPool))); err != nil {
+		if err := e.AddEndpointAndStart(item, endpoint.DynamicEndpointOptions.WithConfig(e.config),
+			endpoint.DynamicEndpointOptions.WithRouterOpts(endpoint.RouterOptions.WithRuleGo(e.ruleGoPool)),
+			endpoint.DynamicEndpointOptions.WithRuleChain(ruleChain),
+		); err != nil {
 			return err
 		}
 	}
 	for _, item := range modified {
 		e.bindTo(item, e.ruleEngineId)
 		e.RemoveEndpoint(item.Id)
-		if err := e.AddEndpointAndStart(item, endpoint.DynamicEndpointOptions.WithConfig(e.config), endpoint.DynamicEndpointOptions.WithRouterOpts(endpoint.RouterOptions.WithRuleGo(e.ruleGoPool))); err != nil {
+		if err := e.AddEndpointAndStart(item, endpoint.DynamicEndpointOptions.WithConfig(e.config),
+			endpoint.DynamicEndpointOptions.WithRouterOpts(endpoint.RouterOptions.WithRuleGo(e.ruleGoPool)),
+			endpoint.DynamicEndpointOptions.WithRuleChain(ruleChain),
+		); err != nil {
 			return err
 		}
 	}

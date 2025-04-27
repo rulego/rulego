@@ -122,7 +122,10 @@ var _ endpoint.DynamicEndpoint = (*DynamicEndpoint)(nil)
 // DynamicEndpoint represents a dynamic endpoint with additional properties and methods.
 type DynamicEndpoint struct {
 	Endpoint
-	id         string
+	id string
+	// ruleChain ruleChain dsl
+	ruleChain *types.RuleChain
+	// definition endpoint dsl
 	definition types.EndpointDsl
 	ruleConfig types.Config
 	// Interceptors are the interceptors for the endpoint.
@@ -336,8 +339,26 @@ func (e *DynamicEndpoint) GetNodeById(_ types.RuleNodeId) (types.NodeCtx, bool) 
 	return nil, false
 }
 
+// SetRuleChain When initializing from the rule chain DSL, set the DSL definition of the original rule chain
+func (e *DynamicEndpoint) SetRuleChain(ruleChain *types.RuleChain) {
+	e.ruleChain = ruleChain
+}
+
+// GetRuleChain Obtain the original DSL initialized from the rule chain
+func (e *DynamicEndpoint) GetRuleChain() *types.RuleChain {
+	return e.ruleChain
+}
+
 // newEndpoint creates a new Endpoint with the provided DSL.
 func (e *DynamicEndpoint) newEndpoint(dsl types.EndpointDsl) error {
+	if dsl.Configuration == nil {
+		dsl.Configuration = make(types.Configuration)
+	}
+	//注入完整的规则链定义
+	def := e.GetRuleChain()
+	if def != nil {
+		dsl.Configuration[types.NodeConfigurationKeyRuleChainDefinition] = def
+	}
 	if ep, err := Registry.New(dsl.Type, e.ruleConfig, dsl.Configuration); err != nil {
 		return err
 	} else {

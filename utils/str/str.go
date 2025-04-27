@@ -290,3 +290,13 @@ func parseVars(matches [][]string) []string {
 	}
 	return result
 }
+
+// Contains 检查切片中是否包含元素
+func Contains(list []string, target string) bool {
+	for _, item := range list {
+		if item == target {
+			return true
+		}
+	}
+	return false
+}

@@ -85,6 +85,10 @@ type DynamicEndpoint interface {
 	DSL() []byte
 	// Target returns the target endpoint.
 	Target() Endpoint
+	// SetRuleChain When initializing from the rule chain DSL, set the DSL definition of the original rule chain
+	SetRuleChain(ruleChain *types.RuleChain)
+	// GetRuleChain Obtain the original DSL initialized from the rule chain
+	GetRuleChain() *types.RuleChain
 }
 
 // Message is an interface abstracting the data received at an endpoint.

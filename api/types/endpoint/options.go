@@ -125,3 +125,11 @@ func (d dynamicEndpointOptions) WithInterceptors(interceptors ...Process) Dynami
 		return nil
 	}
 }
+
+// WithRuleChain set the DSL definition of the original rule chain
+func (d dynamicEndpointOptions) WithRuleChain(ruleChain *types.RuleChain) DynamicEndpointOption {
+	return func(re DynamicEndpoint) error {
+		re.SetRuleChain(ruleChain)
+		return nil
+	}
+}
