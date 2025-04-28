@@ -238,7 +238,11 @@ func newSharedNodeCtx(nodeCtx *engine.RuleNodeCtx, endpointCtx endpointApi.Endpo
 // Node must implement types.SharedNode interface
 func (n *sharedNodeCtx) GetInstance() (interface{}, error) {
 	if n.Endpoint != nil {
-		return n.Endpoint.(types.SharedNode).GetInstance()
+		if v, ok := n.Endpoint.(*endpoint.DynamicEndpoint); ok {
+			return v.Endpoint.(types.SharedNode).GetInstance()
+		} else {
+			return n.Endpoint.(types.SharedNode).GetInstance()
+		}
 	}
 	return n.RuleNodeCtx.Node.(types.SharedNode).GetInstance()
 }
