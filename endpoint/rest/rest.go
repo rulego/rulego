@@ -291,18 +291,11 @@ func (rest *Rest) Destroy() {
 
 func (rest *Rest) Restart() error {
 	if rest.Server != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		_ = rest.Server.Shutdown(ctx)
 	}
-	if rest.router != nil {
-		rest.newRouter()
-	}
-	rest.started = false
 
-	if err := rest.Start(); err != nil {
-		return err
-	}
 	if rest.SharedNode.InstanceId != "" {
 		if shared, err := rest.SharedNode.Get(); err == nil {
 			return shared.Restart()
@@ -310,8 +303,11 @@ func (rest *Rest) Restart() error {
 			return err
 		}
 	}
-
+	if rest.router != nil {
+		rest.newRouter()
+	}
 	var oldRouter = make(map[string]endpoint.Router)
+
 	rest.Lock()
 	for id, router := range rest.RouterStorage {
 		if !router.IsDisable() {
@@ -320,18 +316,30 @@ func (rest *Rest) Restart() error {
 	}
 	rest.Unlock()
 
-	rest.RouterStorage = nil
+	rest.RouterStorage = make(map[string]endpoint.Router)
+	rest.started = false
+
+	if err := rest.Start(); err != nil {
+		return err
+	}
 	for _, router := range oldRouter {
-		if _, err := rest.AddRouter(router, router.GetParams()...); err != nil {
-			return err
+		if len(router.GetParams()) == 0 {
+			router.SetParams("GET")
 		}
+		if !rest.HasRouter(router.GetId()) {
+			if _, err := rest.AddRouter(router, router.GetParams()...); err != nil {
+				rest.Printf("rest add router path:=%s error:%v", router.FromToString(), err)
+				return err
+			}
+		}
+
 	}
 	return nil
 }
 
 func (rest *Rest) Close() error {
 	if rest.Server != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		if err := rest.Server.Shutdown(ctx); err != nil {
 			return err
@@ -595,6 +603,17 @@ func (rest *Rest) Started() bool {
 	return rest.started
 }
 
+// GetServer 获取HTTP服务
+func (rest *Rest) GetServer() *http.Server {
+	if rest.Server != nil {
+		return rest.Server
+	} else if rest.SharedNode.InstanceId != "" {
+		if shared, err := rest.SharedNode.Get(); err == nil {
+			return shared.Server
+		}
+	}
+	return nil
+}
 func (rest *Rest) newRouter() *httprouter.Router {
 	rest.router = httprouter.New()
 	//设置跨域
