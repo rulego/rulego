@@ -31,7 +31,7 @@ type Config struct {
 	LoadLuaLibs string `ini:"load_lua_libs"`
 	// Server http服务器地址
 	Server string `ini:"server"`
-	// DefaultUsername 你们访问时候，默认用户名
+	// DefaultUsername 默认用户名
 	DefaultUsername string `ini:"default_username"`
 	//是否把节点调试日志打印到日志文件
 	Debug bool `ini:"debug"`
@@ -68,6 +68,8 @@ type Config struct {
 	Pprof Pprof `ini:"pprof"`
 	// 组件市场根地址
 	MarketplaceBaseUrl string `ini:"marketplace_base_url"`
+	// 是否默认HTTP服务设置成共享节点
+	ShareHttpServer bool `ini:"share_http_server"`
 	// MCP配置
 	MCP MCP `ini:"mcp"`
 	//用户名和密码映射
@@ -154,6 +156,7 @@ var DefaultConfig = Config{
 	JwtExpireTime:      43200000, //12小时
 	JwtIssuer:          "rulego.cc",
 	MarketplaceBaseUrl: "http://8.134.32.225:9090/api/v1",
+	ShareHttpServer:    true,
 	Users: types.Metadata{
 		"admin": "admin,2af255ea5618467d914c67a8beeca31d",
 	},
