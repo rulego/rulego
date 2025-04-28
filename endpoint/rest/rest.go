@@ -291,11 +291,9 @@ func (rest *Rest) Destroy() {
 
 func (rest *Rest) Restart() error {
 	if rest.Server != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := rest.Server.Shutdown(ctx); err != nil {
-			return err
-		}
+		_ = rest.Server.Shutdown(ctx)
 	}
 	if rest.router != nil {
 		rest.newRouter()
@@ -316,7 +314,9 @@ func (rest *Rest) Restart() error {
 	var oldRouter = make(map[string]endpoint.Router)
 	rest.Lock()
 	for id, router := range rest.RouterStorage {
-		oldRouter[id] = router
+		if !router.IsDisable() {
+			oldRouter[id] = router
+		}
 	}
 	rest.Unlock()
 
@@ -440,7 +440,7 @@ func (rest *Rest) addRouter(method string, routers ...endpoint.Router) error {
 	for _, item := range routers {
 		path := strings.TrimSpace(item.FromToString())
 		if id := item.GetId(); id == "" {
-			item.SetId(rest.routerKey(method, path))
+			item.SetId(rest.RouterKey(method, path))
 		}
 		//存储路由
 		item.SetParams(method)
@@ -531,7 +531,7 @@ func (rest *Rest) Router() *httprouter.Router {
 	}
 }
 
-func (rest *Rest) routerKey(method string, from string) string {
+func (rest *Rest) RouterKey(method string, from string) string {
 	return method + ":" + from
 }
 
