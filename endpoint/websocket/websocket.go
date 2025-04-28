@@ -299,6 +299,7 @@ func (ws *Websocket) addRouter(routers ...endpoint.Router) *Websocket {
 		ws.RouterStorage = make(map[string]endpoint.Router)
 	}
 	for _, item := range routers {
+		item.SetParams("GET")
 		ws.CheckAndSetRouterId(item)
 		//存储路由
 		ws.RouterStorage[item.GetId()] = item
