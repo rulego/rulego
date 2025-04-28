@@ -4,12 +4,12 @@ import (
 	"examples/server/config"
 	"examples/server/config/logger"
 	"examples/server/internal/controller"
-	"examples/server/internal/service"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/endpoint/rest"
+	"github.com/rulego/rulego/node_pool"
 	"net/http"
 	"strings"
 )
@@ -118,11 +118,13 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 		restEndpoint.GET(controller.MCP.Handler(apiBasePath + "/mcp/:apiKey/sse"))
 		restEndpoint.POST(controller.MCP.Handler(apiBasePath + "/mcp/:apiKey/message"))
 		logger.Logger.Println("RuleGo-Server mcp server running at http://127.0.0.1" + addr + apiBasePath + "/mcp/" +
-			service.UserServiceImpl.GetApiKeyByUsername(config.DefaultUsername) + "/sse")
+			config.GetApiKeyByUsername(config.DefaultUsername) + "/sse")
 	}
 
 	//静态文件映射
 	loadServeFiles(config, restEndpoint)
+
+	_, _ = node_pool.DefaultNodePool.AddNode(restEndpoint)
 	return restEndpoint
 }
 
