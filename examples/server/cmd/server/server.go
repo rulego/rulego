@@ -98,21 +98,7 @@ func main() {
 	} else {
 		log.Printf("loadNodePool file=%s \n", c.NodePoolFile)
 	}
-
-	//初始化服务
-	if err := service.Setup(c); err != nil {
-		log.Fatal("setup service error:", err)
-	}
-	/////初始化核心引擎服务
-	//if err := service.InitCoreEngineService(c); err != nil {
-	//	log.Fatal("init core engine server error:", err)
-	//}
-	//var mqttEndpoint endpointApi.Endpoint
-	////创建mqtt接入服务
-	//if c.Mqtt.Enabled {
-	//	mqttEndpoint, _ = router.MqttServe(c, logger.Logger)
-	//}
-	//创建rest服务
+	//创建http服务
 	restEndpoint := router.NewRestServe(c)
 	restEndpoint.OnEvent = func(eventName string, params ...interface{}) {
 		if eventName == endpointApi.EventInitServer {
@@ -122,9 +108,13 @@ func main() {
 			}
 		}
 	}
-	//启动服务
+	//启动http服务
 	if err := restEndpoint.Start(); err != nil {
 		log.Fatal("error:", err)
+	}
+	//初始化服务
+	if err := service.Setup(c); err != nil {
+		log.Fatal("setup service error:", err)
 	}
 
 	sigs := make(chan os.Signal, 1)
