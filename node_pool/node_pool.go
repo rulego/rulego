@@ -21,6 +21,7 @@ package node_pool
 import (
 	"errors"
 	"fmt"
+	"github.com/rulego/rulego/utils/json"
 	"sync"
 
 	"github.com/rulego/rulego/api/types"
@@ -112,6 +113,47 @@ func (n *NodePool) NewFromRuleNode(def types.RuleNode) (types.SharedNodeCtx, err
 	}
 }
 
+func (n *NodePool) AddNode(node types.Node) (types.SharedNodeCtx, error) {
+	if node == nil {
+		return nil, fmt.Errorf("node is nil")
+	}
+	if endpointNode, ok := node.(endpointApi.Endpoint); ok {
+		return n.addEndpointNode(endpointNode)
+	} else if nodeCtx, ok := node.(*engine.RuleNodeCtx); ok {
+		return n.addNode(nodeCtx)
+	} else {
+		return nil, fmt.Errorf("node is not endpointApi.Endpoint or *engine.RuleNodeCtx")
+	}
+}
+
+func (n *NodePool) addEndpointNode(endpointNode endpointApi.Endpoint) (types.SharedNodeCtx, error) {
+	id := endpointNode.Id()
+	if _, ok := n.entries.Load(id); ok {
+		return nil, fmt.Errorf("duplicate node id:%s", id)
+	}
+	if _, ok := endpointNode.(types.SharedNode); !ok {
+		return nil, ErrNotImplemented
+	} else {
+		rCtx := newSharedNodeCtx(nil, endpointNode)
+		n.entries.Store(id, rCtx)
+		return rCtx, nil
+	}
+}
+
+func (n *NodePool) addNode(nodeCtx *engine.RuleNodeCtx) (types.SharedNodeCtx, error) {
+	id := nodeCtx.GetNodeId().Id
+	if _, ok := n.entries.Load(id); ok {
+		return nil, fmt.Errorf("duplicate node id:%s", id)
+	}
+	if _, ok := nodeCtx.Node.(types.SharedNode); !ok {
+		return nil, ErrNotImplemented
+	} else {
+		rCtx := newSharedNodeCtx(nodeCtx, nil)
+		n.entries.Store(id, rCtx)
+		return rCtx, nil
+	}
+}
+
 // Get retrieves a SharedNode by its ID.
 func (n *NodePool) Get(id string) (types.SharedNodeCtx, bool) {
 	if v, ok := n.entries.Load(id); ok {
@@ -184,52 +226,66 @@ func (n *NodePool) Range(f func(key, value any) bool) {
 
 type sharedNodeCtx struct {
 	*engine.RuleNodeCtx
-	EndpointCtx *endpoint.DynamicEndpoint
-	IsEndpoint  bool
+	Endpoint   endpointApi.Endpoint
+	IsEndpoint bool
 }
 
-func newSharedNodeCtx(nodeCtx *engine.RuleNodeCtx, endpointCtx *endpoint.DynamicEndpoint) *sharedNodeCtx {
-	return &sharedNodeCtx{RuleNodeCtx: nodeCtx, EndpointCtx: endpointCtx}
+func newSharedNodeCtx(nodeCtx *engine.RuleNodeCtx, endpointCtx endpointApi.Endpoint) *sharedNodeCtx {
+	return &sharedNodeCtx{RuleNodeCtx: nodeCtx, Endpoint: endpointCtx, IsEndpoint: endpointCtx != nil}
 }
 
 // GetInstance retrieves a net client or server connection.
 // Node must implement types.SharedNode interface
 func (n *sharedNodeCtx) GetInstance() (interface{}, error) {
-	if n.EndpointCtx != nil {
-		return n.EndpointCtx.Endpoint.(types.SharedNode).GetInstance()
+	if n.Endpoint != nil {
+		return n.Endpoint.(types.SharedNode).GetInstance()
 	}
 	return n.RuleNodeCtx.Node.(types.SharedNode).GetInstance()
 }
 func (n *sharedNodeCtx) GetNode() interface{} {
-	if n.EndpointCtx != nil {
-		return n.EndpointCtx.Endpoint
+	if n.Endpoint != nil {
+		return n.Endpoint
 	}
 	return n.RuleNodeCtx.Node
 }
 
 func (n *sharedNodeCtx) DSL() []byte {
-	if n.EndpointCtx != nil {
-		return n.EndpointCtx.DSL()
+	if n.Endpoint != nil {
+		if v, ok := n.Endpoint.(*endpoint.DynamicEndpoint); ok {
+			return v.DSL()
+		} else {
+			var def = types.RuleNode{
+				Id:   n.Endpoint.Id(),
+				Name: n.Endpoint.Id(),
+				Type: n.Endpoint.Type(),
+			}
+			//TODO Configuration
+			dsl, _ := json.Marshal(def)
+			return dsl
+		}
 	}
 	return n.RuleNodeCtx.DSL()
 }
 
 func (n *sharedNodeCtx) GetNodeId() types.RuleNodeId {
-	if n.EndpointCtx != nil {
-		return n.EndpointCtx.GetNodeId()
+	if n.Endpoint != nil {
+		return types.RuleNodeId{Id: n.Endpoint.Id(), Type: types.ENDPOINT}
 	}
 	return n.RuleNodeCtx.GetNodeId()
 }
 func (n *sharedNodeCtx) SharedNode() types.SharedNode {
-	if n.EndpointCtx != nil {
-		return n.EndpointCtx.Target().(types.SharedNode)
+	if n.Endpoint != nil {
+		if v, ok := n.Endpoint.(*endpoint.DynamicEndpoint); ok {
+			return v.Endpoint.(types.SharedNode)
+		}
+		return n.Endpoint.(types.SharedNode)
 	}
 	return n.RuleNodeCtx.Node.(types.SharedNode)
 }
 
 func (n *sharedNodeCtx) Destroy() {
-	if n.EndpointCtx != nil {
-		n.EndpointCtx.Destroy()
+	if n.Endpoint != nil {
+		n.Endpoint.Destroy()
 	} else {
 		n.RuleNodeCtx.Destroy()
 	}
