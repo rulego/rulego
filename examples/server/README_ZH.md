@@ -184,6 +184,8 @@ jwt_secret_key = r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1
 jwt_expire_time = 43200000
 # jwt issuer
 jwt_issuer = rulego.cc
+# Set the default HTTP server as a shared node
+share_http_server = true
 # mcp server config
 [mcp]
 # Whether to enable the MCP service
