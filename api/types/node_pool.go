@@ -40,6 +40,8 @@ type NodePool interface {
 	NewFromEndpoint(def EndpointDsl) (SharedNodeCtx, error)
 	//NewFromRuleNode new a rule node sharedNode
 	NewFromRuleNode(def RuleNode) (SharedNodeCtx, error)
+	// AddNode add a sharedNode
+	AddNode(endpoint Node) (SharedNodeCtx, error)
 	// Get retrieves a SharedNode instance by its ID.
 	Get(id string) (SharedNodeCtx, bool)
 	// GetInstance retrieves a net client or server connection by its nodeTye and ID.
