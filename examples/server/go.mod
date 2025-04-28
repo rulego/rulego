@@ -9,9 +9,9 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/websocket v1.5.0
 	github.com/mark3labs/mcp-go v0.18.0
-	github.com/rulego/rulego v0.30.1-0.20250428080520-da054ff7171b
+	github.com/rulego/rulego v0.30.1-0.20250429035125-23a9a933b36a
 	github.com/rulego/rulego-components v0.29.1
-	github.com/rulego/rulego-components-ai v0.29.1-0.20250428080909-59da184120f0
+	github.com/rulego/rulego-components-ai v0.29.1-0.20250429035651-489af3d5d273
 	github.com/rulego/rulego-components-ci v0.29.0
 	github.com/rulego/rulego-components-etl v0.29.0
 	github.com/rulego/rulego-components-iot v0.29.0
