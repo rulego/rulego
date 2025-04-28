@@ -485,6 +485,13 @@ func (e *BaseEndpoint) GetRuleChainDefinition(configuration types.Configuration)
 	return nil
 }
 
+func (e *BaseEndpoint) HasRouter(id string) bool {
+	e.RLock()
+	defer e.RUnlock()
+	_, ok := e.RouterStorage[id]
+	return ok
+}
+
 // ExecutorFactory to端执行器工厂
 type ExecutorFactory struct {
 	sync.RWMutex
