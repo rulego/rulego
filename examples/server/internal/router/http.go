@@ -121,9 +121,6 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 			config.GetApiKeyByUsername(config.DefaultUsername) + "/sse")
 	}
 
-	//静态文件映射
-	loadServeFiles(config, restEndpoint)
-
 	//把默认HTTP服务设置成共享节点
 	if config.ShareHttpServer {
 		_, _ = node_pool.DefaultNodePool.AddNode(restEndpoint)
@@ -131,8 +128,8 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 	return restEndpoint
 }
 
-// 加载静态文件映射
-func loadServeFiles(c config.Config, restEndpoint *rest.Endpoint) {
+// LoadServeFiles 加载静态文件映射
+func LoadServeFiles(c config.Config, restEndpoint *rest.Endpoint) {
 	if c.ResourceMapping != "" {
 		mapping := strings.Split(c.ResourceMapping, ",")
 		for _, item := range mapping {

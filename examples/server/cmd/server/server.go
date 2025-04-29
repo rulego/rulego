@@ -102,6 +102,7 @@ func main() {
 	restEndpoint := router.NewRestServe(c)
 	restEndpoint.OnEvent = func(eventName string, params ...interface{}) {
 		if eventName == endpointApi.EventInitServer {
+			router.LoadServeFiles(c, restEndpoint)
 			wsEndpoint := router.NewWebsocketServe(c, params[0].(*rest.Rest))
 			if err := wsEndpoint.Start(); err != nil {
 				log.Fatal("error:", err)
