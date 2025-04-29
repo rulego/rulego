@@ -329,7 +329,7 @@ func (rest *Rest) Restart() error {
 		if !rest.HasRouter(router.GetId()) {
 			if _, err := rest.AddRouter(router, router.GetParams()...); err != nil {
 				rest.Printf("rest add router path:=%s error:%v", router.FromToString(), err)
-				return err
+				continue
 			}
 		}
 
