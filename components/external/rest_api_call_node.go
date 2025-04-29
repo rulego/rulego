@@ -188,6 +188,7 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}()
 
 	if err != nil {
+		msg.Metadata.PutValue(errorBodyMetadataKey, err.Error())
 		ctx.TellFailure(msg, err)
 	} else if x.isStream {
 		msg.Metadata.PutValue(statusMetadataKey, response.Status)
@@ -201,6 +202,7 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 
 	} else if b, err := io.ReadAll(response.Body); err != nil {
+		msg.Metadata.PutValue(errorBodyMetadataKey, err.Error())
 		ctx.TellFailure(msg, err)
 	} else {
 		msg.Metadata.PutValue(statusMetadataKey, response.Status)
