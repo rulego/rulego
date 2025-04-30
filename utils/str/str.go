@@ -41,8 +41,11 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
-const varPatternLeft = "${"
-const varPatternRight = "}"
+// VarPrefix 模板变量前缀
+const VarPrefix = "${"
+
+// VarSuffix 模板变量后缀
+const VarSuffix = "}"
 
 func init() {
 	//设置随机种子
@@ -209,7 +212,7 @@ func ToStringMapString(input interface{}) map[string]string {
 
 // CheckHasVar 检查字符串是否有占位符
 func CheckHasVar(str string) bool {
-	return strings.Contains(str, "${") && strings.Contains(str, "}")
+	return strings.Contains(str, VarPrefix) && strings.Contains(str, VarSuffix)
 }
 
 // ConvertDollarPlaceholder 转postgres风格占位符
