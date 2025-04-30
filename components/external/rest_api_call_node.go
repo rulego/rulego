@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"io"
@@ -76,6 +77,17 @@ type RestApiCallNodeConfiguration struct {
 	WithoutRequestBody bool
 	//Headers 请求头,可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Headers map[string]string
+	// Body 请求body,支持metadata、msg取值构建body。如果空，则把消息符合传输到目标地址
+	// 例如：
+	// 表达式取值：${msg.value}
+	// 或者构建JSON格式：
+	// {
+	//  "name":"${msg.name}",
+	//  "age":"${msg.age}",
+	//  "type":"admin"
+	// }
+	// 或者输入字符串：01010101
+	Body string
 	//ReadTimeoutMs 超时，单位毫秒，默认0:不限制
 	ReadTimeoutMs int
 	//禁用证书验证
@@ -109,8 +121,9 @@ type RestApiCallNode struct {
 	//是否是SSE（Server-Send Events）流式响应
 	isStream bool
 
-	urlTemplate     str.Template
-	headersTemplate map[str.Template]str.Template
+	urlTemplate     el.Template
+	headersTemplate map[*el.MixedTemplate]*el.MixedTemplate
+	bodyTemplate    el.Template
 	hasVar          bool
 }
 
@@ -140,18 +153,32 @@ func (x *RestApiCallNode) Init(ruleConfig types.Config, configuration types.Conf
 		if strings.HasPrefix(x.Config.Headers[acceptKey], eventStreamMime) || strings.HasPrefix(x.Config.Headers[contentTypeKey], eventStreamMime) {
 			x.isStream = true
 		}
-		x.urlTemplate = str.NewTemplate(x.Config.RestEndpointUrlPattern)
+		if tmpl, err := el.NewTemplate(x.Config.RestEndpointUrlPattern); err != nil {
+			return err
+		} else {
+			x.urlTemplate = tmpl
+		}
 
-		var headerTemplates = make(map[str.Template]str.Template)
+		var headerTemplates = make(map[*el.MixedTemplate]*el.MixedTemplate)
 		for key, value := range x.Config.Headers {
-			keyTmpl := str.NewTemplate(key)
-			valueTmpl := str.NewTemplate(value)
+			keyTmpl, _ := el.NewMixedTemplate(key)
+			valueTmpl, _ := el.NewMixedTemplate(value)
 			headerTemplates[keyTmpl] = valueTmpl
 			if !keyTmpl.IsNotVar() || !valueTmpl.IsNotVar() {
 				x.hasVar = true
 			}
 		}
 		x.headersTemplate = headerTemplates
+
+		x.Config.Body = strings.TrimSpace(x.Config.Body)
+		if x.Config.Body != "" {
+			if bodyTemplate, err := el.NewTemplate(x.Config.Body); err != nil {
+				return err
+			} else {
+				x.bodyTemplate = bodyTemplate
+				x.hasVar = !bodyTemplate.IsNotVar()
+			}
+		}
 	}
 	return err
 }
@@ -162,14 +189,30 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if !x.urlTemplate.IsNotVar() || x.hasVar {
 		evn = base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	}
-	endpointUrl := x.urlTemplate.Execute(evn)
+	var endpointUrl = ""
+	if v, err := x.urlTemplate.Execute(evn); err != nil {
+		ctx.TellFailure(msg, err)
+		return
+	} else {
+		endpointUrl = str.ToString(v)
+	}
 	var req *http.Request
 	var err error
-
+	var body []byte
 	if x.Config.WithoutRequestBody {
 		req, err = http.NewRequest(x.Config.RequestMethod, endpointUrl, nil)
 	} else {
-		req, err = http.NewRequest(x.Config.RequestMethod, endpointUrl, bytes.NewReader([]byte(msg.Data)))
+		if x.bodyTemplate != nil {
+			if v, err := x.bodyTemplate.Execute(evn); err != nil {
+				ctx.TellFailure(msg, err)
+				return
+			} else {
+				body = []byte(str.ToString(v))
+			}
+		} else {
+			body = []byte(msg.Data)
+		}
+		req, err = http.NewRequest(x.Config.RequestMethod, endpointUrl, bytes.NewReader(body))
 	}
 	if err != nil {
 		ctx.TellFailure(msg, err)
@@ -177,7 +220,7 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 	//设置header
 	for key, value := range x.headersTemplate {
-		req.Header.Set(key.Execute(evn), value.Execute(evn))
+		req.Header.Set(key.ExecuteAsString(evn), value.ExecuteAsString(evn))
 	}
 
 	response, err := x.httpClient.Do(req)
