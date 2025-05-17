@@ -35,6 +35,8 @@ const (
 const (
 	EndpointTypePrefix                = "endpoint/"
 	NodeConfigurationPrefixInstanceId = "ref://"
+	// NamespaceSeparator defines the separator for namespace prefixes
+	NamespaceSeparator = ":"
 )
 
 const (
@@ -51,4 +53,5 @@ const (
 var (
 	// ErrConcurrencyLimitReached is the error returned when the concurrency limit has been reached
 	ErrConcurrencyLimitReached = errors.New("concurrency limit reached")
+	ErrCacheNotInitialized     = errors.New("cache not initialized")
 )

@@ -19,12 +19,6 @@ package engine
 import (
 	"context"
 	"fmt"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/components/action"
-	"github.com/rulego/rulego/test"
-	"github.com/rulego/rulego/test/assert"
-	"github.com/rulego/rulego/utils/json"
-	"github.com/rulego/rulego/utils/str"
 	"os"
 	"reflect"
 	"strconv"
@@ -33,6 +27,13 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/action"
+	"github.com/rulego/rulego/test"
+	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/utils/str"
 )
 
 var (

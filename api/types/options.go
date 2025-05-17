@@ -17,9 +17,10 @@
 package types
 
 import (
-	"github.com/rulego/rulego/api/pool"
 	"math"
 	"time"
+
+	"github.com/rulego/rulego/api/pool"
 )
 
 // Option is a function type that modifies the Config.
@@ -102,6 +103,14 @@ func WithSecretKey(secretKey string) Option {
 func WithEndpointEnabled(endpointEnabled bool) Option {
 	return func(c *Config) error {
 		c.EndpointEnabled = endpointEnabled
+		return nil
+	}
+}
+
+// WithCache is an option that sets the cache of the Config.
+func WithCache(cache Cache) Option {
+	return func(c *Config) error {
+		c.Cache = cache
 		return nil
 	}
 }

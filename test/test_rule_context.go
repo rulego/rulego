@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/cache"
 	"sync"
 	"time"
 )
@@ -42,22 +43,37 @@ type NodeTestRuleContext struct {
 	onEndFunc          types.OnEndFunc
 	childrenNodes      sync.Map
 	out                types.RuleMsg
+	globalCache        types.Cache
+	chainCache         types.Cache
+}
+
+func (ctx *NodeTestRuleContext) GlobalCache() types.Cache {
+	return ctx.globalCache
+}
+
+func (ctx *NodeTestRuleContext) ChainCache() types.Cache {
+	return ctx.chainCache
 }
 
 func NewRuleContext(config types.Config, callback func(msg types.RuleMsg, relationType string, err error)) types.RuleContext {
+	globalCache := cache.NewMemoryCache(time.Minute * 5)
 	return &NodeTestRuleContext{
-		context:  context.TODO(),
-		config:   config,
-		callback: callback,
+		context:     context.TODO(),
+		config:      config,
+		callback:    callback,
+		globalCache: globalCache,
+		chainCache:  cache.NewNamespaceCache(globalCache, "test"),
 	}
 }
 
 func NewRuleContextFull(config types.Config, self types.Node, childrenNodes map[string]types.Node, callback func(msg types.RuleMsg, relationType string, err error)) types.RuleContext {
 	ctx := &NodeTestRuleContext{
-		config:   config,
-		self:     self,
-		callback: callback,
-		context:  context.TODO(),
+		config:      config,
+		self:        self,
+		callback:    callback,
+		context:     context.TODO(),
+		globalCache: config.Cache,
+		chainCache:  cache.NewNamespaceCache(config.Cache, "test"),
 	}
 	for k, v := range childrenNodes {
 		ctx.childrenNodes.Store(k, v)
