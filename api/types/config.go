@@ -17,9 +17,10 @@
 package types
 
 import (
-	"github.com/rulego/rulego/api/pool"
 	"math"
 	"time"
+
+	"github.com/rulego/rulego/api/pool"
 )
 
 // OnDebug is a global debug callback function for nodes.
@@ -72,6 +73,8 @@ type Config struct {
 	NodeClientInitNow bool
 	// AllowCycle indicates whether nodes in the rule chain are allowed to form cycles.
 	AllowCycle bool
+	// Cache is a global cache instance shared across all rule chains in the pool, used for storing runtime shared data.
+	Cache Cache
 }
 
 // RegisterUdf registers a custom function. Function names can be repeated for different script types.

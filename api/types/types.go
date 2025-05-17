@@ -226,6 +226,13 @@ type RuleContext interface {
 	GetOut() RuleMsg
 	// GetErr retrieves the IN or OUT error.
 	GetErr() error
+	// GlobalCache returns a Cache instance for global cache operations
+	// The cache items will persist until manually deleted or expired
+	GlobalCache() Cache
+	// ChainCache returns a Cache instance for rule chain cache operations
+	// This is a namespaced version of GlobalCache that automatically prefixes all keys with the rule chain ID
+	// The cache items with rule chain prefix will be automatically cleared when the rule chain is destroyed
+	ChainCache() Cache
 }
 
 // RuleContextOption is a function type for modifying RuleContext options.

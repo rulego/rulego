@@ -21,6 +21,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/cache"
 	reflect2 "github.com/rulego/rulego/utils/reflect"
 	"reflect"
 	"strings"
@@ -151,7 +152,8 @@ func NodeOnMsg(t *testing.T, node types.Node, msgList []Msg, callback func(msg t
 
 // NodeOnMsgWithChildren 发送消息
 func NodeOnMsgWithChildren(t *testing.T, node types.Node, msgList []Msg, childrenNodes map[string]types.Node, callback func(msg types.RuleMsg, relationType string, err error)) {
-	NodeOnMsgWithChildrenAndConfig(t, types.NewConfig(), node, msgList, childrenNodes, callback)
+	config := types.NewConfig(types.WithCache(cache.DefaultCache))
+	NodeOnMsgWithChildrenAndConfig(t, config, node, msgList, childrenNodes, callback)
 }
 
 func NodeOnMsgWithChildrenAndConfig(t *testing.T, config types.Config, node types.Node, msgList []Msg, childrenNodes map[string]types.Node, callback func(msg types.RuleMsg, relationType string, err error)) {

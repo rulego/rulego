@@ -11,8 +11,11 @@ import (
 type Template interface {
 	Parse() error
 	Execute(data map[string]any) (interface{}, error)
+	// Deprecated: Use HasVar instead.
 	// IsNotVar 是否是模板变量
 	IsNotVar() bool
+	// HasVar 是否有变量
+	HasVar() bool
 }
 
 func NewTemplate(tmpl any, params ...any) (Template, error) {
@@ -118,6 +121,10 @@ func (t *ExprTemplate) IsNotVar() bool {
 	return false
 }
 
+func (t *ExprTemplate) HasVar() bool {
+	return true
+}
+
 // NotTemplate 原样输出
 type NotTemplate struct {
 	Tmpl string
@@ -135,6 +142,10 @@ func (t *NotTemplate) IsNotVar() bool {
 	return true
 }
 
+func (t *NotTemplate) HasVar() bool {
+	return false
+}
+
 type AnyTemplate struct {
 	Tmpl any
 }
@@ -149,6 +160,10 @@ func (t *AnyTemplate) Execute(data map[string]any) (interface{}, error) {
 
 func (t *AnyTemplate) IsNotVar() bool {
 	return true
+}
+
+func (t *AnyTemplate) HasVar() bool {
+	return false
 }
 
 // MixedTemplate 支持混合字符串和变量的模板，格式如 aa/${xxx}
@@ -245,6 +260,10 @@ func (t *MixedTemplate) ExecuteFn(loadDataFunc func() map[string]any) (interface
 
 func (t *MixedTemplate) IsNotVar() bool {
 	return !t.hasVars
+}
+
+func (t *MixedTemplate) HasVar() bool {
+	return t.hasVars
 }
 
 func (t *MixedTemplate) ExecuteAsString(data map[string]any) string {

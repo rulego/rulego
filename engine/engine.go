@@ -33,11 +33,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rulego/rulego/api/types/metrics"
+	"github.com/rulego/rulego/utils/cache"
 	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/rulego/rulego/api/types/metrics"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/builtin/aspect"
@@ -200,15 +202,26 @@ type DefaultRuleContext struct {
 	// OUT msg
 	out types.RuleMsg
 	// IN or OUT err
-	err error
+	err        error
+	chainCache types.Cache
+}
+
+func (ctx *DefaultRuleContext) GlobalCache() types.Cache {
+	return ctx.config.Cache
+}
+
+func (ctx *DefaultRuleContext) ChainCache() types.Cache {
+	return ctx.chainCache
 }
 
 // NewRuleContext creates a new instance of the default rule engine message processing context.
 func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *RuleChainCtx, from types.NodeCtx, self types.NodeCtx, pool types.Pool, onEnd types.OnEndFunc, ruleChainPool types.RuleEnginePool) *DefaultRuleContext {
+	var chainId string
 	// Initialize aspects list.
 	var aspects types.AspectList
 	if ruleChainCtx != nil {
 		aspects = ruleChainCtx.aspects
+		chainId = ruleChainCtx.GetNodeId().Id
 	}
 	// If no aspects are defined, use built-in aspects.
 	if len(aspects) == 0 {
@@ -218,6 +231,10 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 	}
 	// Get node-specific aspects.
 	aroundAspects, beforeAspects, afterAspects := aspects.GetNodeAspects()
+	var chainCache types.Cache
+	if chainId != "" {
+		chainCache = cache.NewNamespaceCache(config.Cache, chainId+types.NamespaceSeparator)
+	}
 	// Return a new DefaultRuleContext populated with the provided parameters and aspects.
 	return &DefaultRuleContext{
 		context:       context,
@@ -234,6 +251,7 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 		beforeAspects: beforeAspects,
 		afterAspects:  afterAspects,
 		observer:      &ContextObserver{},
+		chainCache:    chainCache,
 	}
 }
 
@@ -363,6 +381,7 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		runSnapshot:   ctx.runSnapshot,
 		observer:      ctx.observer,
 		err:           ctx.err,
+		chainCache:    ctx.ChainCache(),
 	}
 }
 
@@ -1064,6 +1083,10 @@ func (e *RuleEngine) Stop() {
 	if e.rootRuleChainCtx != nil {
 		e.rootRuleChainCtx.Destroy()
 	}
+	// 清理实例缓存
+	if e.Config.Cache != nil && e.rootRuleChainCtx != nil {
+		_ = e.Config.Cache.DeleteByPrefix(e.rootRuleChainCtx.GetNodeId().Id + types.NamespaceSeparator)
+	}
 	e.initialized = false
 }
 
@@ -1261,6 +1284,9 @@ func NewConfig(opts ...types.Option) types.Config {
 	// register all udfs
 	for name, f := range funcs.ScriptFunc.GetAll() {
 		c.RegisterUdf(name, f)
+	}
+	if c.Cache == nil {
+		c.Cache = cache.DefaultCache
 	}
 	return c
 }
