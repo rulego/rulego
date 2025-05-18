@@ -40,9 +40,10 @@ const (
 
 // Script types define the scripting languages supported for script execution within nodes.
 const (
-	Js     = "Js"     // Represents JavaScript scripting language.
-	Lua    = "Lua"    // Represents Lua scripting language.
-	Python = "Python" // Represents Python scripting language.
+	AllScript = ""       // All script match
+	Js        = "Js"     // Represents JavaScript scripting language.
+	Lua       = "Lua"    // Represents Lua scripting language.
+	Python    = "Python" // Represents Python scripting language.
 )
 
 // OnEndFunc is a callback function type that is executed when a branch of the rule chain completes.
