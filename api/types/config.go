@@ -83,8 +83,10 @@ func (c *Config) RegisterUdf(name string, value interface{}) {
 		c.Udf = make(map[string]interface{})
 	}
 	if script, ok := value.(Script); ok {
-		// Resolve function name conflicts for different script types.
-		name = script.Type + ScriptFuncSeparator + name
+		if script.Type != AllScript {
+			// Resolve function name conflicts for different script types.
+			name = script.Type + ScriptFuncSeparator + name
+		}
 	}
 	c.Udf[name] = value
 }

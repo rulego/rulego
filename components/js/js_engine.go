@@ -133,7 +133,7 @@ func (g *GojaJsEngine) NewVm(config types.Config, fromVars map[string]interface{
 				_, err = vm.RunProgram(p)
 			}
 		} else if script, scriptOk := v.(types.Script); scriptOk {
-			if script.Type == types.Js || script.Type == "" {
+			if script.Type == types.Js || script.Type == types.AllScript {
 				// parse  JS script
 				if _, ok := script.Content.(string); ok {
 					if p, ok := g.jsUdfProgramCache[k]; ok {

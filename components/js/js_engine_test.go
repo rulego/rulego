@@ -33,6 +33,7 @@ const (
 	jsFuncCallGolangFunc1 = "CallGolangFunc1"
 	jsFuncCallGolangFunc2 = "CallGolangFunc2"
 	jsFuncCallStructFunc  = "CallStructFunc"
+	jsFuncCallStructFunc2 = "CallStructFunc2"
 	jsFuncAdd3            = "add3"
 	jsFuncTimeout         = "timeoutFunc"
 	jsFuncAdd2            = "add2"
@@ -45,6 +46,7 @@ const (
 	executionTimeout = "execution timeout"
 	user01           = "user01"
 	resultUser01     = "result:user01"
+	resultUser02     = "result:user02"
 )
 
 func TestJsEngine(t *testing.T) {
@@ -74,6 +76,9 @@ func TestJsEngine(t *testing.T) {
 	}
 	function CallStructFunc() {
 		return tool.Query("user01")
+	}
+	function CallStructFunc2() {
+		return tool2.Query("user02")
 	}
 	`
 	start := time.Now()
@@ -172,6 +177,14 @@ func TestJsEngine(t *testing.T) {
 	config.RegisterUdf(
 		"tool", tool,
 	)
+	// types.Script 方式注册
+	config.RegisterUdf(
+		"tool2", types.Script{
+			Type:    types.AllScript,
+			Content: tool,
+		},
+	)
+
 	baseJsEngine, err := NewGojaJsEngine(config, jsScript, nil)
 	assert.NotNil(t, baseJsEngine)
 	assert.Nil(t, err)
@@ -241,6 +254,15 @@ func TestJsEngine(t *testing.T) {
 		response, err = jsEngine.Execute(nil, jsFuncCallStructFunc, user01)
 		assert.Nil(t, err)
 		assert.Equal(t, resultUser01, response.(string))
+	})
+	t.Run("Filter_MsgAa_ReturnsTrue_And_CallStructFunc2", func(t *testing.T) {
+		response, err := jsEngine.Execute(nil, jsFuncFilter, msgAa, metadata, msgAa)
+		assert.Nil(t, err)
+		assert.Equal(t, true, response.(bool))
+
+		response, err = jsEngine.Execute(nil, jsFuncCallStructFunc2, user01)
+		assert.Nil(t, err)
+		assert.Equal(t, resultUser02, response.(string))
 	})
 
 	t.Run("Add2_DirectCall", func(t *testing.T) {
