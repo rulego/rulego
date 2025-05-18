@@ -18,13 +18,33 @@ package js
 
 import (
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/dop251/goja"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
+)
+
+const (
+	jsFuncFilter          = "Filter"
+	jsFuncTransform       = "Transform"
+	jsFuncGetValue        = "GetValue"
+	jsFuncCallGolangFunc1 = "CallGolangFunc1"
+	jsFuncCallGolangFunc2 = "CallGolangFunc2"
+	jsFuncCallStructFunc  = "CallStructFunc"
+	jsFuncAdd3            = "add3"
+	jsFuncTimeout         = "timeoutFunc"
+	jsFuncAdd2            = "add2"
+
+	msgAa            = "aa"
+	msgBb            = "bb"
+	globalNameLala   = "lala"
+	metaTestKey      = "test"
+	returnFromGoVal  = "returnFromGo"
+	executionTimeout = "execution timeout"
+	user01           = "user01"
+	resultUser01     = "result:user01"
 )
 
 func TestJsEngine(t *testing.T) {
@@ -51,6 +71,9 @@ func TestJsEngine(t *testing.T) {
 	}
 	function CallGolangFunc2(msg, metadata, msgType) {
 			return handleMsg(msg, metadata, msgType) 
+	}
+	function CallStructFunc() {
+		return tool.Query("user01")
 	}
 	`
 	start := time.Now()
@@ -144,75 +167,107 @@ func TestJsEngine(t *testing.T) {
 			Content: p,
 		},
 	)
-	jsEngine, err := NewGojaJsEngine(config, jsScript, nil)
+	//注册结构体所有导出函数
+	var tool = &ToolTest{}
+	config.RegisterUdf(
+		"tool", tool,
+	)
+	baseJsEngine, err := NewGojaJsEngine(config, jsScript, nil)
+	assert.NotNil(t, baseJsEngine)
+	assert.Nil(t, err)
+	baseJsEngine.Stop() // Stop the engine created just for validation
+
+	// Recreate engine with params for actual tests
+	jsEngine, err := NewGojaJsEngine(config, jsScript, map[string]interface{}{"username": globalNameLala})
 	assert.NotNil(t, jsEngine)
 	assert.Nil(t, err)
-
-	jsEngine, err = NewGojaJsEngine(config, jsScript, map[string]interface{}{"username": "lala"})
 	defer jsEngine.Stop()
-	jsEngine.config.Logger.Printf("用时1：%s", time.Since(start))
-	var group sync.WaitGroup
-	group.Add(10)
-	i := 0
-	for i < 10 {
-		testExecuteJs(t, jsEngine, i, &group)
-		i++
-	}
-	group.Wait()
 
-	_, err = NewGojaJsEngine(config, jsScript, nil)
-}
+	jsEngine.config.Logger.Printf("Setup time: %s", time.Since(start))
 
-func testExecuteJs(t *testing.T, jsEngine *GojaJsEngine, index int, group *sync.WaitGroup) {
 	metadata := map[string]interface{}{
-		"aa": "test",
+		metaTestKey: "test", // Using const for key "aa"
 	}
-	start := time.Now()
-	var response interface{}
-	var err error
-	if index == 3 || index == 5 {
-		response, err = jsEngine.Execute(nil, "Filter", "bb", metadata, "aa")
+
+	t.Run("Filter_MsgBb_ReturnsFalse_And_Transform_And_Add3", func(t *testing.T) {
+		response, err := jsEngine.Execute(nil, jsFuncFilter, msgBb, metadata, msgAa)
 		assert.Nil(t, err)
 		assert.Equal(t, false, response.(bool))
-		response, err = jsEngine.Execute(nil, "Transform", "bb", metadata, "aa")
+
+		response, err = jsEngine.Execute(nil, jsFuncTransform, msgBb, metadata, msgAa)
+		assert.Nil(t, err)
 		r, ok := response.(map[string]interface{})
 		assert.True(t, ok)
 		assert.Equal(t, int64(8), r["add"])
-		assert.Equal(t, int64(8), r["add2"])
+		assert.Equal(t, int64(8), r[jsFuncAdd2])
 		assert.Equal(t, true, r["isNumber"])
 		assert.Equal(t, time.Now().Format("20060102"), r["today"])
 
-		response, err = jsEngine.Execute(nil, "add3", "bb", metadata, "aa")
-		assert.Equal(t, int64(9), response)
-	} else if index == 6 {
-		response, err = jsEngine.Execute(nil, "GetValue", "bb", metadata, "aa")
+		response, err = jsEngine.Execute(nil, jsFuncAdd3, msgBb, metadata, msgAa)
 		assert.Nil(t, err)
-		assert.Equal(t, "lala", response.(string))
-	} else if index == 7 {
-		response, err = jsEngine.Execute(nil, "CallGolangFunc1", "bb", metadata, "aa")
+		assert.Equal(t, int64(9), response)
+	})
+
+	t.Run("GetValue_ReturnsGlobalName", func(t *testing.T) {
+		response, err := jsEngine.Execute(nil, jsFuncGetValue, msgBb, metadata, msgAa)
+		assert.Nil(t, err)
+		assert.Equal(t, globalNameLala, response.(string))
+	})
+
+	t.Run("CallGolangFunc1_ReturnsSum", func(t *testing.T) {
+		response, err := jsEngine.Execute(nil, jsFuncCallGolangFunc1, msgBb, metadata, msgAa)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(6), response.(int64))
-	} else if index == 8 {
-		response, err = jsEngine.Execute(nil, "CallGolangFunc2", metadata, metadata, "testMsgType")
+	})
+
+	t.Run("CallGolangFunc2_And_Timeout_And_UnknownFunc", func(t *testing.T) {
+		response, err := jsEngine.Execute(nil, jsFuncCallGolangFunc2, metadata, metadata, "testMsgType")
 		assert.Nil(t, err)
-		assert.Equal(t, "returnFromGo", response.(map[string]string)["returnFromGo"])
+		assert.Equal(t, returnFromGoVal, response.(map[string]string)["returnFromGo"])
 
-		response, err = jsEngine.Execute(nil, "timeoutFunc", metadata, metadata, "testMsgType")
-		assert.Equal(t, true, strings.HasPrefix(err.Error(), "execution timeout"))
+		response, err = jsEngine.Execute(nil, jsFuncTimeout, metadata, metadata, "testMsgType")
+		assert.NotNil(t, err) // Expecting an error
+		assert.Equal(t, true, strings.HasPrefix(err.Error(), executionTimeout))
 
-		response, err = jsEngine.Execute(nil, "aa", metadata, metadata, "testMsgType")
+		response, err = jsEngine.Execute(nil, msgAa, metadata, metadata, "testMsgType") // Calling undefined function 'aa'
 		assert.NotNil(t, err)
+	})
 
-	} else {
-		response, err = jsEngine.Execute(nil, "Filter", "aa", metadata, "aa")
+	t.Run("Filter_MsgAa_ReturnsTrue_And_CallStructFunc", func(t *testing.T) {
+		response, err := jsEngine.Execute(nil, jsFuncFilter, msgAa, metadata, msgAa)
 		assert.Nil(t, err)
 		assert.Equal(t, true, response.(bool))
-	}
-	response, err = jsEngine.Execute(nil, "add2", 5, 4)
-	assert.Nil(t, err)
-	assert.Equal(t, int64(9), response.(int64))
 
-	group.Done()
-	jsEngine.config.Logger.Printf("index:%d,响应:%s,用时：%s", index, response, time.Since(start))
+		response, err = jsEngine.Execute(nil, jsFuncCallStructFunc, user01)
+		assert.Nil(t, err)
+		assert.Equal(t, resultUser01, response.(string))
+	})
 
+	t.Run("Add2_DirectCall", func(t *testing.T) {
+		response, err := jsEngine.Execute(nil, jsFuncAdd2, 5, 4)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(9), response.(int64))
+	})
+
+	t.Run("MultipleCalls_JsVmPool", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			response, err := jsEngine.Execute(nil, jsFuncAdd2, i, i+1)
+			assert.Nil(t, err)
+			assert.Equal(t, int64(i*2+1), response.(int64))
+		}
+	})
+
+	// Final check for NewGojaJsEngine with nil params after all tests
+	_, err = NewGojaJsEngine(config, jsScript, nil)
+	assert.Nil(t, err) // Expecting this to succeed as per original logic
+}
+
+type ToolTest struct {
+}
+
+func (t *ToolTest) Query(id string) string {
+	return "result:" + id
+}
+func (t *ToolTest) Delete(id string) bool {
+	return true
 }
