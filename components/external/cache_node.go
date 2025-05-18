@@ -49,7 +49,7 @@ const (
 // LevelKey 缓存key
 type LevelKey struct {
 	// Level 缓存级别，chain或global
-	// chain: 规则链缓存，在当前规则链命名空间下操作，用于规则链实例内不同执行上下文之间的数据共享
+	// chain: 规则链缓存，在当前规则链命名空间下操作，用于规则链实例内不同执行上下文之间的数据共享。如果规则链实例被销毁，会自动删除该规则链命名空间下所有缓存
 	// global: 全局缓存，在全局命名空间下操作，用于跨规则链间的数据共享
 	Level string `json:"level"`
 	// 可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
@@ -191,7 +191,7 @@ type CacheSetNodeConfiguration struct {
 
 type CacheItem struct {
 	// Level 缓存级别，chain或global
-	// chain: 规则链缓存，在当前规则链命名空间下操作，用于规则链实例内不同执行上下文之间的数据共享
+	// chain: 规则链缓存，在当前规则链命名空间下操作，用于规则链实例内不同执行上下文之间的数据共享。如果规则链实例被销毁，会自动删除该规则链命名空间下所有缓存
 	// global: 全局缓存，在全局命名空间下操作，用于跨规则链间的数据共享
 	Level string `json:"level"`
 	//  key 键

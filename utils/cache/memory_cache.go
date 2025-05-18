@@ -132,12 +132,12 @@ func (c *MemoryCache) Get(key string) interface{} {
 	return it.value
 }
 
-// Delete removes a value from the cache by its key.
+// Has checks if a prefixed key exists in the cache
 // Parameters:
-//   - key: The cache key to delete (string)
+//   - key: Cache key (will be automatically prefixed)
 //
 // Returns:
-//   - error: Always nil in current implementation
+//   - bool: Whether the key exists and is valid
 func (c *MemoryCache) Has(key string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
