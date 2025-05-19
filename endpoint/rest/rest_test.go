@@ -39,7 +39,7 @@ func TestRouterId(t *testing.T) {
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Server: testServer,
-	}, nodeConfig)
+	}, &nodeConfig)
 	var ep = &Endpoint{}
 	err := ep.Init(config, nodeConfig)
 	assert.Nil(t, err)
@@ -66,7 +66,7 @@ func TestRestEndpointConfig(t *testing.T) {
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Server: testConfigServer,
-	}, nodeConfig)
+	}, &nodeConfig)
 	var epStarted = &Endpoint{}
 	err := epStarted.Init(config, nodeConfig)
 
@@ -171,7 +171,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Server: testServer,
-	}, nodeConfig)
+	}, &nodeConfig)
 	var restEndpoint = &Endpoint{}
 	err = restEndpoint.Init(config, nodeConfig)
 	assert.Equal(t, Type, restEndpoint.Type())

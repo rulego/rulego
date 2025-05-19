@@ -17,12 +17,42 @@
 package dsl
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/json"
-	"strings"
-	"testing"
 )
+
+func TestIsFlowNode(t *testing.T) {
+	ruleChain := types.RuleChain{
+		Metadata: types.RuleMetadata{
+			Nodes: []*types.RuleNode{
+				{
+					Id:   "node1",
+					Type: "flow",
+				},
+				{
+					Id:   "node2",
+					Type: "jsTransform",
+				},
+			},
+		},
+	}
+
+	assert.True(t, IsFlowNode(ruleChain, "node1"))
+	assert.False(t, IsFlowNode(ruleChain, "node2"))
+	assert.False(t, IsFlowNode(ruleChain, "nonExistentNode"))
+
+	// Test with empty nodes
+	emptyRuleChain := types.RuleChain{
+		Metadata: types.RuleMetadata{
+			Nodes: []*types.RuleNode{},
+		},
+	}
+	assert.False(t, IsFlowNode(emptyRuleChain, "node1"))
+}
 
 func TestParseVars(t *testing.T) {
 	inputData := `{

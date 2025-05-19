@@ -77,43 +77,107 @@ func CallerInfo() []string {
 	return callers
 }
 
-func Equal(t *testing.T, a, b interface{}) {
+func Equal(t *testing.T, a, b interface{}, msgAndArgs ...interface{}) {
 	if !reflect.DeepEqual(a, b) {
-		t.Errorf("%v != %v\n Error Trace:   %s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"))
+		msg := messageFromMsgAndArgs(msgAndArgs...)
+		if msg != "" {
+			t.Errorf("%v != %v\n Error Trace:   %s\n%s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
+		} else {
+			t.Errorf("%v != %v\n Error Trace:   %s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"))
+		}
 	}
 }
 
-func EqualCleanString(t *testing.T, a, b string) {
+func EqualCleanString(t *testing.T, a, b string, msgAndArgs ...interface{}) {
 	re := regexp.MustCompile(`[\s\n\t]+`)
 	cleanStra := re.ReplaceAllString(a, "")
 	cleanStrb := re.ReplaceAllString(b, "")
 	if cleanStra != cleanStrb {
-		t.Errorf("%v ！= %v\n Error Trace:   %s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"))
+		msg := messageFromMsgAndArgs(msgAndArgs...)
+		if msg != "" {
+			t.Errorf("%v != %v\n Error Trace:   %s\n%s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
+		} else {
+			t.Errorf("%v != %v\n Error Trace:   %s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"))
+		}
 	}
 }
-func NotEqual(t *testing.T, a, b interface{}) {
+func NotEqual(t *testing.T, a, b interface{}, msgAndArgs ...interface{}) {
 	if reflect.DeepEqual(a, b) {
-		t.Errorf("%v == %v\n Error Trace:   %s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"))
+		msg := messageFromMsgAndArgs(msgAndArgs...)
+		if msg != "" {
+			t.Errorf("%v == %v\n Error Trace:   %s\n%s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
+		} else {
+			t.Errorf("%v == %v\n Error Trace:   %s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"))
+		}
 	}
 }
 
-func True(t *testing.T, value bool) {
+func True(t *testing.T, value bool, msgAndArgs ...interface{}) {
 	if !value {
-		t.Errorf("%v should be true\n Error Trace:   %s", value, strings.Join(CallerInfo(), "\n\t\t\t"))
+		msg := messageFromMsgAndArgs(msgAndArgs...)
+		if msg != "" {
+			t.Errorf("%v should be true\n Error Trace:   %s\n%s", value, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
+		} else {
+			t.Errorf("%v should be true\n Error Trace:   %s", value, strings.Join(CallerInfo(), "\n\t\t\t"))
+		}
 	}
 }
-func False(t *testing.T, value bool) {
+func False(t *testing.T, value bool, msgAndArgs ...interface{}) {
 	if value {
-		t.Errorf("%v should be false\n Error Trace:   %s", value, strings.Join(CallerInfo(), "\n\t\t\t"))
+		msg := messageFromMsgAndArgs(msgAndArgs...)
+		if msg != "" {
+			t.Errorf("%v should be false\n Error Trace:   %s\n%s", value, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
+		} else {
+			t.Errorf("%v should be false\n Error Trace:   %s", value, strings.Join(CallerInfo(), "\n\t\t\t"))
+		}
 	}
 }
-func NotNil(t *testing.T, value interface{}) {
-	if value == nil {
-		t.Errorf("%v should be not nil\n Error Trace:   %s", value, strings.Join(CallerInfo(), "\n\t\t\t"))
+func NotNil(t *testing.T, value interface{}, msgAndArgs ...interface{}) {
+	if isNil(value) {
+		msg := messageFromMsgAndArgs(msgAndArgs...)
+		if msg != "" {
+			t.Errorf("%v should be not nil\n Error Trace:   %s\n%s", value, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
+		} else {
+			t.Errorf("%v should be not nil\n Error Trace:   %s", value, strings.Join(CallerInfo(), "\n\t\t\t"))
+		}
 	}
 }
-func Nil(t *testing.T, value interface{}) {
-	if value != nil {
-		t.Errorf("%v should be nil\n Error Trace:   %s", value, strings.Join(CallerInfo(), "\n\t\t\t"))
+func Nil(t *testing.T, value interface{}, msgAndArgs ...interface{}) {
+	if !isNil(value) {
+		msg := messageFromMsgAndArgs(msgAndArgs...)
+		if msg != "" {
+			t.Errorf("%v should be nil\n Error Trace:   %s\n%s", value, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
+		} else {
+			t.Errorf("%v should be nil\n Error Trace:   %s", value, strings.Join(CallerInfo(), "\n\t\t\t"))
+		}
 	}
+}
+
+func messageFromMsgAndArgs(msgAndArgs ...interface{}) string {
+	if len(msgAndArgs) == 0 || msgAndArgs == nil {
+		return ""
+	}
+	if len(msgAndArgs) == 1 {
+		msg := msgAndArgs[0]
+		if msgAsStr, ok := msg.(string); ok {
+			return msgAsStr
+		}
+		return fmt.Sprintf("%+v", msg)
+	}
+	if len(msgAndArgs) > 1 {
+		return fmt.Sprintf(msgAndArgs[0].(string), msgAndArgs[1:]...)
+	}
+	return ""
+}
+
+func isNil(v interface{}) bool {
+	if v == nil {
+		return true
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Array, reflect.Chan, reflect.Slice, reflect.Interface:
+		return rv.IsNil()
+	}
+	return false
 }

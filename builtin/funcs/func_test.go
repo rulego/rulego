@@ -17,11 +17,25 @@
 package funcs
 
 import (
-	"github.com/rulego/rulego/test/assert"
 	"testing"
+
+	"github.com/rulego/rulego/test/assert"
 )
 
 func TestBuiltinFunc(t *testing.T) {
+	t.Run("TestEscapeFunc", func(t *testing.T) {
+		escapeFunc, ok := TemplateFunc.Get("escape")
+		assert.True(t, ok)
+		fn, ok := escapeFunc.(func(string) string)
+		assert.True(t, ok)
+
+		assert.Equal(t, "hello\\\\world", fn("hello\\world"))
+		assert.Equal(t, "hello\\\"world\\\"", fn("hello\"world\""))
+		assert.Equal(t, "hello\\nworld", fn("hello\nworld"))
+		assert.Equal(t, "hello\\rworld", fn("hello\rworld"))
+		assert.Equal(t, "hello\\tworld", fn("hello\tworld"))
+		assert.Equal(t, "complex\\\\\\\"\\n\\r\\tstring", fn("complex\\\"\n\r\tstring"))
+	})
 
 	t.Run("TestTemplateFuncMap", func(t *testing.T) {
 		TemplateFunc.RegisterAll(map[string]any{

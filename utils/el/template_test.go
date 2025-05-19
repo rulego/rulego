@@ -202,6 +202,48 @@ func TestNotTemplate(t *testing.T) {
 	}
 }
 
+func TestExprTemplate_ExecuteFn(t *testing.T) {
+	tmpl, _ := NewExprTemplate("${a + b}")
+	dataFunc := func() map[string]any {
+		return map[string]any{"a": 1, "b": 2}
+	}
+	result, err := tmpl.ExecuteFn(dataFunc)
+	if err != nil {
+		t.Fatalf("ExecuteFn failed: %v", err)
+	}
+	if result.(int) != 3 {
+		t.Errorf("ExecuteFn result = %v, want 3", result)
+	}
+
+	// Test with nil dataFunc
+	tmplNoVar, _ := NewExprTemplate("1+1")
+	resultNoVar, err := tmplNoVar.ExecuteFn(nil)
+	if err != nil {
+		t.Fatalf("ExecuteFn with nil dataFunc failed: %v", err)
+	}
+	if resultNoVar.(int) != 2 {
+		t.Errorf("ExecuteFn with nil dataFunc result = %v, want 2", resultNoVar)
+	}
+}
+
+func TestMixedTemplate_Execute_NoVars(t *testing.T) {
+	tmplStr := "this is a string without variables"
+	mixedTmpl, err := NewMixedTemplate(tmplStr)
+	if err != nil {
+		t.Fatalf("NewMixedTemplate failed: %v", err)
+	}
+	if mixedTmpl.HasVar() {
+		t.Errorf("Expected HasVar to be false for template without variables")
+	}
+	result, err := mixedTmpl.Execute(nil)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+	if result != tmplStr {
+		t.Errorf("Execute() = %v, want %v", result, tmplStr)
+	}
+}
+
 func TestAnyTemplate(t *testing.T) {
 	tmpl := 123
 	anyTemplate := &AnyTemplate{Tmpl: tmpl}

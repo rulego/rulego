@@ -75,6 +75,14 @@ func TestMemoryCache(t *testing.T) {
 		assert.Nil(t, c.Get("prefix_key2"))
 		assert.Equal(t, "value3", c.Get("other_key"))
 	})
+
+	t.Run("SetWithInvalidTTL", func(t *testing.T) {
+		c := NewMemoryCache(time.Minute)
+		err := c.Set("key_invalid_ttl", "value", "invalid-duration-string")
+		assert.NotNil(t, err)
+		assert.Nil(t, c.Get("key_invalid_ttl")) // Should not be set
+	})
+
 }
 
 func TestMemoryCache_GC_Lifecycle(t *testing.T) {
