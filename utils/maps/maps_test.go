@@ -25,6 +25,7 @@ type User struct {
 	Username string
 	Age      int
 	Address  Address
+	Hobbies  []string
 }
 type Address struct {
 	Detail string
@@ -35,12 +36,15 @@ func TestMap2Struct(t *testing.T) {
 	m["userName"] = "lala"
 	m["Age"] = float64(5)
 	m["Address"] = Address{"test"}
+	m["Hobbies"] = []string{"c"}
 	var user User
+	user.Hobbies = []string{"a", "b"}
 	_ = Map2Struct(m, &user)
 	assert.Equal(t, "lala", user.Username)
 	assert.Equal(t, 5, user.Age)
 	assert.Equal(t, "lala", user.Username)
 	assert.Equal(t, "test", user.Address.Detail)
+	assert.Equal(t, 1, len(user.Hobbies))
 }
 
 // TestGet 测试Get函数
