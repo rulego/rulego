@@ -66,10 +66,12 @@ import (
 func Map2Struct(input interface{}, output interface{}) error {
 	cfg := &mapstructure.DecoderConfig{
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			mapstructure.StringToTimeDurationHookFunc()),
+			mapstructure.StringToTimeDurationHookFunc(),
+		),
 		WeaklyTypedInput: true,
 		Metadata:         nil,
-		Result:           &output,
+		Result:           output,
+		ZeroFields:       true,
 	}
 	if d, err := mapstructure.NewDecoder(cfg); err != nil {
 		return err
