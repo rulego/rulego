@@ -68,7 +68,7 @@ func (r *ComponentRegistry) New(componentType string, ruleConfig types.Config, c
 	if configuration != nil {
 		if c, ok := configuration.(types.Configuration); ok {
 			config = c
-		} else if err = maps.Map2Struct(configuration, config); err != nil {
+		} else if err = maps.Map2Struct(configuration, &config); err != nil {
 			return nil, err
 		}
 	}

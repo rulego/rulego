@@ -19,6 +19,7 @@ package maps
 import (
 	"github.com/rulego/rulego/test/assert"
 	"testing"
+	"time"
 )
 
 type User struct {
@@ -27,6 +28,7 @@ type User struct {
 	Address  Address
 	Hobbies  []string
 }
+
 type Address struct {
 	Detail string
 }
@@ -45,6 +47,42 @@ func TestMap2Struct(t *testing.T) {
 	assert.Equal(t, "lala", user.Username)
 	assert.Equal(t, "test", user.Address.Detail)
 	assert.Equal(t, 1, len(user.Hobbies))
+
+	// Test with time.Duration string
+	type Config struct {
+		Timeout time.Duration
+	}
+	configMap := map[string]interface{}{
+		"Timeout": "5s",
+	}
+	var cfg Config
+	err := Map2Struct(configMap, &cfg)
+	assert.Nil(t, err)
+	assert.Equal(t, 5*time.Second, cfg.Timeout)
+
+	// Test with invalid time.Duration string
+	configMapInvalid := map[string]interface{}{
+		"Timeout": "5invalid",
+	}
+	var cfgInvalid Config
+	err = Map2Struct(configMapInvalid, &cfgInvalid)
+	assert.NotNil(t, err)
+
+	// Test with non-pointer output
+	var userNonPointer User
+	err = Map2Struct(m, userNonPointer) // Pass non-pointer
+	assert.NotNil(t, err)               // Expect error
+
+	// Test with nil input
+	var userNilInput User
+	err = Map2Struct(nil, &userNilInput)
+	assert.Nil(t, err) // mapstructure might not error on nil input, but result in zero struct
+	assert.Equal(t, "", userNilInput.Username)
+
+	// Test with input that is not a map
+	var userNotMapInput User
+	err = Map2Struct("not a map", &userNotMapInput)
+	assert.NotNil(t, err)
 }
 
 // TestGet 测试Get函数
@@ -96,4 +134,23 @@ func TestGet(t *testing.T) {
 		actual := Get(value2, c.fieldName)
 		assert.Equal(t, c.expected, actual)
 	}
+
+	// Test with non-map input
+	assert.Nil(t, Get("not a map", "field"))
+
+	// Test with empty field name
+	assert.Equal(t, nil, Get(value, ""))
+
+	// Test with field name containing only dots
+	assert.Nil(t, Get(value, "..."))
+
+	// Test with map[string]interface{} containing non-string key
+	// Get function expects map[string]interface{} or map[string]string.
+	// If we have map[interface{}]interface{}, it won't be processed correctly by current Get.
+	// This is a limitation of the current Get implementation rather than a bug to fix here.
+	// We'll test that it returns nil as expected for such cases if a field is accessed.
+	mapWithIntKey := map[interface{}]interface{}{
+		1: "one",
+	}
+	assert.Nil(t, Get(mapWithIntKey, "1"))
 }

@@ -41,7 +41,7 @@ func TestRouterId(t *testing.T) {
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&mqtt.Config{
 		Server: testServer,
-	}, nodeConfig)
+	}, &nodeConfig)
 	var ep = &Endpoint{}
 	err := ep.Init(config, nodeConfig)
 	assert.Nil(t, err)
@@ -115,7 +115,7 @@ func startServer(t *testing.T, stop chan struct{}) {
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&mqtt.Config{
 		Server: testServer,
-	}, nodeConfig)
+	}, &nodeConfig)
 	var ep = &Endpoint{}
 	err = ep.Init(config, nodeConfig)
 	assert.Equal(t, testServer, ep.Id())

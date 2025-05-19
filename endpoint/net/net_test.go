@@ -49,7 +49,7 @@ func TestRouterId(t *testing.T) {
 		Server:   testConfigServer,
 		//1秒超时
 		ReadTimeout: 1,
-	}, nodeConfig)
+	}, &nodeConfig)
 	var ep = &Net{}
 	err := ep.Init(config, nodeConfig)
 	assert.Nil(t, err)
@@ -118,7 +118,7 @@ func TestNetEndpointConfig(t *testing.T) {
 		Server:   testConfigServer,
 		//1秒超时
 		ReadTimeout: 1,
-	}, nodeConfig)
+	}, &nodeConfig)
 	var epStarted = &Net{}
 	err := epStarted.Init(config, nodeConfig)
 
@@ -134,7 +134,7 @@ func TestNetEndpointConfig(t *testing.T) {
 		Server: testConfigServer,
 		//1秒超时
 		ReadTimeout: 1,
-	}, nodeConfig)
+	}, &nodeConfig)
 	var netEndpoint = &Net{}
 	err = netEndpoint.Init(config, nodeConfig)
 
@@ -214,7 +214,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		Server:   testServer,
 		//1秒超时
 		ReadTimeout: 1,
-	}, nodeConfig)
+	}, &nodeConfig)
 
 	var ep = &Net{}
 	err = ep.Init(config, nodeConfig)

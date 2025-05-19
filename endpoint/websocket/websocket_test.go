@@ -40,7 +40,7 @@ func TestRouterId(t *testing.T) {
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Server: testServer,
-	}, nodeConfig)
+	}, &nodeConfig)
 	var ep = &Endpoint{}
 	err := ep.Init(config, nodeConfig)
 	assert.Nil(t, err)
@@ -67,7 +67,7 @@ func TestWsEndpointConfig(t *testing.T) {
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Server: testConfigServer,
-	}, nodeConfig)
+	}, &nodeConfig)
 	var wsStarted = &Endpoint{}
 	err := wsStarted.Init(config, nodeConfig)
 	assert.Nil(t, err)
@@ -218,7 +218,7 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Server: testServer,
-	}, nodeConfig)
+	}, &nodeConfig)
 	var wsEndpoint = &Endpoint{}
 	err := wsEndpoint.Init(config, nodeConfig)
 	if err != nil {
