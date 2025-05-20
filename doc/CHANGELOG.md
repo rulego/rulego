@@ -1,4 +1,45 @@
 # CHANGELOG
+# [v0.31.0] 2025/05/20
+
+### rulego-core
+- feat: 增加cacheSet/cacheGet/cacheDelete组件节点
+- feat: 增加缓存模块
+- feat(restApiCall): 允许自定义body并优化变量取值
+- feat: 节点配置支持混合字符串和变量取值
+- feat: 节点池添加 AddNode API
+- feat: base endpoint添加 HasRouter API
+- feat: 添加默认HTTP endpoint到节点池
+- feat: endpoint可获取规则链DSL
+- feat(rest endpoint): rest endpoint重启增加关闭超时
+- feat: 统一js和lua 自定义函数注册方法
+- feat: 支持把所有结构体导出函数绑定到js和lua中
+- feat: 脚本可以操作缓存
+- fix(switch): 修复Switch节点配置不能完全覆盖默认cases参数
+- fix(restApiCall): restApiCall节点请求失败无法在元数据拿到请求错误信息 
+- fix(rest endpoint): rest endpoint共享节点热更新无法恢复路由
+- fix(join): Join节点未收集错误节点信息
+- refactor: 优化JS引擎测试用例
+- refactor: 删除无用代码
+- refactor: 热更新endpoint路由恢复忽略错误
+- chore: 优化注释
+
+### rulego-server
+- fix: 修复HTTP服务器重启后`/editor`找不到问题
+- feat: 注册mcp server endpoint
+- feat: 共享系统默认http server
+
+### rulego-components
+- feat: Lua脚本支持与JS相同的UDF注册方法
+- feat: Lua脚本可调用缓存方法
+- feat: 添加mcp server endpoint
+
+### rulego-editor
+- feat: 增加缓存组件
+- feat: rest节点增加body参数自定义配置
+- feat: 添加mcp server endpoint节点
+- fix: 解决复制和删除快捷键在某些情况下不生效问题
+- opt: 优化集成显示
+
 ## [v0.30.0] 2025/04/03
 - feat:增加动态组件，支持通过规则链DSL定义组件
 - feat:组件注册器增加支持多租户
