@@ -27,11 +27,13 @@ package filter
 //        }
 //      }
 import (
+	"fmt"
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
+	"strings"
 )
 
 func init() {
@@ -73,10 +75,11 @@ func (x *ExprFilterNode) New() types.Node {
 // Init 初始化
 func (x *ExprFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
+	if strings.TrimSpace(x.Config.Expr) == "" {
+		return fmt.Errorf("expr can not be empty")
+	}
 	if err == nil {
-		if program, err := expr.Compile(x.Config.Expr, expr.AllowUndefinedVariables(), expr.AsBool()); err == nil {
-			x.program = program
-		}
+		x.program, err = expr.Compile(x.Config.Expr, expr.AllowUndefinedVariables())
 	}
 	return err
 }

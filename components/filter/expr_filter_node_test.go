@@ -43,9 +43,9 @@ func TestExprFilterNode(t *testing.T) {
 
 	t.Run("DefaultConfig", func(t *testing.T) {
 		test.NodeInit(t, targetNodeType, types.Configuration{
-			"expr": "",
+			"expr": "1",
 		}, types.Configuration{
-			"expr": "",
+			"expr": "1",
 		}, Registry)
 	})
 
@@ -71,7 +71,10 @@ func TestExprFilterNode(t *testing.T) {
 		node6, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"expr": "upper(msg[:1])=='A'",
 		}, Registry)
-
+		_, err = test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"expr": "",
+		}, Registry)
+		assert.Equal(t, err.Error(), "expr can not be empty", err.Error())
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
 		msg1 := test.Msg{
