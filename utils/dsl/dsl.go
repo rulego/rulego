@@ -64,3 +64,32 @@ func IsFlowNode(def types.RuleChain, nodeId string) bool {
 	}
 	return false
 }
+
+// ProcessVariables replaces placeholders in the node configuration with global and chain-specific variables.
+func ProcessVariables(config types.Config, ruleChainDef types.RuleChain, from types.Configuration) types.Configuration {
+	to := make(types.Configuration)
+	env := GetInitNodeEnv(config, ruleChainDef)
+	for key, value := range from {
+		if strV, ok := value.(string); ok {
+			to[key] = str.ExecuteTemplate(strV, env)
+		} else {
+			to[key] = value
+		}
+	}
+
+	return to
+}
+
+func GetInitNodeEnv(config types.Config, ruleChainDef types.RuleChain) map[string]interface{} {
+	varsEnv := ruleChainDef.RuleChain.Configuration[types.Vars]
+	globalEnv := make(map[string]string)
+
+	if config.Properties != nil {
+		globalEnv = config.Properties.Values()
+	}
+	env := map[string]interface{}{
+		types.Global: globalEnv,
+		types.Vars:   varsEnv,
+	}
+	return env
+}
