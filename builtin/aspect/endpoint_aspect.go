@@ -20,6 +20,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/utils/dsl"
 	"reflect"
 	"sync"
 )
@@ -103,6 +104,9 @@ func NewRuleChainEndpoint(ruleEngineId string, config types.Config, endpointPool
 		endpoints:    make(map[string]endpoint.DynamicEndpoint),
 	}
 	for _, item := range defs {
+		if ruleChain != nil {
+			item.Configuration = dsl.ProcessVariables(ruleChainEndpoint.config, *ruleChain, item.Configuration)
+		}
 		ruleChainEndpoint.bindTo(item, ruleEngineId)
 		if err := ruleChainEndpoint.AddEndpointAndStart(item, endpoint.DynamicEndpointOptions.WithConfig(config),
 			endpoint.DynamicEndpointOptions.WithRouterOpts(endpoint.RouterOptions.WithRuleGo(ruleGoPool)),
@@ -129,6 +133,9 @@ func (e *RuleChainEndpoint) Reload(ruleChain *types.RuleChain, newDefs []*types.
 	endpoints := e.GetEndpoints()
 	for _, ep := range endpoints {
 		tmp := ep.Definition()
+		if ruleChain != nil {
+			tmp.Configuration = dsl.ProcessVariables(e.config, *ruleChain, tmp.Configuration)
+		}
 		oldDefs = append(oldDefs, &tmp)
 	}
 	added, removed, modified := e.checkEndpointChanges(oldDefs, newDefs)
