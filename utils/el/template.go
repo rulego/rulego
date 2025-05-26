@@ -38,7 +38,6 @@ func NewTemplate(tmpl any, params ...any) (Template, error) {
 type ExprTemplate struct {
 	Tmpl    string
 	Program *vm.Program
-	vm      vm.VM
 }
 
 // 定义正则表达式，用于匹配形如 ${...} 的占位符
@@ -104,7 +103,8 @@ func (t *ExprTemplate) Parse() error {
 
 func (t *ExprTemplate) Execute(data map[string]any) (interface{}, error) {
 	if t.Program != nil {
-		return t.vm.Run(t.Program, data)
+		var vm vm.VM
+		return vm.Run(t.Program, data)
 	}
 	return nil, nil
 }
