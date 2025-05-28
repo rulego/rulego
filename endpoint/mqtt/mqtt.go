@@ -35,6 +35,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/rulego/rulego/utils/cast"
 	"net/textproto"
 	"strconv"
 	"time"
@@ -243,6 +244,16 @@ func (x *Mqtt) New() types.Node {
 
 // Init 初始化
 func (x *Mqtt) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	var v, ok = configuration["maxReconnectInterval"]
+	if !ok {
+		v, ok = configuration["MaxReconnectInterval"]
+	}
+	if v != nil {
+		// 兼容默认秒方式
+		if num := cast.ToInt64(v); num != 0 {
+			configuration["maxReconnectInterval"] = fmt.Sprintf("%ds", num)
+		}
+	}
 	err := maps.Map2Struct(configuration, &x.Config)
 	x.RuleConfig = ruleConfig
 	_ = x.SharedNode.Init(x.RuleConfig, x.Type(), x.Config.Server, true, func() (*mqtt.Client, error) {
