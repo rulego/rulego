@@ -17,8 +17,9 @@
 package types
 
 import (
-	"github.com/gofrs/uuid/v5"
 	"time"
+
+	"github.com/gofrs/uuid/v5"
 )
 
 // DataType defines the type of data contained in a message.
@@ -53,7 +54,11 @@ func NewMetadata() Metadata {
 
 // BuildMetadata creates a new instance of rule engine message metadata from a map.
 func BuildMetadata(data Metadata) Metadata {
-	metadata := make(Metadata)
+	if data == nil {
+		return make(Metadata)
+	}
+	// Pre-allocate with known capacity to reduce map resizing
+	metadata := make(Metadata, len(data))
 	for k, v := range data {
 		metadata[k] = v
 	}

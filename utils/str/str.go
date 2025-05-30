@@ -53,6 +53,7 @@ func init() {
 }
 
 // 正则表达式匹配 ${aa} 或 ${aa.bb}
+// 预编译的模板变量正则表达式，提高性能
 var tplVarRegex = regexp.MustCompile(`\$\{ *([^}]+) *\}`)
 
 // ExecuteTemplate 替换字符串模板中的${}变量
@@ -60,21 +61,27 @@ var tplVarRegex = regexp.MustCompile(`\$\{ *([^}]+) *\}`)
 // Example: ExecuteTemplate("Hello,${name}",map[string]string{"name":"Alice"}). return "Hello,Alice!".
 // 如果没匹配到变量，则保留原样
 func ExecuteTemplate(original string, dict map[string]interface{}) string {
-	// 使用正则表达式进行替换
-	replaced := tplVarRegex.ReplaceAllStringFunc(original, func(s string) string {
-		// 提取键名
-		matches := tplVarRegex.FindStringSubmatch(s)
-		if len(matches) < 2 {
-			return s // 如果没有匹配到，返回原字符串
+	// 快速检查：如果字符串中没有模板变量，直接返回
+	if !strings.Contains(original, "${") {
+		return original
+	}
+
+	// 使用预编译的正则表达式进行替换
+	return tplVarRegex.ReplaceAllStringFunc(original, func(s string) string {
+		// 提取键名（优化：减少重复的正则匹配）
+		start := strings.Index(s, "{") + 1
+		end := strings.LastIndex(s, "}")
+		if start <= 0 || end <= start {
+			return s
 		}
-		v := maps.Get(dict, strings.TrimSpace(matches[1]))
+
+		key := strings.TrimSpace(s[start:end])
+		v := maps.Get(dict, key)
 		if v == nil {
 			return s
-		} else {
-			return ToString(v)
 		}
+		return ToString(v)
 	})
-	return replaced
 }
 
 // SprintfDict 根据pattern和dict格式化字符串。
@@ -123,37 +130,37 @@ func ToStringMaybeErr(input interface{}) (string, error) {
 	if input == nil {
 		return "", nil
 	}
+
+	// 优化的类型转换，减少反射和内存分配
 	switch v := input.(type) {
 	case string:
 		return v, nil
 	case bool:
 		return strconv.FormatBool(v), nil
-	case float64:
-		ft := input.(float64)
-		return strconv.FormatFloat(ft, 'f', -1, 64), nil
-	case float32:
-		ft := input.(float32)
-		return strconv.FormatFloat(float64(ft), 'f', -1, 32), nil
 	case int:
 		return strconv.Itoa(v), nil
-	case uint:
-		return strconv.Itoa(int(v)), nil
 	case int8:
-		return strconv.Itoa(int(v)), nil
-	case uint8:
 		return strconv.Itoa(int(v)), nil
 	case int16:
 		return strconv.Itoa(int(v)), nil
-	case uint16:
-		return strconv.Itoa(int(v)), nil
 	case int32:
-		return strconv.Itoa(int(v)), nil
-	case uint32:
 		return strconv.Itoa(int(v)), nil
 	case int64:
 		return strconv.FormatInt(v, 10), nil
+	case uint:
+		return strconv.FormatUint(uint64(v), 10), nil
+	case uint8:
+		return strconv.FormatUint(uint64(v), 10), nil
+	case uint16:
+		return strconv.FormatUint(uint64(v), 10), nil
+	case uint32:
+		return strconv.FormatUint(uint64(v), 10), nil
 	case uint64:
 		return strconv.FormatUint(v, 10), nil
+	case float32:
+		return strconv.FormatFloat(float64(v), 'f', -1, 32), nil
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64), nil
 	case []byte:
 		return string(v), nil
 	case fmt.Stringer:
@@ -161,19 +168,20 @@ func ToStringMaybeErr(input interface{}) (string, error) {
 	case error:
 		return v.Error(), nil
 	case map[interface{}]interface{}:
-		// 转换为 map[string]interface{}
-		convertedInput := make(map[string]interface{})
-		for k, value := range v {
-			convertedInput[fmt.Sprintf("%v", k)] = value
+		// 直接创建临时map进行类型转换
+		stringMap := make(map[string]interface{})
+		for key, value := range v {
+			stringMap[ToString(key)] = value
 		}
-		if newValue, err := json.Marshal(convertedInput); err == nil {
-			return string(newValue), nil
+		if data, err := json.Marshal(stringMap); err == nil {
+			return string(data), nil
 		} else {
 			return "", err
 		}
 	default:
-		if newValue, err := json.Marshal(input); err == nil {
-			return string(newValue), nil
+		// 对于其他类型，直接使用JSON序列化
+		if data, err := json.Marshal(input); err == nil {
+			return string(data), nil
 		} else {
 			return "", err
 		}

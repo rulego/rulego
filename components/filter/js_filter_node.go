@@ -36,6 +36,15 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
+const (
+	// JsFilterFuncName JS函数名
+	JsFilterFuncName = "Filter"
+	// JsFilterType JsFilter组件类型
+	JsFilterType = "jsFilter"
+	// JsFilterFuncTemplate JS函数模板
+	JsFilterFuncTemplate = "function Filter(msg, metadata, msgType) { %s }"
+)
+
 func init() {
 	Registry.Add(&JsFilterNode{})
 }
@@ -64,7 +73,7 @@ type JsFilterNode struct {
 
 // Type 组件类型
 func (x *JsFilterNode) Type() string {
-	return "jsFilter"
+	return JsFilterType
 }
 
 func (x *JsFilterNode) New() types.Node {
@@ -77,7 +86,7 @@ func (x *JsFilterNode) New() types.Node {
 func (x *JsFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		jsScript := fmt.Sprintf("function Filter(msg, metadata, msgType) { %s }", x.Config.JsScript)
+		jsScript := fmt.Sprintf(JsFilterFuncTemplate, x.Config.JsScript)
 		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, base.NodeUtils.GetVars(configuration))
 	}
 	return err
@@ -93,7 +102,7 @@ func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 	}
 
-	out, err := x.jsEngine.Execute(ctx, "Filter", data, msg.Metadata.Values(), msg.Type)
+	out, err := x.jsEngine.Execute(ctx, JsFilterFuncName, data, msg.Metadata.Values(), msg.Type)
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
