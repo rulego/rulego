@@ -16,119 +16,176 @@
 
 package transform
 
-//规则链节点配置示例：
-//{
-//        "id": "s2",
-//        "type": "jsTransform",
-//        "name": "转换",
-//        "debugMode": false,
-//        "configuration": {
-//          "jsScript": "metadata['test']='test02';\n metadata['index']=52;\n msgType='TEST_MSG_TYPE2';\n  msg['aa']=66; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
-//        }
-//      }
+// 规则链节点配置示例：
+// {
+//   "id": "s2",
+//   "type": "jsTransform",
+//   "name": "转换",
+//   "debugMode": false,
+//   "configuration": {
+//     "jsScript": "metadata['test']='test02';\n metadata['index']=52;\n msgType='TEST_MSG_TYPE2';\n msg['aa']=66; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+//   }
+// }
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/js"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
-	string2 "github.com/rulego/rulego/utils/str"
+	"github.com/rulego/rulego/utils/str"
 )
 
-// JsTransformReturnFormatErr 如果脚本返回值这个格式错误：return {'msg':msg,'metadata':metadata,'msgType':msgType}
+const (
+	// JsTransformDefaultScript 默认的JS脚本，直接返回原始消息内容
+	JsTransformDefaultScript = "return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+	// JsTransformType 组件类型标识符
+	JsTransformType = "jsTransform"
+	// JsTransformFuncTemplate JS函数模板，用于包装用户脚本
+	JsTransformFuncTemplate = "function Transform(msg, metadata, msgType) { %s }"
+	// JsTransformFuncName JS引擎中执行的函数名称
+	JsTransformFuncName = "Transform"
+)
+
+// JsTransformReturnFormatErr JS脚本返回值格式错误，期望返回map类型
+// 正确格式：return {'msg':msg,'metadata':metadata,'msgType':msgType}
 var JsTransformReturnFormatErr = errors.New("return the value is not a map")
 
 func init() {
 	Registry.Add(&JsTransformNode{})
 }
 
-// JsTransformNodeConfiguration 节点配置
+// JsTransformNodeConfiguration JS转换节点配置结构
 type JsTransformNodeConfiguration struct {
-	//JsScript 配置函数体脚本内容
-	//对msg、metadata、msgType 进行转换、增强
-	//完整脚本函数：
-	//function Transform(msg, metadata, msgType) { ${JsScript} }
-	//return {'msg':msg,'metadata':metadata,'msgType':msgType};
+	// JsScript 用户自定义的JavaScript脚本内容
+	// 用于对消息的msg、metadata、msgType进行转换和增强
+	// 脚本会被包装成完整函数：function Transform(msg, metadata, msgType) { ${JsScript} }
+	// 必须返回格式：return {'msg':msg,'metadata':metadata,'msgType':msgType};
 	JsScript string
 }
 
-// JsTransformNode 使用JavaScript更改消息metadata，msg或msgType
-// JavaScript 函数接收3个参数：
-// metadata:是消息的 metadata
-// msg:是消息的payload
-// msgType:是消息的 type
-// 法返回结构:return {'msg':msg,'metadata':metadata,'msgType':msgType};
-// 脚本执行成功，发送信息到`Success`链, 否则发到`Failure`链。
+// JsTransformNode JavaScript消息转换节点
+// 使用JavaScript脚本对消息的metadata、msg或msgType进行转换处理
+//
+// JavaScript函数接收3个参数：
+//   - msg: 消息的payload数据
+//   - metadata: 消息的元数据
+//   - msgType: 消息的类型
+//
+// 返回结构必须为：return {'msg':msg,'metadata':metadata,'msgType':msgType};
+// 脚本执行成功时，消息发送到Success链；执行失败时，发送到Failure链
 type JsTransformNode struct {
-	//节点配置
-	Config   JsTransformNodeConfiguration
+	// Config 节点配置信息
+	Config JsTransformNodeConfiguration
+	// jsEngine JavaScript执行引擎实例
 	jsEngine types.JsEngine
+	// passThrough 是否启用直通模式（跳过JS脚本执行，直接转发消息）
+	passThrough bool
 }
 
-// Type 组件类型
+// Type 返回组件类型标识符
 func (x *JsTransformNode) Type() string {
-	return "jsTransform"
+	return JsTransformType
 }
 
+// New 创建新的JS转换节点实例，使用默认配置
 func (x *JsTransformNode) New() types.Node {
 	return &JsTransformNode{Config: JsTransformNodeConfiguration{
-		JsScript: "return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+		JsScript: JsTransformDefaultScript,
 	}}
 }
 
-// Init 初始化
+// Init 初始化节点，解析配置并设置执行模式
 func (x *JsTransformNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	// 解析节点配置
 	err := maps.Map2Struct(configuration, &x.Config)
-	if err == nil {
-		jsScript := fmt.Sprintf("function Transform(msg, metadata, msgType) { %s }", x.Config.JsScript)
-		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, base.NodeUtils.GetVars(configuration))
+	if err != nil {
+		return err
 	}
+
+	// 检查是否启用直通模式（默认脚本或空脚本时跳过JS执行）
+	script := strings.TrimSpace(x.Config.JsScript)
+	if script == "" || script == JsTransformDefaultScript {
+		x.passThrough = true
+		return nil
+	}
+
+	// 非直通模式：初始化JavaScript执行引擎
+	jsScript := fmt.Sprintf(JsTransformFuncTemplate, x.Config.JsScript)
+	x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, base.NodeUtils.GetVars(configuration))
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg 处理接收到的消息
 func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	// 直通模式：跳过JS脚本执行，直接转发原始消息
+	if x.passThrough {
+		ctx.TellNext(msg, types.Success)
+		return
+	}
+
+	// 准备传递给JS脚本的数据
 	var data interface{} = msg.Data
+	// 如果消息类型为JSON，尝试解析为对象以便JS处理
 	if msg.DataType == types.JSON {
 		var dataMap interface{}
 		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
 			data = dataMap
 		}
 	}
-	out, err := x.jsEngine.Execute(ctx, "Transform", data, msg.Metadata.Values(), msg.Type)
+
+	// 执行JavaScript脚本进行消息转换
+	out, err := x.jsEngine.Execute(ctx, JsTransformFuncName, data, msg.Metadata.Values(), msg.Type)
 	if err != nil {
+		// JS执行失败，发送到Failure链
 		ctx.TellFailure(msg, err)
-	} else {
-		formatData, ok := out.(map[string]interface{})
-		if ok {
-			if formatMsgType, ok := formatData[types.MsgTypeKey]; ok {
-				msg.Type = string2.ToString(formatMsgType)
-			}
+		return
+	}
 
-			if formatMetaData, ok := formatData[types.MetadataKey]; ok {
-				msg.Metadata = types.BuildMetadata(string2.ToStringMapString(formatMetaData))
-			}
+	// 处理JS脚本的执行结果
+	x.processJsResult(ctx, msg, out)
+}
 
-			if formatMsgData, ok := formatData[types.MsgKey]; ok {
-				if newValue, err := string2.ToStringMaybeErr(formatMsgData); err == nil {
-					msg.Data = newValue
-				} else {
-					ctx.TellFailure(msg, err)
-					return
-				}
-			}
-			ctx.TellNext(msg, types.Success)
+// processJsResult 处理JavaScript脚本的执行结果并更新消息
+func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleMsg, out interface{}) {
+	// 验证返回值格式，必须是map类型
+	formatData, ok := out.(map[string]interface{})
+	if !ok {
+		ctx.TellFailure(msg, JsTransformReturnFormatErr)
+		return
+	}
+
+	// 更新消息类型（如果JS脚本中修改了msgType）
+	if formatMsgType, ok := formatData[types.MsgTypeKey]; ok {
+		msg.Type = str.ToString(formatMsgType)
+	}
+
+	// 更新消息元数据（如果JS脚本中修改了metadata）
+	if formatMetaData, ok := formatData[types.MetadataKey]; ok {
+		msg.Metadata = types.BuildMetadata(str.ToStringMapString(formatMetaData))
+	}
+
+	// 更新消息数据（如果JS脚本中修改了msg）
+	if formatMsgData, ok := formatData[types.MsgKey]; ok {
+		if newValue, err := str.ToStringMaybeErr(formatMsgData); err == nil {
+			msg.Data = newValue
 		} else {
-			ctx.TellFailure(msg, JsTransformReturnFormatErr)
+			// 数据转换失败，发送到Failure链
+			ctx.TellFailure(msg, err)
+			return
 		}
 	}
 
+	// 处理成功，发送转换后的消息到Success链
+	ctx.TellNext(msg, types.Success)
 }
 
-// Destroy 销毁
+// Destroy 销毁节点，释放JavaScript引擎资源
 func (x *JsTransformNode) Destroy() {
-	x.jsEngine.Stop()
+	if x.jsEngine != nil {
+		x.jsEngine.Stop()
+	}
 }
