@@ -556,6 +556,151 @@ func TestWithContext(t *testing.T) {
 	//fmt.Printf("total massages:%d,use times:%s \n", maxTimes, time.Since(start))
 }
 
+// TestRuleContextPool 测试RuleContext对象池的回收和隔离机制
+func TestRuleContextPool(t *testing.T) {
+	config := NewConfig()
+
+	// 用于记录上下文隔离错误
+	var contextIsolationErrors int32
+	var processedMessages int32
+
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		// 在节点执行时检查上下文隔离
+		if flowType == types.In && nodeId == "node1" {
+			atomic.AddInt32(&processedMessages, 1)
+		}
+	}
+
+	// 创建一个简单的规则链用于测试
+	testRuleChain := `{
+		"ruleChain": {
+			"id": "test_pool",
+			"name": "testContextPool",
+			"debugMode": true,
+			"root": true
+		},
+		"metadata": {
+			"firstNodeIndex": 0,
+			"nodes": [
+				{
+					"id": "node1",
+					"type": "jsTransform",
+					"name": "transform1",
+					"debugMode": true,
+					"configuration": {
+						"jsScript": "metadata.contextID = $ctx.GetSelfId() + '_' + Date.now(); return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+					}
+				},
+				{
+					"id": "node2",
+					"type": "jsTransform",
+					"name": "transform2",
+					"debugMode": true,
+					"configuration": {
+						"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+					}
+				}
+			],
+			"connections": [
+				{
+					"fromId": "node1",
+					"toId": "node2",
+					"type": "Success"
+				}
+			]
+		}
+	}`
+
+	chainId := str.RandomStr(10)
+	ruleEngine, err := New(chainId, []byte(testRuleChain), WithConfig(config))
+	assert.Nil(t, err)
+	defer Del(chainId)
+
+	// 并发测试，验证上下文池的正确性
+	var wg sync.WaitGroup
+	maxGoroutines := 100
+	messagesPerGoroutine := 10
+
+	wg.Add(maxGoroutines)
+
+	for i := 0; i < maxGoroutines; i++ {
+		go func(goroutineIndex int) {
+			defer wg.Done()
+
+			for j := 0; j < messagesPerGoroutine; j++ {
+				metaData := types.NewMetadata()
+				metaData.PutValue("goroutineID", fmt.Sprintf("goroutine_%d", goroutineIndex))
+				metaData.PutValue("messageIndex", fmt.Sprintf("%d", j))
+
+				msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"test\":\"data\"}")
+
+				// 使用独立的上下文值来验证隔离性
+				ctxValue := fmt.Sprintf("ctx_value_%d_%d", goroutineIndex, j)
+				ctx := context.WithValue(context.Background(), "testKey", ctxValue)
+
+				var msgWg sync.WaitGroup
+				msgWg.Add(1)
+
+				ruleEngine.OnMsg(msg, types.WithContext(ctx), types.WithEndFunc(func(ruleCtx types.RuleContext, resultMsg types.RuleMsg, err error) {
+					defer msgWg.Done()
+
+					// 验证上下文值是否正确传递
+					if ruleCtx.GetContext().Value("testKey") != ctxValue {
+						atomic.AddInt32(&contextIsolationErrors, 1)
+						t.Errorf("Context isolation failed: expected %s, got %v", ctxValue, ruleCtx.GetContext().Value("testKey"))
+					}
+
+					// 验证消息元数据是否正确
+					if resultMsg.Metadata.GetValue("goroutineID") != fmt.Sprintf("goroutine_%d", goroutineIndex) {
+						atomic.AddInt32(&contextIsolationErrors, 1)
+						t.Errorf("Message metadata isolation failed")
+					}
+
+					assert.Nil(t, err)
+				}))
+
+				msgWg.Wait()
+
+				// 添加小延迟以增加上下文重用的可能性
+				time.Sleep(time.Microsecond * 10)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// 等待所有异步操作完成
+	time.Sleep(time.Millisecond * 500)
+
+	// 验证测试结果
+	// 验证没有上下文隔离错误
+	assert.Equal(t, int32(0), atomic.LoadInt32(&contextIsolationErrors), "No context isolation errors should occur")
+
+	// 验证所有消息都被处理
+	totalMessages := int32(maxGoroutines * messagesPerGoroutine)
+	assert.Equal(t, totalMessages, atomic.LoadInt32(&processedMessages), "All messages should be processed")
+
+	// 测试对象池的内存回收
+	var poolTestContexts []*DefaultRuleContext
+	for i := 0; i < 10; i++ {
+		ctx := defaultContextPool.Get().(*DefaultRuleContext)
+		poolTestContexts = append(poolTestContexts, ctx)
+	}
+
+	// 将上下文放回池中
+	for _, ctx := range poolTestContexts {
+		defaultContextPool.Put(ctx)
+	}
+
+	// 再次获取，应该能重用之前的上下文
+	for i := 0; i < 5; i++ {
+		ctx := defaultContextPool.Get().(*DefaultRuleContext)
+		// 验证上下文的关键字段被正确重置
+		assert.NotNil(t, ctx, "Context should not be nil")
+		defaultContextPool.Put(ctx)
+	}
+}
+
 func TestSpecifyID(t *testing.T) {
 	config := NewConfig()
 	ruleEngine, err := New("", []byte(ruleChainFile), WithConfig(config))
