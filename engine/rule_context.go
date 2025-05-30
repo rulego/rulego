@@ -19,11 +19,12 @@ package engine
 import (
 	"context"
 	"fmt"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/utils/cache"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/cache"
 )
 
 // Ensuring DefaultRuleContext implements types.RuleContext interface.
@@ -334,27 +335,46 @@ func (r *RunSnapshot) onRuleChainCompleted(ctx types.RuleContext) {
 	}
 }
 
+// Context pool for reusing DefaultRuleContext objects
+var defaultContextPool = sync.Pool{
+	New: func() interface{} {
+		return &DefaultRuleContext{}
+	},
+}
+
 // NewNextNodeRuleContext creates a new instance of RuleContext for the next node in the rule engine.
 func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *DefaultRuleContext {
-	return &DefaultRuleContext{
-		config:        ctx.config,
-		ruleChainCtx:  ctx.ruleChainCtx,
-		from:          ctx.self,
-		self:          nextNode,
-		pool:          ctx.pool,
-		onEnd:         ctx.onEnd,
-		ruleChainPool: ctx.ruleChainPool,
-		context:       ctx.GetContext(),
-		parentRuleCtx: ctx,
-		skipTellNext:  ctx.skipTellNext,
-		aroundAspects: ctx.aroundAspects,
-		beforeAspects: ctx.beforeAspects,
-		afterAspects:  ctx.afterAspects,
-		runSnapshot:   ctx.runSnapshot,
-		observer:      ctx.observer,
-		err:           ctx.err,
-		chainCache:    ctx.ChainCache(),
-	}
+	// Get context from pool to reduce allocations
+	nextCtx := defaultContextPool.Get().(*DefaultRuleContext)
+
+	// Reset and initialize fields
+	nextCtx.config = ctx.config
+	nextCtx.ruleChainCtx = ctx.ruleChainCtx
+	nextCtx.from = ctx.self
+	nextCtx.self = nextNode
+	nextCtx.pool = ctx.pool
+	nextCtx.onEnd = ctx.onEnd
+	nextCtx.ruleChainPool = ctx.ruleChainPool
+	nextCtx.context = ctx.GetContext()
+	nextCtx.parentRuleCtx = ctx
+	nextCtx.skipTellNext = ctx.skipTellNext
+	nextCtx.aroundAspects = ctx.aroundAspects
+	nextCtx.beforeAspects = ctx.beforeAspects
+	nextCtx.afterAspects = ctx.afterAspects
+	nextCtx.runSnapshot = ctx.runSnapshot
+	nextCtx.observer = ctx.observer
+	nextCtx.err = ctx.err
+	nextCtx.chainCache = ctx.ChainCache()
+
+	// Reset other fields to zero values
+	nextCtx.waitingCount = 0
+	nextCtx.onAllNodeCompletedDone = 0
+	nextCtx.isFirst = false
+	nextCtx.onAllNodeCompleted = nil
+	nextCtx.relationTypes = nil
+	nextCtx.out = types.RuleMsg{}
+
+	return nextCtx
 }
 
 func (ctx *DefaultRuleContext) TellSuccess(msg types.RuleMsg) {
@@ -684,6 +704,12 @@ func (ctx *DefaultRuleContext) childDone() {
 			//完成回调
 			if ctx.onAllNodeCompleted != nil {
 				ctx.onAllNodeCompleted()
+			}
+
+			// Return context to pool when processing is complete
+			// Only return non-root contexts to avoid issues with reuse
+			if ctx.parentRuleCtx != nil {
+				defaultContextPool.Put(ctx)
 			}
 		}
 	}
