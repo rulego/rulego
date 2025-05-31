@@ -765,15 +765,24 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 					nodes, ok = ctx.getNextNodes(defaultRelationType)
 				}
 				if ok && !ctx.skipTellNext {
-					for _, item := range nodes {
-						tmp := item
-						//增加一个待执行的子节点
+					if len(nodes) == 1 {
+						// 单个子节点，直接传递消息
+						tmp := nodes[0]
 						ctx.childReady()
-						msgCopy := msg.Copy()
-						//通知执行子节点
 						ctx.SubmitTask(func() {
-							ctx.tellNext(msgCopy, tmp, relationType)
+							ctx.tellNext(msg, tmp, relationType)
 						})
+					} else {
+						for _, item := range nodes {
+							tmp := item
+							//增加一个待执行的子节点
+							ctx.childReady()
+							msgCopy := msg.Copy()
+							//通知执行子节点
+							ctx.SubmitTask(func() {
+								ctx.tellNext(msgCopy, tmp, relationType)
+							})
+						}
 					}
 				} else {
 					//找不到子节点，则执行结束回调
