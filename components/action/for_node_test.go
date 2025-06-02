@@ -71,19 +71,19 @@ func TestForNode(t *testing.T) {
 				assert.True(t, key != "")
 			} else if mode == "2" {
 				if index == "0" && rangeType == "rangeNum" {
-					assert.Equal(t, data1, msg.Data)
+					assert.Equal(t, data1, msg.GetData())
 				} else if index == "1" {
-					assert.Equal(t, "0", msg.Data)
+					assert.Equal(t, "0", msg.GetData())
 				}
 			} else {
 				if index == "0" {
-					assert.Equal(t, data1, msg.Data)
+					assert.Equal(t, data1, msg.GetData())
 				} else if index == "1" {
-					assert.Equal(t, data2, msg.Data)
+					assert.Equal(t, data2, msg.GetData())
 				}
 			}
 			if mode == "2" {
-				msg.Data = index
+				msg.SetData(index)
 			}
 			ctx.TellSuccess(msg)
 		})
@@ -237,7 +237,7 @@ func TestForNode(t *testing.T) {
 					},
 				},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":"+"["+data1+","+data2+"]"+"}", msg.Data)
+					assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":"+"["+data1+","+data2+"]"+"}", msg.GetData())
 				},
 			},
 			{
@@ -251,7 +251,7 @@ func TestForNode(t *testing.T) {
 					},
 				},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, "["+data1+","+data2+"]", msg.Data)
+					assert.Equal(t, "["+data1+","+data2+"]", msg.GetData())
 				},
 			},
 			{
@@ -267,7 +267,7 @@ func TestForNode(t *testing.T) {
 					},
 				},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, "1", msg.Data)
+					assert.Equal(t, "1", msg.GetData())
 				},
 			},
 			{
@@ -283,7 +283,7 @@ func TestForNode(t *testing.T) {
 					},
 				},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, "2", msg.Data)
+					assert.Equal(t, "2", msg.GetData())
 				},
 			},
 			{
@@ -300,7 +300,7 @@ func TestForNode(t *testing.T) {
 					},
 				},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, "2", msg.Data)
+					assert.Equal(t, "2", msg.GetData())
 				},
 			},
 			{
@@ -317,7 +317,7 @@ func TestForNode(t *testing.T) {
 					},
 				},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":"+"["+data1+","+data2+"]"+"}", msg.Data)
+					assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":"+"["+data1+","+data2+"]"+"}", msg.GetData())
 				},
 			},
 		}
@@ -372,7 +372,7 @@ func TestForNodeMetadataAccuracy(t *testing.T) {
 		assert.Equal(t, "original_value", metadata["original_key"])
 		assert.Equal(t, "0", metadata["test_counter"])
 
-		//t.Logf("Callback %d - RelationType: %s, Data: %s", len(results), relationType, msg.Data)
+		//t.Logf("Callback %d - RelationType: %s, Data: %s", len(results), relationType, msg.GetData())
 		//t.Logf("Callback %d - Metadata: %v", len(results), metadata)
 	})
 
@@ -390,7 +390,7 @@ func TestForNodeMetadataAccuracy(t *testing.T) {
 
 	// 在DoNotProcess模式下，for节点处理完所有元素后返回原始消息
 	assert.Equal(t, 1, resultCount, "Expected 1 final result in DoNotProcess mode")
-	assert.Equal(t, testData, finalMsg.Data, "Expected original data to be preserved")
+	assert.Equal(t, testData, finalMsg.GetData(), "Expected original data to be preserved")
 
 	// 验证原始metadata保持完整
 	finalMetadata := finalMsg.Metadata.Values()
@@ -446,7 +446,7 @@ func TestForNodeMetadataWithMergeMode(t *testing.T) {
 		assert.Equal(t, "2", metadata["_loopIndex"])    // 最后一个索引是2
 		assert.Equal(t, "item3", metadata["_loopItem"]) // 最后一个项目是item3
 
-		t.Logf("Final result - RelationType: %s, Data: %s", relationType, msg.Data)
+		t.Logf("Final result - RelationType: %s, Data: %s", relationType, msg.GetData())
 		t.Logf("Final metadata: %v", metadata)
 	})
 

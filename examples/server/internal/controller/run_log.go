@@ -121,7 +121,7 @@ func (c *log) WsNodeLogRouter(url string) endpointApi.Router {
 			chainId := exchange.In.GetParam(constants.KeyChainId)
 			clientId := exchange.In.GetParam(constants.KeyClientId)
 			s.AddOnDebugObserver(chainId, clientId, func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-				exchange.Out.SetBody([]byte(msg.Data))
+				exchange.Out.SetBody([]byte(msg.GetData()))
 			})
 		}
 		return true

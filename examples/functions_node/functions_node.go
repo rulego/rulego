@@ -41,13 +41,13 @@ func init() {
 
 	})
 	action.Functions.Register("handleMsg", func(ctx types.RuleContext, msg types.RuleMsg) {
-		msg.Data = "{\"handleMsgAdd\":\"handleMsgAddValue\"}"
+		msg.SetData("{\"handleMsgAdd\":\"handleMsgAddValue\"}")
 		ctx.TellSuccess(msg)
 	})
 
 	config := rulego.NewConfig()
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
+		config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.GetData(), msg.GetMetadata().Values(), relationType, err)
 	}
 	var err error
 	ruleEngine, err = rulego.New("rule01", []byte(chainJsonFile), rulego.WithConfig(config))

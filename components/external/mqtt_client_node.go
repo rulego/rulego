@@ -18,12 +18,13 @@ package external
 
 import (
 	"context"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"time"
 )
 
 // 规则链节点配置示例：
@@ -120,7 +121,7 @@ func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if client, err := x.SharedNode.Get(); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
-		if err := client.Publish(topic, x.Config.QOS, []byte(msg.Data)); err != nil {
+		if err := client.Publish(topic, x.Config.QOS, []byte(msg.GetData())); err != nil {
 			ctx.TellFailure(msg, err)
 		} else {
 			ctx.TellSuccess(msg)

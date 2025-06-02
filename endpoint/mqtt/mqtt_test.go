@@ -142,7 +142,7 @@ func startServer(t *testing.T, stop chan struct{}) {
 		assert.Equal(t, topic, responseMessage.From())
 		assert.NotNil(t, requestMessage.Request())
 
-		receiveData := exchange.In.GetMsg().Data
+		receiveData := exchange.In.GetMsg().GetData()
 		assert.Equal(t, receiveData, string(requestMessage.Body()))
 
 		if receiveData != msgContent1 && receiveData != msgContent2 {

@@ -163,7 +163,7 @@ func (x *ForNode) toList(dataType types.DataType, itemDataList []string) []inter
 func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var err error
 	evn := base.NodeUtils.GetEvn(ctx, msg)
-	var inData = msg.Data
+	var inData = msg.GetData()
 	var data interface{}
 	var exprVm = vm.VM{}
 	if x.program != nil {
@@ -187,8 +187,8 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		for index, item := range v {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			if x.Config.Mode != ReplaceValues || index == 0 {
-				msg.Data = str.ToString(item)
-				msg.Metadata.PutValue(KeyLoopItem, msg.Data)
+				msg.SetData(str.ToString(item))
+				msg.Metadata.PutValue(KeyLoopItem, msg.GetData())
 			} else {
 				msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
 			}
@@ -247,8 +247,8 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			msg.Metadata.PutValue(KeyLoopKey, k)
 			if x.Config.Mode != ReplaceValues || index == 0 {
-				msg.Data = str.ToString(item)
-				msg.Metadata.PutValue(KeyLoopItem, msg.Data)
+				msg.SetData(str.ToString(item))
+				msg.Metadata.PutValue(KeyLoopItem, msg.GetData())
 			} else {
 				msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
 			}
@@ -271,9 +271,9 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	} else {
 		if x.Config.Mode == DoNotProcess || x.Config.Mode == AsyncProcess {
 			//不修改in data
-			msg.Data = inData
+			msg.SetData(inData)
 		} else if x.Config.Mode == MergeValues {
-			msg.Data = str.ToString(resultData)
+			msg.SetData(str.ToString(resultData))
 		}
 		ctx.TellSuccess(msg)
 	}
@@ -307,7 +307,7 @@ func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleConte
 				for k, v := range msg.Metadata.Values() {
 					fromMsg.Metadata.PutValue(k, v)
 				}
-				msgData = append(msgData, msg.Data)
+				msgData = append(msgData, msg.GetData())
 			}
 		}, func() {
 			wg.Done()
@@ -324,7 +324,7 @@ func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleConte
 				for k, v := range msg.Metadata.Values() {
 					fromMsg.Metadata.PutValue(k, v)
 				}
-				msgData = append(msgData, msg.Data)
+				msgData = append(msgData, msg.GetData())
 			}
 		}, func() {
 			wg.Done()

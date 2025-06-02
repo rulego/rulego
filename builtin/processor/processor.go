@@ -95,7 +95,7 @@ func init() {
 			if exchange.Out.GetMsg().DataType == types.JSON && exchange.Out.Headers().Get(HeaderKeyContentType) == "" {
 				exchange.Out.Headers().Set(HeaderKeyContentType, HeaderValueApplicationJson)
 			}
-			exchange.Out.SetBody([]byte(exchange.Out.GetMsg().Data))
+			exchange.Out.SetBody([]byte(exchange.Out.GetMsg().GetData()))
 		}
 		return true
 	})

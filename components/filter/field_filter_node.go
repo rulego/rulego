@@ -68,7 +68,7 @@ func (x *FieldFilterNode) Init(ruleConfig types.Config, configuration types.Conf
 func (x *FieldFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var dataMap = make(map[string]interface{})
 	if msg.DataType == types.JSON {
-		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err != nil {
+		if err := json.Unmarshal([]byte(msg.GetData()), &dataMap); err != nil {
 			ctx.TellFailure(msg, err)
 			return
 		}

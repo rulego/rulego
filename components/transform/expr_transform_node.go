@@ -149,7 +149,7 @@ func (x *ExprTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 
 	if newValue, err := str.ToStringMaybeErr(result); err == nil {
-		msg.Data = newValue
+		msg.SetData(newValue)
 		ctx.TellSuccess(msg)
 	} else {
 		ctx.TellFailure(msg, err)

@@ -240,7 +240,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		assert.Equal(t, from, requestMessage.From())
 
 		exchange.In.GetMsg().Type = "TEST_MSG_TYPE2"
-		receiveData := exchange.In.GetMsg().Data
+		receiveData := exchange.In.GetMsg().GetData()
 		if receiveData != msgContent1 && receiveData != msgContent2 && receiveData != msgContent3 && receiveData != msgContent4 && receiveData != msgContent5 {
 			t.Fatalf("receive data:%s,expect data:%s,%s,%s,%s,%s", receiveData, msgContent1, msgContent2, msgContent3, msgContent4, msgContent5)
 		}
@@ -264,7 +264,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	//匹配与{开头的消息，转发到该路由处理
 	router2 := impl.NewRouter().From("^{.*").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.In.GetMsg().Type = "TEST_MSG_TYPE2"
-		receiveData := exchange.In.GetMsg().Data
+		receiveData := exchange.In.GetMsg().GetData()
 		if strings.HasSuffix(receiveData, "{") {
 			t.Fatalf("receive data:%s,not match data:%s", receiveData, "^{.*")
 		}

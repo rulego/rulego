@@ -175,7 +175,7 @@ func NodeOnMsgWithChildrenAndConfig(t *testing.T, config types.Config, node type
 			Id:       item.Id,
 			Ts:       item.Ts,
 			Type:     item.MsgType,
-			Data:     item.Data,
+			Data:     types.NewSharedData(item.Data),
 			DataType: dataType,
 			Metadata: types.BuildMetadataFromMetadata(item.MetaData),
 		}
@@ -201,7 +201,7 @@ func (n *UpperNode) Init(ruleConfig types.Config, configuration types.Configurat
 }
 
 func (n *UpperNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	msg.Data = strings.ToUpper(msg.Data)
+	msg.SetData(strings.ToUpper(msg.GetData()))
 	v := ctx.GetContext().Value(shareKey)
 	if v != nil {
 		msg.Metadata.PutValue(shareKey, v.(string))

@@ -224,7 +224,7 @@ func TestRuleMsgCopy(t *testing.T) {
 		Id:       "test-id",
 		DataType: JSON,
 		Type:     "TEST_TYPE",
-		Data:     `{"test": "data"}`,
+		Data:     NewSharedData(`{"test": "data"}`),
 		Metadata: originalMetadata,
 	}
 
@@ -238,7 +238,7 @@ func TestRuleMsgCopy(t *testing.T) {
 	if copiedMsg.Type != originalMsg.Type {
 		t.Error("Message Type should be same")
 	}
-	if copiedMsg.Data != originalMsg.Data {
+	if copiedMsg.GetData() != originalMsg.GetData() {
 		t.Error("Message Data should be same")
 	}
 
@@ -339,7 +339,7 @@ func TestRuleMsgJSONSerialization(t *testing.T) {
 		Id:       "test-msg-id-001",
 		DataType: JSON,
 		Type:     "TELEMETRY_DATA",
-		Data:     `{"temperature": 25.5, "humidity": 60.2}`,
+		Data:     NewSharedData(`{"temperature": 25.5, "humidity": 60.2}`),
 		Metadata: metadata,
 	}
 
@@ -390,8 +390,8 @@ func TestRuleMsgJSONSerialization(t *testing.T) {
 	if deserializedMsg.Type != originalMsg.Type {
 		t.Errorf("Type不匹配: 期望 %s, 实际 %s", originalMsg.Type, deserializedMsg.Type)
 	}
-	if deserializedMsg.Data != originalMsg.Data {
-		t.Errorf("Data不匹配: 期望 %s, 实际 %s", originalMsg.Data, deserializedMsg.Data)
+	if deserializedMsg.GetData() != originalMsg.GetData() {
+		t.Errorf("Data不匹配: 期望 %s, 实际 %s", originalMsg.GetData(), deserializedMsg.GetData())
 	}
 
 	// 验证metadata
@@ -411,7 +411,7 @@ func TestRuleMsgJSONWithEmptyMetadata(t *testing.T) {
 	msg := RuleMsg{
 		Id:       "empty-metadata-test",
 		Type:     "TEST",
-		Data:     "test data",
+		Data:     NewSharedData("test data"),
 		Metadata: NewMetadata(), // 空metadata
 	}
 
@@ -449,7 +449,7 @@ func TestRuleMsgJSONWithCopyOnWrite(t *testing.T) {
 	originalMsg := RuleMsg{
 		Id:       "cow-test",
 		Type:     "COW_TEST",
-		Data:     "original data",
+		Data:     NewSharedData("original data"),
 		Metadata: originalMetadata,
 	}
 
@@ -513,6 +513,154 @@ func TestRuleMsgJSONWithCopyOnWrite(t *testing.T) {
 	}
 }
 
+// TestRuleMsgCopyWithNilMetadata 测试nil Metadata的复制
+func TestRuleMsgCopyWithNilMetadata(t *testing.T) {
+	msg := RuleMsg{
+		Ts:       time.Now().UnixNano(),
+		Id:       "test-id",
+		Type:     "test-type",
+		DataType: "json",
+		Data:     NewSharedData("test data"),
+		Metadata: nil, // 故意设置为nil
+	}
+
+	// 复制消息
+	copiedMsg := msg.Copy()
+
+	// 验证复制后的消息有有效的Metadata
+	if copiedMsg.Metadata == nil {
+		t.Error("Expected copied message to have non-nil Metadata")
+	}
+
+	// 验证可以安全地使用Metadata
+	copiedMsg.Metadata.PutValue("test", "value")
+	if copiedMsg.Metadata.GetValue("test") != "value" {
+		t.Error("Expected to be able to use Metadata after copy")
+	}
+}
+
+// TestDataCopyOnWrite 测试Data字段的写时复制机制
+func TestDataCopyOnWrite(t *testing.T) {
+	// 创建原始消息
+	original := NewMsg(0, "TEST", JSON, nil, "original data")
+
+	// 复制消息
+	copy1 := original.Copy()
+	copy2 := original.Copy()
+
+	// 验证初始状态下所有消息的Data都相同
+	if original.GetData() != "original data" {
+		t.Errorf("Expected original data to be 'original data', got %s", original.GetData())
+	}
+	if copy1.GetData() != "original data" {
+		t.Errorf("Expected copy1 data to be 'original data', got %s", copy1.GetData())
+	}
+	if copy2.GetData() != "original data" {
+		t.Errorf("Expected copy2 data to be 'original data', got %s", copy2.GetData())
+	}
+
+	// 验证SharedData是共享的（通过指针比较）
+	if original.Data == nil || copy1.Data == nil || copy2.Data == nil {
+		t.Error("Expected all messages to have non-nil Data")
+	}
+
+	// 修改copy1的Data（使用COW优化的SetData方法）
+	copy1.SetData("modified data 1")
+
+	// 验证只有copy1的数据被修改
+	if original.GetData() != "original data" {
+		t.Errorf("Expected original data to remain 'original data', got %s", original.GetData())
+	}
+	if copy1.GetData() != "modified data 1" {
+		t.Errorf("Expected copy1 data to be 'modified data 1', got %s", copy1.GetData())
+	}
+	if copy2.GetData() != "original data" {
+		t.Errorf("Expected copy2 data to remain 'original data', got %s", copy2.GetData())
+	}
+
+	// 修改copy2的Data（使用COW优化的SetData方法）
+	copy2.SetData("modified data 2")
+
+	// 验证所有消息的数据都是独立的
+	if original.GetData() != "original data" {
+		t.Errorf("Expected original data to remain 'original data', got %s", original.GetData())
+	}
+	if copy1.GetData() != "modified data 1" {
+		t.Errorf("Expected copy1 data to remain 'modified data 1', got %s", copy1.GetData())
+	}
+	if copy2.GetData() != "modified data 2" {
+		t.Errorf("Expected copy2 data to be 'modified data 2', got %s", copy2.GetData())
+	}
+}
+
+// TestDataCOWPerformance 测试Data字段COW机制的性能
+func TestDataCOWPerformance(t *testing.T) {
+	// 创建一个包含大量数据的消息
+	largeData := strings.Repeat("This is a large data string for testing COW performance. ", 1000)
+	original := NewMsg(0, "TEST", JSON, nil, largeData)
+
+	// 创建多个副本
+	copies := make([]RuleMsg, 100)
+	for i := 0; i < 100; i++ {
+		copies[i] = original.Copy()
+	}
+
+	// 验证所有副本的数据都正确
+	for i, copy := range copies {
+		if copy.GetData() != largeData {
+			t.Errorf("Copy %d has incorrect data", i)
+		}
+	}
+
+	// 修改一个副本，验证其他副本不受影响（使用COW优化的SetData方法）
+	copies[0].SetData("modified")
+
+	if original.GetData() != largeData {
+		t.Error("Original data was modified unexpectedly")
+	}
+
+	for i := 1; i < 100; i++ {
+		if copies[i].GetData() != largeData {
+			t.Errorf("Copy %d was modified unexpectedly", i)
+		}
+	}
+}
+
+// TestDataCOWConcurrency 测试Data字段COW机制的并发安全性
+func TestDataCOWConcurrency(t *testing.T) {
+	original := NewMsg(0, "TEST", JSON, nil, "original data")
+
+	var wg sync.WaitGroup
+	results := make([]string, 10)
+
+	// 并发创建副本并修改
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			copy := original.Copy()
+			// 使用COW优化的SetData方法
+			copy.SetData("modified " + string(rune('0'+index)))
+			results[index] = copy.GetData()
+		}(i)
+	}
+
+	wg.Wait()
+
+	// 验证原始数据未被修改
+	if original.GetData() != "original data" {
+		t.Errorf("Original data was modified: %s", original.GetData())
+	}
+
+	// 验证每个goroutine都得到了正确的修改结果
+	for i, result := range results {
+		expected := "modified " + string(rune('0'+i))
+		if result != expected {
+			t.Errorf("Result %d: expected %s, got %s", i, expected, result)
+		}
+	}
+}
+
 // TestRuleMsgJSONRoundTrip 测试JSON序列化往返一致性
 func TestRuleMsgJSONRoundTrip(t *testing.T) {
 	testCases := []struct {
@@ -526,7 +674,7 @@ func TestRuleMsgJSONRoundTrip(t *testing.T) {
 				Id:       "round-trip-test",
 				DataType: JSON,
 				Type:     "ROUND_TRIP",
-				Data:     `{"test": "data", "number": 42}`,
+				Data:     NewSharedData(`{"test": "data", "number": 42}`),
 				Metadata: func() *Metadata {
 					md := NewMetadata()
 					md.PutValue("test", "value")
@@ -539,6 +687,7 @@ func TestRuleMsgJSONRoundTrip(t *testing.T) {
 			msg: RuleMsg{
 				Id:       "minimal",
 				Type:     "MINIMAL",
+				Data:     NewSharedData(""),
 				Metadata: NewMetadata(),
 			},
 		},
@@ -547,6 +696,7 @@ func TestRuleMsgJSONRoundTrip(t *testing.T) {
 			msg: RuleMsg{
 				Id:       "metadataNil",
 				Type:     "metadataNil",
+				Data:     NewSharedData(""),
 				Metadata: nil,
 			},
 		},
@@ -555,7 +705,7 @@ func TestRuleMsgJSONRoundTrip(t *testing.T) {
 			msg: RuleMsg{
 				Id:   "special-chars",
 				Type: "SPECIAL",
-				Data: `{"message": "Hello\nWorld\t\"Test\""}`,
+				Data: NewSharedData(`{"message": "Hello\nWorld\t\"Test\""}`),
 				Metadata: func() *Metadata {
 					md := NewMetadata()
 					md.PutValue("special", "value\nwith\ttabs")
@@ -587,8 +737,8 @@ func TestRuleMsgJSONRoundTrip(t *testing.T) {
 			if deserializedMsg.Type != tc.msg.Type {
 				t.Errorf("Type不一致: 期望 %s, 实际 %s", tc.msg.Type, deserializedMsg.Type)
 			}
-			if deserializedMsg.Data != tc.msg.Data {
-				t.Errorf("Data不一致: 期望 %s, 实际 %s", tc.msg.Data, deserializedMsg.Data)
+			if deserializedMsg.GetData() != tc.msg.GetData() {
+				t.Errorf("Data不一致: 期望 %s, 实际 %s", tc.msg.GetData(), deserializedMsg.GetData())
 			}
 
 			// 验证metadata

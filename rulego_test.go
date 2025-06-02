@@ -183,7 +183,7 @@ func TestHttpEndpointAspect(t *testing.T) {
 
 	sendMsg(t, "http://127.0.0.1:9090/api/v1/test/"+id, "POST", msg, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, types.Success, relationType)
-		assert.Equal(t, "{\"name\":\"lala\"}", msg.Data)
+		assert.Equal(t, "{\"name\":\"lala\"}", msg.GetData())
 	}))
 	time.Sleep(time.Millisecond * 500)
 
@@ -197,7 +197,7 @@ func TestHttpEndpointAspect(t *testing.T) {
 
 	sendMsg(t, "http://127.0.0.1:8080/api/v1/test/"+id, "POST", msg, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, types.Success, relationType)
-		assert.Equal(t, "{\"name\":\"lala\"}", msg.Data)
+		assert.Equal(t, "{\"name\":\"lala\"}", msg.GetData())
 	}))
 
 	time.Sleep(time.Millisecond * 500)

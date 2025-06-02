@@ -93,7 +93,7 @@ func TestPlugin(t *testing.T) {
 			msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "aa")
 			//time.Sleep(time.Millisecond * 50)
 			ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
-				assert.Equal(t, "AA", msg.Data)
+				assert.Equal(t, "AA", msg.GetData())
 				v := msg.Metadata.GetValue("timestamp")
 				assert.True(t, v != "")
 				group.Done()

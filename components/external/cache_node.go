@@ -165,11 +165,11 @@ func (x *CacheGetNode) outputResult(ctx types.RuleContext, msg types.RuleMsg, va
 	} else if x.Config.OutputMode == CacheOutputModeMergeToMsg {
 		if msg.DataType == types.JSON {
 			var dataMap map[string]interface{}
-			if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
+			if err := json.Unmarshal([]byte(msg.GetData()), &dataMap); err == nil {
 				for key, value := range values {
 					dataMap[key] = value
 				}
-				msg.Data = str.ToString(dataMap)
+				msg.SetData(str.ToString(dataMap))
 				ctx.TellSuccess(msg)
 			} else {
 				ctx.TellFailure(msg, errors.New("data must be able to be serialized into a map structure"))
@@ -178,7 +178,7 @@ func (x *CacheGetNode) outputResult(ctx types.RuleContext, msg types.RuleMsg, va
 			ctx.TellFailure(msg, errors.New("data type must be JSON type"))
 		}
 	} else {
-		msg.Data = str.ToString(values)
+		msg.SetData(str.ToString(values))
 		ctx.TellSuccess(msg)
 	}
 }

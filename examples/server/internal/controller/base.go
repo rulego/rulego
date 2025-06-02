@@ -145,7 +145,7 @@ func (c *base) Login(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		var user model.User
-		if err := json.Unmarshal([]byte(msg.Data), &user); err != nil {
+		if err := json.Unmarshal([]byte(msg.GetData()), &user); err != nil {
 			exchange.Out.SetStatusCode(http.StatusBadRequest)
 			exchange.Out.SetBody([]byte(err.Error()))
 		} else {

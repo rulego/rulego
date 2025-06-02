@@ -97,7 +97,7 @@ func TestTemplateNode(t *testing.T) {
 				Node:    node1,
 				MsgList: []test.Msg{msg},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.EqualCleanString(t, result, msg.Data)
+					assert.EqualCleanString(t, result, msg.GetData())
 					assert.Equal(t, types.Success, relationType)
 				},
 			},
@@ -105,7 +105,7 @@ func TestTemplateNode(t *testing.T) {
 				Node:    node2,
 				MsgList: []test.Msg{msg},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.EqualCleanString(t, result, msg.Data)
+					assert.EqualCleanString(t, result, msg.GetData())
 					assert.Equal(t, types.Success, relationType)
 				},
 			},
@@ -115,7 +115,7 @@ func TestTemplateNode(t *testing.T) {
 				}, Registry),
 				MsgList: []test.Msg{msg},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.EqualCleanString(t, "data:\"{\\\"name\\\":\\\"aa\\\",\\\"nameList\\\":[\\\"aa\\\",\\\"bb\\\"],\\\"temperature\\\":60,\\\"humidity\\\":30}\"", msg.Data)
+					assert.EqualCleanString(t, "data:\"{\\\"name\\\":\\\"aa\\\",\\\"nameList\\\":[\\\"aa\\\",\\\"bb\\\"],\\\"temperature\\\":60,\\\"humidity\\\":30}\"", msg.GetData())
 					assert.Equal(t, types.Success, relationType)
 				},
 			},

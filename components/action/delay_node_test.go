@@ -168,9 +168,9 @@ func TestDelayNode(t *testing.T) {
 		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
 			atomic.AddInt64(&count, 1)
 			if count == 1 {
-				assert.Equal(t, "BB", msg.Data)
+				assert.Equal(t, "BB", msg.GetData())
 			} else {
-				assert.Equal(t, "CC", msg.Data)
+				assert.Equal(t, "CC", msg.GetData())
 			}
 		})
 	})

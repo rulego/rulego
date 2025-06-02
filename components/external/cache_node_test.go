@@ -159,7 +159,7 @@ func TestCacheGetNode(t *testing.T) {
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, "", msg.Metadata.GetValue("testKey"))
-					assert.Equal(t, `{"oldKey":"oldValue","testKey":"testValue"}`, msg.Data)
+					assert.Equal(t, `{"oldKey":"oldValue","testKey":"testValue"}`, msg.GetData())
 				},
 			},
 			{
@@ -174,7 +174,7 @@ func TestCacheGetNode(t *testing.T) {
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, "", msg.Metadata.GetValue("testKey"))
-					assert.Equal(t, "{\"testKey\":\"testValue\"}", msg.Data)
+					assert.Equal(t, "{\"testKey\":\"testValue\"}", msg.GetData())
 				},
 			},
 			{
@@ -182,7 +182,7 @@ func TestCacheGetNode(t *testing.T) {
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, "", msg.Metadata.GetValue("testKey"))
-					assert.Equal(t, "{\"testKey\":\"testValue\",\"testKey2\":\"testValue2\"}", msg.Data)
+					assert.Equal(t, "{\"testKey\":\"testValue\",\"testKey2\":\"testValue2\"}", msg.GetData())
 				},
 			},
 			{

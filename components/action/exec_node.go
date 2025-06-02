@@ -117,9 +117,9 @@ func (x *ExecCommandNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if x.Config.ReplaceData {
 		stdoutStr := stdoutBuf.String()
 		if stdoutStr != "" {
-			msg.Data = stdoutStr
+			msg.SetData(stdoutStr)
 		} else {
-			msg.Data = stderrBuf.String()
+			msg.SetData(stderrBuf.String())
 		}
 	}
 	ctx.TellSuccess(msg)
@@ -173,7 +173,7 @@ type OnDebugWriter struct {
 
 func (w *OnDebugWriter) Write(p []byte) (n int, err error) {
 	// 将接收到的数据转换为字符串
-	w.msg.Data = string(p)
+	w.msg.SetData(string(p))
 	// 调用 OnDebug 方法来记录日志
 	w.ctx.Config().OnDebug(w.chainId, types.Log, w.ctx.GetSelfId(), w.msg, w.relationType, nil)
 	// 返回写入的字节数和nil错误

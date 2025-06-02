@@ -300,7 +300,7 @@ func (r *RunSnapshot) collectRunSnapshot(ctx types.RuleContext, flowType string,
 	}
 	// If the flow type is 'Log', append the log item to the node's log items.
 	if flowType == types.Log {
-		nodeLog.LogItems = append(nodeLog.LogItems, msg.Data)
+		nodeLog.LogItems = append(nodeLog.LogItems, msg.GetData())
 	}
 }
 
@@ -602,7 +602,7 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 					Ts:       msg.Ts,
 					Type:     msg.Type,
 					DataType: msg.DataType,
-					Data:     msg.Data,
+					Data:     types.NewSharedData(msg.GetData()),
 					Metadata: types.NewMetadata(),
 				}
 			}

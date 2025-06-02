@@ -90,10 +90,10 @@ func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configu
 // OnMsg 处理消息
 func (x *JsSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
-	var data interface{} = msg.Data
+	var data interface{} = msg.GetData()
 	if msg.DataType == types.JSON {
-		var dataMap = make(map[string]interface{})
-		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
+		var dataMap map[string]interface{}
+		if err := json.Unmarshal([]byte(msg.GetData()), &dataMap); err == nil {
 			data = dataMap
 		}
 	}

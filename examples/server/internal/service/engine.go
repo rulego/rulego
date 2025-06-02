@@ -511,7 +511,7 @@ func (s *RuleEngineService) InitRuleGo(logger *log.Logger, workspacePath string,
 			errStr = err.Error()
 		}
 		if s.config.Debug {
-			logger.Printf("chainId=%s,flowType=%s,nodeId=%s,data=%s,err=%s", chainId, flowType, nodeId, msg.Data, err)
+			logger.Printf("chainId=%s,flowType=%s,nodeId=%s,data=%s,err=%s", chainId, flowType, nodeId, msg.GetData(), err)
 		}
 		//把日志记录到内存管理器，用于界面显示
 		s.ruleChainDebugData.Add(chainId, nodeId, DebugData{

@@ -112,7 +112,7 @@ func (x *TemplateNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.TellFailure(msg, err)
 		return
 	}
-	msg.Data = buf.String()
+	msg.SetData(buf.String())
 	ctx.TellSuccess(msg)
 }
 

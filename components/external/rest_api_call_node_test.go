@@ -183,7 +183,7 @@ func TestRestApiCallNode(t *testing.T) {
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Success, relationType)
 					assert.Equal(t, "200", msg.Metadata.GetValue(statusCodeMetadataKey))
-					if msg.Data == "[DONE]" {
+					if msg.GetData() == "[DONE]" {
 						done = true
 						assert.Equal(t, "data", msg.Metadata.GetValue(eventTypeMetadataKey))
 					}

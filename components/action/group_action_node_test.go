@@ -18,12 +18,13 @@ package action
 
 import (
 	"errors"
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/json"
-	"testing"
-	"time"
 )
 
 func TestGroupFilterNode(t *testing.T) {
@@ -75,13 +76,13 @@ func TestGroupFilterNode(t *testing.T) {
 		//测试函数
 		Functions.Register("groupActionTest1", func(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue("test1", time.Now().String())
-			msg.Data = `{"addValue":"addFromTest1"}`
+			msg.SetData(`{"addValue":"addFromTest1"}`)
 			ctx.TellSuccess(msg)
 		})
 
 		Functions.Register("groupActionTest2", func(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue("test2", time.Now().String())
-			msg.Data = `{"addValue":"addFromTest2"}`
+			msg.SetData(`{"addValue":"addFromTest2"}`)
 			ctx.TellSuccess(msg)
 		})
 
@@ -165,7 +166,7 @@ func TestGroupFilterNode(t *testing.T) {
 				ChildrenNodes: childrenNodes,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					var result []interface{}
-					_ = json.Unmarshal([]byte(msg.Data), &result)
+					_ = json.Unmarshal([]byte(msg.GetData()), &result)
 					assert.True(t, len(result) >= 1)
 					assert.Equal(t, types.Success, relationType)
 				},
@@ -176,7 +177,7 @@ func TestGroupFilterNode(t *testing.T) {
 				ChildrenNodes: childrenNodes,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					var result []interface{}
-					_ = json.Unmarshal([]byte(msg.Data), &result)
+					_ = json.Unmarshal([]byte(msg.GetData()), &result)
 					assert.True(t, len(result) == 2)
 					assert.Equal(t, "node1", result[0].(map[string]interface{})["nodeId"])
 					assert.Equal(t, "node2", result[1].(map[string]interface{})["nodeId"])
@@ -189,7 +190,7 @@ func TestGroupFilterNode(t *testing.T) {
 				ChildrenNodes: childrenNodes,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					var result []interface{}
-					_ = json.Unmarshal([]byte(msg.Data), &result)
+					_ = json.Unmarshal([]byte(msg.GetData()), &result)
 					assert.True(t, len(result) >= 1)
 					assert.Equal(t, types.Success, relationType)
 				},
@@ -200,7 +201,7 @@ func TestGroupFilterNode(t *testing.T) {
 				ChildrenNodes: childrenNodes,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					var result []interface{}
-					_ = json.Unmarshal([]byte(msg.Data), &result)
+					_ = json.Unmarshal([]byte(msg.GetData()), &result)
 					assert.True(t, len(result) == 2)
 					assert.Equal(t, types.Success, relationType)
 				},
@@ -211,7 +212,7 @@ func TestGroupFilterNode(t *testing.T) {
 				ChildrenNodes: childrenNodes,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					var result []interface{}
-					_ = json.Unmarshal([]byte(msg.Data), &result)
+					_ = json.Unmarshal([]byte(msg.GetData()), &result)
 					assert.True(t, len(result) >= 0)
 					assert.Equal(t, "node1", result[0].(map[string]interface{})["nodeId"])
 					assert.Equal(t, "node2", result[1].(map[string]interface{})["nodeId"])
@@ -234,7 +235,7 @@ func TestGroupFilterNode(t *testing.T) {
 				ChildrenNodes: childrenNodes,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					var result []interface{}
-					_ = json.Unmarshal([]byte(msg.Data), &result)
+					_ = json.Unmarshal([]byte(msg.GetData()), &result)
 					assert.True(t, len(result) >= 0)
 					assert.Equal(t, "node3", result[0].(map[string]interface{})["nodeId"])
 					assert.Equal(t, "node4", result[1].(map[string]interface{})["nodeId"])

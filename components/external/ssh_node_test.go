@@ -140,7 +140,7 @@ func TestSshNode(t *testing.T) {
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 
-					assert.True(t, strings.Contains(msg.Data, "hello world"))
+					assert.True(t, strings.Contains(msg.GetData(), "hello world"))
 					assert.Equal(t, types.Success, relationType)
 				},
 			},

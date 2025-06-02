@@ -128,11 +128,11 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 
 	// 准备传递给JS脚本的数据
-	var data interface{} = msg.Data
-	// 如果消息类型为JSON，尝试解析为对象以便JS处理
+	var data interface{} = msg.GetData()
+	// 如果是JSON类型，尝试解析为map
 	if msg.DataType == types.JSON {
-		var dataMap interface{}
-		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
+		var dataMap map[string]interface{}
+		if err := json.Unmarshal([]byte(msg.GetData()), &dataMap); err == nil {
 			data = dataMap
 		}
 	}
@@ -177,7 +177,7 @@ func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleM
 	// 更新消息数据（如果JS脚本中修改了msg）
 	if formatMsgData, ok := formatData[types.MsgKey]; ok {
 		if newValue, err := str.ToStringMaybeErr(formatMsgData); err == nil {
-			msg.Data = newValue
+			msg.SetData(newValue)
 		} else {
 			// 数据转换失败，发送到Failure链
 			ctx.TellFailure(msg, err)
