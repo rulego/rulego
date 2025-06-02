@@ -131,7 +131,7 @@ func TestExprTransformNode(t *testing.T) {
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Success, relationType)
 					assert.Equal(t, types.JSON, msg.DataType)
-					assert.Equal(t, "{\"alarm\":true,\"dataType\":\"JSON\",\"id\":\"226a05f1-9464-43b6-881e-b1629f1b030d\",\"name\":\"AA\",\"productType\":\"test\",\"tmp\":60,\"ts\":1719024872741,\"type\":\"ACTIVITY_EVENT\"}", msg.Data)
+					assert.Equal(t, "{\"alarm\":true,\"dataType\":\"JSON\",\"id\":\"226a05f1-9464-43b6-881e-b1629f1b030d\",\"name\":\"AA\",\"productType\":\"test\",\"tmp\":60,\"ts\":1719024872741,\"type\":\"ACTIVITY_EVENT\"}", msg.GetData())
 				},
 			},
 			{
@@ -139,7 +139,7 @@ func TestExprTransformNode(t *testing.T) {
 				MsgList: []test.Msg{msg},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Success, relationType)
-					assert.Equal(t, "AA", msg.Data)
+					assert.Equal(t, "AA", msg.GetData())
 				},
 			},
 			{
@@ -147,7 +147,7 @@ func TestExprTransformNode(t *testing.T) {
 				MsgList: []test.Msg{msg1},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Success, relationType)
-					assert.Equal(t, "A", msg.Data)
+					assert.Equal(t, "A", msg.GetData())
 				},
 			},
 			{
@@ -155,7 +155,7 @@ func TestExprTransformNode(t *testing.T) {
 				MsgList: []test.Msg{msg1},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Success, relationType)
-					assert.Equal(t, "A", msg.Data)
+					assert.Equal(t, "A", msg.GetData())
 				},
 			},
 			{
@@ -163,7 +163,7 @@ func TestExprTransformNode(t *testing.T) {
 				MsgList: []test.Msg{msg},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Success, relationType)
-					assert.Equal(t, "{\n  \"humidity\": 30,\n  \"productName\": \"aa\",\n  \"temperature\": 60\n}", msg.Data)
+					assert.Equal(t, "{\n  \"humidity\": 30,\n  \"productName\": \"aa\",\n  \"temperature\": 60\n}", msg.GetData())
 				},
 			},
 			{
@@ -185,7 +185,7 @@ func TestExprTransformNode(t *testing.T) {
 				MsgList: []test.Msg{msg},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Success, relationType)
-					assert.Equal(t, "{}", msg.Data)
+					assert.Equal(t, "{}", msg.GetData())
 				},
 			},
 		}

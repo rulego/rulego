@@ -151,16 +151,16 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 				if atomic.LoadInt32(&currentMatchedCount) >= int32(x.Config.MatchNum) {
 					if atomic.CompareAndSwapInt32(&completed, 0, 1) {
-						wrapperMsg.Data = str.ToString(filterEmptyAndRemoveMeta(msgs))
-						mergeMetadata(msgs, &wrapperMsg)
-						c <- true
-					}
+					wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgs)))
+					mergeMetadata(msgs, &wrapperMsg)
+					c <- true
+				}
 				} else if atomic.LoadInt32(&endCount) >= x.Length {
 					if atomic.CompareAndSwapInt32(&completed, 0, 1) {
-						wrapperMsg.Data = str.ToString(filterEmptyAndRemoveMeta(msgs))
-						mergeMetadata(msgs, &wrapperMsg)
-						c <- false
-					}
+					wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgs)))
+					mergeMetadata(msgs, &wrapperMsg)
+					c <- false
+				}
 				}
 
 			}

@@ -127,7 +127,7 @@ func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg) {
 
 	}, func() {
 		wrapperMsg.DataType = types.JSON
-		wrapperMsg.Data = str.ToString(msgs)
+		wrapperMsg.SetData(str.ToString(msgs))
 		if targetRelationType == types.Failure {
 			ctx.TellFailure(wrapperMsg, targetErr)
 		} else {

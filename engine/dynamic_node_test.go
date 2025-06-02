@@ -159,14 +159,14 @@ func TestDynamicNodeTest(t *testing.T) {
 				Node:    node1,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, `{"appKey":"123456","temperature":140}`, msg.Data)
+					assert.Equal(t, `{"appKey":"123456","temperature":140}`, msg.GetData())
 					assert.Equal(t, types.Success, relationType)
 				},
 			}, {
 				Node:    node2,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, `{"appKey":"789012","temperature":140}`, msg.Data)
+					assert.Equal(t, `{"appKey":"789012","temperature":140}`, msg.GetData())
 					assert.Equal(t, types.Success, relationType)
 				},
 			},

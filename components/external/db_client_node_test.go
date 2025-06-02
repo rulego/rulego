@@ -196,7 +196,7 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 					}
 				} else {
 					var list []testUser
-					_ = json.Unmarshal([]byte(msg.Data), &list)
+					_ = json.Unmarshal([]byte(msg.GetData()), &list)
 					assert.True(t, len(list) > 0)
 					//assert.Equal(t, int64(1), list[0].Id)
 					//assert.Equal(t, 21, list[0].Age)
@@ -216,7 +216,7 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 					}
 				} else {
 					var u = testUser{}
-					_ = json.Unmarshal([]byte(msg.Data), &u)
+					_ = json.Unmarshal([]byte(msg.GetData()), &u)
 					//assert.Equal(t, int64(1), u.Id)
 					//assert.Equal(t, 21, u.Age)
 					assert.Equal(t, "test01", u.Name)
@@ -235,7 +235,7 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 					}
 				} else {
 					var u = testUser{}
-					_ = json.Unmarshal([]byte(msg.Data), &u)
+					_ = json.Unmarshal([]byte(msg.GetData()), &u)
 					assert.Equal(t, "test01", u.Name)
 				}
 			},

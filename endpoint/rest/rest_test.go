@@ -129,7 +129,7 @@ func TestRestEndpoint(t *testing.T) {
 
 	config := engine.NewConfig(types.WithDefaultPool())
 	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
-		assert.Equal(t, "ok", msg.Data)
+		assert.Equal(t, "ok", msg.GetData())
 	})
 	metaData := types.BuildMetadata(make(map[string]string))
 	msg1 := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, "{\"name\":\"lala\"}")

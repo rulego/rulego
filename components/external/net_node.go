@@ -97,7 +97,7 @@ func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuratio
 // OnMsg 处理消息
 func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	// 将消息的数据转换为字节数组
-	data := []byte(msg.Data)
+	data := []byte(msg.GetData())
 	// 在数据的末尾加上结束符
 	data = append(data, EndSign)
 	x.onWrite(ctx, msg, data)

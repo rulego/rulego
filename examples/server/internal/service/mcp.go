@@ -216,7 +216,7 @@ func (s *McpService) componentToolHandler(componentType string) func(ctx context
 		var result string
 		var resultErr error
 		ruleCtx := engine.NewRuleContext(ctx, s.ruleConfig, nil, nil, nil, s.ruleConfig.Pool, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-			result = msg.Data
+			result = msg.GetData()
 			resultErr = err
 			wg.Done()
 		}, s.Pool)
@@ -290,7 +290,7 @@ func (s *McpService) ruleChainToolHandler(chainId string) func(ctx context.Conte
 			var result string
 			var resultErr error
 			ruleEngine.OnMsgAndWait(types.NewMsgWithJsonData(msg), types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-				result = msg.Data
+				result = msg.GetData()
 				resultErr = err
 				wg.Done()
 			}))
@@ -434,7 +434,7 @@ func (s *McpService) AddExecuteRuleTool() {
 		var result string
 		var resultErr error
 		err := s.ruleEngineService.ExecuteAndWait(id, ruleMsg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-			result = msg.Data
+			result = msg.GetData()
 			resultErr = err
 			wg.Done()
 		}))

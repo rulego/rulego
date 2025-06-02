@@ -153,7 +153,7 @@ func main() {
 				//把处理结果响应给客户端，http endpoint 必须增加 Wait()，否则无法正常响应
 				outMsg := exchange.Out.GetMsg()
 				exchange.Out.Headers().Set("Content-Type", "application/json")
-				exchange.Out.SetBody([]byte(outMsg.Data))
+				exchange.Out.SetBody([]byte(outMsg.GetData()))
 			}
 
 			return true
@@ -201,7 +201,7 @@ func main() {
 			//把处理结果，同步响应给前端，http endpoint 必须增加 Wait()，否则无法正常响应
 			outMsg := exchange.Out.GetMsg()
 			exchange.Out.Headers().Set("Content-Type", "application/json")
-			exchange.Out.SetBody([]byte(outMsg.Data))
+			exchange.Out.SetBody([]byte(outMsg.GetData()))
 			return true
 		}).End()
 

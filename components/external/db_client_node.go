@@ -193,7 +193,7 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	} else {
 		switch opType {
 		case SELECT:
-			msg.Data = str.ToString(data)
+			msg.SetData(str.ToString(data))
 		case UPDATE, DELETE:
 			msg.Metadata.PutValue(rowsAffectedKey, str.ToString(rowsAffected))
 		case INSERT:

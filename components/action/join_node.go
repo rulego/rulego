@@ -79,7 +79,7 @@ func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	ok := ctx.TellCollect(msg, func(msgList []types.WrapperMsg) {
 		wrapperMsg.DataType = types.JSON
-		wrapperMsg.Data = str.ToString(filterEmptyAndRemoveMeta(msgList))
+		wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgList)))
 		mergeMetadata(msgList, &wrapperMsg)
 		c <- true
 	})

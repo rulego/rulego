@@ -91,7 +91,7 @@ func TestJsFilterNode(t *testing.T) {
 					assert.Equal(t, "False", relationType)
 				} else if node.(*JsFilterNode).Config.JsScript == `return a` {
 					assert.NotNil(t, err2)
-				} else if msg.Data == "{\"temperature\":60}" {
+				} else if msg.GetData() == "{\"temperature\":60}" {
 
 					assert.Equal(t, "True", relationType)
 				} else {

@@ -54,7 +54,7 @@ func TestEndpoint(t *testing.T) {
 		return true
 	}
 	var toProcessFunc = func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		assert.Equal(t, "{\"productName\":\"lala\",\"test\":\"addFromJs\"}", exchange.Out.GetMsg().Data)
+		assert.Equal(t, "{\"productName\":\"lala\",\"test\":\"addFromJs\"}", exchange.Out.GetMsg().GetData())
 		assert.Equal(t, "addValueFromProcess", exchange.In.GetMsg().Metadata.GetValue("addValue"))
 		assert.Equal(t, "test01", exchange.In.GetMsg().Metadata.GetValue("name"))
 		return true

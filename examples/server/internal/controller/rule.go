@@ -188,7 +188,7 @@ func (c *rule) SaveBaseInfo(url string) endpointApi.Router {
 		chainId := msg.Metadata.GetValue(constants.KeyId)
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		var req types.RuleChainBaseInfo
-		if err := json.Unmarshal([]byte(msg.Data), &req); err != nil {
+		if err := json.Unmarshal([]byte(msg.GetData()), &req); err != nil {
 			exchange.Out.SetStatusCode(http.StatusBadRequest)
 			exchange.Out.SetBody([]byte(err.Error()))
 		} else {
@@ -214,7 +214,7 @@ func (c *rule) SaveConfiguration(url string) endpointApi.Router {
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		varType := msg.Metadata.GetValue(constants.KeyVarType)
 		var req interface{}
-		if err := json.Unmarshal([]byte(msg.Data), &req); err != nil {
+		if err := json.Unmarshal([]byte(msg.GetData()), &req); err != nil {
 			exchange.Out.SetStatusCode(http.StatusBadRequest)
 			exchange.Out.SetBody([]byte(err.Error()))
 		} else {
@@ -280,7 +280,7 @@ func (c *rule) Execute(url string) endpointApi.Router {
 		} else {
 			//把处理结果响应给客户端，http endpoint 必须增加 Wait()，否则无法正常响应
 			outMsg := exchange.Out.GetMsg()
-			exchange.Out.SetBody([]byte(outMsg.Data))
+			exchange.Out.SetBody([]byte(outMsg.GetData()))
 		}
 		return true
 	}).Wait().End()

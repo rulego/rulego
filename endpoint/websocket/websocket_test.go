@@ -250,7 +250,7 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 			assert.Equal(t, "websocket", requestMessage.Headers().Get("Upgrade"))
 
 			assert.Equal(t, "Hello, world!", string(exchange.In.Body()))
-			assert.Equal(t, "Hello, world!", string(exchange.In.GetMsg().Data))
+			assert.Equal(t, "Hello, world!", string(exchange.In.GetMsg().GetData()))
 
 			from := requestMessage.From()
 			msgType := requestMessage.GetMsg().Metadata.GetValue("msgType")
@@ -292,7 +292,7 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 		exchange.Out.SetBody([]byte("s2 process" + "\n"))
 		return true
 	}).To("chain:default").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		exchange.Out.SetBody([]byte("规则链执行结果：" + exchange.Out.GetMsg().Data + "\n"))
+		exchange.Out.SetBody([]byte("规则链执行结果：" + exchange.Out.GetMsg().GetData() + "\n"))
 		return true
 	}).End()
 

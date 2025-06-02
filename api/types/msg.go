@@ -325,13 +325,16 @@ type RuleMsg struct {
 	// DEVICE_ALARM, POST_DEVICE_DATA.
 	Type string `json:"type"`
 
-	// Data contains the actual message payload as a string.
+	// Data contains the actual message payload using Copy-on-Write optimization.
 	// The format of this data should match the DataType field.
-	Data string `json:"data"`
+	Data *SharedData `json:"data"`
 
 	// Metadata contains additional key-value pairs associated with the message.
 	// This field uses Copy-on-Write optimization for better performance in multi-node scenarios.
 	Metadata *Metadata `json:"metadata"`
+
+	// parsedData caches the parsed JSON data to avoid repeated unmarshaling
+	parsedData map[string]interface{} `json:"-"`
 }
 
 // NewMsg creates a new message instance and generates a message ID using UUID.
@@ -360,14 +363,77 @@ func newMsg(id string, ts int64, msgType string, dataType DataType, metaData *Me
 	} else {
 		metadata = NewMetadata()
 	}
-	return RuleMsg{
+
+	// Create the message
+	msg := RuleMsg{
 		Ts:       ts,
 		Id:       id,
 		Type:     msgType,
 		DataType: dataType,
-		Data:     data,
+		Data:     NewSharedData(data),
 		Metadata: metadata,
 	}
+
+	// Note: We cannot set the callback here because when the function returns,
+	// it returns a copy of the message, and the callback would point to the wrong instance.
+	// The callback will be set in SetData method when needed.
+
+	return msg
+}
+
+// SetData sets the message data using Copy-on-Write optimization.
+func (m *RuleMsg) SetData(data string) {
+	if m.Data == nil {
+		m.Data = NewSharedData(data)
+	} else {
+		m.Data.Set(data)
+	}
+	// Always set the callback to ensure it points to the correct message instance
+	m.Data.onDataChanged = func() {
+		m.parsedData = nil
+	}
+}
+
+// GetData returns the message data.
+func (m *RuleMsg) GetData() string {
+	if m.Data == nil {
+		return ""
+	}
+	return m.Data.Get()
+}
+
+// GetDataAsJson returns the message data parsed as JSON with caching.
+// If the data has already been parsed, returns cached result.
+// If the data is not valid JSON, it returns an error.
+func (m *RuleMsg) GetDataAsJson() (map[string]interface{}, error) {
+	data := m.GetData()
+	if data == "" {
+		return make(map[string]interface{}), nil
+	}
+
+	// Check if we have cached data
+	if m.parsedData != nil {
+		return m.parsedData, nil
+	}
+
+	// Parse the JSON data
+	var result map[string]interface{}
+	err := json.Unmarshal([]byte(data), &result)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the parsed data
+	m.parsedData = result
+
+	// Set callback to clear cache when data changes (if not already set)
+	if m.Data != nil && m.Data.onDataChanged == nil {
+		m.Data.onDataChanged = func() {
+			m.parsedData = nil
+		}
+	}
+
+	return result, nil
 }
 
 // Copy creates a deep copy of the message.
@@ -380,7 +446,28 @@ func (m *RuleMsg) Copy() RuleMsg {
 	} else {
 		copiedMetadata = NewMetadata()
 	}
-	return newMsg(m.Id, m.Ts, m.Type, m.DataType, copiedMetadata, m.Data)
+
+	// Create a copy with shared data for COW optimization
+	var copiedData *SharedData
+	if m.Data != nil {
+		copiedData = m.Data.Copy()
+	} else {
+		copiedData = NewSharedData("")
+	}
+
+	copiedMsg := RuleMsg{
+		Ts:       m.Ts,
+		Id:       m.Id,
+		Type:     m.Type,
+		DataType: m.DataType,
+		Data:     copiedData,
+		Metadata: copiedMetadata,
+	}
+
+	// Note: Cannot set callback here for the same reason as in newMsg.
+	// The callback will be set when SetData is called on the copied message.
+
+	return copiedMsg
 }
 
 // GetTs returns the timestamp of the message.
@@ -423,16 +510,6 @@ func (m *RuleMsg) SetType(msgType string) {
 	m.Type = msgType
 }
 
-// GetData returns the message payload data.
-func (m *RuleMsg) GetData() string {
-	return m.Data
-}
-
-// SetData sets the message payload data.
-func (m *RuleMsg) SetData(data string) {
-	m.Data = data
-}
-
 // GetMetadata returns the metadata associated with the message.
 // Returns nil if no metadata is set.
 func (m *RuleMsg) GetMetadata() *Metadata {
@@ -463,4 +540,98 @@ type WrapperMsg struct {
 	// NodeId identifies the node that produced this result.
 	// This is useful for debugging and tracking message flow through the rule chain.
 	NodeId string `json:"nodeId"`
+}
+
+// SharedData represents a copy-on-write string data structure for message payload.
+// This optimization allows multiple message copies to share the same underlying data
+// until one of them needs to modify it, reducing memory usage and improving performance.
+type SharedData struct {
+	data   string
+	shared bool
+	mu     sync.RWMutex
+	// onDataChanged callback to notify when data changes
+	onDataChanged func()
+}
+
+// NewSharedData creates a new SharedData instance.
+func NewSharedData(data string) *SharedData {
+	return &SharedData{
+		data:   data,
+		shared: false,
+	}
+}
+
+// Copy creates a copy of the SharedData using Copy-on-Write optimization.
+func (sd *SharedData) Copy() *SharedData {
+	sd.mu.Lock()
+	defer sd.mu.Unlock()
+
+	// Mark current instance as shared
+	sd.shared = true
+
+	// Return a new instance that shares the same data initially
+	return &SharedData{
+		data:   sd.data,
+		shared: true,
+		// mu is automatically initialized as zero value (ready to use)
+		// onDataChanged will be set by the new owner
+	}
+}
+
+// Get returns the data value.
+func (sd *SharedData) Get() string {
+	sd.mu.RLock()
+	defer sd.mu.RUnlock()
+	return sd.data
+}
+
+// String implements the fmt.Stringer interface for SharedData.
+// This allows SharedData to be used directly as a string in contexts where string conversion is needed.
+func (sd *SharedData) String() string {
+	sd.mu.RLock()
+	defer sd.mu.RUnlock()
+	return sd.data
+}
+
+// Set sets the data value, ensuring copy-on-write semantics.
+func (sd *SharedData) Set(data string) {
+	sd.mu.Lock()
+	defer sd.mu.Unlock()
+
+	// Ensure unique copy within the same lock
+	if sd.shared {
+		sd.shared = false
+	}
+
+	sd.data = data
+
+	// Notify data change if callback is set
+	if sd.onDataChanged != nil {
+		sd.onDataChanged()
+	}
+}
+
+// MarshalJSON implements the json.Marshaler interface for SharedData
+func (sd *SharedData) MarshalJSON() ([]byte, error) {
+	sd.mu.RLock()
+	defer sd.mu.RUnlock()
+	return json.Marshal(sd.data)
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for SharedData
+func (sd *SharedData) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	sd.mu.Lock()
+	defer sd.mu.Unlock()
+
+	// Ensure unique copy before replacing data
+	if sd.shared {
+		sd.shared = false
+	}
+
+	sd.data = s
+	return nil
 }

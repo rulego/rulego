@@ -18,14 +18,15 @@ package engine
 
 import (
 	"fmt"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/builtin/aspect"
-	"github.com/rulego/rulego/test/assert"
-	"github.com/rulego/rulego/utils/str"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/builtin/aspect"
+	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/str"
 )
 
 // 测试故障降级切面
@@ -473,7 +474,15 @@ func (aspect *AroundAspect) Around(ctx types.RuleContext, msg types.RuleMsg, rel
 		msg.Metadata.PutValue(ctx.GetSelfId()+"_after", ctx.GetSelfId()+"_after")
 	}
 	if ctx.GetSelfId() == "s2" {
-		assert.Equal(aspect.t, "{\"temperature\":41,\"userName\":\"NO-1\"}", ctx.GetOut().Data)
+		// 方案1: 使用推荐的 GetData() 方法（当前实现）
+		out := ctx.GetOut()
+		assert.Equal(aspect.t, "{\"temperature\":41,\"userName\":\"NO-1\"}", out.GetData())
+
+		// 方案2: 使用新的 String() 方法保持兼容性
+		// assert.Equal(aspect.t, "{\"temperature\":41,\"userName\":\"NO-1\"}", ctx.GetOut().Data.String())
+
+		// 方案3: 使用 fmt.Sprintf 格式化（也支持兼容性）
+		// assert.Equal(aspect.t, "{\"temperature\":41,\"userName\":\"NO-1\"}", fmt.Sprintf("%s", ctx.GetOut().Data))
 	}
 	if ctx.GetSelfId() == "s3" {
 		//s3 out err

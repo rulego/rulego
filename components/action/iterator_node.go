@@ -78,10 +78,10 @@ func (x *IteratorNode) Init(ruleConfig types.Config, configuration types.Configu
 
 // OnMsg 处理消息
 func (x *IteratorNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	var data interface{} = msg.Data
+	var data interface{} = msg.GetData()
 	if msg.DataType == types.JSON {
-		var dataMap interface{}
-		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
+		var dataMap map[string]interface{}
+		if err := json.Unmarshal([]byte(msg.GetData()), &dataMap); err == nil {
 			data = dataMap
 		}
 	}
@@ -96,21 +96,23 @@ func (x *IteratorNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 
 	if arrayValue, ok := data.([]interface{}); ok {
+		oldMsg := msg.Copy()
 		for index, item := range arrayValue {
 			if err := x.executeItem(ctx, msg, item, index); err != nil {
 				//出现错误中断遍历
 				return
 			}
 		}
-		ctx.TellSuccess(msg)
+		ctx.TellSuccess(oldMsg)
 	} else if mapValue, ok := data.(map[string]interface{}); ok {
+		oldMsg := msg.Copy()
 		for k, item := range mapValue {
 			if err := x.executeItem(ctx, msg, item, k); err != nil {
 				//出现错误中断遍历
 				return
 			}
 		}
-		ctx.TellSuccess(msg)
+		ctx.TellSuccess(oldMsg)
 	} else {
 		ctx.TellFailure(msg, errors.New("value is not array or {key:value} type"))
 	}
@@ -128,14 +130,14 @@ func (x *IteratorNode) executeItem(ctx types.RuleContext, msg types.RuleMsg, ite
 			//出现错误中断遍历
 			return err
 		} else if formatData, ok := out.(bool); ok && formatData {
-			msg.Data = str.ToString(item)
+			msg.SetData(str.ToString(item))
 			ctx.TellNext(msg, types.True)
 		} else {
-			msg.Data = str.ToString(item)
+			msg.SetData(str.ToString(item))
 			ctx.TellNext(msg, types.False)
 		}
 	} else {
-		msg.Data = str.ToString(item)
+		msg.SetData(str.ToString(item))
 		ctx.TellNext(msg, types.True)
 	}
 	return nil

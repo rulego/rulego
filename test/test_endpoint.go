@@ -58,7 +58,7 @@ func EndpointMessage(t *testing.T, m interface{}) {
 	assert.Equal(t, "", message.From())
 	assert.Equal(t, "", message.GetParam("aa"))
 	if message.GetMsg() != nil {
-		assert.Equal(t, "123", message.GetMsg().Data)
+		assert.Equal(t, "123", message.GetMsg().GetData())
 	}
 
 	msg := types.NewMsg(int64(1), "aa", types.TEXT, types.NewMetadata(), "123")

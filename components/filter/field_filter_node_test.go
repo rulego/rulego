@@ -166,7 +166,7 @@ func TestFieldFilterNode(t *testing.T) {
 				},
 			}
 			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
-				if msg.Data == "aa" {
+				if msg.GetData() == "aa" {
 					assert.Equal(t, types.Failure, relationType)
 				} else {
 					assert.Equal(t, types.False, relationType)

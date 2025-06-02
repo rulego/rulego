@@ -93,18 +93,18 @@ func (n *nodeUtils) getEvnAndMetadata(_ types.RuleContext, msg types.RuleMsg, us
 	var data interface{}
 	if msg.DataType == types.JSON {
 		// 解析 JSON 字符串到 map
-		if err := json.Unmarshal([]byte(msg.Data), &data); err != nil {
+		if err := json.Unmarshal([]byte(msg.GetData()), &data); err != nil {
 			// 解析失败，使用原始数据
-			data = msg.Data
+			data = msg.GetData()
 		}
 	} else {
 		// 如果不是 JSON 类型，直接使用原始数据
-		data = msg.Data
+		data = msg.GetData()
 	}
 	var evn = make(map[string]interface{})
 	evn[types.IdKey] = msg.Id
 	evn[types.TsKey] = msg.Ts
-	evn[types.DataKey] = msg.Data
+	evn[types.DataKey] = msg.GetData()
 	evn[types.MsgKey] = data
 	if msg.Metadata != nil {
 		metadataValues := msg.Metadata.Values()

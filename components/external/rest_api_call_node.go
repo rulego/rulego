@@ -34,17 +34,18 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/components/base"
-	"github.com/rulego/rulego/utils/el"
-	"github.com/rulego/rulego/utils/maps"
-	"github.com/rulego/rulego/utils/str"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
+	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/str"
 )
 
 func init() {
@@ -210,7 +211,7 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				body = []byte(str.ToString(v))
 			}
 		} else {
-			body = []byte(msg.Data)
+			body = []byte(msg.GetData())
 		}
 		req, err = http.NewRequest(x.Config.RequestMethod, endpointUrl, bytes.NewReader(body))
 	}
@@ -251,7 +252,7 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		msg.Metadata.PutValue(statusMetadataKey, response.Status)
 		msg.Metadata.PutValue(statusCodeMetadataKey, strconv.Itoa(response.StatusCode))
 		if response.StatusCode == 200 {
-			msg.Data = string(b)
+			msg.SetData(string(b))
 			ctx.TellSuccess(msg)
 		} else {
 			strB := string(b)
@@ -306,7 +307,7 @@ func readFromStream(ctx types.RuleContext, msg types.RuleMsg, resp *http.Respons
 		eventType := strings.TrimSpace(parts[0])
 		eventData := strings.TrimSpace(parts[1])
 		msg.Metadata.PutValue(eventTypeMetadataKey, eventType)
-		msg.Data = eventData
+		msg.SetData(eventData)
 		ctx.TellSuccess(msg)
 	}
 	if err := scanner.Err(); err != nil && err != io.EOF {

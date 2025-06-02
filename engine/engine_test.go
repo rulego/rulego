@@ -179,7 +179,7 @@ func testRuleEngine(t *testing.T, ruleChainFile string, modifyNodeId, modifyNode
 			assert.Equal(t, "test02", testStr)
 			assert.Equal(t, "TEST_MSG_TYPE_MODIFY", msg.Type)
 		} else {
-			assert.Equal(t, "{\"temperature\":35}", msg.Data)
+			assert.Equal(t, "{\"temperature\":35}", msg.GetData())
 		}
 	}
 	ruleEngine, err := New("rule01", []byte(ruleChainFile), WithConfig(config))
@@ -301,12 +301,12 @@ func TestSubRuleChain(t *testing.T) {
 			group.Done()
 			if msg.Type == "TEST_MSG_TYPE1" {
 				//root chain end
-				assert.Equal(t, msg.Data, "{\"aa\":11}")
+				assert.Equal(t, msg.GetData(), "{\"aa\":11}")
 				v := msg.Metadata.GetValue("test")
 				assert.Equal(t, v, "Modified by root chain")
 			} else {
 				//sub chain end
-				assert.Equal(t, true, strings.Contains(msg.Data, `"data":"{\"bb\":22}"`))
+				assert.Equal(t, true, strings.Contains(msg.GetData(), `"data":"{\"bb\":22}"`))
 				v := msg.Metadata.GetValue("test")
 				assert.Equal(t, v, "Modified by sub chain")
 				v = msg.Metadata.GetValue("test_s3")
@@ -449,7 +449,7 @@ func TestCallRestApi(t *testing.T) {
 	config := NewConfig(types.WithDefaultPool())
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		if err != nil {
-			config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.Data, msg.Metadata, relationType, err)
+			config.Logger.Printf("flowType=%s,nodeId=%s,msgType=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Type, msg.GetData(), msg.GetMetadata().Values(), relationType, err)
 		}
 	}
 	ruleFile := loadFile("./chain_call_rest_api.json")
@@ -1036,7 +1036,7 @@ func TestEngine(t *testing.T) {
 	var onAllNodeCompleted = false
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		newMsg := ctx.NewMsg("TEST_MSG_TYPE2", types.NewMetadata(), "test")
-		assert.Equal(t, "test", newMsg.Data)
+		assert.Equal(t, "test", newMsg.GetData())
 		assert.Equal(t, types.JSON, newMsg.DataType)
 		assert.Equal(t, "TEST_MSG_TYPE2", newMsg.Type)
 	}), types.WithOnAllNodeCompleted(func() {
@@ -1514,7 +1514,7 @@ func TestJoinNode(t *testing.T) {
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
 	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		var result []map[string]interface{}
-		json.Unmarshal([]byte(msg.Data), &result)
+		json.Unmarshal([]byte(msg.GetData()), &result)
 		assert.Equal(t, types.Success, relationType)
 		assert.Equal(t, 2, len(result))
 		assert.True(t, result[0]["nodeId"] != result[1]["nodeId"])

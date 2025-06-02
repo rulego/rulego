@@ -95,10 +95,10 @@ func (x *LogNode) Init(ruleConfig types.Config, configuration types.Configuratio
 
 // OnMsg 处理消息
 func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	var data interface{} = msg.Data
+	var data interface{} = msg.GetData()
 	if msg.DataType == types.JSON {
-		var dataMap interface{}
-		if err := json.Unmarshal([]byte(msg.Data), &dataMap); err == nil {
+		var dataMap map[string]interface{}
+		if err := json.Unmarshal([]byte(msg.GetData()), &dataMap); err == nil {
 			data = dataMap
 		}
 	}

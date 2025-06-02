@@ -136,7 +136,7 @@ func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		defer session.Close()
 		output, err = session.CombinedOutput(cmd)
 
-		msg.Data = string(output)
+		msg.SetData(string(output))
 		msg.DataType = types.TEXT
 
 		if err != nil {

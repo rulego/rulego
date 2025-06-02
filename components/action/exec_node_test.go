@@ -94,7 +94,7 @@ func TestTemplateNode(t *testing.T) {
 				}, Registry),
 				MsgList: []test.Msg{msg},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}", msg.Data)
+					assert.Equal(t, "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}", msg.GetData())
 					assert.Equal(t, types.Success, relationType)
 				},
 			},
@@ -107,7 +107,7 @@ func TestTemplateNode(t *testing.T) {
 				}, Registry),
 				MsgList: []test.Msg{msg},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.NotEqual(t, "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}", msg.Data)
+					assert.NotEqual(t, "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}", msg.GetData())
 					assert.Equal(t, types.Success, relationType)
 				},
 			},
@@ -119,9 +119,9 @@ func TestTemplateNode(t *testing.T) {
 				}, Registry),
 				MsgList: []test.Msg{msg},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.NotEqual(t, "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}", msg.Data)
+					assert.NotEqual(t, "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}", msg.GetData())
 					assert.Equal(t, types.Success, relationType)
-					data1 = msg.Data
+					data1 = msg.GetData()
 				},
 			},
 			{
@@ -132,9 +132,9 @@ func TestTemplateNode(t *testing.T) {
 				}, Registry),
 				MsgList: []test.Msg{msg},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.NotEqual(t, "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}", msg.Data)
+					assert.NotEqual(t, "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}", msg.GetData())
 					assert.Equal(t, types.Success, relationType)
-					data2 = msg.Data
+					data2 = msg.GetData()
 				},
 			},
 		}

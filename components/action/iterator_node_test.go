@@ -136,15 +136,15 @@ func TestIteratorNode(t *testing.T) {
 						assert.Equal(t, "value is not array or {key:value} type", err.Error())
 					} else if msg.Metadata.GetValue("dataType") == "map" {
 						if types.True == relationType {
-							assert.True(t, "41" == msg.Data || "90" == msg.Data)
+							assert.True(t, "41" == msg.GetData() || "90" == msg.GetData())
 						} else if types.Success == relationType {
-							assert.Equal(t, data1, msg.Data)
+							assert.Equal(t, data1, msg.GetData())
 						}
 					} else if msg.Metadata.GetValue("dataType") == "array" {
 						if types.True == relationType {
-							assert.True(t, data1 == msg.Data || data2 == msg.Data)
+							assert.True(t, data1 == msg.GetData() || data2 == msg.GetData())
 						} else if types.Success == relationType {
-							assert.Equal(t, "["+data1+","+data2+"]", msg.Data)
+							assert.Equal(t, "["+data1+","+data2+"]", msg.GetData())
 						}
 					}
 
@@ -159,9 +159,9 @@ func TestIteratorNode(t *testing.T) {
 						assert.Equal(t, "field=items not found", err.Error())
 					} else {
 						if types.True == relationType {
-							assert.True(t, data1 == msg.Data || data2 == msg.Data)
+							assert.True(t, data1 == msg.GetData() || data2 == msg.GetData())
 						} else if types.Success == relationType {
-							assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":"+"["+data1+","+data2+"]"+"}", msg.Data)
+							assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":"+"["+data1+","+data2+"]"+"}", msg.GetData())
 						}
 					}
 				},
@@ -180,19 +180,19 @@ func TestIteratorNode(t *testing.T) {
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					if msg.Metadata.GetValue("dataType") == "array" {
 						if types.True == relationType {
-							assert.Equal(t, data1, msg.Data)
+							assert.Equal(t, data1, msg.GetData())
 						} else if types.False == relationType {
-							assert.Equal(t, data2, msg.Data)
+							assert.Equal(t, data2, msg.GetData())
 						} else {
-							assert.Equal(t, "["+data1+","+data2+"]", msg.Data)
+							assert.Equal(t, "["+data1+","+data2+"]", msg.GetData())
 						}
 					} else if msg.Metadata.GetValue("dataType") == "map" {
 						if types.Success == relationType {
-							assert.Equal(t, data1, msg.Data)
+							assert.Equal(t, data1, msg.GetData())
 						}
 					} else if msg.Metadata.GetValue("dataType") == "mapAndArray" {
 						if types.Success == relationType {
-							assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":"+"["+data1+","+data2+"]"+"}", msg.Data)
+							assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":"+"["+data1+","+data2+"]"+"}", msg.GetData())
 						}
 					}
 				},
@@ -209,9 +209,9 @@ func TestIteratorNode(t *testing.T) {
 				MsgList: msgList2,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					if types.True == relationType {
-						assert.True(t, data1 == msg.Data || data2 == msg.Data)
+						assert.True(t, data1 == msg.GetData() || data2 == msg.GetData())
 					} else if types.Success == relationType {
-						assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":{"+"\"value\":["+data1+","+data2+"]"+"} }", msg.Data)
+						assert.Equal(t, "{\"humidity\":90,\"temperature\":41,\"items\":{"+"\"value\":["+data1+","+data2+"]"+"} }", msg.GetData())
 					}
 				},
 			},
