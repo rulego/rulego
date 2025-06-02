@@ -296,6 +296,7 @@ func TestCacheDeleteNode(t *testing.T) {
 		assert.Nil(t, err)
 
 		msgList := []test.Msg{{
+			MetaData:   types.NewMetadata(),
 			MsgType:    "TEST_MSG",
 			Data:       "{}",
 			AfterSleep: time.Millisecond * 200,

@@ -57,7 +57,7 @@ type Config struct {
 	// Properties are global properties in key-value format.
 	// Rule chain node configurations can replace values with ${global.propertyKey}.
 	// Replacement occurs during node initialization and only once.
-	Properties Metadata
+	Properties Properties
 	// Udf is a map for registering custom Golang functions and native scripts that can be called at runtime by script engines like JavaScript.
 	// Function names can be repeated for different script types.
 	Udf map[string]interface{}
@@ -96,7 +96,7 @@ func NewConfig(opts ...Option) Config {
 	c := &Config{
 		ScriptMaxExecutionTime: time.Millisecond * 2000,
 		Logger:                 DefaultLogger(),
-		Properties:             NewMetadata(),
+		Properties:             NewProperties(),
 		EndpointEnabled:        true,
 	}
 

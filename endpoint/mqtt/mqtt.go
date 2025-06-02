@@ -35,10 +35,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rulego/rulego/utils/cast"
 	"net/textproto"
 	"strconv"
 	"time"
+
+	"github.com/rulego/rulego/utils/cast"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/rulego/rulego/api/types"
@@ -109,7 +110,6 @@ func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
 
 func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	if r.msg == nil {
-		//默认指定是JSON格式，如果不是该类型，请在process函数中修改
 		ruleMsg := types.NewMsg(0, r.From(), types.JSON, types.NewMetadata(), string(r.Body()))
 		ruleMsg.Metadata.PutValue(KeyRequestTopic, r.From())
 		r.msg = &ruleMsg

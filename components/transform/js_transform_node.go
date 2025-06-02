@@ -138,7 +138,13 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 
 	// 执行JavaScript脚本进行消息转换
-	out, err := x.jsEngine.Execute(ctx, JsTransformFuncName, data, msg.Metadata.Values(), msg.Type)
+	var metadataValues map[string]string
+	if msg.Metadata != nil {
+		metadataValues = msg.Metadata.Values()
+	} else {
+		metadataValues = make(map[string]string)
+	}
+	out, err := x.jsEngine.Execute(ctx, JsTransformFuncName, data, metadataValues, msg.Type)
 	if err != nil {
 		// JS执行失败，发送到Failure链
 		ctx.TellFailure(msg, err)
@@ -165,7 +171,7 @@ func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleM
 
 	// 更新消息元数据（如果JS脚本中修改了metadata）
 	if formatMetaData, ok := formatData[types.MetadataKey]; ok {
-		msg.Metadata = types.BuildMetadata(str.ToStringMapString(formatMetaData))
+		msg.Metadata.ReplaceAll(str.ToStringMapString(formatMetaData))
 	}
 
 	// 更新消息数据（如果JS脚本中修改了msg）

@@ -77,7 +77,7 @@ type RequestMessage struct {
 	Params   httprouter.Params
 	msg      *types.RuleMsg
 	err      error
-	Metadata types.Metadata
+	Metadata *types.Metadata
 }
 
 func (r *RequestMessage) Body() []byte {

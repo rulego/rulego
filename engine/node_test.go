@@ -18,9 +18,10 @@ package engine
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
-	"testing"
 )
 
 func TestNodeCtx(t *testing.T) {
@@ -113,7 +114,7 @@ func TestNodeCtx(t *testing.T) {
 		assert.Equal(t, "lala", result["name"])
 		assert.Equal(t, "127.0.0.1", result["ip"])
 
-		config.Properties = nil
+		config.Properties = types.NewProperties()
 		result, _ = processVariables(config, nil, types.Configuration{"name": "${global.name}", "age": 18})
 		assert.Equal(t, "${global.name}", result["name"])
 

@@ -40,7 +40,7 @@ type Config struct {
 	//静态文件路径映射，例如:/ui/*filepath=/home/demo/dist,/images/*filepath=/home/demo/dist/images
 	ResourceMapping string `ini:"resource_mapping"`
 	// 全局自定义配置，组件可以通过${global.xxx}方式取值
-	Global types.Metadata `ini:"global"`
+	Global types.Properties `ini:"global"`
 	// 节点池文件，规则链json格式
 	NodePoolFile string `ini:"node_pool_file"`
 	// 是否保存运行日志到文件
@@ -63,7 +63,7 @@ type Config struct {
 	// JwtIssuer jwt签发者
 	JwtIssuer string `ini:"jwt_issuer"`
 	// 用户列表
-	Users types.Metadata `ini:"users"`
+	Users types.Properties `ini:"users"`
 	// Pprof pprof配置
 	Pprof Pprof `ini:"pprof"`
 	// 组件市场根地址
@@ -73,9 +73,9 @@ type Config struct {
 	// MCP配置
 	MCP MCP `ini:"mcp"`
 	//用户名和密码映射
-	UserNamePasswordMap types.Metadata `ini:"-"`
+	UserNamePasswordMap types.Properties `ini:"-"`
 	//API key和用户名映射
-	ApiKeyUserNameMap types.Metadata `ini:"-"`
+	ApiKeyUserNameMap types.Properties `ini:"-"`
 }
 type Pprof struct {
 	Enable bool   `ini:"enable"`
@@ -99,11 +99,11 @@ type MCP struct {
 
 func (c *Config) InitUserMap() {
 	if c.Users != nil {
-		c.UserNamePasswordMap = types.Metadata{}
+		c.UserNamePasswordMap = types.Properties{}
 		for username, passwordAndApiKey := range c.Users {
 			c.UserNamePasswordMap[strings.TrimSpace(username)] = strings.TrimSpace(strings.Split(passwordAndApiKey, ",")[0])
 		}
-		c.ApiKeyUserNameMap = types.Metadata{}
+		c.ApiKeyUserNameMap = types.Properties{}
 		for username, passwordAndApiKey := range c.Users {
 			params := strings.Split(passwordAndApiKey, ",")
 			if len(params) > 1 {
@@ -157,7 +157,7 @@ var DefaultConfig = Config{
 	JwtIssuer:          "rulego.cc",
 	MarketplaceBaseUrl: "http://8.134.32.225:9090/api/v1",
 	ShareHttpServer:    true,
-	Users: types.Metadata{
+	Users: types.Properties{
 		"admin": "admin,2af255ea5618467d914c67a8beeca31d",
 	},
 	Pprof: Pprof{

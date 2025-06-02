@@ -172,7 +172,7 @@ require (
 
 replace github.com/rulego/rulego => ../../../rulego
 
-//replace github.com/rulego/rulego-components => ../../../rulego-components
+replace github.com/rulego/rulego-components => ../../../rulego-components
 
 //replace github.com/rulego/rulego-components-ai => ../../../rulego-components-ai
 

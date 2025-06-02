@@ -18,10 +18,11 @@ package test
 
 import (
 	"errors"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/test/assert"
 	"net/textproto"
 	"testing"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/test/assert"
 )
 
 // EndpointMessage 测试endpoint请求、响应消息
@@ -60,7 +61,7 @@ func EndpointMessage(t *testing.T, m interface{}) {
 		assert.Equal(t, "123", message.GetMsg().Data)
 	}
 
-	msg := types.NewMsg(int64(1), "aa", types.TEXT, nil, "123")
+	msg := types.NewMsg(int64(1), "aa", types.TEXT, types.NewMetadata(), "123")
 	message.SetMsg(&msg)
 	assert.Equal(t, "aa", message.GetMsg().Type)
 

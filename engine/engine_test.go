@@ -780,6 +780,9 @@ func TestFunctionsNode(t *testing.T) {
 	config := NewConfig()
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		if flowType == types.Out {
+			msg.Metadata.PutValue("aa", "aa")
+			time.Sleep(time.Millisecond * 10)
+			msg.Metadata.PutValue("bb", "bb")
 			assert.Equal(t, "aa", msg.Metadata.GetValue("aa"))
 			assert.Equal(t, "bb", msg.Metadata.GetValue("bb"))
 		}
@@ -791,7 +794,7 @@ func TestFunctionsNode(t *testing.T) {
 
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	var i = 0
-	for i < 10 {
+	for i < 100 {
 		ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		}))
 		i++
@@ -1543,4 +1546,286 @@ func TestDisabled(t *testing.T) {
 	defStr = strings.Replace(ruleChainFile, "\"disabled\": false", "\"disabled\": true", -1)
 	_, err = New("testDisabled2", []byte(defStr), WithConfig(config))
 	assert.Equal(t, ErrDisabled.Error(), err.Error())
+}
+
+// TestMetadataCopyOnWritePerformance 测试新 Metadata 设计在多节点并发场景下的性能和正确性
+func TestMetadataCopyOnWritePerformance(t *testing.T) {
+	// 创建一个多节点规则链，用于测试并发场景
+	multiNodeRuleChain := `{
+		"ruleChain": {
+			"id": "test_cow_performance",
+			"name": "testCOWPerformance",
+			"debugMode": false,
+			"root": true
+		},
+		"metadata": {
+			"firstNodeIndex": 0,
+			"nodes": [
+				{
+					"id": "filter1",
+					"type": "jsFilter",
+					"name": "过滤器1",
+					"configuration": {
+						"jsScript": "return true;"
+					}
+				},
+				{
+					"id": "transform1",
+					"type": "jsTransform",
+					"name": "转换器1",
+					"configuration": {
+						"jsScript": "metadata.node1_processed = 'true'; metadata.timestamp1 = Date.now(); return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+					}
+				},
+				{
+					"id": "transform2",
+					"type": "jsTransform",
+					"name": "转换器2",
+					"configuration": {
+						"jsScript": "metadata.node2_processed = 'true'; metadata.timestamp2 = Date.now(); return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+					}
+				},
+				{
+					"id": "transform3",
+					"type": "jsTransform",
+					"name": "转换器3",
+					"configuration": {
+						"jsScript": "metadata.node3_processed = 'true'; metadata.timestamp3 = Date.now(); return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+					}
+				}
+			],
+			"connections": [
+				{
+					"fromId": "filter1",
+					"toId": "transform1",
+					"type": "True"
+				},
+				{
+					"fromId": "filter1",
+					"toId": "transform2",
+					"type": "True"
+				},
+				{
+					"fromId": "filter1",
+					"toId": "transform3",
+					"type": "True"
+				}
+			]
+		}
+	}`
+
+	config := NewConfig(types.WithDefaultPool())
+	chainId := fmt.Sprintf("test_cow_performance_%s_%d", str.RandomStr(10), time.Now().UnixNano())
+	ruleEngine, err := New(chainId, []byte(multiNodeRuleChain), WithConfig(config))
+	assert.Nil(t, err)
+	defer Del(chainId)
+
+	// 测试并发场景下的性能和正确性
+	var wg sync.WaitGroup
+	var processedCount int32
+	var isolationErrors int32
+	maxGoroutines := 50
+	messagesPerGoroutine := 20
+
+	// 记录开始时间
+	startTime := time.Now()
+
+	wg.Add(maxGoroutines)
+
+	for i := 0; i < maxGoroutines; i++ {
+		go func(goroutineIndex int) {
+			defer wg.Done()
+
+			for j := 0; j < messagesPerGoroutine; j++ {
+				// 创建包含大量元数据的消息
+				metaData := types.NewMetadata()
+				for k := 0; k < 100; k++ {
+					metaData.PutValue(fmt.Sprintf("key_%d", k), fmt.Sprintf("value_%d_%d_%d", goroutineIndex, j, k))
+				}
+				metaData.PutValue("goroutineID", fmt.Sprintf("%d", goroutineIndex))
+				metaData.PutValue("messageIndex", fmt.Sprintf("%d", j))
+
+				msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"test\":\"data\"}")
+
+				var msgWg sync.WaitGroup
+				msgWg.Add(3) // 三个并行的transform节点，每个都会触发EndFunc
+
+				ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, resultMsg types.RuleMsg, err error) {
+					defer msgWg.Done()
+					atomic.AddInt32(&processedCount, 1)
+
+					// 验证消息隔离性
+					if resultMsg.Metadata.GetValue("goroutineID") != fmt.Sprintf("%d", goroutineIndex) {
+						atomic.AddInt32(&isolationErrors, 1)
+						t.Errorf("Metadata isolation failed: expected goroutineID %d, got %s", goroutineIndex, resultMsg.Metadata.GetValue("goroutineID"))
+					}
+
+					if resultMsg.Metadata.GetValue("messageIndex") != fmt.Sprintf("%d", j) {
+						atomic.AddInt32(&isolationErrors, 1)
+						t.Errorf("Metadata isolation failed: expected messageIndex %d, got %s", j, resultMsg.Metadata.GetValue("messageIndex"))
+					}
+
+					// 验证至少有一个节点处理标记（因为每个transform节点只设置自己的标记）
+					processedCount := 0
+					if resultMsg.Metadata.GetValue("node1_processed") == "true" {
+						processedCount++
+					}
+					if resultMsg.Metadata.GetValue("node2_processed") == "true" {
+						processedCount++
+					}
+					if resultMsg.Metadata.GetValue("node3_processed") == "true" {
+						processedCount++
+					}
+					if processedCount == 0 {
+						atomic.AddInt32(&isolationErrors, 1)
+						t.Errorf("Node processing verification failed: no processing markers found")
+					}
+
+					assert.Nil(t, err)
+				}))
+
+				msgWg.Wait()
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// 计算总耗时
+	totalTime := time.Since(startTime)
+	totalMessages := int32(maxGoroutines * messagesPerGoroutine)
+	expectedProcessedCount := totalMessages * 3 // 每个消息会被3个并行节点处理
+
+	// 验证测试结果
+	assert.Equal(t, int32(0), atomic.LoadInt32(&isolationErrors), "No metadata isolation errors should occur")
+	assert.Equal(t, expectedProcessedCount, atomic.LoadInt32(&processedCount), "All messages should be processed by all nodes")
+
+	// 输出性能统计
+	t.Logf("Performance Test Results:")
+	t.Logf("Total input messages: %d", totalMessages)
+	t.Logf("Total processed callbacks: %d", atomic.LoadInt32(&processedCount))
+	t.Logf("Total time: %v", totalTime)
+	t.Logf("Average time per input message: %v", totalTime/time.Duration(totalMessages))
+	t.Logf("Input messages per second: %.2f", float64(totalMessages)/totalTime.Seconds())
+	t.Logf("Isolation errors: %d", atomic.LoadInt32(&isolationErrors))
+}
+
+// TestMetadataIsolationInMultipleNodes 测试多节点场景下 Metadata 的隔离性
+func TestMetadataIsolationInMultipleNodes(t *testing.T) {
+	// 创建一个分叉规则链，测试不同分支的 Metadata 隔离
+	forkRuleChain := `{
+		"ruleChain": {
+			"id": "test_metadata_isolation",
+			"name": "testMetadataIsolation",
+			"debugMode": true,
+			"root": true
+		},
+		"metadata": {
+			"firstNodeIndex": 0,
+			"nodes": [
+				{
+					"id": "fork",
+					"type": "jsFilter",
+					"name": "分叉节点",
+					"configuration": {
+						"jsScript": "return true;"
+					}
+				},
+				{
+					"id": "branch1",
+					"type": "jsTransform",
+					"name": "分支1",
+					"configuration": {
+						"jsScript": "metadata.branch = 'branch1'; metadata.branch1_data = 'data1'; return {'msg':msg,'metadata':metadata,'msgType':'BRANCH1'};"
+					}
+				},
+				{
+					"id": "branch2",
+					"type": "jsTransform",
+					"name": "分支2",
+					"configuration": {
+						"jsScript": "metadata.branch = 'branch2'; metadata.branch2_data = 'data2'; return {'msg':msg,'metadata':metadata,'msgType':'BRANCH2'};"
+					}
+				}
+			],
+			"connections": [
+				{
+					"fromId": "fork",
+					"toId": "branch1",
+					"type": "True"
+				},
+				{
+					"fromId": "fork",
+					"toId": "branch2",
+					"type": "True"
+				}
+			]
+		}
+	}`
+
+	config := NewConfig()
+	var branch1Results []types.RuleMsg
+	var branch2Results []types.RuleMsg
+	var mu sync.Mutex
+
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		if flowType == types.Out {
+			mu.Lock()
+			defer mu.Unlock()
+			if nodeId == "branch1" {
+				branch1Results = append(branch1Results, msg)
+			} else if nodeId == "branch2" {
+				branch2Results = append(branch2Results, msg)
+			}
+		}
+	}
+
+	chainId := str.RandomStr(10)
+	ruleEngine, err := New(chainId, []byte(forkRuleChain), WithConfig(config))
+	assert.Nil(t, err)
+	defer Del(chainId)
+
+	// 发送测试消息
+	metaData := types.NewMetadata()
+	metaData.PutValue("original_key", "original_value")
+	metaData.PutValue("shared_key", "shared_value")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"test\":\"data\"}")
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, resultMsg types.RuleMsg, err error) {
+		wg.Done()
+	}))
+
+	wg.Wait()
+	time.Sleep(time.Millisecond * 200) // 等待所有调试回调完成
+
+	// 验证结果
+	assert.Equal(t, 1, len(branch1Results), "Should have one result from branch1")
+	assert.Equal(t, 1, len(branch2Results), "Should have one result from branch2")
+
+	branch1Msg := branch1Results[0]
+	branch2Msg := branch2Results[0]
+
+	// 验证分支隔离性
+	assert.Equal(t, "BRANCH1", branch1Msg.Type)
+	assert.Equal(t, "BRANCH2", branch2Msg.Type)
+
+	// 验证 Metadata 隔离性
+	assert.Equal(t, "branch1", branch1Msg.Metadata.GetValue("branch"))
+	assert.Equal(t, "branch2", branch2Msg.Metadata.GetValue("branch"))
+
+	assert.Equal(t, "data1", branch1Msg.Metadata.GetValue("branch1_data"))
+	assert.Equal(t, "", branch1Msg.Metadata.GetValue("branch2_data"))
+
+	assert.Equal(t, "data2", branch2Msg.Metadata.GetValue("branch2_data"))
+	assert.Equal(t, "", branch2Msg.Metadata.GetValue("branch1_data"))
+
+	// 验证原始数据仍然存在
+	assert.Equal(t, "original_value", branch1Msg.Metadata.GetValue("original_key"))
+	assert.Equal(t, "original_value", branch2Msg.Metadata.GetValue("original_key"))
+	assert.Equal(t, "shared_value", branch1Msg.Metadata.GetValue("shared_key"))
+	assert.Equal(t, "shared_value", branch2Msg.Metadata.GetValue("shared_key"))
+
 }

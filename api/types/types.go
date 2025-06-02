@@ -182,7 +182,7 @@ type RuleContext interface {
 	// If skipTellNext=true, only the current node is executed, and no message is sent to the next node.
 	TellChainNode(ctx context.Context, ruleChainId, nodeId string, msg RuleMsg, skipTellNext bool, onEnd OnEndFunc, onAllNodeCompleted func())
 	// NewMsg creates a new message instance.
-	NewMsg(msgType string, metaData Metadata, data string) RuleMsg
+	NewMsg(msgType string, metaData *Metadata, data string) RuleMsg
 	// GetSelfId retrieves the current node ID.
 	GetSelfId() string
 	// Self retrieves the current node instance.

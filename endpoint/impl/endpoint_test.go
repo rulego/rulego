@@ -19,16 +19,17 @@ package impl
 import (
 	"context"
 	"fmt"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/api/types/endpoint"
-	"github.com/rulego/rulego/components/transform"
-	"github.com/rulego/rulego/engine"
-	"github.com/rulego/rulego/test/assert"
 	"net/textproto"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/components/transform"
+	"github.com/rulego/rulego/engine"
+	"github.com/rulego/rulego/test/assert"
 )
 
 func TestEndpoint(t *testing.T) {

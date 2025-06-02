@@ -18,12 +18,14 @@ package action
 
 import (
 	"fmt"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
-	"strconv"
-	"testing"
-	"time"
 )
 
 func TestForNode(t *testing.T) {
@@ -326,4 +328,151 @@ func TestForNode(t *testing.T) {
 		time.Sleep(time.Millisecond * 20)
 
 	})
+}
+
+// TestForNodeMetadataAccuracy 测试for节点metadata的准确性
+func TestForNodeMetadataAccuracy(t *testing.T) {
+	// 创建for节点
+	node := &ForNode{}
+	config := types.NewConfig()
+	nodeConfig := types.Configuration{
+		"range": "msg.items",
+		"do":    "testNode", // 使用节点ID而不是表达式
+		"mode":  0,          // DoNotProcess模式
+	}
+	err := node.Init(config, nodeConfig)
+	assert.Nil(t, err)
+
+	// 创建测试消息
+	testData := `{"items": ["item1", "item2", "item3"]}`
+	msg := types.NewMsg(0, "TEST_MSG", types.JSON, types.NewMetadata(), testData)
+	msg.Metadata.PutValue("original_key", "original_value")
+	msg.Metadata.PutValue("test_counter", "0")
+
+	// 用于收集所有回调结果
+	var results []types.RuleMsg
+	var mu sync.Mutex
+
+	// 创建一个简单的子节点用于测试
+	testNode := &CommentNode{}
+	testNodeConfig := types.Configuration{"comment": "test"}
+	testNode.Init(config, testNodeConfig)
+
+	// 创建带子节点的规则上下文
+	childrenNodes := map[string]types.Node{
+		"testNode": testNode,
+	}
+	ctx := test.NewRuleContextFull(config, node, childrenNodes, func(msg types.RuleMsg, relationType string, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		results = append(results, msg)
+
+		// 验证metadata是否保持完整
+		metadata := msg.Metadata.Values()
+		assert.Equal(t, "original_value", metadata["original_key"])
+		assert.Equal(t, "0", metadata["test_counter"])
+
+		//t.Logf("Callback %d - RelationType: %s, Data: %s", len(results), relationType, msg.Data)
+		//t.Logf("Callback %d - Metadata: %v", len(results), metadata)
+	})
+
+	// 执行节点
+	node.OnMsg(ctx, msg)
+
+	// 等待执行完成
+	time.Sleep(time.Millisecond * 200)
+
+	// 验证结果
+	mu.Lock()
+	resultCount := len(results)
+	finalMsg := results[0] // for节点在DoNotProcess模式下只返回一个最终结果
+	mu.Unlock()
+
+	// 在DoNotProcess模式下，for节点处理完所有元素后返回原始消息
+	assert.Equal(t, 1, resultCount, "Expected 1 final result in DoNotProcess mode")
+	assert.Equal(t, testData, finalMsg.Data, "Expected original data to be preserved")
+
+	// 验证原始metadata保持完整
+	finalMetadata := finalMsg.Metadata.Values()
+	assert.Equal(t, "original_value", finalMetadata["original_key"])
+	assert.Equal(t, "0", finalMetadata["test_counter"])
+
+	//t.Logf("TestForNodeMetadataAccuracy completed - verified metadata accuracy in for node")
+}
+
+// TestForNodeMetadataWithMergeMode 测试for节点在合并模式下的metadata准确性
+func TestForNodeMetadataWithMergeMode(t *testing.T) {
+	// 创建for节点
+	node := &ForNode{}
+	config := types.NewConfig()
+	nodeConfig := types.Configuration{
+		"range": "msg.items",
+		"do":    "transformNode",
+		"mode":  1, // MergeValues模式
+	}
+	err := node.Init(config, nodeConfig)
+	assert.Nil(t, err)
+
+	// 创建测试消息
+	testData := `{"items": ["item1", "item2", "item3"]}`
+	msg := types.NewMsg(0, "TEST_MSG", types.JSON, types.NewMetadata(), testData)
+	msg.Metadata.PutValue("original_key", "original_value")
+	msg.Metadata.PutValue("process_count", "0")
+
+	// 用于收集所有回调结果
+	var results []types.RuleMsg
+	var mu sync.Mutex
+
+	// 创建一个转换节点用于测试，它会修改数据并添加metadata
+	transformNode := &CommentNode{}
+	transformNodeConfig := types.Configuration{"comment": "transform"}
+	transformNode.Init(config, transformNodeConfig)
+
+	// 创建带子节点的规则上下文
+	childrenNodes := map[string]types.Node{
+		"transformNode": transformNode,
+	}
+	ctx := test.NewRuleContextFull(config, node, childrenNodes, func(msg types.RuleMsg, relationType string, err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		results = append(results, msg)
+
+		// 验证metadata是否保持完整
+		metadata := msg.Metadata.Values()
+		assert.Equal(t, "original_value", metadata["original_key"])
+		assert.Equal(t, "0", metadata["process_count"])
+
+		// 验证for循环的最终状态metadata（应该是最后一次迭代的值）
+		assert.Equal(t, "2", metadata["_loopIndex"])    // 最后一个索引是2
+		assert.Equal(t, "item3", metadata["_loopItem"]) // 最后一个项目是item3
+
+		t.Logf("Final result - RelationType: %s, Data: %s", relationType, msg.Data)
+		t.Logf("Final metadata: %v", metadata)
+	})
+
+	// 执行节点
+	node.OnMsg(ctx, msg)
+
+	// 等待执行完成
+	time.Sleep(time.Millisecond * 200)
+
+	// 验证结果
+	mu.Lock()
+	resultCount := len(results)
+	finalMsg := results[0]
+	mu.Unlock()
+
+	// 在MergeValues模式下，for节点处理完所有元素后返回合并结果
+	assert.Equal(t, 1, resultCount, "Expected 1 final result in MergeValues mode")
+
+	// 验证原始metadata保持完整
+	finalMetadata := finalMsg.Metadata.Values()
+	assert.Equal(t, "original_value", finalMetadata["original_key"])
+	assert.Equal(t, "0", finalMetadata["process_count"])
+
+	// 验证for循环metadata反映了最后一次迭代的状态
+	assert.Equal(t, "2", finalMetadata["_loopIndex"])
+	assert.Equal(t, "item3", finalMetadata["_loopItem"])
+
+	t.Logf("TestForNodeMetadataWithMergeMode completed - verified metadata accuracy with merge mode")
 }
