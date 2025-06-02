@@ -434,7 +434,7 @@ func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgL
 
 }
 
-func (ctx *DefaultRuleContext) NewMsg(msgType string, metaData types.Metadata, data string) types.RuleMsg {
+func (ctx *DefaultRuleContext) NewMsg(msgType string, metaData *types.Metadata, data string) types.RuleMsg {
 	return types.NewMsg(0, msgType, types.JSON, metaData, data)
 }
 
@@ -591,7 +591,22 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 	//通过OnMsgWithEndFunc(msg, endFunc)设置
 	if ctx.onEnd != nil {
 		ctx.SubmitTask(func() {
-			ctx.onEnd(ctx, msg, err, relationType)
+			// 确保msg不为空值，避免空指针异常
+			var safeMsg types.RuleMsg
+			if msg.Metadata != nil {
+				safeMsg = msg
+			} else {
+				// 如果msg.Metadata为nil，创建一个安全的副本
+				safeMsg = types.RuleMsg{
+					Id:       msg.Id,
+					Ts:       msg.Ts,
+					Type:     msg.Type,
+					DataType: msg.DataType,
+					Data:     msg.Data,
+					Metadata: types.NewMetadata(),
+				}
+			}
+			ctx.onEnd(ctx, safeMsg, err, relationType)
 			ctx.childDone()
 		})
 	} else {
@@ -765,24 +780,16 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 					nodes, ok = ctx.getNextNodes(defaultRelationType)
 				}
 				if ok && !ctx.skipTellNext {
-					if len(nodes) == 1 {
-						// 单个子节点，直接传递消息
-						tmp := nodes[0]
+					for _, item := range nodes {
+						tmp := item
+						//增加一个待执行的子节点
 						ctx.childReady()
+						//为每个子节点创建独立的消息副本，避免并发竞态条件
+						msgCopy := msg.Copy()
+						//通知执行子节点
 						ctx.SubmitTask(func() {
-							ctx.tellNext(msg, tmp, relationType)
+							ctx.tellNext(msgCopy, tmp, relationType)
 						})
-					} else {
-						for _, item := range nodes {
-							tmp := item
-							//增加一个待执行的子节点
-							ctx.childReady()
-							msgCopy := msg.Copy()
-							//通知执行子节点
-							ctx.SubmitTask(func() {
-								ctx.tellNext(msgCopy, tmp, relationType)
-							})
-						}
 					}
 				} else {
 					//找不到子节点，则执行结束回调

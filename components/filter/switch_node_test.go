@@ -17,11 +17,12 @@
 package filter
 
 import (
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
-	"testing"
-	"time"
 )
 
 func TestSwitchNode(t *testing.T) {
@@ -75,37 +76,37 @@ func TestSwitchNode(t *testing.T) {
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
 		msg1 := test.Msg{
-			MetaData: map[string]string{
+			MetaData: types.BuildMetadata(map[string]string{
 				"productType":  "test2",
 				"relationType": "case1",
-			},
+			}),
 			MsgType:    "ACTIVITY_EVENT",
 			Data:       "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}",
 			AfterSleep: time.Millisecond * 200,
 		}
 		msg2 := test.Msg{
-			MetaData: map[string]string{
+			MetaData: types.BuildMetadata(map[string]string{
 				"productType":  "test",
 				"relationType": "case2",
-			},
+			}),
 			MsgType:    "ACTIVITY_EVENT",
 			Data:       "{\"name\":\"aa\",\"temperature\":20,\"humidity\":30}",
 			AfterSleep: time.Millisecond * 200,
 		}
 		msg3 := test.Msg{
-			MetaData: map[string]string{
+			MetaData: types.BuildMetadata(map[string]string{
 				"productType":  "test2",
 				"relationType": "case3",
-			},
+			}),
 			MsgType:    "ACTIVITY_EVENT",
 			Data:       "{\"name\":\"aa\",\"temperature\":40,\"humidity\":30}",
 			AfterSleep: time.Millisecond * 200,
 		}
 		msg4 := test.Msg{
-			MetaData: map[string]string{
+			MetaData: types.BuildMetadata(map[string]string{
 				"productType":  "test2",
 				"relationType": KeyDefaultRelationType,
-			},
+			}),
 			MsgType:    "ACTIVITY_EVENT",
 			Data:       "{\"name\":\"aa\",\"temperature\":10,\"humidity\":30}",
 			AfterSleep: time.Millisecond * 200,

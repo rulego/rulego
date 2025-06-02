@@ -109,7 +109,7 @@ func init() {
 			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 		} else if exchange.Out.GetMsg() != nil {
 			msg := exchange.Out.GetMsg()
-			for k, v := range msg.Metadata {
+			for k, v := range msg.Metadata.Values() {
 				exchange.Out.Headers().Set(k, v)
 			}
 		}

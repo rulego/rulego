@@ -106,15 +106,19 @@ func (n *nodeUtils) getEvnAndMetadata(_ types.RuleContext, msg types.RuleMsg, us
 	evn[types.TsKey] = msg.Ts
 	evn[types.DataKey] = msg.Data
 	evn[types.MsgKey] = data
-	evn[types.MetadataKey] = map[string]string(msg.Metadata)
+	if msg.Metadata != nil {
+		metadataValues := msg.Metadata.Values()
+		evn[types.MetadataKey] = metadataValues
+		if useMetadata {
+			for k, v := range metadataValues {
+				evn[k] = v
+			}
+		}
+	}
 	evn[types.MsgTypeKey] = msg.Type
 	evn[types.TypeKey] = msg.Type
 	evn[types.DataTypeKey] = msg.DataType
-	if useMetadata {
-		for k, v := range msg.Metadata {
-			evn[k] = v
-		}
-	}
+
 	return evn
 }
 

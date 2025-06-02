@@ -32,6 +32,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
@@ -39,9 +43,6 @@ import (
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 const (
@@ -303,7 +304,7 @@ func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleConte
 				defer lock.Unlock()
 				lastMsg = msg
 				// copy metadata
-				for k, v := range msg.Metadata {
+				for k, v := range msg.Metadata.Values() {
 					fromMsg.Metadata.PutValue(k, v)
 				}
 				msgData = append(msgData, msg.Data)
@@ -320,7 +321,7 @@ func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleConte
 				defer lock.Unlock()
 				lastMsg = msg
 				// copy metadata
-				for k, v := range msg.Metadata {
+				for k, v := range msg.Metadata.Values() {
 					fromMsg.Metadata.PutValue(k, v)
 				}
 				msgData = append(msgData, msg.Data)

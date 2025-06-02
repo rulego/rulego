@@ -26,10 +26,11 @@ package flow
 //        }
 //  }
 import (
+	"sync"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"sync"
 )
 
 // 注册节点
@@ -95,7 +96,7 @@ func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg) {
 	var msgs []types.WrapperMsg
 	var targetRelationType = types.Success
 	var targetErr error
-	//使用一个互斥锁来保护对msgs切片的并发写入
+	//使用一个互斥锁来保护对msgs切片的并发写入和metadata合并
 	var mu sync.Mutex
 	ctx.TellFlow(ctx.GetContext(), x.Config.TargetId, msg, func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
 		mu.Lock()
@@ -115,7 +116,9 @@ func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg) {
 			targetErr = err
 		}
 		//删除掉元数据
-		onEndMsg.Metadata = nil
+		if onEndMsg.Metadata != nil {
+			onEndMsg.Metadata.Clear()
+		}
 		msgs = append(msgs, types.WrapperMsg{
 			Msg:    onEndMsg,
 			Err:    errStr,

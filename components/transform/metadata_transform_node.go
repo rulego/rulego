@@ -130,10 +130,10 @@ func (x *MetadataTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) 
 		}
 	}
 	if x.Config.IsNew {
-		msg.Metadata = mapResult
+		msg.Metadata.ReplaceAll(mapResult)
 	} else {
 		for k, v := range mapResult {
-			msg.Metadata[k] = v
+			msg.Metadata.PutValue(k, v)
 		}
 	}
 	ctx.TellSuccess(msg)

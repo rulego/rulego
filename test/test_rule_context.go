@@ -20,10 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/utils/cache"
 	"sync"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/cache"
 )
 
 var _ types.RuleContext = (*NodeTestRuleContext)(nil)
@@ -112,7 +113,7 @@ func (ctx *NodeTestRuleContext) TellSelf(msg types.RuleMsg, delayMs int64) {
 func (ctx *NodeTestRuleContext) TellNextOrElse(msg types.RuleMsg, defaultRelationType string, relationTypes ...string) {
 	ctx.TellNext(msg, relationTypes...)
 }
-func (ctx *NodeTestRuleContext) NewMsg(msgType string, metaData types.Metadata, data string) types.RuleMsg {
+func (ctx *NodeTestRuleContext) NewMsg(msgType string, metaData *types.Metadata, data string) types.RuleMsg {
 	return types.NewMsg(0, msgType, types.JSON, metaData, data)
 }
 func (ctx *NodeTestRuleContext) GetSelfId() string {

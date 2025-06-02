@@ -17,10 +17,11 @@
 package filter
 
 import (
+	"strings"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
-	"strings"
 )
 
 func init() {
@@ -92,7 +93,7 @@ func (x *FieldFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 func (x *FieldFilterNode) Destroy() {
 }
 
-func (x *FieldFilterNode) checkAllKeysMetadata(metadata types.Metadata) bool {
+func (x *FieldFilterNode) checkAllKeysMetadata(metadata *types.Metadata) bool {
 	for _, item := range x.MetadataNamesList {
 		if !metadata.Has(item) {
 			return false
@@ -113,7 +114,7 @@ func (x *FieldFilterNode) checkAllKeysData(data map[string]interface{}) bool {
 	return true
 }
 
-func (x *FieldFilterNode) checkAtLeastOneMetadata(metadata types.Metadata) bool {
+func (x *FieldFilterNode) checkAtLeastOneMetadata(metadata *types.Metadata) bool {
 	for _, item := range x.MetadataNamesList {
 		if metadata.Has(item) {
 			return true

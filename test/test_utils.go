@@ -18,14 +18,15 @@ package test
 
 import (
 	"context"
+	"reflect"
+	"strings"
+	"time"
+
 	"github.com/gofrs/uuid/v5"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/cache"
 	reflect2 "github.com/rulego/rulego/utils/reflect"
-	"reflect"
-	"strings"
-	"time"
 
 	"testing"
 )
@@ -137,7 +138,7 @@ type NodeAndCallback struct {
 type Msg struct {
 	Id       string
 	Ts       int64
-	MetaData types.Metadata
+	MetaData *types.Metadata
 	DataType types.DataType
 	MsgType  string
 	Data     string
@@ -176,7 +177,7 @@ func NodeOnMsgWithChildrenAndConfig(t *testing.T, config types.Config, node type
 			Type:     item.MsgType,
 			Data:     item.Data,
 			DataType: dataType,
-			Metadata: types.BuildMetadata(item.MetaData),
+			Metadata: types.BuildMetadataFromMetadata(item.MetaData),
 		}
 		go node.OnMsg(ctx, msg)
 		if item.AfterSleep > 0 {

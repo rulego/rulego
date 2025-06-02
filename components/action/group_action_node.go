@@ -19,12 +19,13 @@ package action
 import (
 	"context"
 	"errors"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/utils/maps"
-	"github.com/rulego/rulego/utils/str"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/str"
 )
 
 func init() {
@@ -189,7 +190,9 @@ func filterEmptyAndRemoveMeta(msgs []types.WrapperMsg) []types.WrapperMsg {
 	var result []types.WrapperMsg
 	for _, msg := range msgs {
 		if msg.NodeId != "" {
-			msg.Msg.Metadata = nil
+			if msg.Msg.Metadata != nil {
+				msg.Msg.Metadata.Clear()
+			}
 			result = append(result, msg)
 		}
 	}
