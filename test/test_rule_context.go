@@ -246,3 +246,41 @@ func (ctx *NodeTestRuleContext) GetOut() types.RuleMsg {
 func (ctx *NodeTestRuleContext) GetErr() error {
 	return nil
 }
+
+// GetEnv 获取环境变量和元数据
+func (ctx *NodeTestRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[string]interface{} {
+	// 创建环境变量map
+	envVars := make(map[string]interface{})
+
+	// 设置基础环境变量
+	envVars["id"] = msg.GetId()
+	envVars["ts"] = msg.GetTs()
+	envVars["data"] = msg.GetData()
+	envVars["msgType"] = msg.GetType()
+	envVars["type"] = msg.GetType()
+	envVars["dataType"] = string(msg.GetDataType())
+	// 使用 GetDataAsJson() 避免重复JSON解析
+	if msg.DataType == types.JSON {
+		if jsonData, err := msg.GetDataAsJson(); err == nil {
+			envVars[types.MsgKey] = jsonData
+		} else {
+			// 解析失败，使用原始数据
+			envVars[types.MsgKey] = msg.GetData()
+		}
+	} else {
+		// 如果不是 JSON 类型，直接使用原始数据
+		envVars[types.MsgKey] = msg.GetData()
+	}
+	// 优化 metadata 处理
+	if msg.Metadata != nil {
+		if useMetadata {
+			// 遍历metadata，将键值对添加到环境变量中
+			for k, v := range msg.Metadata.Values() {
+				envVars[k] = v
+			}
+		}
+		envVars[types.MetadataKey] = msg.Metadata.Values()
+	}
+
+	return envVars
+}

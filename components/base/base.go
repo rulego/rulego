@@ -23,7 +23,6 @@ import (
 	"sync"
 
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/utils/json"
 )
 
 var (
@@ -89,37 +88,17 @@ func (n *nodeUtils) IsInitNetResource(_ types.Config, configuration types.Config
 	return ok
 }
 
-func (n *nodeUtils) getEvnAndMetadata(_ types.RuleContext, msg types.RuleMsg, useMetadata bool) map[string]interface{} {
-	var data interface{}
-	if msg.DataType == types.JSON {
-		// 解析 JSON 字符串到 map
-		if err := json.Unmarshal([]byte(msg.GetData()), &data); err != nil {
-			// 解析失败，使用原始数据
-			data = msg.GetData()
-		}
-	} else {
-		// 如果不是 JSON 类型，直接使用原始数据
-		data = msg.GetData()
-	}
-	var evn = make(map[string]interface{})
-	evn[types.IdKey] = msg.Id
-	evn[types.TsKey] = msg.Ts
-	evn[types.DataKey] = msg.GetData()
-	evn[types.MsgKey] = data
-	if msg.Metadata != nil {
-		metadataValues := msg.Metadata.Values()
-		evn[types.MetadataKey] = metadataValues
-		if useMetadata {
-			for k, v := range metadataValues {
-				evn[k] = v
-			}
-		}
-	}
-	evn[types.MsgTypeKey] = msg.Type
-	evn[types.TypeKey] = msg.Type
-	evn[types.DataTypeKey] = msg.DataType
+func (n *nodeUtils) getEvnAndMetadata(ctx types.RuleContext, msg types.RuleMsg, useMetadata bool) map[string]interface{} {
+	// 直接调用ctx的GetEvnAndMetadata方法
+	return ctx.GetEnv(msg, useMetadata)
+}
 
-	return evn
+// ReleaseEvn 释放环境变量map到对象池，减少GC压力
+// 注意：调用此方法后不应再使用传入的map
+// 现在由 RuleContext 自动管理，此方法保留用于向后兼容
+func (n *nodeUtils) ReleaseEvn(evn map[string]interface{}) {
+	// 环境变量的释放现在由 RuleContext 自动管理
+	// 此方法保留用于向后兼容，实际上不需要手动释放
 }
 
 // SharedNode 共享资源组件，通过 Get 获取共享实例，多个节点可以在共享池中获取相同的实例
