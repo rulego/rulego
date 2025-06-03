@@ -234,6 +234,9 @@ type RuleContext interface {
 	// This is a namespaced version of GlobalCache that automatically prefixes all keys with the rule chain ID
 	// The cache items with rule chain prefix will be automatically cleared when the rule chain is destroyed
 	ChainCache() Cache
+	// GetEnv gets environment variables and metadata from message
+	// useMetadata: whether to include metadata in the result
+	GetEnv(msg RuleMsg, useMetadata bool) map[string]interface{}
 }
 
 // RuleContextOption is a function type for modifying RuleContext options.
