@@ -19,6 +19,7 @@ package endpoint
 
 import (
 	"context"
+	"net/http"
 	"net/textproto"
 	"sync"
 
@@ -258,4 +259,26 @@ type Pool interface {
 	Range(f func(key, value any) bool)
 	// Factory returns the factory used to create endpoint instances.
 	Factory() Factory
+}
+
+// HeaderModifier is an interface for modifying headers in a endpoint message.
+type HeaderModifier interface {
+	AddHeader(key, value string)
+	SetHeader(key, value string)
+	DelHeader(key string)
+	GetMetadata() *types.Metadata
+}
+
+// HttpEndpoint is an interface for HTTP endpoints.
+type HttpEndpoint interface {
+	Endpoint
+	GET(routers ...Router) HttpEndpoint
+	HEAD(routers ...Router) HttpEndpoint
+	OPTIONS(routers ...Router) HttpEndpoint
+	POST(routers ...Router) HttpEndpoint
+	PUT(routers ...Router) HttpEndpoint
+	PATCH(routers ...Router) HttpEndpoint
+	DELETE(routers ...Router) HttpEndpoint
+	GlobalOPTIONS(handler http.Handler) HttpEndpoint
+	RegisterStaticFiles(resourceMapping string) HttpEndpoint
 }

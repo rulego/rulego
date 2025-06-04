@@ -39,6 +39,7 @@ import (
 	"net"
 	"net/http"
 	"net/textproto"
+	"regexp"
 	"strings"
 	"time"
 
@@ -67,6 +68,9 @@ const Type = types.EndpointTypePrefix + "http"
 
 // Endpoint 别名
 type Endpoint = Rest
+
+var _ endpoint.Endpoint = (*Endpoint)(nil)
+var _ endpoint.HttpEndpoint = (*Endpoint)(nil)
 
 // RequestMessage http请求消息
 type RequestMessage struct {
@@ -469,6 +473,8 @@ func (rest *Rest) addRouter(method string, routers ...endpoint.Router) error {
 					isWait = to.IsWait()
 				}
 			}
+			// 转换路径参数格式：将 {id} 格式转换为 :id 格式
+			path = rest.convertPathParams(path)
 			rest.router.Handle(method, path, rest.handler(item, isWait))
 		}
 
@@ -476,43 +482,73 @@ func (rest *Rest) addRouter(method string, routers ...endpoint.Router) error {
 	return nil
 }
 
-func (rest *Rest) GET(routers ...endpoint.Router) *Rest {
+func (rest *Rest) GET(routers ...endpoint.Router) endpoint.HttpEndpoint {
 	rest.addRouter(http.MethodGet, routers...)
 	return rest
 }
 
-func (rest *Rest) HEAD(routers ...endpoint.Router) *Rest {
+func (rest *Rest) HEAD(routers ...endpoint.Router) endpoint.HttpEndpoint {
 	rest.addRouter(http.MethodHead, routers...)
 	return rest
 }
 
-func (rest *Rest) OPTIONS(routers ...endpoint.Router) *Rest {
+func (rest *Rest) OPTIONS(routers ...endpoint.Router) endpoint.HttpEndpoint {
 	rest.addRouter(http.MethodOptions, routers...)
 	return rest
 }
 
-func (rest *Rest) POST(routers ...endpoint.Router) *Rest {
+func (rest *Rest) POST(routers ...endpoint.Router) endpoint.HttpEndpoint {
 	rest.addRouter(http.MethodPost, routers...)
 	return rest
 }
 
-func (rest *Rest) PUT(routers ...endpoint.Router) *Rest {
+func (rest *Rest) PUT(routers ...endpoint.Router) endpoint.HttpEndpoint {
 	rest.addRouter(http.MethodPut, routers...)
 	return rest
 }
 
-func (rest *Rest) PATCH(routers ...endpoint.Router) *Rest {
+func (rest *Rest) PATCH(routers ...endpoint.Router) endpoint.HttpEndpoint {
 	rest.addRouter(http.MethodPatch, routers...)
 	return rest
 }
 
-func (rest *Rest) DELETE(routers ...endpoint.Router) *Rest {
+func (rest *Rest) DELETE(routers ...endpoint.Router) endpoint.HttpEndpoint {
 	rest.addRouter(http.MethodDelete, routers...)
 	return rest
 }
 
-func (rest *Rest) GlobalOPTIONS(handler http.Handler) *Rest {
+func (rest *Rest) GlobalOPTIONS(handler http.Handler) endpoint.HttpEndpoint {
 	rest.Router().GlobalOPTIONS = handler
+	return rest
+}
+
+func (rest *Rest) RegisterStaticFiles(resourceMapping string) endpoint.HttpEndpoint {
+	if resourceMapping != "" {
+		mapping := strings.Split(resourceMapping, ",")
+		for _, item := range mapping {
+			files := strings.Split(item, "=")
+			if len(files) == 2 {
+				urlPath := strings.TrimSpace(files[0])
+				localDir := strings.TrimSpace(files[1])
+
+				// 移除 /*filepath 后缀以获取基础路径
+				basePath := urlPath
+				if strings.HasSuffix(urlPath, "/*filepath") {
+					basePath = urlPath[:len(urlPath)-10]
+				}
+
+				// 确保路径以 /{filepath:*} 结尾，这是 fasthttp router 的要求
+				if !strings.HasSuffix(urlPath, "/*filepath") {
+					if strings.HasSuffix(basePath, "/") {
+						urlPath = basePath + "*filepath"
+					} else {
+						urlPath = basePath + "/*filepath"
+					}
+				}
+				rest.Router().ServeFiles(strings.TrimSpace(urlPath), http.Dir(strings.TrimSpace(localDir)))
+			}
+		}
+	}
 	return rest
 }
 
@@ -680,4 +716,11 @@ func (rest *Rest) startServer() error {
 		}()
 	}
 	return err
+}
+
+// convertPathParams 转换路径参数格式：将 {id}格式转换为 :id  格式
+func (rest *Rest) convertPathParams(path string) string {
+	// 使用正则表达式匹配 :参数名 格式并转换为 {参数名} 格式
+	re := regexp.MustCompile(`{([a-zA-Z_][a-zA-Z0-9_]*)}`)
+	return re.ReplaceAllString(path, ":$1")
 }
