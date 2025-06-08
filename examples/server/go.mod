@@ -13,7 +13,7 @@ require (
 	github.com/rulego/rulego-components-ai v0.31.1
 	github.com/rulego/rulego-components-ci v0.31.1-0.20250602161121-89f21f4c54fe
 	github.com/rulego/rulego-components-etl v0.29.1-0.20250602160310-2d30a072f03b
-	github.com/rulego/rulego-components-iot v0.29.1-0.20250602161433-0e056f4f3f0d
+	github.com/rulego/rulego-components-iot v0.29.1-0.20250604064742-4832b0c010d7
 	gopkg.in/ini.v1 v1.67.0
 )
 
