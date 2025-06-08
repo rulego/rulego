@@ -2,6 +2,13 @@ package websocket
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/gorilla/websocket"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
@@ -11,12 +18,6 @@ import (
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
-	"net/http"
-	"os"
-	"reflect"
-	"sync"
-	"testing"
-	"time"
 )
 
 var testdataFolder = "../../testdata/rule"
