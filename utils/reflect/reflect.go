@@ -172,9 +172,20 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 					"message":  "This field is required",
 				})
 			}
+			// 优先从json标签获取字段名
+			fieldName := field.Tag.Get("json")
+			if fieldName == "" || fieldName == "-" {
+				fieldName = str.ToLowerFirst(field.Name)
+			} else {
+				// 处理json标签中的选项，如 "name,omitempty"
+				if commaIndex := strings.Index(fieldName, ","); commaIndex != -1 {
+					fieldName = fieldName[:commaIndex]
+				}
+			}
+
 			fields = append(fields,
 				types.ComponentFormField{
-					Name:         str.ToLowerFirst(field.Name),
+					Name:         fieldName,
 					Type:         typeName,
 					DefaultValue: defaultValue,
 					Label:        label,
