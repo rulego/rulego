@@ -163,7 +163,7 @@ func TestRestSharedNodeLifecycleManagement(t *testing.T) {
 
 		// 测试重启功能：删除旧节点并创建新节点
 		pool.Del("restart_test_rest")
-
+		time.Sleep(1 * time.Second)
 		// 创建更新的配置
 		var newRestDsl = []byte(`
 			{
@@ -287,9 +287,6 @@ func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
 		}).End()
 
 		restEndpoint.GET(router)
-
-		// 注意：在测试环境中不启动实际的HTTP服务器，避免端口冲突
-		// 验证路由已添加到REST endpoint
 
 		// 清理
 		pool.Del("routes_test_rest")
@@ -443,7 +440,7 @@ func TestRestSharedNodeWithRefProtocol(t *testing.T) {
 
 		// 模拟共享节点重启：删除并重新创建
 		pool.Del("shared_rest_endpoint_ref")
-
+		time.Sleep(1 * time.Second)
 		// 验证共享节点已被删除
 		_, ok = pool.Get("shared_rest_endpoint_ref")
 		assert.False(t, ok)
@@ -551,8 +548,6 @@ func TestRestSharedNodeDynamicRestart(t *testing.T) {
 	assert.True(t, ok)
 	assert.False(t, initialRest.Config.AllowCors) // 初始配置
 
-	// 注意：在测试环境中不启动实际的HTTP服务器
-
 	// 动态更新配置并重启
 	var updatedRestDsl = []byte(`
 		{
@@ -568,7 +563,7 @@ func TestRestSharedNodeDynamicRestart(t *testing.T) {
 
 	// 删除旧节点并重新创建
 	pool.Del("dynamic_restart_test")
-
+	time.Sleep(1 * time.Second)
 	// 重新创建节点
 	var updatedDef types.EndpointDsl
 	err = json.Unmarshal(updatedRestDsl, &updatedDef)

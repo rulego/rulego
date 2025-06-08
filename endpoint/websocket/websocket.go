@@ -228,7 +228,8 @@ func (ws *Websocket) Type() string {
 func (ws *Websocket) New() types.Node {
 	return &Websocket{
 		Config: Config{
-			Server: ":6334",
+			Server:    ":6334",
+			AllowCors: true,
 		},
 	}
 }
