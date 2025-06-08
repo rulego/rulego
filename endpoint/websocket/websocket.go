@@ -37,6 +37,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -217,7 +218,6 @@ type Websocket struct {
 	//配置
 	Config   Config
 	Upgrader websocket.Upgrader
-	OnEvent  endpoint.OnEvent
 }
 
 // Type 组件类型
@@ -238,6 +238,9 @@ func (ws *Websocket) Init(ruleConfig types.Config, configuration types.Configura
 	err := maps.Map2Struct(configuration, &ws.Config)
 	if err != nil {
 		return err
+	}
+	ws.Upgrader.CheckOrigin = func(r *http.Request) bool {
+		return ws.Config.AllowCors // 允许所有跨域请求
 	}
 	ws.Rest = &rest.Rest{}
 	if err = ws.Rest.Init(ruleConfig, configuration); err != nil {
@@ -264,6 +267,20 @@ func (ws *Websocket) AddRouter(router endpoint.Router, params ...interface{}) (i
 	}
 }
 
+func (ws *Websocket) RemoveRouter(routerId string, params ...interface{}) error {
+	routerId = strings.TrimSpace(routerId)
+	ws.Lock()
+	defer ws.Unlock()
+	if ws.RouterStorage != nil {
+		if router, ok := ws.RouterStorage[routerId]; ok && !router.IsDisable() {
+			router.Disable(true)
+			return nil
+		} else {
+			return fmt.Errorf("router: %s not found", routerId)
+		}
+	}
+	return nil
+}
 func (ws *Websocket) Printf(format string, v ...interface{}) {
 	if ws.RuleConfig.Logger != nil {
 		ws.RuleConfig.Logger.Printf(format, v...)
@@ -274,12 +291,8 @@ func (ws *Websocket) Start() error {
 	if ws.OnEvent != nil {
 		ws.OnEvent(endpoint.EventInitServer, ws.Rest.Server)
 	}
-	if ws.Rest.Config.AllowCors || ws.Config.AllowCors {
-		ws.Upgrader = websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return true // 允许所有跨域请求
-			},
-		}
+	ws.Upgrader.CheckOrigin = func(r *http.Request) bool {
+		return ws.Config.AllowCors // 允许所有跨域请求
 	}
 	if ws.Rest.Started() {
 		return nil
@@ -312,9 +325,13 @@ func (ws *Websocket) addRouter(routers ...endpoint.Router) *Websocket {
 
 func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+		if router.IsDisable() {
+			http.NotFound(w, r)
+			return
+		}
 		c, err := ws.Upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			ws.Printf("upgrade:", err)
+			ws.Printf("Websocket handler upgrade:", err)
 			return
 		}
 		connectExchange := &endpoint.Exchange{
