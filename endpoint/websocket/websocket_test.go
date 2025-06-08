@@ -187,13 +187,9 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup, isMultipl
 	}
 	//复用rest endpoint
 	if isMultiplex {
-		restEndpoint.OnEvent = func(eventName string, params ...interface{}) {
-			if eventName == endpoint.EventInitServer {
-				wsEndpoint = newWebsocketServe(t, restEndpoint)
-				if err := wsEndpoint.Start(); err != nil {
-					t.Fatal("error:", err)
-				}
-			}
+		wsEndpoint = newWebsocketServe(t, restEndpoint)
+		if err := wsEndpoint.Start(); err != nil {
+			t.Fatal("error:", err)
 		}
 	} else {
 		wsEndpoint = newWebsocketServe(t, nil)
@@ -218,7 +214,8 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
-		Server: testServer,
+		Server:    testServer,
+		AllowCors: true,
 	}, &nodeConfig)
 	var wsEndpoint = &Endpoint{}
 	err := wsEndpoint.Init(config, nodeConfig)
@@ -229,12 +226,15 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 	assert.Equal(t, Type, wsEndpoint.Type())
 	assert.True(t, reflect.DeepEqual(&Websocket{
 		Config: Config{
-			Server: ":6334",
+			Server:    ":6334",
+			AllowCors: true,
 		},
 	}, wsEndpoint.New()))
 
 	if restEndpoint != nil {
-		wsEndpoint = &Websocket{Rest: restEndpoint}
+		wsEndpoint = &Websocket{Rest: restEndpoint, Config: Config{
+			AllowCors: true,
+		}}
 	}
 	//添加全局拦截器
 	wsEndpoint.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
