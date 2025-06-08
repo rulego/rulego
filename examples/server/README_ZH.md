@@ -124,8 +124,9 @@ go build -tags with_extend .
 - 注册CI/CD扩展组件[rulego-components-ci](https://github.com/rulego/rulego-components-ci) ，使用`with_ci`tag进行编译
 - 注册IoT扩展组件[rulego-components-iot](https://github.com/rulego/rulego-components-iot) ，使用`with_iot`tag进行编译
 - 注册ETL扩展组件[rulego-components-etl](https://github.com/rulego/rulego-components-etl) ，使用`with_etl`tag进行编译
+- 使用`fasthttp`代替标准`endpoint/http`和`restApiCall`组件 ，使用`use_fasthttp`tag进行编译
 
-如果需要同时引入多个扩展组件库，可以使用`go build -tags "with_extend,with_ai,with_ci,with_iot,with_etl" .` tag进行编译。
+如果需要同时引入多个扩展组件库，可以使用`go build -tags "with_extend,with_ai,with_ci,with_iot,with_etl,use_fasthttp" .` tag进行编译。
 
 ## server启动
 
