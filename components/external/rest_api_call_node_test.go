@@ -17,12 +17,24 @@
 package external
 
 import (
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/test"
-	"github.com/rulego/rulego/test/assert"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/test"
+	"github.com/rulego/rulego/test/assert"
+)
+
+const (
+	// 代理测试开关
+	ENABLE_PROXY_TEST = false
+	// 代理配置
+	PROXY_HOST        = "127.0.0.1"
+	HTTP_PROXY_PORT   = 10809
+	SOCKS5_PROXY_PORT = 10808
 )
 
 func TestRestApiCallNode(t *testing.T) {
@@ -33,6 +45,7 @@ func TestRestApiCallNode(t *testing.T) {
 			"requestMethod":            "POST",
 			"maxParallelRequestsCount": 200,
 			"readTimeoutMs":            2000,
+			"insecureSkipVerify":       true,
 			"headers":                  headers,
 		}, Registry)
 	})
@@ -58,11 +71,13 @@ func TestRestApiCallNode(t *testing.T) {
 			"requestMethod":            "POST",
 			"maxParallelRequestsCount": 200,
 			"readTimeoutMs":            2000,
+			"insecureSkipVerify":       true,
 			"headers":                  headers,
 		}, types.Configuration{
 			"requestMethod":            "POST",
 			"maxParallelRequestsCount": 200,
 			"readTimeoutMs":            2000,
+			"insecureSkipVerify":       true,
 			"headers":                  headers,
 		}, Registry)
 	})
@@ -111,7 +126,7 @@ func TestRestApiCallNode(t *testing.T) {
 				Node:    node1,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					code := msg.Metadata.GetValue(statusCodeMetadataKey)
+					code := msg.Metadata.GetValue(StatusCodeMetadataKey)
 					assert.Equal(t, "405", code)
 				},
 			},
@@ -182,10 +197,10 @@ func TestRestApiCallNode(t *testing.T) {
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Success, relationType)
-					assert.Equal(t, "200", msg.Metadata.GetValue(statusCodeMetadataKey))
+					assert.Equal(t, "200", msg.Metadata.GetValue(StatusCodeMetadataKey))
 					if msg.GetData() == "[DONE]" {
 						done = true
-						assert.Equal(t, "data", msg.Metadata.GetValue(eventTypeMetadataKey))
+						assert.Equal(t, "data", msg.Metadata.GetValue(EventTypeMetadataKey))
 					}
 				},
 			},
@@ -194,7 +209,7 @@ func TestRestApiCallNode(t *testing.T) {
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Failure, relationType)
-					assert.Equal(t, "404", msg.Metadata.GetValue(statusCodeMetadataKey))
+					assert.Equal(t, "404", msg.Metadata.GetValue(StatusCodeMetadataKey))
 				},
 			},
 		}
@@ -204,5 +219,150 @@ func TestRestApiCallNode(t *testing.T) {
 
 		time.Sleep(time.Second * 1)
 		assert.True(t, done)
+	})
+
+	// 代理测试
+	t.Run("ProxyTest", func(t *testing.T) {
+		// 检查是否启用代理测试
+		if !ENABLE_PROXY_TEST {
+			t.Skip("跳过代理测试，修改常量 ENABLE_PROXY_TEST 为 true 来启用")
+			return
+		}
+
+		// 创建测试服务器
+		testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"message":"success"}`))
+		}))
+		defer testServer.Close()
+
+		// HTTP代理测试
+		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"restEndpointUrlPattern": "https://rulego.cc",
+			"requestMethod":          "GET",
+			"enableProxy":            true,
+			"proxyScheme":            "http",
+			"proxyHost":              PROXY_HOST,
+			"proxyPort":              HTTP_PROXY_PORT,
+		}, Registry)
+		assert.Nil(t, err)
+		defer node1.Destroy()
+
+		// 带认证的HTTP代理测试
+		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"restEndpointUrlPattern": "https://rulego.cc",
+			"requestMethod":          "GET",
+			"enableProxy":            true,
+			"proxyScheme":            "http",
+			"proxyHost":              PROXY_HOST,
+			"proxyPort":              HTTP_PROXY_PORT,
+			"proxyUser":              "testuser",
+			"proxyPassword":          "testpass",
+		}, Registry)
+		assert.Nil(t, err)
+		defer node2.Destroy()
+
+		// SOCKS5代理测试
+		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"restEndpointUrlPattern": "https://rulego.cc",
+			"requestMethod":          "GET",
+			"enableProxy":            true,
+			"proxyScheme":            "socks5",
+			"proxyHost":              PROXY_HOST,
+			"proxyPort":              SOCKS5_PROXY_PORT,
+		}, Registry)
+		assert.Nil(t, err)
+		defer node3.Destroy()
+
+		// 系统代理测试
+		node4, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"restEndpointUrlPattern":   "https://rulego.cc",
+			"requestMethod":            "GET",
+			"enableProxy":              true,
+			"useSystemProxyProperties": true,
+		}, Registry)
+		assert.Nil(t, err)
+		defer node4.Destroy()
+
+		metaData := types.BuildMetadata(make(map[string]string))
+		msgList := []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "TEST",
+				Data:       `{"test":"data"}`,
+				AfterSleep: time.Millisecond * 100,
+			},
+		}
+
+		// 注意：这些测试可能会失败，因为代理服务器可能不存在
+		// 这里主要测试代理配置是否正确解析和应用
+		var nodeList = []test.NodeAndCallback{
+			{
+				Node:    node1,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+				},
+			},
+			{
+				Node:    node2,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+				},
+			},
+			{
+				Node:    node3,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+				},
+			},
+			{
+				Node:    node4,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					//assert.Equal(t, types.Success, relationType)
+				},
+			},
+		}
+
+		for _, item := range nodeList {
+			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
+		}
+		time.Sleep(time.Second * 3)
+	})
+
+	// 代理配置验证测试
+	t.Run("ProxyConfigurationValidation", func(t *testing.T) {
+		// 测试有效的代理配置
+		t.Run("ValidProxyConfig", func(t *testing.T) {
+			node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+				"restEndpointUrlPattern": "https://httpbin.org/get",
+				"requestMethod":          "GET",
+				"enableProxy":            true,
+				"proxyScheme":            "http",
+				"proxyHost":              "proxy.example.com",
+				"proxyPort":              8080,
+			}, Registry)
+			assert.Nil(t, err)
+			defer node.Destroy()
+		})
+
+		// 测试有效的SOCKS5代理配置
+		t.Run("ValidSOCKS5ProxyConfig", func(t *testing.T) {
+			node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+				"restEndpointUrlPattern": "https://httpbin.org/get",
+				"requestMethod":          "GET",
+				"enableProxy":            true,
+				"proxyScheme":            "socks5",
+				"proxyHost":              "127.0.0.1",
+				"proxyPort":              1080,
+				"proxyUser":              "user",
+				"proxyPassword":          "pass",
+			}, Registry)
+			assert.Nil(t, err)
+			defer node.Destroy()
+		})
 	})
 }

@@ -35,8 +35,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -46,6 +48,7 @@ import (
 	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
+	"golang.org/x/net/proxy"
 )
 
 func init() {
@@ -54,18 +57,18 @@ func init() {
 
 // 存在到metadata key
 const (
-	//http响应状态，Metadata Key
-	statusMetadataKey = "status"
-	//http响应状态码，Metadata Key
-	statusCodeMetadataKey = "statusCode"
-	//http响应错误信息，Metadata Key
-	errorBodyMetadataKey = "errorBody"
-	//sso事件类型Metadata Key：data/event/id/retry
-	eventTypeMetadataKey = "eventType"
-
-	contentTypeKey  = "Content-Type"
-	acceptKey       = "Accept"
-	eventStreamMime = "text/event-stream"
+	//StatusMetadataKey http响应状态，Metadata Key
+	StatusMetadataKey = "status"
+	//StatusCodeMetadataKey http响应状态码，Metadata Key
+	StatusCodeMetadataKey = "statusCode"
+	//ErrorBodyMetadataKey http响应错误信息，Metadata Key
+	ErrorBodyMetadataKey = "errorBody"
+	//EventTypeMetadataKey sso事件类型Metadata Key：data/event/id/retry
+	EventTypeMetadataKey = "eventType"
+	ContentTypeKey       = "Content-Type"
+	AcceptKey            = "Accept"
+	//EventStreamMime 流式响应类型
+	EventStreamMime = "text/event-stream"
 )
 
 // RestApiCallNodeConfiguration rest配置
@@ -119,13 +122,15 @@ type RestApiCallNode struct {
 	Config RestApiCallNodeConfiguration
 	//httpClient http客户端
 	httpClient *http.Client
-	//是否是SSE（Server-Send Events）流式响应
-	isStream bool
+	template   *HTTPRequestTemplate
+}
 
-	urlTemplate     el.Template
-	headersTemplate map[*el.MixedTemplate]*el.MixedTemplate
-	bodyTemplate    el.Template
-	hasVar          bool
+type HTTPRequestTemplate struct {
+	IsStream        bool
+	UrlTemplate     el.Template
+	HeadersTemplate map[*el.MixedTemplate]*el.MixedTemplate
+	BodyTemplate    el.Template
+	HasVar          bool
 }
 
 // Type 组件类型
@@ -140,6 +145,7 @@ func (x *RestApiCallNode) New() types.Node {
 		MaxParallelRequestsCount: 200,
 		ReadTimeoutMs:            2000,
 		Headers:                  headers,
+		InsecureSkipVerify:       true,
 	}
 	return &RestApiCallNode{Config: config}
 }
@@ -150,35 +156,10 @@ func (x *RestApiCallNode) Init(ruleConfig types.Config, configuration types.Conf
 	if err == nil {
 		x.Config.RequestMethod = strings.ToUpper(x.Config.RequestMethod)
 		x.httpClient = NewHttpClient(x.Config)
-		//Server-Send Events 流式响应
-		if strings.HasPrefix(x.Config.Headers[acceptKey], eventStreamMime) || strings.HasPrefix(x.Config.Headers[contentTypeKey], eventStreamMime) {
-			x.isStream = true
-		}
-		if tmpl, err := el.NewTemplate(x.Config.RestEndpointUrlPattern); err != nil {
+		if tmp, err := HttpUtils.BuildRequestTemplate(&x.Config); err != nil {
 			return err
 		} else {
-			x.urlTemplate = tmpl
-		}
-
-		var headerTemplates = make(map[*el.MixedTemplate]*el.MixedTemplate)
-		for key, value := range x.Config.Headers {
-			keyTmpl, _ := el.NewMixedTemplate(key)
-			valueTmpl, _ := el.NewMixedTemplate(value)
-			headerTemplates[keyTmpl] = valueTmpl
-			if !keyTmpl.IsNotVar() || !valueTmpl.IsNotVar() {
-				x.hasVar = true
-			}
-		}
-		x.headersTemplate = headerTemplates
-
-		x.Config.Body = strings.TrimSpace(x.Config.Body)
-		if x.Config.Body != "" {
-			if bodyTemplate, err := el.NewTemplate(x.Config.Body); err != nil {
-				return err
-			} else {
-				x.bodyTemplate = bodyTemplate
-				x.hasVar = !bodyTemplate.IsNotVar()
-			}
+			x.template = tmp
 		}
 	}
 	return err
@@ -187,11 +168,11 @@ func (x *RestApiCallNode) Init(ruleConfig types.Config, configuration types.Conf
 // OnMsg 处理消息
 func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var evn map[string]interface{}
-	if !x.urlTemplate.IsNotVar() || x.hasVar {
+	if x.template.HasVar {
 		evn = base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	}
 	var endpointUrl = ""
-	if v, err := x.urlTemplate.Execute(evn); err != nil {
+	if v, err := x.template.UrlTemplate.Execute(evn); err != nil {
 		ctx.TellFailure(msg, err)
 		return
 	} else {
@@ -203,8 +184,8 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if x.Config.WithoutRequestBody {
 		req, err = http.NewRequest(x.Config.RequestMethod, endpointUrl, nil)
 	} else {
-		if x.bodyTemplate != nil {
-			if v, err := x.bodyTemplate.Execute(evn); err != nil {
+		if x.template.BodyTemplate != nil {
+			if v, err := x.template.BodyTemplate.Execute(evn); err != nil {
 				ctx.TellFailure(msg, err)
 				return
 			} else {
@@ -220,7 +201,7 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		return
 	}
 	//设置header
-	for key, value := range x.headersTemplate {
+	for key, value := range x.template.HeadersTemplate {
 		req.Header.Set(key.ExecuteAsString(evn), value.ExecuteAsString(evn))
 	}
 
@@ -232,31 +213,31 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}()
 
 	if err != nil {
-		msg.Metadata.PutValue(errorBodyMetadataKey, err.Error())
+		msg.Metadata.PutValue(ErrorBodyMetadataKey, err.Error())
 		ctx.TellFailure(msg, err)
-	} else if x.isStream {
-		msg.Metadata.PutValue(statusMetadataKey, response.Status)
-		msg.Metadata.PutValue(statusCodeMetadataKey, strconv.Itoa(response.StatusCode))
+	} else if x.template.IsStream {
+		msg.Metadata.PutValue(StatusMetadataKey, response.Status)
+		msg.Metadata.PutValue(StatusCodeMetadataKey, strconv.Itoa(response.StatusCode))
 		if response.StatusCode == 200 {
 			readFromStream(ctx, msg, response)
 		} else {
 			b, _ := io.ReadAll(response.Body)
-			msg.Metadata.PutValue(errorBodyMetadataKey, string(b))
+			msg.Metadata.PutValue(ErrorBodyMetadataKey, string(b))
 			ctx.TellNext(msg, types.Failure)
 		}
 
 	} else if b, err := io.ReadAll(response.Body); err != nil {
-		msg.Metadata.PutValue(errorBodyMetadataKey, err.Error())
+		msg.Metadata.PutValue(ErrorBodyMetadataKey, err.Error())
 		ctx.TellFailure(msg, err)
 	} else {
-		msg.Metadata.PutValue(statusMetadataKey, response.Status)
-		msg.Metadata.PutValue(statusCodeMetadataKey, strconv.Itoa(response.StatusCode))
+		msg.Metadata.PutValue(StatusMetadataKey, response.Status)
+		msg.Metadata.PutValue(StatusCodeMetadataKey, strconv.Itoa(response.StatusCode))
 		if response.StatusCode == 200 {
 			msg.SetData(string(b))
 			ctx.TellSuccess(msg)
 		} else {
 			strB := string(b)
-			msg.Metadata.PutValue(errorBodyMetadataKey, strB)
+			msg.Metadata.PutValue(ErrorBodyMetadataKey, strB)
 			ctx.TellFailure(msg, errors.New(strB))
 		}
 	}
@@ -266,26 +247,136 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 func (x *RestApiCallNode) Destroy() {
 }
 
+// NewHttpClient 创建http客户端
 func NewHttpClient(config RestApiCallNodeConfiguration) *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: config.InsecureSkipVerify}
 	transport.MaxConnsPerHost = config.MaxParallelRequestsCount
-	if config.EnableProxy && !config.UseSystemProxyProperties {
-		//开启代理
-		urli := url.URL{}
-		proxyUrl := fmt.Sprintf("%s://%s:%d", config.ProxyScheme, config.ProxyHost, config.ProxyPort)
-		urlProxy, _ := urli.Parse(proxyUrl)
-		if config.ProxyUser != "" && config.ProxyPassword != "" {
-			urlProxy.User = url.UserPassword(config.ProxyUser, config.ProxyPassword)
+
+	// 配置代理
+	if config.EnableProxy {
+		if config.UseSystemProxyProperties {
+			// 使用系统代理设置
+			if proxyURL := HttpUtils.GetSystemProxy(); proxyURL != nil {
+				transport.Proxy = http.ProxyURL(proxyURL)
+			}
+		} else {
+			// 使用自定义代理设置
+			if proxyURL := HttpUtils.BuildProxyURL(config.ProxyScheme, config.ProxyHost, config.ProxyPort, config.ProxyUser, config.ProxyPassword); proxyURL != nil {
+				if config.ProxyScheme == "socks5" {
+					// SOCKS5代理需要特殊处理
+					transport.Dial = HttpUtils.CreateSOCKS5Dialer(proxyURL)
+				} else {
+					// HTTP/HTTPS代理
+					transport.Proxy = http.ProxyURL(proxyURL)
+				}
+			}
 		}
-		transport.Proxy = http.ProxyURL(urlProxy)
 	}
+
 	return &http.Client{Transport: transport,
 		Timeout: time.Duration(config.ReadTimeoutMs) * time.Millisecond}
 }
 
 // SSE 流式数据读取
 func readFromStream(ctx types.RuleContext, msg types.RuleMsg, resp *http.Response) {
+	HttpUtils.ReadFromStream(ctx, msg, resp)
+}
+
+// HttpUtils 全局HttpUtils实例
+var HttpUtils = NewHttpUtils()
+
+// httpUtils HTTP相关工具函数集合
+type httpUtils struct{}
+
+// NewHttpUtils 创建HttpUtils实例
+func NewHttpUtils() *httpUtils {
+	return &httpUtils{}
+}
+
+// GetSystemProxy 获取系统代理设置
+func (h *httpUtils) GetSystemProxy() *url.URL {
+	// 检查环境变量
+	for _, env := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy"} {
+		if proxyStr := os.Getenv(env); proxyStr != "" {
+			if proxyURL, err := url.Parse(proxyStr); err == nil {
+				return proxyURL
+			}
+		}
+	}
+	return nil
+}
+
+// BuildProxyURL 构建代理URL
+func (h *httpUtils) BuildProxyURL(scheme, host string, port int, user, password string) *url.URL {
+	if scheme == "" || host == "" || port == 0 {
+		return nil
+	}
+
+	proxyURL := fmt.Sprintf("%s://%s:%d", scheme, host, port)
+	if user != "" && password != "" {
+		proxyURL = fmt.Sprintf("%s://%s:%s@%s:%d", scheme, user, password, host, port)
+	}
+
+	if parsedURL, err := url.Parse(proxyURL); err == nil {
+		return parsedURL
+	}
+	return nil
+}
+
+// CreateSOCKS5Dialer 创建SOCKS5拨号器
+func (h *httpUtils) CreateSOCKS5Dialer(proxyURL *url.URL) func(network, addr string) (net.Conn, error) {
+	return func(network, addr string) (net.Conn, error) {
+		var auth *proxy.Auth
+		if proxyURL.User != nil {
+			if password, ok := proxyURL.User.Password(); ok {
+				auth = &proxy.Auth{
+					User:     proxyURL.User.Username(),
+					Password: password,
+				}
+			}
+		}
+
+		dialer, err := proxy.SOCKS5(network, proxyURL.Host, auth, proxy.Direct)
+		if err != nil {
+			return nil, err
+		}
+
+		return dialer.Dial(network, addr)
+	}
+}
+
+const base64Table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
+// Base64Encode 简单的base64编码（复用函数）
+func (h *httpUtils) Base64Encode(s string) string {
+	data := []byte(s)
+	result := make([]byte, 0, (len(data)+2)/3*4)
+
+	for i := 0; i < len(data); i += 3 {
+		b := uint32(data[i]) << 16
+		if i+1 < len(data) {
+			b |= uint32(data[i+1]) << 8
+		}
+		if i+2 < len(data) {
+			b |= uint32(data[i+2])
+		}
+
+		for j := 0; j < 4; j++ {
+			if i*8/6+j < (len(data)*8+5)/6 {
+				result = append(result, base64Table[(b>>(18-j*6))&0x3F])
+			} else {
+				result = append(result, '=')
+			}
+		}
+	}
+
+	return string(result)
+}
+
+// ReadFromStream 从SSE流中读取数据
+func (h *httpUtils) ReadFromStream(ctx types.RuleContext, msg types.RuleMsg, resp *http.Response) {
+	defer resp.Body.Close()
 	// 从响应的Body中读取数据，使用bufio.Scanner按行读取
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
@@ -306,11 +397,52 @@ func readFromStream(ctx types.RuleContext, msg types.RuleMsg, resp *http.Respons
 		}
 		eventType := strings.TrimSpace(parts[0])
 		eventData := strings.TrimSpace(parts[1])
-		msg.Metadata.PutValue(eventTypeMetadataKey, eventType)
+		msg.Metadata.PutValue(EventTypeMetadataKey, eventType)
 		msg.SetData(eventData)
 		ctx.TellSuccess(msg)
 	}
 	if err := scanner.Err(); err != nil && err != io.EOF {
 		ctx.TellFailure(msg, err)
 	}
+}
+
+func (h *httpUtils) BuildRequestTemplate(config *RestApiCallNodeConfiguration) (*HTTPRequestTemplate, error) {
+	reqTemplate := &HTTPRequestTemplate{}
+	//Server-Send Events 流式响应
+	if strings.HasPrefix(config.Headers[AcceptKey], EventStreamMime) ||
+		strings.HasPrefix(config.Headers[ContentTypeKey], EventStreamMime) {
+		reqTemplate.IsStream = true
+	}
+	if tmpl, err := el.NewTemplate(config.RestEndpointUrlPattern); err != nil {
+		return nil, err
+	} else {
+		reqTemplate.UrlTemplate = tmpl
+		if reqTemplate.UrlTemplate.HasVar() {
+			reqTemplate.HasVar = true
+		}
+	}
+
+	var headerTemplates = make(map[*el.MixedTemplate]*el.MixedTemplate)
+	for key, value := range config.Headers {
+		keyTmpl, _ := el.NewMixedTemplate(key)
+		valueTmpl, _ := el.NewMixedTemplate(value)
+		headerTemplates[keyTmpl] = valueTmpl
+		if keyTmpl.HasVar() || valueTmpl.HasVar() {
+			reqTemplate.HasVar = true
+		}
+	}
+	reqTemplate.HeadersTemplate = headerTemplates
+
+	config.Body = strings.TrimSpace(config.Body)
+	if config.Body != "" {
+		if bodyTemplate, err := el.NewTemplate(config.Body); err != nil {
+			return nil, err
+		} else {
+			reqTemplate.BodyTemplate = bodyTemplate
+			if bodyTemplate.HasVar() {
+				reqTemplate.HasVar = true
+			}
+		}
+	}
+	return reqTemplate, nil
 }
