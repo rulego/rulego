@@ -177,7 +177,10 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	assert.Equal(t, Type, restEndpoint.Type())
 	assert.True(t, reflect.DeepEqual(&Rest{
 		Config: Config{
-			Server: ":6333",
+			Server:       ":6333",
+			ReadTimeout:  10, // 默认10秒
+			WriteTimeout: 10, // 默认10秒
+			IdleTimeout:  60, // 默认60秒
 		},
 	}, restEndpoint.New()))
 

@@ -243,11 +243,15 @@ func (r *ResponseMessage) Response() http.ResponseWriter {
 
 // Config Rest 服务配置
 type Config struct {
-	Server      string
-	CertFile    string
-	CertKeyFile string
+	Server      string `json:"server"`      //服务器地址
+	CertFile    string `json:"certFile"`    //证书文件
+	CertKeyFile string `json:"certKeyFile"` //证书私钥文件
 	//是否允许跨域
-	AllowCors bool
+	AllowCors        bool
+	ReadTimeout      int  `json:"readTimeout"`      // 读取超时时间（秒），0使用默认值10秒
+	WriteTimeout     int  `json:"writeTimeout"`     // 写入超时时间（秒），0使用默认值10秒
+	IdleTimeout      int  `json:"idleTimeout"`      // 空闲超时时间（秒），0使用默认值60秒
+	DisableKeepalive bool `json:"disableKeepalive"` //  禁用keepalive
 }
 
 // Rest 接收端端点
@@ -271,7 +275,10 @@ func (rest *Rest) Type() string {
 func (rest *Rest) New() types.Node {
 	return &Rest{
 		Config: Config{
-			Server: ":6333",
+			Server:       ":6333",
+			ReadTimeout:  10,
+			WriteTimeout: 10,
+			IdleTimeout:  60,
 		},
 	}
 }
@@ -684,7 +691,38 @@ func (rest *Rest) startServer() error {
 		return nil
 	}
 	var err error
-	rest.Server = &http.Server{Addr: rest.Config.Server, Handler: rest.router}
+
+	// 创建HTTP服务器并应用超时配置
+	rest.Server = &http.Server{
+		Addr:    rest.Config.Server,
+		Handler: rest.router,
+	}
+
+	// 应用读取超时配置
+	if rest.Config.ReadTimeout > 0 {
+		rest.Server.ReadTimeout = time.Duration(rest.Config.ReadTimeout) * time.Second
+	} else {
+		rest.Server.ReadTimeout = 10 * time.Second // 默认10秒
+	}
+
+	// 应用写入超时配置
+	if rest.Config.WriteTimeout > 0 {
+		rest.Server.WriteTimeout = time.Duration(rest.Config.WriteTimeout) * time.Second
+	} else {
+		rest.Server.WriteTimeout = 10 * time.Second // 默认10秒
+	}
+
+	// 应用空闲超时配置
+	if rest.Config.IdleTimeout > 0 {
+		rest.Server.IdleTimeout = time.Duration(rest.Config.IdleTimeout) * time.Second
+	} else {
+		rest.Server.IdleTimeout = 60 * time.Second // 默认60秒
+	}
+
+	// 应用禁用keepalive配置
+	if rest.Config.DisableKeepalive {
+		rest.Server.SetKeepAlivesEnabled(false)
+	}
 	ln, err := rest.Listen()
 	if err != nil {
 		return err
