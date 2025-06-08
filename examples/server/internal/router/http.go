@@ -1,6 +1,7 @@
 package router
 
 import (
+	"errors"
 	"examples/server/config"
 	"examples/server/config/logger"
 	"examples/server/internal/controller"
@@ -30,8 +31,20 @@ const (
 	JsonContextType   = "application/json"
 )
 
+// SystemRulegoConfig 系统rulego配置
+var SystemRulegoConfig types.Config
+
+// SystemNodePool 系统内部节点池
+var SystemNodePool *node_pool.NodePool
+
+func InitRulegoConfig() {
+	SystemRulegoConfig = rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger.Logger))
+	SystemNodePool = node_pool.NewNodePool(SystemRulegoConfig)
+	SystemRulegoConfig.NetPool = SystemNodePool
+}
+
 // NewRestServe rest服务 接收端点
-func NewRestServe(config config.Config) *rest.Endpoint {
+func NewRestServe(config config.Config) (endpointApi.HttpEndpoint, error) {
 	//初始化日志
 	addr := config.Server
 	if strings.HasPrefix(addr, ":") {
@@ -40,16 +53,30 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 		logger.Logger.Println("RuleGo-Server now running at http://" + addr)
 	}
 
-	restEndpoint := &rest.Endpoint{
-		Config: rest.Config{
+	ep, err := endpoint.Registry.New(
+		rest.Type,
+		SystemRulegoConfig,
+		rest.Config{
 			Server:    addr,
 			AllowCors: true,
 		},
-		RuleConfig: rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger.Logger)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	var restEndpoint endpointApi.HttpEndpoint
+	if ep, ok := ep.(endpointApi.HttpEndpoint); !ok {
+		return nil, errors.New("is not HttpEndpoint type error")
+	} else {
+		restEndpoint = ep
 	}
 	//添加全局拦截器
 	restEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		exchange.Out.Headers().Set(ContentTypeKey, JsonContextType)
+		if out, ok := exchange.Out.(endpointApi.HeaderModifier); ok {
+			out.AddHeader(ContentTypeKey, JsonContextType)
+		} else {
+			exchange.Out.Headers().Set(ContentTypeKey, JsonContextType)
+		}
 		return true
 	})
 	//重定向UI界面
@@ -120,23 +147,21 @@ func NewRestServe(config config.Config) *rest.Endpoint {
 		logger.Logger.Println("RuleGo-Server mcp server running at http://127.0.0.1" + addr + apiBasePath + "/mcp/" +
 			config.GetApiKeyByUsername(config.DefaultUsername) + "/sse")
 	}
+	// 加载静态文件映射
+	restEndpoint.RegisterStaticFiles(config.ResourceMapping)
 
 	//把默认HTTP服务设置成共享节点
 	if config.ShareHttpServer {
 		_, _ = node_pool.DefaultNodePool.AddNode(restEndpoint)
 	}
-	return restEndpoint
+	//把默认HTTP服务添加到系统节点池
+	_, _ = SystemNodePool.AddNode(restEndpoint)
+	return restEndpoint, nil
 }
 
 // LoadServeFiles 加载静态文件映射
-func LoadServeFiles(c config.Config, restEndpoint *rest.Endpoint) {
+func LoadServeFiles(c config.Config, restEndpoint endpointApi.HttpEndpoint) {
 	if c.ResourceMapping != "" {
-		mapping := strings.Split(c.ResourceMapping, ",")
-		for _, item := range mapping {
-			files := strings.Split(item, "=")
-			if len(files) == 2 {
-				restEndpoint.Router().ServeFiles(strings.TrimSpace(files[0]), http.Dir(strings.TrimSpace(files[1])))
-			}
-		}
+		restEndpoint.RegisterStaticFiles(c.ResourceMapping)
 	}
 }

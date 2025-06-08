@@ -63,17 +63,21 @@ func GetRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEnginePool {
 }
 
 var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-	r := exchange.In.(*rest.RequestMessage)
-
+	var metadata *types.Metadata
+	if r, ok := exchange.In.(*rest.RequestMessage); ok {
+		metadata = r.Metadata
+	} else if r, ok := exchange.In.(endpointApi.HeaderModifier); ok {
+		metadata = r.GetMetadata()
+	}
 	authorization := exchange.In.Headers().Get(constants.KeyAuthorization)
 	if !config.Get().RequireAuth && authorization == "" {
 		//允许匿名访问
-		r.Metadata.PutValue(constants.KeyUsername, config.C.DefaultUsername)
+		metadata.PutValue(constants.KeyUsername, config.C.DefaultUsername)
 		return true
 	}
 	username := getUsernameApiKey(authorization) // "Bearer api_key" 方式
 	if username != "" {
-		r.Metadata.PutValue(constants.KeyUsername, username)
+		metadata.PutValue(constants.KeyUsername, username)
 		return true
 	} else {
 		claim, err := parseToken(authorization) // "Bearer jwt" 方式
@@ -82,7 +86,7 @@ var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange
 			exchange.Out.SetBody([]byte(err.Error()))
 			return false
 		}
-		r.Metadata.PutValue(constants.KeyUsername, claim.Username)
+		metadata.PutValue(constants.KeyUsername, claim.Username)
 		return true
 	}
 

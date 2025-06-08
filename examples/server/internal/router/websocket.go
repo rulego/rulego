@@ -5,30 +5,32 @@ import (
 	"examples/server/internal/constants"
 	"examples/server/internal/controller"
 	"examples/server/internal/service"
-	"github.com/gorilla/websocket"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
-	"github.com/rulego/rulego/endpoint/rest"
+	"github.com/rulego/rulego/endpoint"
 	websocketEndpoint "github.com/rulego/rulego/endpoint/websocket"
 	"github.com/rulego/rulego/utils/json"
-	"net/http"
-	"time"
 )
 
 // NewWebsocketServe Websocket服务 接收端点
-func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpoint.Endpoint {
-	//初始化日志
-	wsEndpoint := &websocketEndpoint.Endpoint{
-		Rest: restEndpoint,
-		Upgrader: websocket.Upgrader{
-			ReadBufferSize:  1024,
-			WriteBufferSize: 1024,
-			CheckOrigin: func(r *http.Request) bool {
-				return true // 允许所有跨域请求
-			},
+func NewWebsocketServe(c config.Config, httpEndpoint endpointApi.HttpEndpoint) (endpoint.Endpoint, error) {
+
+	// 使用Registry创建websocket端点，使用HTTP端点作为底层端点
+	ep, err := endpoint.Registry.New(
+		websocketEndpoint.Type,
+		SystemRulegoConfig,
+		websocketEndpoint.Config{
+			Server:    "ref://" + httpEndpoint.Id(),
+			AllowCors: true,
 		},
+	)
+	if err != nil {
+		return nil, err
 	}
-	wsEndpoint.OnEvent = func(eventName string, params ...interface{}) {
+
+	ep.SetOnEvent(func(eventName string, params ...interface{}) {
 		switch eventName {
 		case endpointApi.EventConnect:
 			exchange := params[0].(*endpointApi.Exchange)
@@ -71,8 +73,8 @@ func NewWebsocketServe(c config.Config, restEndpoint *rest.Rest) *websocketEndpo
 				s.RemoveOnDebugObserver(exchange.In.GetParam(constants.KeyClientId))
 			}
 		}
-	}
-	_, _ = wsEndpoint.AddRouter(controller.Log.WsNodeLogRouter(apiBasePath + "/" + moduleLogs + "/ws/:chainId/:clientId"))
+	})
+	_, _ = ep.AddRouter(controller.Log.WsNodeLogRouter(apiBasePath + "/" + moduleLogs + "/ws/:chainId/:clientId"))
 
-	return wsEndpoint
+	return ep, nil
 }

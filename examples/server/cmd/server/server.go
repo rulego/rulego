@@ -23,17 +23,15 @@ import (
 	"examples/server/internal/service"
 	"flag"
 	"fmt"
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/node_pool"
+	"gopkg.in/ini.v1"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
-
-	endpointApi "github.com/rulego/rulego/api/types/endpoint"
-	"github.com/rulego/rulego/endpoint/rest"
-	"github.com/rulego/rulego/node_pool"
-	"gopkg.in/ini.v1"
 )
 
 const (
@@ -98,20 +96,26 @@ func main() {
 	} else {
 		log.Printf("loadNodePool file=%s \n", c.NodePoolFile)
 	}
+	//初始化rulego配置
+	router.InitRulegoConfig()
 	//创建http服务
-	restEndpoint := router.NewRestServe(c)
-	restEndpoint.OnEvent = func(eventName string, params ...interface{}) {
-		if eventName == endpointApi.EventInitServer {
-			router.LoadServeFiles(c, restEndpoint)
-			wsEndpoint := router.NewWebsocketServe(c, params[0].(*rest.Rest))
-			if err := wsEndpoint.Start(); err != nil {
-				log.Fatal("error:", err)
-			}
-		}
+	ep, err := router.NewRestServe(c)
+	if err != nil {
+		log.Fatal("error:", err)
 	}
 	//启动http服务
-	if err := restEndpoint.Start(); err != nil {
+	if err := ep.Start(); err != nil {
 		log.Fatal("error:", err)
+	}
+	//创建websocket服务
+	if restEp, ok := ep.(endpointApi.HttpEndpoint); ok {
+		wsEp, err := router.NewWebsocketServe(c, restEp)
+		if err != nil {
+			log.Fatal("websocket endpoint creation error:", err)
+		}
+		if err := wsEp.Start(); err != nil {
+			log.Fatal("websocket start error:", err)
+		}
 	}
 	//初始化服务
 	if err := service.Setup(c); err != nil {
@@ -124,12 +128,9 @@ func main() {
 
 	select {
 	case <-sigs:
-		if restEndpoint != nil {
-			restEndpoint.Destroy()
+		if ep != nil {
+			ep.Destroy()
 		}
-		//if mqttEndpoint != nil {
-		//	mqttEndpoint.Destroy()
-		//}
 		log.Println("stopped server")
 		os.Exit(0)
 	}
