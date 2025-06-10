@@ -18,11 +18,11 @@ package external
 
 import (
 	"context"
+	"github.com/rulego/rulego/utils/mqtt"
 	"time"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
-	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 )

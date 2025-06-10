@@ -18,11 +18,11 @@ package node_pool
 
 import (
 	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/utils/mqtt"
 	"strings"
 	"testing"
 	"time"
