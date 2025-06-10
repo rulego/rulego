@@ -20,10 +20,10 @@ import (
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
-	"github.com/rulego/rulego/components/mqtt"
 	"github.com/rulego/rulego/endpoint"
 	mqttEndpoint "github.com/rulego/rulego/endpoint/mqtt"
 	"github.com/rulego/rulego/endpoint/rest"
+	"github.com/rulego/rulego/utils/mqtt"
 	"log"
 )
 

@@ -20,7 +20,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/rulego/rulego/api/pool"
+	"github.com/rulego/rulego/utils/pool"
 )
 
 // Option is a function type that modifies the Config.
