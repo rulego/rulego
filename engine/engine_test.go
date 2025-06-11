@@ -1107,7 +1107,7 @@ func TestRuleContext(t *testing.T) {
 	})
 	t.Run("notSelf", func(t *testing.T) {
 		ctx := NewRuleContext(context.Background(), config, ruleEngine.RootRuleChainCtx().(*RuleChainCtx), nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-			assert.Equal(t, "", relationType)
+			assert.Equal(t, types.Success, relationType)
 		}, nil)
 		ctx.tellSelf(msg, nil, types.Success)
 	})

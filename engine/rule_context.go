@@ -665,34 +665,25 @@ func (ctx *DefaultRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) 
 
 // DoOnEnd  结束规则链分支执行，触发 OnEnd 回调函数
 func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationType string) {
+	// 拷贝msg
+	safeMsgCopy := msg.Copy()
+	// 确保Metadata不为nil，避免空指针异常
+	if safeMsgCopy.Metadata == nil {
+		safeMsgCopy.SetMetadata(types.NewMetadata())
+	}
 
 	//全局回调
 	//通过`Config.OnEnd`设置
 	if ctx.config.OnEnd != nil {
 		ctx.SubmitTask(func() {
-			ctx.config.OnEnd(msg, err)
+			ctx.config.OnEnd(safeMsgCopy, err)
 		})
 	}
 	//单条消息的context回调
 	//通过OnMsgWithEndFunc(msg, endFunc)设置
 	if ctx.onEnd != nil {
 		ctx.SubmitTask(func() {
-			// 确保msg不为空值，避免空指针异常
-			var safeMsg types.RuleMsg
-			if msg.Metadata != nil {
-				safeMsg = msg
-			} else {
-				// 如果msg.Metadata为nil，创建一个安全的副本
-				safeMsg = types.RuleMsg{
-					Id:       msg.Id,
-					Ts:       msg.Ts,
-					Type:     msg.Type,
-					DataType: msg.DataType,
-					Data:     types.NewSharedData(msg.GetData()),
-					Metadata: types.NewMetadata(),
-				}
-			}
-			ctx.onEnd(ctx, safeMsg, err, relationType)
+			ctx.onEnd(ctx, safeMsgCopy, err, relationType)
 			ctx.childDone()
 		})
 	} else {
@@ -826,14 +817,18 @@ func (ctx *DefaultRuleContext) getNextNodes(relationType string) ([]types.NodeCt
 
 // tellSelf 执行自身节点
 func (ctx *DefaultRuleContext) tellSelf(msg types.RuleMsg, err error, relationTypes ...string) {
-	msgCopy := msg.Copy()
-	ctx.SubmitTask(func() {
-		if ctx.self != nil {
-			ctx.tellNext(msgCopy, ctx.self, "")
-		} else {
-			ctx.DoOnEnd(msgCopy, err, "")
-		}
-	})
+	var relationType string
+	if len(relationTypes) > 0 {
+		relationType = relationTypes[0]
+	}
+	if ctx.self != nil {
+		msgCopy := msg.Copy()
+		ctx.SubmitTask(func() {
+			ctx.tellNext(msgCopy, ctx.self, relationType)
+		})
+	} else {
+		ctx.DoOnEnd(msg, err, relationType)
+	}
 }
 
 // tellNext 通知执行子节点，如果是当前第一个节点则执行当前节点
