@@ -20,7 +20,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/rulego/rulego/api/pool"
+	"github.com/rulego/rulego/utils/pool"
 )
 
 // OnDebug is a global debug callback function for nodes.

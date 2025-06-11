@@ -19,11 +19,11 @@ package action
 import (
 	"errors"
 	"fmt"
+	"github.com/rulego/rulego/utils/js"
 	"strings"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
-	"github.com/rulego/rulego/components/js"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
