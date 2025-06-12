@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/rulego/rulego/test/assert"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -134,7 +135,6 @@ func TestForNodeConcurrentMetadataAccess(t *testing.T) {
 		t.Errorf("期望0个错误，实际有 %d 个错误", errorCount)
 	}
 
-
 }
 
 // TestForNodeMetadataRaceCondition 测试for节点元数据的竞态条件
@@ -232,7 +232,7 @@ func TestForNodeMetadataRaceCondition(t *testing.T) {
 
 	select {
 	case <-done:
-	
+
 	case <-ctx.Done():
 		t.Errorf("测试超时: 只处理了 %d 条消息", processedCount)
 	}
@@ -398,8 +398,8 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 			items1JSON, _ := json.Marshal(items1)
 			items2JSON, _ := json.Marshal(items2)
 			items3JSON, _ := json.Marshal(items3)
-			msg := types.NewMsg(0, "TEST_FORK_FOR_CONCURRENT", types.JSON, metaData, 
-				fmt.Sprintf(`{"items1": %s, "items2": %s, "items3": %s, "batch_id": %d}`, 
+			msg := types.NewMsg(0, "TEST_FORK_FOR_CONCURRENT", types.JSON, metaData,
+				fmt.Sprintf(`{"items1": %s, "items2": %s, "items3": %s, "batch_id": %d}`,
 					items1JSON, items2JSON, items3JSON, index))
 
 			// 发送消息并等待处理完成
@@ -446,7 +446,6 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 	if finalProcessorCount != expectedFinalCount {
 		t.Errorf("期望最终处理器被调用 %d 次，实际调用 %d 次", expectedFinalCount, finalProcessorCount)
 	}
-
 
 }
 
@@ -539,5 +538,157 @@ func TestForNodeAsyncModeMetadataSafety(t *testing.T) {
 		t.Errorf("期望0个错误，实际有 %d 个错误", errorCount)
 	}
 
+}
+
+// TestConcurrentRaceCondition 测试getEnv并发竞态条件
+func TestConcurrentGetEnv(t *testing.T) {
+	// 规则链DSL - 一个节点分叉到两个并发节点
+	ruleChainDSL := `{
+		"ruleChain": {
+			"id": "kOPFwceGDK9p",
+			"name": "测试并发",
+			"root": true,
+			"debugMode": true,
+			"additionalInfo": {
+				"description": "",
+				"layoutX": "280",
+				"layoutY": "280"
+			},
+			"configuration": {}
+		},
+		"metadata": {
+			"endpoints": [],
+			"nodes": [
+				{
+					"id": "node_2",
+					"type": "restApiCall",
+					"name": "并发1",
+					"configuration": {
+						"requestMethod": "GET",
+						"headers": {
+							"Content-Type": "application/json",
+							"Token": "${metadata.token}"
+						},
+						"readTimeoutMs": 2000,
+						"insecureSkipVerify": true,
+						"maxParallelRequestsCount": 200,
+						"proxyPort": 0,
+						"restEndpointUrlPattern": "https://aa/delay/1"
+					},
+					"debugMode": false,
+					"additionalInfo": {
+						"layoutX": 480,
+						"layoutY": 280
+					}
+				},
+				{
+					"id": "node_3",
+					"type": "restApiCall",
+					"name": "并发2",
+					"configuration": {
+						"requestMethod": "GET",
+						"headers": {
+							"Content-Type": "application/json",
+							"Token": "${metadata.token}"
+						},
+						"readTimeoutMs": 2000,
+						"insecureSkipVerify": true,
+						"maxParallelRequestsCount": 200,
+						"proxyPort": 0,
+						"restEndpointUrlPattern": "https://aa/delay/1"
+					},
+					"debugMode": false,
+					"additionalInfo": {
+						"layoutX": 750,
+						"layoutY": 200
+					}
+				},
+				{
+					"id": "node_4",
+					"type": "restApiCall",
+					"name": "并发3",
+					"configuration": {
+						"requestMethod": "GET",
+						"headers": {
+							"Content-Type": "application/json",
+							"Token": "${metadata.token}"
+						},
+						"readTimeoutMs": 2000,
+						"insecureSkipVerify": true,
+						"maxParallelRequestsCount": 200,
+						"proxyPort": 0,
+						"restEndpointUrlPattern": "https://aa/delay/1"
+					},
+					"debugMode": false,
+					"additionalInfo": {
+						"layoutX": 750,
+						"layoutY": 350
+					}
+				}
+			],
+			"connections": [
+			{
+				"fromId": "node_2",
+				"toId": "node_3",
+				"type": "Success"
+			},
+			{
+				"fromId": "node_2",
+				"toId": "node_3",
+				"type": "Failure"
+			},
+			{
+				"fromId": "node_2",
+				"toId": "node_4",
+				"type": "Success"
+			},
+			{
+				"fromId": "node_2",
+				"toId": "node_4",
+				"type": "Failure"
+			}
+			]
+		}
+	}`
+
+	// 创建规则引擎
+	config := NewConfig(types.WithDefaultPool())
+	ruleEngine, err := New("test", []byte(ruleChainDSL), WithConfig(config))
+	assert.Nil(t, err)
+
+	// 并发测试参数
+	concurrentCount := 50 // 并发数量
+	messageCount := 1     // 每个协程发送的消息数量
+
+	var wg sync.WaitGroup
+	wg.Add(concurrentCount * messageCount * 2)
+	// 启动多个协程并发执行规则链
+	for i := 0; i < concurrentCount; i++ {
+		go func(routineID int) {
+
+			// 每个协程发送多条消息
+			for j := 0; j < messageCount; j++ {
+				metadata := types.NewMetadata()
+				// 创建消息
+				msg := types.NewMsg(0, "TEST", types.JSON, metadata, fmt.Sprintf(`{"id":%d,"count":%d}`, routineID, j))
+
+				// 设置metadata，包含token用于模板替换
+				msg.Metadata.PutValue("token", fmt.Sprintf("token_%d_%d", routineID, j))
+				msg.Metadata.PutValue("routineID", fmt.Sprintf("%d", routineID))
+				msg.Metadata.PutValue("messageID", fmt.Sprintf("%d", j))
+
+				// 执行规则链
+				ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+					wg.Done()
+				}))
+
+				// 添加小延迟，增加并发竞争的可能性
+				time.Sleep(time.Millisecond * 10)
+			}
+		}(i)
+	}
+
+	// 等待所有协程完成
+	wg.Wait()
 
 }

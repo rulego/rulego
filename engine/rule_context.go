@@ -30,83 +30,50 @@ import (
 // Ensuring DefaultRuleContext implements types.RuleContext interface.
 var _ types.RuleContext = (*DefaultRuleContext)(nil)
 
-// 环境变量对象池，用于复用环境变量map，减少内存分配
-var EnvPool = sync.Pool{
-	New: func() interface{} {
-		return make(map[string]interface{}, 16) // 预分配合适容量
-	},
-}
-
-// GetEnvFromPool 从对象池获取环境变量map
-func GetEnvFromPool() map[string]interface{} {
-	return EnvPool.Get().(map[string]interface{})
-}
-
-// ReleaseEnvToPool 释放环境变量map到对象池，减少GC压力
-// 注意：调用此方法后不应再使用传入的map
-func ReleaseEnvToPool(evn map[string]interface{}) {
-	// 清空map中的所有键值对
-	for k := range evn {
-		delete(evn, k)
-	}
-	// 放回对象池供下次使用
-	EnvPool.Put(evn)
-}
-
-// RegisterEnvVar 注册环境变量到上下文，用于自动释放
-func (ctx *DefaultRuleContext) RegisterEnvVar(evn map[string]interface{}) {
-	if ctx.envVars == nil {
-		ctx.envVars = make([]map[string]interface{}, 0, 2)
-	}
-	ctx.envVars = append(ctx.envVars, evn)
-}
-
-// releaseAllEnvVars 释放所有注册的环境变量
-func (ctx *DefaultRuleContext) releaseAllEnvVars() {
-	for _, evn := range ctx.envVars {
-		ReleaseEnvToPool(evn)
-	}
-	ctx.envVars = nil
-}
-
-// GetEnv 获取环境变量和元数据，统一管理内存分配和释放
+// GetEnv 获取环境变量和元数据
 func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[string]interface{} {
-	// 从对象池获取map，减少内存分配
-	evn := GetEnvFromPool()
-
-	// 注册到上下文中，用于自动释放
-	ctx.RegisterEnvVar(evn)
+	// 预分配合适大小的map，减少扩容开销
+	capacity := 7 // 基础字段数量：id, ts, data, msgType, dataType, msg, metadata
+	
+	// 预先获取metadata，避免重复调用Values()
+	var metadataValues map[string]string
+	if msg.Metadata != nil {
+		metadataValues = msg.Metadata.Values()
+		if useMetadata {
+			capacity += len(metadataValues)
+		}
+	}
+	
+	evn := make(map[string]interface{}, capacity)
 
 	// 设置基础字段
 	evn[types.IdKey] = msg.Id
 	evn[types.TsKey] = msg.Ts
 	evn[types.DataKey] = msg.GetData()
 	evn[types.MsgTypeKey] = msg.Type
-	evn[types.TypeKey] = msg.Type
 	evn[types.DataTypeKey] = msg.DataType
 
-	// 使用 GetDataAsJson() 避免重复JSON解析
+	// 优化JSON数据处理
 	if msg.DataType == types.JSON {
 		if jsonData, err := msg.GetDataAsJson(); err == nil {
 			evn[types.MsgKey] = jsonData
 		} else {
-			// 解析失败，使用原始数据
 			evn[types.MsgKey] = msg.GetData()
 		}
 	} else {
-		// 如果不是 JSON 类型，直接使用原始数据
 		evn[types.MsgKey] = msg.GetData()
 	}
 
-	// 优化 metadata 处理
-	if msg.Metadata != nil {
+	// 处理metadata，只调用一次Values()
+	if metadataValues != nil {
 		if useMetadata {
-			// 遍历metadata，将键值对添加到环境变量中
-			for k, v := range msg.Metadata.Values() {
+			// 将metadata键值对添加到环境变量中
+			for k, v := range metadataValues {
 				evn[k] = v
 			}
 		}
-		evn[types.MetadataKey] = msg.Metadata.Values()
+		// 总是设置metadata字段
+		evn[types.MetadataKey] = metadataValues
 	}
 
 	return evn
@@ -259,8 +226,6 @@ type DefaultRuleContext struct {
 	// IN or OUT err
 	err        error
 	chainCache types.Cache
-	// 环境变量列表，用于自动释放
-	envVars []map[string]interface{}
 }
 
 func (ctx *DefaultRuleContext) GlobalCache() types.Cache {
@@ -457,7 +422,6 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 	nextCtx.onAllNodeCompleted = nil
 	nextCtx.relationTypes = nil
 	nextCtx.out = types.RuleMsg{}
-	nextCtx.envVars = nil
 
 	return nextCtx
 }
@@ -921,8 +885,6 @@ func (ctx *DefaultRuleContext) executeAfterAop(msg types.RuleMsg, err error, rel
 func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCtx, relationType string) {
 
 	defer func() {
-		// 释放当前节点的环境变量
-		ctx.releaseAllEnvVars()
 		//捕捉异常
 		if e := recover(); e != nil {
 			//执行After aop
