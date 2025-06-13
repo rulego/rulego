@@ -17,11 +17,13 @@
 package engine
 
 import (
+	"sync/atomic"
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
-	"testing"
-	"time"
 )
 
 // TestRuleGo 测试加载规则链文件夹
@@ -39,14 +41,14 @@ func TestRuleGo(t *testing.T) {
 
 	myRuleGo := NewPool()
 	config := NewConfig()
-	chainHasSubChainNodeDone := false
-	chainMsgTypeSwitchDone := false
+	var chainHasSubChainNodeDone int32 = 0
+	var chainMsgTypeSwitchDone int32 = 0
 	config.OnDebug = func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		if ruleChainId == "chain_has_sub_chain_node" {
-			chainHasSubChainNodeDone = true
+			atomic.StoreInt32(&chainHasSubChainNodeDone, 1)
 		}
 		if ruleChainId == "chain_msg_type_switch" {
-			chainMsgTypeSwitchDone = true
+			atomic.StoreInt32(&chainMsgTypeSwitchDone, 1)
 		}
 	}
 	err = myRuleGo.Load("../testdata/aa.txt", WithConfig(config))
@@ -103,8 +105,8 @@ func TestRuleGo(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 500)
 
-	assert.True(t, chainHasSubChainNodeDone)
-	assert.True(t, chainMsgTypeSwitchDone)
+	assert.True(t, atomic.LoadInt32(&chainHasSubChainNodeDone) == 1)
+	assert.True(t, atomic.LoadInt32(&chainMsgTypeSwitchDone) == 1)
 
 	ruleEngine, _ := myRuleGo.Get("test_context_chain")
 	ruleEngine.Stop()
@@ -114,7 +116,7 @@ func TestRuleGo(t *testing.T) {
 	time.Sleep(time.Millisecond * 200)
 
 	myRuleGo.Reload()
-	
+
 	myRuleGo.Stop()
 	_, ok = myRuleGo.Get("test_context_chain")
 	assert.Equal(t, false, ok)

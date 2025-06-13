@@ -17,11 +17,12 @@
 package action
 
 import (
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
-	"testing"
-	"time"
 )
 
 func TestFunctionsNode(t *testing.T) {
@@ -97,8 +98,9 @@ func TestFunctionsNode(t *testing.T) {
 					AfterSleep: time.Millisecond * 200,
 				},
 			}
+			functionName := node.(*FunctionsNode).Config.FunctionName
 			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
-				if node.(*FunctionsNode).Config.FunctionName == "aa" {
+				if functionName == "aa" {
 					assert.Equal(t, "can not found the function=aa", err2.Error())
 				} else {
 					assert.Equal(t, "addFunction", msg.Metadata.GetValue("addFrom"))

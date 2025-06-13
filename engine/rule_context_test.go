@@ -19,14 +19,15 @@ package engine
 import (
 	"context"
 	"fmt"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/test/assert"
-	"github.com/rulego/rulego/utils/str"
 	"reflect"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/str"
 )
 
 // TestCache 测试缓存
@@ -569,21 +570,21 @@ func TestRuleContext(t *testing.T) {
 			atomic.AddInt32(&count, 1)
 		}))
 		time.Sleep(time.Millisecond * 100)
-		assert.Equal(t, int32(4), count)
+		assert.Equal(t, int32(4), atomic.LoadInt32(&count))
 		atomic.StoreInt32(&count, 0)
 
 		ruleEngine.OnMsgAndWait(msg, types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&count, 1)
 		}))
 		time.Sleep(time.Millisecond * 100)
-		assert.Equal(t, int32(4), count)
+		assert.Equal(t, int32(4), atomic.LoadInt32(&count))
 		atomic.StoreInt32(&count, 0)
 
 		ruleEngine.OnMsg(msg, types.WithStartNode("s2"), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&count, 1)
 		}))
 		time.Sleep(time.Millisecond * 100)
-		assert.Equal(t, int32(2), count)
+		assert.Equal(t, int32(2), atomic.LoadInt32(&count))
 		atomic.StoreInt32(&count, 0)
 
 		ruleEngine.OnMsg(msg, types.WithStartNode("notFound"), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
@@ -592,7 +593,7 @@ func TestRuleContext(t *testing.T) {
 			assert.Equal(t, fmt.Errorf("SetExecuteNode node id=%s not found", "notFound").Error(), err.Error())
 		}))
 		time.Sleep(time.Millisecond * 100)
-		assert.Equal(t, int32(0), count)
+		assert.Equal(t, int32(0), atomic.LoadInt32(&count))
 	})
 	t.Run("WithTellNext", func(t *testing.T) {
 		var count = int32(0)
@@ -600,21 +601,21 @@ func TestRuleContext(t *testing.T) {
 			atomic.AddInt32(&count, 1)
 		}))
 		time.Sleep(time.Millisecond * 100)
-		assert.Equal(t, int32(3), count)
+		assert.Equal(t, int32(3), atomic.LoadInt32(&count))
 		atomic.StoreInt32(&count, 0)
 
 		ruleEngine.OnMsg(msg, types.WithTellNext("s2", types.Success), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&count, 1)
 		}))
 		time.Sleep(time.Millisecond * 100)
-		assert.Equal(t, int32(1), count)
+		assert.Equal(t, int32(1), atomic.LoadInt32(&count))
 		atomic.StoreInt32(&count, 0)
 
 		ruleEngine.OnMsgAndWait(msg, types.WithTellNext("s2", types.Success), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&count, 1)
 		}))
 		time.Sleep(time.Millisecond * 100)
-		assert.Equal(t, int32(1), count)
+		assert.Equal(t, int32(1), atomic.LoadInt32(&count))
 		atomic.StoreInt32(&count, 0)
 
 		ruleEngine.OnMsg(msg, types.WithStartNode("notFound"), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
@@ -623,6 +624,6 @@ func TestRuleContext(t *testing.T) {
 			assert.Equal(t, fmt.Errorf("SetExecuteNode node id=%s not found", "notFound").Error(), err.Error())
 		}))
 		time.Sleep(time.Millisecond * 100)
-		assert.Equal(t, int32(0), count)
+		assert.Equal(t, int32(0), atomic.LoadInt32(&count))
 	})
 }

@@ -34,7 +34,7 @@ var _ types.RuleContext = (*DefaultRuleContext)(nil)
 func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[string]interface{} {
 	// 预分配合适大小的map，减少扩容开销
 	capacity := 7 // 基础字段数量：id, ts, data, msgType, dataType, msg, metadata
-	
+
 	// 预先获取metadata，避免重复调用Values()
 	var metadataValues map[string]string
 	if msg.Metadata != nil {
@@ -43,7 +43,7 @@ func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[s
 			capacity += len(metadataValues)
 		}
 	}
-	
+
 	evn := make(map[string]interface{}, capacity)
 
 	// 设置基础字段
@@ -415,9 +415,11 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 	nextCtx.err = ctx.err
 	nextCtx.chainCache = ctx.ChainCache()
 
+	// Reset atomic fields using atomic operations to prevent data races
+	atomic.StoreInt32(&nextCtx.waitingCount, 0)
+	atomic.StoreInt32(&nextCtx.onAllNodeCompletedDone, 0)
+
 	// Reset other fields to zero values
-	nextCtx.waitingCount = 0
-	nextCtx.onAllNodeCompletedDone = 0
 	nextCtx.isFirst = false
 	nextCtx.onAllNodeCompleted = nil
 	nextCtx.relationTypes = nil
@@ -535,8 +537,10 @@ func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 
 func (ctx *DefaultRuleContext) SubmitTask(task func()) {
 	if ctx.pool != nil {
+		// 在提交任务前捕获需要的值，避免并发访问
+		logger := ctx.config.Logger
 		if err := ctx.pool.Submit(task); err != nil {
-			ctx.config.Logger.Printf("SubmitTask error:%s", err)
+			logger.Printf("SubmitTask error:%s", err)
 		}
 	} else {
 		go task()
@@ -636,18 +640,22 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 		safeMsgCopy.SetMetadata(types.NewMetadata())
 	}
 
+	// 在提交异步任务前捕获需要的值，避免并发访问
+	configOnEnd := ctx.config.OnEnd
+	contextOnEnd := ctx.onEnd
+
 	//全局回调
 	//通过`Config.OnEnd`设置
-	if ctx.config.OnEnd != nil {
+	if configOnEnd != nil {
 		ctx.SubmitTask(func() {
-			ctx.config.OnEnd(safeMsgCopy, err)
+			configOnEnd(safeMsgCopy, err)
 		})
 	}
 	//单条消息的context回调
 	//通过OnMsgWithEndFunc(msg, endFunc)设置
-	if ctx.onEnd != nil {
+	if contextOnEnd != nil {
 		ctx.SubmitTask(func() {
-			ctx.onEnd(ctx, safeMsgCopy, err, relationType)
+			contextOnEnd(ctx, safeMsgCopy, err, relationType)
 			ctx.childDone()
 		})
 	} else {
@@ -693,13 +701,17 @@ func (ctx *DefaultRuleContext) GetCallbackFunc(functionName string) interface{} 
 func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 	msgCopy := msg.Copy()
 	if ctx.IsDebugMode() {
+		// 在提交异步任务前捕获需要的值，避免并发访问
+		onDebugFunc := ctx.config.OnDebug
+		runSnapshot := ctx.runSnapshot
+
 		//异步记录日志
 		ctx.SubmitTask(func() {
-			if ctx.config.OnDebug != nil {
-				ctx.config.OnDebug(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
+			if onDebugFunc != nil {
+				onDebugFunc(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
 			}
-			if ctx.runSnapshot != nil {
-				ctx.runSnapshot.onDebugCustom(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
+			if runSnapshot != nil {
+				runSnapshot.onDebugCustom(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
 			}
 		})
 	}
@@ -749,22 +761,32 @@ func (ctx *DefaultRuleContext) childDone() {
 	if atomic.AddInt32(&ctx.waitingCount, -1) <= 0 {
 		if atomic.CompareAndSwapInt32(&ctx.onAllNodeCompletedDone, 0, 1) {
 
-			//该节点已经执行完成，通知父节点
-			if ctx.parentRuleCtx != nil {
-				ctx.parentRuleCtx.childDone()
+			// 在进行任何异步操作前捕获需要的值，避免对象池重用导致的数据竞争
+			parentRuleCtx := ctx.parentRuleCtx
+			selfId := ctx.GetSelfId()
+			var parentSelfId string
+			if parentRuleCtx != nil {
+				parentSelfId = parentRuleCtx.GetSelfId()
 			}
-			if ctx.parentRuleCtx == nil || ctx.GetSelfId() != ctx.parentRuleCtx.GetSelfId() {
+			observer := ctx.observer
+			onAllNodeCompleted := ctx.onAllNodeCompleted
+
+			//该节点已经执行完成，通知父节点
+			if parentRuleCtx != nil {
+				parentRuleCtx.childDone()
+			}
+			if parentRuleCtx == nil || selfId != parentSelfId {
 				//记录当前节点执行完成
-				ctx.observer.executedNode(ctx.GetSelfId())
+				observer.executedNode(selfId)
 			}
 			//完成回调
-			if ctx.onAllNodeCompleted != nil {
-				ctx.onAllNodeCompleted()
+			if onAllNodeCompleted != nil {
+				onAllNodeCompleted()
 			}
 
 			// Return context to pool when processing is complete
 			// Only return non-root contexts to avoid issues with reuse
-			if ctx.parentRuleCtx != nil {
+			if parentRuleCtx != nil {
 				defaultContextPool.Put(ctx)
 			}
 		}
@@ -897,6 +919,8 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 
 	//环绕aop
 	if !nextCtx.executeAroundAop(msg, relationType) {
+		// 如果AroundAspect阻止了执行，需要调用childDone来平衡之前的childReady
+		ctx.childDone()
 		return
 	}
 	// AroundAop 已经执行节点OnMsg逻辑，不在执行下面的逻辑

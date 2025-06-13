@@ -1,17 +1,18 @@
 package schedule
 
 import (
+	"math"
+	"os"
+	"sync/atomic"
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
-	"math"
-	"os"
-	"sync/atomic"
-	"testing"
-	"time"
 )
 
 var testdataFolder = "../../testdata/rule"
@@ -122,8 +123,8 @@ func TestScheduleEndPoint(t *testing.T) {
 
 	time.Sleep(15 * time.Second)
 
-	assert.True(t, math.Abs(float64(router1Count)-float64(15)) <= float64(1))
-	assert.True(t, math.Abs(float64(router2Count)-float64(3)) <= float64(1))
+	assert.True(t, math.Abs(float64(atomic.LoadInt64(&router1Count))-float64(15)) <= float64(1))
+	assert.True(t, math.Abs(float64(atomic.LoadInt64(&router2Count))-float64(3)) <= float64(1))
 
 	//删除某个任务
 	_ = scheduleEndpoint.RemoveRouter(routeId1)
@@ -149,7 +150,7 @@ func TestScheduleEndPoint(t *testing.T) {
 	time.Sleep(15 * time.Second)
 	scheduleEndpoint.Destroy()
 
-	assert.True(t, math.Abs(float64(router1Count)-float64(15)) <= float64(1))
-	assert.True(t, math.Abs(float64(router2Count)-float64(3)) <= float64(1))
-	assert.True(t, math.Abs(float64(router3Count)-float64(5)) <= float64(1))
+	assert.True(t, math.Abs(float64(atomic.LoadInt64(&router1Count))-float64(15)) <= float64(1))
+	assert.True(t, math.Abs(float64(atomic.LoadInt64(&router2Count))-float64(3)) <= float64(1))
+	assert.True(t, math.Abs(float64(atomic.LoadInt64(&router3Count))-float64(5)) <= float64(1))
 }

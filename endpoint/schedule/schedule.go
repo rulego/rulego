@@ -42,6 +42,7 @@ import (
 	"fmt"
 	"net/textproto"
 	"strconv"
+	"sync"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/robfig/cron/v3"
@@ -120,6 +121,7 @@ type ResponseMessage struct {
 	body    []byte
 	msg     *types.RuleMsg
 	err     error
+	mu      sync.RWMutex
 }
 
 func (r *ResponseMessage) Body() []byte {
@@ -144,9 +146,13 @@ func (r *ResponseMessage) GetParam(key string) string {
 }
 
 func (r *ResponseMessage) SetMsg(msg *types.RuleMsg) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.msg = msg
 }
 func (r *ResponseMessage) GetMsg() *types.RuleMsg {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return r.msg
 }
 
@@ -155,14 +161,20 @@ func (r *ResponseMessage) SetStatusCode(statusCode int) {
 }
 
 func (r *ResponseMessage) SetBody(body []byte) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.body = body
 }
 
 func (r *ResponseMessage) SetError(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.err = err
 }
 
 func (r *ResponseMessage) GetError() error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return r.err
 }
 

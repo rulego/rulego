@@ -17,11 +17,12 @@
 package filter
 
 import (
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
-	"testing"
-	"time"
 )
 
 func TestJsSwitchNode(t *testing.T) {
@@ -76,6 +77,9 @@ func TestJsSwitchNode(t *testing.T) {
 		var nodeList = []types.Node{node1, node2, node3}
 
 		for _, node := range nodeList {
+			// 在测试循环开始前捕获配置，避免在回调中并发访问
+			jsScript := node.(*JsSwitchNode).Config.JsScript
+
 			metaData := types.BuildMetadata(make(map[string]string))
 			metaData.PutValue("productType", "test")
 			var msgList = []test.Msg{
@@ -93,9 +97,9 @@ func TestJsSwitchNode(t *testing.T) {
 				},
 			}
 			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
-				if node.(*JsSwitchNode).Config.JsScript == `return 1` {
+				if jsScript == `return 1` {
 					assert.Equal(t, JsSwitchReturnFormatErr.Error(), err2.Error())
-				} else if node.(*JsSwitchNode).Config.JsScript == `return a` {
+				} else if jsScript == `return a` {
 					assert.NotNil(t, err2)
 				} else {
 					assert.True(t, relationType == "one" || relationType == "two")

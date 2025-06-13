@@ -19,6 +19,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/str"
@@ -36,6 +37,7 @@ type RuleNodeCtx struct {
 	config            types.Config     // Configuration of the rule engine
 	aspects           types.AspectList // List of AOP (Aspect-Oriented Programming) aspects
 	isInitNetResource bool             // Indicates if network resources should be initialized
+	sync.RWMutex                       // Add mutex for thread safety
 }
 
 // InitRuleNodeCtx initializes a RuleNodeCtx with the given parameters.
@@ -102,16 +104,22 @@ func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 
 // Config returns the configuration of the rule engine.
 func (rn *RuleNodeCtx) Config() types.Config {
+	rn.RLock()
+	defer rn.RUnlock()
 	return rn.config
 }
 
 // IsDebugMode returns whether the node is in debug mode.
 func (rn *RuleNodeCtx) IsDebugMode() bool {
+	rn.RLock()
+	defer rn.RUnlock()
 	return rn.SelfDefinition.DebugMode
 }
 
 // GetNodeId returns the ID of the node.
 func (rn *RuleNodeCtx) GetNodeId() types.RuleNodeId {
+	rn.RLock()
+	defer rn.RUnlock()
 	return types.RuleNodeId{Id: rn.SelfDefinition.Id, Type: types.NODE}
 }
 
@@ -135,8 +143,20 @@ func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
 		ctx, err = initRuleNodeCtx(rn.config, chainCtx, chainCtx.aspects, &def, rn.isInitNetResource)
 	}
 	if err == nil {
-		rn.Destroy()
-		rn.Copy(ctx)
+		rn.Lock()
+		// Store old node for destruction after unlocking
+		oldNode := rn.Node
+		// Copy the new context (direct assignment to avoid additional Copy() call)
+		rn.Node = ctx.Node
+		rn.config = ctx.config
+		rn.aspects = ctx.aspects
+		rn.SelfDefinition = ctx.SelfDefinition
+		rn.Unlock()
+
+		// Destroy the old node after releasing the lock to avoid race conditions
+		if oldNode != nil {
+			oldNode.Destroy()
+		}
 		return nil
 	} else {
 		return err
@@ -161,6 +181,8 @@ func (rn *RuleNodeCtx) DSL() []byte {
 
 // Copy copies the contents of a new RuleNodeCtx into this one.
 func (rn *RuleNodeCtx) Copy(newCtx *RuleNodeCtx) {
+	rn.Lock()
+	defer rn.Unlock()
 	rn.Node = newCtx.Node
 	rn.config = newCtx.config
 	rn.aspects = newCtx.aspects

@@ -17,12 +17,6 @@
 package rulego
 
 import (
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/api/types/endpoint"
-	"github.com/rulego/rulego/builtin/processor"
-	"github.com/rulego/rulego/engine"
-	"github.com/rulego/rulego/test"
-	"github.com/rulego/rulego/test/assert"
 	"math"
 	"os"
 	"reflect"
@@ -30,6 +24,13 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/builtin/processor"
+	"github.com/rulego/rulego/engine"
+	"github.com/rulego/rulego/test"
+	"github.com/rulego/rulego/test/assert"
 )
 
 func TestDefaultRuleGo(t *testing.T) {
@@ -84,14 +85,14 @@ func TestRuleGo(t *testing.T) {
 	assert.True(t, p == myRuleGo.Pool())
 	assert.False(t, NewRuleGo() == NewRuleGo())
 	config := NewConfig()
-	chainHasSubChainNodeDone := false
-	chainMsgTypeSwitchDone := false
+	var chainHasSubChainNodeDone int32
+	var chainMsgTypeSwitchDone int32
 	config.OnDebug = func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		if ruleChainId == "chain_has_sub_chain_node" {
-			chainHasSubChainNodeDone = true
+			atomic.StoreInt32(&chainHasSubChainNodeDone, 1)
 		}
 		if ruleChainId == "chain_msg_type_switch" {
-			chainMsgTypeSwitchDone = true
+			atomic.StoreInt32(&chainMsgTypeSwitchDone, 1)
 		}
 	}
 
@@ -145,8 +146,8 @@ func TestRuleGo(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 500)
 
-	assert.True(t, chainHasSubChainNodeDone)
-	assert.True(t, chainMsgTypeSwitchDone)
+	assert.True(t, atomic.LoadInt32(&chainHasSubChainNodeDone) == 1)
+	assert.True(t, atomic.LoadInt32(&chainMsgTypeSwitchDone) == 1)
 
 	myRuleGo.Reload()
 
@@ -206,36 +207,49 @@ func TestHttpEndpointAspect(t *testing.T) {
 
 func TestScheduleEndpointAspect(t *testing.T) {
 	var count = int64(0)
-	processor.InBuiltins.Register("testPrint", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+
+	// 使用唯一的处理器名称避免冲突
+	processorName := "testPrint_" + t.Name()
+	processor.InBuiltins.Register(processorName, func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//fmt.Printf("testPrint:%s \n", time.Now().Format("2006-01-02 15:04:05"))
 		atomic.AddInt64(&count, 1)
 		return true
 	})
+	defer processor.InBuiltins.Unregister(processorName)
 
+	// 修改规则定义以使用唯一的处理器名称
 	ruleDsl, err := os.ReadFile("testdata/rule/with_schedule_endpoint.json")
 	assert.Nil(t, err)
 
-	id := "withScheduleEndpoint"
-	ruleEngine, err := New(id, ruleDsl)
+	// 替换处理器名称
+	modifiedRuleDsl := strings.Replace(string(ruleDsl), "testPrint", processorName, -1)
+
+	id := "withScheduleEndpoint_" + t.Name()
+	ruleEngine, err := New(id, []byte(modifiedRuleDsl))
 	assert.Nil(t, err)
+	defer Del(id)
 
 	time.Sleep(time.Second * 6)
-	assert.True(t, math.Abs(float64(count)-float64(6)) <= float64(1))
+	countValue := atomic.LoadInt64(&count)
+	assert.True(t, math.Abs(float64(countValue)-float64(6)) <= float64(1))
 
 	atomic.StoreInt64(&count, 0)
 
-	oldAspects := ruleEngine.(*engine.RuleEngine).Aspects
-	assert.Equal(t, len(engine.BuiltinsAspects), len(ruleEngine.(*engine.RuleEngine).Aspects))
-	assert.False(t, reflect.DeepEqual(engine.BuiltinsAspects, ruleEngine.(*engine.RuleEngine).Aspects))
+	oldAspects := ruleEngine.(*engine.RuleEngine).GetAspects()
+	currentAspects := ruleEngine.(*engine.RuleEngine).GetAspects()
+	assert.Equal(t, len(engine.BuiltinsAspects), len(currentAspects))
+	assert.False(t, reflect.DeepEqual(engine.BuiltinsAspects, currentAspects))
 
-	newRuleDsl := strings.Replace(string(ruleDsl), "*/1 * * * * *", "*/3 * * * * *", -1)
+	newRuleDsl := strings.Replace(modifiedRuleDsl, "*/1 * * * * *", "*/3 * * * * *", -1)
 	err = ruleEngine.ReloadSelf([]byte(newRuleDsl), types.WithConfig(engine.NewConfig(types.WithDefaultPool())))
 	assert.Nil(t, err)
 
-	assert.True(t, reflect.DeepEqual(oldAspects, ruleEngine.(*engine.RuleEngine).Aspects))
+	assert.True(t, reflect.DeepEqual(oldAspects, ruleEngine.(*engine.RuleEngine).GetAspects()))
 	time.Sleep(time.Second * 6)
 
-	assert.True(t, math.Abs(float64(count)-float64(3)) <= float64(1))
+	// 使用原子操作安全地读取count值
+	countValue = atomic.LoadInt64(&count)
+	assert.True(t, math.Abs(float64(countValue)-float64(3)) <= float64(1))
 
 	err = ruleEngine.ReloadChild("s1", []byte(` {
         "id":"s1",
@@ -247,8 +261,6 @@ func TestScheduleEndpointAspect(t *testing.T) {
         }
       }`))
 	assert.Nil(t, err)
-
-	Del(id)
 }
 
 // 发送消息到rest服务器

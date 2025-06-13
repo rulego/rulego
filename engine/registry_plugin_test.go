@@ -19,11 +19,12 @@
 package engine
 
 import (
+	"sync"
+	"testing"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
 	string2 "github.com/rulego/rulego/utils/str"
-	"sync"
-	"testing"
 )
 
 var testPluginRuleFile = `

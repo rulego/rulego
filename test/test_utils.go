@@ -20,6 +20,7 @@ import (
 	"context"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
@@ -158,7 +159,18 @@ func NodeOnMsgWithChildren(t *testing.T, node types.Node, msgList []Msg, childre
 }
 
 func NodeOnMsgWithChildrenAndConfig(t *testing.T, config types.Config, node types.Node, msgList []Msg, childrenNodes map[string]types.Node, callback func(msg types.RuleMsg, relationType string, err error)) {
-	ctx := NewRuleContextFull(config, node, childrenNodes, callback)
+	var callbackMutex sync.Mutex
+
+	safeCallback := func(msg types.RuleMsg, relationType string, err error) {
+		callbackMutex.Lock()
+		defer callbackMutex.Unlock()
+		if callback != nil {
+			callback(msg, relationType, err)
+		}
+	}
+
+	ctx := NewRuleContextFull(config, node, childrenNodes, safeCallback)
+
 	for _, item := range msgList {
 		dataType := types.JSON
 		if item.DataType != "" {
@@ -179,11 +191,13 @@ func NodeOnMsgWithChildrenAndConfig(t *testing.T, config types.Config, node type
 			DataType: dataType,
 			Metadata: types.BuildMetadataFromMetadata(item.MetaData),
 		}
+
 		go node.OnMsg(ctx, msg)
 		if item.AfterSleep > 0 {
 			time.Sleep(item.AfterSleep)
 		}
 	}
+
 }
 
 // UpperNode A plugin that converts the message data to uppercase

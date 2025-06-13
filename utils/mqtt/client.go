@@ -41,6 +41,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+
 	paho "github.com/eclipse/paho.mqtt.golang"
 	string2 "github.com/rulego/rulego/utils/str"
 
@@ -150,11 +151,17 @@ func (b *Client) RegisterHandler(handler Handler) {
 
 // UnregisterHandler 删除订阅数据处理器
 func (b *Client) UnregisterHandler(topic string) error {
+	b.Lock()
+	defer b.Unlock()
+
+	// Check if handler exists before unsubscribing
+	if _, exists := b.msgHandlerMap[topic]; !exists {
+		return nil // Already unregistered, no error
+	}
+
 	if token := b.client.Unsubscribe(topic); token.Wait() && token.Error() != nil {
 		return token.Error()
 	} else {
-		b.Lock()
-		defer b.Unlock()
 		delete(b.msgHandlerMap, topic)
 		return nil
 	}
@@ -168,7 +175,16 @@ func (b *Client) GetHandlerByUpTopic(topic string) Handler {
 }
 
 func (b *Client) Close() error {
+	b.RLock()
+	// Create a copy to avoid holding lock during unsubscribe operations
+	handlers := make([]Handler, 0, len(b.msgHandlerMap))
 	for _, v := range b.msgHandlerMap {
+		handlers = append(handlers, v)
+	}
+	b.RUnlock()
+
+	// Unsubscribe from all topics without holding locks
+	for _, v := range handlers {
 		b.client.Unsubscribe(v.Topic)
 	}
 	b.client.Disconnect(500)
@@ -189,7 +205,16 @@ func (b *Client) onConnected(c paho.Client) {
 }
 
 func (b *Client) subscribe() {
+	b.RLock()
+	// 创建处理器副本以避免在迭代过程中持有锁
+	handlers := make([]Handler, 0, len(b.msgHandlerMap))
 	for _, handler := range b.msgHandlerMap {
+		handlers = append(handlers, handler)
+	}
+	b.RUnlock()
+
+	// 在不持有锁的情况下订阅
+	for _, handler := range handlers {
 		b.subscribeHandler(handler)
 	}
 }

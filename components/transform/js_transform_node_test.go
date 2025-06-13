@@ -17,11 +17,12 @@
 package transform
 
 import (
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
-	"testing"
-	"time"
 )
 
 func TestJsTransformNode(t *testing.T) {
@@ -69,6 +70,9 @@ func TestJsTransformNode(t *testing.T) {
 		var nodeList = []types.Node{node1, node2, node3, node4}
 
 		for _, node := range nodeList {
+			// 在测试循环开始前捕获配置，避免在回调中并发访问
+			jsScript := node.(*JsTransformNode).Config.JsScript
+
 			metaData := types.BuildMetadata(make(map[string]string))
 			metaData.PutValue("productType", "test")
 			var msgList = []test.Msg{
@@ -86,9 +90,9 @@ func TestJsTransformNode(t *testing.T) {
 				},
 			}
 			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
-				if node.(*JsTransformNode).Config.JsScript == `return true` {
+				if jsScript == `return true` {
 					assert.Equal(t, JsTransformReturnFormatErr.Error(), err2.Error())
-				} else if node.(*JsTransformNode).Config.JsScript == `return a` {
+				} else if jsScript == `return a` {
 					assert.NotNil(t, err2)
 				} else {
 					assert.True(t, msg.Metadata.GetValue("ip") == "" || msg.Metadata.GetValue("ip") == "192.168.1.1")

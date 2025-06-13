@@ -37,7 +37,7 @@ func (a *ConcurrencyLimiterAspect) PointCut(ctx types.RuleContext, msg types.Rul
 }
 
 func (a *ConcurrencyLimiterAspect) Start(ctx types.RuleContext, msg types.RuleMsg) (types.RuleMsg, error) {
-	if a.currentCount >= a.Max {
+	if atomic.LoadInt64(&a.currentCount) >= a.Max {
 		return msg, types.ErrConcurrencyLimitReached
 	}
 	a.incrementCurrent()

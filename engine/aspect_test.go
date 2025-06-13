@@ -65,23 +65,23 @@ func TestSkipFallbackAspect(t *testing.T) {
 
 	//第4次,达到错误降级阈值
 	msg = types.NewMsg(0, "TEST_MSG_TYPE4", types.JSON, metaData, "{\"temperature\":44}")
-	start = time.Now()
+	start4 := time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		//进入故障降级，跳过该组件
-		//fmt.Printf("第4次耗时:%s", time.Since(start).String())
+		//fmt.Printf("第4次耗时:%s", time.Since(start4).String())
 		//fmt.Println()
-		assert.True(t, time.Since(start) < time.Second)
+		assert.True(t, time.Since(start4) < time.Second)
 	}))
 
 	//等待恢复时间
 	time.Sleep(time.Second * 11)
 
-	start = time.Now()
+	start5 := time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		//故障恢复，执行该组件
-		//fmt.Printf("第5次耗时:%s", time.Since(start).String())
+		//fmt.Printf("第5次耗时:%s", time.Since(start5).String())
 		//fmt.Println()
-		assert.True(t, time.Since(start) > time.Second)
+		assert.True(t, time.Since(start5) > time.Second)
 	}))
 
 	ruleEngine.OnMsg(msg)
@@ -90,12 +90,12 @@ func TestSkipFallbackAspect(t *testing.T) {
 	//更新规则链，清除错误信息
 	ruleEngine.ReloadSelf(loadFile("./test_skip_fallback_aspect.json"))
 
-	start = time.Now()
+	start6 := time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		//故障恢复，执行该组件
-		//fmt.Printf("第6次耗时:%s", time.Since(start).String())
+		//fmt.Printf("第6次耗时:%s", time.Since(start6).String())
 		//fmt.Println()
-		assert.True(t, time.Since(start) > time.Second)
+		assert.True(t, time.Since(start6) > time.Second)
 	}))
 
 	time.Sleep(time.Second * 3)
@@ -149,9 +149,9 @@ func TestEngineAspect(t *testing.T) {
 		assert.Equal(t, types.CHAIN, ctx.GetNodeId().Type)
 		atomic.AddInt32(&count, 1)
 	}
-	var onCompleted = false
+	var onCompleted int32
 	callback.OnCompleted = func(ctx types.RuleContext, msg types.RuleMsg) {
-		onCompleted = true
+		atomic.StoreInt32(&onCompleted, 1)
 	}
 	config := NewConfig()
 	ruleEngine, err := DefaultPool.New(chainId, []byte(ruleChainFile), WithConfig(config), types.WithAspects(&NodeAspect2{Name: "NodeAspect2"}, &NodeAspect1{Name: "NodeAspect1"},
@@ -196,7 +196,7 @@ func TestEngineAspect(t *testing.T) {
 	ruleEngine.Stop()
 	time.Sleep(time.Millisecond * 200)
 
-	assert.True(t, onCompleted)
+	assert.True(t, atomic.LoadInt32(&onCompleted) == 1)
 
 }
 

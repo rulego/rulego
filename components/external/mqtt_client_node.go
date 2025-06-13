@@ -18,8 +18,10 @@ package external
 
 import (
 	"context"
-	"github.com/rulego/rulego/utils/mqtt"
+	"sync"
 	"time"
+
+	"github.com/rulego/rulego/utils/mqtt"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
@@ -85,6 +87,7 @@ type MqttClientNode struct {
 	//topic 模板
 	topicTemplate str.Template
 	client        *mqtt.Client
+	clientMutex   sync.RWMutex // Add mutex for thread safety
 }
 
 // Type 组件类型
@@ -131,27 +134,36 @@ func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy 销毁
 func (x *MqttClientNode) Destroy() {
-	if x.client != nil {
-		_ = x.client.Close()
+	x.clientMutex.RLock()
+	client := x.client
+	x.clientMutex.RUnlock()
+
+	if client != nil {
+		_ = client.Close()
 	}
 }
 
 // initClient 初始化客户端
 func (x *MqttClientNode) initClient() (*mqtt.Client, error) {
+	x.Locker.Lock()
+	defer x.Locker.Unlock()
+
+	x.clientMutex.RLock()
 	if x.client != nil {
-		return x.client, nil
-	} else {
-		ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
-		x.Locker.Lock()
-		defer func() {
-			cancel()
-			x.Locker.Unlock()
-		}()
-		if x.client != nil {
-			return x.client, nil
-		}
-		var err error
-		x.client, err = mqtt.NewClient(ctx, x.Config.ToMqttConfig())
-		return x.client, err
+		existingClient := x.client
+		x.clientMutex.RUnlock()
+		return existingClient, nil
 	}
+	x.clientMutex.RUnlock()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
+	defer cancel()
+
+	client, err := mqtt.NewClient(ctx, x.Config.ToMqttConfig())
+	if err == nil {
+		x.clientMutex.Lock()
+		x.client = client
+		x.clientMutex.Unlock()
+	}
+	return client, err
 }

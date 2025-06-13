@@ -20,12 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/rulego/rulego/test/assert"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/test/assert"
 
 	"github.com/rulego/rulego/api/types"
 )
@@ -234,12 +235,14 @@ func TestForNodeMetadataRaceCondition(t *testing.T) {
 	case <-done:
 
 	case <-ctx.Done():
-		t.Errorf("测试超时: 只处理了 %d 条消息", processedCount)
+		currentProcessed := atomic.LoadInt64(&processedCount)
+		t.Errorf("测试超时: 只处理了 %d 条消息", currentProcessed)
 	}
 
 	// 验证至少处理了一些消息
-	if processedCount <= 0 {
-		t.Errorf("应该至少处理一些消息，实际处理: %d", processedCount)
+	finalProcessedCount := atomic.LoadInt64(&processedCount)
+	if finalProcessedCount <= 0 {
+		t.Errorf("应该至少处理一些消息，实际处理: %d", finalProcessedCount)
 	}
 }
 
@@ -531,11 +534,13 @@ func TestForNodeAsyncModeMetadataSafety(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// 验证结果
-	if processedCount != 1 {
-		t.Errorf("期望处理1条消息，实际处理 %d 条", processedCount)
+	finalProcessedCount := atomic.LoadInt64(&processedCount)
+	finalErrorCount := atomic.LoadInt64(&errorCount)
+	if finalProcessedCount != 1 {
+		t.Errorf("期望处理1条消息，实际处理 %d 条", finalProcessedCount)
 	}
-	if errorCount != 0 {
-		t.Errorf("期望0个错误，实际有 %d 个错误", errorCount)
+	if finalErrorCount != 0 {
+		t.Errorf("期望0个错误，实际有 %d 个错误", finalErrorCount)
 	}
 
 }
