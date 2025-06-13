@@ -114,10 +114,6 @@ func (x *NetNode) Printf(format string, v ...interface{}) {
 
 // initConnect 方法简化
 func (x *NetNode) initConnect() (net.Conn, error) {
-	if x.conn != nil && !x.isDisconnected() {
-		return x.conn, nil
-	}
-
 	x.Locker.Lock()
 	defer x.Locker.Unlock()
 

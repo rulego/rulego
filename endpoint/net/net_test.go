@@ -2,13 +2,6 @@ package net
 
 import (
 	"fmt"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/api/types/endpoint"
-	"github.com/rulego/rulego/endpoint/impl"
-	"github.com/rulego/rulego/engine"
-	"github.com/rulego/rulego/test"
-	"github.com/rulego/rulego/test/assert"
-	"github.com/rulego/rulego/utils/maps"
 	"os"
 	"reflect"
 	"strings"
@@ -16,6 +9,14 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
+	"github.com/rulego/rulego/engine"
+	"github.com/rulego/rulego/test"
+	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/maps"
 )
 
 var (
@@ -286,7 +287,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 
 	assert.Nil(t, err)
 	<-stop
-	assert.Equal(t, int32(5), router1Count)
-	assert.Equal(t, int32(4), router2Count)
+	assert.Equal(t, int32(5), atomic.LoadInt32(&router1Count))
+	assert.Equal(t, int32(4), atomic.LoadInt32(&router2Count))
 	wg.Done()
 }

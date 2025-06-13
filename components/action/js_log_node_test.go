@@ -17,11 +17,12 @@
 package action
 
 import (
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
-	"testing"
-	"time"
 )
 
 func TestJsLogNode(t *testing.T) {
@@ -80,10 +81,11 @@ func TestJsLogNode(t *testing.T) {
 					AfterSleep: time.Millisecond * 200,
 				},
 			}
+			jsScript := node.(*LogNode).Config.JsScript
 			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
-				if node.(*LogNode).Config.JsScript == `return true` {
+				if jsScript == `return true` {
 					assert.Equal(t, JsLogReturnFormatErr.Error(), err2.Error())
-				} else if node.(*LogNode).Config.JsScript == `return a` {
+				} else if jsScript == `return a` {
 					assert.NotNil(t, err2)
 				} else {
 					assert.Equal(t, "test", msg.Metadata.GetValue("productType"))

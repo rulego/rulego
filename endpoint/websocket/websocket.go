@@ -149,6 +149,8 @@ type ResponseMessage struct {
 }
 
 func (r *ResponseMessage) Body() []byte {
+	r.locker.RLock()
+	defer r.locker.RUnlock()
 	return r.body
 }
 
@@ -174,10 +176,14 @@ func (r *ResponseMessage) GetParam(key string) string {
 }
 
 func (r *ResponseMessage) SetMsg(msg *types.RuleMsg) {
+	r.locker.Lock()
+	defer r.locker.Unlock()
 	r.msg = msg
 }
 
 func (r *ResponseMessage) GetMsg() *types.RuleMsg {
+	r.locker.RLock()
+	defer r.locker.RUnlock()
 	return r.msg
 }
 
@@ -186,14 +192,15 @@ func (r *ResponseMessage) SetStatusCode(statusCode int) {
 }
 
 func (r *ResponseMessage) SetBody(body []byte) {
+	// 在设置body和写入WebSocket之前加锁
+	r.locker.Lock()
+	defer r.locker.Unlock()
+
 	r.body = body
 	if r.conn != nil {
 		if r.messageType == 0 {
 			r.messageType = websocket.TextMessage
 		}
-		// 在写入之前加锁
-		r.locker.Lock()
-		defer r.locker.Unlock()
 
 		if err := r.conn.WriteMessage(r.messageType, body); err != nil {
 			r.SetError(err)
@@ -202,10 +209,14 @@ func (r *ResponseMessage) SetBody(body []byte) {
 }
 
 func (r *ResponseMessage) SetError(err error) {
+	r.locker.Lock()
+	defer r.locker.Unlock()
 	r.err = err
 }
 
 func (r *ResponseMessage) GetError() error {
+	r.locker.RLock()
+	defer r.locker.RUnlock()
 	return r.err
 }
 

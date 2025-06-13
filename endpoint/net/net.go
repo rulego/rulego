@@ -43,6 +43,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rulego/rulego/api/types"
@@ -144,13 +145,18 @@ type ResponseMessage struct {
 	err     error
 	udpAddr *net.UDPAddr
 	from    string
+	mu      sync.RWMutex
 }
 
 func (r *ResponseMessage) Body() []byte {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return r.body
 }
 
 func (r *ResponseMessage) Headers() textproto.MIMEHeader {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.headers == nil {
 		r.headers = make(map[string][]string)
 	}
@@ -161,6 +167,8 @@ func (r *ResponseMessage) Headers() textproto.MIMEHeader {
 }
 
 func (r *ResponseMessage) From() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return r.from
 }
 
@@ -169,9 +177,13 @@ func (r *ResponseMessage) GetParam(key string) string {
 }
 
 func (r *ResponseMessage) SetMsg(msg *types.RuleMsg) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.msg = msg
 }
 func (r *ResponseMessage) GetMsg() *types.RuleMsg {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return r.msg
 }
 
@@ -179,31 +191,37 @@ func (r *ResponseMessage) SetStatusCode(statusCode int) {
 }
 
 func (r *ResponseMessage) SetBody(body []byte) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.body = body
 	if r.conn == nil {
-		r.SetError(errors.New("write err: conn is nil"))
+		r.err = errors.New("write err: conn is nil")
 		return
 	}
 	if r.udpAddr != nil {
 		if udpConn, ok := r.conn.(*net.UDPConn); ok {
 			if _, err := udpConn.WriteToUDP(body, r.udpAddr); err != nil {
-				r.SetError(err)
+				r.err = err
 			}
 		} else {
-			r.SetError(errors.New("write err: conn is not udp"))
+			r.err = errors.New("write err: conn is not udp")
 		}
 	} else {
 		if _, err := r.conn.Write(body); err != nil {
-			r.SetError(err)
+			r.err = err
 		}
 	}
 }
 
 func (r *ResponseMessage) SetError(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.err = err
 }
 
 func (r *ResponseMessage) GetError() error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return r.err
 }
 

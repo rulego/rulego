@@ -41,6 +41,7 @@ import (
 	"net/textproto"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
@@ -179,13 +180,18 @@ type ResponseMessage struct {
 	to       string
 	msg      *types.RuleMsg
 	err      error
+	mu       sync.RWMutex
 }
 
 func (r *ResponseMessage) Body() []byte {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return r.body
 }
 
 func (r *ResponseMessage) Headers() textproto.MIMEHeader {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	if r.response == nil {
 		return nil
 	}
@@ -193,6 +199,8 @@ func (r *ResponseMessage) Headers() textproto.MIMEHeader {
 }
 
 func (r *ResponseMessage) From() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	if r.request == nil {
 		return ""
 	}
@@ -200,6 +208,8 @@ func (r *ResponseMessage) From() string {
 }
 
 func (r *ResponseMessage) GetParam(key string) string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	if r.request == nil {
 		return ""
 	}
@@ -207,19 +217,27 @@ func (r *ResponseMessage) GetParam(key string) string {
 }
 
 func (r *ResponseMessage) SetMsg(msg *types.RuleMsg) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.msg = msg
 }
 func (r *ResponseMessage) GetMsg() *types.RuleMsg {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return r.msg
 }
 
 func (r *ResponseMessage) SetStatusCode(statusCode int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.response != nil {
 		r.response.WriteHeader(statusCode)
 	}
 }
 
 func (r *ResponseMessage) SetBody(body []byte) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.body = body
 	if r.response != nil {
 		_, _ = r.response.Write(body)
@@ -227,10 +245,14 @@ func (r *ResponseMessage) SetBody(body []byte) {
 }
 
 func (r *ResponseMessage) SetError(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.err = err
 }
 
 func (r *ResponseMessage) GetError() error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	return r.err
 }
 
@@ -657,6 +679,7 @@ func (rest *Rest) GetServer() *http.Server {
 	}
 	return nil
 }
+
 func (rest *Rest) newRouter() *httprouter.Router {
 	rest.router = httprouter.New()
 	//设置跨域
@@ -672,10 +695,12 @@ func (rest *Rest) newRouter() *httprouter.Router {
 			// 返回 204 状态码
 			w.WriteHeader(http.StatusNoContent)
 		}))
-		rest.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		// 直接操作 Interceptors 字段，避免调用 AddInterceptors 造成递归锁
+		corsInterceptor := func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			exchange.Out.Headers().Set(HeaderKeyAccessControlAllowOrigin, HeaderValueAll)
 			return true
-		})
+		}
+		rest.Interceptors = append(rest.Interceptors, corsInterceptor)
 	}
 	return rest.router
 }

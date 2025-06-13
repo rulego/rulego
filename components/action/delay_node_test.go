@@ -17,12 +17,13 @@
 package action
 
 import (
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/test"
-	"github.com/rulego/rulego/test/assert"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/test"
+	"github.com/rulego/rulego/test/assert"
 )
 
 func TestDelayNode(t *testing.T) {
@@ -88,8 +89,8 @@ func TestDelayNode(t *testing.T) {
 		}
 		var count int64
 		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
-			atomic.AddInt64(&count, 1)
-			if count == 1 {
+			newCount := atomic.AddInt64(&count, 1)
+			if newCount == 1 {
 				assert.Equal(t, types.Failure, relationType)
 			} else {
 				assert.Equal(t, types.Success, relationType)
@@ -166,8 +167,8 @@ func TestDelayNode(t *testing.T) {
 		}
 		var count int64
 		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
-			atomic.AddInt64(&count, 1)
-			if count == 1 {
+			newCount := atomic.AddInt64(&count, 1)
+			if newCount == 1 {
 				assert.Equal(t, "BB", msg.GetData())
 			} else {
 				assert.Equal(t, "CC", msg.GetData())

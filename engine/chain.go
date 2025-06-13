@@ -178,6 +178,8 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 
 // Config returns the configuration of the rule chain context
 func (rc *RuleChainCtx) Config() types.Config {
+	rc.RLock()
+	defer rc.RUnlock()
 	return rc.config
 }
 
@@ -200,15 +202,21 @@ func (rc *RuleChainCtx) GetNodeById(id types.RuleNodeId) (types.NodeCtx, bool) {
 
 // GetNodeByIndex retrieves a node context by its index
 func (rc *RuleChainCtx) GetNodeByIndex(index int) (types.NodeCtx, bool) {
+	rc.RLock()
 	if index >= len(rc.nodeIds) {
+		rc.RUnlock()
 		return &RuleNodeCtx{}, false
 	}
-	return rc.GetNodeById(rc.nodeIds[index])
+	nodeId := rc.nodeIds[index]
+	rc.RUnlock()
+	return rc.GetNodeById(nodeId)
 }
 
 // GetFirstNode retrieves the first node, where the message starts flowing. By default, it's the node with index 0
 func (rc *RuleChainCtx) GetFirstNode() (types.NodeCtx, bool) {
-	var firstNodeIndex = rc.SelfDefinition.Metadata.FirstNodeIndex
+	rc.RLock()
+	firstNodeIndex := rc.SelfDefinition.Metadata.FirstNodeIndex
+	rc.RUnlock()
 	return rc.GetNodeByIndex(firstNodeIndex)
 }
 
@@ -286,30 +294,60 @@ func (rc *RuleChainCtx) Init(_ types.Config, configuration types.Configuration) 
 
 // OnMsg processes incoming messages
 func (rc *RuleChainCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	ctx.TellFlow(context.Background(), rc.Id.Id, msg, nil, nil)
+	rc.RLock()
+	id := rc.Id.Id
+	rc.RUnlock()
+	ctx.TellFlow(context.Background(), id, msg, nil, nil)
 }
 
 // Destroy cleans up resources and executes destroy aspects
 func (rc *RuleChainCtx) Destroy() {
+	// Get copies of what we need to destroy without holding locks for too long
 	rc.RLock()
-	defer rc.RUnlock()
+	nodesToDestroy := make([]types.NodeCtx, 0, len(rc.nodes))
 	for _, v := range rc.nodes {
-		temp := v
-		temp.Destroy()
+		nodesToDestroy = append(nodesToDestroy, v)
 	}
-	// Execute destroy aspects
-	for _, aop := range rc.destroyAspects {
-		aop.OnDestroy(rc)
+	destroyAspects := make([]types.OnDestroyAspect, len(rc.destroyAspects))
+	copy(destroyAspects, rc.destroyAspects)
+	// Pre-fetch the node ID to avoid calling GetNodeId() in OnDestroy which needs a lock
+	nodeId := rc.getNodeIdUnsafe()
+	rc.RUnlock()
+
+	// Destroy nodes without holding any locks
+	for _, v := range nodesToDestroy {
+		v.Destroy()
+	}
+
+	// Create a wrapper to avoid GetNodeId() calls in OnDestroy
+	wrapper := &nodeCtxWrapper{
+		nodeId:   nodeId,
+		original: rc,
+	}
+
+	// Execute destroy aspects without holding locks
+	// Note: We avoid calling methods that need locks within OnDestroy by pre-fetching data
+	for _, aop := range destroyAspects {
+		aop.OnDestroy(wrapper)
 	}
 }
 
 // IsDebugMode checks if debug mode is enabled
 func (rc *RuleChainCtx) IsDebugMode() bool {
+	rc.RLock()
+	defer rc.RUnlock()
 	return rc.SelfDefinition.RuleChain.DebugMode
 }
 
 // GetNodeId returns the node ID
 func (rc *RuleChainCtx) GetNodeId() types.RuleNodeId {
+	rc.RLock()
+	defer rc.RUnlock()
+	return rc.getNodeIdUnsafe()
+}
+
+// getNodeIdUnsafe returns the node ID without locking (for internal use)
+func (rc *RuleChainCtx) getNodeIdUnsafe() types.RuleNodeId {
 	return rc.Id
 }
 
@@ -328,8 +366,39 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 		return ErrDisabled
 	}
 	if ctx, err := InitRuleChainCtx(rc.config, rc.aspects, &def); err == nil {
-		rc.Destroy()
-		rc.Copy(ctx)
+		// First, execute destroy operations without holding locks to avoid deadlock
+		rc.RLock()
+		oldNodes := make(map[types.RuleNodeId]types.NodeCtx)
+		for k, v := range rc.nodes {
+			oldNodes[k] = v
+		}
+		destroyAspects := make([]types.OnDestroyAspect, len(rc.destroyAspects))
+		copy(destroyAspects, rc.destroyAspects)
+		// Pre-fetch the node ID to avoid deadlock in OnDestroy
+		nodeId := rc.getNodeIdUnsafe()
+		rc.RUnlock()
+
+		// Destroy old nodes without holding any locks
+		for _, v := range oldNodes {
+			v.Destroy()
+		}
+
+		// Create a wrapper to avoid GetNodeId() calls in OnDestroy
+		wrapper := &nodeCtxWrapper{
+			nodeId:   nodeId,
+			original: rc,
+		}
+
+		// Execute destroy aspects without holding locks
+		for _, aop := range destroyAspects {
+			aop.OnDestroy(wrapper)
+		}
+
+		// Now lock and copy the new context
+		rc.Lock()
+		rc.copyUnsafe(ctx)
+		rc.Unlock()
+
 		// Execute reload aspects
 		for _, aop := range rc.afterReloadAspects {
 			if err := aop.OnReload(rc, rc); err != nil {
@@ -340,6 +409,27 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 	} else {
 		return err
 	}
+}
+
+// copyUnsafe copies the content from another RuleChainCtx without locking
+// This method should only be called when the caller already holds the lock
+func (rc *RuleChainCtx) copyUnsafe(newCtx *RuleChainCtx) {
+	rc.Id = newCtx.Id
+	rc.config = newCtx.config
+	rc.initialized = newCtx.initialized
+	rc.componentsRegistry = newCtx.componentsRegistry
+	rc.SelfDefinition = newCtx.SelfDefinition
+	rc.nodeIds = newCtx.nodeIds
+	rc.nodes = newCtx.nodes
+	rc.nodeRoutes = newCtx.nodeRoutes
+	rc.rootRuleContext = newCtx.rootRuleContext
+	rc.aspects = newCtx.aspects
+	rc.afterReloadAspects = newCtx.afterReloadAspects
+	rc.destroyAspects = newCtx.destroyAspects
+	rc.vars = newCtx.vars
+	rc.decryptSecrets = newCtx.decryptSecrets
+	// Clear cache
+	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
 }
 
 // ReloadChild reloads a child node
@@ -360,12 +450,16 @@ func (rc *RuleChainCtx) ReloadChild(ruleNodeId types.RuleNodeId, def []byte) err
 
 // DSL returns the rule chain definition as a byte slice
 func (rc *RuleChainCtx) DSL() []byte {
+	rc.RLock()
+	defer rc.RUnlock()
 	v, _ := rc.config.Parser.EncodeRuleChain(rc.SelfDefinition)
 	return v
 }
 
 // Definition returns the rule chain definition
 func (rc *RuleChainCtx) Definition() *types.RuleChain {
+	rc.RLock()
+	defer rc.RUnlock()
 	return rc.SelfDefinition
 }
 
@@ -407,6 +501,8 @@ func (rc *RuleChainCtx) GetRuleEnginePool() types.RuleEnginePool {
 
 // SetAspects sets the aspects for the rule chain
 func (rc *RuleChainCtx) SetAspects(aspects types.AspectList) {
+	rc.Lock()
+	defer rc.Unlock()
 	rc.aspects = aspects
 	_, _, _, afterReloadAspects, destroyAspects := aspects.GetEngineAspects()
 	rc.afterReloadAspects = afterReloadAspects
@@ -415,6 +511,8 @@ func (rc *RuleChainCtx) SetAspects(aspects types.AspectList) {
 
 // GetAspects retrieves the aspects of the rule chain
 func (rc *RuleChainCtx) GetAspects() types.AspectList {
+	rc.RLock()
+	defer rc.RUnlock()
 	return rc.aspects
 }
 
@@ -430,3 +528,35 @@ func decryptSecret(inputMap map[string]string, secretKey []byte) map[string]stri
 	}
 	return result
 }
+
+// nodeCtxWrapper wraps RuleChainCtx to provide a cached node ID, avoiding lock calls in OnDestroy
+type nodeCtxWrapper struct {
+	nodeId   types.RuleNodeId
+	original *RuleChainCtx
+}
+
+func (w *nodeCtxWrapper) GetNodeId() types.RuleNodeId {
+	return w.nodeId // Return cached value without locking
+}
+
+// Delegate all other methods to the original context
+func (w *nodeCtxWrapper) Config() types.Config        { return w.original.Config() }
+func (w *nodeCtxWrapper) IsDebugMode() bool           { return w.original.IsDebugMode() }
+func (w *nodeCtxWrapper) ReloadSelf(def []byte) error { return w.original.ReloadSelf(def) }
+func (w *nodeCtxWrapper) ReloadSelfFromDef(def types.RuleChain) error {
+	return w.original.ReloadSelfFromDef(def)
+}
+func (w *nodeCtxWrapper) ReloadChild(ruleNodeId types.RuleNodeId, def []byte) error {
+	return w.original.ReloadChild(ruleNodeId, def)
+}
+func (w *nodeCtxWrapper) GetNodeById(id types.RuleNodeId) (types.NodeCtx, bool) {
+	return w.original.GetNodeById(id)
+}
+func (w *nodeCtxWrapper) DSL() []byte     { return w.original.DSL() }
+func (w *nodeCtxWrapper) Type() string    { return w.original.Type() }
+func (w *nodeCtxWrapper) New() types.Node { return w.original.New() }
+func (w *nodeCtxWrapper) Init(config types.Config, configuration types.Configuration) error {
+	return w.original.Init(config, configuration)
+}
+func (w *nodeCtxWrapper) OnMsg(ctx types.RuleContext, msg types.RuleMsg) { w.original.OnMsg(ctx, msg) }
+func (w *nodeCtxWrapper) Destroy()                                       { w.original.Destroy() }

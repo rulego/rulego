@@ -21,8 +21,9 @@ package node_pool
 import (
 	"errors"
 	"fmt"
-	"github.com/rulego/rulego/utils/json"
 	"sync"
+
+	"github.com/rulego/rulego/utils/json"
 
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
@@ -244,13 +245,33 @@ func (n *sharedNodeCtx) GetInstance() (interface{}, error) {
 			return n.Endpoint.(types.SharedNode).GetInstance()
 		}
 	}
-	return n.RuleNodeCtx.Node.(types.SharedNode).GetInstance()
+
+	// 使用读锁保护节点实例的访问
+	if n.RuleNodeCtx == nil {
+		return nil, fmt.Errorf("RuleNodeCtx is nil")
+	}
+
+	n.RuleNodeCtx.RLock()
+	node := n.RuleNodeCtx.Node
+	n.RuleNodeCtx.RUnlock()
+
+	if node == nil {
+		return nil, fmt.Errorf("node is nil")
+	}
+	return node.(types.SharedNode).GetInstance()
 }
+
 func (n *sharedNodeCtx) GetNode() interface{} {
 	if n.Endpoint != nil {
 		return n.Endpoint
 	}
-	return n.RuleNodeCtx.Node
+	if n.RuleNodeCtx == nil {
+		return nil
+	}
+	n.RuleNodeCtx.RLock()
+	node := n.RuleNodeCtx.Node
+	n.RuleNodeCtx.RUnlock()
+	return node
 }
 
 func (n *sharedNodeCtx) DSL() []byte {
@@ -268,6 +289,9 @@ func (n *sharedNodeCtx) DSL() []byte {
 			return dsl
 		}
 	}
+	if n.RuleNodeCtx == nil {
+		return nil
+	}
 	return n.RuleNodeCtx.DSL()
 }
 
@@ -275,8 +299,12 @@ func (n *sharedNodeCtx) GetNodeId() types.RuleNodeId {
 	if n.Endpoint != nil {
 		return types.RuleNodeId{Id: n.Endpoint.Id(), Type: types.ENDPOINT}
 	}
+	if n.RuleNodeCtx == nil {
+		return types.RuleNodeId{}
+	}
 	return n.RuleNodeCtx.GetNodeId()
 }
+
 func (n *sharedNodeCtx) SharedNode() types.SharedNode {
 	if n.Endpoint != nil {
 		if v, ok := n.Endpoint.(*endpoint.DynamicEndpoint); ok {
@@ -284,13 +312,38 @@ func (n *sharedNodeCtx) SharedNode() types.SharedNode {
 		}
 		return n.Endpoint.(types.SharedNode)
 	}
-	return n.RuleNodeCtx.Node.(types.SharedNode)
+	if n.RuleNodeCtx == nil {
+		return nil
+	}
+	n.RuleNodeCtx.RLock()
+	node := n.RuleNodeCtx.Node
+	n.RuleNodeCtx.RUnlock()
+	if node == nil {
+		return nil
+	}
+	return node.(types.SharedNode)
+}
+
+// ReloadSelf 重写ReloadSelf方法以确保线程安全的重新加载
+func (n *sharedNodeCtx) ReloadSelf(def []byte) error {
+	if n.Endpoint != nil {
+		// 对于endpoint类型，先检查是否是DynamicEndpoint接口
+		if dynamicEp, ok := n.Endpoint.(endpointApi.DynamicEndpoint); ok {
+			return dynamicEp.Reload(def)
+		}
+		return fmt.Errorf("endpoint does not support reload")
+	}
+	if n.RuleNodeCtx == nil {
+		return fmt.Errorf("RuleNodeCtx is nil")
+	}
+	// 对于RuleNodeCtx类型，已经在RuleNodeCtx.ReloadSelf中处理了线程安全
+	return n.RuleNodeCtx.ReloadSelf(def)
 }
 
 func (n *sharedNodeCtx) Destroy() {
 	if n.Endpoint != nil {
 		n.Endpoint.Destroy()
-	} else {
+	} else if n.RuleNodeCtx != nil {
 		n.RuleNodeCtx.Destroy()
 	}
 }

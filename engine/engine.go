@@ -31,9 +31,12 @@ package engine
 
 import (
 	"errors"
-	"github.com/rulego/rulego/utils/cache"
 	"reflect"
+	"sync/atomic"
 	"time"
+	"unsafe"
+
+	"github.com/rulego/rulego/utils/cache"
 
 	"github.com/rulego/rulego/api/types/metrics"
 
@@ -50,6 +53,13 @@ var ErrDisabled = errors.New("the rule chain has been disabled")
 // BuiltinsAspects holds a list of built-in aspects for the rule engine.
 var BuiltinsAspects = []types.Aspect{&aspect.Validator{}, &aspect.Debug{}, &aspect.MetricsAspect{}}
 
+// aspectsHolder holds the aspects for atomic access
+type aspectsHolder struct {
+	startAspects     []types.StartAspect
+	endAspects       []types.EndAspect
+	completedAspects []types.CompletedAspect
+}
+
 // RuleEngine is the core structure for a rule engine instance.
 // Each RuleEngine instance has only one root rule chain, and it cannot process data without a set rule chain.
 type RuleEngine struct {
@@ -61,12 +71,8 @@ type RuleEngine struct {
 	id string
 	// rootRuleChainCtx is the context of the root rule chain.
 	rootRuleChainCtx *RuleChainCtx
-	// startAspects is a list of aspects that are applied before the execution of the rule chain starts.
-	startAspects []types.StartAspect
-	// endAspects is a list of aspects that are applied when a branch of the rule chain ends.
-	endAspects []types.EndAspect
-	// completedAspects is a list of aspects that are applied when the rule chain execution is completed.
-	completedAspects []types.CompletedAspect
+	// aspectsPtr provides high-performance atomic access to aspects
+	aspectsPtr unsafe.Pointer
 	// initialized indicates whether the rule engine has been initialized.
 	initialized bool
 	// Aspects is a list of AOP (Aspect-Oriented Programming) aspects.
@@ -118,6 +124,10 @@ func (e *RuleEngine) SetRuleEnginePool(ruleChainPool types.RuleEnginePool) {
 }
 
 func (e *RuleEngine) GetAspects() types.AspectList {
+	// 返回一个副本以避免数据竞争
+	if e.rootRuleChainCtx != nil {
+		return e.rootRuleChainCtx.GetAspects()
+	}
 	return e.Aspects
 }
 
@@ -213,9 +223,8 @@ func (e *RuleEngine) ReloadSelf(dsl []byte, opts ...types.RuleEngineOption) erro
 	}
 	// Set the aspect lists.
 	startAspects, endAspects, completedAspects := e.Aspects.GetChainAspects()
-	e.startAspects = startAspects
-	e.endAspects = endAspects
-	e.completedAspects = completedAspects
+	holder := &aspectsHolder{startAspects: startAspects, endAspects: endAspects, completedAspects: completedAspects}
+	atomic.StorePointer(&e.aspectsPtr, unsafe.Pointer(holder))
 	return err
 }
 
@@ -446,12 +455,14 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 // onStart executes the list of start aspects before the rule chain begins processing a message.
 func (e *RuleEngine) onStart(ctx types.RuleContext, msg types.RuleMsg) (types.RuleMsg, error) {
 	var err error
-	for _, aop := range e.startAspects {
-		if aop.PointCut(ctx, msg, "") {
-			if err != nil {
-				return msg, err
+	if aspects := e.getAspectsHolder(); aspects != nil {
+		for _, aop := range aspects.startAspects {
+			if aop.PointCut(ctx, msg, "") {
+				if err != nil {
+					return msg, err
+				}
+				msg, err = aop.Start(ctx, msg)
 			}
-			msg, err = aop.Start(ctx, msg)
 		}
 	}
 	return msg, err
@@ -459,9 +470,11 @@ func (e *RuleEngine) onStart(ctx types.RuleContext, msg types.RuleMsg) (types.Ru
 
 // onEnd executes the list of end aspects when a branch of the rule chain ends.
 func (e *RuleEngine) onEnd(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) types.RuleMsg {
-	for _, aop := range e.endAspects {
-		if aop.PointCut(ctx, msg, relationType) {
-			msg = aop.End(ctx, msg, err, relationType)
+	if aspects := e.getAspectsHolder(); aspects != nil {
+		for _, aop := range aspects.endAspects {
+			if aop.PointCut(ctx, msg, relationType) {
+				msg = aop.End(ctx, msg, err, relationType)
+			}
 		}
 	}
 	return msg
@@ -469,12 +482,23 @@ func (e *RuleEngine) onEnd(ctx types.RuleContext, msg types.RuleMsg, err error, 
 
 // onAllNodeCompleted executes the list of completed aspects after all branches of the rule chain have ended.
 func (e *RuleEngine) onAllNodeCompleted(ctx types.RuleContext, msg types.RuleMsg) types.RuleMsg {
-	for _, aop := range e.completedAspects {
-		if aop.PointCut(ctx, msg, "") {
-			msg = aop.Completed(ctx, msg)
+	if aspects := e.getAspectsHolder(); aspects != nil {
+		for _, aop := range aspects.completedAspects {
+			if aop.PointCut(ctx, msg, "") {
+				msg = aop.Completed(ctx, msg)
+			}
 		}
 	}
 	return msg
+}
+
+// getAspectsHolder safely retrieves the aspects holder with high performance
+func (e *RuleEngine) getAspectsHolder() *aspectsHolder {
+	ptr := atomic.LoadPointer(&e.aspectsPtr)
+	if ptr == nil {
+		return nil
+	}
+	return (*aspectsHolder)(ptr)
 }
 
 // NewConfig creates a new Config and applies the options.

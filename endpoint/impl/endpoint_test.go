@@ -22,6 +22,7 @@ import (
 	"net/textproto"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -155,30 +156,30 @@ func TestEndpoint(t *testing.T) {
 		}, func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return false
 		})
-		assert.Equal(t, 2, len(testEp.interceptors))
+		assert.Equal(t, 2, len(testEp.Interceptors))
 		testEp.DoProcess(context.WithValue(context.TODO(), "baseAdd", "baseValue"), router, exchange)
 		//测试from process中断
-		var firstDone = false
-		var secondDone = false
+		var firstDone int32
+		var secondDone int32
 		testEp = &testEndpoint{}
 		testEp.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return true
 		})
 		router.GetFrom().Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-			firstDone = true
+			atomic.StoreInt32(&firstDone, 1)
 			return false
 		}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-			secondDone = true
+			atomic.StoreInt32(&secondDone, 1)
 			return false
 		})
 		testEp.DoProcess(context.WithValue(context.TODO(), "baseAdd", "baseValue"), router, exchange)
 		time.Sleep(time.Millisecond * 100)
-		assert.True(t, firstDone)
-		assert.False(t, secondDone)
+		assert.True(t, atomic.LoadInt32(&firstDone) == 1)
+		assert.False(t, atomic.LoadInt32(&secondDone) == 1)
 
 		//测试to process中断
-		firstDone = false
-		secondDone = false
+		atomic.StoreInt32(&firstDone, 0)
+		atomic.StoreInt32(&secondDone, 0)
 		testEp = &testEndpoint{}
 		testEp.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return true
@@ -187,17 +188,17 @@ func TestEndpoint(t *testing.T) {
 			Process(transformFunc).
 			To("chain:${chainId}").
 			Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-				firstDone = true
+				atomic.StoreInt32(&firstDone, 1)
 				return false
 			}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-			secondDone = true
+			atomic.StoreInt32(&secondDone, 1)
 			return false
 		}).End()
 
 		testEp.DoProcess(context.Background(), router, exchange)
 		time.Sleep(time.Millisecond * 100)
-		assert.True(t, firstDone)
-		assert.False(t, secondDone)
+		assert.True(t, atomic.LoadInt32(&firstDone) == 1)
+		assert.False(t, atomic.LoadInt32(&secondDone) == 1)
 	})
 
 	t.Run("EndpointOnMsg", func(t *testing.T) {
@@ -214,25 +215,25 @@ func TestEndpoint(t *testing.T) {
 		exchange := &endpoint.Exchange{
 			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
 			Out: &testResponseMessage{}}
-		end := false
+		var end int32
 		router := NewRouter(endpoint.RouterOptions.WithRuleConfig(config), endpoint.RouterOptions.WithRuleGo(engine.DefaultPool)).From(from).Process(transformFunc).Process(processFunc).ToComponent(func() types.Node {
 			node := &transform.JsTransformNode{}
 			_ = node.Init(config, configuration)
 			return node
 		}()).Wait().Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			toProcessFunc(router, exchange)
-			end = true
+			atomic.StoreInt32(&end, 1)
 			return true
 		}).End()
 		//执行路由
 		executeRouterTest(router, exchange)
-		assert.True(t, end)
+		assert.True(t, atomic.LoadInt32(&end) == 1)
 	})
 	t.Run("ExecuteComponent", func(t *testing.T) {
 		exchange := &endpoint.Exchange{
 			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
 			Out: &testResponseMessage{}}
-		end := false
+		var end int32
 		router := NewRouter()
 		router.From(from).
 			Transform(transformFunc).
@@ -242,15 +243,16 @@ func TestEndpoint(t *testing.T) {
 				return true
 			}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			toProcessFunc(router, exchange)
-			end = true
+			atomic.StoreInt32(&end, 1)
 			return true
 		}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return false
 		})
 		//执行路由
 		executeRouterTest(router, exchange)
-		//异步
-		assert.False(t, end)
+		time.Sleep(time.Millisecond * 200)
+		assert.False(t, atomic.LoadInt32(&end) == 1)
+		time.Sleep(time.Millisecond * 100)
 	})
 
 	t.Run("ExecuteComponentVar", func(t *testing.T) {
@@ -268,17 +270,17 @@ func TestEndpoint(t *testing.T) {
 		exchange := &endpoint.Exchange{
 			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
 			Out: &testResponseMessage{}}
-		end := false
+		var end int32
 		router := NewRouter()
 		router.From(from).Transform(transformFunc).Process(processFunc).To("component:jsTransform", configuration).Wait().Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			toProcessFunc(router, exchange)
-			end = true
+			atomic.StoreInt32(&end, 1)
 			return true
 		})
 		//执行路由
 		executeRouterTest(router, exchange)
 		//同步
-		assert.True(t, end)
+		assert.True(t, atomic.LoadInt32(&end) == 1)
 	})
 
 	t.Run("ExecuteComponentErr", func(t *testing.T) {
@@ -302,17 +304,17 @@ func TestEndpoint(t *testing.T) {
 		exchange := &endpoint.Exchange{
 			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
 			Out: &testResponseMessage{}}
-		end := false
+		var end int32
 		router2 := NewRouter()
 		router2.From(from).Transform(transformFunc).Process(processFunc).To(toDefault).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			assert.Nil(t, exchange.Out.GetError())
-			end = true
+			atomic.StoreInt32(&end, 1)
 			return true
 		})
 		//执行路由
 		executeRouterTest(router2, exchange)
 		//异步
-		assert.False(t, end)
+		assert.False(t, atomic.LoadInt32(&end) == 1)
 		time.Sleep(time.Millisecond * 200)
 	})
 
@@ -325,18 +327,18 @@ func TestEndpoint(t *testing.T) {
 		//注册规则链
 		_, err = engine.New("errChainId", []byte(errChain), engine.WithConfig(config))
 
-		end := false
+		var end int32
 		router2 := NewRouter()
 		router2.From(from).Transform(transformFunc).Process(processFunc).To("chain:errChainId").
 			Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 				assert.NotNil(t, exchange.Out.GetError())
-				end = true
+				atomic.StoreInt32(&end, 1)
 				return true
 			})
 		//执行路由
 		executeRouterTest(router2, exchange)
 		//异步
-		assert.False(t, end)
+		assert.False(t, atomic.LoadInt32(&end) == 1)
 		time.Sleep(time.Millisecond * 100)
 	})
 
@@ -345,11 +347,11 @@ func TestEndpoint(t *testing.T) {
 			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
 			Out: &testResponseMessage{}}
 		router2 := NewRouter()
-		var done = false
+		var done int32
 		router2.From(from).Transform(transformFunc).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return false
 		}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-			done = true
+			atomic.StoreInt32(&done, 1)
 			return true
 		}).To("nothing:aa").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return true
@@ -357,7 +359,7 @@ func TestEndpoint(t *testing.T) {
 		//执行路由
 		executeRouterTest(router2, exchange)
 		//异步
-		assert.False(t, done)
+		assert.False(t, atomic.LoadInt32(&done) == 1)
 		time.Sleep(time.Millisecond * 100)
 	})
 	t.Run("ExecuteChainToBroker", func(t *testing.T) {
@@ -365,31 +367,31 @@ func TestEndpoint(t *testing.T) {
 			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
 			Out: &testResponseMessage{}}
 		router2 := NewRouter()
-		var done = false
+		var done int32
 		router2.From(from).Transform(transformFunc).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return true
 		}).To(toAa).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return false
 		}).Wait().Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-			done = true
+			atomic.StoreInt32(&done, 1)
 			return true
 		})
 		//执行路由
 		executeRouterTest(router2, exchange)
 		//同步
-		assert.False(t, done)
+		assert.False(t, atomic.LoadInt32(&done) == 1)
 	})
 
 	t.Run("ExecuteChainAndWait", func(t *testing.T) {
 		exchange := &endpoint.Exchange{
 			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
 			Out: &testResponseMessage{}}
-		end := false
+		var end int32
 		router2 := NewRouter()
 		router2.From(from).Transform(transformFunc).Process(processFunc).To(toDefault).Wait().
 			Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 				assert.Nil(t, exchange.Out.GetError())
-				end = true
+				atomic.StoreInt32(&end, 1)
 				return true
 			}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return false
@@ -397,7 +399,7 @@ func TestEndpoint(t *testing.T) {
 		//执行路由
 		executeRouterTest(router2, exchange)
 		//同步
-		assert.True(t, end)
+		assert.True(t, atomic.LoadInt32(&end) == 1)
 	})
 
 	t.Run("ExecuteChainVar", func(t *testing.T) {

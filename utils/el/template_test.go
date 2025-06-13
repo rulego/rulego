@@ -497,10 +497,10 @@ func TestExprTemplate2(t *testing.T) {
 	var i = 0
 	for i < 100000 {
 		for _, item := range list {
-			go func() {
+			go func(program *vm.Program) {
 				var vm vm.VM
-				_, _ = vm.Run(item, data)
-			}()
+				_, _ = vm.Run(program, data)
+			}(item)
 		}
 		i++
 	}

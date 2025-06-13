@@ -41,8 +41,8 @@ func TestWorkerPool(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	if n != 10000 {
-		t.Fatalf("unexpected number of served functions: %d. Expecting %d", n, 100)
+	if atomic.LoadInt32(&n) != 10000 {
+		t.Fatalf("unexpected number of served functions: %d. Expecting %d", atomic.LoadInt32(&n), 10000)
 	}
 	wp.Release()
 	if wp.Submit(fn) != nil {
@@ -69,8 +69,8 @@ func TestWorkerPoolWithMaxIdleWorkerD(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	if n != 10000 {
-		t.Fatalf("unexpected number of served functions: %d. Expecting %d", n, 100)
+	if atomic.LoadInt32(&n) != 10000 {
+		t.Fatalf("unexpected number of served functions: %d. Expecting %d", atomic.LoadInt32(&n), 10000)
 	}
 	wp.Release()
 	if wp.Submit(fn) != nil {

@@ -409,8 +409,8 @@ type BaseEndpoint struct {
 	//endpoint 路由存储器
 	RouterStorage map[string]endpoint.Router
 	OnEvent       endpoint.OnEvent
-	//全局拦截器
-	interceptors []endpoint.Process
+	//全局拦截器 - 导出字段，允许直接访问以避免锁竞争
+	Interceptors []endpoint.Process
 	sync.RWMutex
 }
 
@@ -423,14 +423,24 @@ func (e *BaseEndpoint) SetOnEvent(onEvent endpoint.OnEvent) {
 }
 
 // AddInterceptors 添加全局拦截器
+// 警告：在持有锁的上下文中调用此方法可能导致死锁，请考虑直接操作 Interceptors 字段
 func (e *BaseEndpoint) AddInterceptors(interceptors ...endpoint.Process) {
-	e.interceptors = append(e.interceptors, interceptors...)
+	e.Lock()
+	defer e.Unlock()
+	e.Interceptors = append(e.Interceptors, interceptors...)
 }
 
 func (e *BaseEndpoint) DoProcess(baseCtx context.Context, router endpoint.Router, exchange *endpoint.Exchange) {
 	//创建上下文
 	ctx := e.createContext(baseCtx, router, exchange)
-	for _, item := range e.interceptors {
+
+	// 线程安全地获取拦截器副本
+	e.RLock()
+	interceptors := make([]endpoint.Process, len(e.Interceptors))
+	copy(interceptors, e.Interceptors)
+	e.RUnlock()
+
+	for _, item := range interceptors {
 		//执行全局拦截器
 		if !item(router, exchange) {
 			return
@@ -472,7 +482,10 @@ func (e *BaseEndpoint) CheckAndSetRouterId(router endpoint.Router) string {
 }
 
 func (e *BaseEndpoint) Destroy() {
-	e.interceptors = nil
+	e.Lock()
+	defer e.Unlock()
+	e.Interceptors = nil
+	// Create a new map instead of clearing the existing one to avoid race conditions
 	e.RouterStorage = make(map[string]endpoint.Router)
 }
 

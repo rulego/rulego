@@ -46,6 +46,7 @@ type NodeTestRuleContext struct {
 	out                types.RuleMsg
 	globalCache        types.Cache
 	chainCache         types.Cache
+	mutex              sync.RWMutex // Add mutex for thread safety
 }
 
 func (ctx *NodeTestRuleContext) GlobalCache() types.Cache {
@@ -83,26 +84,49 @@ func NewRuleContextFull(config types.Config, self types.Node, childrenNodes map[
 }
 
 func (ctx *NodeTestRuleContext) TellSuccess(msg types.RuleMsg) {
-	ctx.callback(msg, types.Success, nil)
-	if ctx.onEndFunc != nil {
-		ctx.onEndFunc(ctx, msg, nil, types.Success)
+	ctx.mutex.RLock()
+	callback := ctx.callback
+	onEndFunc := ctx.onEndFunc
+	ctx.mutex.RUnlock()
+
+	if callback != nil {
+		callback(msg, types.Success, nil)
+	}
+	if onEndFunc != nil {
+		onEndFunc(ctx, msg, nil, types.Success)
 	}
 }
+
 func (ctx *NodeTestRuleContext) TellFailure(msg types.RuleMsg, err error) {
-	ctx.callback(msg, types.Failure, err)
-	if ctx.onEndFunc != nil {
-		ctx.onEndFunc(ctx, msg, err, types.Failure)
+	ctx.mutex.RLock()
+	callback := ctx.callback
+	onEndFunc := ctx.onEndFunc
+	ctx.mutex.RUnlock()
+
+	if callback != nil {
+		callback(msg, types.Failure, err)
+	}
+	if onEndFunc != nil {
+		onEndFunc(ctx, msg, err, types.Failure)
 	}
 }
+
 func (ctx *NodeTestRuleContext) TellNext(msg types.RuleMsg, relationTypes ...string) {
+	ctx.mutex.RLock()
+	callback := ctx.callback
+	onEndFunc := ctx.onEndFunc
+	ctx.mutex.RUnlock()
+
 	for _, relationType := range relationTypes {
-		ctx.callback(msg, relationType, nil)
-		if ctx.onEndFunc != nil {
-			ctx.onEndFunc(ctx, msg, nil, relationType)
+		if callback != nil {
+			callback(msg, relationType, nil)
+		}
+		if onEndFunc != nil {
+			onEndFunc(ctx, msg, nil, relationType)
 		}
 	}
-
 }
+
 func (ctx *NodeTestRuleContext) TellSelf(msg types.RuleMsg, delayMs int64) {
 	time.AfterFunc(time.Millisecond*time.Duration(delayMs), func() {
 		if ctx.self != nil {
@@ -117,6 +141,8 @@ func (ctx *NodeTestRuleContext) NewMsg(msgType string, metaData *types.Metadata,
 	return types.NewMsg(0, msgType, types.JSON, metaData, data)
 }
 func (ctx *NodeTestRuleContext) GetSelfId() string {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
 	return ctx.selfId
 }
 func (ctx *NodeTestRuleContext) Self() types.NodeCtx {
@@ -140,11 +166,15 @@ func (ctx *NodeTestRuleContext) SubmitTask(task func()) {
 }
 
 func (ctx *NodeTestRuleContext) SetEndFunc(onEndFunc types.OnEndFunc) types.RuleContext {
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
 	ctx.onEndFunc = onEndFunc
 	return ctx
 }
 
 func (ctx *NodeTestRuleContext) GetEndFunc() types.OnEndFunc {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
 	return ctx.onEndFunc
 }
 
@@ -181,7 +211,11 @@ func (ctx *NodeTestRuleContext) TellFlow(chainCtx context.Context, chainId strin
 // TellNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
 func (ctx *NodeTestRuleContext) TellNode(context context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, callback types.OnEndFunc, onAllNodeCompleted func()) {
 	if v, ok := ctx.childrenNodes.Load(nodeId); ok {
+		// 线程安全地设置 selfId
+		ctx.mutex.Lock()
 		ctx.selfId = nodeId
+		ctx.mutex.Unlock()
+
 		subCtx := NewRuleContext(ctx.config, func(msg types.RuleMsg, relationType string, err error) {
 			if callback != nil {
 				callback(ctx, msg, err, relationType)
@@ -240,7 +274,16 @@ func (ctx *NodeTestRuleContext) TellCollect(msg types.RuleMsg, callback func(msg
 }
 
 func (ctx *NodeTestRuleContext) GetOut() types.RuleMsg {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
 	return ctx.out
+}
+
+// setOut safely sets the out field
+func (ctx *NodeTestRuleContext) setOut(msg types.RuleMsg) {
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
+	ctx.out = msg
 }
 
 func (ctx *NodeTestRuleContext) GetErr() error {

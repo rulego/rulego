@@ -17,12 +17,14 @@
 package action
 
 import (
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/test"
-	"github.com/rulego/rulego/test/assert"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/test"
+	"github.com/rulego/rulego/test/assert"
 )
 
 func TestTemplateNode(t *testing.T) {
@@ -64,6 +66,7 @@ func TestTemplateNode(t *testing.T) {
 			atomic.AddInt32(&count, 1)
 		}
 		var data1, data2 string
+		var data1Mutex, data2Mutex sync.Mutex
 		var nodeList = []test.NodeAndCallback{
 			{
 				Node: test.InitNodeByConfig(types.NewConfig(), targetNodeType, types.Configuration{
@@ -121,7 +124,9 @@ func TestTemplateNode(t *testing.T) {
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.NotEqual(t, "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}", msg.GetData())
 					assert.Equal(t, types.Success, relationType)
+					data1Mutex.Lock()
 					data1 = msg.GetData()
+					data1Mutex.Unlock()
 				},
 			},
 			{
@@ -134,7 +139,9 @@ func TestTemplateNode(t *testing.T) {
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					assert.NotEqual(t, "{\"name\":\"aa\",\"temperature\":60,\"humidity\":30}", msg.GetData())
 					assert.Equal(t, types.Success, relationType)
+					data2Mutex.Lock()
 					data2 = msg.GetData()
+					data2Mutex.Unlock()
 				},
 			},
 		}
@@ -142,7 +149,11 @@ func TestTemplateNode(t *testing.T) {
 			test.NodeOnMsgWithChildrenAndConfig(t, config, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
 		time.Sleep(time.Second)
-		assert.Equal(t, int32(1), count)
+		assert.Equal(t, int32(1), atomic.LoadInt32(&count))
+		data1Mutex.Lock()
+		data2Mutex.Lock()
 		assert.Equal(t, data1, data2)
+		data2Mutex.Unlock()
+		data1Mutex.Unlock()
 	})
 }
