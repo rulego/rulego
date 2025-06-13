@@ -29,7 +29,7 @@ jobs:
       - name: Build plugin
         run: go build -buildmode=plugin -o plugin.so testdata/plugin/plugin.go
       - name: Run unit tests and integrated tests
-        run: go test -v --tags=test_plugin ./... -coverprofile="codecov.report"
+        run: go test -v -race --tags=test_plugin ./... -coverprofile="codecov.report"
         env:
           TEST_SERVER_IP: ${{ secrets.TEST_SERVER_IP }}
           TEST_SERVER_USERNAME: ${{ secrets.TEST_SERVER_USERNAME }}
