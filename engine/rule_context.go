@@ -384,46 +384,28 @@ func (r *RunSnapshot) onRuleChainCompleted(ctx types.RuleContext) {
 	}
 }
 
-// Context pool for reusing DefaultRuleContext objects
-var defaultContextPool = sync.Pool{
-	New: func() interface{} {
-		return &DefaultRuleContext{}
-	},
-}
-
 // NewNextNodeRuleContext creates a new instance of RuleContext for the next node in the rule engine.
 func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *DefaultRuleContext {
-	// Get context from pool to reduce allocations
-	nextCtx := defaultContextPool.Get().(*DefaultRuleContext)
-
-	// Reset and initialize fields
-	nextCtx.config = ctx.config
-	nextCtx.ruleChainCtx = ctx.ruleChainCtx
-	nextCtx.from = ctx.self
-	nextCtx.self = nextNode
-	nextCtx.pool = ctx.pool
-	nextCtx.onEnd = ctx.onEnd
-	nextCtx.ruleChainPool = ctx.ruleChainPool
-	nextCtx.context = ctx.GetContext()
-	nextCtx.parentRuleCtx = ctx
-	nextCtx.skipTellNext = ctx.skipTellNext
-	nextCtx.aroundAspects = ctx.aroundAspects
-	nextCtx.beforeAspects = ctx.beforeAspects
-	nextCtx.afterAspects = ctx.afterAspects
-	nextCtx.runSnapshot = ctx.runSnapshot
-	nextCtx.observer = ctx.observer
-	nextCtx.err = ctx.err
-	nextCtx.chainCache = ctx.ChainCache()
-
-	// Reset atomic fields using atomic operations to prevent data races
-	atomic.StoreInt32(&nextCtx.waitingCount, 0)
-	atomic.StoreInt32(&nextCtx.onAllNodeCompletedDone, 0)
-
-	// Reset other fields to zero values
-	nextCtx.isFirst = false
-	nextCtx.onAllNodeCompleted = nil
-	nextCtx.relationTypes = nil
-	nextCtx.out = types.RuleMsg{}
+	// Create a new context directly instead of using object pool to avoid data races
+	nextCtx := &DefaultRuleContext{
+		config:        ctx.config,
+		ruleChainCtx:  ctx.ruleChainCtx,
+		from:          ctx.self,
+		self:          nextNode,
+		pool:          ctx.pool,
+		onEnd:         ctx.onEnd,
+		ruleChainPool: ctx.ruleChainPool,
+		context:       ctx.GetContext(),
+		parentRuleCtx: ctx,
+		skipTellNext:  ctx.skipTellNext,
+		aroundAspects: ctx.aroundAspects,
+		beforeAspects: ctx.beforeAspects,
+		afterAspects:  ctx.afterAspects,
+		runSnapshot:   ctx.runSnapshot,
+		observer:      ctx.observer,
+		err:           ctx.err,
+		chainCache:    ctx.chainCache,
+	}
 
 	return nextCtx
 }
@@ -783,12 +765,6 @@ func (ctx *DefaultRuleContext) childDone() {
 			if onAllNodeCompleted != nil {
 				onAllNodeCompleted()
 			}
-
-			// Return context to pool when processing is complete
-			// Only return non-root contexts to avoid issues with reuse
-			if parentRuleCtx != nil {
-				defaultContextPool.Put(ctx)
-			}
 		}
 	}
 }
@@ -827,7 +803,6 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultRelationType string, relationTypes ...string) {
 	ctx.out = msg
 	ctx.err = err
-	//msgCopy := msg.Copy()
 	if ctx.isFirst {
 		ctx.tellSelf(msg, err, relationTypes...)
 	} else {
