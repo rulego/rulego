@@ -787,7 +787,7 @@ func TestBatchOnMsgAndWaitMultipleOnEnd(t *testing.T) {
 		ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 			atomic.AddInt32(&count, 1)
 		}))
-		assert.Equal(t, int32(2), count)
+		assert.Equal(t, int32(2), atomic.LoadInt32(&count))
 	}
 	time.Sleep(time.Millisecond * 100)
 }
