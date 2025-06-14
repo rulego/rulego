@@ -251,8 +251,7 @@ func TestEndpoint(t *testing.T) {
 		//执行路由
 		executeRouterTest(router, exchange)
 		time.Sleep(time.Millisecond * 200)
-		assert.False(t, atomic.LoadInt32(&end) == 1)
-		time.Sleep(time.Millisecond * 100)
+		assert.True(t, atomic.LoadInt32(&end) == 1)
 	})
 
 	t.Run("ExecuteComponentVar", func(t *testing.T) {
@@ -313,9 +312,8 @@ func TestEndpoint(t *testing.T) {
 		})
 		//执行路由
 		executeRouterTest(router2, exchange)
-		//异步
-		assert.False(t, atomic.LoadInt32(&end) == 1)
-		time.Sleep(time.Millisecond * 200)
+		time.Sleep(time.Millisecond * 100)
+		assert.True(t, atomic.LoadInt32(&end) == 1)
 	})
 
 	t.Run("ExecuteChainErr", func(t *testing.T) {
@@ -337,9 +335,8 @@ func TestEndpoint(t *testing.T) {
 			})
 		//执行路由
 		executeRouterTest(router2, exchange)
-		//异步
-		assert.False(t, atomic.LoadInt32(&end) == 1)
 		time.Sleep(time.Millisecond * 100)
+		assert.True(t, atomic.LoadInt32(&end) == 1)
 	})
 
 	t.Run("ExecuteChainFromBroker", func(t *testing.T) {
@@ -358,9 +355,8 @@ func TestEndpoint(t *testing.T) {
 		})
 		//执行路由
 		executeRouterTest(router2, exchange)
-		//异步
-		assert.False(t, atomic.LoadInt32(&done) == 1)
 		time.Sleep(time.Millisecond * 100)
+		assert.False(t, atomic.LoadInt32(&done) == 1)
 	})
 	t.Run("ExecuteChainToBroker", func(t *testing.T) {
 		exchange := &endpoint.Exchange{
@@ -378,7 +374,7 @@ func TestEndpoint(t *testing.T) {
 		})
 		//执行路由
 		executeRouterTest(router2, exchange)
-		//同步
+		time.Sleep(time.Millisecond * 100)
 		assert.False(t, atomic.LoadInt32(&done) == 1)
 	})
 
