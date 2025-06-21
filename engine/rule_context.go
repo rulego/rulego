@@ -682,10 +682,11 @@ func (ctx *DefaultRuleContext) GetCallbackFunc(functionName string) interface{} 
 
 func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 	msgCopy := msg.Copy()
+	// 在方法开始时就缓存runSnapshot引用，避免并发竞态条件
+	runSnapshot := ctx.runSnapshot
 	if ctx.IsDebugMode() {
 		// 在提交异步任务前捕获需要的值，避免并发访问
 		onDebugFunc := ctx.config.OnDebug
-		runSnapshot := ctx.runSnapshot
 
 		//异步记录日志
 		ctx.SubmitTask(func() {
@@ -697,9 +698,9 @@ func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, node
 			}
 		})
 	}
-	if ctx.runSnapshot != nil {
+	if runSnapshot != nil {
 		//记录快照
-		ctx.runSnapshot.collectRunSnapshot(ctx, flowType, nodeId, msgCopy, relationType, err)
+		runSnapshot.collectRunSnapshot(ctx, flowType, nodeId, msgCopy, relationType, err)
 	}
 
 }
