@@ -80,40 +80,71 @@ func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[s
 }
 
 // ContextObserver tracks the execution state of nodes in the rule chain.
+// 使用分段锁优化并发性能
 type ContextObserver struct {
-	// Map of executed nodes
+	// 分段锁，减少锁竞争
+	segmentCount int
+	segments     []*observerSegment
+
+	// 执行节点的无锁映射
 	executedNodes sync.Map
+}
+
+// observerSegment 观察者段，每个段有独立的锁
+type observerSegment struct {
 	// Map of input messages for each node
 	nodeInMsgList map[string][]types.WrapperMsg
 	// Map of callbacks for node completion events
 	nodeDoneEvent map[string]joinNodeCallback
-	sync.RWMutex
+	mu            sync.RWMutex
 }
 
-// joinNodeCallback represents a callback function for when a join node completes.
-type joinNodeCallback struct {
-	joinNodeId string
-	parentIds  []string
-	callback   func([]types.WrapperMsg)
+// NewContextObserver 创建新的上下文观察者
+func NewContextObserver() *ContextObserver {
+	segmentCount := 16 // 16个分段，平衡内存和并发性能
+	segments := make([]*observerSegment, segmentCount)
+
+	for i := 0; i < segmentCount; i++ {
+		segments[i] = &observerSegment{
+			nodeInMsgList: make(map[string][]types.WrapperMsg),
+			nodeDoneEvent: make(map[string]joinNodeCallback),
+		}
+	}
+
+	return &ContextObserver{
+		segmentCount: segmentCount,
+		segments:     segments,
+	}
+}
+
+// getSegment 根据joinNodeId获取对应的段
+func (c *ContextObserver) getSegment(joinNodeId string) *observerSegment {
+	// 使用FNV-1a哈希算法，分布更均匀
+	hash := uint32(2166136261)
+	for _, b := range []byte(joinNodeId) {
+		hash ^= uint32(b)
+		hash *= 16777619
+	}
+	return c.segments[hash%uint32(c.segmentCount)]
 }
 
 // addInMsg adds an input message for a specific join node.
 func (c *ContextObserver) addInMsg(joinNodeId, fromId string, msg types.RuleMsg, errStr string) bool {
-	c.Lock()
-	defer c.Unlock()
-	if c.nodeInMsgList == nil {
-		c.nodeInMsgList = make(map[string][]types.WrapperMsg)
-	}
-	if list, ok := c.nodeInMsgList[joinNodeId]; ok {
+	segment := c.getSegment(joinNodeId)
+
+	segment.mu.Lock()
+	defer segment.mu.Unlock()
+
+	if list, ok := segment.nodeInMsgList[joinNodeId]; ok {
 		list = append(list, types.WrapperMsg{
 			Msg:    msg,
 			Err:    errStr,
 			NodeId: fromId,
 		})
-		c.nodeInMsgList[joinNodeId] = list
+		segment.nodeInMsgList[joinNodeId] = list
 		return true
 	} else {
-		c.nodeInMsgList[joinNodeId] = []types.WrapperMsg{
+		segment.nodeInMsgList[joinNodeId] = []types.WrapperMsg{
 			{
 				Msg:    msg,
 				Err:    errStr,
@@ -126,22 +157,28 @@ func (c *ContextObserver) addInMsg(joinNodeId, fromId string, msg types.RuleMsg,
 
 // getInMsgList retrieves the list of input messages for a specific join node.
 func (c *ContextObserver) getInMsgList(joinNodeId string) []types.WrapperMsg {
-	if c.nodeInMsgList == nil {
-		return nil
+	segment := c.getSegment(joinNodeId)
+
+	segment.mu.RLock()
+	defer segment.mu.RUnlock()
+
+	if list, ok := segment.nodeInMsgList[joinNodeId]; ok {
+		// 返回副本避免数据竞争
+		result := make([]types.WrapperMsg, len(list))
+		copy(result, list)
+		return result
 	}
-	c.RLock()
-	defer c.RUnlock()
-	return c.nodeInMsgList[joinNodeId]
+	return nil
 }
 
 // registerNodeDoneEvent registers a callback for when a join node completes.
 func (c *ContextObserver) registerNodeDoneEvent(joinNodeId string, parentIds []string, callback func([]types.WrapperMsg)) {
-	c.Lock()
-	defer c.Unlock()
-	if c.nodeDoneEvent == nil {
-		c.nodeDoneEvent = make(map[string]joinNodeCallback)
-	}
-	c.nodeDoneEvent[joinNodeId] = joinNodeCallback{
+	segment := c.getSegment(joinNodeId)
+
+	segment.mu.Lock()
+	defer segment.mu.Unlock()
+
+	segment.nodeDoneEvent[joinNodeId] = joinNodeCallback{
 		joinNodeId: joinNodeId,
 		parentIds:  parentIds,
 		callback:   callback,
@@ -166,16 +203,57 @@ func (c *ContextObserver) executedNode(nodeId string) {
 
 // checkAndTrigger checks for completed join nodes and triggers their callbacks.
 func (c *ContextObserver) checkAndTrigger() {
-	if c.nodeDoneEvent != nil {
-		c.Lock()
-		defer c.Unlock()
-		for _, item := range c.nodeDoneEvent {
-			if c.checkNodesDone(item.parentIds...) {
-				delete(c.nodeDoneEvent, item.joinNodeId)
-				item.callback(c.nodeInMsgList[item.joinNodeId])
+	// 串行检查所有段，避免创建过多goroutine
+	var completedCallbacks []func()
+
+	for i := 0; i < c.segmentCount; i++ {
+		segment := c.segments[i]
+		callbacks := c.checkSegmentAndCollectCallbacks(segment)
+		completedCallbacks = append(completedCallbacks, callbacks...)
+	}
+
+	for _, callback := range completedCallbacks {
+		callback()
+	}
+}
+
+// checkSegmentAndCollectCallbacks 检查特定段并收集需要执行的回调
+func (c *ContextObserver) checkSegmentAndCollectCallbacks(segment *observerSegment) []func() {
+	segment.mu.Lock()
+	defer segment.mu.Unlock()
+
+	var callbacks []func()
+
+	for joinNodeId, item := range segment.nodeDoneEvent {
+		if c.checkNodesDone(item.parentIds...) {
+			delete(segment.nodeDoneEvent, joinNodeId)
+
+			// 获取消息列表并创建副本，避免数据竞争
+			var msgListCopy []types.WrapperMsg
+			if msgList, exists := segment.nodeInMsgList[joinNodeId]; exists {
+				msgListCopy = make([]types.WrapperMsg, len(msgList))
+				copy(msgListCopy, msgList)
+				// 清理已完成的节点消息
+				delete(segment.nodeInMsgList, joinNodeId)
 			}
+
+			// 创建回调函数，通过立即执行函数避免闭包变量捕获问题
+			func(cb func([]types.WrapperMsg), msgs []types.WrapperMsg) {
+				callbacks = append(callbacks, func() {
+					cb(msgs)
+				})
+			}(item.callback, msgListCopy)
 		}
 	}
+
+	return callbacks
+}
+
+// joinNodeCallback represents a callback function for when a join node completes.
+type joinNodeCallback struct {
+	joinNodeId string
+	parentIds  []string
+	callback   func([]types.WrapperMsg)
 }
 
 // DefaultRuleContext is the default context for message processing in the rule engine.
@@ -272,7 +350,7 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 		aroundAspects: aroundAspects,
 		beforeAspects: beforeAspects,
 		afterAspects:  afterAspects,
-		observer:      &ContextObserver{},
+		observer:      NewContextObserver(),
 		chainCache:    chainCache,
 	}
 }
@@ -385,26 +463,32 @@ func (r *RunSnapshot) onRuleChainCompleted(ctx types.RuleContext) {
 }
 
 // NewNextNodeRuleContext creates a new instance of RuleContext for the next node in the rule engine.
+// 优化：复用共享状态，减少内存分配
 func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *DefaultRuleContext {
 	// Create a new context directly instead of using object pool to avoid data races
+	// 但是复用不可变的共享状态以减少内存开销
 	nextCtx := &DefaultRuleContext{
-		config:        ctx.config,
-		ruleChainCtx:  ctx.ruleChainCtx,
+		config:        ctx.config,       // 共享配置，不可变
+		ruleChainCtx:  ctx.ruleChainCtx, // 共享规则链上下文
 		from:          ctx.self,
 		self:          nextNode,
-		pool:          ctx.pool,
+		pool:          ctx.pool, // 共享协程池
 		onEnd:         ctx.onEnd,
-		ruleChainPool: ctx.ruleChainPool,
-		context:       ctx.GetContext(),
+		ruleChainPool: ctx.ruleChainPool, // 共享规则链池
+		context:       ctx.context,       // 直接复用context，避免调用GetContext()
 		parentRuleCtx: ctx,
 		skipTellNext:  ctx.skipTellNext,
+
+		// 共享切面列表，它们在运行时不会改变
 		aroundAspects: ctx.aroundAspects,
 		beforeAspects: ctx.beforeAspects,
 		afterAspects:  ctx.afterAspects,
-		runSnapshot:   ctx.runSnapshot,
-		observer:      ctx.observer,
-		err:           ctx.err,
-		chainCache:    ctx.chainCache,
+
+		// 共享运行时状态
+		runSnapshot: ctx.runSnapshot,
+		observer:    ctx.observer, // 共享观察者
+		err:         ctx.err,
+		chainCache:  ctx.chainCache, // 共享缓存
 	}
 
 	return nextCtx
@@ -522,7 +606,10 @@ func (ctx *DefaultRuleContext) SubmitTask(task func()) {
 		// 在提交任务前捕获需要的值，避免并发访问
 		logger := ctx.config.Logger
 		if err := ctx.pool.Submit(task); err != nil {
-			logger.Printf("SubmitTask error:%s", err)
+			logger.Printf("SubmitTask error:%s, fallback to goroutine", err)
+			// 如果工作池提交失败，回退到直接创建goroutine
+			// 这确保任务不会丢失，避免计数器不匹配导致的死锁
+			go task()
 		}
 	} else {
 		go task()
