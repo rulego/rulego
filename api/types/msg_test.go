@@ -361,32 +361,40 @@ func TestRuleMsgJSONCache(t *testing.T) {
 	assert.Nil(t, msg.parsedData)
 
 	// 解析JSON数据
-	jsonData, err := msg.GetAsJson()
+	jsonData, err := msg.GetJsonData()
 	assert.Nil(t, err)
-	assert.Equal(t, "data", jsonData["test"])
+	jsonMap, ok := jsonData.(map[string]interface{})
+	assert.True(t, ok, "Expected JSON object")
+	assert.Equal(t, "data", jsonMap["test"])
 	assert.NotNil(t, msg.parsedData) // 缓存应该被创建
 
 	// 再次获取应该使用缓存
-	jsonData2, err := msg.GetAsJson()
+	jsonData2, err := msg.GetJsonData()
 	assert.Nil(t, err)
-	assert.Equal(t, "data", jsonData2["test"])
+	jsonMap2, ok := jsonData2.(map[string]interface{})
+	assert.True(t, ok, "Expected JSON object")
+	assert.Equal(t, "data", jsonMap2["test"])
 
 	// 修改数据应该清除缓存
 	msg.SetData(`{"test": "modified"}`)
 	assert.Nil(t, msg.parsedData) // 缓存应该被清除
 
 	// 重新解析应该得到新数据
-	newJsonData, err := msg.GetAsJson()
+	newJsonData, err := msg.GetJsonData()
 	assert.Nil(t, err)
-	assert.Equal(t, "modified", newJsonData["test"])
+	newJsonMap, ok := newJsonData.(map[string]interface{})
+	assert.True(t, ok, "Expected JSON object")
+	assert.Equal(t, "modified", newJsonMap["test"])
 
 	// 使用SetBytes也应该触发回调
 	msg.SetBytes([]byte(`{"test": "from_bytes"}`))
 	assert.Nil(t, msg.parsedData)
 
-	bytesJsonData, err := msg.GetAsJson()
+	bytesJsonData, err := msg.GetJsonData()
 	assert.Nil(t, err)
-	assert.Equal(t, "from_bytes", bytesJsonData["test"])
+	bytesJsonMap, ok := bytesJsonData.(map[string]interface{})
+	assert.True(t, ok, "Expected JSON object")
+	assert.Equal(t, "from_bytes", bytesJsonMap["test"])
 }
 
 // TestConcurrentDataAccess 测试并发数据访问
@@ -479,14 +487,16 @@ func TestMemoryOptimization(t *testing.T) {
 func TestErrorHandling(t *testing.T) {
 	// 测试无效JSON
 	msg := NewMsg(0, "ERROR_TEST", JSON, nil, "invalid json {")
-	_, err := msg.GetAsJson()
+	_, err := msg.GetJsonData()
 	assert.NotNil(t, err)
 
 	// 测试空数据JSON解析
 	emptyMsg := NewMsg(0, "EMPTY_TEST", JSON, nil, "")
-	emptyJson, err := emptyMsg.GetAsJson()
+	emptyJson, err := emptyMsg.GetJsonData()
 	assert.Nil(t, err)
-	assert.Equal(t, 0, len(emptyJson))
+	emptyMap, ok := emptyJson.(map[string]interface{})
+	assert.True(t, ok, "Expected empty JSON to be parsed as map")
+	assert.Equal(t, 0, len(emptyMap))
 
 	// 测试nil metadata
 	copy := BuildMetadataFromMetadata(nil)
@@ -606,4 +616,49 @@ func BenchmarkRuleMsgCopy(b *testing.B) {
 			_ = copy.GetData()
 		}
 	})
+}
+
+// TestRuleMsgJSONArraySupport 测试JSON数组支持
+func TestRuleMsgJSONArraySupport(t *testing.T) {
+	// 测试JSON对象
+	objMsg := NewMsg(0, "TEST", JSON, nil, `{"key": "value", "number": 42}`)
+	objData, err := objMsg.GetJsonData()
+	assert.Nil(t, err)
+	objMap, ok := objData.(map[string]interface{})
+	assert.True(t, ok, "Expected JSON object")
+	assert.Equal(t, "value", objMap["key"])
+	assert.Equal(t, float64(42), objMap["number"])
+
+	// 测试JSON数组
+	arrayMsg := NewMsg(0, "TEST", JSON, nil, `["apple", "banana", "cherry"]`)
+	arrayData, err := arrayMsg.GetJsonData()
+	assert.Nil(t, err)
+	arraySlice, ok := arrayData.([]interface{})
+	assert.True(t, ok, "Expected JSON array")
+	assert.Equal(t, 3, len(arraySlice))
+	assert.Equal(t, "apple", arraySlice[0])
+	assert.Equal(t, "banana", arraySlice[1])
+	assert.Equal(t, "cherry", arraySlice[2])
+
+	// 测试嵌套JSON数组
+	nestedMsg := NewMsg(0, "TEST", JSON, nil, `[{"name": "Alice"}, {"name": "Bob"}]`)
+	nestedData, err := nestedMsg.GetJsonData()
+	assert.Nil(t, err)
+	nestedSlice, ok := nestedData.([]interface{})
+	assert.True(t, ok, "Expected nested JSON array")
+	assert.Equal(t, 2, len(nestedSlice))
+
+	firstItem, ok := nestedSlice[0].(map[string]interface{})
+	assert.True(t, ok, "Expected nested object")
+	assert.Equal(t, "Alice", firstItem["name"])
+
+	// 测试缓存机制对数组的支持
+	arrayMsg2 := NewMsg(0, "TEST", JSON, nil, `["x", "y", "z"]`)
+	assert.Nil(t, arrayMsg2.parsedData) // 第一次解析前没有缓存
+	arrayData3, err := arrayMsg2.GetJsonData()
+	assert.Nil(t, err)
+	assert.NotNil(t, arrayMsg2.parsedData) // 应该有缓存
+	arraySlice3, ok := arrayData3.([]interface{})
+	assert.True(t, ok, "Expected cached JSON array")
+	assert.Equal(t, 3, len(arraySlice3))
 }
