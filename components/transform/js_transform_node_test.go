@@ -30,7 +30,7 @@ func TestJsTransformNode(t *testing.T) {
 
 	t.Run("NewNode", func(t *testing.T) {
 		test.NodeNew(t, targetNodeType, &JsTransformNode{}, types.Configuration{
-			"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+			"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};",
 		}, Registry)
 	})
 
@@ -123,5 +123,274 @@ func TestJsTransformNode(t *testing.T) {
 		test.NodeOnMsg(t, node1, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
 			assert.Equal(t, types.Failure, relationType)
 		})
+	})
+}
+
+// TestJsTransformNodeDataTypeSimple 简单测试 - 避免并发问题
+func TestJsTransformNodeDataTypeSimple(t *testing.T) {
+	// 创建规则引擎配置
+	config := types.NewConfig()
+
+	// 测试1: dataType参数传递
+	t.Run("DataTypeParameter", func(t *testing.T) {
+		node := &JsTransformNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": "metadata['receivedDataType'] = dataType; return {'msg':msg,'metadata':metadata,'msgType':msgType};",
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 创建测试消息
+		metadata := types.BuildMetadata(make(map[string]string))
+		testMsg := types.NewMsg(0, "TEST", types.TEXT, metadata, "Hello World")
+
+		// 使用回调收集结果
+		var resultMsg types.RuleMsg
+		var resultRelationType string
+		var resultErr error
+
+		ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			resultMsg = msg
+			resultRelationType = relationType
+			resultErr = err
+		})
+
+		// 处理消息
+		node.OnMsg(ctx, testMsg)
+
+		// 验证结果
+		assert.Nil(t, resultErr)
+		assert.Equal(t, types.Success, resultRelationType)
+		assert.Equal(t, "TEXT", resultMsg.Metadata.GetValue("receivedDataType"))
+	})
+
+	// 测试2: dataType修改
+	t.Run("DataTypeModification", func(t *testing.T) {
+		node := &JsTransformNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':'BINARY'};",
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 创建测试消息
+		metadata := types.BuildMetadata(make(map[string]string))
+		testMsg := types.NewMsg(0, "TEST", types.TEXT, metadata, "Hello World")
+
+		// 使用回调收集结果
+		var resultMsg types.RuleMsg
+		var resultRelationType string
+		var resultErr error
+
+		ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			resultMsg = msg
+			resultRelationType = relationType
+			resultErr = err
+		})
+
+		// 处理消息
+		node.OnMsg(ctx, testMsg)
+
+		// 验证结果
+		assert.Nil(t, resultErr)
+		assert.Equal(t, types.Success, resultRelationType)
+		assert.Equal(t, types.BINARY, resultMsg.DataType)
+	})
+
+	// 测试3: 字节数组处理 - 完整的二进制数据处理流程
+	t.Run("ByteArrayProcessing", func(t *testing.T) {
+		node := &JsTransformNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": `
+				// 完整的二进制数据处理：传入BINARY数据，在JS中修改，然后返回
+				if (String(dataType) === 'BINARY') {
+					// msg在BINARY模式下是Uint8Array，包含原始数据
+					// 创建新的字节数组，在原数据前添加4字节头部
+					var header = [0xAA, 0xBB, 0xCC, 0xDD]; // 4字节头部
+					var newBytes = new Array(header.length + msg.length);
+					
+					// 复制头部
+					for (var i = 0; i < header.length; i++) {
+						newBytes[i] = header[i];
+					}
+					
+					// 复制原始数据
+					for (var i = 0; i < msg.length; i++) {
+						newBytes[header.length + i] = msg[i];
+					}
+					
+					metadata['processed'] = 'binary_modified';
+					metadata['originalLength'] = msg.length.toString();
+					metadata['newLength'] = newBytes.length.toString();
+					metadata['headerAdded'] = 'true';
+					
+					return {'msg': newBytes, 'metadata': metadata, 'msgType': msgType, 'dataType': 'BINARY'};
+				}
+				
+				// 非BINARY数据直接返回
+				return {'msg': msg, 'metadata': metadata, 'msgType': msgType};
+			`,
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 创建包含二进制数据的测试消息
+		metadata := types.BuildMetadata(make(map[string]string))
+		originalData := []byte{0x01, 0x02, 0x03, 0x04, 0x05} // 原始二进制数据
+		testMsg := types.NewMsgFromBytes(0, "BINARY_TEST", types.BINARY, metadata, originalData)
+
+		// 使用回调收集结果
+		var resultMsg types.RuleMsg
+		var resultRelationType string
+		var resultErr error
+
+		ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			resultMsg = msg
+			resultRelationType = relationType
+			resultErr = err
+		})
+
+		// 处理消息
+		node.OnMsg(ctx, testMsg)
+
+		// 验证结果
+		assert.Nil(t, resultErr)
+		assert.Equal(t, types.Success, resultRelationType)
+		assert.Equal(t, types.BINARY, resultMsg.DataType)
+
+		// 验证元数据
+		assert.Equal(t, "binary_modified", resultMsg.Metadata.GetValue("processed"))
+		assert.Equal(t, "5", resultMsg.Metadata.GetValue("originalLength"))
+		assert.Equal(t, "9", resultMsg.Metadata.GetValue("newLength")) // 5原始 + 4头部 = 9
+		assert.Equal(t, "true", resultMsg.Metadata.GetValue("headerAdded"))
+
+		// 验证输出数据：应该包含4字节头部 + 原始5字节数据
+		outputData := []byte(resultMsg.GetData())
+		assert.Equal(t, 9, len(outputData))
+
+		// 检查头部字节
+		assert.Equal(t, byte(0xAA), outputData[0])
+		assert.Equal(t, byte(0xBB), outputData[1])
+		assert.Equal(t, byte(0xCC), outputData[2])
+		assert.Equal(t, byte(0xDD), outputData[3])
+
+		// 检查原始数据部分
+		assert.Equal(t, byte(0x01), outputData[4])
+		assert.Equal(t, byte(0x02), outputData[5])
+		assert.Equal(t, byte(0x03), outputData[6])
+		assert.Equal(t, byte(0x04), outputData[7])
+		assert.Equal(t, byte(0x05), outputData[8])
+	})
+
+	// 测试4: 简单字节数组创建（保留原来的测试逻辑）
+	t.Run("CreateByteArray", func(t *testing.T) {
+		node := &JsTransformNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": "var bytes = [72, 101, 108, 108, 111]; return {'msg': bytes, 'metadata': metadata, 'msgType': msgType, 'dataType': 'BINARY'};",
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 创建测试消息
+		metadata := types.BuildMetadata(make(map[string]string))
+		testMsg := types.NewMsg(0, "TEST", types.TEXT, metadata, "original data")
+
+		// 使用回调收集结果
+		var resultMsg types.RuleMsg
+		var resultRelationType string
+		var resultErr error
+
+		ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			resultMsg = msg
+			resultRelationType = relationType
+			resultErr = err
+		})
+
+		// 处理消息
+		node.OnMsg(ctx, testMsg)
+
+		// 验证结果
+		assert.Nil(t, resultErr)
+		assert.Equal(t, types.Success, resultRelationType)
+		assert.Equal(t, types.BINARY, resultMsg.DataType)
+		assert.Equal(t, "Hello", resultMsg.GetData())
+	})
+}
+
+// TestJsTransformNodeDebug 调试测试
+func TestJsTransformNodeDebug(t *testing.T) {
+	config := types.NewConfig()
+
+	node := &JsTransformNode{}
+	err := node.Init(config, types.Configuration{
+		"jsScript": `
+			var bytes = [72, 101, 108, 108, 111];
+			console.log("bytes type:", typeof bytes);
+			console.log("bytes:", bytes);
+			console.log("bytes constructor:", bytes.constructor.name);
+			return {'msg': bytes, 'metadata': metadata, 'msgType': msgType, 'dataType': 'BINARY'};
+		`,
+	})
+	assert.Nil(t, err)
+	defer node.Destroy()
+
+	metadata := types.BuildMetadata(make(map[string]string))
+	testMsg := types.NewMsg(0, "TEST", types.TEXT, metadata, "original")
+
+	var resultMsg types.RuleMsg
+	var resultErr error
+
+	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+		resultMsg = msg
+		resultErr = err
+	})
+
+	node.OnMsg(ctx, testMsg)
+
+	// 打印实际结果用于调试
+	t.Logf("Result error: %v", resultErr)
+	t.Logf("Result data: %s", resultMsg.GetData())
+	t.Logf("Result dataType: %s", resultMsg.DataType)
+}
+
+// TestJsTransformNodeDebugOutput 调试JavaScript输出格式
+func TestJsTransformNodeDebugOutput(t *testing.T) {
+	config := types.NewConfig()
+
+	t.Run("DebugJavaScriptOutput", func(t *testing.T) {
+		node := &JsTransformNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": `
+				var bytes = [72, 101, 108, 108, 111]; 
+				metadata['arrayType'] = typeof bytes;
+				metadata['arrayLength'] = bytes.length.toString();
+				metadata['firstElement'] = bytes[0].toString();
+				metadata['arrayString'] = JSON.stringify(bytes);
+				return {'msg': bytes, 'metadata': metadata, 'msgType': msgType, 'dataType': 'BINARY'};
+			`,
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		metadata := types.BuildMetadata(make(map[string]string))
+		testMsg := types.NewMsg(0, "TEST", types.TEXT, metadata, "original")
+
+		var resultMsg types.RuleMsg
+		var resultErr error
+
+		ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			resultMsg = msg
+			resultErr = err
+		})
+
+		node.OnMsg(ctx, testMsg)
+
+		assert.Nil(t, resultErr)
+		t.Logf("输出数据: %s", resultMsg.GetData())
+		t.Logf("数组类型: %s", resultMsg.Metadata.GetValue("arrayType"))
+		t.Logf("数组长度: %s", resultMsg.Metadata.GetValue("arrayLength"))
+		t.Logf("第一个元素: %s", resultMsg.Metadata.GetValue("firstElement"))
+		t.Logf("数组字符串: %s", resultMsg.Metadata.GetValue("arrayString"))
+		t.Logf("DataType: %s", resultMsg.DataType)
 	})
 }

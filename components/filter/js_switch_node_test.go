@@ -109,3 +109,50 @@ func TestJsSwitchNode(t *testing.T) {
 		}
 	})
 }
+
+// TestJsSwitchNodeDataType 测试dataType参数传递
+func TestJsSwitchNodeDataType(t *testing.T) {
+	config := types.NewConfig()
+
+	t.Run("DataTypeParameter", func(t *testing.T) {
+		// 创建不同数据类型的测试消息
+		testCases := []struct {
+			dataType types.DataType
+			expected string
+		}{
+			{types.JSON, "JSON"},
+			{types.TEXT, "TEXT"},
+			{types.BINARY, "BINARY"},
+		}
+
+		for _, tc := range testCases {
+			t.Run(string(tc.dataType), func(t *testing.T) {
+				node := &JsSwitchNode{}
+				err := node.Init(config, types.Configuration{
+					"jsScript": "return [String(dataType)];", // 转换为字符串后返回作为路由
+				})
+				assert.Nil(t, err)
+				defer node.Destroy()
+
+				metadata := types.BuildMetadata(make(map[string]string))
+				testMsg := types.NewMsg(0, "TEST", tc.dataType, metadata, "test data")
+
+				// 使用回调收集结果
+				var resultRelationType string
+				var resultErr error
+
+				ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+					resultRelationType = relationType
+					resultErr = err
+				})
+
+				// 处理消息
+				node.OnMsg(ctx, testMsg)
+
+				// 验证结果
+				assert.Nil(t, resultErr)
+				assert.Equal(t, tc.expected, resultRelationType) // 路由类型应该等于dataType
+			})
+		}
+	})
+}
