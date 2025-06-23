@@ -302,9 +302,9 @@ func (ctx *NodeTestRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[
 	envVars["msgType"] = msg.GetType()
 	envVars["type"] = msg.GetType()
 	envVars["dataType"] = string(msg.GetDataType())
-	// 使用 GetDataAsJson() 避免重复JSON解析
+	// 使用 GetAsJson() 避免重复JSON解析
 	if msg.DataType == types.JSON {
-		if jsonData, err := msg.GetDataAsJson(); err == nil {
+		if jsonData, err := msg.GetAsJson(); err == nil {
 			envVars[types.MsgKey] = jsonData
 		} else {
 			// 解析失败，使用原始数据
