@@ -699,29 +699,37 @@ func (ctx *DefaultRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) 
 
 // DoOnEnd  结束规则链分支执行，触发 OnEnd 回调函数
 func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationType string) {
-	// 拷贝msg
-	safeMsgCopy := msg.Copy()
-	// 确保Metadata不为nil，避免空指针异常
-	if safeMsgCopy.Metadata == nil {
-		safeMsgCopy.SetMetadata(types.NewMetadata())
-	}
-
 	// 在提交异步任务前捕获需要的值，避免并发访问
 	configOnEnd := ctx.config.OnEnd
 	contextOnEnd := ctx.onEnd
+
+	// 智能拷贝优化：只有在真正需要异步安全时才拷贝
+	needsCopy := configOnEnd != nil || contextOnEnd != nil
+
+	var msgToUse types.RuleMsg
+	if needsCopy {
+		// 拷贝msg
+		msgToUse = msg.Copy()
+		// 确保Metadata不为nil，避免空指针异常
+		if msgToUse.Metadata == nil {
+			msgToUse.SetMetadata(types.NewMetadata())
+		}
+	} else {
+		msgToUse = msg
+	}
 
 	//全局回调
 	//通过`Config.OnEnd`设置
 	if configOnEnd != nil {
 		ctx.SubmitTask(func() {
-			configOnEnd(safeMsgCopy, err)
+			configOnEnd(msgToUse, err)
 		})
 	}
 	//单条消息的context回调
 	//通过OnMsgWithEndFunc(msg, endFunc)设置
 	if contextOnEnd != nil {
 		ctx.SubmitTask(func() {
-			contextOnEnd(ctx, safeMsgCopy, err, relationType)
+			contextOnEnd(ctx, msgToUse, err, relationType)
 			ctx.childDone()
 		})
 	} else {
@@ -765,22 +773,35 @@ func (ctx *DefaultRuleContext) GetCallbackFunc(functionName string) interface{} 
 }
 
 func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-	msgCopy := msg.Copy()
 	// 在方法开始时就缓存runSnapshot引用，避免并发竞态条件
 	runSnapshot := ctx.runSnapshot
+
+	// 智能拷贝优化：只有在真正需要时才拷贝消息
+	needsAsyncDebug := ctx.IsDebugMode() && ctx.config.OnDebug != nil
+	needsSnapshotDebug := ctx.IsDebugMode() && runSnapshot != nil && runSnapshot.onDebugCustomFunc != nil
+	needsSnapshot := runSnapshot != nil && runSnapshot.needCollectRunSnapshot()
+
+	// 只有在真正需要拷贝时才创建副本
+	var msgCopy types.RuleMsg
+	if needsAsyncDebug || needsSnapshotDebug || needsSnapshot {
+		msgCopy = msg.Copy()
+	}
+
 	if ctx.IsDebugMode() {
 		// 在提交异步任务前捕获需要的值，避免并发访问
 		onDebugFunc := ctx.config.OnDebug
 
 		//异步记录日志
-		ctx.SubmitTask(func() {
-			if onDebugFunc != nil {
-				onDebugFunc(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
-			}
-			if runSnapshot != nil {
-				runSnapshot.onDebugCustom(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
-			}
-		})
+		if needsAsyncDebug || needsSnapshotDebug {
+			ctx.SubmitTask(func() {
+				if onDebugFunc != nil {
+					onDebugFunc(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
+				}
+				if runSnapshot != nil {
+					runSnapshot.onDebugCustom(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
+				}
+			})
+		}
 	}
 	if runSnapshot != nil {
 		//记录快照
@@ -869,6 +890,8 @@ func (ctx *DefaultRuleContext) tellSelf(msg types.RuleMsg, err error, relationTy
 		relationType = relationTypes[0]
 	}
 	if ctx.self != nil {
+		// 异步执行需要拷贝确保线程安全
+		// 注意：不能简单根据节点类型优化，因为其他并发分支可能修改消息
 		msgCopy := msg.Copy()
 		ctx.SubmitTask(func() {
 			ctx.tellNext(msgCopy, ctx.self, relationType)
