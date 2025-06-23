@@ -191,11 +191,27 @@ func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleM
 			bytes := make([]byte, len(byteData))
 			isValidByteArray := true
 			for i, v := range byteData {
-				if byteVal, ok := v.(float64); ok {
-					bytes[i] = byte(byteVal)
-				} else if byteVal, ok := v.(int64); ok {
-					bytes[i] = byte(byteVal)
-				} else if byteVal, ok := v.(int); ok {
+				var byteVal float64
+				var isNumber bool
+
+				if val, ok := v.(float64); ok {
+					byteVal = val
+					isNumber = true
+				} else if val, ok := v.(int64); ok {
+					byteVal = float64(val)
+					isNumber = true
+				} else if val, ok := v.(int); ok {
+					byteVal = float64(val)
+					isNumber = true
+				}
+
+				if isNumber {
+					// 边界检查：确保值在0-255范围内
+					if byteVal < 0 || byteVal > 255 || byteVal != float64(int(byteVal)) {
+						// 值超出字节范围或不是整数，报告错误
+						ctx.TellFailure(msg, fmt.Errorf("byte array element at index %d has invalid value %v: must be integer in range 0-255", i, byteVal))
+						return
+					}
 					bytes[i] = byte(byteVal)
 				} else {
 					// 数组元素不是数字，直接转字符串处理
