@@ -18,12 +18,13 @@ package engine
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"strings"
-	"testing"
 )
 
 func TestChainCtx(t *testing.T) {
@@ -134,14 +135,14 @@ func TestChainCtx(t *testing.T) {
 		err = nodeCtx.ReloadSelf(nodeDsl)
 		assert.Nil(t, err)
 		var output = make(map[string]interface{})
-		maps.Map2Struct(nodeCtx.(*RuleNodeCtx).Node, &output)
+		maps.Map2Struct(nodeCtx.(*RuleNodeCtx).GetNode(), &output)
 		nodeStr := str.ToString(output)
 		assert.True(t, strings.Contains(nodeStr, "127.0.0.1"))
 		ruleChainFile = strings.Replace(ruleChainFile, "127.0.0.1", "192.168.1.1", -1)
 		err = ruleChainCtx.ReloadSelf([]byte(ruleChainFile))
 		assert.Nil(t, err)
 		nodeCtx = ruleChainCtx.nodes[types.RuleNodeId{Id: "s1"}]
-		maps.Map2Struct(nodeCtx.(*RuleNodeCtx).Node, &output)
+		maps.Map2Struct(nodeCtx.(*RuleNodeCtx).GetNode(), &output)
 		nodeStr = str.ToString(output)
 		assert.True(t, strings.Contains(nodeStr, "192.168.1.1"))
 	})

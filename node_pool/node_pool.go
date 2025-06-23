@@ -102,7 +102,7 @@ func (n *NodePool) NewFromRuleNode(def types.RuleNode) (types.SharedNodeCtx, err
 		return nil, fmt.Errorf("duplicate node id:%s", def.Id)
 	}
 	if ctx, err := engine.InitNetResourceNodeCtx(n.Config, nil, nil, &def); err == nil {
-		if _, ok := ctx.Node.(types.SharedNode); !ok {
+		if _, ok := ctx.GetNode().(types.SharedNode); !ok {
 			return nil, ErrNotImplemented
 		} else {
 			rCtx := newSharedNodeCtx(ctx, nil)
@@ -146,7 +146,7 @@ func (n *NodePool) addNode(nodeCtx *engine.RuleNodeCtx) (types.SharedNodeCtx, er
 	if _, ok := n.entries.Load(id); ok {
 		return nil, fmt.Errorf("duplicate node id:%s", id)
 	}
-	if _, ok := nodeCtx.Node.(types.SharedNode); !ok {
+	if _, ok := nodeCtx.GetNode().(types.SharedNode); !ok {
 		return nil, ErrNotImplemented
 	} else {
 		rCtx := newSharedNodeCtx(nodeCtx, nil)
@@ -252,7 +252,7 @@ func (n *sharedNodeCtx) GetInstance() (interface{}, error) {
 	}
 
 	n.RuleNodeCtx.RLock()
-	node := n.RuleNodeCtx.Node
+	node := n.RuleNodeCtx.GetNode()
 	n.RuleNodeCtx.RUnlock()
 
 	if node == nil {
@@ -269,7 +269,7 @@ func (n *sharedNodeCtx) GetNode() interface{} {
 		return nil
 	}
 	n.RuleNodeCtx.RLock()
-	node := n.RuleNodeCtx.Node
+	node := n.RuleNodeCtx.GetNode()
 	n.RuleNodeCtx.RUnlock()
 	return node
 }
@@ -316,7 +316,7 @@ func (n *sharedNodeCtx) SharedNode() types.SharedNode {
 		return nil
 	}
 	n.RuleNodeCtx.RLock()
-	node := n.RuleNodeCtx.Node
+	node := n.RuleNodeCtx.GetNode()
 	n.RuleNodeCtx.RUnlock()
 	if node == nil {
 		return nil

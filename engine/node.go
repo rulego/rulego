@@ -31,7 +31,7 @@ const (
 
 // RuleNodeCtx represents an instance of a node component within the rule engine.
 type RuleNodeCtx struct {
-	types.Node                         // Instance of the component
+	node              types.Node       // Instance of the component (now private to force use of safe methods)
 	ChainCtx          *RuleChainCtx    // Context of the rule chain configuration
 	SelfDefinition    *types.RuleNode  // Configuration of the component itself
 	config            types.Config     // Configuration of the rule engine
@@ -91,7 +91,7 @@ func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 		} else {
 			// Return a RuleNodeCtx with the initialized node and provided context and definition.
 			return &RuleNodeCtx{
-				Node:              node,
+				node:              node,
 				ChainCtx:          chainCtx,
 				SelfDefinition:    selfDefinition,
 				config:            config,
@@ -155,9 +155,9 @@ func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
 	if err == nil {
 		rn.Lock()
 		// Store old node for destruction after unlocking
-		oldNode := rn.Node
+		oldNode := rn.node
 		// Copy the new context (direct assignment to avoid additional Copy() call)
-		rn.Node = ctx.Node
+		rn.node = ctx.node
 		rn.config = ctx.config
 		rn.aspects = ctx.aspects
 		rn.SelfDefinition = ctx.SelfDefinition
@@ -198,7 +198,7 @@ func (rn *RuleNodeCtx) DSL() []byte {
 func (rn *RuleNodeCtx) Copy(newCtx *RuleNodeCtx) {
 	rn.Lock()
 	defer rn.Unlock()
-	rn.Node = newCtx.Node
+	rn.node = newCtx.node
 	rn.config = newCtx.config
 	rn.aspects = newCtx.aspects
 	rn.SelfDefinition = newCtx.SelfDefinition
@@ -250,4 +250,65 @@ func copyMap(inputMap map[string]string) map[string]string {
 		result[key] = value
 	}
 	return result
+}
+
+// Thread-safe Node interface implementation
+// OnMsg safely handles message processing
+func (rn *RuleNodeCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	rn.RLock()
+	node := rn.node
+	rn.RUnlock()
+	if node != nil {
+		node.OnMsg(ctx, msg)
+	}
+}
+
+// Type safely returns the component type
+func (rn *RuleNodeCtx) Type() string {
+	rn.RLock()
+	node := rn.node
+	rn.RUnlock()
+	if node != nil {
+		return node.Type()
+	}
+	return ""
+}
+
+// New safely creates a new instance
+func (rn *RuleNodeCtx) New() types.Node {
+	rn.RLock()
+	node := rn.node
+	rn.RUnlock()
+	if node != nil {
+		return node.New()
+	}
+	return nil
+}
+
+// Init safely initializes the node
+func (rn *RuleNodeCtx) Init(config types.Config, configuration types.Configuration) error {
+	rn.RLock()
+	node := rn.node
+	rn.RUnlock()
+	if node != nil {
+		return node.Init(config, configuration)
+	}
+	return nil
+}
+
+// Destroy safely destroys the node
+func (rn *RuleNodeCtx) Destroy() {
+	rn.RLock()
+	node := rn.node
+	rn.RUnlock()
+	if node != nil {
+		node.Destroy()
+	}
+}
+
+// GetNode safely returns the underlying node (mainly for testing and debugging)
+func (rn *RuleNodeCtx) GetNode() types.Node {
+	rn.RLock()
+	defer rn.RUnlock()
+	return rn.node
 }
