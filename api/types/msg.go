@@ -684,11 +684,16 @@ func NewSharedDataFromBytes(data []byte) *SharedData {
 // Copy creates a copy of the SharedData using improved Copy-on-Write optimization.
 func (sd *SharedData) Copy() *SharedData {
 	sd.mu.RLock()
+	defer sd.mu.RUnlock()
+
+	// Both reading the data/refCount pointer and incrementing the reference count
+	// must be done atomically under the same lock to prevent race conditions
 	data := sd.data
 	refCountPtr := sd.refCount
-	sd.mu.RUnlock()
 
-	// Increment reference count atomically
+	// Increment reference count atomically while still holding the read lock
+	// This prevents ensureUnique() from replacing the refCount pointer between
+	// reading and incrementing
 	atomic.AddInt64(refCountPtr, 1)
 
 	// Return a new instance that shares the same data and refCount pointer
@@ -704,20 +709,33 @@ func (sd *SharedData) ensureUnique() {
 	sd.mu.Lock()
 	defer sd.mu.Unlock()
 
-	// Check if we need to create a unique copy
-	if atomic.LoadInt64(sd.refCount) > 1 {
-		// Decrement the reference count of the original data
-		atomic.AddInt64(sd.refCount, -1)
+	// Use atomic Compare-And-Swap to safely check and decrement reference count
+	// This prevents race conditions where multiple goroutines could pass the > 1 check
+	// and then all decrement the counter
+	for {
+		currentRefCount := atomic.LoadInt64(sd.refCount)
+		if currentRefCount <= 1 {
+			// Already unique or only one reference, no need to copy
+			return
+		}
 
-		// Create a new copy of the data
-		newData := make([]byte, len(sd.data))
-		copy(newData, sd.data)
-
-		// Set new data and create new reference count
-		sd.data = newData
-		newRefCount := int64(1)
-		sd.refCount = &newRefCount
+		// Try to atomically decrement the reference count
+		// If CAS fails, another goroutine modified the refCount, so retry
+		if atomic.CompareAndSwapInt64(sd.refCount, currentRefCount, currentRefCount-1) {
+			// Successfully decremented, now create a unique copy
+			break
+		}
+		// CAS failed, retry with the updated value
 	}
+
+	// Create a new copy of the data
+	newData := make([]byte, len(sd.data))
+	copy(newData, sd.data)
+
+	// Set new data and create new reference count
+	sd.data = newData
+	newRefCount := int64(1)
+	sd.refCount = &newRefCount
 }
 
 // Get returns the data value as string using safe conversion.
