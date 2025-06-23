@@ -423,10 +423,7 @@ func (e *BaseEndpoint) SetOnEvent(onEvent endpoint.OnEvent) {
 }
 
 // AddInterceptors 添加全局拦截器
-// 警告：在持有锁的上下文中调用此方法可能导致死锁，请考虑直接操作 Interceptors 字段
 func (e *BaseEndpoint) AddInterceptors(interceptors ...endpoint.Process) {
-	e.Lock()
-	defer e.Unlock()
 	e.Interceptors = append(e.Interceptors, interceptors...)
 }
 
