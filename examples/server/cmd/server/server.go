@@ -25,6 +25,7 @@ import (
 	"fmt"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/node_pool"
+	"github.com/rulego/rulego/utils/str"
 	"gopkg.in/ini.v1"
 	"log"
 	"net/http"
@@ -86,6 +87,8 @@ func main() {
 		log.Printf("pprof enabled, addr=%s \n", addr)
 		go http.ListenAndServe(addr, nil)
 	}
+
+	log.Printf("Get Converter Info: %s \n", str.GetConverterInfo())
 
 	//初始化用户名、密码、apiKey之间的映射
 	c.InitUserMap()
