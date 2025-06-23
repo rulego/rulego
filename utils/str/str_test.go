@@ -18,12 +18,18 @@ package str
 
 import (
 	"errors"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/test/assert"
 	"math"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/rulego/rulego/test/assert"
+)
+
+// 为了避免循环导入，在测试中直接定义常量
+const (
+	Vars   = "vars"
+	MsgKey = "msg"
 )
 
 func TestSprintfDict(t *testing.T) {
@@ -224,32 +230,32 @@ func TestRemoveBraces(t *testing.T) {
 
 func TestParseVarsWithBraces(t *testing.T) {
 	testStr := "This is a test string with ${vars.name} and ${vars.age} and ${vars.name} again."
-	vars := ParseVarsWithBraces(types.Vars, testStr)
+	vars := ParseVarsWithBraces(Vars, testStr)
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
 
 	testStr = "This is a test string with ${msg.name} and ${msg.age} and ${msg.name} again."
-	vars = ParseVarsWithBraces(types.MsgKey, testStr)
+	vars = ParseVarsWithBraces(MsgKey, testStr)
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
 
 	testStr = "This is a test string with vars.name and vars.age and vars.name again."
-	vars = ParseVarsWithBraces(types.Vars, testStr)
+	vars = ParseVarsWithBraces(Vars, testStr)
 	assert.Equal(t, 0, len(vars))
 }
 func TestParseVars(t *testing.T) {
 	testStr := "This is a test string with ${vars.name} and ${vars.age} and ${vars.name} again."
-	vars := ParseVars(types.Vars, testStr)
+	vars := ParseVars(Vars, testStr)
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
 
 	testStr = "This is a test string with vars.name and vars.age and vars.name again."
-	vars = ParseVars(types.Vars, testStr)
+	vars = ParseVars(Vars, testStr)
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
 
 	testStr = "This is a test string with msg.name and msg.age and msg.name again."
-	vars = ParseVars(types.MsgKey, testStr)
+	vars = ParseVars(MsgKey, testStr)
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "name"))
 	assert.True(t, strings.Contains(strings.Join(vars, ","), "age"))
 }

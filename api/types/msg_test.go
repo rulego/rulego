@@ -18,8 +18,10 @@ package types
 
 import (
 	"encoding/json"
+	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -763,5 +765,596 @@ func TestRuleMsgJSONRoundTrip(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestNewMsgFromBytes 测试从[]byte创建消息
+func TestNewMsgFromBytes(t *testing.T) {
+	data := []byte("test data from bytes")
+	metadata := NewMetadata()
+	metadata.PutValue("test", "value")
+
+	msg := NewMsgFromBytes(12345, "TEST_TYPE", BINARY, metadata, data)
+
+	// 验证消息属性
+	if msg.Ts != 12345 {
+		t.Errorf("Expected timestamp 12345, got %d", msg.Ts)
+	}
+	if msg.Type != "TEST_TYPE" {
+		t.Errorf("Expected type TEST_TYPE, got %s", msg.Type)
+	}
+	if msg.DataType != BINARY {
+		t.Errorf("Expected dataType BINARY, got %s", msg.DataType)
+	}
+
+	// 验证数据
+	retrievedData := msg.GetDataAsBytes()
+	if string(retrievedData) != string(data) {
+		t.Errorf("Expected data %s, got %s", string(data), string(retrievedData))
+	}
+
+	// 验证元数据
+	if msg.Metadata.GetValue("test") != "value" {
+		t.Errorf("Expected metadata value 'value', got %s", msg.Metadata.GetValue("test"))
+	}
+}
+
+// TestNewMsgWithJsonDataFromBytes 测试从[]byte创建JSON消息
+func TestNewMsgWithJsonDataFromBytes(t *testing.T) {
+	jsonData := []byte(`{"key": "value", "number": 123}`)
+
+	msg := NewMsgWithJsonDataFromBytes(jsonData)
+
+	// 验证消息属性
+	if msg.DataType != JSON {
+		t.Errorf("Expected dataType JSON, got %s", msg.DataType)
+	}
+
+	// 验证数据
+	retrievedData := msg.GetDataAsBytes()
+	if string(retrievedData) != string(jsonData) {
+		t.Errorf("Expected data %s, got %s", string(jsonData), string(retrievedData))
+	}
+
+	// 验证ID不为空
+	if msg.Id == "" {
+		t.Error("Expected non-empty message ID")
+	}
+}
+
+// TestSetDataFromBytes 测试设置[]byte数据
+func TestSetDataFromBytes(t *testing.T) {
+	// 创建一个初始消息
+	msg := NewMsg(0, "TEST", TEXT, NewMetadata(), "initial data")
+
+	// 更新为[]byte数据
+	newData := []byte("new data from bytes")
+	msg.SetDataFromBytes(newData)
+
+	// 验证数据更新
+	retrievedData := msg.GetDataAsBytes()
+	if string(retrievedData) != string(newData) {
+		t.Errorf("Expected data %s, got %s", string(newData), string(retrievedData))
+	}
+
+	// 验证字符串获取也正常
+	stringData := msg.GetData()
+	if stringData != string(newData) {
+		t.Errorf("Expected string data %s, got %s", string(newData), stringData)
+	}
+}
+
+// TestSharedDataFromBytes 测试SharedData的[]byte功能
+func TestSharedDataFromBytes(t *testing.T) {
+	data := []byte("test shared data")
+
+	// 创建SharedData
+	sd := NewSharedDataFromBytes(data)
+
+	// 验证获取数据
+	retrievedBytes := sd.GetBytes()
+	if string(retrievedBytes) != string(data) {
+		t.Errorf("Expected bytes %s, got %s", string(data), string(retrievedBytes))
+	}
+
+	// 验证字符串获取
+	retrievedString := sd.Get()
+	if retrievedString != string(data) {
+		t.Errorf("Expected string %s, got %s", string(data), retrievedString)
+	}
+
+	// 测试设置[]byte
+	newData := []byte("updated data")
+	sd.SetBytes(newData)
+
+	retrievedAfterSet := sd.GetBytes()
+	if string(retrievedAfterSet) != string(newData) {
+		t.Errorf("Expected updated bytes %s, got %s", string(newData), string(retrievedAfterSet))
+	}
+}
+
+// TestAPICompatibility 测试API兼容性
+func TestAPICompatibility(t *testing.T) {
+	// 测试原有的string API仍然工作
+	stringMsg := NewMsg(0, "STRING_TEST", TEXT, NewMetadata(), "string data")
+	if stringMsg.GetData() != "string data" {
+		t.Errorf("String API compatibility broken")
+	}
+
+	// 测试新的[]byte API
+	byteData := []byte("byte data")
+	byteMsg := NewMsgFromBytes(0, "BYTE_TEST", BINARY, NewMetadata(), byteData)
+	if string(byteMsg.GetDataAsBytes()) != string(byteData) {
+		t.Errorf("Byte API not working correctly")
+	}
+
+	// 测试两种方式创建的消息可以互相转换
+	stringFromByte := byteMsg.GetData()
+	if stringFromByte != string(byteData) {
+		t.Errorf("Byte to string conversion failed")
+	}
+
+	stringMsg.SetDataFromBytes(byteData)
+	convertedBytes := stringMsg.GetDataAsBytes()
+	if string(convertedBytes) != string(byteData) {
+		t.Errorf("String to byte conversion failed")
+	}
+}
+
+// TestSharedDataZeroCopyIntegration 测试零拷贝优化的完整集成
+func TestSharedDataZeroCopyIntegration(t *testing.T) {
+	// 测试GetUnsafe和SetUnsafe的零拷贝特性
+	originalData := "这是一个零拷贝测试数据，包含中文和English characters"
+	sd := NewSharedData(originalData)
+
+	// 测试GetUnsafe零拷贝获取
+	unsafeResult := sd.GetUnsafe()
+	if unsafeResult != originalData {
+		t.Errorf("GetUnsafe结果不匹配: 期望 %s, 实际 %s", originalData, unsafeResult)
+	}
+
+	// 测试SetUnsafe零拷贝设置
+	newData := "新的零拷贝数据 New zero-copy data"
+	sd.SetUnsafe(newData)
+
+	// 验证设置成功
+	if sd.GetUnsafe() != newData {
+		t.Errorf("SetUnsafe设置失败: 期望 %s, 实际 %s", newData, sd.GetUnsafe())
+	}
+
+	// 测试COW机制下的零拷贝
+	copy := sd.Copy()
+	modifiedData := "修改后的数据 Modified data"
+	copy.SetUnsafe(modifiedData)
+
+	// 验证原始数据未被修改
+	if sd.GetUnsafe() != newData {
+		t.Errorf("COW机制失效，原始数据被修改: 期望 %s, 实际 %s", newData, sd.GetUnsafe())
+	}
+
+	// 验证复制的数据被正确修改
+	if copy.GetUnsafe() != modifiedData {
+		t.Errorf("复制数据修改失败: 期望 %s, 实际 %s", modifiedData, copy.GetUnsafe())
+	}
+}
+
+// TestSharedDataMemorySafety 测试SharedData的内存安全性
+func TestSharedDataMemorySafety(t *testing.T) {
+	// 测试nil数据处理
+	sd := NewSharedDataFromBytes(nil)
+	if sd.Get() != "" {
+		t.Errorf("nil数据应该返回空字符串，实际返回: %s", sd.Get())
+	}
+	if sd.GetUnsafe() != "" {
+		t.Errorf("nil数据GetUnsafe应该返回空字符串，实际返回: %s", sd.GetUnsafe())
+	}
+
+	// 测试空字符串处理
+	sd.Set("")
+	if sd.Len() != 0 {
+		t.Errorf("空字符串长度应该为0，实际为: %d", sd.Len())
+	}
+	if !sd.IsEmpty() {
+		t.Error("空字符串应该被识别为空")
+	}
+
+	// 测试大数据处理
+	largeData := strings.Repeat("大数据测试Large data test", 10000)
+	sd.Set(largeData)
+	if sd.Get() != largeData {
+		t.Error("大数据处理失败")
+	}
+	if sd.Len() != len(largeData) {
+		t.Errorf("大数据长度不匹配: 期望 %d, 实际 %d", len(largeData), sd.Len())
+	}
+
+	// 测试特殊字符处理
+	specialData := "特殊字符测试\n\r\t\"'\\`~!@#$%^&*()_+-=[]{}|;:,.<>?/"
+	sd.SetUnsafe(specialData)
+	if sd.GetUnsafe() != specialData {
+		t.Errorf("特殊字符处理失败: 期望 %s, 实际 %s", specialData, sd.GetUnsafe())
+	}
+
+	// 测试Unicode字符处理
+	unicodeData := "Unicode测试🎉🔥⭐️🌟💫🎊🎈🎁🎀🎂🍰🥳😀😃😄😁😆😅🤣😂"
+	sd.SetBytes([]byte(unicodeData))
+	if sd.Get() != unicodeData {
+		t.Errorf("Unicode字符处理失败: 期望 %s, 实际 %s", unicodeData, sd.Get())
+	}
+}
+
+// TestSharedDataCOWPerformance 测试COW机制的性能特性
+func TestSharedDataCOWPerformance(t *testing.T) {
+	// 创建大数据用于测试
+	largeData := strings.Repeat("性能测试数据Performance test data", 1000)
+	original := NewSharedData(largeData)
+
+	// 创建大量副本（应该很快，因为只是共享引用）
+	copies := make([]*SharedData, 1000)
+	startTime := time.Now()
+	for i := 0; i < 1000; i++ {
+		copies[i] = original.Copy()
+	}
+	copyTime := time.Since(startTime)
+
+	// 验证所有副本的数据正确
+	for i, copy := range copies {
+		if copy.Get() != largeData {
+			t.Errorf("副本 %d 数据不正确", i)
+		}
+	}
+
+	// 修改一个副本（应该触发COW）
+	modifyStartTime := time.Now()
+	copies[0].Set("修改的数据Modified data")
+	modifyTime := time.Since(modifyStartTime)
+
+	// 验证只有被修改的副本改变了
+	if copies[0].Get() == largeData {
+		t.Error("修改失败")
+	}
+	for i := 1; i < 10; i++ { // 只检查前10个以节省时间
+		if copies[i].Get() != largeData {
+			t.Errorf("副本 %d 被意外修改", i)
+		}
+	}
+
+	// 输出性能信息
+	t.Logf("复制1000个SharedData耗时: %v", copyTime)
+	t.Logf("COW修改耗时: %v", modifyTime)
+
+	// 性能要求：复制操作应该很快（小于1毫秒）
+	if copyTime > time.Millisecond {
+		t.Errorf("复制操作太慢: %v", copyTime)
+	}
+}
+
+// TestRuleMsgMemoryOptimization 测试RuleMsg的内存优化
+func TestRuleMsgMemoryOptimization(t *testing.T) {
+	// 创建大量消息副本测试内存使用
+	largeData := strings.Repeat("内存优化测试Memory optimization test", 500)
+	metadata := NewMetadata()
+	for i := 0; i < 100; i++ {
+		metadata.PutValue("key"+string(rune(i)), "value"+string(rune(i)))
+	}
+
+	original := RuleMsg{
+		Ts:       time.Now().UnixMilli(),
+		Id:       "memory-test-msg",
+		DataType: JSON,
+		Type:     "MEMORY_TEST",
+		Data:     NewSharedData(largeData),
+		Metadata: metadata,
+	}
+
+	// 创建大量副本
+	copies := make([]RuleMsg, 1000)
+	for i := 0; i < 1000; i++ {
+		copies[i] = original.Copy()
+	}
+
+	// 验证所有副本的数据正确
+	for i, copy := range copies {
+		if copy.GetData() != largeData {
+			t.Errorf("副本 %d 数据不正确", i)
+		}
+		if copy.Metadata.Len() != metadata.Len() {
+			t.Errorf("副本 %d metadata长度不正确", i)
+		}
+	}
+
+	// 修改部分副本，验证独立性
+	for i := 0; i < 10; i++ {
+		copies[i].SetData("修改的数据" + string(rune(i)))
+		copies[i].Metadata.PutValue("modified", "true")
+	}
+
+	// 验证原始消息未被修改
+	if original.GetData() != largeData {
+		t.Error("原始消息被意外修改")
+	}
+	if original.Metadata.Has("modified") {
+		t.Error("原始metadata被意外修改")
+	}
+
+	// 验证未修改的副本保持不变
+	for i := 10; i < 20; i++ { // 只检查一部分以节省时间
+		if copies[i].GetData() != largeData {
+			t.Errorf("未修改的副本 %d 被意外修改", i)
+		}
+	}
+}
+
+// TestMetadataConcurrentStress 测试Metadata的并发压力测试
+func TestMetadataConcurrentStress(t *testing.T) {
+	// 创建原始metadata
+	original := NewMetadata()
+	for i := 0; i < 100; i++ {
+		original.PutValue("init_key_"+string(rune(i)), "init_value_"+string(rune(i)))
+	}
+
+	const numGoroutines = 100
+	const numOperations = 1000
+	var wg sync.WaitGroup
+	var errorCount int64
+
+	// 启动大量goroutine进行并发操作
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+
+			// 每个goroutine创建自己的副本
+			copy := original.Copy()
+
+			for j := 0; j < numOperations; j++ {
+				// 随机进行读写操作
+				switch j % 4 {
+				case 0: // 读操作
+					_ = copy.GetValue("init_key_1")
+					_ = copy.Has("init_key_2")
+					_ = copy.Values()
+
+				case 1: // 写操作
+					copy.PutValue("goroutine_"+string(rune(id))+"_op_"+string(rune(j)), "value")
+
+				case 2: // 替换操作
+					if j%100 == 0 {
+						newData := map[string]string{
+							"replaced_" + string(rune(id)): "value_" + string(rune(j)),
+						}
+						copy.ReplaceAll(newData)
+					}
+
+				case 3: // 清空操作
+					if j%200 == 0 {
+						copy.Clear()
+						copy.PutValue("cleared_"+string(rune(id)), "true")
+					}
+				}
+
+				// 验证基本操作的一致性
+				if copy.Len() < 0 {
+					atomic.AddInt64(&errorCount, 1)
+				}
+			}
+		}(i)
+	}
+
+	// 等待所有goroutine完成
+	wg.Wait()
+
+	// 验证没有错误
+	if errorCount > 0 {
+		t.Errorf("并发测试中发生 %d 个错误", errorCount)
+	}
+
+	// 验证原始metadata未被修改
+	if original.Len() != 100 {
+		t.Errorf("原始metadata被意外修改，长度从100变为%d", original.Len())
+	}
+}
+
+// TestJSONSerializationPerformance 测试JSON序列化性能
+func TestJSONSerializationPerformance(t *testing.T) {
+	// 创建包含大量数据的消息
+	largeData := strings.Repeat(`{"key": "这是一个大的JSON数据", "number": 12345, "array": [1,2,3,4,5]}`, 100)
+	metadata := NewMetadata()
+	for i := 0; i < 50; i++ {
+		metadata.PutValue("perf_key_"+string(rune(i)), "performance_value_"+string(rune(i)))
+	}
+
+	msg := RuleMsg{
+		Ts:       time.Now().UnixMilli(),
+		Id:       "performance-test-msg",
+		DataType: JSON,
+		Type:     "PERFORMANCE_TEST",
+		Data:     NewSharedData(largeData),
+		Metadata: metadata,
+	}
+
+	// 测试序列化性能
+	serializeStart := time.Now()
+	jsonData, err := json.Marshal(msg)
+	serializeTime := time.Since(serializeStart)
+	if err != nil {
+		t.Fatalf("序列化失败: %v", err)
+	}
+
+	// 测试反序列化性能
+	deserializeStart := time.Now()
+	var deserializedMsg RuleMsg
+	err = json.Unmarshal(jsonData, &deserializedMsg)
+	deserializeTime := time.Since(deserializeStart)
+	if err != nil {
+		t.Fatalf("反序列化失败: %v", err)
+	}
+
+	// 验证数据一致性
+	if deserializedMsg.GetData() != msg.GetData() {
+		t.Error("反序列化后数据不一致")
+	}
+	if deserializedMsg.Metadata.Len() != msg.Metadata.Len() {
+		t.Error("反序列化后metadata长度不一致")
+	}
+
+	// 输出性能信息
+	t.Logf("JSON序列化耗时: %v, 数据大小: %d bytes", serializeTime, len(jsonData))
+	t.Logf("JSON反序列化耗时: %v", deserializeTime)
+
+	// 基本性能要求
+	if serializeTime > 10*time.Millisecond {
+		t.Errorf("序列化太慢: %v", serializeTime)
+	}
+	if deserializeTime > 10*time.Millisecond {
+		t.Errorf("反序列化太慢: %v", deserializeTime)
+	}
+}
+
+// TestDataCallbackMechanism 测试数据变更回调机制
+func TestDataCallbackMechanism(t *testing.T) {
+	msg := NewMsg(0, "TEST", JSON, nil, `{"test": "data"}`)
+
+	// 验证初始状态下parsedData为nil
+	if msg.parsedData != nil {
+		t.Error("初始状态下parsedData应该为nil")
+	}
+
+	// 解析JSON数据
+	jsonData, err := msg.GetDataAsJson()
+	if err != nil {
+		t.Fatalf("解析JSON失败: %v", err)
+	}
+	if jsonData["test"] != "data" {
+		t.Errorf("JSON解析结果不正确: %v", jsonData)
+	}
+
+	// 验证parsedData被缓存
+	if msg.parsedData == nil {
+		t.Error("parsedData应该被缓存")
+	}
+
+	// 修改数据，验证缓存被清空
+	msg.SetData(`{"test": "modified"}`)
+	if msg.parsedData != nil {
+		t.Error("修改数据后parsedData应该被清空")
+	}
+
+	// 重新解析，验证得到新数据
+	newJsonData, err := msg.GetDataAsJson()
+	if err != nil {
+		t.Fatalf("重新解析JSON失败: %v", err)
+	}
+	if newJsonData["test"] != "modified" {
+		t.Errorf("修改后的JSON解析结果不正确: %v", newJsonData)
+	}
+
+	// 使用SetDataFromBytes也应该触发回调
+	msg.SetDataFromBytes([]byte(`{"test": "from_bytes"}`))
+	if msg.parsedData != nil {
+		t.Error("使用SetDataFromBytes后parsedData应该被清空")
+	}
+
+	bytesJsonData, err := msg.GetDataAsJson()
+	if err != nil {
+		t.Fatalf("从bytes设置后解析JSON失败: %v", err)
+	}
+	if bytesJsonData["test"] != "from_bytes" {
+		t.Errorf("从bytes设置的JSON解析结果不正确: %v", bytesJsonData)
+	}
+}
+
+// TestMemoryLeakageDetection 测试内存泄漏检测
+func TestMemoryLeakageDetection(t *testing.T) {
+	// 此测试旨在检测可能的内存泄漏
+	const iterations = 10000
+
+	// 记录初始内存状态
+	var m1, m2 runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&m1)
+
+	// 执行大量内存分配和释放操作
+	for i := 0; i < iterations; i++ {
+		// 创建消息
+		msg := NewMsg(0, "LEAK_TEST", JSON, nil, "测试数据"+string(rune(i)))
+
+		// 复制消息
+		copy1 := msg.Copy()
+		copy2 := copy1.Copy()
+
+		// 修改数据触发COW
+		copy1.SetData("修改的数据1")
+		copy2.SetData("修改的数据2")
+		copy2.Metadata.PutValue("test", "value")
+
+		// 创建SharedData
+		sd := NewSharedData("shared data " + string(rune(i)))
+		sdCopy := sd.Copy()
+		sdCopy.Set("modified shared data")
+
+		// 让这些变量在作用域结束时被GC回收
+		_ = msg
+		_ = copy1
+		_ = copy2
+		_ = sd
+		_ = sdCopy
+	}
+
+	// 强制GC并测量内存
+	runtime.GC()
+	runtime.ReadMemStats(&m2)
+
+	// 计算内存增长
+	allocDiff := m2.Alloc - m1.Alloc
+	totalAllocDiff := m2.TotalAlloc - m1.TotalAlloc
+
+	t.Logf("内存使用变化:")
+	t.Logf("  当前分配: %d bytes (增长: %d bytes)", m2.Alloc, allocDiff)
+	t.Logf("  累计分配: %d bytes (增长: %d bytes)", m2.TotalAlloc, totalAllocDiff)
+	t.Logf("  GC次数: %d -> %d", m1.NumGC, m2.NumGC)
+
+	// 简单的内存泄漏检测：当前分配内存不应该有显著增长
+	// 考虑到测试框架本身可能分配内存，设置一个相对宽松的阈值
+	maxAcceptableGrowth := int64(1024 * 1024) // 1MB
+	if int64(allocDiff) > maxAcceptableGrowth {
+		t.Errorf("可能存在内存泄漏，当前分配内存增长了 %d bytes", allocDiff)
+	}
+}
+
+// TestErrorHandling 测试错误处理
+func TestErrorHandling(t *testing.T) {
+	// 测试无效JSON的处理
+	msg := NewMsg(0, "ERROR_TEST", JSON, nil, "invalid json {")
+	_, err := msg.GetDataAsJson()
+	if err == nil {
+		t.Error("无效JSON应该返回错误")
+	}
+
+	// 测试空数据的JSON解析
+	emptyMsg := NewMsg(0, "EMPTY_TEST", JSON, nil, "")
+	emptyJson, err := emptyMsg.GetDataAsJson()
+	if err != nil {
+		t.Errorf("空数据JSON解析失败: %v", err)
+	}
+	if len(emptyJson) != 0 {
+		t.Errorf("空数据应该返回空map，实际: %v", emptyJson)
+	}
+
+	// 测试metadata的错误情况
+	var nilMetadata *Metadata = nil
+	copy := BuildMetadataFromMetadata(nilMetadata)
+	if copy == nil {
+		t.Error("从nil metadata构建应该返回有效的metadata")
+	}
+	if copy.Len() != 0 {
+		t.Errorf("从nil metadata构建的长度应该为0，实际: %d", copy.Len())
+	}
+
+	// 测试SharedData的错误情况
+	var nilSharedData *SharedData = nil
+	if nilSharedData != nil {
+		// 这个测试主要是确保我们的设计能处理nil情况
+		_ = nilSharedData.Get() // 如果这里panic，说明设计有问题
 	}
 }

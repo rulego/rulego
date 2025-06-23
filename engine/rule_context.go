@@ -135,22 +135,18 @@ func (c *ContextObserver) addInMsg(joinNodeId, fromId string, msg types.RuleMsg,
 	segment.mu.Lock()
 	defer segment.mu.Unlock()
 
+	wrapperMsg := types.WrapperMsg{
+		Msg:    msg,
+		Err:    errStr,
+		NodeId: fromId,
+	}
+
 	if list, ok := segment.nodeInMsgList[joinNodeId]; ok {
-		list = append(list, types.WrapperMsg{
-			Msg:    msg,
-			Err:    errStr,
-			NodeId: fromId,
-		})
+		list = append(list, wrapperMsg)
 		segment.nodeInMsgList[joinNodeId] = list
 		return true
 	} else {
-		segment.nodeInMsgList[joinNodeId] = []types.WrapperMsg{
-			{
-				Msg:    msg,
-				Err:    errStr,
-				NodeId: fromId,
-			},
-		}
+		segment.nodeInMsgList[joinNodeId] = []types.WrapperMsg{wrapperMsg}
 		return false
 	}
 }
@@ -243,6 +239,7 @@ func (c *ContextObserver) checkSegmentAndCollectCallbacks(segment *observerSegme
 					cb(msgs)
 				})
 			}(item.callback, msgListCopy)
+
 		}
 	}
 
@@ -910,15 +907,26 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 					nodes, ok = ctx.getNextNodes(defaultRelationType)
 				}
 				if ok && !ctx.skipTellNext {
-					for _, item := range nodes {
+					// 内存优化：对于只读节点，避免不必要的消息拷贝
+					needsCopy := len(nodes) > 1 // 只有多个子节点时才需要拷贝
+
+					for i, item := range nodes {
 						tmp := item
 						//增加一个待执行的子节点
 						ctx.childReady()
-						//为每个子节点创建独立的消息副本，避免并发竞态条件
-						msgCopy := msg.Copy()
+
+						var msgToPass types.RuleMsg
+						if needsCopy && i < len(nodes)-1 {
+							//为除最后一个节点外的其他节点创建拷贝
+							msgToPass = msg.Copy()
+						} else {
+							//最后一个节点或唯一节点可以直接使用原消息
+							msgToPass = msg
+						}
+
 						//通知执行子节点
 						ctx.SubmitTask(func() {
-							ctx.tellNext(msgCopy, tmp, relationType)
+							ctx.tellNext(msgToPass, tmp, relationType)
 						})
 					}
 				} else {

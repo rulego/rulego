@@ -29,8 +29,9 @@ package transform
 import (
 	"errors"
 	"fmt"
-	"github.com/rulego/rulego/utils/js"
 	"strings"
+
+	"github.com/rulego/rulego/utils/js"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
@@ -177,7 +178,8 @@ func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleM
 	// 更新消息数据（如果JS脚本中修改了msg）
 	if formatMsgData, ok := formatData[types.MsgKey]; ok {
 		if newValue, err := str.ToStringMaybeErr(formatMsgData); err == nil {
-			msg.SetData(newValue)
+			// 使用零拷贝模式：JavaScript输出的数据是新创建的，安全可控
+			msg.Data.SetUnsafe(newValue)
 		} else {
 			// 数据转换失败，发送到Failure链
 			ctx.TellFailure(msg, err)

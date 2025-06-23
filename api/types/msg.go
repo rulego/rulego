@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid/v5"
+	"github.com/rulego/rulego/utils/str"
 )
 
 // DataType defines the type of data contained in a message.
@@ -340,16 +341,28 @@ type RuleMsg struct {
 // NewMsg creates a new message instance and generates a message ID using UUID.
 func NewMsg(ts int64, msgType string, dataType DataType, metaData *Metadata, data string) RuleMsg {
 	uuId, _ := uuid.NewV4()
+	return newMsg(uuId.String(), ts, msgType, dataType, metaData, str.UnsafeBytesFromString(data))
+}
+
+// NewMsgFromBytes creates a new message instance from []byte data and generates a message ID using UUID.
+func NewMsgFromBytes(ts int64, msgType string, dataType DataType, metaData *Metadata, data []byte) RuleMsg {
+	uuId, _ := uuid.NewV4()
 	return newMsg(uuId.String(), ts, msgType, dataType, metaData, data)
 }
 
 func NewMsgWithJsonData(data string) RuleMsg {
 	uuId, _ := uuid.NewV4()
+	return newMsg(uuId.String(), 0, "", JSON, NewMetadata(), str.UnsafeBytesFromString(data))
+}
+
+// NewMsgWithJsonDataFromBytes creates a new message instance with JSON data from []byte.
+func NewMsgWithJsonDataFromBytes(data []byte) RuleMsg {
+	uuId, _ := uuid.NewV4()
 	return newMsg(uuId.String(), 0, "", JSON, NewMetadata(), data)
 }
 
-// newMsg is a helper function to create a new RuleMsg.
-func newMsg(id string, ts int64, msgType string, dataType DataType, metaData *Metadata, data string) RuleMsg {
+// newMsg is a helper function to create a new RuleMsg from []byte data.
+func newMsg(id string, ts int64, msgType string, dataType DataType, metaData *Metadata, data []byte) RuleMsg {
 	if ts <= 0 {
 		ts = time.Now().UnixMilli()
 	}
@@ -370,7 +383,7 @@ func newMsg(id string, ts int64, msgType string, dataType DataType, metaData *Me
 		Id:       id,
 		Type:     msgType,
 		DataType: dataType,
-		Data:     NewSharedData(data),
+		Data:     NewSharedDataFromBytes(data),
 		Metadata: metadata,
 	}
 
@@ -394,12 +407,33 @@ func (m *RuleMsg) SetData(data string) {
 	}
 }
 
-// GetData returns the message data.
+// SetDataFromBytes sets the message data from []byte using Copy-on-Write optimization.
+func (m *RuleMsg) SetDataFromBytes(data []byte) {
+	if m.Data == nil {
+		m.Data = NewSharedDataFromBytes(data)
+	} else {
+		m.Data.SetBytes(data)
+	}
+	// Always set the callback to ensure it points to the correct message instance
+	m.Data.onDataChanged = func() {
+		m.parsedData = nil
+	}
+}
+
+// GetData returns the message data as string.
 func (m *RuleMsg) GetData() string {
 	if m.Data == nil {
 		return ""
 	}
 	return m.Data.Get()
+}
+
+// GetDataAsBytes returns the message data as []byte.
+func (m *RuleMsg) GetDataAsBytes() []byte {
+	if m.Data == nil {
+		return nil
+	}
+	return m.Data.GetBytes()
 }
 
 // GetDataAsJson returns the message data parsed as JSON with caching.
@@ -542,19 +576,28 @@ type WrapperMsg struct {
 	NodeId string `json:"nodeId"`
 }
 
-// SharedData represents a copy-on-write string data structure for message payload.
+// SharedData represents a copy-on-write data structure for message payload.
 // This optimization allows multiple message copies to share the same underlying data
 // until one of them needs to modify it, reducing memory usage and improving performance.
+// Supports both string and []byte for zero-copy operations.
 type SharedData struct {
-	data   string
+	data   []byte // Changed to []byte for better memory efficiency
 	shared bool
 	mu     sync.RWMutex
 	// onDataChanged callback to notify when data changes
 	onDataChanged func()
 }
 
-// NewSharedData creates a new SharedData instance.
+// NewSharedData creates a new SharedData instance from string.
 func NewSharedData(data string) *SharedData {
+	return &SharedData{
+		data:   str.UnsafeBytesFromString(data),
+		shared: false,
+	}
+}
+
+// NewSharedDataFromBytes creates a new SharedData instance from []byte.
+func NewSharedDataFromBytes(data []byte) *SharedData {
 	return &SharedData{
 		data:   data,
 		shared: false,
@@ -578,8 +621,57 @@ func (sd *SharedData) Copy() *SharedData {
 	}
 }
 
-// Get returns the data value.
+// ensureUnique ensures the data is unique before modification
+func (sd *SharedData) ensureUnique() {
+	sd.mu.Lock()
+	defer sd.mu.Unlock()
+
+	// If shared, create copy
+	if sd.shared {
+		// Create data copy
+		newData := make([]byte, len(sd.data))
+		copy(newData, sd.data)
+
+		// Set new data
+		sd.data = newData
+		sd.shared = false
+	}
+}
+
+// Get returns the data value as string using safe conversion.
+// Uses the str package's safe conversion for maximum compatibility.
 func (sd *SharedData) Get() string {
+	sd.mu.RLock()
+	defer sd.mu.RUnlock()
+
+	if len(sd.data) == 0 {
+		return ""
+	}
+
+	// Use str package's safe conversion
+	return str.SafeStringFromBytes(sd.data)
+}
+
+// GetUnsafe returns the data as string using zero-copy conversion.
+// Uses the str package's cross-version compatible implementation.
+// This method should only be used when performance is critical.
+//
+// WARNING: The returned string shares memory with the underlying []byte.
+// Do not modify the original data while the string is in use.
+func (sd *SharedData) GetUnsafe() string {
+	sd.mu.RLock()
+	defer sd.mu.RUnlock()
+
+	if len(sd.data) == 0 {
+		return ""
+	}
+
+	// Use str package's cross-version compatible zero-copy conversion
+	return str.UnsafeStringFromBytes(sd.data)
+}
+
+// GetBytes returns the data as []byte.
+func (sd *SharedData) GetBytes() []byte {
 	sd.mu.RLock()
 	defer sd.mu.RUnlock()
 	return sd.data
@@ -588,21 +680,56 @@ func (sd *SharedData) Get() string {
 // String implements the fmt.Stringer interface for SharedData.
 // This allows SharedData to be used directly as a string in contexts where string conversion is needed.
 func (sd *SharedData) String() string {
-	sd.mu.RLock()
-	defer sd.mu.RUnlock()
-	return sd.data
+	return sd.Get() // Use safe Get method
 }
 
 // Set sets the data value, ensuring copy-on-write semantics.
 func (sd *SharedData) Set(data string) {
+	// Ensure unique copy first
+	sd.ensureUnique()
+
 	sd.mu.Lock()
 	defer sd.mu.Unlock()
 
-	// Ensure unique copy within the same lock
-	if sd.shared {
-		sd.shared = false
-	}
+	// Use zero-copy conversion for better performance
+	sd.data = str.UnsafeBytesFromString(data)
 
+	// Notify data change if callback is set
+	if sd.onDataChanged != nil {
+		sd.onDataChanged()
+	}
+}
+
+// SetUnsafe sets the data value using zero-copy conversion (use with caution).
+// WARNING: This method uses zero-copy conversion from string to []byte.
+// The caller must ensure that the original string data will not be modified
+// during the lifetime of this SharedData, as strings are immutable in Go.
+// Only use this method when performance is critical and data safety is guaranteed.
+func (sd *SharedData) SetUnsafe(data string) {
+	// Ensure unique copy first
+	sd.ensureUnique()
+
+	sd.mu.Lock()
+	defer sd.mu.Unlock()
+
+	// Use zero-copy conversion for performance
+	sd.data = str.UnsafeBytesFromString(data)
+
+	// Notify data change if callback is set
+	if sd.onDataChanged != nil {
+		sd.onDataChanged()
+	}
+}
+
+// SetBytes sets the data from []byte.
+func (sd *SharedData) SetBytes(data []byte) {
+	// Ensure unique copy first
+	sd.ensureUnique()
+
+	sd.mu.Lock()
+	defer sd.mu.Unlock()
+
+	// Directly use the provided data
 	sd.data = data
 
 	// Notify data change if callback is set
@@ -611,11 +738,26 @@ func (sd *SharedData) Set(data string) {
 	}
 }
 
+// Len returns the length of the data.
+func (sd *SharedData) Len() int {
+	sd.mu.RLock()
+	defer sd.mu.RUnlock()
+	return len(sd.data)
+}
+
+// IsEmpty checks if the data is empty.
+func (sd *SharedData) IsEmpty() bool {
+	sd.mu.RLock()
+	defer sd.mu.RUnlock()
+	return len(sd.data) == 0
+}
+
 // MarshalJSON implements the json.Marshaler interface for SharedData
 func (sd *SharedData) MarshalJSON() ([]byte, error) {
 	sd.mu.RLock()
 	defer sd.mu.RUnlock()
-	return json.Marshal(sd.data)
+	// Marshal as string to maintain backward compatibility
+	return json.Marshal(str.UnsafeStringFromBytes(sd.data))
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for SharedData
@@ -632,6 +774,6 @@ func (sd *SharedData) UnmarshalJSON(data []byte) error {
 		sd.shared = false
 	}
 
-	sd.data = s
+	sd.data = str.UnsafeBytesFromString(s)
 	return nil
 }
