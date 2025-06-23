@@ -394,3 +394,228 @@ func TestJsTransformNodeDebugOutput(t *testing.T) {
 		t.Logf("DataType: %s", resultMsg.DataType)
 	})
 }
+
+// TestJsTransformNodeJSONArraySupport 测试JavaScript转换器对JSON数组的支持
+func TestJsTransformNodeJSONArraySupport(t *testing.T) {
+	config := types.NewConfig()
+
+	// 测试1: JSON数组处理
+	t.Run("JSONArrayTransform", func(t *testing.T) {
+		node := &JsTransformNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": `
+				// 对JSON数组进行处理：添加索引和处理标志
+				if (Array.isArray(msg)) {
+					var result = [];
+					for (var i = 0; i < msg.length; i++) {
+						result.push({
+							index: i,
+							value: msg[i],
+							processed: true
+						});
+					}
+					metadata['arrayLength'] = msg.length.toString();
+					metadata['processed'] = 'array_transformed';
+					return {'msg': result, 'metadata': metadata, 'msgType': msgType};
+				}
+				return {'msg': msg, 'metadata': metadata, 'msgType': msgType};
+			`,
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 创建JSON数组消息
+		metadata := types.BuildMetadata(make(map[string]string))
+		arrayData := `["apple", "banana", "cherry"]`
+		testMsg := types.NewMsg(0, "ARRAY_TEST", types.JSON, metadata, arrayData)
+
+		var resultMsg types.RuleMsg
+		var resultRelationType string
+		var resultErr error
+
+		ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			resultMsg = msg
+			resultRelationType = relationType
+			resultErr = err
+		})
+
+		node.OnMsg(ctx, testMsg)
+
+		// 验证结果
+		assert.Nil(t, resultErr)
+		assert.Equal(t, types.Success, resultRelationType)
+		assert.Equal(t, "3", resultMsg.Metadata.GetValue("arrayLength"))
+		assert.Equal(t, "array_transformed", resultMsg.Metadata.GetValue("processed"))
+	})
+
+	// 测试2: JSON对象处理
+	t.Run("JSONObjectTransform", func(t *testing.T) {
+		node := &JsTransformNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": `
+				// 对JSON对象进行处理
+				if (typeof msg === 'object' && !Array.isArray(msg)) {
+					msg.processed = true;
+					msg.timestamp = new Date().getTime();
+					metadata['processed'] = 'object_transformed';
+				}
+				return {'msg': msg, 'metadata': metadata, 'msgType': msgType};
+			`,
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 创建JSON对象消息
+		metadata := types.BuildMetadata(make(map[string]string))
+		objectData := `{"name": "test", "value": 123}`
+		testMsg := types.NewMsg(0, "OBJECT_TEST", types.JSON, metadata, objectData)
+
+		var resultMsg types.RuleMsg
+		var resultRelationType string
+		var resultErr error
+
+		ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			resultMsg = msg
+			resultRelationType = relationType
+			resultErr = err
+		})
+
+		node.OnMsg(ctx, testMsg)
+
+		// 验证结果
+		assert.Nil(t, resultErr)
+		assert.Equal(t, types.Success, resultRelationType)
+		assert.Equal(t, "object_transformed", resultMsg.Metadata.GetValue("processed"))
+
+	})
+
+	// 测试3: 嵌套JSON数组处理
+	t.Run("NestedJSONArrayTransform", func(t *testing.T) {
+		node := &JsTransformNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": `
+				// 处理嵌套数组：计算每个子数组的和
+				if (Array.isArray(msg)) {
+					var result = [];
+					for (var i = 0; i < msg.length; i++) {
+						var item = msg[i];
+						if (Array.isArray(item)) {
+							// 计算子数组的和
+							var sum = 0;
+							for (var j = 0; j < item.length; j++) {
+								sum += item[j];
+							}
+							result.push({
+								original: item,
+								sum: sum,
+								count: item.length
+							});
+						} else {
+							result.push(item);
+						}
+					}
+					metadata['nestedArrayProcessed'] = 'true';
+					return {'msg': result, 'metadata': metadata, 'msgType': msgType};
+				}
+				return {'msg': msg, 'metadata': metadata, 'msgType': msgType};
+			`,
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 创建嵌套JSON数组消息
+		metadata := types.BuildMetadata(make(map[string]string))
+		nestedArrayData := `[[1, 2, 3], [4, 5, 6], [7, 8, 9]]`
+		testMsg := types.NewMsg(0, "NESTED_ARRAY_TEST", types.JSON, metadata, nestedArrayData)
+
+		var resultMsg types.RuleMsg
+		var resultRelationType string
+		var resultErr error
+
+		ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			resultMsg = msg
+			resultRelationType = relationType
+			resultErr = err
+		})
+
+		node.OnMsg(ctx, testMsg)
+
+		// 验证结果
+		assert.Nil(t, resultErr)
+		assert.Equal(t, types.Success, resultRelationType)
+		assert.Equal(t, "true", resultMsg.Metadata.GetValue("nestedArrayProcessed"))
+
+	})
+
+	// 测试4: 混合数据类型处理
+	t.Run("MixedDataTypeTransform", func(t *testing.T) {
+		node := &JsTransformNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": `
+				// 根据数据类型进行不同处理
+				metadata['originalType'] = dataType;
+				
+				if (String(dataType) === 'JSON') {
+					if (Array.isArray(msg)) {
+						metadata['jsonType'] = 'array';
+						metadata['length'] = msg.length.toString();
+						// 为数组添加处理标记
+						var newArray = msg.slice(); // 复制数组
+						newArray.push('processed_by_js');
+						return {'msg': newArray, 'metadata': metadata, 'msgType': msgType};
+					} else if (typeof msg === 'object') {
+						metadata['jsonType'] = 'object';
+						msg.processedBy = 'js_transform';
+						return {'msg': msg, 'metadata': metadata, 'msgType': msgType};
+					}
+				}
+				
+				// 其他类型直接返回
+				return {'msg': msg, 'metadata': metadata, 'msgType': msgType};
+			`,
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 测试JSON数组
+		arrayMetadata := types.BuildMetadata(make(map[string]string))
+		arrayData := `["item1", "item2", "item3"]`
+		arrayMsg := types.NewMsg(0, "MIXED_TEST", types.JSON, arrayMetadata, arrayData)
+
+		var arrayResult types.RuleMsg
+		var arrayErr error
+
+		arrayCtx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			arrayResult = msg
+			arrayErr = err
+		})
+
+		node.OnMsg(arrayCtx, arrayMsg)
+
+		// 验证数组处理结果
+		assert.Nil(t, arrayErr)
+		assert.Equal(t, "JSON", arrayResult.Metadata.GetValue("originalType"))
+		assert.Equal(t, "array", arrayResult.Metadata.GetValue("jsonType"))
+		assert.Equal(t, "3", arrayResult.Metadata.GetValue("length"))
+
+		// 测试JSON对象
+		objectMetadata := types.BuildMetadata(make(map[string]string))
+		objectData := `{"name": "test", "id": 456}`
+		objectMsg := types.NewMsg(0, "MIXED_TEST", types.JSON, objectMetadata, objectData)
+
+		var objectResult types.RuleMsg
+		var objectErr error
+
+		objectCtx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			objectResult = msg
+			objectErr = err
+		})
+
+		node.OnMsg(objectCtx, objectMsg)
+
+		// 验证对象处理结果
+		assert.Nil(t, objectErr)
+		assert.Equal(t, "JSON", objectResult.Metadata.GetValue("originalType"))
+		assert.Equal(t, "object", objectResult.Metadata.GetValue("jsonType"))
+	})
+}

@@ -336,7 +336,8 @@ type RuleMsg struct {
 	Metadata *Metadata `json:"metadata"`
 
 	// parsedData caches the parsed JSON data to avoid repeated unmarshaling
-	parsedData map[string]interface{} `json:"-"`
+	// Can be map[string]interface{} for JSON objects or []interface{} for JSON arrays
+	parsedData interface{} `json:"-"`
 }
 
 // NewMsg creates a new message instance and generates a message ID using UUID.
@@ -507,10 +508,11 @@ func (m *RuleMsg) SetSharedData(data *SharedData) {
 	}
 }
 
-// GetAsJson returns the message data parsed as JSON with caching.
+// GetJsonData returns the message data parsed as JSON with caching.
 // If the data has already been parsed, returns cached result.
 // If the data is not valid JSON, it returns an error.
-func (m *RuleMsg) GetAsJson() (map[string]interface{}, error) {
+// Returns map[string]interface{} for JSON objects or []interface{} for JSON arrays.
+func (m *RuleMsg) GetJsonData() (interface{}, error) {
 	data := m.GetData()
 	if data == "" {
 		return make(map[string]interface{}), nil
@@ -521,8 +523,8 @@ func (m *RuleMsg) GetAsJson() (map[string]interface{}, error) {
 		return m.parsedData, nil
 	}
 
-	// Parse the JSON data
-	var result map[string]interface{}
+	// Parse the JSON data - try as generic interface{} to support both objects and arrays
+	var result interface{}
 	err := json.Unmarshal([]byte(data), &result)
 	if err != nil {
 		return nil, err

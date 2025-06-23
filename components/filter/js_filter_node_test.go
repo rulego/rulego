@@ -348,3 +348,324 @@ func TestJsFilterNodeBinaryData(t *testing.T) {
 		}
 	})
 }
+
+// TestJsFilterNodeJSONArraySupport 测试JavaScript过滤器对JSON数组的支持
+func TestJsFilterNodeJSONArraySupport(t *testing.T) {
+	config := types.NewConfig()
+
+	// 测试1: JSON数组长度过滤
+	t.Run("ArrayLengthFilter", func(t *testing.T) {
+		node := &JsFilterNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": `
+				// 过滤数组长度大于2的消息
+				if (Array.isArray(msg)) {
+					return msg.length > 2;
+				}
+				return false;
+			`,
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 创建长度为3的数组（应该通过过滤）
+		metadata1 := types.BuildMetadata(make(map[string]string))
+		arrayData1 := `["apple", "banana", "cherry"]`
+		testMsg1 := types.NewMsg(0, "ARRAY_TEST", types.JSON, metadata1, arrayData1)
+
+		var result1 string
+		var err1 error
+
+		ctx1 := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			result1 = relationType
+			err1 = err
+		})
+
+		node.OnMsg(ctx1, testMsg1)
+
+		// 验证结果：长度3应该通过
+		assert.Nil(t, err1)
+		assert.Equal(t, types.True, result1)
+
+		// 创建长度为1的数组（应该被过滤掉）
+		metadata2 := types.BuildMetadata(make(map[string]string))
+		arrayData2 := `["single"]`
+		testMsg2 := types.NewMsg(0, "ARRAY_TEST", types.JSON, metadata2, arrayData2)
+
+		var result2 string
+		var err2 error
+
+		ctx2 := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			result2 = relationType
+			err2 = err
+		})
+
+		node.OnMsg(ctx2, testMsg2)
+
+		// 验证结果：长度1应该被过滤
+		assert.Nil(t, err2)
+		assert.Equal(t, types.False, result2)
+	})
+
+	// 测试2: JSON数组内容过滤
+	t.Run("ArrayContentFilter", func(t *testing.T) {
+		node := &JsFilterNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": `
+				// 检查数组是否包含特定值
+				if (Array.isArray(msg)) {
+					for (var i = 0; i < msg.length; i++) {
+						if (msg[i] === "target") {
+							return true;
+						}
+					}
+				}
+				return false;
+			`,
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 创建包含"target"的数组
+		metadata1 := types.BuildMetadata(make(map[string]string))
+		arrayData1 := `["apple", "target", "cherry"]`
+		testMsg1 := types.NewMsg(0, "CONTENT_TEST", types.JSON, metadata1, arrayData1)
+
+		var result1 string
+		var err1 error
+
+		ctx1 := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			result1 = relationType
+			err1 = err
+		})
+
+		node.OnMsg(ctx1, testMsg1)
+
+		// 验证结果：包含target应该通过
+		assert.Nil(t, err1)
+		assert.Equal(t, types.True, result1)
+
+		// 创建不包含"target"的数组
+		metadata2 := types.BuildMetadata(make(map[string]string))
+		arrayData2 := `["apple", "banana", "cherry"]`
+		testMsg2 := types.NewMsg(0, "CONTENT_TEST", types.JSON, metadata2, arrayData2)
+
+		var result2 string
+		var err2 error
+
+		ctx2 := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			result2 = relationType
+			err2 = err
+		})
+
+		node.OnMsg(ctx2, testMsg2)
+
+		// 验证结果：不包含target应该被过滤
+		assert.Nil(t, err2)
+		assert.Equal(t, types.False, result2)
+	})
+
+	// 测试3: 数字数组数值过滤
+	t.Run("NumericArrayFilter", func(t *testing.T) {
+		node := &JsFilterNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": `
+				// 检查数组中是否有大于50的数值
+				if (Array.isArray(msg)) {
+					for (var i = 0; i < msg.length; i++) {
+						if (typeof msg[i] === 'number' && msg[i] > 50) {
+							return true;
+						}
+					}
+				}
+				return false;
+			`,
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 创建包含大于50数值的数组
+		metadata1 := types.BuildMetadata(make(map[string]string))
+		arrayData1 := `[10, 30, 75, 20]`
+		testMsg1 := types.NewMsg(0, "NUMERIC_TEST", types.JSON, metadata1, arrayData1)
+
+		var result1 string
+		var err1 error
+
+		ctx1 := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			result1 = relationType
+			err1 = err
+		})
+
+		node.OnMsg(ctx1, testMsg1)
+
+		// 验证结果：包含75应该通过
+		assert.Nil(t, err1)
+		assert.Equal(t, types.True, result1)
+
+		// 创建没有大于50数值的数组
+		metadata2 := types.BuildMetadata(make(map[string]string))
+		arrayData2 := `[10, 30, 45, 20]`
+		testMsg2 := types.NewMsg(0, "NUMERIC_TEST", types.JSON, metadata2, arrayData2)
+
+		var result2 string
+		var err2 error
+
+		ctx2 := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			result2 = relationType
+			err2 = err
+		})
+
+		node.OnMsg(ctx2, testMsg2)
+
+		// 验证结果：都不大于50应该被过滤
+		assert.Nil(t, err2)
+		assert.Equal(t, types.False, result2)
+	})
+
+	// 测试4: 混合类型过滤（数组 vs 对象）
+	t.Run("MixedTypeFilter", func(t *testing.T) {
+		node := &JsFilterNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": `
+				// 根据数据类型和结构进行过滤
+				if (String(dataType) === 'JSON') {
+					if (Array.isArray(msg)) {
+						// 数组：检查长度
+						return msg.length >= 2;
+					} else if (typeof msg === 'object') {
+						// 对象：检查是否有temperature字段且值大于25
+						return msg.temperature && msg.temperature > 25;
+					}
+				}
+				return false;
+			`,
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 测试JSON数组（长度>=2）
+		arrayMetadata := types.BuildMetadata(make(map[string]string))
+		arrayData := `["item1", "item2", "item3"]`
+		arrayMsg := types.NewMsg(0, "MIXED_TEST", types.JSON, arrayMetadata, arrayData)
+
+		var arrayResult string
+		var arrayErr error
+
+		arrayCtx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			arrayResult = relationType
+			arrayErr = err
+		})
+
+		node.OnMsg(arrayCtx, arrayMsg)
+
+		// 验证数组过滤结果
+		assert.Nil(t, arrayErr)
+		assert.Equal(t, types.True, arrayResult)
+
+		// 测试JSON对象（temperature > 25）
+		objectMetadata := types.BuildMetadata(make(map[string]string))
+		objectData := `{"name": "sensor", "temperature": 30}`
+		objectMsg := types.NewMsg(0, "MIXED_TEST", types.JSON, objectMetadata, objectData)
+
+		var objectResult string
+		var objectErr error
+
+		objectCtx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			objectResult = relationType
+			objectErr = err
+		})
+
+		node.OnMsg(objectCtx, objectMsg)
+
+		// 验证对象过滤结果
+		assert.Nil(t, objectErr)
+		assert.Equal(t, types.True, objectResult)
+
+		// 测试JSON对象（temperature <= 25）
+		lowTempMetadata := types.BuildMetadata(make(map[string]string))
+		lowTempData := `{"name": "sensor", "temperature": 20}`
+		lowTempMsg := types.NewMsg(0, "MIXED_TEST", types.JSON, lowTempMetadata, lowTempData)
+
+		var lowTempResult string
+		var lowTempErr error
+
+		lowTempCtx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			lowTempResult = relationType
+			lowTempErr = err
+		})
+
+		node.OnMsg(lowTempCtx, lowTempMsg)
+
+		// 验证低温对象被过滤
+		assert.Nil(t, lowTempErr)
+		assert.Equal(t, types.False, lowTempResult)
+	})
+
+	// 测试5: 嵌套数组过滤
+	t.Run("NestedArrayFilter", func(t *testing.T) {
+		node := &JsFilterNode{}
+		err := node.Init(config, types.Configuration{
+			"jsScript": `
+				// 检查嵌套数组中是否有子数组的和大于10
+				if (Array.isArray(msg)) {
+					for (var i = 0; i < msg.length; i++) {
+						var item = msg[i];
+						if (Array.isArray(item)) {
+							var sum = 0;
+							for (var j = 0; j < item.length; j++) {
+								if (typeof item[j] === 'number') {
+									sum += item[j];
+								}
+							}
+							if (sum > 10) {
+								return true;
+							}
+						}
+					}
+				}
+				return false;
+			`,
+		})
+		assert.Nil(t, err)
+		defer node.Destroy()
+
+		// 创建包含和大于10的子数组的嵌套数组
+		metadata1 := types.BuildMetadata(make(map[string]string))
+		nestedData1 := `[[1, 2], [5, 8], [2, 3]]` // 第二个子数组和为13
+		testMsg1 := types.NewMsg(0, "NESTED_TEST", types.JSON, metadata1, nestedData1)
+
+		var result1 string
+		var err1 error
+
+		ctx1 := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			result1 = relationType
+			err1 = err
+		})
+
+		node.OnMsg(ctx1, testMsg1)
+
+		// 验证结果：有子数组和大于10应该通过
+		assert.Nil(t, err1)
+		assert.Equal(t, types.True, result1)
+
+		// 创建所有子数组和都小于等于10的嵌套数组
+		metadata2 := types.BuildMetadata(make(map[string]string))
+		nestedData2 := `[[1, 2], [3, 4], [2, 3]]` // 所有子数组和都≤10
+		testMsg2 := types.NewMsg(0, "NESTED_TEST", types.JSON, metadata2, nestedData2)
+
+		var result2 string
+		var err2 error
+
+		ctx2 := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
+			result2 = relationType
+			err2 = err
+		})
+
+		node.OnMsg(ctx2, testMsg2)
+
+		// 验证结果：没有子数组和大于10应该被过滤
+		assert.Nil(t, err2)
+		assert.Equal(t, types.False, result2)
+	})
+}

@@ -113,7 +113,7 @@ func (n *nodeUtils) PrepareJsData(msg types.RuleMsg) interface{} {
 	switch msg.DataType {
 	case types.JSON:
 		// JSON类型：尝试解析为map以便JavaScript处理
-		if dataMap, err := msg.GetAsJson(); err == nil {
+		if dataMap, err := msg.GetJsonData(); err == nil {
 			data = dataMap
 		} else {
 			data = msg.GetData()
