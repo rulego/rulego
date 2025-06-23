@@ -28,11 +28,11 @@ package filter
 //      }
 import (
 	"fmt"
+
 	"github.com/rulego/rulego/utils/js"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
-	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 )
 
@@ -41,8 +41,8 @@ const (
 	JsFilterFuncName = "Filter"
 	// JsFilterType JsFilter组件类型
 	JsFilterType = "jsFilter"
-	// JsFilterFuncTemplate JS函数模板
-	JsFilterFuncTemplate = "function Filter(msg, metadata, msgType) { %s }"
+	// JsFilterFuncTemplate JS函数模板，新增dataType参数
+	JsFilterFuncTemplate = "function Filter(msg, metadata, msgType, dataType) { %s }"
 )
 
 func init() {
@@ -94,15 +94,10 @@ func (x *JsFilterNode) Init(ruleConfig types.Config, configuration types.Configu
 
 // OnMsg 处理消息
 func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	var data interface{} = msg.GetData()
-	if msg.DataType == types.JSON {
-		var dataMap interface{}
-		if err := json.Unmarshal([]byte(msg.GetData()), &dataMap); err == nil {
-			data = dataMap
-		}
-	}
+	// 准备传递给JS脚本的数据
+	data := base.NodeUtils.PrepareJsData(msg)
 
-	out, err := x.jsEngine.Execute(ctx, JsFilterFuncName, data, msg.Metadata.Values(), msg.Type)
+	out, err := x.jsEngine.Execute(ctx, JsFilterFuncName, data, msg.Metadata.Values(), msg.Type, msg.DataType)
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {

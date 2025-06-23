@@ -29,11 +29,11 @@ package filter
 import (
 	"errors"
 	"fmt"
+
 	"github.com/rulego/rulego/utils/js"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
-	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 )
@@ -76,7 +76,7 @@ func (x *JsSwitchNode) New() types.Node {
 func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		jsScript := fmt.Sprintf("function Switch(msg, metadata, msgType) { %s }", x.Config.JsScript)
+		jsScript := fmt.Sprintf("function Switch(msg, metadata, msgType, dataType) { %s }", x.Config.JsScript)
 		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, base.NodeUtils.GetVars(configuration))
 		if v := ruleConfig.Properties.GetValue(KeyOtherRelationTypeName); v != "" {
 			x.defaultRelationType = v
@@ -89,16 +89,10 @@ func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configu
 
 // OnMsg 处理消息
 func (x *JsSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	// 准备传递给JS脚本的数据
+	data := base.NodeUtils.PrepareJsData(msg)
 
-	var data interface{} = msg.GetData()
-	if msg.DataType == types.JSON {
-		var dataMap interface{}
-		if err := json.Unmarshal([]byte(msg.GetData()), &dataMap); err == nil {
-			data = dataMap
-		}
-	}
-
-	out, err := x.jsEngine.Execute(ctx, "Switch", data, msg.Metadata.Values(), msg.Type)
+	out, err := x.jsEngine.Execute(ctx, "Switch", data, msg.Metadata.Values(), msg.Type, msg.DataType)
 
 	if err != nil {
 		ctx.TellFailure(msg, err)
