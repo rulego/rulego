@@ -125,7 +125,11 @@ func (rn *RuleNodeCtx) GetNodeId() types.RuleNodeId {
 
 // ReloadSelf reloads the node from a byte slice definition.
 func (rn *RuleNodeCtx) ReloadSelf(def []byte) error {
-	if node, err := rn.config.Parser.DecodeRuleNode(def); err == nil {
+	rn.RLock()
+	config := rn.config
+	rn.RUnlock()
+
+	if node, err := config.Parser.DecodeRuleNode(def); err == nil {
 		return rn.ReloadSelfFromDef(node)
 	} else {
 		return err
@@ -134,13 +138,19 @@ func (rn *RuleNodeCtx) ReloadSelf(def []byte) error {
 
 // ReloadSelfFromDef reloads the node from a RuleNode definition.
 func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
+	// Read current values with lock protection
+	rn.RLock()
 	chainCtx := rn.ChainCtx
+	config := rn.config
+	isInitNetResource := rn.isInitNetResource
+	rn.RUnlock()
+
 	var ctx *RuleNodeCtx
 	var err error
 	if chainCtx == nil {
-		ctx, err = initRuleNodeCtx(rn.config, nil, nil, &def, rn.isInitNetResource)
+		ctx, err = initRuleNodeCtx(config, nil, nil, &def, isInitNetResource)
 	} else {
-		ctx, err = initRuleNodeCtx(rn.config, chainCtx, chainCtx.aspects, &def, rn.isInitNetResource)
+		ctx, err = initRuleNodeCtx(config, chainCtx, chainCtx.aspects, &def, isInitNetResource)
 	}
 	if err == nil {
 		rn.Lock()
@@ -175,7 +185,12 @@ func (rn *RuleNodeCtx) GetNodeById(_ types.RuleNodeId) (types.NodeCtx, bool) {
 
 // DSL returns the DSL representation of the node.
 func (rn *RuleNodeCtx) DSL() []byte {
-	v, _ := rn.config.Parser.EncodeRuleNode(rn.SelfDefinition)
+	rn.RLock()
+	config := rn.config
+	selfDefinition := rn.SelfDefinition
+	rn.RUnlock()
+
+	v, _ := config.Parser.EncodeRuleNode(selfDefinition)
 	return v
 }
 
