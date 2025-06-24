@@ -22,8 +22,12 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 )
+
+// assertMutex 全局互斥锁，用于保护testing.T的并发访问
+var assertMutex sync.Mutex
 
 // CallerInfo This function is inspired by:
 // https://github.com/stretchr/testify/blob/master/assert/assertions.go
@@ -79,6 +83,9 @@ func CallerInfo() []string {
 
 func Equal(t *testing.T, a, b interface{}, msgAndArgs ...interface{}) {
 	if !reflect.DeepEqual(a, b) {
+		assertMutex.Lock()
+		defer assertMutex.Unlock()
+
 		msg := messageFromMsgAndArgs(msgAndArgs...)
 		if msg != "" {
 			t.Errorf("%v != %v\n Error Trace:   %s\n%s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
@@ -93,6 +100,9 @@ func EqualCleanString(t *testing.T, a, b string, msgAndArgs ...interface{}) {
 	cleanStra := re.ReplaceAllString(a, "")
 	cleanStrb := re.ReplaceAllString(b, "")
 	if cleanStra != cleanStrb {
+		assertMutex.Lock()
+		defer assertMutex.Unlock()
+
 		msg := messageFromMsgAndArgs(msgAndArgs...)
 		if msg != "" {
 			t.Errorf("%v != %v\n Error Trace:   %s\n%s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
@@ -101,8 +111,12 @@ func EqualCleanString(t *testing.T, a, b string, msgAndArgs ...interface{}) {
 		}
 	}
 }
+
 func NotEqual(t *testing.T, a, b interface{}, msgAndArgs ...interface{}) {
 	if reflect.DeepEqual(a, b) {
+		assertMutex.Lock()
+		defer assertMutex.Unlock()
+
 		msg := messageFromMsgAndArgs(msgAndArgs...)
 		if msg != "" {
 			t.Errorf("%v == %v\n Error Trace:   %s\n%s", a, b, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
@@ -114,6 +128,9 @@ func NotEqual(t *testing.T, a, b interface{}, msgAndArgs ...interface{}) {
 
 func True(t *testing.T, value bool, msgAndArgs ...interface{}) {
 	if !value {
+		assertMutex.Lock()
+		defer assertMutex.Unlock()
+
 		msg := messageFromMsgAndArgs(msgAndArgs...)
 		if msg != "" {
 			t.Errorf("%v should be true\n Error Trace:   %s\n%s", value, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
@@ -122,8 +139,12 @@ func True(t *testing.T, value bool, msgAndArgs ...interface{}) {
 		}
 	}
 }
+
 func False(t *testing.T, value bool, msgAndArgs ...interface{}) {
 	if value {
+		assertMutex.Lock()
+		defer assertMutex.Unlock()
+
 		msg := messageFromMsgAndArgs(msgAndArgs...)
 		if msg != "" {
 			t.Errorf("%v should be false\n Error Trace:   %s\n%s", value, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
@@ -132,8 +153,12 @@ func False(t *testing.T, value bool, msgAndArgs ...interface{}) {
 		}
 	}
 }
+
 func NotNil(t *testing.T, value interface{}, msgAndArgs ...interface{}) {
 	if isNil(value) {
+		assertMutex.Lock()
+		defer assertMutex.Unlock()
+
 		msg := messageFromMsgAndArgs(msgAndArgs...)
 		if msg != "" {
 			t.Errorf("%v should be not nil\n Error Trace:   %s\n%s", value, strings.Join(CallerInfo(), "\n\t\t\t"), msg)
@@ -142,8 +167,12 @@ func NotNil(t *testing.T, value interface{}, msgAndArgs ...interface{}) {
 		}
 	}
 }
+
 func Nil(t *testing.T, value interface{}, msgAndArgs ...interface{}) {
 	if !isNil(value) {
+		assertMutex.Lock()
+		defer assertMutex.Unlock()
+
 		msg := messageFromMsgAndArgs(msgAndArgs...)
 		if msg != "" {
 			t.Errorf("%v should be nil\n Error Trace:   %s\n%s", value, strings.Join(CallerInfo(), "\n\t\t\t"), msg)

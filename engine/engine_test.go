@@ -18,6 +18,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -712,11 +713,17 @@ func TestExecuteNode(t *testing.T) {
 	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, "false", msg.Metadata.GetValue("result"))
 	}))
+
+	msg2 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":52,\"humidity\":90}")
+	ruleEngine.OnMsg(msg2, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, "true", msg.Metadata.GetValue("result"))
+	}))
+
 	var wg sync.WaitGroup
 	wg.Add(4)
 
-	msg2 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":51,\"humidity\":90}")
-	ruleEngine.OnMsg(msg2, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+	msg3 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":51,\"humidity\":90}")
+	ruleEngine.OnMsg(msg3, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, "true", msg.Metadata.GetValue("result"))
 		ctx.TellNode(context.Background(), "aa", msg, true, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.NotNil(t, err)
@@ -1538,4 +1545,240 @@ func TestMetadataIsolationInMultipleNodes(t *testing.T) {
 	assert.Equal(t, "shared_value", branch1Msg.Metadata.GetValue("shared_key"))
 	assert.Equal(t, "shared_value", branch2Msg.Metadata.GetValue("shared_key"))
 
+}
+
+// TestGroupActionNodeIntegration 测试 GroupActionNode 在完整规则链中的集成功能
+func TestGroupActionNodeIntegration(t *testing.T) {
+	// 注册测试用的函数
+	action.Functions.Register("processTemperature", func(ctx types.RuleContext, msg types.RuleMsg) {
+		msg.Metadata.PutValue("tempProcessed", "true")
+		msg.Metadata.PutValue("processNode", "temperature")
+		ctx.TellSuccess(msg)
+	})
+
+	action.Functions.Register("processHumidity", func(ctx types.RuleContext, msg types.RuleMsg) {
+		msg.Metadata.PutValue("humidityProcessed", "true")
+		msg.Metadata.PutValue("processNode", "humidity")
+		ctx.TellSuccess(msg)
+	})
+
+	action.Functions.Register("processPressure", func(ctx types.RuleContext, msg types.RuleMsg) {
+		msg.Metadata.PutValue("pressureProcessed", "true")
+		msg.Metadata.PutValue("processNode", "pressure")
+		time.Sleep(time.Millisecond * 10) // 模拟较慢的处理
+		ctx.TellFailure(msg, errors.New("pressure sensor failed"))
+	})
+
+	// GroupActionNode 规则链配置
+	groupActionRuleChain := `{
+		"ruleChain": {
+			"id": "test_group_action_chain",
+			"name": "GroupAction测试规则链",
+			"debugMode": true
+		},
+		"metadata": {
+			"firstNodeIndex": 0,
+			"nodes": [
+				{
+					"id": "groupAction1",
+					"type": "groupAction",
+					"name": "传感器数据处理组",
+					"debugMode": true,
+					"configuration": {
+						"matchRelationType": "Success",
+						"matchNum": 2,
+						"nodeIds": "tempNode,humidityNode,pressureNode",
+						"timeout": 10
+					}
+				},
+				{
+					"id": "tempNode",
+					"type": "functions",
+					"name": "温度处理节点",
+					"debugMode": true,
+					"configuration": {
+						"functionName": "processTemperature"
+					}
+				},
+				{
+					"id": "humidityNode", 
+					"type": "functions",
+					"name": "湿度处理节点",
+					"debugMode": true,
+					"configuration": {
+						"functionName": "processHumidity"
+					}
+				},
+				{
+					"id": "pressureNode",
+					"type": "functions", 
+					"name": "压力处理节点",
+					"debugMode": true,
+					"configuration": {
+						"functionName": "processPressure"
+					}
+				},
+				{
+					"id": "successResult",
+					"type": "jsTransform",
+					"name": "成功结果处理",
+					"debugMode": true,
+					"configuration": {
+						"jsScript": "metadata['groupResult'] = 'success'; metadata['processedCount'] = msg.length; return {'msg':msg,'metadata':metadata,'msgType':'GROUP_SUCCESS'};"
+					}
+				},
+				{
+					"id": "failureResult",
+					"type": "jsTransform",
+					"name": "失败结果处理", 
+					"debugMode": true,
+					"configuration": {
+						"jsScript": "metadata['groupResult'] = 'failure'; return {'msg':msg,'metadata':metadata,'msgType':'GROUP_FAILURE'};"
+					}
+				}
+			],
+			"connections": [
+				{
+					"fromId": "groupAction1",
+					"toId": "successResult",
+					"type": "Success"
+				},
+				{
+					"fromId": "groupAction1", 
+					"toId": "failureResult",
+					"type": "Failure"
+				}
+			]
+		}
+	}`
+
+	t.Run("GroupAction Success Case", func(t *testing.T) {
+		var resultReceived int32
+		var successReceived int32
+
+		config := NewConfig()
+		config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			if flowType == types.Out && nodeId == "successResult" {
+				// 应该走成功路径，因为温度和湿度节点都会成功(满足matchNum=2)
+				result := msg.Metadata.GetValue("groupResult")
+				assert.Equal(t, "success", result)
+				assert.Equal(t, "GROUP_SUCCESS", msg.Type)
+				atomic.AddInt32(&successReceived, 1)
+			}
+			if flowType == types.Out && nodeId == "failureResult" {
+				t.Errorf("不应该走失败路径，但是收到了: %s", msg.Metadata.GetValue("groupResult"))
+			}
+		}
+
+		chainId := str.RandomStr(10) + "_success"
+		ruleEngine, err := New(chainId, []byte(groupActionRuleChain), WithConfig(config))
+		assert.Nil(t, err)
+		defer Del(chainId)
+
+		metaData := types.NewMetadata()
+		metaData.PutValue("sensorType", "environmental")
+		msg := types.NewMsg(0, "SENSOR_DATA", types.JSON, metaData, `{"temperature":25.5,"humidity":60.2,"pressure":1013.25}`)
+
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, resultMsg types.RuleMsg, err error, relationType string) {
+			atomic.AddInt32(&resultReceived, 1)
+			assert.Nil(t, err)
+		}))
+
+		// 等待处理完成
+		time.Sleep(time.Millisecond * 200)
+
+		assert.Equal(t, int32(1), atomic.LoadInt32(&successReceived), "应该收到1个成功结果")
+		assert.True(t, atomic.LoadInt32(&resultReceived) >= 1, "应该收到结果回调")
+	})
+
+	t.Run("GroupAction Modified MatchNum Case", func(t *testing.T) {
+		// 修改规则链配置：要求3个Success（但只有2个能成功）
+		modifiedRuleChain := strings.Replace(groupActionRuleChain, `"matchNum": 2`, `"matchNum": 3`, 1)
+		modifiedRuleChain = strings.Replace(modifiedRuleChain, `"test_group_action_chain"`, `"test_group_action_chain_modified"`, 1)
+
+		var resultReceived int32
+		var failureReceived int32
+
+		config := NewConfig()
+		config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			if flowType == types.Out && nodeId == "failureResult" {
+				// 应该走失败路径，因为只有2个节点成功但要求3个
+				result := msg.Metadata.GetValue("groupResult")
+				assert.Equal(t, "failure", result)
+				assert.Equal(t, "GROUP_FAILURE", msg.Type)
+				atomic.AddInt32(&failureReceived, 1)
+			}
+			if flowType == types.Out && nodeId == "successResult" {
+				t.Errorf("不应该走成功路径，但是收到了: %s", msg.Metadata.GetValue("groupResult"))
+			}
+		}
+
+		chainId := str.RandomStr(10) + "_failure"
+		ruleEngine, err := New(chainId, []byte(modifiedRuleChain), WithConfig(config))
+		assert.Nil(t, err)
+		defer Del(chainId)
+
+		metaData := types.NewMetadata()
+		metaData.PutValue("sensorType", "environmental")
+		msg := types.NewMsg(0, "SENSOR_DATA", types.JSON, metaData, `{"temperature":25.5,"humidity":60.2,"pressure":1013.25}`)
+
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, resultMsg types.RuleMsg, err error, relationType string) {
+			atomic.AddInt32(&resultReceived, 1)
+			assert.Nil(t, err)
+		}))
+
+		// 等待处理完成
+		time.Sleep(time.Millisecond * 200)
+
+		assert.Equal(t, int32(1), atomic.LoadInt32(&failureReceived), "应该收到1个失败结果")
+		assert.True(t, atomic.LoadInt32(&resultReceived) >= 1, "应该收到结果回调")
+	})
+
+	t.Run("GroupAction Concurrent Safety", func(t *testing.T) {
+		// 并发安全测试：同时发送多个消息
+		var successCount, failureCount int32
+
+		config := NewConfig()
+		config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			if flowType == types.Out && nodeId == "successResult" {
+				atomic.AddInt32(&successCount, 1)
+			}
+			if flowType == types.Out && nodeId == "failureResult" {
+				atomic.AddInt32(&failureCount, 1)
+			}
+		}
+
+		chainId := str.RandomStr(10) + "_concurrent"
+		ruleEngine, err := New(chainId, []byte(groupActionRuleChain), WithConfig(config))
+		assert.Nil(t, err)
+		defer Del(chainId)
+
+		// 并发发送多个消息
+		var wg sync.WaitGroup
+		concurrentCount := 50
+
+		for i := 0; i < concurrentCount; i++ {
+			wg.Add(1)
+			go func(index int) {
+				defer wg.Done()
+				metaData := types.NewMetadata()
+				metaData.PutValue("messageIndex", fmt.Sprintf("%d", index))
+				msg := types.NewMsg(0, "SENSOR_DATA", types.JSON, metaData,
+					fmt.Sprintf(`{"temperature":%f,"humidity":%f,"pressure":%f}`,
+						20.0+float64(index)*0.1, 50.0+float64(index)*0.2, 1000.0+float64(index)*0.5))
+
+				ruleEngine.OnMsg(msg)
+			}(i)
+		}
+
+		wg.Wait()
+		time.Sleep(time.Millisecond * 500) // 等待所有处理完成
+
+		//t.Logf("并发测试结果: Success=%d, Failure=%d, Expected=%d",
+		//	atomic.LoadInt32(&successCount), atomic.LoadInt32(&failureCount), concurrentCount)
+
+		// 验证：应该都是成功的，因为温度和湿度节点都会成功(满足matchNum=2)
+		assert.Equal(t, int32(concurrentCount), atomic.LoadInt32(&successCount), "所有消息都应该成功处理")
+		assert.Equal(t, int32(0), atomic.LoadInt32(&failureCount), "不应该有失败的消息")
+	})
 }
