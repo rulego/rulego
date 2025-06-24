@@ -19,12 +19,13 @@ package filter
 import (
 	"context"
 	"errors"
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/utils/maps"
-	"github.com/rulego/rulego/utils/str"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/str"
 )
 
 func init() {
@@ -90,6 +91,7 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		return
 	}
 	var endCount int32
+	var trueCount int32 // 新增：跟踪True结果数量
 	var completed int32
 	c := make(chan bool, 1)
 	var chanCtx context.Context
@@ -105,25 +107,43 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	//执行节点列表逻辑
 	for _, nodeId := range x.NodeIdList {
 		ctx.TellNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-			if atomic.LoadInt32(&completed) == 0 {
-				firstRelationType := relationType
-				atomic.AddInt32(&endCount, 1)
+			// 直接使用原子操作获取当前计数，避免竞态窗口
+			currentEndCount := atomic.AddInt32(&endCount, 1)
+			var currentTrueCount int32
+			if relationType == types.True {
+				currentTrueCount = atomic.AddInt32(&trueCount, 1)
+			} else {
+				currentTrueCount = atomic.LoadInt32(&trueCount)
+			}
 
-				if x.Config.AllMatches {
-					if firstRelationType != types.True && atomic.CompareAndSwapInt32(&completed, 0, 1) {
-						c <- false
-					} else if atomic.LoadInt32(&endCount) >= x.Length && atomic.CompareAndSwapInt32(&completed, 0, 1) {
-						c <- true
-					}
-				} else if !x.Config.AllMatches {
-					if firstRelationType == types.True && atomic.CompareAndSwapInt32(&completed, 0, 1) {
-						c <- true
-					} else if atomic.LoadInt32(&endCount) >= x.Length && atomic.CompareAndSwapInt32(&completed, 0, 1) {
-						c <- false
-					}
+			// 判断是否应该结束并发送结果
+			var shouldComplete bool
+			var result bool
+
+			if x.Config.AllMatches {
+				// AllMatches=true: 有任何False就立即返回False，所有都是True才返回True
+				if relationType != types.True {
+					shouldComplete = true
+					result = false
+				} else if currentEndCount >= x.Length && currentTrueCount >= x.Length {
+					shouldComplete = true
+					result = true
+				}
+			} else {
+				// AllMatches=false: 有任何True就立即返回True，所有都完成且无True才返回False
+				if relationType == types.True {
+					shouldComplete = true
+					result = true
+				} else if currentEndCount >= x.Length && currentTrueCount == 0 {
+					shouldComplete = true
+					result = false
 				}
 			}
 
+			// 使用CAS确保只有一个goroutine能发送结果
+			if shouldComplete && atomic.CompareAndSwapInt32(&completed, 0, 1) {
+				c <- result
+			}
 		}, nil)
 	}
 
