@@ -17,12 +17,12 @@
 package types
 
 import (
-	"encoding/json"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
+	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/str"
 )
 
@@ -334,10 +334,6 @@ type RuleMsg struct {
 	// Metadata contains additional key-value pairs associated with the message.
 	// This field uses Copy-on-Write optimization for better performance in multi-node scenarios.
 	Metadata *Metadata `json:"metadata"`
-
-	// parsedData caches the parsed JSON data to avoid repeated unmarshaling
-	// Can be map[string]interface{} for JSON objects or []interface{} for JSON arrays
-	parsedData interface{} `json:"-"`
 }
 
 // NewMsg creates a new message instance and generates a message ID using UUID.
@@ -408,10 +404,6 @@ func (m *RuleMsg) SetData(data string) {
 	} else {
 		m.Data.SetUnsafe(data)
 	}
-	// Always set the callback to ensure it points to the correct message instance
-	m.Data.onDataChanged = func() {
-		m.parsedData = nil
-	}
 }
 
 // SetBytes sets the message data from []byte.
@@ -421,10 +413,6 @@ func (m *RuleMsg) SetBytes(data []byte) {
 		m.Data = NewSharedDataFromBytes(data)
 	} else {
 		m.Data.SetBytes(data)
-	}
-	// Always set the callback to ensure it points to the correct message instance
-	m.Data.onDataChanged = func() {
-		m.parsedData = nil
 	}
 }
 
@@ -475,9 +463,6 @@ func (m *RuleMsg) GetSharedData() *SharedData {
 	if m.Data == nil {
 		// Return a new empty SharedData to avoid nil pointer issues
 		m.Data = NewSharedData("")
-		m.Data.onDataChanged = func() {
-			m.parsedData = nil
-		}
 	}
 	return m.Data
 }
@@ -502,45 +487,18 @@ func (m *RuleMsg) SetSharedData(data *SharedData) {
 	} else {
 		m.Data = data
 	}
-	// Always set the callback to ensure it points to the correct message instance
-	m.Data.onDataChanged = func() {
-		m.parsedData = nil
-	}
 }
 
 // GetJsonData returns the message data parsed as JSON with caching.
 // If the data has already been parsed, returns cached result.
 // If the data is not valid JSON, it returns an error.
 // Returns map[string]interface{} for JSON objects or []interface{} for JSON arrays.
+// This method now delegates to SharedData for better concurrency control and unified caching.
 func (m *RuleMsg) GetJsonData() (interface{}, error) {
-	data := m.GetData()
-	if data == "" {
+	if m.Data == nil {
 		return make(map[string]interface{}), nil
 	}
-
-	// Check if we have cached data
-	if m.parsedData != nil {
-		return m.parsedData, nil
-	}
-
-	// Parse the JSON data - try as generic interface{} to support both objects and arrays
-	var result interface{}
-	err := json.Unmarshal([]byte(data), &result)
-	if err != nil {
-		return nil, err
-	}
-
-	// Cache the parsed data
-	m.parsedData = result
-
-	// Set callback to clear cache when data changes (if not already set)
-	if m.Data != nil && m.Data.onDataChanged == nil {
-		m.Data.onDataChanged = func() {
-			m.parsedData = nil
-		}
-	}
-
-	return result, nil
+	return m.Data.GetJsonData()
 }
 
 // Copy creates a deep copy of the message.
@@ -661,6 +619,12 @@ type SharedData struct {
 	mu sync.RWMutex
 	// onDataChanged callback to notify when data changes
 	onDataChanged func()
+	// parsedData caches the parsed JSON data to avoid repeated unmarshaling
+	// Can be map[string]interface{} for JSON objects or []interface{} for JSON arrays
+	parsedData interface{}
+	// dataVersion tracks the version of the data to prevent caching stale parsed results
+	// This version is incremented every time the data is modified
+	dataVersion int64
 }
 
 // NewSharedData creates a new SharedData instance from string.
@@ -690,17 +654,24 @@ func (sd *SharedData) Copy() *SharedData {
 	// must be done atomically under the same lock to prevent race conditions
 	data := sd.data
 	refCountPtr := sd.refCount
+	parsedData := sd.parsedData
+	dataVersion := sd.dataVersion
 
 	// Increment reference count atomically while still holding the read lock
 	// This prevents ensureUnique() from replacing the refCount pointer between
 	// reading and incrementing
 	atomic.AddInt64(refCountPtr, 1)
 
-	// Return a new instance that shares the same data and refCount pointer
+	// Return a new instance that shares the same data, refCount pointer, and parsed cache
+	// Safe to share parsedData because:
+	// 1. JSON parsing results are typically read-only
+	// 2. When data is modified (SetData/SetBytes), COW mechanism ensures isolation
+	// 3. ensureUnique() will clear parsedData when creating unique copies
 	return &SharedData{
-		data:     data,
-		refCount: refCountPtr, // Share the same reference count pointer
-		// Note: We share both the underlying data and the refCount pointer
+		data:        data,
+		refCount:    refCountPtr, // Share the same reference count pointer
+		parsedData:  parsedData,  // Share parsed cache for performance (protected by COW)
+		dataVersion: dataVersion, // Copy the data version to maintain consistency
 	}
 }
 
@@ -736,6 +707,10 @@ func (sd *SharedData) ensureUnique() {
 	sd.data = newData
 	newRefCount := int64(1)
 	sd.refCount = &newRefCount
+	// Note: Do NOT increment dataVersion here, as we're just creating a unique copy
+	// with the same content. Version should only increment when data content changes.
+	// Clear parsed data cache since we're creating a unique copy
+	sd.parsedData = nil
 }
 
 // Get returns the data value as string using safe conversion.
@@ -811,6 +786,11 @@ func (sd *SharedData) Set(data string) {
 	// Use zero-copy conversion for better performance
 	sd.data = str.UnsafeBytesFromString(data)
 
+	// Increment data version to invalidate cached parsed data
+	sd.dataVersion++
+	// Clear parsed data cache since data has changed
+	sd.parsedData = nil
+
 	// Notify data change if callback is set
 	if sd.onDataChanged != nil {
 		sd.onDataChanged()
@@ -828,6 +808,11 @@ func (sd *SharedData) SetUnsafe(data string) {
 	// Use zero-copy conversion for performance
 	sd.data = str.UnsafeBytesFromString(data)
 
+	// Increment data version to invalidate cached parsed data
+	sd.dataVersion++
+	// Clear parsed data cache since data has changed
+	sd.parsedData = nil
+
 	// Notify data change if callback is set
 	if sd.onDataChanged != nil {
 		sd.onDataChanged()
@@ -844,6 +829,11 @@ func (sd *SharedData) SetBytes(data []byte) {
 
 	// Directly use the provided data
 	sd.data = data
+
+	// Increment data version to invalidate cached parsed data
+	sd.dataVersion++
+	// Clear parsed data cache since data has changed
+	sd.parsedData = nil
 
 	// Notify data change if callback is set
 	if sd.onDataChanged != nil {
@@ -901,5 +891,59 @@ func (sd *SharedData) UnmarshalJSON(data []byte) error {
 	}
 
 	sd.data = str.UnsafeBytesFromString(s)
+	// Increment data version to invalidate cached parsed data
+	sd.dataVersion++
+	// Clear parsed data cache since data has changed
+	sd.parsedData = nil
 	return nil
+}
+
+// GetJsonData returns the data parsed as JSON with caching.
+// If the data has already been parsed, returns cached result.
+// If the data is not valid JSON, it returns an error.
+// Returns map[string]interface{} for JSON objects or []interface{} for JSON arrays.
+// This method is thread-safe and uses version-based validation to prevent caching stale data.
+func (sd *SharedData) GetJsonData() (interface{}, error) {
+	// First check if we have cached data (with read lock)
+	sd.mu.RLock()
+	if sd.parsedData != nil {
+		cachedData := sd.parsedData
+		sd.mu.RUnlock()
+		return cachedData, nil
+	}
+
+	// Get data and version snapshot for parsing while still holding read lock
+	dataStr := str.UnsafeStringFromBytes(sd.data)
+	dataVersion := sd.dataVersion
+	sd.mu.RUnlock()
+
+	if dataStr == "" {
+		return make(map[string]interface{}), nil
+	}
+
+	// Parse the JSON data outside of lock to reduce lock contention
+	// Use the dataStr snapshot to avoid race conditions with concurrent modifications
+	var result interface{}
+	err := json.Unmarshal([]byte(dataStr), &result)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the parsed data (with write lock) only if data version matches
+	sd.mu.Lock()
+	defer sd.mu.Unlock()
+
+	// Version-based validation: only cache if the data hasn't changed since we read it
+	if sd.dataVersion == dataVersion && sd.parsedData == nil {
+		// Data version matches and no one else cached it, safe to cache our result
+		sd.parsedData = result
+		return result, nil
+	} else if sd.parsedData != nil {
+		// Someone else cached it while we were parsing, use the cached version
+		return sd.parsedData, nil
+	} else {
+		// Data was modified while we were parsing (version mismatch)
+		// Return our parsed result but don't cache it as it's based on stale data
+		return result, nil
+	}
 }
