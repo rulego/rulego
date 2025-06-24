@@ -29,12 +29,19 @@ package action
 import (
 	"errors"
 	"fmt"
+
 	"github.com/rulego/rulego/utils/js"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
-	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
+)
+
+const (
+	// JsLogFuncName JavaScript函数名
+	JsLogFuncName = "ToString"
+	// JsLogFuncTemplate JavaScript函数模板，新增dataType参数
+	JsLogFuncTemplate = "function ToString(msg, metadata, msgType, dataType) { %s }"
 )
 
 // JsLogReturnFormatErr 如果脚本返回值不是string错误
@@ -51,16 +58,23 @@ type LogNodeConfiguration struct {
 	//例如
 	//return 'Incoming message:\\n' + JSON.stringify(msg) + '\\nIncoming metadata:\\n' + JSON.stringify(metadata);
 	//完整脚本函数：
-	//"function ToString(msg, metadata, msgType) { ${JsScript} }"
+	//"function ToString(msg, metadata, msgType, dataType) { ${JsScript} }"
+	//JavaScript函数接收4个参数：
+	//- msg: 消息的payload数据（JSON类型会解析为对象，BINARY类型为Uint8Array，其他为字符串）
+	//- metadata: 消息的元数据
+	//- msgType: 消息的类型
+	//- dataType: 消息的数据类型（JSON、TEXT、BINARY等）
 	//脚本返回值string
 	JsScript string
 }
 
 // LogNode 使用JS脚本将传入消息转换为字符串，并将最终值记录到日志文件中
 // 使用`types.Config.Logger`记录日志
-// 消息体可以通过`msg`变量访问，msg 是string类型。例如:`return msg.temperature > 50;`
+// 消息体可以通过`msg`变量访问，如果消息的dataType是JSON类型，可以通过 `msg.XX`方式访问msg的字段。例如:`return msg.temperature > 50;`
+// BINARY类型的消息体会作为Uint8Array传递给JavaScript
 // 消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
 // 消息类型可以通过`msgType`变量访问.
+// 消息数据类型可以通过`dataType`变量访问.
 // 脚本执行成功，发送信息到`Success`链, 否则发到`Failure`链。
 type LogNode struct {
 	//节点配置
@@ -86,7 +100,7 @@ func (x *LogNode) New() types.Node {
 func (x *LogNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		jsScript := fmt.Sprintf("function ToString(msg, metadata, msgType) { %s }", x.Config.JsScript)
+		jsScript := fmt.Sprintf(JsLogFuncTemplate, x.Config.JsScript)
 		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, base.NodeUtils.GetVars(configuration))
 	}
 	x.logger = ruleConfig.Logger
@@ -95,14 +109,18 @@ func (x *LogNode) Init(ruleConfig types.Config, configuration types.Configuratio
 
 // OnMsg 处理消息
 func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	var data interface{} = msg.GetData()
-	if msg.DataType == types.JSON {
-		var dataMap interface{}
-		if err := json.Unmarshal([]byte(msg.GetData()), &dataMap); err == nil {
-			data = dataMap
-		}
+	// 准备传递给JS脚本的数据，支持多种数据类型
+	data := base.NodeUtils.PrepareJsData(msg)
+
+	var metadataValues map[string]string
+	if msg.Metadata != nil {
+		metadataValues = msg.Metadata.Values()
+	} else {
+		metadataValues = make(map[string]string)
 	}
-	out, err := x.jsEngine.Execute(ctx, "ToString", data, msg.Metadata.Values(), msg.Type)
+
+	// 执行JavaScript脚本，传递msg、metadata、msgType和dataType四个参数
+	out, err := x.jsEngine.Execute(ctx, JsLogFuncName, data, metadataValues, msg.Type, msg.DataType)
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
