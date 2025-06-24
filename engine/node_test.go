@@ -18,7 +18,10 @@ package engine
 
 import (
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
@@ -120,4 +123,75 @@ func TestNodeCtx(t *testing.T) {
 
 	})
 
+}
+
+// TestNodeConcurrentAccess 测试节点并发访问和重载的安全性
+func TestNodeConcurrentAccess(t *testing.T) {
+	config := NewConfig(types.WithDefaultPool())
+
+	// 创建测试节点定义
+	nodeDef := &types.RuleNode{
+		Id:            "test_node",
+		Type:          "log",
+		Name:          "测试节点",
+		Configuration: make(types.Configuration),
+	}
+
+	// 初始化节点
+	nodeCtx, err := InitRuleNodeCtx(config, nil, nil, nodeDef)
+	assert.Nil(t, err)
+	assert.NotNil(t, nodeCtx)
+
+	var wg sync.WaitGroup
+	var errors int64
+
+	// 模拟高频的OnMsg调用
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 1000; j++ {
+				func() {
+					defer func() {
+						if recover() != nil {
+							atomic.AddInt64(&errors, 1)
+						}
+					}()
+
+					// 模拟频繁的节点访问
+					nodeCtx.Config()
+					nodeCtx.IsDebugMode()
+					nodeCtx.GetNodeId()
+					nodeCtx.DSL()
+				}()
+			}
+		}()
+	}
+
+	// 模拟偶尔的重载操作
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			time.Sleep(time.Millisecond * 10) // 稍微延迟一下
+
+			// 创建新的节点定义
+			newDef := types.RuleNode{
+				Id:            "test_node",
+				Type:          "log",
+				Name:          "重载测试节点" + string(rune('A'+index)),
+				Configuration: make(types.Configuration),
+			}
+
+			err := nodeCtx.ReloadSelfFromDef(newDef)
+			if err != nil {
+				atomic.AddInt64(&errors, 1)
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// 验证没有出现错误
+	assert.Equal(t, int64(0), atomic.LoadInt64(&errors))
 }
