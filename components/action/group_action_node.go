@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -124,47 +125,64 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var wrapperMsg = msg.Copy()
 	//每个节点执行结果列表
 	var msgs = make([]types.WrapperMsg, len(x.NodeIdList))
+	//保护msgs数组的互斥锁
+	var msgsMutex sync.Mutex
 
 	//执行节点列表逻辑
 	for i, nodeId := range x.NodeIdList {
 		//创建一个局部变量，避免闭包引用问题
 		index := i
 		ctx.TellNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
-			if atomic.LoadInt32(&completed) == 0 {
-				errStr := ""
-				if err != nil {
-					errStr = err.Error()
-				}
-				selfId := callbackCtx.GetSelfId()
-				msgs[index] = types.WrapperMsg{
-					Msg:    onEndMsg,
-					Err:    errStr,
-					NodeId: selfId,
-				}
+			// 安全地写入msgs数组
+			errStr := ""
+			if err != nil {
+				errStr = err.Error()
+			}
+			selfId := callbackCtx.GetSelfId()
 
-				firstRelationType := relationType
-				atomic.AddInt32(&endCount, 1)
+			msgsMutex.Lock()
+			msgs[index] = types.WrapperMsg{
+				Msg:    onEndMsg,
+				Err:    errStr,
+				NodeId: selfId,
+			}
+			msgsMutex.Unlock()
 
-				if x.Config.MatchRelationType == firstRelationType {
-					atomic.AddInt32(&currentMatchedCount, 1)
-				}
-
-				if atomic.LoadInt32(&currentMatchedCount) >= int32(x.Config.MatchNum) {
-					if atomic.CompareAndSwapInt32(&completed, 0, 1) {
-					wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgs)))
-					mergeMetadata(msgs, &wrapperMsg)
-					c <- true
-				}
-				} else if atomic.LoadInt32(&endCount) >= x.Length {
-					if atomic.CompareAndSwapInt32(&completed, 0, 1) {
-					wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgs)))
-					mergeMetadata(msgs, &wrapperMsg)
-					c <- false
-				}
-				}
-
+			// 直接使用原子操作获取当前计数，避免竞态窗口
+			currentEndCount := atomic.AddInt32(&endCount, 1)
+			var currentMatchCount int32
+			if x.Config.MatchRelationType == relationType {
+				currentMatchCount = atomic.AddInt32(&currentMatchedCount, 1)
+			} else {
+				currentMatchCount = atomic.LoadInt32(&currentMatchedCount)
 			}
 
+			// 判断是否应该结束并发送结果
+			var shouldComplete bool
+			var result bool
+
+			// 如果已经达到匹配数量，立即返回成功
+			if currentMatchCount >= int32(x.Config.MatchNum) {
+				shouldComplete = true
+				result = true
+			} else if currentEndCount >= x.Length {
+				// 所有节点都完成，但没有达到匹配数量，返回失败
+				shouldComplete = true
+				result = false
+			}
+
+			// 使用CAS确保只有一个goroutine能发送结果
+			if shouldComplete && atomic.CompareAndSwapInt32(&completed, 0, 1) {
+				// 安全地读取msgs数组进行处理
+				msgsMutex.Lock()
+				msgsCopy := make([]types.WrapperMsg, len(msgs))
+				copy(msgsCopy, msgs)
+				msgsMutex.Unlock()
+
+				wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgsCopy)))
+				mergeMetadata(msgsCopy, &wrapperMsg)
+				c <- result
+			}
 		}, nil)
 	}
 
