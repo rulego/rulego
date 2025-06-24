@@ -126,51 +126,54 @@ func (rn *RuleNodeCtx) GetNodeId() types.RuleNodeId {
 // ReloadSelf reloads the node from a byte slice definition.
 func (rn *RuleNodeCtx) ReloadSelf(def []byte) error {
 	rn.RLock()
-	config := rn.config
+	parser := rn.config.Parser
 	rn.RUnlock()
 
-	if node, err := config.Parser.DecodeRuleNode(def); err == nil {
-		return rn.ReloadSelfFromDef(node)
-	} else {
+	node, err := parser.DecodeRuleNode(def)
+	if err != nil {
 		return err
 	}
+
+	return rn.ReloadSelfFromDef(node)
 }
 
 // ReloadSelfFromDef reloads the node from a RuleNode definition.
 func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
-	// Read current values with lock protection
+	// 阶段1：快速读取当前配置（最小读锁时间）
 	rn.RLock()
 	chainCtx := rn.ChainCtx
 	config := rn.config
 	isInitNetResource := rn.isInitNetResource
 	rn.RUnlock()
 
-	var ctx *RuleNodeCtx
+	// 阶段2：在锁外执行耗时的新节点创建和初始化
+	var newNodeCtx *RuleNodeCtx
 	var err error
 	if chainCtx == nil {
-		ctx, err = initRuleNodeCtx(config, nil, nil, &def, isInitNetResource)
+		newNodeCtx, err = initRuleNodeCtx(config, nil, nil, &def, isInitNetResource)
 	} else {
-		ctx, err = initRuleNodeCtx(config, chainCtx, chainCtx.aspects, &def, isInitNetResource)
+		newNodeCtx, err = initRuleNodeCtx(config, chainCtx, chainCtx.aspects, &def, isInitNetResource)
 	}
-	if err == nil {
-		rn.Lock()
-		// Store old node for destruction after unlocking
-		oldNode := rn.Node
-		// Copy the new context (direct assignment to avoid additional Copy() call)
-		rn.Node = ctx.Node
-		rn.config = ctx.config
-		rn.aspects = ctx.aspects
-		rn.SelfDefinition = ctx.SelfDefinition
-		rn.Unlock()
 
-		// Destroy the old node after releasing the lock to avoid race conditions
-		if oldNode != nil {
-			oldNode.Destroy()
-		}
-		return nil
-	} else {
+	if err != nil {
 		return err
 	}
+
+	// 阶段3：快速原子替换（最小写锁时间）
+	rn.Lock()
+	oldNode := rn.Node                            // 保存旧节点引用，锁外销毁
+	rn.Node = newNodeCtx.Node                     // 原子替换最关键的Node字段
+	rn.config = newNodeCtx.config                 // 更新配置
+	rn.aspects = newNodeCtx.aspects               // 更新切面
+	rn.SelfDefinition = newNodeCtx.SelfDefinition // 更新节点定义
+	rn.Unlock()
+
+	// 阶段4：锁外清理旧资源（避免在锁内执行耗时的清理操作）
+	if oldNode != nil {
+		oldNode.Destroy()
+	}
+
+	return nil
 }
 
 // ReloadChild is not supported for RuleNodeCtx.
@@ -186,12 +189,24 @@ func (rn *RuleNodeCtx) GetNodeById(_ types.RuleNodeId) (types.NodeCtx, bool) {
 // DSL returns the DSL representation of the node.
 func (rn *RuleNodeCtx) DSL() []byte {
 	rn.RLock()
-	config := rn.config
+	parser := rn.config.Parser
 	selfDefinition := rn.SelfDefinition
 	rn.RUnlock()
 
-	v, _ := config.Parser.EncodeRuleNode(selfDefinition)
-	return v
+	result, _ := parser.EncodeRuleNode(selfDefinition)
+	return result
+}
+
+// OnMsg 提供并发安全的消息处理，保护内嵌Node访问
+func (rn *RuleNodeCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	// 使用读锁保护Node字段的访问，与ReloadSelfFromDef的写锁互斥
+	rn.RLock()
+	node := rn.Node
+	rn.RUnlock()
+
+	if node != nil {
+		node.OnMsg(ctx, msg)
+	}
 }
 
 // Copy copies the contents of a new RuleNodeCtx into this one.
