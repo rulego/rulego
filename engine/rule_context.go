@@ -55,7 +55,7 @@ func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[s
 
 	// 优化JSON数据处理
 	if msg.DataType == types.JSON {
-		if jsonData, err := msg.GetDataAsJson(); err == nil {
+		if jsonData, err := msg.GetJsonData(); err == nil {
 			evn[types.MsgKey] = jsonData
 		} else {
 			evn[types.MsgKey] = msg.GetData()

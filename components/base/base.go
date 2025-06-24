@@ -101,6 +101,35 @@ func (n *nodeUtils) ReleaseEvn(evn map[string]interface{}) {
 	// 此方法保留用于向后兼容，实际上不需要手动释放
 }
 
+// PrepareJsData 准备传递给JavaScript脚本的数据
+// 根据消息的数据类型进行不同的处理：
+// - JSON类型：解析为map以便JavaScript处理
+// - BINARY类型：转换为字节数组，JavaScript将其视为Uint8Array
+// - 其他类型：使用原始字符串数据
+func (n *nodeUtils) PrepareJsData(msg types.RuleMsg) interface{} {
+	var data interface{}
+
+	// 根据数据类型进行不同的处理
+	switch msg.DataType {
+	case types.JSON:
+		// JSON类型：尝试解析为map以便JavaScript处理
+		if dataMap, err := msg.GetJsonData(); err == nil {
+			data = dataMap
+		} else {
+			data = msg.GetData()
+		}
+
+	case types.BINARY:
+		// 二进制类型：直接传递字节数组，JavaScript会将其视为Uint8Array
+		data = msg.GetBytes()
+	default:
+		// 其他类型：使用原始字符串数据
+		data = msg.GetData()
+	}
+
+	return data
+}
+
 // SharedNode 共享资源组件，通过 Get 获取共享实例，多个节点可以在共享池中获取相同的实例
 // 例如：mqtt 客户端、数据库客户端，也可以http server以及是可复用的节点。
 type SharedNode[T any] struct {

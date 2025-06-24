@@ -23,7 +23,7 @@ package transform
 //   "name": "转换",
 //   "debugMode": false,
 //   "configuration": {
-//     "jsScript": "metadata['test']='test02';\n metadata['index']=52;\n msgType='TEST_MSG_TYPE2';\n msg['aa']=66; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+//     "jsScript": "metadata['test']='test02';\n metadata['index']=52;\n msgType='TEST_MSG_TYPE2';\n if(dataType==='BINARY'){var newBytes=new Uint8Array(4);newBytes[0]=1;newBytes[1]=2;newBytes[2]=3;newBytes[3]=4;return {'msg':newBytes,'metadata':metadata,'msgType':msgType,'dataType':'BINARY'};} else {msg['aa']=66; return {'msg':msg,'metadata':metadata,'msgType':msgType};}"
 //   }
 // }
 import (
@@ -35,18 +35,17 @@ import (
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
-	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 )
 
 const (
 	// JsTransformDefaultScript 默认的JS脚本，直接返回原始消息内容
-	JsTransformDefaultScript = "return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+	JsTransformDefaultScript = "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
 	// JsTransformType 组件类型标识符
 	JsTransformType = "jsTransform"
-	// JsTransformFuncTemplate JS函数模板，用于包装用户脚本
-	JsTransformFuncTemplate = "function Transform(msg, metadata, msgType) { %s }"
+	// JsTransformFuncTemplate JS函数模板，用于包装用户脚本，新增dataType参数
+	JsTransformFuncTemplate = "function Transform(msg, metadata, msgType, dataType) { %s }"
 	// JsTransformFuncName JS引擎中执行的函数名称
 	JsTransformFuncName = "Transform"
 )
@@ -62,21 +61,25 @@ func init() {
 // JsTransformNodeConfiguration JS转换节点配置结构
 type JsTransformNodeConfiguration struct {
 	// JsScript 用户自定义的JavaScript脚本内容
-	// 用于对消息的msg、metadata、msgType进行转换和增强
-	// 脚本会被包装成完整函数：function Transform(msg, metadata, msgType) { ${JsScript} }
-	// 必须返回格式：return {'msg':msg,'metadata':metadata,'msgType':msgType};
+	// 用于对消息的msg、metadata、msgType、dataType进行转换和增强
+	// 脚本会被包装成完整函数：function Transform(msg, metadata, msgType, dataType) { ${JsScript} }
+	// 必须返回格式：return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};
+	// 其中dataType字段是可选的，如果返回则会更新消息的数据类型
 	JsScript string
 }
 
 // JsTransformNode JavaScript消息转换节点
-// 使用JavaScript脚本对消息的metadata、msg或msgType进行转换处理
+// 使用JavaScript脚本对消息的metadata、msg、msgType或dataType进行转换处理
 //
-// JavaScript函数接收3个参数：
-//   - msg: 消息的payload数据
+// JavaScript函数接收4个参数：
+//   - msg: 消息的payload数据（JSON类型会解析为对象，BINARY类型为Uint8Array，其他为字符串）
 //   - metadata: 消息的元数据
 //   - msgType: 消息的类型
+//   - dataType: 消息的数据类型（JSON、TEXT、BINARY等）
 //
-// 返回结构必须为：return {'msg':msg,'metadata':metadata,'msgType':msgType};
+// 返回结构必须为：return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};
+// 其中dataType字段是可选的，如果返回则会更新消息的数据类型
+// msg字段支持返回Uint8Array或数字数组，会自动转换为二进制数据
 // 脚本执行成功时，消息发送到Success链；执行失败时，发送到Failure链
 type JsTransformNode struct {
 	// Config 节点配置信息
@@ -129,14 +132,7 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 
 	// 准备传递给JS脚本的数据
-	var data interface{} = msg.GetData()
-	// 如果是JSON类型，尝试解析为map
-	if msg.DataType == types.JSON {
-		var dataMap interface{}
-		if err := json.Unmarshal([]byte(msg.GetData()), &dataMap); err == nil {
-			data = dataMap
-		}
-	}
+	data := base.NodeUtils.PrepareJsData(msg)
 
 	// 执行JavaScript脚本进行消息转换
 	var metadataValues map[string]string
@@ -145,7 +141,9 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	} else {
 		metadataValues = make(map[string]string)
 	}
-	out, err := x.jsEngine.Execute(ctx, JsTransformFuncName, data, metadataValues, msg.Type)
+
+	// 调用JS引擎，传递msg、metadata、msgType和dataType四个参数
+	out, err := x.jsEngine.Execute(ctx, JsTransformFuncName, data, metadataValues, msg.Type, msg.DataType)
 	if err != nil {
 		// JS执行失败，发送到Failure链
 		ctx.TellFailure(msg, err)
@@ -165,6 +163,13 @@ func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleM
 		return
 	}
 
+	// 更新数据类型（如果JS脚本中修改了dataType）
+	if formatDataType, ok := formatData[types.DataTypeKey]; ok {
+		if dataTypeStr := str.ToString(formatDataType); dataTypeStr != "" {
+			msg.DataType = types.DataType(dataTypeStr)
+		}
+	}
+
 	// 更新消息类型（如果JS脚本中修改了msgType）
 	if formatMsgType, ok := formatData[types.MsgTypeKey]; ok {
 		msg.Type = str.ToString(formatMsgType)
@@ -177,13 +182,66 @@ func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleM
 
 	// 更新消息数据（如果JS脚本中修改了msg）
 	if formatMsgData, ok := formatData[types.MsgKey]; ok {
-		if newValue, err := str.ToStringMaybeErr(formatMsgData); err == nil {
-			// 使用零拷贝模式：JavaScript输出的数据是新创建的，安全可控
-			msg.Data.SetUnsafe(newValue)
+		// 检查是否是字节数组类型（JavaScript Uint8Array转换后的结果）
+		if byteData, isByteSlice := formatMsgData.([]byte); isByteSlice {
+			// 直接设置二进制数据
+			msg.SetBytes(byteData)
+		} else if byteData, isByteArray := formatMsgData.([]interface{}); isByteArray {
+			// 处理JavaScript数组转换为[]interface{}的情况 - 尝试转换为字节数组
+			bytes := make([]byte, len(byteData))
+			isValidByteArray := true
+			for i, v := range byteData {
+				var byteVal float64
+				var isNumber bool
+
+				if val, ok := v.(float64); ok {
+					byteVal = val
+					isNumber = true
+				} else if val, ok := v.(int64); ok {
+					byteVal = float64(val)
+					isNumber = true
+				} else if val, ok := v.(int); ok {
+					byteVal = float64(val)
+					isNumber = true
+				}
+
+				if isNumber {
+					// 边界检查：确保值在0-255范围内
+					if byteVal < 0 || byteVal > 255 || byteVal != float64(int(byteVal)) {
+						// 值超出字节范围或不是整数，报告错误
+						ctx.TellFailure(msg, fmt.Errorf("byte array element at index %d has invalid value %v: must be integer in range 0-255", i, byteVal))
+						return
+					}
+					bytes[i] = byte(byteVal)
+				} else {
+					// 数组元素不是数字，直接转字符串处理
+					isValidByteArray = false
+					break
+				}
+			}
+
+			if isValidByteArray {
+				// 设置转换后的字节数据
+				msg.SetBytes(bytes)
+			} else {
+				// 直接转字符串处理
+				if newValue, err := str.ToStringMaybeErr(formatMsgData); err == nil {
+					msg.SetData(newValue)
+				} else {
+					ctx.TellFailure(msg, err)
+					return
+				}
+			}
 		} else {
-			// 数据转换失败，发送到Failure链
-			ctx.TellFailure(msg, err)
-			return
+			// 普通数据类型，转换为字符串
+			if newValue, err := str.ToStringMaybeErr(formatMsgData); err == nil {
+				// 使用msg.SetData方法设置数据
+				msg.SetData(newValue)
+			} else {
+				// 数据转换失败，发送到Failure链
+				ctx.TellFailure(msg, err)
+				return
+			}
 		}
 	}
 

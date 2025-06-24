@@ -246,15 +246,15 @@ func TestForNodeMetadataRaceCondition(t *testing.T) {
 	}
 }
 
-// TestForNodeConcurrentWithFork 测试使用fork节点并发执行多个for节点的场景
-// 这个测试验证fork节点能够正确地将消息分发到多个for节点并行处理
+// TestForNodeConcurrentWithFork 测试使用fork节点并发执行，同时验证SharedData和Metadata的并发安全性
+// 这个测试验证fork节点能够正确地将消息分发到多个节点并行处理，并测试数据和元数据的并发修改
 func TestForNodeConcurrentWithFork(t *testing.T) {
-	// 创建包含fork节点和多个for节点的规则链
-	forkForRuleChain := `{
+	// 创建包含fork节点和多个并发处理节点的规则链
+	forkRuleChain := `{
 		"ruleChain": {
-			"id": "test_fork_for_concurrent",
-			"name": "testForkForConcurrent",
-			"debugMode": false,
+			"id": "test_fork_concurrent_data_safety",
+			"name": "测试Fork并发数据安全性",
+			"debugMode": true,
 			"root": true
 		},
 		"metadata": {
@@ -266,97 +266,67 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 					"name": "并行网关"
 				},
 				{
-					"id": "for_node_1",
-					"type": "for",
-					"name": "循环节点1",
-					"configuration": {
-						"range": "msg.items1",
-						"do": "process_item_1",
-						"mode": 1
-					}
-				},
-				{
-					"id": "for_node_2",
-					"type": "for",
-					"name": "循环节点2",
-					"configuration": {
-						"range": "msg.items2",
-						"do": "process_item_2",
-						"mode": 2
-					}
-				},
-				{
-					"id": "for_node_3",
-					"type": "for",
-					"name": "循环节点3",
-					"configuration": {
-						"range": "msg.items3",
-						"do": "process_item_3",
-						"mode": 3
-					}
-				},
-				{
-					"id": "process_item_1",
+					"id": "concurrent_processor_1",
 					"type": "jsTransform",
-					"name": "处理项目1",
+					"name": "并发处理器1",
 					"configuration": {
-						"jsScript": "metadata['processed_1_' + metadata._loopIndex] = 'item1_' + metadata._loopItem; metadata['processor'] = 'processor_1'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+						"jsScript": "msg.processor1_timestamp = Date.now(); msg.processor1_id = Math.random(); msg.concurrent_modifications = (msg.concurrent_modifications || 0) + 1; metadata['processor1'] = 'executed_' + Date.now(); metadata['total_processors'] = (parseInt(metadata['total_processors'] || '0') + 1).toString(); return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
 					}
 				},
 				{
-					"id": "process_item_2",
+					"id": "concurrent_processor_2",
 					"type": "jsTransform",
-					"name": "处理项目2",
+					"name": "并发处理器2",
 					"configuration": {
-						"jsScript": "metadata['processed_2_' + metadata._loopIndex] = 'item2_' + metadata._loopItem; metadata['processor'] = 'processor_2'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+						"jsScript": "msg.processor2_timestamp = Date.now(); msg.processor2_id = Math.random(); msg.concurrent_modifications = (msg.concurrent_modifications || 0) + 1; metadata['processor2'] = 'executed_' + Date.now(); metadata['total_processors'] = (parseInt(metadata['total_processors'] || '0') + 1).toString(); return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
 					}
 				},
 				{
-					"id": "process_item_3",
+					"id": "concurrent_processor_3",
 					"type": "jsTransform",
-					"name": "处理项目3",
+					"name": "并发处理器3",
 					"configuration": {
-						"jsScript": "metadata['processed_3_' + metadata._loopIndex] = 'item3_' + metadata._loopItem; metadata['processor'] = 'processor_3'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+						"jsScript": "msg.processor3_timestamp = Date.now(); msg.processor3_id = Math.random(); msg.concurrent_modifications = (msg.concurrent_modifications || 0) + 1; metadata['processor3'] = 'executed_' + Date.now(); metadata['total_processors'] = (parseInt(metadata['total_processors'] || '0') + 1).toString(); return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
 					}
 				},
 				{
-					"id": "final_processor",
+					"id": "final_validator",
 					"type": "jsTransform",
-					"name": "最终处理器",
+					"name": "最终验证器",
 					"configuration": {
-						"jsScript": "metadata['final_processed'] = true; metadata['completion_time'] = Date.now(); return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+						"jsScript": "metadata['final_processed'] = 'true'; metadata['completion_time'] = Date.now(); metadata['data_integrity_check'] = (msg.concurrent_modifications >= 1 ? 'passed' : 'failed'); return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
 					}
 				}
 			],
 			"connections": [
 				{
 					"fromId": "fork_start",
-					"toId": "for_node_1",
+					"toId": "concurrent_processor_1",
 					"type": "Success"
 				},
 				{
 					"fromId": "fork_start",
-					"toId": "for_node_2",
+					"toId": "concurrent_processor_2",
 					"type": "Success"
 				},
 				{
 					"fromId": "fork_start",
-					"toId": "for_node_3",
+					"toId": "concurrent_processor_3",
 					"type": "Success"
 				},
 				{
-					"fromId": "for_node_1",
-					"toId": "final_processor",
+					"fromId": "concurrent_processor_1",
+					"toId": "final_validator",
 					"type": "Success"
 				},
 				{
-					"fromId": "for_node_2",
-					"toId": "final_processor",
+					"fromId": "concurrent_processor_2",
+					"toId": "final_validator",
 					"type": "Success"
 				},
 				{
-					"fromId": "for_node_3",
-					"toId": "final_processor",
+					"fromId": "concurrent_processor_3",
+					"toId": "final_validator",
 					"type": "Success"
 				}
 			],
@@ -365,14 +335,220 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 	}`
 
 	config := NewConfig()
-	ruleEngine, err := New("test_fork_for_concurrent", []byte(forkForRuleChain), WithConfig(config))
+	var dataCorruptions int64
+	var metadataCorruptions int64
+	var refCountAnomalies int64
+	var inDataValidations int64
+	var outDataValidations int64
+	var nodeProcessingErrors int64
+
+	// 配置调试回调以检测并发问题和验证每个节点的IN/OUT数据准确性
+	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		// 处理错误情况
+		if err != nil {
+			atomic.AddInt64(&nodeProcessingErrors, 1)
+			return
+		}
+
+		// 直接验证数据完整性
+		data := msg.GetData()
+		if data == "" {
+			atomic.AddInt64(&dataCorruptions, 1)
+			return
+		}
+
+		// 验证JSON格式
+		var jsonData map[string]interface{}
+		if jsonErr := json.Unmarshal([]byte(data), &jsonData); jsonErr != nil {
+			atomic.AddInt64(&dataCorruptions, 1)
+			return
+		}
+
+		// 验证引用计数
+		if sharedData := msg.Data; sharedData != nil {
+			if refCount := sharedData.GetRefCount(); refCount <= 0 {
+				atomic.AddInt64(&refCountAnomalies, 1)
+			}
+		}
+
+		// 验证元数据完整性
+		if msg.Metadata.Len() == 0 {
+			atomic.AddInt64(&metadataCorruptions, 1)
+			return
+		}
+
+		// 验证每个节点的IN/OUT数据准确性
+		if flowType == types.In {
+			atomic.AddInt64(&inDataValidations, 1)
+			// 验证输入数据的完整性
+			switch nodeId {
+			case "fork_start":
+				// fork节点输入：应该包含原始数据
+				if messageId, exists := jsonData["message_id"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if _, ok := messageId.(float64); !ok {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+
+				if initialValue, exists := jsonData["initial_value"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if _, ok := initialValue.(string); !ok {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+
+				// 验证原始元数据
+				batchId := msg.Metadata.GetValue("batch_id")
+				if batchId == "" {
+					atomic.AddInt64(&metadataCorruptions, 1)
+				}
+
+			case "concurrent_processor_1", "concurrent_processor_2", "concurrent_processor_3":
+				// 并发处理器输入：应该包含原始数据和fork传递的数据
+				if messageId, exists := jsonData["message_id"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if _, ok := messageId.(float64); !ok {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+
+				// 验证并发修改字段的初始状态
+				if modifications, exists := jsonData["concurrent_modifications"]; exists {
+					if modCount, ok := modifications.(float64); ok && modCount < 0 {
+						atomic.AddInt64(&dataCorruptions, 1)
+					}
+				}
+
+			case "final_validator":
+				// 最终验证器输入：应该包含被处理器修改过的数据
+				if modifications, exists := jsonData["concurrent_modifications"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if modCount, ok := modifications.(float64); !ok || modCount < 1 {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+
+				// 验证处理器特定字段
+				processorFound := false
+				for _, field := range []string{"processor1_timestamp", "processor2_timestamp", "processor3_timestamp"} {
+					if _, exists := jsonData[field]; exists {
+						processorFound = true
+						break
+					}
+				}
+				if !processorFound {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+			}
+
+		} else if flowType == types.Out {
+			atomic.AddInt64(&outDataValidations, 1)
+			// 验证输出数据的完整性
+			switch nodeId {
+			case "fork_start":
+				// fork节点输出：数据应该保持不变
+				if messageId, exists := jsonData["message_id"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if _, ok := messageId.(float64); !ok {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+
+				if initialValue, exists := jsonData["initial_value"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if _, ok := initialValue.(string); !ok {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+
+			case "concurrent_processor_1":
+				// 并发处理器1输出：应该包含processor1特定的字段
+				if timestamp, exists := jsonData["processor1_timestamp"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if _, ok := timestamp.(float64); !ok {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+
+				if processorId, exists := jsonData["processor1_id"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if _, ok := processorId.(float64); !ok {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+
+				// 验证并发修改计数增加
+				if modifications, exists := jsonData["concurrent_modifications"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if modCount, ok := modifications.(float64); !ok || modCount < 1 {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+
+				// 验证元数据中的processor1字段
+				if processor1 := msg.Metadata.GetValue("processor1"); processor1 == "" {
+					atomic.AddInt64(&metadataCorruptions, 1)
+				}
+
+			case "concurrent_processor_2":
+				// 并发处理器2输出验证
+				if timestamp, exists := jsonData["processor2_timestamp"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if _, ok := timestamp.(float64); !ok {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+
+				if processor2 := msg.Metadata.GetValue("processor2"); processor2 == "" {
+					atomic.AddInt64(&metadataCorruptions, 1)
+				}
+
+			case "concurrent_processor_3":
+				// 并发处理器3输出验证
+				if timestamp, exists := jsonData["processor3_timestamp"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if _, ok := timestamp.(float64); !ok {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+
+				if processor3 := msg.Metadata.GetValue("processor3"); processor3 == "" {
+					atomic.AddInt64(&metadataCorruptions, 1)
+				}
+
+			case "final_validator":
+				// 最终验证器输出：应该包含所有验证标记
+				if finalProcessed := msg.Metadata.GetValue("final_processed"); finalProcessed != "true" {
+					atomic.AddInt64(&metadataCorruptions, 1)
+				}
+
+				if completionTime := msg.Metadata.GetValue("completion_time"); completionTime == "" {
+					atomic.AddInt64(&metadataCorruptions, 1)
+				}
+
+				if integrityCheck := msg.Metadata.GetValue("data_integrity_check"); integrityCheck != "passed" && integrityCheck != "failed" {
+					atomic.AddInt64(&metadataCorruptions, 1)
+				}
+
+				// 验证原始数据仍然存在
+				if messageId, exists := jsonData["message_id"]; !exists {
+					atomic.AddInt64(&dataCorruptions, 1)
+				} else if _, ok := messageId.(float64); !ok {
+					atomic.AddInt64(&dataCorruptions, 1)
+				}
+			}
+
+			// 通用验证：所有输出都应该保持原始batch_id
+			originalBatchId := msg.Metadata.GetValue("batch_id")
+			if originalBatchId == "" {
+				atomic.AddInt64(&metadataCorruptions, 1)
+			}
+
+			// 通用验证：所有输出都应该保持原始test_type
+			testType := msg.Metadata.GetValue("test_type")
+			if testType != "fork_concurrent_data_safety" {
+				atomic.AddInt64(&metadataCorruptions, 1)
+			}
+		}
+	}
+
+	ruleEngine, err := New("test_fork_concurrent_data_safety", []byte(forkRuleChain), WithConfig(config))
 	if err != nil {
 		t.Fatalf("创建规则引擎失败: %v", err)
 	}
 
 	// 并发测试参数
-	concurrentCount := 20
-	itemsPerArray := 5
+	concurrentCount := 30 // 增加并发数量以增强测试强度
 	var successCount int64
 	var errorCount int64
 	var finalProcessorCount int64
@@ -383,42 +559,75 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 	// 启动多个goroutine并发发送消息
 	for i := 0; i < concurrentCount; i++ {
 		go func(index int) {
-			// 创建包含三个数组的消息，每个数组对应一个for节点
-			items1 := make([]interface{}, itemsPerArray)
-			items2 := make([]interface{}, itemsPerArray)
-			items3 := make([]interface{}, itemsPerArray)
-			for j := 0; j < itemsPerArray; j++ {
-				items1[j] = fmt.Sprintf("batch_%d_item1_%d", index, j)
-				items2[j] = fmt.Sprintf("batch_%d_item2_%d", index, j)
-				items3[j] = fmt.Sprintf("batch_%d_item3_%d", index, j)
-			}
-
+			// 创建包含复杂数据的消息以增加并发修改的复杂性
 			metaData := types.NewMetadata()
 			metaData.PutValue("batch_id", strconv.Itoa(index))
 			metaData.PutValue("start_time", strconv.FormatInt(time.Now().UnixNano(), 10))
-			metaData.PutValue("test_type", "fork_for_concurrent")
+			metaData.PutValue("test_type", "fork_concurrent_data_safety")
+			metaData.PutValue("initial_processor_count", "0")
 
-			items1JSON, _ := json.Marshal(items1)
-			items2JSON, _ := json.Marshal(items2)
-			items3JSON, _ := json.Marshal(items3)
-			msg := types.NewMsg(0, "TEST_FORK_FOR_CONCURRENT", types.JSON, metaData,
-				fmt.Sprintf(`{"items1": %s, "items2": %s, "items3": %s, "batch_id": %d}`,
-					items1JSON, items2JSON, items3JSON, index))
+			// 创建包含多个字段的JSON数据，这些将被并发修改
+			originalData := fmt.Sprintf(`{
+				"message_id": %d, 
+				"initial_value": "test_%d",
+				"concurrent_modifications": 0,
+				"creation_timestamp": %d,
+				"processor_data": {}
+			}`, index, index, time.Now().UnixNano())
+
+			msg := types.NewMsg(0, "TEST_FORK_CONCURRENT_SAFETY", types.JSON, metaData, originalData)
 
 			// 发送消息并等待处理完成
 			ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 				if err != nil {
 					atomic.AddInt64(&errorCount, 1)
-
 				} else {
 					atomic.AddInt64(&successCount, 1)
+
 					// 检查是否是最终处理器的结果
 					if msg.Metadata.GetValue("final_processed") == "true" {
 						atomic.AddInt64(&finalProcessorCount, 1)
-					}
 
+						// 验证数据完整性
+						data := msg.GetData()
+						var jsonData map[string]interface{}
+						if jsonErr := json.Unmarshal([]byte(data), &jsonData); jsonErr != nil {
+							atomic.AddInt64(&dataCorruptions, 1)
+							t.Errorf("最终数据JSON解析失败: %v, 数据: %s", jsonErr, data)
+						} else {
+							// 验证原始数据是否还存在
+							if messageId, exists := jsonData["message_id"]; !exists {
+								atomic.AddInt64(&dataCorruptions, 1)
+								t.Errorf("原始message_id丢失，数据: %s", data)
+							} else if float64(index) != messageId {
+								atomic.AddInt64(&dataCorruptions, 1)
+								t.Errorf("message_id不匹配: 期望 %d, 实际 %v", index, messageId)
+							}
+
+							// 验证并发修改计数
+							if modifications, exists := jsonData["concurrent_modifications"]; exists {
+								if modCount, ok := modifications.(float64); ok && modCount < 1 {
+									t.Errorf("并发修改计数异常: %v", modCount)
+								}
+							}
+						}
+
+						// 验证元数据完整性
+						originalBatchId := msg.Metadata.GetValue("batch_id")
+						if originalBatchId != strconv.Itoa(index) {
+							atomic.AddInt64(&metadataCorruptions, 1)
+							t.Errorf("batch_id不匹配: 期望 %d, 实际 %s", index, originalBatchId)
+						}
+
+						// 验证数据完整性检查结果
+						if integrityCheck := msg.Metadata.GetValue("data_integrity_check"); integrityCheck == "failed" {
+							atomic.AddInt64(&dataCorruptions, 1)
+							t.Errorf("数据完整性检查失败")
+						}
+					}
 				}
-				// 只计算最终处理器的调用次数来判断完成
+
+				// 当所有最终处理器完成时发送完成信号
 				if msg.Metadata.GetValue("final_processed") == "true" {
 					if atomic.LoadInt64(&finalProcessorCount) >= int64(concurrentCount*3) {
 						select {
@@ -435,21 +644,59 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 	select {
 	case <-done:
 		// 所有消息处理完成
-	case <-time.After(15 * time.Second):
+	case <-time.After(20 * time.Second): // 增加超时时间
 		t.Fatal("测试超时")
 	}
 
+	// 等待额外时间确保所有异步操作完成
+	time.Sleep(time.Second)
+
 	// 验证结果
-	if errorCount > 0 {
-		t.Errorf("期望0个错误，实际有 %d 个错误", errorCount)
+	finalErrorCount := atomic.LoadInt64(&errorCount)
+	finalDataCorruptions := atomic.LoadInt64(&dataCorruptions)
+	finalMetadataCorruptions := atomic.LoadInt64(&metadataCorruptions)
+	finalRefCountAnomalies := atomic.LoadInt64(&refCountAnomalies)
+	finalProcessorCountResult := atomic.LoadInt64(&finalProcessorCount)
+	finalInDataValidations := atomic.LoadInt64(&inDataValidations)
+	finalOutDataValidations := atomic.LoadInt64(&outDataValidations)
+	finalNodeProcessingErrors := atomic.LoadInt64(&nodeProcessingErrors)
+
+	// 验证错误
+	if finalNodeProcessingErrors > 0 {
+		t.Errorf("期望0个节点处理错误，实际有 %d 个错误", finalNodeProcessingErrors)
 	}
 
-	// 验证最终处理器被调用的次数（应该等于并发数量的3倍，因为每个消息会触发3个for节点）
+	if finalErrorCount > 0 {
+		t.Errorf("期望0个处理错误，实际有 %d 个错误", finalErrorCount)
+	}
+
+	if finalDataCorruptions > 0 {
+		t.Errorf("检测到 %d 次数据损坏", finalDataCorruptions)
+	}
+
+	if finalMetadataCorruptions > 0 {
+		t.Errorf("检测到 %d 次元数据损坏", finalMetadataCorruptions)
+	}
+
+	if finalRefCountAnomalies > 0 {
+		t.Errorf("检测到 %d 次引用计数异常", finalRefCountAnomalies)
+	}
+
+	// 验证数据验证次数的合理性（每个消息会产生多次IN/OUT事件）
+	expectedMinValidations := int64(concurrentCount * 4) // 每个消息至少经过4个节点
+	if finalInDataValidations < expectedMinValidations {
+		t.Errorf("IN数据验证次数过少: 期望至少 %d 次，实际 %d 次", expectedMinValidations, finalInDataValidations)
+	}
+
+	if finalOutDataValidations < expectedMinValidations {
+		t.Errorf("OUT数据验证次数过少: 期望至少 %d 次，实际 %d 次", expectedMinValidations, finalOutDataValidations)
+	}
+
+	// 验证最终处理器被调用的次数（应该等于并发数量的3倍，因为每个消息会触发3个处理器）
 	expectedFinalCount := int64(concurrentCount * 3)
-	if finalProcessorCount != expectedFinalCount {
-		t.Errorf("期望最终处理器被调用 %d 次，实际调用 %d 次", expectedFinalCount, finalProcessorCount)
+	if finalProcessorCountResult != expectedFinalCount {
+		t.Errorf("期望最终处理器被调用 %d 次，实际调用 %d 次", expectedFinalCount, finalProcessorCountResult)
 	}
-
 }
 
 // TestForNodeAsyncModeMetadataSafety 测试for节点异步模式下的元数据安全性

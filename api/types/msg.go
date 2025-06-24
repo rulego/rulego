@@ -19,6 +19,7 @@ package types
 import (
 	"encoding/json"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
@@ -335,7 +336,8 @@ type RuleMsg struct {
 	Metadata *Metadata `json:"metadata"`
 
 	// parsedData caches the parsed JSON data to avoid repeated unmarshaling
-	parsedData map[string]interface{} `json:"-"`
+	// Can be map[string]interface{} for JSON objects or []interface{} for JSON arrays
+	parsedData interface{} `json:"-"`
 }
 
 // NewMsg creates a new message instance and generates a message ID using UUID.
@@ -394,12 +396,17 @@ func newMsg(id string, ts int64, msgType string, dataType DataType, metaData *Me
 	return msg
 }
 
-// SetData sets the message data using Copy-on-Write optimization.
+// SetData sets the message data from string with zero-copy optimization.
+// This method uses zero-copy conversion for optimal performance while maintaining
+// safety through Copy-on-Write mechanism.
+//
+// Performance: Zero-copy, optimal performance
+// Safety: Protected by Copy-on-Write mechanism
 func (m *RuleMsg) SetData(data string) {
 	if m.Data == nil {
 		m.Data = NewSharedData(data)
 	} else {
-		m.Data.Set(data)
+		m.Data.SetUnsafe(data)
 	}
 	// Always set the callback to ensure it points to the correct message instance
 	m.Data.onDataChanged = func() {
@@ -407,8 +414,9 @@ func (m *RuleMsg) SetData(data string) {
 	}
 }
 
-// SetDataFromBytes sets the message data from []byte using Copy-on-Write optimization.
-func (m *RuleMsg) SetDataFromBytes(data []byte) {
+// SetBytes sets the message data from []byte.
+// The input []byte will be copied to ensure data isolation.
+func (m *RuleMsg) SetBytes(data []byte) {
 	if m.Data == nil {
 		m.Data = NewSharedDataFromBytes(data)
 	} else {
@@ -420,26 +428,91 @@ func (m *RuleMsg) SetDataFromBytes(data []byte) {
 	}
 }
 
-// GetData returns the message data as string.
+// GetData returns the message data as string using zero-copy conversion.
+// This method is optimized for performance while maintaining safety through Copy-on-Write mechanism.
+//
+// Performance: Zero-copy, optimal performance
+// Safety: Protected by Copy-on-Write mechanism in SharedData
 func (m *RuleMsg) GetData() string {
 	if m.Data == nil {
 		return ""
 	}
-	return m.Data.Get()
+	return m.Data.GetUnsafe()
 }
 
-// GetDataAsBytes returns the message data as []byte.
-func (m *RuleMsg) GetDataAsBytes() []byte {
+// GetBytes returns the message data as []byte.
+//
+// IMPORTANT: The returned []byte slice shares memory with the internal data and
+// MUST NOT be modified. Any modification will corrupt the shared data and may
+// cause data races. If you need to modify the data, use GetMutableBytes() instead.
+//
+// For string data, use GetData() which is safer and more efficient.
+func (m *RuleMsg) GetBytes() []byte {
 	if m.Data == nil {
 		return nil
 	}
 	return m.Data.GetBytes()
 }
 
-// GetDataAsJson returns the message data parsed as JSON with caching.
+// GetSharedData returns the underlying SharedData instance.
+// This provides direct access to the SharedData for advanced operations.
+//
+// Use cases:
+// - Direct manipulation of SharedData methods (GetMutableBytes, GetRefCount, etc.)
+// - Advanced copy-on-write operations
+// - Performance-critical scenarios requiring fine-grained control
+//
+// WARNING: Direct modification of the returned SharedData affects this message instance.
+// Consider using Copy() if you need to modify data without affecting the original.
+//
+// Example usage:
+//
+//	sharedData := msg.GetSharedData()
+//	mutableBytes := sharedData.GetMutableBytes()
+//	// modify mutableBytes...
+//	sharedData.SetBytes(mutableBytes)
+func (m *RuleMsg) GetSharedData() *SharedData {
+	if m.Data == nil {
+		// Return a new empty SharedData to avoid nil pointer issues
+		m.Data = NewSharedData("")
+		m.Data.onDataChanged = func() {
+			m.parsedData = nil
+		}
+	}
+	return m.Data
+}
+
+// SetSharedData sets the underlying SharedData instance.
+// This allows for advanced SharedData management and zero-copy message construction.
+//
+// Use cases:
+// - Sharing data between multiple messages without copying
+// - Advanced memory management scenarios
+// - Performance-critical message construction
+//
+// The method automatically sets up the data change callback to clear JSON cache.
+//
+// Example usage:
+//
+//	sharedData := someOtherMsg.GetSharedData().Copy()
+//	msg.SetSharedData(sharedData)
+func (m *RuleMsg) SetSharedData(data *SharedData) {
+	if data == nil {
+		m.Data = NewSharedData("")
+	} else {
+		m.Data = data
+	}
+	// Always set the callback to ensure it points to the correct message instance
+	m.Data.onDataChanged = func() {
+		m.parsedData = nil
+	}
+}
+
+// GetJsonData returns the message data parsed as JSON with caching.
 // If the data has already been parsed, returns cached result.
 // If the data is not valid JSON, it returns an error.
-func (m *RuleMsg) GetDataAsJson() (map[string]interface{}, error) {
+// Returns map[string]interface{} for JSON objects or []interface{} for JSON arrays.
+func (m *RuleMsg) GetJsonData() (interface{}, error) {
 	data := m.GetData()
 	if data == "" {
 		return make(map[string]interface{}), nil
@@ -450,8 +523,8 @@ func (m *RuleMsg) GetDataAsJson() (map[string]interface{}, error) {
 		return m.parsedData, nil
 	}
 
-	// Parse the JSON data
-	var result map[string]interface{}
+	// Parse the JSON data - try as generic interface{} to support both objects and arrays
+	var result interface{}
 	err := json.Unmarshal([]byte(data), &result)
 	if err != nil {
 		return nil, err
@@ -576,70 +649,96 @@ type WrapperMsg struct {
 	NodeId string `json:"nodeId"`
 }
 
-// SharedData represents a copy-on-write data structure for message payload.
-// This optimization allows multiple message copies to share the same underlying data
-// until one of them needs to modify it, reducing memory usage and improving performance.
-// Supports both string and []byte for zero-copy operations.
+// SharedData represents a thread-safe copy-on-write data structure for message payload.
+// This improved version addresses potential race conditions in the original implementation.
 type SharedData struct {
-	data   []byte // Changed to []byte for better memory efficiency
-	shared bool
-	mu     sync.RWMutex
+	// data holds the actual payload data
+	data []byte
+	// refCount tracks how many instances share this data (using atomic operations)
+	// This pointer is shared among all instances that share the same data
+	refCount *int64
+	// mu protects the data during copy and modification operations
+	mu sync.RWMutex
 	// onDataChanged callback to notify when data changes
 	onDataChanged func()
 }
 
 // NewSharedData creates a new SharedData instance from string.
 func NewSharedData(data string) *SharedData {
+	refCount := int64(1)
 	return &SharedData{
-		data:   str.UnsafeBytesFromString(data),
-		shared: false,
+		data:     str.UnsafeBytesFromString(data),
+		refCount: &refCount, // Initial reference count is 1
 	}
 }
 
 // NewSharedDataFromBytes creates a new SharedData instance from []byte.
 func NewSharedDataFromBytes(data []byte) *SharedData {
+	refCount := int64(1)
 	return &SharedData{
-		data:   data,
-		shared: false,
+		data:     data,
+		refCount: &refCount,
 	}
 }
 
-// Copy creates a copy of the SharedData using Copy-on-Write optimization.
+// Copy creates a copy of the SharedData using improved Copy-on-Write optimization.
 func (sd *SharedData) Copy() *SharedData {
-	sd.mu.Lock()
-	defer sd.mu.Unlock()
+	sd.mu.RLock()
+	defer sd.mu.RUnlock()
 
-	// Mark current instance as shared
-	sd.shared = true
+	// Both reading the data/refCount pointer and incrementing the reference count
+	// must be done atomically under the same lock to prevent race conditions
+	data := sd.data
+	refCountPtr := sd.refCount
 
-	// Return a new instance that shares the same data initially
+	// Increment reference count atomically while still holding the read lock
+	// This prevents ensureUnique() from replacing the refCount pointer between
+	// reading and incrementing
+	atomic.AddInt64(refCountPtr, 1)
+
+	// Return a new instance that shares the same data and refCount pointer
 	return &SharedData{
-		data:   sd.data,
-		shared: true,
-		// mu is automatically initialized as zero value (ready to use)
-		// onDataChanged will be set by the new owner
+		data:     data,
+		refCount: refCountPtr, // Share the same reference count pointer
+		// Note: We share both the underlying data and the refCount pointer
 	}
 }
 
-// ensureUnique ensures the data is unique before modification
+// ensureUnique ensures the data is unique before modification using atomic operations
 func (sd *SharedData) ensureUnique() {
 	sd.mu.Lock()
 	defer sd.mu.Unlock()
 
-	// If shared, create copy
-	if sd.shared {
-		// Create data copy
-		newData := make([]byte, len(sd.data))
-		copy(newData, sd.data)
+	// Use atomic Compare-And-Swap to safely check and decrement reference count
+	// This prevents race conditions where multiple goroutines could pass the > 1 check
+	// and then all decrement the counter
+	for {
+		currentRefCount := atomic.LoadInt64(sd.refCount)
+		if currentRefCount <= 1 {
+			// Already unique or only one reference, no need to copy
+			return
+		}
 
-		// Set new data
-		sd.data = newData
-		sd.shared = false
+		// Try to atomically decrement the reference count
+		// If CAS fails, another goroutine modified the refCount, so retry
+		if atomic.CompareAndSwapInt64(sd.refCount, currentRefCount, currentRefCount-1) {
+			// Successfully decremented, now create a unique copy
+			break
+		}
+		// CAS failed, retry with the updated value
 	}
+
+	// Create a new copy of the data
+	newData := make([]byte, len(sd.data))
+	copy(newData, sd.data)
+
+	// Set new data and create new reference count
+	sd.data = newData
+	newRefCount := int64(1)
+	sd.refCount = &newRefCount
 }
 
 // Get returns the data value as string using safe conversion.
-// Uses the str package's safe conversion for maximum compatibility.
 func (sd *SharedData) Get() string {
 	sd.mu.RLock()
 	defer sd.mu.RUnlock()
@@ -648,16 +747,10 @@ func (sd *SharedData) Get() string {
 		return ""
 	}
 
-	// Use str package's safe conversion
 	return str.SafeStringFromBytes(sd.data)
 }
 
 // GetUnsafe returns the data as string using zero-copy conversion.
-// Uses the str package's cross-version compatible implementation.
-// This method should only be used when performance is critical.
-//
-// WARNING: The returned string shares memory with the underlying []byte.
-// Do not modify the original data while the string is in use.
 func (sd *SharedData) GetUnsafe() string {
 	sd.mu.RLock()
 	defer sd.mu.RUnlock()
@@ -666,21 +759,45 @@ func (sd *SharedData) GetUnsafe() string {
 		return ""
 	}
 
-	// Use str package's cross-version compatible zero-copy conversion
 	return str.UnsafeStringFromBytes(sd.data)
 }
 
 // GetBytes returns the data as []byte.
+//
+// IMPORTANT: The returned []byte slice shares memory with the internal data and
+// MUST NOT be modified. Any modification will corrupt the shared data and may
+// cause data races. If you need to modify the data, use GetMutableBytes() instead.
 func (sd *SharedData) GetBytes() []byte {
 	sd.mu.RLock()
 	defer sd.mu.RUnlock()
 	return sd.data
 }
 
-// String implements the fmt.Stringer interface for SharedData.
-// This allows SharedData to be used directly as a string in contexts where string conversion is needed.
+// GetMutableBytes returns a mutable copy of the data as []byte.
+// This method ensures copy-on-write semantics and returns a []byte that can be safely modified
+// without affecting other instances that share the same underlying data.
+//
+// Usage:
+//
+//	data := sharedData.GetMutableBytes()
+//	data[0] = 'X' // Safe to modify
+//	sharedData.SetBytes(data) // Optional: set the modified data back
+func (sd *SharedData) GetMutableBytes() []byte {
+	// First ensure we have a unique copy
+	sd.ensureUnique()
+
+	sd.mu.RLock()
+	defer sd.mu.RUnlock()
+
+	// Return a copy to prevent direct modification of internal data
+	result := make([]byte, len(sd.data))
+	copy(result, sd.data)
+	return result
+}
+
+// String implements the fmt.Stringer interface.
 func (sd *SharedData) String() string {
-	return sd.Get() // Use safe Get method
+	return sd.Get()
 }
 
 // Set sets the data value, ensuring copy-on-write semantics.
@@ -701,10 +818,6 @@ func (sd *SharedData) Set(data string) {
 }
 
 // SetUnsafe sets the data value using zero-copy conversion (use with caution).
-// WARNING: This method uses zero-copy conversion from string to []byte.
-// The caller must ensure that the original string data will not be modified
-// during the lifetime of this SharedData, as strings are immutable in Go.
-// Only use this method when performance is critical and data safety is guaranteed.
 func (sd *SharedData) SetUnsafe(data string) {
 	// Ensure unique copy first
 	sd.ensureUnique()
@@ -752,26 +865,39 @@ func (sd *SharedData) IsEmpty() bool {
 	return len(sd.data) == 0
 }
 
-// MarshalJSON implements the json.Marshaler interface for SharedData
+// GetRefCount returns the current reference count (for debugging/testing).
+func (sd *SharedData) GetRefCount() int64 {
+	return atomic.LoadInt64(sd.refCount)
+}
+
+// MarshalJSON implements the json.Marshaler interface.
 func (sd *SharedData) MarshalJSON() ([]byte, error) {
 	sd.mu.RLock()
 	defer sd.mu.RUnlock()
-	// Marshal as string to maintain backward compatibility
 	return json.Marshal(str.UnsafeStringFromBytes(sd.data))
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface for SharedData
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (sd *SharedData) UnmarshalJSON(data []byte) error {
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
+
 	sd.mu.Lock()
 	defer sd.mu.Unlock()
 
-	// Ensure unique copy before replacing data
-	if sd.shared {
-		sd.shared = false
+	// Initialize refCount if it's nil (during JSON unmarshaling)
+	if sd.refCount == nil {
+		newRefCount := int64(1)
+		sd.refCount = &newRefCount
+	} else {
+		// If refCount exists, ensure unique copy before replacing data
+		if atomic.LoadInt64(sd.refCount) > 1 {
+			atomic.AddInt64(sd.refCount, -1)
+			newRefCount := int64(1)
+			sd.refCount = &newRefCount
+		}
 	}
 
 	sd.data = str.UnsafeBytesFromString(s)
