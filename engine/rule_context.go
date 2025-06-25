@@ -27,6 +27,57 @@ import (
 	"github.com/rulego/rulego/utils/cache"
 )
 
+// ContextObserverPool 提供 ContextObserver 的对象池优化
+type ContextObserverPool struct {
+	pool sync.Pool
+}
+
+// 全局 ContextObserver 对象池
+var globalObserverPool = &ContextObserverPool{
+	pool: sync.Pool{
+		New: func() interface{} {
+			return NewContextObserver()
+		},
+	},
+}
+
+// GetContextObserver 从对象池获取 ContextObserver 实例
+func (p *ContextObserverPool) Get() *ContextObserver {
+	return p.pool.Get().(*ContextObserver)
+}
+
+// PutContextObserver 将 ContextObserver 实例回收到对象池
+func (p *ContextObserverPool) Put(observer *ContextObserver) {
+	if observer != nil {
+		observer.Reset()
+		p.pool.Put(observer)
+	}
+}
+
+// Reset 重置 ContextObserver 状态，为对象池复用做准备
+func (c *ContextObserver) Reset() {
+	// 安全清理执行节点记录 - 不重新初始化sync.Map，避免并发竞态
+	c.executedNodes.Range(func(key, value interface{}) bool {
+		c.executedNodes.Delete(key)
+		return true
+	})
+
+	// 清理所有分段的数据
+	for i := 0; i < c.segmentCount; i++ {
+		segment := c.segments[i]
+		segment.mu.Lock()
+		// 清空节点消息列表
+		for k := range segment.nodeInMsgList {
+			delete(segment.nodeInMsgList, k)
+		}
+		// 清空节点完成事件
+		for k := range segment.nodeDoneEvent {
+			delete(segment.nodeDoneEvent, k)
+		}
+		segment.mu.Unlock()
+	}
+}
+
 // Ensuring DefaultRuleContext implements types.RuleContext interface.
 var _ types.RuleContext = (*DefaultRuleContext)(nil)
 
@@ -34,14 +85,9 @@ var _ types.RuleContext = (*DefaultRuleContext)(nil)
 func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[string]interface{} {
 	// 预分配合适大小的map，减少扩容开销
 	capacity := 7 // 基础字段数量：id, ts, data, msgType, dataType, msg, metadata
-
-	// 预先获取metadata，避免重复调用Values()
-	var metadataValues map[string]string
-	if msg.Metadata != nil {
-		metadataValues = msg.Metadata.Values()
-		if useMetadata {
-			capacity += len(metadataValues)
-		}
+	if msg.Metadata != nil && useMetadata {
+		// 估算metadata的键值对数量
+		capacity += 8 // 常见metadata数量的估计值
 	}
 
 	evn := make(map[string]interface{}, capacity)
@@ -64,16 +110,17 @@ func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[s
 		evn[types.MsgKey] = msg.GetData()
 	}
 
-	// 处理metadata，只调用一次Values()
-	if metadataValues != nil {
+	// 处理metadata - 使用零拷贝ForEach优化
+	if msg.Metadata != nil {
 		if useMetadata {
-			// 将metadata键值对添加到环境变量中
-			for k, v := range metadataValues {
+			// 使用零拷贝ForEach将metadata键值对添加到环境变量中
+			msg.Metadata.ForEach(func(k, v string) bool {
 				evn[k] = v
-			}
+				return true // continue iteration
+			})
 		}
-		// 总是设置metadata字段
-		evn[types.MetadataKey] = metadataValues
+		// metadata字段需要完整的map，这里仍需要调用Values()
+		evn[types.MetadataKey] = msg.Metadata.Values()
 	}
 
 	return evn
@@ -172,13 +219,13 @@ func (c *ContextObserver) registerNodeDoneEvent(joinNodeId string, parentIds []s
 	segment := c.getSegment(joinNodeId)
 
 	segment.mu.Lock()
-	defer segment.mu.Unlock()
-
 	segment.nodeDoneEvent[joinNodeId] = joinNodeCallback{
 		joinNodeId: joinNodeId,
 		parentIds:  parentIds,
 		callback:   callback,
 	}
+	segment.mu.Unlock()
+	c.checkAndTrigger()
 }
 
 // checkNodesDone checks if all specified nodes have completed execution.
@@ -293,7 +340,10 @@ type DefaultRuleContext struct {
 	afterAspects []types.AfterAspect
 	// Runtime snapshot for debugging and logging.
 	runSnapshot *RunSnapshot
-	observer    *ContextObserver
+	// Observer对象预先创建，但内部字段延迟初始化
+	observer *ContextObserver
+	// 标记是否拥有observer，用于对象池回收
+	ownsObserver bool
 	// first node relationType
 	relationTypes []string
 	// OUT msg
@@ -347,8 +397,10 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 		aroundAspects: aroundAspects,
 		beforeAspects: beforeAspects,
 		afterAspects:  afterAspects,
-		observer:      NewContextObserver(),
-		chainCache:    chainCache,
+		// 预先创建observer对象
+		observer:     globalObserverPool.Get(),
+		ownsObserver: true,
+		chainCache:   chainCache,
 	}
 }
 
@@ -483,9 +535,11 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 
 		// 共享运行时状态
 		runSnapshot: ctx.runSnapshot,
-		observer:    ctx.observer, // 共享观察者
-		err:         ctx.err,
-		chainCache:  ctx.chainCache, // 共享缓存
+		// 子context共享observer，但不拥有
+		observer:     ctx.observer, // 共享observer实例
+		ownsObserver: false,        // 子context不拥有observer
+		err:          ctx.err,
+		chainCache:   ctx.chainCache, // 共享缓存
 	}
 
 	return nextCtx
@@ -514,7 +568,6 @@ func (ctx *DefaultRuleContext) TellNextOrElse(msg types.RuleMsg, defaultRelation
 }
 
 func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgList []types.WrapperMsg)) bool {
-
 	selfNodeId := ctx.GetSelfId()
 	fromId := ""
 	if ctx.from != nil {
@@ -532,9 +585,12 @@ func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgL
 		return false
 	} else {
 		var parentIds []string
-		if nodes, ok := ctx.ruleChainCtx.GetParentNodeIds(ctx.self.GetNodeId()); ok {
-			for _, nodeId := range nodes {
-				parentIds = append(parentIds, nodeId.Id)
+		// 添加nil检查，避免空指针异常
+		if ctx.ruleChainCtx != nil && ctx.self != nil {
+			if nodes, ok := ctx.ruleChainCtx.GetParentNodeIds(ctx.self.GetNodeId()); ok {
+				for _, nodeId := range nodes {
+					parentIds = append(parentIds, nodeId.Id)
+				}
 			}
 		}
 		ctx.observer.registerNodeDoneEvent(selfNodeId, parentIds, func(inMsgList []types.WrapperMsg) {
@@ -857,13 +913,20 @@ func (ctx *DefaultRuleContext) childDone() {
 				parentSelfId = parentRuleCtx.GetSelfId()
 			}
 			observer := ctx.observer
+			ownsObserver := ctx.ownsObserver
 			onAllNodeCompleted := ctx.onAllNodeCompleted
 
 			//该节点已经执行完成，通知父节点
 			if parentRuleCtx != nil {
 				parentRuleCtx.childDone()
+			} else if ownsObserver && observer != nil {
+				// 如果是root context且拥有observer，则回收到对象池
+				// 只有在没有父节点的情况下才回收，确保observer已经不再被使用
+				globalObserverPool.Put(observer)
 			}
-			if parentRuleCtx == nil || selfId != parentSelfId {
+
+			// 只有在observer存在时才记录节点执行完成（通常是join节点场景）
+			if observer != nil && (parentRuleCtx == nil || selfId != parentSelfId) {
 				//记录当前节点执行完成
 				observer.executedNode(selfId)
 			}
