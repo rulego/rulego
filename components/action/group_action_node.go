@@ -217,13 +217,14 @@ func filterEmptyAndRemoveMeta(msgs []types.WrapperMsg) []types.WrapperMsg {
 	return result
 }
 
-// 合并metadata
+// 合并metadata - use zero-copy ForEach for better performance
 func mergeMetadata(msgs []types.WrapperMsg, wrapperMsg *types.RuleMsg) {
 	for _, msg := range msgs {
 		if msg.NodeId != "" && msg.Err == "" {
-			for k, v := range msg.Msg.Metadata.Values() {
+			msg.Msg.Metadata.ForEach(func(k, v string) bool {
 				wrapperMsg.Metadata.PutValue(k, v)
-			}
+				return true // continue iteration
+			})
 		}
 	}
 }

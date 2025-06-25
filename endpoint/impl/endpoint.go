@@ -555,7 +555,7 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router endpoint.Router, ex
 	}
 	inMsg := exchange.In.GetMsg()
 	if toFlow := fromFlow.GetTo(); toFlow != nil && inMsg != nil {
-		toChainId := toFlow.ToStringByDict(inMsg.Metadata.Values())
+		toChainId := toFlow.ToStringByDict(inMsg.Metadata.GetReadOnlyValues())
 		tos := strings.Split(toChainId, pathSplitFlag)
 		toChainId = tos[0]
 		//查找规则链，并执行

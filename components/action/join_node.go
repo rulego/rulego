@@ -164,11 +164,12 @@ func (x *JoinNode) filterAndMergeOptimized(msgList []types.WrapperMsg, filteredM
 			}
 			*filteredMsgs = append(*filteredMsgs, msgCopy)
 
-			// 高效的元数据合并：只合并成功的消息
+			// 高效的元数据合并：只合并成功的消息 - use zero-copy ForEach
 			if msg.Err == "" && msg.Msg.Metadata != nil {
-				for k, v := range msg.Msg.Metadata.Values() {
+				msg.Msg.Metadata.ForEach(func(k, v string) bool {
 					metadataMap[k] = v
-				}
+					return true // continue iteration
+				})
 			}
 		}
 	}
