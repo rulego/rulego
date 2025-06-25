@@ -123,7 +123,10 @@ func TestSubRuleChainObserverPool(t *testing.T) {
 	assert.NotNil(t, subChainCtx.observer)   // observer已创建
 
 	// 验证各自有独立的observer（这是正确的，因为不同的规则链应该有独立的join状态）
-	assert.NotEqual(t, mainChainCtx.observer, subChainCtx.observer)
+	// 使用指针比较避免reflect.DeepEqual导致的数据竞争
+	if mainChainCtx.observer == subChainCtx.observer {
+		t.Errorf("Expected different observer instances, got the same: %p", mainChainCtx.observer)
+	}
 
 	// 模拟子规则链完成，应该回收observer
 	subChainCtx.childDone()
@@ -150,7 +153,10 @@ func TestTellNodeObserverIsolation(t *testing.T) {
 	assert.NotNil(t, tellNodeCtx.observer)
 
 	// 验证各自有独立的observer
-	assert.NotEqual(t, mainCtx.observer, tellNodeCtx.observer)
+	// 使用指针比较避免reflect.DeepEqual导致的数据竞争
+	if mainCtx.observer == tellNodeCtx.observer {
+		t.Errorf("Expected different observer instances, got the same: %p", mainCtx.observer)
+	}
 
 	// 验证各自的ownsObserver状态是正确的
 	assert.True(t, mainCtx.ownsObserver, "主context应该拥有observer")
