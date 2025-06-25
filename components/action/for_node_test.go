@@ -379,12 +379,31 @@ func TestForNodeMetadataAccuracy(t *testing.T) {
 	// 执行节点
 	node.OnMsg(ctx, msg)
 
-	// 等待执行完成
-	time.Sleep(time.Millisecond * 200)
+	// 等待执行完成，增加超时保护
+	maxWait := time.Millisecond * 1000 // 最大等待1秒
+	checkInterval := time.Millisecond * 50
+	waited := time.Duration(0)
+
+	for waited < maxWait {
+		time.Sleep(checkInterval)
+		waited += checkInterval
+
+		mu.Lock()
+		resultCount := len(results)
+		mu.Unlock()
+
+		if resultCount > 0 {
+			break // 有结果了就退出等待
+		}
+	}
 
 	// 验证结果
 	mu.Lock()
 	resultCount := len(results)
+	if resultCount == 0 {
+		mu.Unlock()
+		t.Fatalf("No results received after waiting %v", maxWait)
+	}
 	finalMsg := results[0] // for节点在DoNotProcess模式下只返回一个最终结果
 	mu.Unlock()
 
@@ -453,12 +472,31 @@ func TestForNodeMetadataWithMergeMode(t *testing.T) {
 	// 执行节点
 	node.OnMsg(ctx, msg)
 
-	// 等待执行完成
-	time.Sleep(time.Millisecond * 200)
+	// 等待执行完成，增加超时保护
+	maxWait := time.Millisecond * 1000 // 最大等待1秒
+	checkInterval := time.Millisecond * 50
+	waited := time.Duration(0)
+
+	for waited < maxWait {
+		time.Sleep(checkInterval)
+		waited += checkInterval
+
+		mu.Lock()
+		resultCount := len(results)
+		mu.Unlock()
+
+		if resultCount > 0 {
+			break // 有结果了就退出等待
+		}
+	}
 
 	// 验证结果
 	mu.Lock()
 	resultCount := len(results)
+	if resultCount == 0 {
+		mu.Unlock()
+		t.Fatalf("No results received after waiting %v", maxWait)
+	}
 	finalMsg := results[0]
 	mu.Unlock()
 
