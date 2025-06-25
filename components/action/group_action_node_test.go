@@ -18,8 +18,11 @@ package action
 
 import (
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/utils/str"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
@@ -249,5 +252,161 @@ func TestGroupFilterNode(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond * 20)
 
+	})
+}
+
+// TestGroupActionConcurrencySafety 测试 GroupActionNode 的并发安全性
+func TestGroupActionConcurrencySafety(t *testing.T) {
+	t.Run("Concurrent Match Count Race Condition", func(t *testing.T) {
+		// 注册测试用的函数
+		Functions.Register("testConcurrentSuccess", func(ctx types.RuleContext, msg types.RuleMsg) {
+			time.Sleep(time.Millisecond * 1) // 模拟处理时间
+			ctx.TellSuccess(msg)
+		})
+
+		Functions.Register("testConcurrentFailure", func(ctx types.RuleContext, msg types.RuleMsg) {
+			time.Sleep(time.Millisecond * 2) // 模拟处理时间
+			ctx.TellFailure(msg, errors.New("test failure"))
+		})
+
+		// 创建 GroupActionNode，要求匹配2个Success
+		node, err := test.CreateAndInitNode("groupAction", types.Configuration{
+			"matchRelationType": types.Success,
+			"matchNum":          2,
+			"nodeIds":           "success1,success2,failure1,failure2",
+		}, Registry)
+		assert.Nil(t, err)
+
+		// 创建子节点
+		successNode1, _ := test.CreateAndInitNode("functions", types.Configuration{
+			"functionName": "testConcurrentSuccess",
+		}, Registry)
+		successNode2, _ := test.CreateAndInitNode("functions", types.Configuration{
+			"functionName": "testConcurrentSuccess",
+		}, Registry)
+		failureNode1, _ := test.CreateAndInitNode("functions", types.Configuration{
+			"functionName": "testConcurrentFailure",
+		}, Registry)
+		failureNode2, _ := test.CreateAndInitNode("functions", types.Configuration{
+			"functionName": "testConcurrentFailure",
+		}, Registry)
+
+		childrenNodes := map[string]types.Node{
+			"success1": successNode1,
+			"success2": successNode2,
+			"failure1": failureNode1,
+			"failure2": failureNode2,
+		}
+
+		// 进行多次并发测试
+		iterations := 100
+		var successCount, failureCount int32
+
+		for i := 0; i < iterations; i++ {
+			metaData := types.BuildMetadata(make(map[string]string))
+			metaData.PutValue("testIteration", str.ToString(i))
+
+			msgList := []test.Msg{{
+				MetaData:   metaData,
+				MsgType:    "TEST_CONCURRENT",
+				Data:       `{"test":"concurrency"}`,
+				AfterSleep: time.Millisecond * 50,
+			}}
+
+			nodeCallback := test.NodeAndCallback{
+				Node:          node,
+				MsgList:       msgList,
+				ChildrenNodes: childrenNodes,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					if relationType == types.Success {
+						// 有2个Success节点，应该满足matchNum=2的条件
+						atomic.AddInt32(&successCount, 1)
+					} else {
+						atomic.AddInt32(&failureCount, 1)
+					}
+				},
+			}
+
+			test.NodeOnMsgWithChildren(t, nodeCallback.Node, nodeCallback.MsgList, nodeCallback.ChildrenNodes, nodeCallback.Callback)
+		}
+
+		// 等待所有测试完成
+		time.Sleep(time.Millisecond * 200)
+
+		// 验证结果：应该都是Success，因为有2个Success节点满足matchNum=2
+		//t.Logf("并发测试结果: Success=%d, Failure=%d, Total=%d",
+		//	atomic.LoadInt32(&successCount), atomic.LoadInt32(&failureCount), iterations)
+
+		assert.Equal(t, int32(iterations), atomic.LoadInt32(&successCount), "所有测试应该返回Success")
+		assert.Equal(t, int32(0), atomic.LoadInt32(&failureCount), "不应该有Failure结果")
+	})
+
+	t.Run("Concurrent Insufficient Match Race Condition", func(t *testing.T) {
+		// 创建 GroupActionNode，要求匹配3个Success（但只有2个Success节点）
+		node, err := test.CreateAndInitNode("groupAction", types.Configuration{
+			"matchRelationType": types.Success,
+			"matchNum":          3,                            // 要求3个Success
+			"nodeIds":           "success1,success2,failure1", // 只有2个Success
+		}, Registry)
+		assert.Nil(t, err)
+
+		// 创建子节点
+		successNode1, _ := test.CreateAndInitNode("functions", types.Configuration{
+			"functionName": "testConcurrentSuccess",
+		}, Registry)
+		successNode2, _ := test.CreateAndInitNode("functions", types.Configuration{
+			"functionName": "testConcurrentSuccess",
+		}, Registry)
+		failureNode1, _ := test.CreateAndInitNode("functions", types.Configuration{
+			"functionName": "testConcurrentFailure",
+		}, Registry)
+
+		childrenNodes := map[string]types.Node{
+			"success1": successNode1,
+			"success2": successNode2,
+			"failure1": failureNode1,
+		}
+
+		// 进行多次并发测试
+		iterations := 100
+		var successCount, failureCount int32
+
+		for i := 0; i < iterations; i++ {
+			metaData := types.BuildMetadata(make(map[string]string))
+			metaData.PutValue("testIteration", str.ToString(i))
+
+			msgList := []test.Msg{{
+				MetaData:   metaData,
+				MsgType:    "TEST_CONCURRENT",
+				Data:       `{"test":"insufficient_match"}`,
+				AfterSleep: time.Millisecond * 50,
+			}}
+
+			nodeCallback := test.NodeAndCallback{
+				Node:          node,
+				MsgList:       msgList,
+				ChildrenNodes: childrenNodes,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					if relationType == types.Success {
+						atomic.AddInt32(&successCount, 1)
+					} else {
+						// 只有2个Success节点，不满足matchNum=3，应该返回Failure
+						atomic.AddInt32(&failureCount, 1)
+					}
+				},
+			}
+
+			test.NodeOnMsgWithChildren(t, nodeCallback.Node, nodeCallback.MsgList, nodeCallback.ChildrenNodes, nodeCallback.Callback)
+		}
+
+		// 等待所有测试完成
+		time.Sleep(time.Millisecond * 200)
+
+		// 验证结果：应该都是Failure，因为只有2个Success不满足matchNum=3
+		//t.Logf("不足匹配测试结果: Success=%d, Failure=%d, Total=%d",
+		//	atomic.LoadInt32(&successCount), atomic.LoadInt32(&failureCount), iterations)
+
+		assert.Equal(t, int32(0), atomic.LoadInt32(&successCount), "不应该有Success结果")
+		assert.Equal(t, int32(iterations), atomic.LoadInt32(&failureCount), "所有测试应该返回Failure")
 	})
 }
