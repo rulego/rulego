@@ -317,10 +317,11 @@ func (ctx *NodeTestRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[
 	// 优化 metadata 处理
 	if msg.Metadata != nil {
 		if useMetadata {
-			// 遍历metadata，将键值对添加到环境变量中
-			for k, v := range msg.Metadata.Values() {
+			// 遍历metadata，将键值对添加到环境变量中 - use zero-copy ForEach
+			msg.Metadata.ForEach(func(k, v string) bool {
 				envVars[k] = v
-			}
+				return true // continue iteration
+			})
 		}
 		envVars[types.MetadataKey] = msg.Metadata.Values()
 	}

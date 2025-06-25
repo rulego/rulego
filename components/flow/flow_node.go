@@ -103,9 +103,11 @@ func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg) {
 		defer mu.Unlock()
 		errStr := ""
 		if err == nil {
-			for k, v := range onEndMsg.Metadata.Values() {
+			// use zero-copy ForEach for better metadata merging performance
+			onEndMsg.Metadata.ForEach(func(k, v string) bool {
 				wrapperMsg.Metadata.PutValue(k, v)
-			}
+				return true // continue iteration
+			})
 		} else {
 			errStr = err.Error()
 		}
