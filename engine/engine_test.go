@@ -1218,26 +1218,246 @@ func TestDoOnEnd(t *testing.T) {
 }
 
 func TestJoinNode(t *testing.T) {
-	var ruleChainFile = loadFile("test_join_node.json")
-	var wg sync.WaitGroup
-	wg.Add(1)
-	config := NewConfig(types.WithDefaultPool())
-	ruleEngine, err := New("testJoinNode", ruleChainFile, WithConfig(config))
-	assert.Nil(t, err)
-	metaData := types.NewMetadata()
-	metaData.PutValue("productType", "test01")
-	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
-	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-		var result []map[string]interface{}
-		json.Unmarshal([]byte(msg.GetData()), &result)
-		assert.Equal(t, types.Success, relationType)
-		assert.Equal(t, 2, len(result))
-		assert.True(t, result[0]["nodeId"] != result[1]["nodeId"])
-	}), types.WithOnAllNodeCompleted(func() {
-		wg.Done()
-	}))
-	time.Sleep(time.Millisecond * 100)
-	wg.Wait()
+	t.Run("Basic Join Test", func(t *testing.T) {
+		var ruleChainFile = loadFile("test_join_node.json")
+		var wg sync.WaitGroup
+		wg.Add(1)
+		config := NewConfig(types.WithDefaultPool())
+		ruleEngine, err := New("testJoinNode", ruleChainFile, WithConfig(config))
+		assert.Nil(t, err)
+		metaData := types.NewMetadata()
+		metaData.PutValue("productType", "test01")
+		msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
+		ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			var result []map[string]interface{}
+			json.Unmarshal([]byte(msg.GetData()), &result)
+			assert.Equal(t, types.Success, relationType)
+			assert.Equal(t, 2, len(result))
+			assert.True(t, result[0]["nodeId"] != result[1]["nodeId"])
+		}), types.WithOnAllNodeCompleted(func() {
+			wg.Done()
+		}))
+		time.Sleep(time.Millisecond * 100)
+		wg.Wait()
+	})
+	t.Run("Single Parent Join Test", func(t *testing.T) {
+		// 创建只有一个父节点的join场景
+		singleParentJoinDSL := `{
+			"ruleChain": {
+				"id": "singleParentJoin",
+				"name": "单父节点Join测试"
+			},
+			"metadata": {
+				"nodes": [
+					{
+						"id": "node_transform",
+						"type": "jsTransform",
+						"name": "Transform",
+						"configuration": {
+							"jsScript": "msg.single='single_value'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+						}
+					},
+					{
+						"id": "node_join",
+						"type": "join",
+						"name": "SingleJoin",
+						"configuration": {
+							"timeout": 1
+						}
+					}
+				],
+				"connections": [
+					{
+						"fromId": "node_transform",
+						"toId": "node_join",
+						"type": "Success"
+					}
+				]
+			}
+		}`
+
+		config := NewConfig(types.WithDefaultPool())
+		ruleEngine, err := New("singleParentJoinTest", []byte(singleParentJoinDSL), WithConfig(config))
+		assert.Nil(t, err)
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+		var callbackCount int32
+
+		metaData := types.NewMetadata()
+		msg := types.NewMsg(0, "TEST_MSG", types.JSON, metaData, "{\"test\":\"data\"}")
+
+		ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			atomic.AddInt32(&callbackCount, 1)
+			var result []map[string]interface{}
+			json.Unmarshal([]byte(msg.GetData()), &result)
+			assert.Equal(t, types.Success, relationType)
+			assert.Equal(t, 1, len(result)) // 应该只有一个输入消息
+			assert.Equal(t, "node_transform", result[0]["nodeId"])
+
+			// 正确解析消息数据
+			if msgInfo, ok := result[0]["msg"].(map[string]interface{}); ok {
+				if dataStr, ok := msgInfo["data"].(string); ok {
+					var msgData map[string]interface{}
+					json.Unmarshal([]byte(dataStr), &msgData)
+					assert.Equal(t, "single_value", msgData["single"])
+				}
+			}
+		}), types.WithOnAllNodeCompleted(func() {
+			wg.Done()
+		}))
+
+		wg.Wait()
+		// 验证单父节点场景下回调能正常触发
+		assert.Equal(t, int32(1), atomic.LoadInt32(&callbackCount))
+	})
+
+	t.Run("Join Node Timeout Test", func(t *testing.T) {
+		// 创建一个真正会超时的join场景：延迟节点延迟时间超过join超时时间
+		timeoutJoinDSL := `{
+			"ruleChain": {
+				"id": "timeoutJoin",
+				"name": "超时Join测试"
+			},
+			"metadata": {
+				"nodes": [
+					{
+						"id": "node_split",
+						"type": "jsTransform",
+						"name": "分发节点",
+						"configuration": {
+							"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+						}
+					},
+					{
+						"id": "node_delay",
+						"type": "delay",
+						"name": "延迟节点",
+						"configuration": {
+							"periodInSeconds": 3
+						}
+					},
+					{
+						"id": "node_immediate",
+						"type": "jsTransform",
+						"name": "立即节点",
+						"configuration": {
+							"jsScript": "msg.immediate='true'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+						}
+					},
+					{
+						"id": "node_join",
+						"type": "join",
+						"name": "TimeoutJoin",
+						"configuration": {
+							"timeout": 1
+						}
+					}
+				],
+				"connections": [
+					{
+						"fromId": "node_split",
+						"toId": "node_delay",
+						"type": "Success"
+					},
+					{
+						"fromId": "node_split",
+						"toId": "node_immediate",
+						"type": "Success"
+					},
+					{
+						"fromId": "node_delay",
+						"toId": "node_join",
+						"type": "Success"
+					},
+					{
+						"fromId": "node_immediate",
+						"toId": "node_join",
+						"type": "Success"
+					}
+				]
+			}
+		}`
+
+		config := NewConfig(types.WithDefaultPool())
+		ruleEngine, err := New("timeoutJoinTest", []byte(timeoutJoinDSL), WithConfig(config))
+		assert.Nil(t, err)
+
+		var wg sync.WaitGroup
+		wg.Add(1)
+		var callbackCount int32
+		var joinCallbackReceived bool
+
+		metaData := types.NewMetadata()
+		msg := types.NewMsg(0, "TEST_MSG", types.JSON, metaData, "{\"test\":\"timeout\"}")
+
+		start := time.Now()
+
+		// 使用OnMsg让分支并行执行
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			// 只统计来自join节点的回调
+			if ctx.GetSelfId() == "node_join" {
+				atomic.AddInt32(&callbackCount, 1)
+				joinCallbackReceived = true
+				elapsed := time.Since(start)
+
+				// join节点超时应该返回Failure
+				assert.Equal(t, types.Failure, relationType)
+				assert.NotNil(t, err)
+
+				// 检查错误信息是否包含超时相关内容
+				errMsg := err.Error()
+				assert.True(t, strings.Contains(errMsg, "context deadline exceeded") || strings.Contains(errMsg, "timeout"),
+					"错误信息应该包含超时相关内容: %s", errMsg)
+
+				// 验证确实在超时时间附近结束（1秒超时）
+				assert.True(t, elapsed > 900*time.Millisecond && elapsed < 1500*time.Millisecond,
+					"执行时间应该在1秒左右: %v", elapsed)
+
+				wg.Done()
+			}
+		}))
+
+		wg.Wait()
+		assert.True(t, joinCallbackReceived, "应该收到join节点的回调")
+		assert.Equal(t, int32(1), atomic.LoadInt32(&callbackCount))
+	})
+
+	t.Run("Concurrent Join Test", func(t *testing.T) {
+		// 测试多个消息同时处理join节点的情况
+		var ruleChainFile = loadFile("test_join_node.json")
+		config := NewConfig(types.WithDefaultPool())
+		ruleEngine, err := New("concurrentJoinTest", ruleChainFile, WithConfig(config))
+		assert.Nil(t, err)
+
+		const concurrentCount = 10
+		var wg sync.WaitGroup
+		wg.Add(concurrentCount)
+		var successCount int32
+
+		for i := 0; i < concurrentCount; i++ {
+			go func(index int) {
+				defer wg.Done()
+				metaData := types.NewMetadata()
+				metaData.PutValue("index", fmt.Sprintf("%d", index))
+				msg := types.NewMsg(0, "CONCURRENT_TEST", types.JSON, metaData,
+					fmt.Sprintf("{\"temperature\":%d,\"humidity\":90}", 40+index))
+
+				ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+					if relationType == types.Success {
+						atomic.AddInt32(&successCount, 1)
+						var result []map[string]interface{}
+						json.Unmarshal([]byte(msg.GetData()), &result)
+						assert.Equal(t, 2, len(result)) // 每个join都应该有2个输入
+					}
+				}))
+			}(i)
+		}
+
+		wg.Wait()
+		// 验证所有消息都能正常处理
+		assert.Equal(t, int32(concurrentCount), atomic.LoadInt32(&successCount))
+	})
 }
 
 func TestDisabled(t *testing.T) {
