@@ -263,6 +263,47 @@ func (md *Metadata) Values() map[string]string {
 	return result
 }
 
+// GetReadOnlyValues returns the underlying metadata map without copying.
+// WARNING: The returned map MUST NOT be modified. It's intended for read-only access only.
+// Modifying the returned map will corrupt the shared data and may cause data races.
+// Use this method only when you need read-only access and want to avoid allocation overhead.
+//
+// For safe modification, use Values() which returns a copy.
+//
+// Example usage:
+//
+//	values := metadata.GetReadOnlyValues()
+//	for k, v := range values { // Read-only iteration is safe
+//		fmt.Printf("%s: %s\n", k, v)
+//	}
+func (md *Metadata) GetReadOnlyValues() map[string]string {
+	md.mu.RLock()
+	defer md.mu.RUnlock()
+	return md.data // Zero-copy, but caller must not modify
+}
+
+// ForEach iterates over all key-value pairs in the metadata using a callback function.
+// This method provides zero-copy iteration without exposing the internal map.
+// The iteration will stop early if the callback function returns false.
+//
+// This is the safest zero-copy method as it doesn't expose the internal map.
+//
+// Example usage:
+//
+//	metadata.ForEach(func(key, value string) bool {
+//		fmt.Printf("%s: %s\n", key, value)
+//		return true // Continue iteration
+//	})
+func (md *Metadata) ForEach(fn func(key, value string) bool) {
+	md.mu.RLock()
+	defer md.mu.RUnlock()
+	for k, v := range md.data {
+		if !fn(k, v) {
+			break
+		}
+	}
+}
+
 // ReplaceAll replaces all metadata with new data.
 func (md *Metadata) ReplaceAll(newData map[string]string) {
 	md.mu.Lock()

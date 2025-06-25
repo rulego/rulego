@@ -17,10 +17,60 @@
 package service
 
 import (
-	"github.com/rulego/rulego/api/types"
 	"sort"
 	"sync"
+
+	"github.com/rulego/rulego/api/types"
 )
+
+// DebugDataPool 提供 DebugData 的对象池优化
+type DebugDataPool struct {
+	pool sync.Pool
+}
+
+// 全局 DebugData 对象池
+var globalDebugDataPool = &DebugDataPool{
+	pool: sync.Pool{
+		New: func() interface{} {
+			return &DebugData{}
+		},
+	},
+}
+
+// GetDebugData 从对象池获取 DebugData 实例
+func (p *DebugDataPool) Get() *DebugData {
+	return p.pool.Get().(*DebugData)
+}
+
+// PutDebugData 将 DebugData 实例回收到对象池
+func (p *DebugDataPool) Put(data *DebugData) {
+	if data != nil {
+		data.Reset()
+		p.pool.Put(data)
+	}
+}
+
+// Reset 重置 DebugData 状态，为对象池复用做准备
+func (d *DebugData) Reset() {
+	d.Ts = 0
+	d.NodeId = ""
+	d.FlowType = ""
+	d.Msg = types.RuleMsg{} // 重置为零值
+	d.RelationType = ""
+	d.Err = ""
+}
+
+// NewDebugData 创建新的 DebugData 实例，使用对象池优化
+func NewDebugData(ts int64, nodeId, flowType string, msg types.RuleMsg, relationType, errStr string) *DebugData {
+	data := globalDebugDataPool.Get()
+	data.Ts = ts
+	data.NodeId = nodeId
+	data.FlowType = flowType
+	data.Msg = msg
+	data.RelationType = relationType
+	data.Err = errStr
+	return data
+}
 
 //基于内存的日志存储，用于查询节点调试数据
 //每个节点只保留一定的条数，最旧的数据会被自动删除
@@ -97,8 +147,12 @@ func (d *RuleChainDebugData) GetToPage(chainId string, nodeId string, pageSize, 
 			if end > page.Total {
 				end = page.Total
 			}
-			// 根据索引范围获取分页数据
-			page.Items = list.Items[start:end]
+			// 根据索引范围获取分页数据，需要解引用指针
+			items := make([]DebugData, end-start)
+			for i, ptr := range list.Items[start:end] {
+				items[i] = *ptr
+			}
+			page.Items = items
 		}
 	}
 	return page
@@ -137,7 +191,10 @@ func (d *NodeDebugData) Add(nodeId string, data DebugData) {
 	}
 	defer d.mu.Unlock()
 
-	list.Push(data)
+	// 使用对象池创建DebugData指针
+	dataPtr := globalDebugDataPool.Get()
+	*dataPtr = data // 复制数据到池化对象
+	list.Push(dataPtr)
 }
 
 // Get 获取自定节点列表数据
@@ -190,8 +247,8 @@ type DebugDataPage struct {
 
 // FixedQueue 固定大小的队列，如果超过会自动清除最旧的数据
 type FixedQueue struct {
-	// Items 数据列表
-	Items []DebugData
+	// Items 数据列表，使用指针以便对象池回收
+	Items []*DebugData
 	// MaxSize 最大允许的条数
 	MaxSize int
 	mu      sync.RWMutex
@@ -200,27 +257,30 @@ type FixedQueue struct {
 // NewFixedQueue 创建一个新的固定大小的队列
 func NewFixedQueue(maxSize int) *FixedQueue {
 	return &FixedQueue{
-		Items:   make([]DebugData, 0, maxSize),
+		Items:   make([]*DebugData, 0, maxSize),
 		MaxSize: maxSize,
 	}
 }
 
 // Push 向队列中添加一个元素，如果超过最大大小，会删除最旧的元素
-func (q *FixedQueue) Push(item DebugData) {
+func (q *FixedQueue) Push(item *DebugData) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if len(q.Items) == q.MaxSize {
+		// 回收最旧的元素到对象池
+		oldData := q.Items[0]
+		globalDebugDataPool.Put(oldData)
 		q.Items = q.Items[1:]
 	}
 	q.Items = append(q.Items, item)
 }
 
 // Pop 从队列中弹出一个元素，如果队列为空，返回false
-func (q *FixedQueue) Pop() (DebugData, bool) {
+func (q *FixedQueue) Pop() (*DebugData, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if len(q.Items) == 0 {
-		return DebugData{}, false
+		return nil, false
 	}
 	item := q.Items[0]
 	q.Items = q.Items[1:]
@@ -235,11 +295,11 @@ func (q *FixedQueue) Len() int {
 }
 
 // Peek 返回队列中的第一个元素，但不删除它，如果队列为空，返回false
-func (q *FixedQueue) Peek() (DebugData, bool) {
+func (q *FixedQueue) Peek() (*DebugData, bool) {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	if len(q.Items) == 0 {
-		return DebugData{}, false
+		return nil, false
 	}
 	return q.Items[0], true
 }
@@ -248,5 +308,9 @@ func (q *FixedQueue) Peek() (DebugData, bool) {
 func (q *FixedQueue) Clear() {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	q.Items = make([]DebugData, 0, q.MaxSize)
+	// 回收所有元素到对象池
+	for _, item := range q.Items {
+		globalDebugDataPool.Put(item)
+	}
+	q.Items = make([]*DebugData, 0, q.MaxSize)
 }
