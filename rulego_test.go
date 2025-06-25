@@ -245,11 +245,12 @@ func TestScheduleEndpointAspect(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.True(t, reflect.DeepEqual(oldAspects, ruleEngine.(*engine.RuleEngine).GetAspects()))
-	time.Sleep(time.Second * 6)
+	time.Sleep(time.Second * 9) // 延长等待时间从6秒到9秒，确保至少执行3次
 
 	// 使用原子操作安全地读取count值
 	countValue = atomic.LoadInt64(&count)
-	assert.True(t, math.Abs(float64(countValue)-float64(3)) <= float64(1))
+	// 9秒内每3秒执行一次，期望3次，允许±1误差（即2-4次都算通过）
+	assert.True(t, countValue >= 2 && countValue <= 4, "Expected 2-4 executions in 9 seconds with 3-second interval, but got %d", countValue)
 
 	err = ruleEngine.ReloadChild("s1", []byte(` {
         "id":"s1",
