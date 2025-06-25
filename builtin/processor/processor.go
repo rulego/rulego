@@ -109,9 +109,10 @@ func init() {
 			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 		} else if exchange.Out.GetMsg() != nil {
 			msg := exchange.Out.GetMsg()
-			for k, v := range msg.Metadata.Values() {
+			msg.Metadata.ForEach(func(k, v string) bool {
 				exchange.Out.Headers().Set(k, v)
-			}
+				return true // continue iteration
+			})
 		}
 		return true
 	})

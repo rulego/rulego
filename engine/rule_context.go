@@ -119,15 +119,13 @@ func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[s
 				return true // continue iteration
 			})
 		}
-		// metadata字段需要完整的map，这里仍需要调用Values()
-		evn[types.MetadataKey] = msg.Metadata.Values()
+		evn[types.MetadataKey] = msg.Metadata.GetReadOnlyValues()
 	}
 
 	return evn
 }
 
 // ContextObserver tracks the execution state of nodes in the rule chain.
-// 使用分段锁优化并发性能
 type ContextObserver struct {
 	// 分段锁，减少锁竞争
 	segmentCount int
@@ -340,7 +338,7 @@ type DefaultRuleContext struct {
 	afterAspects []types.AfterAspect
 	// Runtime snapshot for debugging and logging.
 	runSnapshot *RunSnapshot
-	// Observer对象预先创建，但内部字段延迟初始化
+	// Observer for join nodes.
 	observer *ContextObserver
 	// 标记是否拥有observer，用于对象池回收
 	ownsObserver bool

@@ -19,8 +19,9 @@ package action
 import (
 	"errors"
 	"fmt"
-	"github.com/rulego/rulego/utils/js"
 	"strings"
+
+	"github.com/rulego/rulego/utils/js"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
@@ -125,7 +126,8 @@ func (x *IteratorNode) Destroy() {
 // 处理每条item
 func (x *IteratorNode) executeItem(ctx types.RuleContext, msg types.RuleMsg, item interface{}, index interface{}) error {
 	if x.jsEngine != nil {
-		if out, err := x.jsEngine.Execute(ctx, "ItemFilter", item, index, msg.Metadata.Values()); err != nil {
+		// 使用零拷贝GetReadOnlyValues，JS引擎只读取metadata
+		if out, err := x.jsEngine.Execute(ctx, "ItemFilter", item, index, msg.Metadata.GetReadOnlyValues()); err != nil {
 			ctx.TellFailure(msg, err)
 			//出现错误中断遍历
 			return err
