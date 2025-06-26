@@ -425,7 +425,7 @@ func TestNotDebugModel(t *testing.T) {
 func TestGetNodeId(t *testing.T) {
 	parser := JsonParser{}
 	def, _ := parser.DecodeRuleChain([]byte(ruleChainFile))
-	ctx, err := InitRuleChainCtx(NewConfig(), nil, &def)
+	ctx, err := InitRuleChainCtx(NewConfig(), types.NewAspectList(nil), &def)
 	assert.Nil(t, err)
 	nodeCtx, ok := ctx.GetNodeById(types.RuleNodeId{Id: "s1", Type: types.NODE})
 	assert.True(t, ok)
@@ -1010,6 +1010,300 @@ func TestOnDebug(t *testing.T) {
 		snapshotWg.Wait()
 		onDebugWg.Wait()
 		onDebugConfigWg.Wait()
+	})
+
+	// 新增：规则链刷新并发安全测试
+	t.Run("callbacksConcurrencyWithReload", func(t *testing.T) {
+		// 为并发测试创建独立的配置，避免与其他测试冲突
+		concurrencyConfig := NewConfig(types.WithDefaultPool())
+		var debugCount int64
+		concurrencyConfig.OnDebug = func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			// 只记录调试回调的执行次数，避免WaitGroup问题
+			if flowType == types.Out && (nodeId == "s1" || nodeId == "s2") {
+				atomic.AddInt64(&debugCount, 1)
+			}
+		}
+
+		// 使用原子计数器避免数据竞争
+		var ruleChainCompletedCount int64
+		var nodeCompletedCount int64
+		var nodeDebugCount int64
+		var errorCount int64
+
+		// 创建专用的规则引擎实例，避免与其他测试冲突
+		testEngine, err := New("testCallbacksConcurrency", []byte(ruleChainFile), WithConfig(concurrencyConfig))
+		assert.Nil(t, err)
+
+		// 测试消息处理和规则链刷新的并发安全性
+		var wg sync.WaitGroup
+
+		// 启动多个并发的消息处理goroutine
+		for i := 0; i < 10; i++ {
+			wg.Add(1)
+			go func(index int) {
+				defer wg.Done()
+
+				// 为每个消息设置不同的元数据以便追踪
+				msgMetaData := types.NewMetadata()
+				msgMetaData.PutValue("productType", fmt.Sprintf("test%02d", index))
+				msgMetaData.PutValue("goroutineIndex", fmt.Sprintf("%d", index))
+
+				testMsg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, msgMetaData,
+					fmt.Sprintf("{\"temperature\":41,\"humidity\":90,\"index\":%d}", index))
+
+				testEngine.OnMsg(testMsg,
+					types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
+						// 验证快照内容完整性
+						if len(snapshot.Logs) != 2 {
+							atomic.AddInt64(&errorCount, 1)
+							return
+						}
+
+						// 验证节点执行顺序和关系类型
+						foundS1, foundS2 := false, false
+						for _, log := range snapshot.Logs {
+							if log.Id == "s1" && log.RelationType == types.True {
+								foundS1 = true
+							}
+							if log.Id == "s2" && log.RelationType == types.Success {
+								foundS2 = true
+							}
+						}
+
+						if foundS1 && foundS2 {
+							atomic.AddInt64(&ruleChainCompletedCount, 1)
+						} else {
+							atomic.AddInt64(&errorCount, 1)
+						}
+					}),
+					types.WithOnNodeCompleted(func(ctx types.RuleContext, nodeRunLog types.RuleNodeRunLog) {
+						// 验证节点日志的一致性
+						if nodeRunLog.Id == "s1" && nodeRunLog.RelationType == types.True {
+							atomic.AddInt64(&nodeCompletedCount, 1)
+						} else if nodeRunLog.Id == "s2" && nodeRunLog.RelationType == types.Success {
+							atomic.AddInt64(&nodeCompletedCount, 1)
+						} else {
+							atomic.AddInt64(&errorCount, 1)
+						}
+					}),
+					types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+						// 验证调试回调的数据一致性
+						if flowType == types.Out {
+							if (nodeId == "s1" && relationType == types.True) ||
+								(nodeId == "s2" && relationType == types.Success) {
+								atomic.AddInt64(&nodeDebugCount, 1)
+							} else {
+								atomic.AddInt64(&errorCount, 1)
+							}
+						}
+					}))
+			}(i)
+		}
+
+		// 启动规则链刷新goroutine，模拟实际使用中的热更新场景
+		reloadWg := sync.WaitGroup{}
+		reloadWg.Add(1)
+		go func() {
+			defer reloadWg.Done()
+			// 在消息处理过程中进行多次规则链刷新
+			for j := 0; j < 3; j++ {
+				time.Sleep(10 * time.Millisecond) // 让部分消息开始处理
+
+				// 刷新规则链，测试是否影响正在执行的回调
+				err := testEngine.ReloadSelf([]byte(ruleChainFile))
+				if err != nil {
+					atomic.AddInt64(&errorCount, 1)
+					t.Errorf("规则链刷新失败: %v", err)
+				}
+
+				time.Sleep(5 * time.Millisecond)
+			}
+		}()
+
+		// 等待所有消息处理完成
+		wg.Wait()
+		reloadWg.Wait()
+
+		// 等待异步回调完成
+		time.Sleep(100 * time.Millisecond)
+
+		// 验证结果
+		finalRuleChainCount := atomic.LoadInt64(&ruleChainCompletedCount)
+		finalNodeCount := atomic.LoadInt64(&nodeCompletedCount)
+		finalDebugCount := atomic.LoadInt64(&nodeDebugCount)
+		finalErrorCount := atomic.LoadInt64(&errorCount)
+
+		// 验证回调执行的完整性和一致性
+		assert.Equal(t, int64(10), finalRuleChainCount, "规则链完成回调应该执行10次")
+		assert.Equal(t, int64(20), finalNodeCount, "节点完成回调应该执行20次(每个消息2个节点)")
+		assert.Equal(t, int64(20), finalDebugCount, "调试回调应该执行20次(每个消息2个节点)")
+		assert.Equal(t, int64(0), finalErrorCount, "不应该有任何错误")
+	})
+
+	// 新增：测试规则链刷新后回调设置的有效性
+	t.Run("callbacksAfterReload", func(t *testing.T) {
+		// 为重载测试创建独立的配置
+		reloadConfig := NewConfig(types.WithDefaultPool())
+
+		// 创建专用的规则链定义，确保ID匹配
+		reloadRuleChainFile := `{
+          "ruleChain": {
+            "id": "testCallbacksAfterReload",
+            "name": "testCallbacksAfterReload",
+            "debugMode": true,
+            "root": true,
+            "disabled": false
+          },
+          "metadata": {
+            "firstNodeIndex": 0,
+            "nodes": [
+              {
+                "id": "s1",
+                "type": "jsFilter",
+                "name": "过滤",
+                "debugMode": true,
+                "configuration": {
+                  "jsScript": "return msg.temperature>10;"
+                }
+              },
+              {
+                "id": "s2",
+                "type": "jsTransform",
+                "name": "转换",
+                "debugMode": true,
+                "configuration": {
+                  "jsScript": "msgType='TEST_MSG_TYPE';var msg2={};\n  msg2['aa']=66\n return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+                }
+              }
+            ],
+            "connections": [
+              {
+                "fromId": "s1",
+                "toId": "s2",
+                "type": "True"
+              }
+            ]
+          }
+        }`
+
+		testEngine, err := New("testCallbacksAfterReload", []byte(reloadRuleChainFile), WithConfig(reloadConfig))
+		assert.Nil(t, err)
+
+		// 创建独立的测试消息
+		reloadTestMetaData := types.NewMetadata()
+		reloadTestMetaData.PutValue("productType", "test01")
+		reloadTestMsg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, reloadTestMetaData, "{\"temperature\":41,\"humidity\":90}")
+
+		// 第一次设置回调并执行
+		var beforeReloadCount int64
+		testEngine.OnMsg(reloadTestMsg, types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
+			atomic.AddInt64(&beforeReloadCount, 1)
+		}))
+
+		// 等待第一次执行完成
+		time.Sleep(50 * time.Millisecond)
+		assert.Equal(t, int64(1), atomic.LoadInt64(&beforeReloadCount))
+
+		// 刷新规则链
+		err = testEngine.ReloadSelf([]byte(reloadRuleChainFile))
+		assert.Nil(t, err)
+
+		// 刷新后设置新的回调并执行
+		var afterReloadCount int64
+		testEngine.OnMsg(reloadTestMsg, types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
+			atomic.AddInt64(&afterReloadCount, 1)
+			// 验证刷新后的规则链ID保持一致
+			assert.Equal(t, "testCallbacksAfterReload", ctx.RuleChain().GetNodeId().Id)
+			// 验证快照数据的完整性
+			assert.Equal(t, 2, len(snapshot.Logs))
+		}))
+
+		// 等待第二次执行完成
+		time.Sleep(50 * time.Millisecond)
+		assert.Equal(t, int64(1), atomic.LoadInt64(&afterReloadCount))
+
+	})
+
+	// 新增：测试极端并发场景下的数据竞争
+	t.Run("extremeConcurrencyTest", func(t *testing.T) {
+		// 为极端并发测试创建独立的配置
+		extremeConfig := NewConfig(types.WithDefaultPool())
+		testEngine, err := New("testExtremeConcurrency", []byte(ruleChainFile), WithConfig(extremeConfig))
+		assert.Nil(t, err)
+
+		var totalCallbacks int64
+		var totalErrors int64
+		const goroutineCount = 50
+		const messagesPerGoroutine = 20
+
+		var wg sync.WaitGroup
+
+		// 大量并发消息处理
+		for i := 0; i < goroutineCount; i++ {
+			wg.Add(1)
+			go func(gIndex int) {
+				defer wg.Done()
+
+				for j := 0; j < messagesPerGoroutine; j++ {
+					msgMetaData := types.NewMetadata()
+					msgMetaData.PutValue("productType", fmt.Sprintf("extreme_%d_%d", gIndex, j))
+
+					testMsg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, msgMetaData,
+						fmt.Sprintf("{\"temperature\":41,\"humidity\":90,\"g\":%d,\"m\":%d}", gIndex, j))
+
+					testEngine.OnMsg(testMsg,
+						types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
+							if len(snapshot.Logs) == 2 {
+								atomic.AddInt64(&totalCallbacks, 1)
+							} else {
+								atomic.AddInt64(&totalErrors, 1)
+							}
+						}),
+						types.WithOnNodeCompleted(func(ctx types.RuleContext, nodeRunLog types.RuleNodeRunLog) {
+							// 简单验证，避免过多检查影响性能
+							if nodeRunLog.Id == "s1" || nodeRunLog.Id == "s2" {
+								atomic.AddInt64(&totalCallbacks, 1)
+							} else {
+								atomic.AddInt64(&totalErrors, 1)
+							}
+						}))
+				}
+			}(i)
+		}
+
+		// 并发规则链刷新
+		reloadWg := sync.WaitGroup{}
+		reloadWg.Add(1)
+		go func() {
+			defer reloadWg.Done()
+			for k := 0; k < 10; k++ {
+				time.Sleep(20 * time.Millisecond)
+				err := testEngine.ReloadSelf([]byte(ruleChainFile))
+				if err != nil {
+					atomic.AddInt64(&totalErrors, 1)
+				}
+			}
+		}()
+
+		wg.Wait()
+		reloadWg.Wait()
+
+		// 等待所有异步回调完成
+		time.Sleep(200 * time.Millisecond)
+
+		finalCallbacks := atomic.LoadInt64(&totalCallbacks)
+		finalErrors := atomic.LoadInt64(&totalErrors)
+
+		expectedRuleChainCallbacks := int64(goroutineCount * messagesPerGoroutine)
+		expectedNodeCallbacks := int64(goroutineCount * messagesPerGoroutine * 2) // 每个消息2个节点
+		expectedTotalCallbacks := expectedRuleChainCallbacks + expectedNodeCallbacks
+
+		// 在高并发场景下，允许少量误差，但错误率应该很低
+		callbackSuccessRate := float64(finalCallbacks) / float64(expectedTotalCallbacks)
+		assert.True(t, callbackSuccessRate > 0.95,
+			fmt.Sprintf("回调成功率应该大于95%%, 实际: %.2f%%", callbackSuccessRate*100))
+		assert.True(t, finalErrors < expectedTotalCallbacks/10,
+			fmt.Sprintf("错误率应该小于10%%, 实际错误: %d", finalErrors))
 	})
 }
 

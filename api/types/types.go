@@ -210,10 +210,6 @@ type RuleContext interface {
 	SetOnAllNodeCompleted(onAllNodeCompleted func())
 	// DoOnEnd triggers the OnEnd callback function.
 	DoOnEnd(msg RuleMsg, err error, relationType string)
-	// SetCallbackFunc sets a callback function.
-	SetCallbackFunc(functionName string, f interface{})
-	// GetCallbackFunc retrieves a callback function.
-	GetCallbackFunc(functionName string) interface{}
 	// OnDebug calls the configured OnDebug callback function.
 	OnDebug(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)
 	// SetExecuteNode sets the current node.
@@ -237,6 +233,9 @@ type RuleContext interface {
 	// GetEnv gets environment variables and metadata from message
 	// useMetadata: whether to include metadata in the result
 	GetEnv(msg RuleMsg, useMetadata bool) map[string]interface{}
+	// GetAspects retrieves the aspects list for callback registration
+	// GetAspects 获取切面列表，用于回调注册
+	GetAspects() AspectList
 }
 
 // RuleContextOption is a function type for modifying RuleContext options.
@@ -279,21 +278,63 @@ func WithOnAllNodeCompleted(onAllNodeCompleted func()) RuleContextOption {
 // WithOnRuleChainCompleted is a callback function for when the rule chain execution completes and collects the runtime logs of each node.
 func WithOnRuleChainCompleted(onCallback func(ctx RuleContext, snapshot RuleChainRunSnapshot)) RuleContextOption {
 	return func(rc RuleContext) {
-		rc.SetCallbackFunc(CallbackFuncOnRuleChainCompleted, onCallback)
+		// 优化：使用类型断言检查是否支持缓存访问，避免重复遍历AspectList
+		if ctx, ok := rc.(interface {
+			GetRuleChainListeners() []RuleChainCompletedListener
+		}); ok {
+			// 使用缓存的监听器，提升性能
+			for _, listener := range ctx.GetRuleChainListeners() {
+				listener.SetOnRuleChainCompleted(onCallback)
+			}
+		} else {
+			// 回退到原有方法，保持兼容性
+			aspects := rc.GetAspects()
+			for _, listener := range aspects.GetRuleChainCompletedListeners() {
+				listener.SetOnRuleChainCompleted(onCallback)
+			}
+		}
 	}
 }
 
 // WithOnNodeCompleted is a callback function for when a node execution completes and collects the node's runtime log.
 func WithOnNodeCompleted(onCallback func(ctx RuleContext, nodeRunLog RuleNodeRunLog)) RuleContextOption {
 	return func(rc RuleContext) {
-		rc.SetCallbackFunc(CallbackFuncOnNodeCompleted, onCallback)
+		// 优化：使用类型断言检查是否支持缓存访问，避免重复遍历AspectList
+		if ctx, ok := rc.(interface {
+			GetNodeListeners() []NodeCompletedListener
+		}); ok {
+			// 使用缓存的监听器，提升性能
+			for _, listener := range ctx.GetNodeListeners() {
+				listener.SetOnNodeCompleted(onCallback)
+			}
+		} else {
+			// 回退到原有方法，保持兼容性
+			aspects := rc.GetAspects()
+			for _, listener := range aspects.GetNodeCompletedListeners() {
+				listener.SetOnNodeCompleted(onCallback)
+			}
+		}
 	}
 }
 
 // WithOnNodeDebug is a callback function for node debug logs, called in real-time asynchronously. It is triggered only if the node is configured with debugMode.
 func WithOnNodeDebug(onDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)) RuleContextOption {
 	return func(rc RuleContext) {
-		rc.SetCallbackFunc(CallbackFuncDebug, onDebug)
+		// 优化：使用类型断言检查是否支持缓存访问，避免重复遍历AspectList
+		if ctx, ok := rc.(interface {
+			GetDebugListeners() []DebugListener
+		}); ok {
+			// 使用缓存的监听器，提升性能
+			for _, listener := range ctx.GetDebugListeners() {
+				listener.SetOnDebug(onDebug)
+			}
+		} else {
+			// 回退到原有方法，保持兼容性
+			aspects := rc.GetAspects()
+			for _, listener := range aspects.GetDebugListeners() {
+				listener.SetOnDebug(onDebug)
+			}
+		}
 	}
 }
 

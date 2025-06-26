@@ -18,12 +18,13 @@ package engine
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"strings"
-	"testing"
 )
 
 func TestChainCtx(t *testing.T) {
@@ -44,12 +45,12 @@ func TestChainCtx(t *testing.T) {
 				Type:   types.True,
 			},
 		}
-		ctx, _ := InitRuleChainCtx(NewConfig(), nil, &ruleChainDef)
+		ctx, _ := InitRuleChainCtx(NewConfig(), types.NewAspectList(nil), &ruleChainDef)
 		ctx.New()
 	})
 
 	t.Run("Init", func(t *testing.T) {
-		ctx, _ := InitRuleChainCtx(NewConfig(), nil, &ruleChainDef)
+		ctx, _ := InitRuleChainCtx(NewConfig(), types.NewAspectList(nil), &ruleChainDef)
 		newRuleChainDef := types.RuleChain{}
 		err := ctx.Init(NewConfig(), types.Configuration{"selfDefinition": &newRuleChainDef})
 		assert.Nil(t, err)
@@ -62,7 +63,7 @@ func TestChainCtx(t *testing.T) {
 	})
 
 	t.Run("ReloadChildNotFound", func(t *testing.T) {
-		ctx, _ := InitRuleChainCtx(NewConfig(), nil, &ruleChainDef)
+		ctx, _ := InitRuleChainCtx(NewConfig(), types.NewAspectList(nil), &ruleChainDef)
 		newRuleChainDef := types.RuleChain{}
 		err := ctx.Init(NewConfig(), types.Configuration{"selfDefinition": &newRuleChainDef})
 		assert.Nil(t, err)
@@ -113,7 +114,7 @@ func TestChainCtx(t *testing.T) {
 		jsonParser := JsonParser{}
 		def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 		assert.Nil(t, err)
-		ruleChainCtx, _ := InitRuleChainCtx(config, nil, &def)
+		ruleChainCtx, _ := InitRuleChainCtx(config, types.NewAspectList(nil), &def)
 		nodeDsl := []byte(`
  			{
                 "id": "s1",

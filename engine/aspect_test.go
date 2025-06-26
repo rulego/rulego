@@ -104,12 +104,12 @@ func TestSkipFallbackAspect(t *testing.T) {
 }
 
 func TestAspectOrder(t *testing.T) {
-	var aspects = types.AspectList{
+	var aspects = types.NewAspectList([]types.Aspect{
 		&NodeAspect2{Name: "NodeAspect2"},
 		&NodeAspect1{Name: "NodeAspect1"},
 		&ChainAspect{Name: "ChainAspect"},
 		&EngineAspect{Name: "EngineAspect"},
-	}
+	})
 	onChainBeforeCreate, onNodeBeforeCreate, onCreated, onAfterReload, onDestroy := aspects.GetEngineAspects()
 	assert.Equal(t, len(onChainBeforeCreate), 1)
 	assert.Equal(t, len(onNodeBeforeCreate), 1)

@@ -18,11 +18,12 @@ package engine
 
 import (
 	"context"
+	"strings"
+	"testing"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/json"
-	"strings"
-	"testing"
 )
 
 func TestParser(t *testing.T) {
@@ -31,7 +32,7 @@ func TestParser(t *testing.T) {
 	def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 	assert.Nil(t, err)
 	assert.True(t, def.RuleChain.DebugMode)
-	ruleChainCtx, err := InitRuleChainCtx(config, nil, &def)
+	ruleChainCtx, err := InitRuleChainCtx(config, types.NewAspectList(nil), &def)
 	ruleChainCtx.Init(config, types.Configuration{})
 
 	chainNodeJson, err := jsonParser.EncodeRuleChain(ruleChainCtx.SelfDefinition)
@@ -49,7 +50,7 @@ func TestParser(t *testing.T) {
 	//找不到组件的规则链测试
 	notFoundComponent := strings.Replace(ruleChainFile, "\"type\": \"jsFilter\"", "\"type\": \"noFound\"", -1)
 	def, err = jsonParser.DecodeRuleChain([]byte(notFoundComponent))
-	_, err = InitRuleChainCtx(config, nil, &def)
+	_, err = InitRuleChainCtx(config, types.NewAspectList(nil), &def)
 	assert.NotNil(t, err)
 
 	_, err = jsonParser.DecodeRuleNode([]byte("{"))

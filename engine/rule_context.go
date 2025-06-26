@@ -182,53 +182,23 @@ type joinNodeCallback struct {
 
 // DefaultRuleContext is the default context for message processing in the rule engine.
 type DefaultRuleContext struct {
-	// Context for sharing semaphores and data across different components.
-	context context.Context
-	// Configuration settings for the rule engine.
-	config types.Config
-	// Context of the root rule chain.
-	ruleChainCtx *RuleChainCtx
-	// Context of the previous node.
-	from types.NodeCtx
-	// Context of the current node.
-	self types.NodeCtx
-	// Indicates if this is the first node in the chain.
-	isFirst bool
-	// Goroutine pool for concurrent execution.
-	pool types.Pool
-	// Callback function for when the rule chain branch processing ends.
-	onEnd types.OnEndFunc
-	// Count of child nodes that have not yet completed execution.
-	waitingCount int32
-	// Parent rule context.
-	parentRuleCtx *DefaultRuleContext
-	// Event that triggers once when all child nodes have completed, executed only once.
-	onAllNodeCompleted func()
-	// Indicates if the onAllNodeCompleted function has been executed.
-	onAllNodeCompletedDone int32
-	// Pool for sub-rule chains.
-	ruleChainPool types.RuleEnginePool
-	// Indicates whether to skip executing child nodes, default is false.
-	skipTellNext bool
-	// List of aspects.
-	aspects types.AspectList
-	// List of around aspects.
-	aroundAspects []types.AroundAspect
-	// List of before aspects.
-	beforeAspects []types.BeforeAspect
-	// List of after aspects.
-	afterAspects []types.AfterAspect
-	// Runtime snapshot for debugging and logging.
-	runSnapshot *RunSnapshot
-	// Observer for join nodes - 延迟初始化
-	observer *ContextObserver
-	// first node relationType
-	relationTypes []string
-	// OUT msg
-	out types.RuleMsg
-	// IN or OUT err
-	err        error
-	chainCache types.Cache
+	// 共享的不可变状态
+	*SharedContextState
+
+	// 节点特定的可变状态
+	context                context.Context     // 上下文
+	from                   types.NodeCtx       // 前一个节点
+	self                   types.NodeCtx       // 当前节点
+	isFirst                bool                // 是否第一个节点
+	onEnd                  types.OnEndFunc     // 结束回调
+	waitingCount           int32               // 等待子节点数量
+	parentRuleCtx          *DefaultRuleContext // 父规则上下文
+	onAllNodeCompleted     func()              // 所有节点完成回调
+	onAllNodeCompletedDone int32               // 所有节点完成标志
+	skipTellNext           bool                // 是否跳过下一个节点
+	relationTypes          []string            // 关系类型
+	out                    types.RuleMsg       // 输出消息
+	err                    error               // 错误
 }
 
 func (ctx *DefaultRuleContext) GlobalCache() types.Cache {
@@ -249,142 +219,72 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 		chainId = ruleChainCtx.GetNodeId().Id
 	}
 	// If no aspects are defined, use built-in aspects.
-	if len(aspects) == 0 {
+	if aspects.Len() == 0 {
+		var builtinAspects []types.Aspect
 		for _, builtinsAspect := range BuiltinsAspects {
-			aspects = append(aspects, builtinsAspect.New())
+			builtinAspects = append(builtinAspects, builtinsAspect.New())
 		}
+		aspects = types.NewAspectList(builtinAspects)
 	}
 	// Get node-specific aspects.
 	aroundAspects, beforeAspects, afterAspects := aspects.GetNodeAspects()
+
 	var chainCache types.Cache
 	if chainId != "" {
 		chainCache = cache.NewNamespaceCache(config.Cache, chainId+types.NamespaceSeparator)
 	}
-	// Return a new DefaultRuleContext populated with the provided parameters and aspects.
-	return &DefaultRuleContext{
-		context:       context,
+
+	// 创建共享的不可变状态
+	sharedState := &SharedContextState{
 		config:        config,
 		ruleChainCtx:  ruleChainCtx,
-		from:          from,
-		self:          self,
-		isFirst:       from == nil,
 		pool:          pool,
-		onEnd:         onEnd,
 		ruleChainPool: ruleChainPool,
+		chainCache:    chainCache,
 		aspects:       aspects,
 		aroundAspects: aroundAspects,
 		beforeAspects: beforeAspects,
 		afterAspects:  afterAspects,
 		observer:      &ContextObserver{},
-		chainCache:    chainCache,
 	}
-}
 
-// RunSnapshot holds the state and logs for a rule chain execution.
-type RunSnapshot struct {
-	// Unique identifier for the message being processed.
-	msgId string
-	// Context of the rule chain being executed.
-	chainCtx *RuleChainCtx
-	// Timestamp marking the start of execution.
-	startTs int64
-	// Callback function for when the rule chain execution is completed.
-	onRuleChainCompletedFunc func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot)
-	// Callback function for when a node execution is completed.
-	onNodeCompletedFunc func(ctx types.RuleContext, nodeRunLog types.RuleNodeRunLog)
-	// Logs for each node's execution.
-	logs map[string]*types.RuleNodeRunLog
-	// Custom debug callback function.
-	onDebugCustomFunc func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error)
-	// Lock for synchronizing access to logs.
-	lock sync.RWMutex
-}
+	// Return a new DefaultRuleContext populated with the provided parameters and aspects.
+	ruleContext := &DefaultRuleContext{
+		SharedContextState: sharedState,
+		context:            context,
+		from:               from,
+		self:               self,
+		isFirst:            from == nil,
+		onEnd:              onEnd,
+	}
 
-// NewRunSnapshot creates a new instance of RunSnapshot with the given parameters.
-func NewRunSnapshot(msgId string, chainCtx *RuleChainCtx, startTs int64) *RunSnapshot {
-	runSnapshot := &RunSnapshot{
-		msgId:    msgId,
-		chainCtx: chainCtx,
-		startTs:  startTs,
-	}
-	// Initialize the logs map.
-	runSnapshot.logs = make(map[string]*types.RuleNodeRunLog)
-	return runSnapshot
-}
+	// 执行级别的切面实例创建（仅在需要时，一次遍历完成）
+	aspectsSlice := aspects.Aspects()
+	var newAspectsSlice []types.Aspect
 
-// needCollectRunSnapshot determines if there is a need to collect a snapshot of the rule chain execution.
-func (r *RunSnapshot) needCollectRunSnapshot() bool {
-	return r.onRuleChainCompletedFunc != nil || r.onNodeCompletedFunc != nil
-}
-
-// collectRunSnapshot collects a snapshot of the rule node's execution state.
-func (r *RunSnapshot) collectRunSnapshot(ctx types.RuleContext, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-	if !r.needCollectRunSnapshot() {
-		return
-	}
-	r.lock.RLock()
-	nodeLog, ok := r.logs[nodeId]
-	r.lock.RUnlock()
-	if !ok {
-		nodeLog = &types.RuleNodeRunLog{
-			Id: nodeId,
-		}
-		r.lock.Lock()
-		r.logs[nodeId] = nodeLog
-		r.lock.Unlock()
-	}
-	// If the flow type is 'In', update the log with the incoming message and timestamp.
-	if flowType == types.In {
-		nodeLog.InMsg = msg
-		nodeLog.StartTs = time.Now().UnixMilli()
-	}
-	// If the flow type is 'Out', update the log with the outgoing message, relation type, and timestamp.
-	if flowType == types.Out {
-		nodeLog.OutMsg = msg
-		nodeLog.RelationType = relationType
-		if err != nil {
-			nodeLog.Err = err.Error()
-		}
-		nodeLog.EndTs = time.Now().UnixMilli()
-		if r.onNodeCompletedFunc != nil {
-			r.onNodeCompletedFunc(ctx, *nodeLog)
+	// 一次遍历：检查并创建执行特定的实例（延迟分配策略）
+	for i, aspect := range aspectsSlice {
+		if initAspect, ok := aspect.(types.RuleContextInitAspect); ok {
+			// 第一次发现需要RuleContext初始化的切面时，才创建副本
+			if newAspectsSlice == nil {
+				newAspectsSlice = make([]types.Aspect, len(aspectsSlice))
+				copy(newAspectsSlice, aspectsSlice)
+			}
+			// 创建执行特定的实例，替换引擎级的模板实例
+			executionInstance := initAspect.InitWithContext(ruleContext)
+			newAspectsSlice[i] = executionInstance
 		}
 	}
-	// If the flow type is 'Log', append the log item to the node's log items.
-	if flowType == types.Log {
-		nodeLog.LogItems = append(nodeLog.LogItems, msg.GetData())
-	}
-}
 
-// onDebugCustom invokes the custom debug function with the provided parameters.
-func (r *RunSnapshot) onDebugCustom(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-	if r.onDebugCustomFunc != nil {
-		r.onDebugCustomFunc(ruleChainId, flowType, nodeId, msg, relationType, err)
+	// 只有在确实创建了新实例时才更新共享状态
+	if newAspectsSlice != nil {
+		// 使用包含执行特定实例的切面列表重新创建 AspectList
+		sharedState.aspects = types.NewAspectList(newAspectsSlice)
+		// 重新提取节点级切面（因为有新的执行特定实例）
+		sharedState.aroundAspects, sharedState.beforeAspects, sharedState.afterAspects = sharedState.aspects.GetNodeAspects()
 	}
-}
 
-// createRuleChainRunLog creates a log of the entire rule chain's execution.
-func (r *RunSnapshot) createRuleChainRunLog(endTs int64) types.RuleChainRunSnapshot {
-	var logs []types.RuleNodeRunLog
-	for _, item := range r.logs {
-		logs = append(logs, *item)
-	}
-	ruleChainRunLog := types.RuleChainRunSnapshot{
-		RuleChain: *r.chainCtx.SelfDefinition,
-		Id:        r.msgId,
-		StartTs:   r.startTs,
-		EndTs:     endTs,
-		Logs:      logs,
-	}
-	return ruleChainRunLog
-
-}
-
-// onRuleChainCompleted is called when the rule chain execution is completed.
-func (r *RunSnapshot) onRuleChainCompleted(ctx types.RuleContext) {
-	if r.onRuleChainCompletedFunc != nil {
-		r.onRuleChainCompletedFunc(ctx, r.createRuleChainRunLog(time.Now().UnixMilli()))
-	}
+	return ruleContext
 }
 
 // NewNextNodeRuleContext creates a new instance of RuleContext for the next node in the rule engine.
@@ -392,28 +292,17 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 	// Create a new context directly instead of using object pool to avoid data races
 	// 但是复用不可变的共享状态以减少内存开销
 	nextCtx := &DefaultRuleContext{
-		config:        ctx.config,       // 共享配置，不可变
-		ruleChainCtx:  ctx.ruleChainCtx, // 共享规则链上下文
+		// 直接共享不可变状态
+		SharedContextState: ctx.SharedContextState,
+
+		// 设置节点特定的可变状态
+		context:       ctx.context,
 		from:          ctx.self,
 		self:          nextNode,
-		pool:          ctx.pool, // 共享协程池
 		onEnd:         ctx.onEnd,
-		ruleChainPool: ctx.ruleChainPool, // 共享规则链池
-		context:       ctx.context,       // 直接复用context，避免调用GetContext()
 		parentRuleCtx: ctx,
 		skipTellNext:  ctx.skipTellNext,
-
-		// 共享切面列表，它们在运行时不会改变
-		aroundAspects: ctx.aroundAspects,
-		beforeAspects: ctx.beforeAspects,
-		afterAspects:  ctx.afterAspects,
-
-		// 共享运行时状态
-		runSnapshot: ctx.runSnapshot,
-		// 子context共享observer
-		observer:   ctx.observer, // 共享observer实例
-		err:        ctx.err,
-		chainCache: ctx.chainCache, // 共享缓存
+		err:           ctx.err,
 	}
 
 	return nextCtx
@@ -562,10 +451,16 @@ func (ctx *DefaultRuleContext) TellFlow(chanCtx context.Context, ruleChainId str
 // onAllNodeCompleted 所以节点执行完触发，无结果返回
 func (ctx *DefaultRuleContext) TellNode(chanCtx context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc, onAllNodeCompleted func()) {
 	if nodeCtx, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
-		rootCtxCopy := NewRuleContext(chanCtx, ctx.config, ctx.ruleChainCtx, nil, nodeCtx, ctx.pool, onEnd, ctx.ruleChainPool)
-		rootCtxCopy.onAllNodeCompleted = onAllNodeCompleted
-		//Whether to only execute the current node
-		rootCtxCopy.skipTellNext = skipTellNext
+		// 优化：复用现有的SharedContextState，避免重新创建切面数据
+		rootCtxCopy := &DefaultRuleContext{
+			SharedContextState: ctx.SharedContextState, // 共享切面数据，避免内存浪费
+			context:            chanCtx,
+			self:               nodeCtx,
+			isFirst:            true, // 作为新的起始节点
+			onEnd:              onEnd,
+			onAllNodeCompleted: onAllNodeCompleted,
+			skipTellNext:       skipTellNext,
+		}
 		rootCtxCopy.tell(msg, nil, "")
 	} else {
 		if onEnd != nil {
@@ -669,77 +564,17 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 	}
 }
 
-func (ctx *DefaultRuleContext) SetCallbackFunc(functionName string, f interface{}) {
-	if ctx.runSnapshot != nil {
-		switch functionName {
-		case types.CallbackFuncOnRuleChainCompleted:
-			if targetFunc, ok := f.(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot)); ok {
-				ctx.runSnapshot.onRuleChainCompletedFunc = targetFunc
-			}
-		case types.CallbackFuncOnNodeCompleted:
-			if targetFunc, ok := f.(func(ctx types.RuleContext, nodeRunLog types.RuleNodeRunLog)); ok {
-				ctx.runSnapshot.onNodeCompletedFunc = targetFunc
-			}
-		case types.CallbackFuncDebug:
-			if targetFunc, ok := f.(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error)); ok {
-				ctx.runSnapshot.onDebugCustomFunc = targetFunc
-			}
-		}
-	}
-}
-
-func (ctx *DefaultRuleContext) GetCallbackFunc(functionName string) interface{} {
-	if ctx.runSnapshot != nil {
-		switch functionName {
-		case types.CallbackFuncOnRuleChainCompleted:
-			return ctx.runSnapshot.onRuleChainCompletedFunc
-		case types.CallbackFuncOnNodeCompleted:
-			return ctx.runSnapshot.onNodeCompletedFunc
-		case types.CallbackFuncDebug:
-			return ctx.runSnapshot.onDebugCustomFunc
-		default:
-			return nil
-		}
-	}
-	return nil
-}
-
 func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-	// 在方法开始时就缓存runSnapshot引用，避免并发竞态条件
-	runSnapshot := ctx.runSnapshot
-
-	// 智能拷贝优化：只有在真正需要时才拷贝消息
-	needsAsyncDebug := ctx.IsDebugMode() && ctx.config.OnDebug != nil
-	needsSnapshotDebug := ctx.IsDebugMode() && runSnapshot != nil && runSnapshot.onDebugCustomFunc != nil
-	needsSnapshot := runSnapshot != nil && runSnapshot.needCollectRunSnapshot()
-
-	// 只有在真正需要拷贝时才创建副本
-	var msgCopy types.RuleMsg
-	if needsAsyncDebug || needsSnapshotDebug || needsSnapshot {
-		msgCopy = msg.Copy()
-	}
-
-	if ctx.IsDebugMode() {
+	if ctx.IsDebugMode() && ctx.config.OnDebug != nil {
 		// 在提交异步任务前捕获需要的值，避免并发访问
 		onDebugFunc := ctx.config.OnDebug
+		msgCopy := msg.Copy()
 
 		//异步记录日志
-		if needsAsyncDebug || needsSnapshotDebug {
-			ctx.SubmitTask(func() {
-				if onDebugFunc != nil {
-					onDebugFunc(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
-				}
-				if runSnapshot != nil {
-					runSnapshot.onDebugCustom(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
-				}
-			})
-		}
+		ctx.SubmitTask(func() {
+			onDebugFunc(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
+		})
 	}
-	if runSnapshot != nil {
-		//记录快照
-		runSnapshot.collectRunSnapshot(ctx, flowType, nodeId, msgCopy, relationType, err)
-	}
-
 }
 
 func (ctx *DefaultRuleContext) SetExecuteNode(nodeId string, relationTypes ...string) {
@@ -954,4 +789,44 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 	// AroundAop 已经执行节点OnMsg逻辑，不在执行下面的逻辑
 
 	nextNode.OnMsg(nextCtx, msg)
+}
+
+func (ctx *DefaultRuleContext) GetAspects() types.AspectList {
+	return ctx.aspects
+}
+
+// 缓存的监听器获取方法，提升WithOnXXX方法性能
+// GetRuleChainListeners 获取规则链完成监听器（使用AspectList内置缓存）
+func (ctx *DefaultRuleContext) GetRuleChainListeners() []types.RuleChainCompletedListener {
+	return ctx.aspects.GetRuleChainCompletedListeners()
+}
+
+// GetNodeListeners 获取节点完成监听器（使用AspectList内置缓存）
+func (ctx *DefaultRuleContext) GetNodeListeners() []types.NodeCompletedListener {
+	return ctx.aspects.GetNodeCompletedListeners()
+}
+
+// GetDebugListeners 获取调试监听器（使用AspectList内置缓存）
+func (ctx *DefaultRuleContext) GetDebugListeners() []types.DebugListener {
+	return ctx.aspects.GetDebugListeners()
+}
+
+// SharedContextState 包含在 RuleContext 生命周期中不变的共享状态
+// 这些状态在创建时确定，在整个执行过程中保持不变，可以安全共享
+type SharedContextState struct {
+	// 基础配置（不可变）
+	config        types.Config         // 规则引擎配置
+	ruleChainCtx  *RuleChainCtx        // 规则链上下文
+	pool          types.Pool           // 协程池
+	ruleChainPool types.RuleEnginePool // 子规则链池
+	chainCache    types.Cache          // 链级缓存
+
+	// 切面相关（不可变）
+	aspects       types.AspectList     // 完整的切面列表（内置缓存）
+	aroundAspects []types.AroundAspect // 环绕切面
+	beforeAspects []types.BeforeAspect // 前置切面
+	afterAspects  []types.AfterAspect  // 后置切面
+
+	// join节点观察器（不可变，整个链共享）
+	observer *ContextObserver // join节点观察器
 }

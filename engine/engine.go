@@ -33,7 +33,6 @@ import (
 	"errors"
 	"reflect"
 	"sync/atomic"
-	"time"
 	"unsafe"
 
 	"github.com/rulego/rulego/utils/cache"
@@ -51,7 +50,7 @@ var _ types.RuleEngine = (*RuleEngine)(nil)
 var ErrDisabled = errors.New("the rule chain has been disabled")
 
 // BuiltinsAspects holds a list of built-in aspects for the rule engine.
-var BuiltinsAspects = []types.Aspect{&aspect.Validator{}, &aspect.Debug{}, &aspect.MetricsAspect{}}
+var BuiltinsAspects = []types.Aspect{&aspect.Validator{}, &aspect.Debug{}, &aspect.MetricsAspect{}, &aspect.RunSnapshotAspect{}}
 
 // aspectsHolder holds the aspects for atomic access
 type aspectsHolder struct {
@@ -113,7 +112,7 @@ func (e *RuleEngine) SetConfig(config types.Config) {
 }
 
 func (e *RuleEngine) SetAspects(aspects ...types.Aspect) {
-	e.Aspects = aspects
+	e.Aspects = types.NewAspectList(aspects)
 }
 
 func (e *RuleEngine) SetRuleEnginePool(ruleChainPool types.RuleEnginePool) {
@@ -136,20 +135,20 @@ func (e *RuleEngine) Reload(opts ...types.RuleEngineOption) error {
 }
 
 func (e *RuleEngine) initBuiltinsAspects() {
-	var newAspects types.AspectList
+	var newAspectsSlice []types.Aspect
 	//初始化内置切面
-	if len(e.Aspects) == 0 {
+	if e.Aspects.Len() == 0 {
 		for _, builtinsAspect := range BuiltinsAspects {
-			newAspects = append(newAspects, builtinsAspect.New())
+			newAspectsSlice = append(newAspectsSlice, builtinsAspect.New())
 		}
 	} else {
-		for _, item := range e.Aspects {
-			newAspects = append(newAspects, item.New())
+		for _, item := range e.Aspects.Aspects() {
+			newAspectsSlice = append(newAspectsSlice, item.New())
 		}
 
 		for _, builtinsAspect := range BuiltinsAspects {
 			found := false
-			for _, item := range newAspects {
+			for _, item := range newAspectsSlice {
 				//判断是否是相同类型
 				if reflect.TypeOf(item) == reflect.TypeOf(builtinsAspect) {
 					found = true
@@ -157,11 +156,11 @@ func (e *RuleEngine) initBuiltinsAspects() {
 				}
 			}
 			if !found {
-				newAspects = append(newAspects, builtinsAspect.New())
+				newAspectsSlice = append(newAspectsSlice, builtinsAspect.New())
 			}
 		}
 	}
-	e.Aspects = newAspects
+	e.Aspects = types.NewAspectList(newAspectsSlice)
 }
 
 func (e *RuleEngine) initChain(def types.RuleChain) error {
@@ -198,7 +197,7 @@ func (e *RuleEngine) ReloadSelf(dsl []byte, opts ...types.RuleEngineOption) erro
 	var err error
 	if e.Initialized() {
 		//初始化内置切面
-		if len(e.Aspects) == 0 {
+		if e.Aspects.Len() == 0 {
 			e.initBuiltinsAspects()
 		}
 		e.rootRuleChainCtx.config = e.Config
@@ -324,7 +323,7 @@ func (e *RuleEngine) RootRuleContext() types.RuleContext {
 }
 
 func (e *RuleEngine) GetMetrics() *metrics.EngineMetrics {
-	for _, aop := range e.Aspects {
+	for _, aop := range e.Aspects.Aspects() {
 		if metricsAspect, ok := aop.(*aspect.MetricsAspect); ok {
 			return metricsAspect.GetMetrics()
 		}
@@ -351,15 +350,11 @@ func (e *RuleEngine) OnMsgWithOptions(msg types.RuleMsg, opts ...types.RuleConte
 }
 
 // doOnAllNodeCompleted handles the completion of all nodes within the rule chain.
-// It executes aspects, completes the run snapshot, and triggers any custom callback functions.
+// It executes aspects and triggers any custom callback functions.
 func (e *RuleEngine) doOnAllNodeCompleted(rootCtxCopy *DefaultRuleContext, msg types.RuleMsg, customFunc func()) {
 	// Execute aspects upon completion of all nodes.
 	e.onAllNodeCompleted(rootCtxCopy, msg)
 
-	// Complete the run snapshot if it exists.
-	if rootCtxCopy.runSnapshot != nil {
-		rootCtxCopy.runSnapshot.onRuleChainCompleted(rootCtxCopy)
-	}
 	// Trigger custom callback if provided.
 	if customFunc != nil {
 		customFunc()
@@ -391,7 +386,6 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 		rootCtx := e.rootRuleChainCtx.rootRuleContext.(*DefaultRuleContext)
 		rootCtxCopy := NewRuleContext(rootCtx.GetContext(), rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, rootCtx.onEnd, e.ruleChainPool)
 		rootCtxCopy.isFirst = rootCtx.isFirst
-		rootCtxCopy.runSnapshot = NewRunSnapshot(msg.Id, rootCtxCopy.ruleChainCtx, time.Now().UnixMilli())
 		// Apply the provided options to the context copy.
 		for _, opt := range opts {
 			opt(rootCtxCopy)

@@ -150,7 +150,7 @@ func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
 	var newNodeCtx *RuleNodeCtx
 	var err error
 	if chainCtx == nil {
-		newNodeCtx, err = initRuleNodeCtx(config, nil, nil, &def, isInitNetResource)
+		newNodeCtx, err = initRuleNodeCtx(config, nil, types.NewAspectList(nil), &def, isInitNetResource)
 	} else {
 		newNodeCtx, err = initRuleNodeCtx(config, chainCtx, chainCtx.aspects, &def, isInitNetResource)
 	}

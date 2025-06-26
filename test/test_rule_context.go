@@ -328,3 +328,23 @@ func (ctx *NodeTestRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[
 
 	return envVars
 }
+
+// GetAspects 获取切面列表（测试环境返回空列表）
+func (ctx *NodeTestRuleContext) GetAspects() types.AspectList {
+	return types.NewAspectList(nil)
+}
+
+// GetRuleChainCompletedListeners 获取规则链完成监听器（测试环境返回空列表）
+func (ctx *NodeTestRuleContext) GetRuleChainCompletedListeners() []types.RuleChainCompletedListener {
+	return nil
+}
+
+// GetNodeCompletedListeners 获取节点完成监听器（测试环境返回空列表）
+func (ctx *NodeTestRuleContext) GetNodeCompletedListeners() []types.NodeCompletedListener {
+	return nil
+}
+
+// GetDebugListeners 获取调试监听器（测试环境返回空列表）
+func (ctx *NodeTestRuleContext) GetDebugListeners() []types.DebugListener {
+	return nil
+}

@@ -146,7 +146,7 @@ func TestRuleContext(t *testing.T) {
 			Type:          "log",
 			Configuration: map[string]interface{}{"Add": "add"},
 		}
-		nodeCtx, _ := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
+		nodeCtx, _ := InitRuleNodeCtx(NewConfig(), nil, types.NewAspectList(nil), &selfDefinition)
 		ruleEngine2, _ := New("TestRuleContextTellSelf", []byte(ruleChainFile), WithConfig(config))
 
 		ctx := NewRuleContext(context.Background(), config, ruleEngine2.RootRuleChainCtx().(*RuleChainCtx), nil, nodeCtx, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {

@@ -49,7 +49,7 @@ func TestNodeCtx(t *testing.T) {
 			Id:   "s1",
 			Type: "notFound",
 		}
-		_, err := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
+		_, err := InitRuleNodeCtx(NewConfig(), nil, types.NewAspectList(nil), &selfDefinition)
 		assert.Equal(t, "nodeType:notFound for id:s1 new error:component not found. componentType=notFound", err.Error())
 	})
 
@@ -64,7 +64,7 @@ func TestNodeCtx(t *testing.T) {
 			Id:   "s1",
 			Type: "log",
 		}
-		ctx, _ := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
+		ctx, _ := InitRuleNodeCtx(NewConfig(), nil, types.NewAspectList(nil), &selfDefinition)
 		ctx.ReloadChild(types.RuleNodeId{}, nil)
 	})
 
@@ -73,7 +73,7 @@ func TestNodeCtx(t *testing.T) {
 			Id:   "s1",
 			Type: "log",
 		}
-		ctx, _ := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
+		ctx, _ := InitRuleNodeCtx(NewConfig(), nil, types.NewAspectList(nil), &selfDefinition)
 		err := ctx.ReloadSelf([]byte(`{"id":"s2","type":"jsFilter"}`))
 		assert.Nil(t, err)
 		assert.Equal(t, "jsFilter", ctx.SelfDefinition.Type)
@@ -86,7 +86,7 @@ func TestNodeCtx(t *testing.T) {
 			Type:          "dbClient",
 			Configuration: types.Configuration{"sql": "xx"},
 		}
-		_, err := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
+		_, err := InitRuleNodeCtx(NewConfig(), nil, types.NewAspectList(nil), &selfDefinition)
 		assert.NotNil(t, err)
 	})
 	t.Run("reloadSelfErr", func(t *testing.T) {
@@ -94,7 +94,7 @@ func TestNodeCtx(t *testing.T) {
 			Id:   "s1",
 			Type: "log",
 		}
-		ctx, _ := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
+		ctx, _ := InitRuleNodeCtx(NewConfig(), nil, types.NewAspectList(nil), &selfDefinition)
 		err := ctx.ReloadSelf([]byte("{"))
 		assert.NotNil(t, err)
 	})
@@ -111,7 +111,7 @@ func TestNodeCtx(t *testing.T) {
 
 		jsonParser := JsonParser{}
 		def, _ := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
-		chainCtx, err := InitRuleChainCtx(config, nil, &def)
+		chainCtx, err := InitRuleChainCtx(config, types.NewAspectList(nil), &def)
 		assert.Nil(t, err)
 		result, _ = processVariables(config, chainCtx, types.Configuration{"name": "${global.name}", "ip": "${vars.ip}"})
 		assert.Equal(t, "lala", result["name"])
@@ -138,7 +138,7 @@ func TestNodeConcurrentAccess(t *testing.T) {
 	}
 
 	// 初始化节点
-	nodeCtx, err := InitRuleNodeCtx(config, nil, nil, nodeDef)
+	nodeCtx, err := InitRuleNodeCtx(config, nil, types.NewAspectList(nil), nodeDef)
 	assert.Nil(t, err)
 	assert.NotNil(t, nodeCtx)
 
