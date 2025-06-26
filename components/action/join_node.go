@@ -78,6 +78,13 @@ func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var wrapperMsg = msg.Copy()
 
 	ok := ctx.TellCollect(msg, func(msgList []types.WrapperMsg) {
+		// 检查context是否已被取消，避免无意义的计算
+		select {
+		case <-chanCtx.Done():
+			return // 提前退出，避免资源浪费
+		default:
+		}
+
 		wrapperMsg.SetDataType(types.JSON)
 		wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgList)))
 		mergeMetadata(msgList, &wrapperMsg)
