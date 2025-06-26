@@ -133,6 +133,13 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		//创建一个局部变量，避免闭包引用问题
 		index := i
 		ctx.TellNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
+			// 检查context是否已被取消，避免无意义的计算
+			select {
+			case <-chanCtx.Done():
+				return // 提前退出，避免资源浪费
+			default:
+			}
+
 			// 安全地写入msgs数组
 			errStr := ""
 			if err != nil {
@@ -181,7 +188,14 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 				wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgsCopy)))
 				mergeMetadata(msgsCopy, &wrapperMsg)
-				c <- result
+
+				// 使用非阻塞发送，防止在超时情况下channel阻塞
+				select {
+				case c <- result:
+					// 发送成功
+				default:
+					// Channel已满或无接收者（可能主函数已超时退出），放弃发送
+				}
 			}
 		}, nil)
 	}

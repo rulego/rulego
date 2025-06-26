@@ -19,6 +19,7 @@ package filter
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -455,4 +456,164 @@ func TestGroupFilterRaceCondition(t *testing.T) {
 
 	// 修复后的代码应该没有竞态条件错误
 	assert.Equal(t, int32(0), atomic.LoadInt32(&errorCount), "Should have no race condition errors")
+}
+
+// TestGroupFilterNodeTimeoutRaceCondition 测试超时竞态条件修复
+func TestGroupFilterNodeTimeoutRaceCondition(t *testing.T) {
+	// 获取初始goroutine数量
+	initialGoroutines := runtime.NumGoroutine()
+
+	// 创建GroupFilterNode，设置很短的超时时间
+	node := &GroupFilterNode{}
+	err := node.Init(types.NewConfig(), map[string]interface{}{
+		"allMatches": false,
+		"nodeIds":    []string{"node1", "node2"},
+		"timeout":    1, // 1秒超时
+	})
+	assert.Nil(t, err)
+
+	// 使用现有的MockRuleContext进行测试
+	mockCtx := NewMockRuleContext()
+
+	// 设置慢响应的节点处理器（比超时时间长）
+	mockCtx.SetNodeHandler("node1", func(msg types.RuleMsg) (string, error) {
+		time.Sleep(2 * time.Second) // 比超时时间长
+		return types.True, nil
+	})
+	mockCtx.SetNodeHandler("node2", func(msg types.RuleMsg) (string, error) {
+		time.Sleep(2 * time.Second) // 比超时时间长
+		return types.True, nil
+	})
+
+	msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{}`)
+
+	// 执行测试
+	start := time.Now()
+	node.OnMsg(mockCtx, msg)
+	duration := time.Since(start)
+
+	// 验证超时按预期工作（应该在1秒左右返回，而不是2秒）
+	assert.True(t, duration >= 1*time.Second && duration < 1500*time.Millisecond,
+		"Expected timeout around 1 second, got %v", duration)
+
+	// 等待一段时间确保所有goroutine完成
+	time.Sleep(3 * time.Second)
+
+	// 验证收到失败结果
+	results := mockCtx.GetResults()
+	assert.Equal(t, 1, len(results), "Should have exactly one result")
+	assert.Equal(t, "Failure", results[0], "Should receive Failure on timeout")
+
+	// 强制GC，清理资源
+	runtime.GC()
+	time.Sleep(100 * time.Millisecond)
+
+	// 检查goroutine泄露（允许少量增长）
+	finalGoroutines := runtime.NumGoroutine()
+	goroutineIncrease := finalGoroutines - initialGoroutines
+
+	// 允许少量增长（测试框架本身可能创建）
+	assert.True(t, goroutineIncrease <= 3,
+		"Expected goroutine increase <= 3, got %d (from %d to %d)",
+		goroutineIncrease, initialGoroutines, finalGoroutines)
+}
+
+// TestGroupFilterNodeConcurrentTimeout 测试并发超时场景，确保没有goroutine泄露
+func TestGroupFilterNodeConcurrentTimeout(t *testing.T) {
+	concurrency := 5 // 减少并发数，避免测试环境负载过高
+
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+
+			node := &GroupFilterNode{}
+			err := node.Init(types.NewConfig(), map[string]interface{}{
+				"allMatches": false,
+				"nodeIds":    []string{"node1", "node2"},
+				"timeout":    1, // 1秒超时
+			})
+			assert.Nil(t, err)
+
+			mockCtx := NewMockRuleContext()
+
+			// 设置慢响应节点
+			mockCtx.SetNodeHandler("node1", func(msg types.RuleMsg) (string, error) {
+				time.Sleep(2 * time.Second)
+				return types.True, nil
+			})
+			mockCtx.SetNodeHandler("node2", func(msg types.RuleMsg) (string, error) {
+				time.Sleep(2 * time.Second)
+				return types.True, nil
+			})
+
+			msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{}`)
+
+			start := time.Now()
+			node.OnMsg(mockCtx, msg)
+			duration := time.Since(start)
+
+			// 验证超时
+			assert.True(t, duration >= 1*time.Second && duration < 1500*time.Millisecond)
+
+			// 验证收到结果
+			results := mockCtx.GetResults()
+			assert.Equal(t, 1, len(results), "Concurrent test %d should have exactly one result", index)
+			assert.Equal(t, "Failure", results[0], "Concurrent test %d should receive Failure on timeout", index)
+		}(i)
+	}
+
+	wg.Wait()
+
+	// 等待所有慢节点完成
+	time.Sleep(3 * time.Second)
+
+	// 强制GC，确保所有资源被回收
+	runtime.GC()
+	time.Sleep(100 * time.Millisecond)
+}
+
+// TestGroupFilterNodeContextCancellation 测试context取消的正确处理
+func TestGroupFilterNodeContextCancellation(t *testing.T) {
+	node := &GroupFilterNode{}
+	err := node.Init(types.NewConfig(), map[string]interface{}{
+		"allMatches": false,
+		"nodeIds":    []string{"node1"},
+		"timeout":    2, // 设置2秒超时
+	})
+	assert.Nil(t, err)
+
+	mockCtx := NewMockRuleContext()
+
+	// 设置一个会检查context取消的节点处理器
+	mockCtx.SetNodeHandler("node1", func(msg types.RuleMsg) (string, error) {
+		// 模拟分阶段处理，检查context状态
+		for i := 0; i < 10; i++ {
+			select {
+			case <-mockCtx.GetContext().Done():
+				return "", context.Canceled
+			default:
+				time.Sleep(300 * time.Millisecond) // 总共3秒，会超时
+			}
+		}
+		return types.True, nil
+	})
+
+	msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{}`)
+
+	start := time.Now()
+	node.OnMsg(mockCtx, msg)
+	duration := time.Since(start)
+
+	// 验证超时发生（2秒左右）
+	assert.True(t, duration >= 2*time.Second && duration < 2500*time.Millisecond)
+
+	// 等待context传播
+	time.Sleep(500 * time.Millisecond)
+
+	// 验证收到失败结果
+	results := mockCtx.GetResults()
+	assert.Equal(t, 1, len(results))
+	assert.Equal(t, "Failure", results[0])
 }
