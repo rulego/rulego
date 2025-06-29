@@ -19,6 +19,9 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"plugin"
+	"sync"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/components/external"
@@ -26,8 +29,6 @@ import (
 	"github.com/rulego/rulego/components/flow"
 	"github.com/rulego/rulego/components/transform"
 	"github.com/rulego/rulego/utils/reflect"
-	"plugin"
-	"sync"
 )
 
 // PluginsSymbol is the symbol used to identify plugins in a Go plugin file.
@@ -86,44 +87,52 @@ func (r *RuleComponentRegistry) RegisterPlugin(name string, file string) error {
 		return err
 	}
 	components := builder.Components()
+
+	r.Lock()
+	defer r.Unlock()
+
+	// Check for existing components
 	for _, node := range components {
 		if _, ok := r.components[node.Type()]; ok {
 			return errors.New("the component already exists. componentType=" + node.Type())
 		}
 	}
-	for _, node := range components {
-		if err := r.Register(node); err != nil {
-			return err
-		}
-	}
 
-	r.Lock()
-	defer r.Unlock()
+	// Initialize maps if needed
+	if r.components == nil {
+		r.components = make(map[string]types.Node)
+	}
 	if r.plugins == nil {
 		r.plugins = make(map[string][]types.Node)
+	}
+
+	// Register all components
+	for _, node := range components {
+		r.components[node.Type()] = node
 	}
 	r.plugins[name] = components
 	return nil
 }
 
-// Unregister removes a component from the registry by its type.
+// Unregister removes a component from the registry by its type or plugin name.
 func (r *RuleComponentRegistry) Unregister(componentType string) error {
-	r.RLock()
-	defer r.RUnlock()
+	r.Lock()
+	defer r.Unlock()
 	var removed = false
-	// Check if the plugin exists
+
+	// Check if it's a plugin name
 	if nodes, ok := r.plugins[componentType]; ok {
 		for _, node := range nodes {
-			// Delete the plugin from the map
+			// Delete all components of this plugin
 			delete(r.components, node.Type())
 		}
 		delete(r.plugins, componentType)
 		removed = true
 	}
 
-	// Check if the plugin exists
+	// Check if it's a component type
 	if _, ok := r.components[componentType]; ok {
-		// Delete the plugin from the map
+		// Delete the component
 		delete(r.components, componentType)
 		removed = true
 	}
