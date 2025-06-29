@@ -38,41 +38,55 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// JsSwitchReturnFormatErr 如果脚本返回不是数组错误
+// JsSwitchReturnFormatErr JavaScript脚本必须返回数组
 var JsSwitchReturnFormatErr = errors.New("return the value is not an array")
 
+// init 注册JsSwitchNode组件
 func init() {
 	Registry.Add(&JsSwitchNode{})
 }
 
-// JsSwitchNodeConfiguration 节点配置
+// JsSwitchNodeConfiguration JsSwitchNode配置结构
 type JsSwitchNodeConfiguration struct {
+	// JsScript JavaScript脚本，用于确定消息路由路径
+	// 函数参数：msg, metadata, msgType, dataType
+	// 必须返回字符串数组，表示路由关系类型
+	//
+	// 内置变量：
+	//   - $ctx: 上下文对象，提供缓存操作
+	//   - global: 全局配置属性
+	//   - vars: 规则链变量
+	//   - UDF函数: 用户自定义函数
+	//
+	// 示例: "return ['route1', 'route2'];"
 	JsScript string
 }
 
-// JsSwitchNode 节点执行已配置的JS脚本。脚本应返回消息应路由到的下一个链名称的数组。
-// 如果数组为空-消息不路由到下一个节点。
-// 消息体可以通过`msg`变量访问，如果消息的dataType是json类型，可以通过 `msg.XX`方式访问msg的字段。例如:`msg.temperature > 50;`
-// 消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
-// 消息类型可以通过`msgType`变量访问.
+// JsSwitchNode 使用JavaScript确定消息路由路径的开关节点
 type JsSwitchNode struct {
-	//节点配置
-	Config              JsSwitchNodeConfiguration
-	jsEngine            types.JsEngine
+	// Config 节点配置
+	Config JsSwitchNodeConfiguration
+
+	// jsEngine JavaScript执行引擎
+	jsEngine types.JsEngine
+
+	// defaultRelationType 默认关系类型
 	defaultRelationType string
 }
 
-// Type 组件类型
+// Type 返回组件类型
 func (x *JsSwitchNode) Type() string {
 	return "jsSwitch"
 }
+
+// New 创建新实例
 func (x *JsSwitchNode) New() types.Node {
 	return &JsSwitchNode{Config: JsSwitchNodeConfiguration{
 		JsScript: `return ['msgType1','msgType2'];`,
 	}}
 }
 
-// Init 初始化
+// Init 初始化节点
 func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
@@ -87,7 +101,7 @@ func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configu
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg 处理消息，执行JavaScript脚本确定路由路径
 func (x *JsSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	// 准备传递给JS脚本的数据
 	data := base.NodeUtils.PrepareJsData(msg)
@@ -107,7 +121,7 @@ func (x *JsSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 }
 
-// Destroy 销毁
+// Destroy 清理资源
 func (x *JsSwitchNode) Destroy() {
 	x.jsEngine.Stop()
 }

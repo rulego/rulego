@@ -29,13 +29,14 @@ package action
 //  }
 import (
 	"fmt"
+	"strconv"
+	"sync"
+	"sync/atomic"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"strconv"
-	"sync"
-	"sync/atomic"
 )
 
 var DelayNodeMsgType = "DELAY_NODE_MSG_TYPE"
@@ -59,10 +60,23 @@ type DelayNodeConfiguration struct {
 	Overwrite bool
 }
 
-// DelayNode
-// 当消息的延迟期达到后，该消息将从挂起队列中删除，并通过成功链路(`Success`)路由到下一个节点。
-// 如果已经达到了最大挂起消息限制，则每个下一条消息都会通过失败链路(`Failure`)路由。
-// 如果overwrite为true，则消息会被覆盖，直到队列里的消息被处理后，才会再次进入延迟队列。
+// DelayNode 提供消息延迟能力的组件，支持静态和动态延迟时间
+// DelayNode provides message delay capabilities with configurable timing and queue management.
+//
+// 核心算法：
+// Core Algorithm:
+// 1. 消息进入挂起队列，启动延迟定时器 - Messages enter pending queue with delay timer
+// 2. 定时器到期后从队列移除并发送到Success链 - Timer expires, remove from queue and send to Success
+// 3. 覆盖模式：同一时间只保留一条消息 - Overwrite mode: only keep one message at a time
+// 4. 队列溢出时发送到Failure链 - Send to Failure on queue overflow
+//
+// 延迟机制 - Delay mechanisms:
+//   - 静态延迟：periodInSeconds - Static delay: periodInSeconds
+//   - 动态延迟：periodInSecondsPattern变量替换 - Dynamic delay: periodInSecondsPattern variable substitution
+//
+// 消息覆盖模式 - Message overwrite modes:
+//   - overwrite=false: 队列所有消息 - Queue all messages
+//   - overwrite=true: 用新消息替换挂起的消息 - Replace pending message with new one
 type DelayNode struct {
 	//节点配置
 	Config DelayNodeConfiguration
@@ -94,7 +108,7 @@ func (x *DelayNode) Init(ruleConfig types.Config, configuration types.Configurat
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg 处理消息，实现延迟队列逻辑
 func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	if msg.Type == DelayNodeMsgType {

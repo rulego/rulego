@@ -74,9 +74,70 @@ type CacheGetNodeConfiguration struct {
 	OutputMode int `json:"outputMode"`
 }
 
-// CacheGetNode 缓存获取节点
-// global: 全局缓存，在全局缓存实例中操作
-// chain: 规则链缓存，在当前规则链命名空间下操作
+// CacheGetNode retrieves data from cache storage at different levels (chain or global).
+// It supports wildcard pattern matching and multiple output modes for flexible data integration.
+//
+// CacheGetNode 从不同级别（链级或全局）的缓存存储中检索数据。
+// 支持通配符模式匹配和多种输出模式以实现灵活的数据集成。
+//
+// Configuration:
+// 配置说明：
+//
+//	{
+//		"keys": [                        // Keys to retrieve  要检索的键列表
+//			{
+//				"level": "chain",        // Cache level: "chain" or "global"  缓存级别
+//				"key": "sensor_${metadata.deviceId}"  // Key with variable substitution  支持变量替换的键
+//			},
+//			{
+//				"level": "global",
+//				"key": "config_*"        // Wildcard pattern for multiple keys  多键通配符模式
+//			}
+//		],
+//		"outputMode": 0                  // Output mode: 0=metadata, 1=merge to msg, 2=replace msg  输出模式
+//	}
+//
+// Cache Levels:
+// 缓存级别：
+//
+//   - "chain": Rule chain scoped cache for data sharing within the same rule chain instance
+//     规则链级缓存，用于同一规则链实例内的数据共享
+//   - "global": Global cache for cross-chain data sharing across all rule chain instances
+//     全局缓存，用于所有规则链实例间的跨链数据共享
+//
+// Key Pattern Matching:
+// 键模式匹配：
+//
+//   - Exact match: "user:123" retrieves specific key  精确匹配：检索特定键
+//   - Wildcard: "user:*" retrieves all keys with prefix "user:"  通配符：检索所有前缀为 "user:" 的键
+//   - Variable substitution: "data_${metadata.id}" uses runtime values  变量替换：使用运行时值
+//
+// Output Modes:
+// 输出模式：
+//
+//   - 0 (CacheOutputModeMergeToMetadata): Merge results to message metadata
+//     合并结果到消息元数据
+//   - 1 (CacheOutputModeMergeToMsg): Merge to message payload (requires JSON data type)
+//     合并到消息负荷（需要 JSON 数据类型）
+//   - 2 (CacheOutputModeNewMsg): Replace message payload with cache results
+//     用缓存结果替换消息负荷
+//
+// Usage Example:
+// 使用示例：
+//
+//	// Retrieve user session and global config
+//	// 检索用户会话和全局配置
+//	{
+//		"id": "cacheGet",
+//		"type": "cacheGet",
+//		"configuration": {
+//			"keys": [
+//				{"level": "chain", "key": "session_${metadata.userId}"},
+//				{"level": "global", "key": "app_config_*"}
+//			],
+//			"outputMode": 1
+//		}
+//	}
 type CacheGetNode struct {
 	//节点配置
 	Config CacheGetNodeConfiguration
@@ -212,9 +273,68 @@ type CacheItemTemplate struct {
 	ttl           string
 }
 
-//	CacheSetNode 缓存设置节点
+// CacheSetNode stores data in cache storage at different levels with TTL support.
+// It supports multiple cache items, variable substitution, and automatic expiration.
 //
-// 缓存实例通过 type.Cache 设置
+// CacheSetNode 在不同级别的缓存存储中存储数据，支持 TTL。
+// 支持多个缓存项、变量替换和自动过期。
+//
+// Configuration:
+// 配置说明：
+//
+//	{
+//		"items": [                       // Cache items to set  要设置的缓存项
+//			{
+//				"level": "chain",        // Cache level: "chain" or "global"  缓存级别
+//				"key": "user_${metadata.userId}",     // Key with variable substitution  支持变量替换的键
+//				"value": "${msg.userData}",           // Value with variable substitution  支持变量替换的值
+//				"ttl": "1h30m"          // TTL format: 1h30m, 10m, 30s, empty=no expiration  TTL 格式
+//			}
+//		]
+//	}
+//
+// TTL Format:
+// TTL 格式：
+//
+//   - "1h": 1 hour  1小时
+//   - "30m": 30 minutes  30分钟
+//   - "10s": 10 seconds  10秒
+//   - "1h30m": 1 hour 30 minutes  1小时30分钟
+//   - "": No expiration (permanent storage)  无过期时间（永久存储）
+//
+// Variable Substitution:
+// 变量替换：
+//
+// Both keys and values support runtime variable substitution:
+// 键和值都支持运行时变量替换：
+//   - ${metadata.key}: Access message metadata  访问消息元数据
+//   - ${msg.key}: Access message payload fields  访问消息负荷字段
+//
+// Usage Example:
+// 使用示例：
+//
+//	// Store user session with 1-hour expiration
+//	// 存储用户会话，1小时过期
+//	{
+//		"id": "cacheSet",
+//		"type": "cacheSet",
+//		"configuration": {
+//			"items": [
+//				{
+//					"level": "chain",
+//					"key": "session_${metadata.userId}",
+//					"value": "${msg.sessionData}",
+//					"ttl": "1h"
+//				},
+//				{
+//					"level": "global",
+//					"key": "last_activity_${metadata.userId}",
+//					"value": "${metadata.timestamp}",
+//					"ttl": "24h"
+//				}
+//			]
+//		}
+//	}
 type CacheSetNode struct {
 	// 节点配置
 	Config CacheSetNodeConfiguration
@@ -317,8 +437,50 @@ type CacheDeleteNodeConfiguration struct {
 	Keys []LevelKey `json:"keys"`
 }
 
-// CacheDeleteNode 缓存删除节点
-// 缓存实例通过 type.Cache 设置
+// CacheDeleteNode removes data from cache storage at different levels.
+// It supports exact key deletion and prefix-based batch deletion with wildcard patterns.
+//
+// CacheDeleteNode 从不同级别的缓存存储中删除数据。
+// 支持精确键删除和基于前缀的通配符批量删除。
+//
+// Configuration:
+// 配置说明：
+//
+//	{
+//		"keys": [                        // Keys to delete  要删除的键列表
+//			{
+//				"level": "chain",        // Cache level: "chain" or "global"  缓存级别
+//				"key": "session_${metadata.userId}"  // Exact key with variable substitution  精确键支持变量替换
+//			},
+//			{
+//				"level": "global",
+//				"key": "temp_*"          // Wildcard pattern for batch deletion  批量删除的通配符模式
+//			}
+//		]
+//	}
+//
+// Deletion Patterns:
+// 删除模式：
+//
+//   - Exact deletion: "user:123" removes specific key  精确删除：删除特定键
+//   - Batch deletion: "session:*" removes all keys with prefix "session:"  批量删除：删除所有前缀为 "session:" 的键
+//   - Variable substitution: "cache_${metadata.id}" uses runtime values  变量替换：使用运行时值
+//
+// Usage Example:
+// 使用示例：
+//
+//	// Clean up user session and temporary data
+//	// 清理用户会话和临时数据
+//	{
+//		"id": "cacheDelete",
+//		"type": "cacheDelete",
+//		"configuration": {
+//			"keys": [
+//				{"level": "chain", "key": "session_${metadata.userId}"},
+//				{"level": "global", "key": "temp_${metadata.requestId}_*"}
+//			]
+//		}
+//	}
 type CacheDeleteNode struct {
 	//节点配置
 	Config CacheDeleteNodeConfiguration

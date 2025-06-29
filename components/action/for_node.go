@@ -86,13 +86,124 @@ type ForNodeConfiguration struct {
 	Mode int
 }
 
-// ForNode iterates over msg or a specified field item value in msg to the next node.
-// The iterated field value must be of array, slice, or struct type, and supports extracting iteration values through expr expressions.
-// After iteration ends, the original msg is sent to the next node through the Success chain.
-// If the context is canceled or fails, the original msg is sent to the next node through the `Failure` chain.
-// Use metadata._loopIndex to get the current index of the iteration.
-// Use metadata._loopItem to get the current item of the iteration.
-// Use metadata._loopKey to get the current key of the iteration; this only has a value when iterating over a struct.
+// ForNode provides iteration capabilities for processing collections, arrays, and data structures.
+// It supports various iteration patterns including synchronous/asynchronous processing,
+// result merging, value replacement, and integration with sub-rule chains or individual nodes.
+//
+// ForNode 为处理集合、数组和数据结构提供迭代能力。
+// 支持各种迭代模式，包括同步/异步处理、结果合并、值替换和与子规则链或单个节点的集成。
+//
+// Configuration:
+// 配置说明：
+//
+//	{
+//		"range": "msg.items",           // Target to iterate: msg field, metadata, or expression  迭代目标：消息字段、元数据或表达式
+//		"do": "s3",                     // Target node ID or sub-chain: "nodeId" or "chain:chainId"  目标节点ID或子链
+//		"mode": 1                       // Processing mode: 0=no processing, 1=merge, 2=replace, 3=async  处理模式
+//	}
+//
+// Range Expressions:
+// Range 表达式：
+//
+// The range field supports various data sources and expressions:
+// Range 字段支持各种数据源和表达式：
+//   - Message fields: "msg.items", "msg.users"  消息字段
+//   - Metadata: "metadata.list"  元数据
+//   - Numeric ranges: "1..5" creates [1,2,3,4,5]  数值范围
+//   - Complex expressions: "msg.data.products"  复杂表达式
+//   - Empty: Iterates over entire message payload  空值：遍历整个消息负荷
+//
+// Processing Modes:
+// 处理模式：
+//
+//   - 0 (DoNotProcess): Execute target without processing results  执行目标但不处理结果
+//   - 1 (MergeValues): Merge all iteration results into array  将所有迭代结果合并为数组
+//   - 2 (ReplaceValues): Replace message with each iteration result  用每次迭代结果替换消息
+//   - 3 (AsyncProcess): Process each item asynchronously without waiting  异步处理每个项目而不等待
+//
+// Target Execution:
+// 目标执行：
+//
+//   - Node ID: "s3" - Execute specific node in current rule chain  节点ID：在当前规则链中执行特定节点
+//   - Sub-chain: "chain:rule01" - Execute sub-rule chain  子链：执行子规则链
+//
+// Iteration Context Variables:
+// 迭代上下文变量：
+//
+// During iteration, the component sets metadata variables:
+// 迭代期间，组件设置元数据变量：
+//   - _loopIndex: Current iteration index (0-based)  当前迭代索引（从0开始）
+//   - _loopItem: Current item value being processed  正在处理的当前项目值
+//   - _loopKey: Current key (only for map/object iteration)  当前键（仅用于映射/对象迭代）
+//
+// Supported Data Types:
+// 支持的数据类型：
+//
+//   - []interface{}: Generic arrays and slices  通用数组和切片
+//   - []int, []int64, []float64: Typed numeric arrays  类型化数值数组
+//   - map[string]interface{}: Objects and maps  对象和映射
+//   - Automatically handles JSON parsing for complex data  自动处理复杂数据的 JSON 解析
+//
+// Synchronous vs Asynchronous Processing:
+// 同步与异步处理：
+//
+//   - Modes 0-2: Synchronous processing with result collection  模式 0-2：同步处理并收集结果
+//   - Mode 3: Asynchronous processing for high-throughput scenarios  模式 3：高吞吐量场景的异步处理
+//   - Synchronous modes wait for all iterations to complete  同步模式等待所有迭代完成
+//   - Asynchronous mode fires and forgets each iteration  异步模式发送后即忘记每次迭代
+//
+// Error Handling:
+// 错误处理：
+//
+//   - Invalid range expressions result in Failure chain execution  无效的 range 表达式导致 Failure 链执行
+//   - Unsupported data types are rejected  不支持的数据类型被拒绝
+//   - Individual iteration errors are aggregated  单个迭代错误会被聚合
+//   - Context cancellation stops iteration  上下文取消会停止迭代
+//
+// Output Relations:
+// 输出关系：
+//
+//   - Success: Iteration completed successfully  迭代成功完成
+//   - Failure: Range evaluation error, unsupported data type, or iteration error  Range 评估错误、不支持的数据类型或迭代错误
+//
+// Usage Examples:
+// 使用示例：
+//
+//	// Process array items and merge results
+//	// 处理数组项目并合并结果
+//	{
+//		"id": "processItems",
+//		"type": "for",
+//		"configuration": {
+//			"range": "msg.orderItems",
+//			"do": "processOrderItem",
+//			"mode": 1
+//		}
+//	}
+//
+//	// Execute sub-chain for each user
+//	// 为每个用户执行子链
+//	{
+//		"id": "processUsers",
+//		"type": "for",
+//		"configuration": {
+//			"range": "msg.users",
+//			"do": "chain:userProcessingChain",
+//			"mode": 2
+//		}
+//	}
+//
+//	// Async processing for high-throughput
+//	// 高吞吐量异步处理
+//	{
+//		"id": "asyncNotify",
+//		"type": "for",
+//		"configuration": {
+//			"range": "1..1000",
+//			"do": "sendNotification",
+//			"mode": 3
+//		}
+//	}
 type ForNode struct {
 	//节点配置
 	Config ForNodeConfiguration
