@@ -29,47 +29,82 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
+// init 注册GroupActionNode组件
+// init registers the GroupActionNode component with the default registry.
 func init() {
 	Registry.Add(&GroupActionNode{})
 }
 
-// GroupActionNodeConfiguration 节点配置
+// GroupActionNodeConfiguration GroupActionNode配置结构
+// GroupActionNodeConfiguration defines the configuration structure for the GroupActionNode component.
 type GroupActionNodeConfiguration struct {
-	//MatchRelationType 匹配组内节点关系类型，支持`Success`、`Failure`、`True`、`False`和自定义等关系,默认`Success`
+	// MatchRelationType 指定组内要匹配的关系类型，支持Success、Failure、True、False和自定义关系
+	// MatchRelationType specifies the relation type to match within the group.
+	// Supports 'Success', 'Failure', 'True', 'False', and custom relations.
 	MatchRelationType string
-	//MatchNum 匹配满足节点数量
-	//默认0：代表组内所有节点都是 MatchRelationType 指定类型，发送到`Success`链，否则发送到`Failure`链。
-	//MatchNum>0，则表示任意匹配 MatchNum 个节点是 MatchRelationType 指定类型，发送到`Success`链，否则发送到`Failure`链。
-	//MatchNum>=len(NodeIds)则等价于MatchNum=0
+
+	// MatchNum 指定必须匹配MatchRelationType的节点数量
+	// MatchNum specifies the number of nodes that must match the MatchRelationType.
+	// Default 0: All nodes in the group must be of MatchRelationType to send to Success chain, otherwise to Failure chain.
+	// MatchNum > 0: Any MatchNum nodes must be of MatchRelationType to send to Success chain, otherwise to Failure chain.
 	MatchNum int
-	//NodeIds 组内节点ID列表，多个ID与`,`隔开，也可以使用[]string格式指定节点列表
+
+	// NodeIds 指定组内节点ID列表，可以是逗号分隔的字符串或[]string格式
+	// NodeIds specifies the list of node IDs in the group.
+	// Can be a comma-separated string or a []string format to specify the node list.
 	NodeIds interface{}
-	//Timeout 执行超时，单位秒，默认0：代表不限制。
+
+	// Timeout 指定执行超时时间（秒），默认0表示无时间限制
+	// Timeout specifies the execution timeout in seconds.
+	// Default 0 means no time limit.
 	Timeout int
 }
 
-// GroupActionNode 把多个节点组成一个分组,异步执行所有节点，等待所有节点执行完成后，把所有节点结果合并，发送到下一个节点
-// 如果匹配到 Config.MatchNum 个节点是 Config.MatchRelationType 类型，则把数据到`Success`链, 否则发到`Failure`链。
-// nodeIds为空或者执行超时，发送到`Failure`链
+// GroupActionNode 将多个节点分组并异步执行的动作组件
+// GroupActionNode is an action component that groups multiple nodes and executes them asynchronously.
+//
+// 核心算法：
+// Core Algorithm:
+// 1. 并发执行组内所有节点 - Execute all nodes in group concurrently
+// 2. 收集执行结果并计数匹配的关系类型 - Collect results and count matching relation types
+// 3. 根据MatchNum判断成功条件 - Determine success based on MatchNum criteria
+// 4. 合并结果并路由到Success或Failure链 - Merge results and route to Success or Failure
+//
+// 匹配逻辑 - Matching logic:
+//   - MatchNum=0: 所有节点都必须匹配 - All nodes must match
+//   - MatchNum>0: 至少MatchNum个节点匹配 - At least MatchNum nodes must match
+//
+// 超时保护 - Timeout protection:
+//   - 配置超时防止无限等待 - Configured timeout prevents indefinite waiting
+//   - 早期终止当满足匹配条件时 - Early termination when match criteria satisfied
 type GroupActionNode struct {
-	//节点配置
+	// Config 节点配置
+	// Config holds the node configuration including matching criteria and timeout
 	Config GroupActionNodeConfiguration
-	//节点ID列表
+
+	// NodeIdList 要执行的节点ID列表
+	// NodeIdList contains the parsed list of node IDs to execute
 	NodeIdList []string
-	//节点列表长度
+
+	// Length 组中节点数量
+	// Length stores the number of nodes in the group for efficient access
 	Length int32
 }
 
-// Type 组件类型
+// Type 返回组件类型
+// Type returns the component type identifier.
 func (x *GroupActionNode) Type() string {
 	return "groupAction"
 }
 
+// New 创建新实例
+// New creates a new instance.
 func (x *GroupActionNode) New() types.Node {
 	return &GroupActionNode{Config: GroupActionNodeConfiguration{MatchRelationType: types.Success, MatchNum: 0}}
 }
 
-// Init 初始化
+// Init 初始化组件
+// Init initializes the component.
 func (x *GroupActionNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	var nodeIds []string
@@ -99,7 +134,8 @@ func (x *GroupActionNode) Init(ruleConfig types.Config, configuration types.Conf
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg 处理消息，并发执行节点组并根据匹配条件确定成功
+// OnMsg processes incoming messages by executing the configured group of nodes in parallel.
 func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if x.Length == 0 {
 		ctx.TellFailure(msg, errors.New("nodeIds is empty"))
@@ -213,11 +249,15 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 }
 
-// Destroy 销毁
+// Destroy 清理资源
+// Destroy cleans up resources.
 func (x *GroupActionNode) Destroy() {
+	// 无资源需要清理
+	// No resources to clean up
 }
 
-// 过滤空值，返回新的数组
+// filterEmptyAndRemoveMeta 过滤空消息并清除元数据
+// filterEmptyAndRemoveMeta filters out empty messages and removes metadata for cleaner output.
 func filterEmptyAndRemoveMeta(msgs []types.WrapperMsg) []types.WrapperMsg {
 	var result []types.WrapperMsg
 	for _, msg := range msgs {
@@ -231,7 +271,8 @@ func filterEmptyAndRemoveMeta(msgs []types.WrapperMsg) []types.WrapperMsg {
 	return result
 }
 
-// 合并metadata - use zero-copy ForEach for better performance
+// mergeMetadata 合并成功执行的元数据到包装消息中
+// mergeMetadata merges metadata from successful group executions into the wrapper message.
 func mergeMetadata(msgs []types.WrapperMsg, wrapperMsg *types.RuleMsg) {
 	for _, msg := range msgs {
 		if msg.NodeId != "" && msg.Err == "" {

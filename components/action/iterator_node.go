@@ -30,42 +30,77 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
+// init 注册IteratorNode组件
+// init registers the IteratorNode component with the default registry.
 func init() {
 	Registry.Add(&IteratorNode{})
 }
 
-// IteratorNodeConfiguration 节点配置
+// IteratorNodeConfiguration IteratorNode配置结构
+// IteratorNodeConfiguration defines the configuration structure for the IteratorNode component.
 type IteratorNodeConfiguration struct {
-	// 遍历字段名称，如果空，遍历整个msg，支持嵌套方式获取msg字段值，例如items.value、items
+	// FieldName 要遍历的字段名称，支持点符号嵌套访问
+	// FieldName specifies the field name to iterate over.
+	// If empty, iterates over the entire message.
+	// Supports nested field access using dot notation (e.g., "items.value", "items").
 	FieldName string
-	// 过滤item js脚本，可选，默认为空，匹配所有item
-	// function ItemFilter(item,index,metadata)
-	// item: 当前遍历的item
-	// index: 如果是数组，则表示当前遍历的index，如果是map，则表示当前遍历的key
+
+	// JsScript 可选的JavaScript过滤脚本
+	// JsScript specifies optional JavaScript code for filtering items.
+	// If empty, all items pass the filter.
+	// The script should implement: function ItemFilter(item, index, metadata)
+	//   - item: Current item being iterated
+	//   - index: Array index (for arrays) or key (for objects)
+	//   - metadata: Message metadata for context
+	// Returns: boolean indicating whether item should be routed via True relation
 	JsScript string
 }
 
-// IteratorNode 遍历msg或者msg中指定字段item值到下一个节点，遍历字段值必须是`数组`或者`{key:value}`类型
-// 如果item满足JsScript，则会把item数据通过`True`链发到下一个节点，否则通过`False`链发到下一个节点
-// 如果找不到指定字段、js脚本执行失败或者遍历的对象不是`数组`或者`{key:value}`，则会把错误信息通过Failure链发到下一个节点
-// 遍历结束后，通过Success链把原始msg发送到下一个节点
-// Deprecated: Use ForNode instead.
+// IteratorNode 遍历消息数据中数组或对象的动作组件
+// IteratorNode is an action component that iterates over arrays or objects in message data.
+//
+// 弃用通知 - Deprecation Notice:
+//   - 此组件已弃用，请使用ForNode获得更好的性能和功能 - This component is deprecated, use ForNode for better performance and features
+//
+// 核心算法：
+// Core Algorithm:
+// 1. 提取并解析要遍历的数据（支持JSON） - Extract and parse data to iterate (supports JSON)
+// 2. 根据FieldName提取特定字段或使用整个消息 - Extract specific field by FieldName or use entire message
+// 3. 遍历数组或对象的每个元素 - Iterate over each element in array or object
+// 4. 对每个元素应用JavaScript过滤器（如果配置） - Apply JavaScript filter to each element (if configured)
+// 5. 根据过滤结果路由到True/False关系 - Route to True/False relations based on filter results
+// 6. 遍历完成后通过Success关系发送原始消息 - Send original message via Success relation after iteration
+//
+// 支持的数据类型 - Supported data types:
+//   - []interface{}: 数组，使用数字索引 - Arrays with numeric indices
+//   - map[string]interface{}: 对象，使用字符串键 - Objects with string keys
+//
+// JavaScript过滤函数签名 - JavaScript filter function signature:
+//   - function ItemFilter(item, index, metadata) -> boolean
 type IteratorNode struct {
-	//节点配置
-	Config   IteratorNodeConfiguration
+	// Config 节点配置
+	// Config holds the node configuration including field name and JavaScript filter
+	Config IteratorNodeConfiguration
+
+	// jsEngine JavaScript引擎实例
+	// jsEngine holds the JavaScript engine instance for item filtering
 	jsEngine types.JsEngine
 }
 
-// Type 组件类型
+// Type 返回组件类型
+// Type returns the component type identifier.
 func (x *IteratorNode) Type() string {
 	return "iterator"
 }
 
+// New 创建新实例
+// New creates a new instance.
 func (x *IteratorNode) New() types.Node {
 	return &IteratorNode{Config: IteratorNodeConfiguration{}}
 }
 
-// Init 初始化
+// Init 初始化组件
+// Init initializes the component.
 func (x *IteratorNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	x.Config.JsScript = strings.TrimSpace(x.Config.JsScript)
@@ -77,7 +112,8 @@ func (x *IteratorNode) Init(ruleConfig types.Config, configuration types.Configu
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg 处理消息，遍历指定字段或整个消息，应用JavaScript过滤器
+// OnMsg processes incoming messages by iterating over the specified field or entire message.
 func (x *IteratorNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var data interface{} = msg.GetData()
 	if msg.DataType == types.JSON {
@@ -119,11 +155,15 @@ func (x *IteratorNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 }
 
-// Destroy 销毁
+// Destroy 清理资源
+// Destroy cleans up resources.
 func (x *IteratorNode) Destroy() {
+	// 无资源需要清理
+	// No resources to clean up
 }
 
-// 处理每条item
+// executeItem 处理每个遍历项，应用JavaScript过滤器并路由
+// executeItem processes each individual item during iteration.
 func (x *IteratorNode) executeItem(ctx types.RuleContext, msg types.RuleMsg, item interface{}, index interface{}) error {
 	if x.jsEngine != nil {
 		// 使用零拷贝GetReadOnlyValues，JS引擎只读取metadata

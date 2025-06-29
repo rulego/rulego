@@ -20,147 +20,473 @@ import (
 	"sort"
 )
 
-// The interface provides AOP (Aspect Oriented Programming) mechanism, Which is similar to interceptor or hook mechanism, but more powerful and flexible.
+// Aspect defines the base interface for implementing Aspect-Oriented Programming (AOP) in RuleGo.
+// AOP provides cross-cutting functionality that can intercept and enhance rule chain execution
+// without modifying the original business logic of components.
 //
-//   - It allows adding extra behavior to the rule chain execution without modifying the original logic of the rule chain or nodes.
-//   - It allows separating some common behaviors (such as logging, security, rule chain execution tracking, component degradation, component retry, component caching) from the business logic.
+// Aspect 定义在 RuleGo 中实现面向切面编程（AOP）的基础接口。
+// AOP 提供横切功能，可以拦截和增强规则链执行而不修改组件的原始业务逻辑。
 //
-// 该接口提供 AOP(面向切面编程，Aspect Oriented Programming)机制，它类似拦截器或者hook机制，但是功能更加强大和灵活。
+// Engine Instance Level:
+// 引擎实例级别：
 //
-//   - 它允许在不修改规则链或节点的原有逻辑的情况下，对规则链的执行添加额外的行为，或者直接替换原规则链或者节点逻辑。
-//   - 它允许把一些公共的行为（例如：日志、安全、规则链执行跟踪、组件降级、组件重试、组件缓存）从业务逻辑中分离出来。
-
-// Aspect is the base interface for advice
-// Aspect 增强点接口的基类
+// Aspects are registered at the rule engine level and each engine instance gets its own
+// aspect instances through the New() method during initialization. This ensures proper
+// isolation between different rule engine instances.
+//
+// 切面在规则引擎级别注册，每个引擎实例在初始化期间通过 New() 方法获得自己的
+// 切面实例。这确保了不同规则引擎实例之间的适当隔离。
+//
+// Aspect Categories:
+// 切面类别：
+//
+//   - Engine Lifecycle Aspects: OnChainBeforeInit, OnNodeBeforeInit, OnCreated, OnReload, OnDestroy
+//     引擎生命周期切面：OnChainBeforeInit、OnNodeBeforeInit、OnCreated、OnReload、OnDestroy
+//   - Chain Execution Aspects: Start, End, Completed
+//     链执行切面：Start、End、Completed
+//   - Node Execution Aspects: Before, After, Around
+//     节点执行切面：Before、After、Around
+//
+// Execution Order:
+// 执行顺序：
+//
+//  1. Engine Level (during rule engine operations):
+//     引擎级别（规则引擎操作期间）：
+//     OnChainBeforeInit -> OnNodeBeforeInit -> OnCreated -> OnReload -> OnDestroy
+//
+//  2. Chain Level (for each message processing):
+//     链级别（每次消息处理）：
+//     Start (onStart) -> [Node Processing] -> End (onEnd) -> Completed (onAllNodeCompleted)
+//
+//  3. Node Level (for each node execution in rule_context.go executeAroundAop):
+//     节点级别（rule_context.go executeAroundAop 中每个节点执行）：
+//     Before -> Around -> [Node.OnMsg] -> After
+//
+// Built-in Aspects:
+// 内置切面：
+//
+// RuleGo includes built-in aspects that are automatically registered:
+// RuleGo 包含自动注册的内置切面：
+//   - Validator: Data validation and schema checking
+//     Validator：数据验证和模式检查
+//   - Debug: Debug information collection and logging
+//     Debug：调试信息收集和日志记录
+//   - MetricsAspect: Performance metrics and monitoring
+//     MetricsAspect：性能指标和监控
 type Aspect interface {
-	// Order returns the execution order, the smaller the value, the higher the priority
-	// Order 返回执行顺序，值越小，优先级越高
+	// Order returns the execution priority of the aspect.
+	// Lower values indicate higher priority and earlier execution in the aspect chain.
+	//
+	// Order 返回切面的执行优先级。
+	// 较小的值表示更高的优先级和在切面链中更早的执行。
+	//
+	// Returns:
+	// 返回：
+	//   - int: Priority value, lower numbers execute first
+	//     int：优先级值，较小的数字先执行
 	Order() int
-	// New returns a new instance of the aspect
-	// The method will be called to create a new instance during the initialization of the rule chain.
-	// If the field value needs to be inherited, it must be handled here.
-	// 规则链初始化时候会调用该方法创建新的实例，如果字段值需要继承，必须在这里处理
+
+	// New creates a new instance of the aspect for a specific rule engine instance.
+	// This method is called during rule engine initialization (in initBuiltinsAspects and initChain)
+	// to ensure each rule engine has its own aspect instance with isolated state.
+	//
+	// New 为特定的规则引擎实例创建切面的新实例。
+	// 此方法在规则引擎初始化期间调用（在 initBuiltinsAspects 和 initChain 中），
+	// 确保每个规则引擎都有自己的切面实例和隔离的状态。
+	//
+	// Implementation Requirements:
+	// 实现要求：
+	//   - Create a completely independent instance
+	//     创建完全独立的实例
+	//   - Copy necessary configuration
+	//     复制必要的配置
+	//   - Ensure no shared mutable state between instances
+	//     确保实例之间没有共享的可变状态
+	//
+	// Returns:
+	// 返回：
+	//   - Aspect: New aspect instance for the rule engine
+	//     Aspect：规则引擎的新切面实例
 	New() Aspect
 }
 
-// NodeAspect is the base interface for node advice
-// NodeAspect 节点增强点接口的基类
+// NodeAspect defines the base interface for aspects that operate at the individual node level.
+// These aspects can intercept and modify the execution of specific nodes based on PointCut criteria.
+//
+// NodeAspect 定义在单个节点级别操作的切面的基础接口。
+// 这些切面可以基于 PointCut 条件拦截和修改特定节点的执行。
+//
+// Node aspects are executed during message processing through nodes and provide
+// fine-grained control over individual node behavior.
+//
+// 节点切面在消息通过节点处理期间执行，提供对单个节点行为的细粒度控制。
 type NodeAspect interface {
 	Aspect
-	//PointCut declares a cut-in point, used to determine whether to execute the advice if OnMsg
-	//PointCut 声明一个切入点，用于判断是否需要执行节点 OnMsg 相关增强点
-	//For example: specify some component types or relationType to execute the aspect logic;return ctx.Self().Type()=="mqttClient"
-	//例如：指定某些组件类型或者relationType才执行切面逻辑;return ctx.Self().Type()=="mqttClient"
+
+	// PointCut determines whether this aspect should be applied to a specific node execution.
+	// This method enables selective aspect application based on runtime conditions.
+	//
+	// PointCut 确定此切面是否应应用于特定的节点执行。
+	// 此方法基于运行时条件启用选择性切面应用。
+	//
+	// Parameters:
+	// 参数：
+	//   - ctx: Rule execution context
+	//     ctx：规则执行上下文
+	//   - msg: Message being processed
+	//     msg：正在处理的消息
+	//   - relationType: Connection type between nodes
+	//     relationType：节点间的连接类型
+	//
+	// Returns:
+	// 返回：
+	//   - bool: true to apply aspect, false to skip
+	//     bool：true 应用切面，false 跳过
 	PointCut(ctx RuleContext, msg RuleMsg, relationType string) bool
 }
 
-// BeforeAspect is the interface for node pre-execution advice
-// BeforeAspect 节点 OnMsg 方法执行之前的增强点接口
+// BeforeAspect defines the interface for aspects that execute before node message processing.
+// These aspects are executed in rule_context.go executeAroundAop() before the node's OnMsg method.
+//
+// BeforeAspect 定义在节点消息处理之前执行的切面接口。
+// 这些切面在 rule_context.go executeAroundAop() 中节点的 OnMsg 方法之前执行。
+//
+// Execution Flow:
+// 执行流程：
+//  1. Message arrives at node
+//     消息到达节点
+//  2. BeforeAspect.Before() is called
+//     调用 BeforeAspect.Before()
+//  3. Modified message is passed to node OnMsg()
+//     修改后的消息传递给节点 OnMsg()
 type BeforeAspect interface {
 	NodeAspect
-	// Before is the advice that executes before the node OnMsg method. The returned Msg will be used as the input for the next advice and the node OnMsg method.
-	// Before 节点 OnMsg 方法执行之前的增强点。返回的Msg将作为下一个增强点和节点 OnMsg 方法的入参。
+
+	// Before is executed before the node's OnMsg method processes the message.
+	// The returned message will be used as input for the node's OnMsg method.
+	//
+	// Before 在节点的 OnMsg 方法处理消息之前执行。
+	// 返回的消息将用作节点 OnMsg 方法的输入。
+	//
+	// Parameters:
+	// 参数：
+	//   - ctx: Rule execution context
+	//     ctx：规则执行上下文
+	//   - msg: Original message to be processed
+	//     msg：要处理的原始消息
+	//   - relationType: Connection type that led to this node execution
+	//     relationType：导致此节点执行的连接类型
+	//
+	// Returns:
+	// 返回：
+	//   - RuleMsg: Modified message for node processing
+	//     RuleMsg：用于节点处理的修改后消息
 	Before(ctx RuleContext, msg RuleMsg, relationType string) RuleMsg
 }
 
-// AfterAspect is the interface for node post-execution advice
-// AfterAspect 节点 OnMsg 方法执行后置增强点接口
+// AfterAspect defines the interface for aspects that execute after node message processing.
+// These aspects are executed in rule_context.go executeAfterAop() after the node's OnMsg method.
+//
+// AfterAspect 定义在节点消息处理之后执行的切面接口。
+// 这些切面在 rule_context.go executeAfterAop() 中节点的 OnMsg 方法之后执行。
+//
+// Execution Flow:
+// 执行流程：
+//  1. Node processes message with OnMsg()
+//     节点使用 OnMsg() 处理消息
+//  2. AfterAspect.After() is called with result/error
+//     使用结果/错误调用 AfterAspect.After()
+//  3. Modified message is passed to next node
+//     修改后的消息传递给下一个节点
 type AfterAspect interface {
 	NodeAspect
-	//After is the advice that executes after the node OnMsg method. The returned Msg will be used as the input for the next advice and the next node OnMsg method.
-	//After 节点 OnMsg 方法执行之后的增强点。返回的Msg将作为下一个增强点和下一个节点 OnMsg 方法的入参。
+
+	// After is executed after the node's OnMsg method completes processing.
+	// The returned message will be used for subsequent processing.
+	//
+	// After 在节点的 OnMsg 方法完成处理后执行。
+	// 返回的消息将用于后续处理。
+	//
+	// Parameters:
+	// 参数：
+	//   - ctx: Rule execution context
+	//     ctx：规则执行上下文
+	//   - msg: Message that was processed by the node
+	//     msg：被节点处理的消息
+	//   - err: Error returned by the node processing, nil if successful
+	//     err：节点处理返回的错误，成功时为 nil
+	//   - relationType: Connection type for the next node execution
+	//     relationType：下一个节点执行的连接类型
+	//
+	// Returns:
+	// 返回：
+	//   - RuleMsg: Modified message for next processing
+	//     RuleMsg：用于下一步处理的修改后消息
 	After(ctx RuleContext, msg RuleMsg, err error, relationType string) RuleMsg
 }
 
-// AroundAspect is the interface for node around-execution advice
-// AroundAspect 节点 OnMsg 方法执行环绕增强点接口
+// AroundAspect defines the interface for aspects that wrap around node message processing.
+// These aspects are executed in rule_context.go executeAroundAop() and provide complete control
+// over whether the node's OnMsg method is executed.
+//
+// AroundAspect 定义包装节点消息处理的切面接口。
+// 这些切面在 rule_context.go executeAroundAop() 中执行，提供对节点的 OnMsg 方法
+// 是否执行的完全控制。
+//
+// Execution Control:
+// 执行控制：
+//   - Return (msg, true): Engine will call node's OnMsg method
+//     返回 (msg, true)：引擎将调用节点的 OnMsg 方法
+//   - Return (msg, false): Engine will skip node's OnMsg method
+//     返回 (msg, false)：引擎将跳过节点的 OnMsg 方法
 type AroundAspect interface {
 	NodeAspect
-	//Around is the advice that executes around the node OnMsg method. The returned Msg will be used as the input for the next advice.
-	//Around 节点 OnMsg 方法执行环绕的增强点。TODO msg返回值无法影响下一个节点入参，请用 before 切面或者通过 ctx.TellNext(msg, relationType) 控制。
-	//If the return is false: the engine will not call the current node's OnMsg method,
-	//it needs to be manually triggered by Aspect, such as: ctx.Self().OnMsg (ctx, msg), Or control the flow through ctx.TellNext.
-	//如果返回false:引擎不会调用当前节点的OnMsg方法，需要Aspect手动触发，如：ctx.Self().OnMsg(ctx, msg)，或者通过 ctx.TellNext(msg, relationType) 控制流程。
-	//If it returns true: the engine will call the current node's OnMsg method.
-	//如果返回true：引擎执行当前节点逻辑。
+
+	// Around wraps the node's OnMsg method execution, providing complete control over whether
+	// and how the node executes. Based on rule_context.go executeAroundAop() implementation.
+	//
+	// Around 包装节点的 OnMsg 方法执行，提供对节点是否以及如何执行的完全控制。
+	// 基于 rule_context.go executeAroundAop() 实现。
+	//
+	// Parameters:
+	// 参数：
+	//   - ctx: Rule execution context
+	//     ctx：规则执行上下文
+	//   - msg: Message to be processed
+	//     msg：要处理的消息
+	//   - relationType: Connection type that led to this node execution
+	//     relationType：导致此节点执行的连接类型
+	//
+	// Returns:
+	// 返回：
+	//   - RuleMsg: Message after aspect processing
+	//     RuleMsg：切面处理后的消息
+	//   - bool: true to allow engine to call node's OnMsg, false to skip node execution
+	//     bool：true 允许引擎调用节点的 OnMsg，false 跳过节点执行
+	//
+	// Note: Currently, the message return value cannot affect the next node's input parameters.
+	// 注意：目前，消息返回值无法影响下一个节点的输入参数。
 	Around(ctx RuleContext, msg RuleMsg, relationType string) (RuleMsg, bool)
 }
 
-// StartAspect is the interface for rule engine pre-execution advice
-// StartAspect 规则引擎 OnMsg 方法执行之前的增强点接口
+// StartAspect defines the interface for aspects executed before rule chain message processing.
+// These aspects are called in engine.go onStart() method before any node processing begins.
+//
+// StartAspect 定义在规则链消息处理之前执行的切面接口。
+// 这些切面在 engine.go onStart() 方法中在任何节点处理开始之前调用。
 type StartAspect interface {
 	NodeAspect
-	// Start is the advice that executes before the rule engine OnMsg method.
-	// The returned Msg will be used as the input for the next advice and the next node OnMsg method.
-	// If an error is returned, the execution will be terminated.
-	// Start 规则引擎 OnMsg 方法执行之前的增强点。
-	// 返回的Msg将作为下一个增强点和下一个节点 OnMsg 方法的入参。
-	// 如果返回错误，则执行将终止。
+
+	// Start is executed before the rule chain processes the message.
+	// Called in engine.go onStart() method with aspectsHolder.startAspects.
+	//
+	// Start 在规则链处理消息之前执行。
+	// 在 engine.go onStart() 方法中使用 aspectsHolder.startAspects 调用。
+	//
+	// Parameters:
+	// 参数：
+	//   - ctx: Rule execution context
+	//     ctx：规则执行上下文
+	//   - msg: Message to be processed by the rule chain
+	//     msg：规则链要处理的消息
+	//
+	// Returns:
+	// 返回：
+	//   - RuleMsg: Modified message for rule chain processing
+	//     RuleMsg：用于规则链处理的修改后消息
+	//   - error: Error to terminate execution, nil to continue
+	//     error：终止执行的错误，nil 表示继续
 	Start(ctx RuleContext, msg RuleMsg) (RuleMsg, error)
 }
 
-// EndAspect is the interface for rule engine post-execution advice
-// EndAspect 规则引擎 OnMsg 方法执行之后，分支链执行结束的增强点接口
+// EndAspect defines the interface for aspects executed when a rule chain branch ends.
+// These aspects are called in engine.go onEnd() method when a branch of execution completes.
+//
+// EndAspect 定义在规则链分支结束时执行的切面接口。
+// 这些切面在 engine.go onEnd() 方法中当执行分支完成时调用。
 type EndAspect interface {
 	NodeAspect
-	// End is the advice that executes after the rule engine OnMsg method and the branch chain execution ends. The returned Msg will be used as the input for the next advice.
-	// End 规则引擎 OnMsg 方法执行之后，分支链执行结束的增强点。返回的Msg将作为下一个增强点的入参。
+
+	// End is executed when a branch of the rule chain execution ends.
+	// Called in engine.go onEnd() method with aspectsHolder.endAspects.
+	//
+	// End 在规则链执行的分支结束时执行。
+	// 在 engine.go onEnd() 方法中使用 aspectsHolder.endAspects 调用。
+	//
+	// Parameters:
+	// 参数：
+	//   - ctx: Rule execution context
+	//     ctx：规则执行上下文
+	//   - msg: Message at the end of branch execution
+	//     msg：分支执行结束时的消息
+	//   - err: Error from branch execution, nil if successful
+	//     err：分支执行的错误，成功时为 nil
+	//   - relationType: Final relation type of the branch
+	//     relationType：分支的最终关系类型
+	//
+	// Returns:
+	// 返回：
+	//   - RuleMsg: Modified message for subsequent processing
+	//     RuleMsg：用于后续处理的修改后消息
 	End(ctx RuleContext, msg RuleMsg, err error, relationType string) RuleMsg
 }
 
-// CompletedAspect is the interface for rule engine all branch execution end advice
-// CompletedAspect 规则引擎 OnMsg 方法执行之后，所有分支链执行结束的增强点接口
+// CompletedAspect defines the interface for aspects executed when all rule chain branches complete.
+// These aspects are called in engine.go onAllNodeCompleted() method when all branches finish.
+//
+// CompletedAspect 定义在所有规则链分支完成时执行的切面接口。
+// 这些切面在 engine.go onAllNodeCompleted() 方法中当所有分支完成时调用。
 type CompletedAspect interface {
 	NodeAspect
-	// Completed is the advice that executes after the rule engine OnMsg method and all branch chain execution ends. The returned Msg will be used as the input for the next advice.
-	// Completed 规则引擎 OnMsg 方法执行之后，所有分支链执行结束的增强点。返回的Msg将作为下一个增强点的入参。
+
+	// Completed is executed when all branches of the rule chain execution complete.
+	// Called in engine.go onAllNodeCompleted() method with aspectsHolder.completedAspects.
+	//
+	// Completed 在规则链执行的所有分支完成时执行。
+	// 在 engine.go onAllNodeCompleted() 方法中使用 aspectsHolder.completedAspects 调用。
+	//
+	// Parameters:
+	// 参数：
+	//   - ctx: Rule execution context
+	//     ctx：规则执行上下文
+	//   - msg: Final message after all processing
+	//     msg：所有处理后的最终消息
+	//
+	// Returns:
+	// 返回：
+	//   - RuleMsg: Modified message for final processing
+	//     RuleMsg：用于最终处理的修改后消息
 	Completed(ctx RuleContext, msg RuleMsg) RuleMsg
 }
 
-// OnChainBeforeInitAspect is the interface for rule engine initialization before advice
-// OnChainBeforeInitAspect 规则引擎初始化之前的增强点，如果返回错误，则创建失败
+// OnChainBeforeInitAspect defines the interface for aspects executed before rule chain initialization.
+// These aspects are called in engine.go initChain() method before the rule chain is created.
+//
+// OnChainBeforeInitAspect 定义在规则链初始化之前执行的切面接口。
+// 这些切面在 engine.go initChain() 方法中规则链创建之前调用。
 type OnChainBeforeInitAspect interface {
 	Aspect
-	// OnChainBeforeInit is the advice that executes before the rule engine initialization.
-	// OnChainBeforeInit 规则引擎初始化之前的增强点，如果返回错误，则创建失败
+
+	// OnChainBeforeInit is executed before rule chain initialization.
+	// If an error is returned, the chain creation will fail.
+	//
+	// OnChainBeforeInit 在规则链初始化之前执行。
+	// 如果返回错误，链创建将失败。
+	//
+	// Parameters:
+	// 参数：
+	//   - config: Rule engine configuration
+	//     config：规则引擎配置
+	//   - def: Rule chain definition to be initialized
+	//     def：要初始化的规则链定义
+	//
+	// Returns:
+	// 返回：
+	//   - error: Error to prevent chain creation, nil to continue
+	//     error：阻止链创建的错误，nil 表示继续
 	OnChainBeforeInit(config Config, def *RuleChain) error
 }
 
-// OnNodeBeforeInitAspect is the interface for rule node initialization before advice
-// OnNodeBeforeInitAspect 规则节点初始化之前的增强点，如果返回错误，则创建失败
+// OnNodeBeforeInitAspect defines the interface for aspects executed before rule node initialization.
+// These aspects are called during node initialization in the rule chain setup process.
+//
+// OnNodeBeforeInitAspect 定义在规则节点初始化之前执行的切面接口。
+// 这些切面在规则链设置过程中的节点初始化期间调用。
 type OnNodeBeforeInitAspect interface {
 	Aspect
-	// OnNodeBeforeInit is the advice that executes before the rule node initialization.
-	// OnNodeBeforeInit 规则节点初始化之前的增强点，如果返回错误，则创建失败
+
+	// OnNodeBeforeInit is executed before rule node initialization.
+	// If an error is returned, the node creation will fail.
+	//
+	// OnNodeBeforeInit 在规则节点初始化之前执行。
+	// 如果返回错误，节点创建将失败。
+	//
+	// Parameters:
+	// 参数：
+	//   - config: Rule engine configuration
+	//     config：规则引擎配置
+	//   - def: Rule node definition to be initialized
+	//     def：要初始化的规则节点定义
+	//
+	// Returns:
+	// 返回：
+	//   - error: Error to prevent node creation, nil to continue
+	//     error：阻止节点创建的错误，nil 表示继续
 	OnNodeBeforeInit(config Config, def *RuleNode) error
 }
 
-// OnCreatedAspect is the interface for rule engine creation success advice
-// OnCreatedAspect 规则引擎成功创建之后增强点接口
+// OnCreatedAspect defines the interface for aspects executed after successful rule engine creation.
+// These aspects are called in engine.go initChain() method after the rule chain is successfully created.
+//
+// OnCreatedAspect 定义在规则引擎成功创建后执行的切面接口。
+// 这些切面在 engine.go initChain() 方法中规则链成功创建后调用。
 type OnCreatedAspect interface {
 	Aspect
-	// OnCreated is the advice that executes after the rule engine is successfully created.
-	// OnCreated 规则引擎成功创建之后的增强点
+
+	// OnCreated is executed after the rule engine is successfully created.
+	// Called in engine.go initChain() with createdAspects from GetEngineAspects().
+	//
+	// OnCreated 在规则引擎成功创建后执行。
+	// 在 engine.go initChain() 中使用来自 GetEngineAspects() 的 createdAspects 调用。
+	//
+	// Parameters:
+	// 参数：
+	//   - chainCtx: The created rule chain context
+	//     chainCtx：创建的规则链上下文
+	//
+	// Returns:
+	// 返回：
+	//   - error: Error if post-creation setup fails
+	//     error：后创建设置失败时的错误
 	OnCreated(chainCtx NodeCtx) error
 }
 
-// OnReloadAspect is the interface for rule engine reload rule chain or child node configuration advice
-// OnReloadAspect 规则引擎重新加载规则链或者子节点配置之后增强点接口
+// OnReloadAspect defines the interface for aspects executed after rule engine configuration reload.
+// These aspects are called when the rule engine or its nodes are reloaded with new configurations.
+//
+// OnReloadAspect 定义在规则引擎配置重载后执行的切面接口。
+// 这些切面在规则引擎或其节点使用新配置重载时调用。
 type OnReloadAspect interface {
 	Aspect
-	// OnReload is the advice that executes after the rule engine reloads the rule chain or child node configuration.
-	// OnReload 规则引擎重新加载规则链或者子节点配置之后的增强点。规则链更新会同时触发OnDestroy、OnBeforeReload、OnReload
-	// If the rule chain is updated, then chainCtx=ctx
-	// 如果更新规则链，则chainCtx=ctx
+
+	// OnReload is executed after rule engine configuration reload.
+	// When a rule chain is updated, this triggers OnDestroy, OnBeforeReload, and OnReload in sequence.
+	//
+	// OnReload 在规则引擎配置重载后执行。
+	// 当规则链更新时，这会依次触发 OnDestroy、OnBeforeReload 和 OnReload。
+	//
+	// Parameters:
+	// 参数：
+	//   - chainCtx: The rule chain context (equals ctx if rule chain is updated)
+	//     chainCtx：规则链上下文（如果规则链更新则等于 ctx）
+	//   - ctx: The specific node context that was reloaded
+	//     ctx：被重载的特定节点上下文
+	//
+	// Returns:
+	// 返回：
+	//   - error: Error if reload post-processing fails
+	//     error：重载后处理失败时的错误
 	OnReload(chainCtx NodeCtx, ctx NodeCtx) error
 }
 
-// OnDestroyAspect is the interface for rule engine instance destruction advice
-// OnDestroyAspect 规则引擎实例销毁执行之后增强点接口
+// OnDestroyAspect defines the interface for aspects executed after rule engine instance destruction.
+// These aspects are called when the rule engine instance is being destroyed or cleaned up.
+//
+// OnDestroyAspect 定义在规则引擎实例销毁后执行的切面接口。
+// 这些切面在规则引擎实例被销毁或清理时调用。
 type OnDestroyAspect interface {
 	Aspect
-	// OnDestroy is the advice that executes after the rule engine instance is destroyed.
-	// OnDestroy 规则引擎实例销毁执行之后增强点
+
+	// OnDestroy is executed after the rule engine instance is destroyed.
+	// This is called during engine shutdown or when reloading configurations.
+	//
+	// OnDestroy 在规则引擎实例销毁后执行。
+	// 这在引擎关闭或重载配置时调用。
+	//
+	// Parameters:
+	// 参数：
+	//   - chainCtx: The rule chain context being destroyed
+	//     chainCtx：正在销毁的规则链上下文
 	OnDestroy(chainCtx NodeCtx)
 }
 

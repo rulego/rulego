@@ -22,34 +22,79 @@ import (
 	"sync"
 )
 
+// Component kind constants define the different types of components in the RuleGo ecosystem.
+// 组件类型常量定义了 RuleGo 生态系统中不同类型的组件。
 const (
-	// ComponentKindDynamic Dynamic component
+	// ComponentKindDynamic represents a dynamic component that can be loaded at runtime
+	// ComponentKindDynamic 表示可以在运行时加载的动态组件
 	ComponentKindDynamic string = "dc"
-	// ComponentKindNative Native component
+
+	// ComponentKindNative represents a native component that is built into the system
+	// ComponentKindNative 表示内置在系统中的原生组件
 	ComponentKindNative string = "nc"
-	// ComponentKindEndpoint Endpoint component
+
+	// ComponentKindEndpoint represents an endpoint component for input/output operations
+	// ComponentKindEndpoint 表示用于输入/输出操作的端点组件
 	ComponentKindEndpoint string = "ec"
 )
 
-// ComponentDefGetter 该接口是可选的，组件可以实现该接口，提供可视化需要的信息，
-// 例如：Label,Desc,RelationTypes。否则使用约定规则提供可视化表单定义
+// ComponentDefGetter is an optional interface that components can implement to provide
+// metadata for visual configuration tools such as Label, Description, and RelationTypes.
+// If not implemented, conventional rules are used to provide visual form definitions.
+//
+// ComponentDefGetter 是组件可以实现的可选接口，用于为可视化配置工具提供元数据，
+// 如标签、描述和关系类型。如果未实现，则使用约定规则提供可视化表单定义。
+//
+// Example implementation:
+// 实现示例：
+//
+//	func (n *MyNode) Def() ComponentForm {
+//		return ComponentForm{
+//			Type:     "myNode",
+//			Category: "transform",
+//			Label:    "My Custom Node",
+//			Desc:     "A custom transformation node",
+//		}
+//	}
 type ComponentDefGetter interface {
+	// Def returns the component form definition for visual configuration
+	// Def 返回用于可视化配置的组件表单定义
 	Def() ComponentForm
 }
 
-// CategoryGetter 该接口是可选的，组件可以实现该接口，提供分类，
+// CategoryGetter is an optional interface that components can implement to provide
+// category information for organizing components in visual tools.
+//
+// CategoryGetter 是组件可以实现的可选接口，用于提供分类信息，
+// 在可视化工具中组织组件。
 type CategoryGetter interface {
+	// Category returns the category name for this component
+	// Category 返回此组件的类别名称
 	Category() string
 }
 
-// DescGetter 该接口是可选的，组件可以实现该接口，提供组件描述，
+// DescGetter is an optional interface that components can implement to provide
+// a description of the component's functionality.
+//
+// DescGetter 是组件可以实现的可选接口，用于提供组件功能的描述。
 type DescGetter interface {
+	// Desc returns a description of the component
+	// Desc 返回组件的描述
 	Desc() string
 }
 
-// ComponentFormList 组件表单列表
+// ComponentFormList represents a collection of component forms indexed by component type.
+// It provides methods for managing and querying component configurations.
+//
+// ComponentFormList 表示按组件类型索引的组件表单集合。
+// 它提供了管理和查询组件配置的方法。
 type ComponentFormList map[string]ComponentForm
 
+// GetComponent retrieves a component form by its type name.
+// Returns the component form and a boolean indicating whether it was found.
+//
+// GetComponent 通过类型名称检索组件表单。
+// 返回组件表单和表示是否找到的布尔值。
 func (c ComponentFormList) GetComponent(name string) (ComponentForm, bool) {
 	for _, item := range c {
 		if item.Type == name {
@@ -59,24 +104,47 @@ func (c ComponentFormList) GetComponent(name string) (ComponentForm, bool) {
 	return ComponentForm{}, false
 }
 
+// Values returns all component forms sorted by category and then by type.
+// This provides a consistent ordering for UI display purposes.
+//
+// Values 返回按类别然后按类型排序的所有组件表单。
+// 这为 UI 显示提供了一致的排序。
 func (c ComponentFormList) Values() []ComponentForm {
 	var values []ComponentForm
 	for _, item := range c {
 		values = append(values, item)
 	}
-	// 先按Pkg排序，再按Type排序
+	// Sort by category first, then by type
+	// 先按类别排序，再按类型排序
 	sort.Slice(values, func(i, j int) bool {
-		// 如果两个元素的Pkg不同，就按Pkg的字典序比较
+		// If categories are different, sort by category
+		// 如果类别不同，按类别排序
 		if values[i].Category != values[j].Category {
 			return values[i].Category < values[j].Category
 		}
-		// 否则，就按Type的字典序比较
+		// Otherwise, sort by type
+		// 否则，按类型排序
 		return values[i].Type < values[j].Type
 	})
 	return values
 }
 
-// GetByPage 根据分页获取数据
+// GetByPage returns component forms with pagination support.
+// Returns the forms for the specified page, total count, and any error.
+//
+// GetByPage 返回带分页支持的组件表单。
+// 返回指定页面的表单、总数和任何错误。
+//
+// Parameters:
+// 参数：
+//   - page: Page number (1-based)  页码（从1开始）
+//   - pageSize: Number of items per page  每页项目数
+//
+// Returns:
+// 返回：
+//   - []ComponentForm: The component forms for the requested page  请求页面的组件表单
+//   - int: Total number of available forms  可用表单的总数
+//   - error: Any error that occurred  发生的任何错误
 func (c ComponentFormList) GetByPage(page, pageSize int) ([]ComponentForm, int, error) {
 	if page < 1 || pageSize < 1 {
 		return nil, 0, fmt.Errorf("invalid page or pageSize")
@@ -102,9 +170,18 @@ func (c ComponentFormList) GetByPage(page, pageSize int) ([]ComponentForm, int, 
 	return values[start:end], total, nil
 }
 
-// ComponentFormFieldList 字段列表类型
+// ComponentFormFieldList represents a list of component form fields.
+// It provides methods for managing and querying field configurations.
+//
+// ComponentFormFieldList 表示组件表单字段列表。
+// 它提供了管理和查询字段配置的方法。
 type ComponentFormFieldList []ComponentFormField
 
+// GetField retrieves a field by its name.
+// Returns the field and a boolean indicating whether it was found.
+//
+// GetField 通过名称检索字段。
+// 返回字段和表示是否找到的布尔值。
 func (c ComponentFormFieldList) GetField(name string) (ComponentFormField, bool) {
 	for _, field := range c {
 		if field.Name == name {
@@ -114,71 +191,129 @@ func (c ComponentFormFieldList) GetField(name string) (ComponentFormField, bool)
 	return ComponentFormField{}, false
 }
 
-// ComponentForm 组件表单，用于可视化加载组件表单
+// ComponentForm represents the metadata and configuration structure for a component.
+// It is used by visual configuration tools to generate appropriate UI forms.
+//
+// ComponentForm 表示组件的元数据和配置结构。
+// 它被可视化配置工具用来生成适当的 UI 表单。
 type ComponentForm struct {
-	//Type 组件类型
+	// Type is the unique identifier for the component type
+	// Type 是组件类型的唯一标识符
 	Type string `json:"type"`
-	//Category 组件分类
+
+	// Category is the classification category for organizing components
+	// Category 是用于组织组件的分类类别
 	Category string `json:"category"`
-	//配置字段,获取组件`Config`字段的所有公有字段
+
+	// Fields contains the configuration fields extracted from the component's Config struct
+	// Fields 包含从组件的 Config 结构体中提取的配置字段
 	Fields ComponentFormFieldList `json:"fields"`
-	//Label 组件展示名称，预留，目前没值
+
+	// Label is the display name for the component (reserved for future use)
+	// Label 是组件的显示名称（保留供将来使用）
 	Label string `json:"label"`
-	//Desc 组件说明，预留，目前没值
+
+	// Desc is the description of the component (reserved for future use)
+	// Desc 是组件的描述（保留供将来使用）
 	Desc string `json:"desc"`
-	//Icon 图标，预留，如果没值则取type。
+
+	// Icon is the icon identifier for the component (defaults to type if empty)
+	// Icon 是组件的图标标识符（如果为空则默认为类型）
 	Icon string `json:"icon"`
-	//RelationTypes 和下一个节点能产生的连接名称列表，
-	//过滤器节点类型默认是：True/False/Failure；其他节点类型默认是Success/Failure
-	//如果是空，表示用户可以自定义连接关系
+
+	// RelationTypes defines the possible connection names to the next node.
+	// For filter nodes, defaults to: True/False/Failure
+	// For other nodes, defaults to: Success/Failure
+	// If nil, users can define custom relationship types
+	// RelationTypes 定义与下一个节点的可能连接名称。
+	// 对于过滤器节点，默认为：True/False/Failure
+	// 对于其他节点，默认为：Success/Failure
+	// 如果为 nil，用户可以定义自定义关系类型
 	RelationTypes *[]string `json:"relationTypes"`
-	//是否禁用，如果禁用在editor不显示
+
+	// Disabled indicates whether the component should be hidden in the editor
+	// Disabled 表示组件是否应在编辑器中隐藏
 	Disabled bool `json:"disabled"`
-	//版本
+
+	// Version is the version of the component
+	// Version 是组件的版本
 	Version string `json:"version"`
-	// 组件种类，dc:动态组件 nc:原生组件 ec:endpoint组件
+
+	// ComponentKind indicates the type of component: dc (dynamic), nc (native), ec (endpoint)
+	// ComponentKind 表示组件类型：dc（动态）、nc（原生）、ec（端点）
 	ComponentKind string `json:"componentKind"`
 }
 
-// ComponentFormField 组件配置字段
+// ComponentFormField represents a single configuration field in a component form.
+// It contains metadata about the field type, validation rules, and UI presentation.
+//
+// ComponentFormField 表示组件表单中的单个配置字段。
+// 它包含有关字段类型、验证规则和 UI 表示的元数据。
 type ComponentFormField struct {
-	//Name 字段名称
+	// Name is the field name corresponding to the struct field
+	// Name 是对应于结构体字段的字段名称
 	Name string `json:"name"`
-	//Type 字段类型
+
+	// Type is the data type of the field (string, int, bool, etc.)
+	// Type 是字段的数据类型（string、int、bool 等）
 	Type string `json:"type"`
-	//默认值，组件实现的方法node.New(), Config对应的字段，提供了默认值会填充到该值
+
+	// DefaultValue is the default value provided by the component's New() method
+	// DefaultValue 是组件的 New() 方法提供的默认值
 	DefaultValue interface{} `json:"defaultValue"`
-	//Label 字段展示名称，通过tag:label获取
+
+	// Label is the display name for the field, extracted from the 'label' tag
+	// Label 是字段的显示名称，从 'label' 标签中提取
 	Label string `json:"label"`
-	//Desc 字段说明，通过tag:desc获取
+
+	// Desc is the description of the field, extracted from the 'desc' tag
+	// Desc 是字段的描述，从 'desc' 标签中提取
 	Desc string `json:"desc"`
-	//Validate 校验规则，通过tag:validate获取
-	//Deprecated: 使用 Rules 代替
+
+	// Validate contains validation rules, extracted from the 'validate' tag
+	// Deprecated: Use Rules instead
+	// Validate 包含验证规则，从 'validate' 标签中提取
+	// 已废弃：使用 Rules 代替
 	Validate string `json:"validate"`
-	//Rules 前端界面校验规则
-	// 示例: [
-	// {required: true, message: '该字段是必须的'},
-	// ]
+
+	// Rules contains frontend validation rules
+	// Rules 包含前端验证规则
+	// Example: [{"required": true, "message": "This field is required"}]
+	// 示例：[{"required": true, "message": "This field is required"}]
 	Rules []map[string]interface{} `json:"rules"`
-	//Fields 嵌套字段
+
+	// Fields contains nested fields for complex objects
+	// Fields 包含复杂对象的嵌套字段
 	Fields ComponentFormFieldList `json:"fields"`
-	//表单组件配置
-	//示例:{
-	//	"type": "codeEditor",
-	//}
+
+	// Component contains UI component configuration for rendering
+	// Component 包含用于渲染的 UI 组件配置
+	// Example: {"type": "codeEditor", "language": "javascript"}
+	// 示例：{"type": "codeEditor", "language": "javascript"}
 	Component map[string]interface{} `json:"component"`
-	//是否必填，通过tag:required获取
+
+	// Required indicates whether the field is mandatory, extracted from the 'required' tag
+	// Required 表示字段是否为必填项，从 'required' 标签中提取
 	Required bool `json:"required"`
 }
 
-// SafeComponentSlice 安全的组件列表切片
+// SafeComponentSlice provides a thread-safe slice for storing Node components.
+// It uses mutex synchronization to ensure safe concurrent access.
+//
+// SafeComponentSlice 提供了用于存储 Node 组件的线程安全切片。
+// 它使用互斥锁同步来确保安全的并发访问。
 type SafeComponentSlice struct {
-	//组件列表
+	// components holds the list of Node components
+	// components 保存 Node 组件列表
 	components []Node
 	sync.Mutex
 }
 
-// Add 线程安全地添加元素
+// Add safely appends one or more Node components to the slice.
+// This method is thread-safe and can be called concurrently.
+//
+// Add 安全地将一个或多个 Node 组件追加到切片中。
+// 此方法是线程安全的，可以并发调用。
 func (p *SafeComponentSlice) Add(nodes ...Node) {
 	p.Lock()
 	defer p.Unlock()
@@ -187,7 +322,11 @@ func (p *SafeComponentSlice) Add(nodes ...Node) {
 	}
 }
 
-// Components 获取组件列表
+// Components returns a copy of the current component list.
+// This method is thread-safe and returns a snapshot of the components.
+//
+// Components 返回当前组件列表的副本。
+// 此方法是线程安全的，返回组件的快照。
 func (p *SafeComponentSlice) Components() []Node {
 	p.Lock()
 	defer p.Unlock()

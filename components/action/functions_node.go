@@ -28,37 +28,40 @@ package action
 //  }
 import (
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"strings"
-	"sync"
 )
 
-// Functions 自定义函数注册器
+// Functions 全局函数注册表，用于注册和查找自定义处理函数
+// Functions is the global registry for custom functions that can be called by FunctionsNode.
 var Functions = &FunctionsRegistry{}
 
-// 注册节点
+// init 注册FunctionsNode组件
+// init registers the FunctionsNode component with the default registry.
 func init() {
 	Registry.Add(&FunctionsNode{})
 }
 
-// FunctionsRegistry 函数注册器
+// FunctionsRegistry 线程安全的自定义处理函数注册表
+// FunctionsRegistry is a thread-safe registry for custom processing functions.
+//
+// 函数签名 - Function signature:
+//   - func(ctx types.RuleContext, msg types.RuleMsg)
+//   - 函数必须调用ctx.TellSuccess/TellNext/TellFailure进行路由 - Functions must call ctx.Tell* methods for routing
 type FunctionsRegistry struct {
-	//函数列表
-	//ctx 上下文
-	//msg 上一节点传入的msg
-	//函数处理成功，必须使用以下方法通知规则引擎已成功处理：
-	//ctx.TellSuccess(msg RuleMsg) //通知规则引擎处理当前消息处理成功，并把消息通过`Success`关系发送到下一个节点
-	//ctx.TellNext(msg RuleMsg, relationTypes ...string)//使用指定的relationTypes，发送消息到下一个节点
-	//如果消息处理失败，函数实现必须调用tellFailure方法：
-	//ctx.TellFailure(msg RuleMsg, err error)//通知规则引擎处理当前消息处理失败，并把消息通过`Failure`关系发送到下一个节点
+	// functions 存储函数名到实现的映射
+	// functions stores the mapping from function names to their implementations
 	functions map[string]func(ctx types.RuleContext, msg types.RuleMsg)
 	sync.RWMutex
 }
 
-// Register 注册函数
+// Register 注册函数到注册表
+// Register adds a new function to the registry with the specified name.
 func (x *FunctionsRegistry) Register(functionName string, f func(ctx types.RuleContext, msg types.RuleMsg)) {
 	x.Lock()
 	defer x.Unlock()
@@ -68,7 +71,8 @@ func (x *FunctionsRegistry) Register(functionName string, f func(ctx types.RuleC
 	x.functions[functionName] = f
 }
 
-// UnRegister 删除函数
+// UnRegister 从注册表移除函数
+// UnRegister removes a function from the registry by name.
 func (x *FunctionsRegistry) UnRegister(functionName string) {
 	x.Lock()
 	defer x.Unlock()
@@ -77,7 +81,8 @@ func (x *FunctionsRegistry) UnRegister(functionName string) {
 	}
 }
 
-// Get 获取函数
+// Get 从注册表获取函数
+// Get retrieves a function from the registry by name.
 func (x *FunctionsRegistry) Get(functionName string) (func(ctx types.RuleContext, msg types.RuleMsg), bool) {
 	x.RLock()
 	defer x.RUnlock()
@@ -88,6 +93,8 @@ func (x *FunctionsRegistry) Get(functionName string) (func(ctx types.RuleContext
 	return f, ok
 }
 
+// Names 返回所有已注册的函数名称列表
+// Names returns a list of all registered function names.
 func (x *FunctionsRegistry) Names() []string {
 	x.RLock()
 	defer x.RUnlock()
@@ -98,33 +105,55 @@ func (x *FunctionsRegistry) Names() []string {
 	return keys
 }
 
-// FunctionsNodeConfiguration 节点配置
+// FunctionsNodeConfiguration FunctionsNode配置结构
+// FunctionsNodeConfiguration defines the configuration structure for the FunctionsNode component.
 type FunctionsNodeConfiguration struct {
-	//FunctionName 调用的函数名称，支持通过${metadata.key}方式从metadata动态获取函数名称值或者通过${msg.key}方式从消息负荷动态获取函数名称值
+	// FunctionName 要调用的函数名称，支持变量替换
+	// FunctionName specifies the name of the function to call from the registry.
+	// Supports dynamic resolution using placeholder variables:
+	//   - ${metadata.key}: Retrieves function name from message metadata
+	//   - ${msg.key}: Retrieves function name from message payload
 	FunctionName string
 }
 
-// FunctionsNode 通过方法名调用注册在Functions的处理函数
-// 如果没找到函数，则TellFailure
+// FunctionsNode 通过函数名调用已注册自定义函数的动作组件
+// FunctionsNode is an action component that invokes registered custom functions by name.
+//
+// 核心算法：
+// Core Algorithm:
+// 1. 解析函数名（静态或动态变量替换）- Resolve function name (static or dynamic variable substitution)
+// 2. 从全局注册表查找函数 - Look up function in global registry
+// 3. 调用函数并由函数处理路由 - Invoke function and let function handle routing
+//
+// 函数名解析 - Function name resolution:
+//   - 静态名称：直接使用 - Static names: used directly
+//   - 动态名称：支持${metadata.key}和${msg.key}变量替换 - Dynamic names: support variable substitution
 type FunctionsNode struct {
-	//节点配置
+	// Config 节点配置
+	// Config holds the node configuration including function name specification
 	Config FunctionsNodeConfiguration
-	//functionName是否有占位符变量
+
+	// HasVars 标识函数名是否包含占位符变量，用于优化
+	// HasVars indicates whether the function name contains placeholder variables
 	HasVars bool
 }
 
-// Type 组件类型
+// Type 返回组件类型
+// Type returns the component type identifier.
 func (x *FunctionsNode) Type() string {
 	return "functions"
 }
 
+// New 创建新实例
+// New creates a new instance.
 func (x *FunctionsNode) New() types.Node {
 	return &FunctionsNode{Config: FunctionsNodeConfiguration{
 		FunctionName: "test",
 	}}
 }
 
-// Init 初始化
+// Init 初始化组件
+// Init initializes the component.
 func (x *FunctionsNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 
@@ -134,24 +163,27 @@ func (x *FunctionsNode) Init(ruleConfig types.Config, configuration types.Config
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg 处理消息，调用指定的函数
+// OnMsg processes incoming messages by invoking the specified function from the registry.
 func (x *FunctionsNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	funcName := x.getFunctionName(ctx, msg)
 	if f, ok := Functions.Get(funcName); ok {
-		//调用函数
+		// 调用函数
 		f(ctx, msg)
 	} else {
 		ctx.TellFailure(msg, fmt.Errorf("can not found the function=%s", funcName))
 	}
 }
 
-// Destroy 销毁
+// Destroy 清理资源
+// Destroy cleans up resources.
 func (x *FunctionsNode) Destroy() {
+	// 无资源需要清理
+	// No resources to clean up
 }
 
-// 获取函数名称
-// 如果有占位符变量，则使用占位符变量替换
-// 如果没有占位符变量，则直接返回函数名称
+// getFunctionName 解析函数名称，处理静态和动态情况
+// getFunctionName resolves the function name, handling both static and dynamic cases.
 func (x *FunctionsNode) getFunctionName(ctx types.RuleContext, msg types.RuleMsg) string {
 	if x.HasVars {
 		evn := base.NodeUtils.GetEvnAndMetadata(ctx, msg)

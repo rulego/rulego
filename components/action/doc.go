@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The RuleGo Authors.
+ * Copyright 2023 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,36 +14,61 @@
  * limitations under the License.
  */
 
-// Package action provides a collection of action components for the RuleGo rule engine.
+// Package action provides action node components for the RuleGo rule engine.
+// Action nodes perform operations, transformations, and business logic execution as part of rule chain processing.
 //
-// These components are designed to perform various actions within a rule chain, including:
+// Package action 为 RuleGo 规则引擎提供动作节点组件。
+// 动作节点作为规则链处理的一部分执行操作、转换和业务逻辑。
 //
-// - DelayNode: Introduces a time delay in rule execution
-// - ExecCommandNode: Executes system commands
-// - ForNode: Implements loop functionality for iterating over data
-// - FunctionsNode: Allows calling custom-defined functions
-// - GroupActionNode: Groups multiple nodes and executes them asynchronously
-// - IteratorNode: Iterates over data (deprecated, use ForNode instead)
-// - JoinNode: Merges results from multiple asynchronous nodes
-// - JsLogNode: Logs messages using JavaScript
+// Registration:
+// 注册：
 //
-// Each component is registered with the Registry, allowing them to be used
-// within rule chains. These components can be configured and connected to create
-// complex rule processing flows.
+// All components are automatically registered during package initialization:
+// 所有组件在包初始化期间自动注册：
 //
-// To use these components, include them in your rule chain configuration and
-// ensure they are properly connected to other nodes in the chain.
+//	func init() {
+//		Registry.Add(&DelayNode{})
+//		Registry.Add(&ForNode{})
+//		Registry.Add(&ExecNode{})
+//		// ... other components
+//	}
 //
-// You can use these components in your rule chain DSL file by referencing
-// their Type. For example:
+// Example Usage:
+// 使用示例：
 //
-//	  {
-//	    "id": "node1",
-//	    "type": "for",
-//	    "name": "for",
-//	    "configuration": {
-//				"range": "msg.items",
-//				"do":        "s3"
-//	    }
-//	  }
+//	// Delay message processing
+//	// 延迟消息处理
+//	{
+//		"id": "delay1",
+//		"type": "delay",
+//		"configuration": {
+//			"periodInSeconds": 30,
+//			"maxPendingMsgs": 1000
+//		}
+//	}
+//
+//	// Iterate over collection
+//	// 遍历集合
+//	{
+//		"id": "processItems",
+//		"type": "for",
+//		"configuration": {
+//			"range": "msg.items",
+//			"do": "processItem",
+//			"mode": 1
+//		}
+//	}
+//
+//	// Execute custom function
+//	// 执行自定义函数
+//	{
+//		"id": "customLogic",
+//		"type": "functions",
+//		"configuration": {
+//			"functionName": "calculateTotal"
+//		}
+//	}
+//
+// For detailed documentation on individual components, see their respective source files.
+// 有关各个组件的详细文档，请参见其各自的源文件。
 package action

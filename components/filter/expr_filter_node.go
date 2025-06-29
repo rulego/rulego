@@ -28,51 +28,90 @@ package filter
 //      }
 import (
 	"fmt"
+	"strings"
+
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
-	"strings"
 )
 
+// init 注册ExprFilterNode组件
+// init registers the ExprFilterNode component with the default registry.
 func init() {
 	Registry.Add(&ExprFilterNode{})
 }
 
-// ExprFilterNodeConfiguration 节点配置
+// ExprFilterNodeConfiguration ExprFilterNode配置结构
+// ExprFilterNodeConfiguration defines the configuration structure for the ExprFilterNode component.
 type ExprFilterNodeConfiguration struct {
-	// 表达式
+	// Expr 用于过滤评估的表达式，必须返回布尔值
+	// Expr contains the expression to evaluate for filtering.
+	// The expression has access to the following variables:
+	//   - id: Message ID (string)
+	//   - ts: Message timestamp (int64)
+	//   - data: Original message data (string)
+	//   - msg: Parsed message body (object for JSON, string otherwise)
+	//   - metadata: Message metadata (object with key-value pairs)
+	//   - type: Message type (string)
+	//   - dataType: Message data type (string)
+	//
+	// The expression must evaluate to a boolean value:
+	//   - true: Message passes the filter (routed to "True" relation)
+	//   - false: Message fails the filter (routed to "False" relation)
+	//
+	// Example expressions:
+	// 表达式示例：
+	//   - "msg.temperature > 50"
+	//   - "metadata.deviceType == 'sensor' && msg.value > 100"
+	//   - "type == 'TELEMETRY' && data contains 'alarm'"
+	//   - "ts > 1640995200 && msg.status == 'active'"
 	Expr string
 }
 
-// ExprFilterNode 使用expr表达式过滤消息
-// 如果返回值`True`发送信息到`True`链, `False`发到`False`链。
-// 如果表达式执行失败则发送到`Failure`链
-// 通过`id`变量访问消息id
-// 通过`ts`变量访问消息时间戳
-// 通过`data`变量访问消息原始数据
-// 通过`msg`变量访问转换后消息体，如果消息的dataType是json类型，可以通过 `msg.XX`方式访问msg的字段。例如:`msg.temperature > 50;`
-// 通过`metadata`变量访问消息元数据。例如 `metadata.customerName`
-// 通过`type`变量访问消息类型
-// 通过`dataType`变量访问数据类型
+// ExprFilterNode 使用expr-lang表达式进行布尔评估来过滤消息的过滤组件
+// ExprFilterNode filters messages using expr-lang expressions for boolean evaluation.
+//
+// 核心算法：
+// Core Algorithm:
+// 1. 初始化时编译表达式为优化的程序 - Compile expression to optimized program during initialization
+// 2. 准备消息评估环境（id、ts、data、msg、metadata等）- Prepare message evaluation environment
+// 3. 执行编译的表达式程序 - Execute compiled expression program
+// 4. 根据布尔结果路由消息到True/False关系 - Route message to True/False relation based on boolean result
+//
+// 表达式语言特性 - Expression language features:
+//   - 算术运算符：+, -, *, /, % - Arithmetic operators
+//   - 比较运算符：==, !=, <, <=, >, >= - Comparison operators
+//   - 逻辑运算符：&&, ||, ! - Logical operators
+//   - 字符串操作：contains, startsWith, endsWith - String operations
+//   - 数学函数：abs, ceil, floor, round - Mathematical functions
 type ExprFilterNode struct {
-	//节点配置
-	Config  ExprFilterNodeConfiguration
+	// Config 表达式过滤器配置
+	// Config holds the expression filter configuration
+	Config ExprFilterNodeConfiguration
+
+	// program 用于高效执行的编译表达式
+	// program is the compiled expression for efficient execution
 	program *vm.Program
 }
 
-// Type 组件类型
+// Type 返回组件类型
+// Type returns the component type identifier.
 func (x *ExprFilterNode) Type() string {
 	return "exprFilter"
 }
+
+// New 创建新实例
+// New creates a new instance.
 func (x *ExprFilterNode) New() types.Node {
 	return &ExprFilterNode{Config: ExprFilterNodeConfiguration{
 		Expr: "",
 	}}
 }
 
-// Init 初始化
+// Init 初始化组件，验证并编译表达式
+// Init initializes the component.
 func (x *ExprFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if strings.TrimSpace(x.Config.Expr) == "" {
@@ -84,7 +123,8 @@ func (x *ExprFilterNode) Init(ruleConfig types.Config, configuration types.Confi
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg 处理消息，通过评估编译的表达式来过滤消息
+// OnMsg processes incoming messages by evaluating the compiled expression.
 func (x *ExprFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	evn := base.NodeUtils.GetEvn(ctx, msg)
 
@@ -99,6 +139,7 @@ func (x *ExprFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 }
 
-// Destroy 销毁
+// Destroy 清理资源
+// Destroy cleans up resources.
 func (x *ExprFilterNode) Destroy() {
 }

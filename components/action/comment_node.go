@@ -34,38 +34,48 @@ import (
 	"github.com/rulego/rulego/api/types"
 )
 
-// 注册节点
+// init 注册CommentNode组件
+// init registers the CommentNode component with the default registry.
 func init() {
 	Registry.Add(&CommentNode{})
 }
 
-// CommentNodeConfiguration 节点配置
+// CommentNodeConfiguration CommentNode配置结构
+// CommentNodeConfiguration defines the configuration structure for the CommentNode component.
 type CommentNodeConfiguration struct {
+	// 注释节点不需要配置字段
+	// No configuration fields required for comment nodes
 }
 
-// CommentNode 用于可视化注释节点，不参与流程逻辑
+// CommentNode 注释组件，用于规则链的可视化编辑器显示节点注释信息，不处理消息，直通传递消息
+// CommentNode is a visualization and documentation component that passes messages through unchanged.
 type CommentNode struct {
 }
 
-// Type 组件类型
+// Type 返回组件类型
+// Type returns the component type identifier.
 func (x *CommentNode) Type() string {
 	return "comment"
 }
 
+// New 创建新实例
+// New creates a new instance.
 func (x *CommentNode) New() types.Node {
 	return &CommentNode{}
 }
 
-// Init 初始化
+// Init 初始化组件
+// Init initializes the component.
 func (x *CommentNode) Init(_ types.Config, _ types.Configuration) error {
 	return nil
 }
 
-// OnMsg 处理消息
+// OnMsg 直通传递消息
+// OnMsg forwards messages unchanged.
 func (x *CommentNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	ctx.TellSuccess(msg)
 }
 
-// Destroy 销毁
+// Destroy cleans up resources.
 func (x *CommentNode) Destroy() {
 }

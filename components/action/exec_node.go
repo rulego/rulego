@@ -1,63 +1,118 @@
+/*
+ * Copyright 2023 The RuleGo Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package action
 
 import (
 	"bytes"
 	"errors"
+	"io"
+	"os/exec"
+	"strings"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"io"
-	"os/exec"
-	"strings"
 )
 
-// ErrCmdNotAllowed 不允许执行的命令
+// ErrCmdNotAllowed 命令不在白名单中的错误
+// ErrCmdNotAllowed is returned when attempting to execute a command not in the whitelist.
 var ErrCmdNotAllowed = errors.New("cmd not allowed error")
 
 const (
-	// KeyExecNodeWhitelist ExecCommandNode node whitelist list
+	// KeyExecNodeWhitelist 命令白名单的配置键
+	// KeyExecNodeWhitelist is the configuration key for the ExecCommandNode command whitelist.
 	KeyExecNodeWhitelist = "execNodeWhitelist"
-	//KeyWorkDir cmd working directory
+
+	// KeyWorkDir 工作目录的元数据键
+	// KeyWorkDir is the metadata key for specifying the command working directory.
 	KeyWorkDir = "workDir"
 )
 
+// init 注册ExecCommandNode组件
+// init registers the ExecCommandNode component with the default registry.
 func init() {
 	Registry.Add(&ExecCommandNode{})
 }
 
-// ExecCommandNodeConfiguration 节点配置
+// ExecCommandNodeConfiguration ExecCommandNode配置结构
+// ExecCommandNodeConfiguration defines the configuration structure for the ExecCommandNode component.
 type ExecCommandNodeConfiguration struct {
-	// Cmd 执行的命令，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
+	// Cmd 要执行的命令，支持${metadata.key}和${msg.key}变量替换
+	// Cmd specifies the command to execute.
+	// Supports variable substitution using ${metadata.key} and ${msg.key} syntax.
 	Cmd string
-	// Args 命令参数，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
+
+	// Args 命令参数，每个参数支持变量替换
+	// Args specifies the command arguments.
+	// Each argument supports variable substitution using ${metadata.key} and ${msg.key} syntax.
 	Args []string
-	// Log 是否打印标准输出。true:命令标准输出会触发OnDebug函数输出
+
+	// Log 是否将命令标准输出到调试日志
+	// Log controls whether to output command stdout to the debug log.
 	Log bool
-	//是否把标准输出到下一个节点
+
+	// ReplaceData 是否用命令输出替换消息数据
+	// ReplaceData controls whether to replace the message data with command output.
 	ReplaceData bool
 }
 
-// ExecCommandNode 执行本地命令，在白名单的命令才允许执行，通过config.Properties `key=execNodeWhitelist`，设置白名单，多个与`,`隔开
-// 示例：config.Properties.PutValue(KeyExecNodeWhitelist,"cd,ls,go")
-// 允许通过上一个节点通过元数据`key=workDir`，设置命令的执行目录，如：Metadata.PutValue("workDir","./data")
+// ExecCommandNode 执行本地系统命令的动作组件，具有安全控制
+// ExecCommandNode is an action component that executes local system commands with security controls.
+//
+// 核心算法：
+// Core Algorithm:
+// 1. 变量替换：解析命令和参数中的${metadata.key}和${msg.key} - Variable substitution in command and arguments
+// 2. 白名单验证：检查命令是否在允许列表中 - Whitelist validation for security
+// 3. 命令执行：设置工作目录并执行命令 - Command execution with working directory
+// 4. 输出处理：根据配置处理标准输出和错误输出 - Output handling based on configuration
+//
+// 安全特性 - Security features:
+//   - 命令白名单验证 - Command whitelist validation
+//   - 变量替换支持 - Variable substitution support
+//   - 工作目录控制 - Working directory control
+//
+// 输出处理模式 - Output handling modes:
+//   - Log模式：输出发送到调试日志 - Log mode: output to debug logging
+//   - Replace模式：输出替换消息数据 - Replace mode: output replaces message data
 type ExecCommandNode struct {
-	// 节点配置
+	// Config 节点配置
+	// Config holds the node configuration including command and execution options
 	Config ExecCommandNodeConfiguration
-	// 白名单命令列表
+
+	// CommandWhitelist 允许的命令列表
+	// CommandWhitelist contains the list of allowed commands for security validation
 	CommandWhitelist []string
 }
 
-// Type 组件类型
+// Type 返回组件类型
+// Type returns the component type identifier.
 func (x *ExecCommandNode) Type() string {
 	return "exec"
 }
 
+// New 创建新实例
+// New creates a new instance.
 func (x *ExecCommandNode) New() types.Node {
 	return &ExecCommandNode{}
 }
 
-// Init 初始化
+// Init 初始化组件
+// Init initializes the component.
 func (x *ExecCommandNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	if err := maps.Map2Struct(configuration, &x.Config); err != nil {
 		return err
@@ -66,7 +121,8 @@ func (x *ExecCommandNode) Init(ruleConfig types.Config, configuration types.Conf
 	return nil
 }
 
-// OnMsg 处理消息
+// OnMsg 处理消息，执行配置的命令
+// OnMsg processes incoming messages by executing the configured command with security validation.
 func (x *ExecCommandNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	evn := base.NodeUtils.GetEvnAndMetadata(ctx, msg)
@@ -125,10 +181,15 @@ func (x *ExecCommandNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	ctx.TellSuccess(msg)
 }
 
-// Destroy 销毁
+// Destroy 清理资源
+// Destroy cleans up resources.
 func (x *ExecCommandNode) Destroy() {
+	// 无资源需要清理
+	// No resources to clean up
 }
 
+// printLog 配置命令输出重定向到调试日志
+// printLog configures command output redirection for debug logging.
 func (x *ExecCommandNode) printLog(ctx types.RuleContext, msg types.RuleMsg, cmd *exec.Cmd, bufOut *bytes.Buffer, bufErr *bytes.Buffer) {
 	// 启用日志记录
 	var chainId = ""
@@ -155,6 +216,7 @@ func (x *ExecCommandNode) printLog(ctx types.RuleContext, msg types.RuleMsg, cmd
 }
 
 // isCommandWhitelisted 检查命令是否在白名单中
+// isCommandWhitelisted checks if a command is allowed by the whitelist configuration.
 func isCommandWhitelisted(command string, whitelist []string) bool {
 	for _, whitelistedCommand := range whitelist {
 		if command == whitelistedCommand {
@@ -164,13 +226,28 @@ func isCommandWhitelisted(command string, whitelist []string) bool {
 	return false
 }
 
+// OnDebugWriter 将命令输出重定向到规则引擎调试系统的自定义写入器
+// OnDebugWriter is a custom writer that redirects command output to the rule engine's debug system.
 type OnDebugWriter struct {
-	ctx          types.RuleContext
-	msg          types.RuleMsg
+	// ctx 规则处理上下文
+	// ctx provides access to the rule processing context for debug callbacks
+	ctx types.RuleContext
+
+	// msg 调试输出中包含的消息
+	// msg holds the message to include in debug output
+	msg types.RuleMsg
+
+	// relationType 调试关系类型（"info" 或 "error"）
+	// relationType specifies the debug relation type ("info" or "error")
 	relationType string
-	chainId      string
+
+	// chainId 规则链ID
+	// chainId identifies the rule chain for debug context
+	chainId string
 }
 
+// Write 实现io.Writer接口，捕获命令输出并发送到调试日志
+// Write implements the io.Writer interface to capture command output and send it to debug logging.
 func (w *OnDebugWriter) Write(p []byte) (n int, err error) {
 	// 将接收到的数据转换为字符串
 	w.msg.SetData(string(p))

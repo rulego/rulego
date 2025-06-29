@@ -49,8 +49,118 @@ type NetNodeConfiguration struct {
 	HeartbeatInterval int
 }
 
-// NetNode 把消息负荷通过网络协议发送，支持协议：tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。
-// 发送前会在消息负荷最后增加结束符：'\n'
+// NetNode provides network protocol communication capabilities for sending messages over various protocols.
+// It supports TCP, UDP, IP, Unix sockets, and other protocols supported by Go's net package,
+// with automatic heartbeat, reconnection, and connection lifecycle management.
+//
+// NetNode 为通过各种协议发送消息提供网络协议通信能力。
+// 支持 TCP、UDP、IP、Unix 套接字和 Go net 包支持的其他协议，
+// 具有自动心跳、重连和连接生命周期管理功能。
+//
+// Configuration:
+// 配置说明：
+//
+//	{
+//		"protocol": "tcp",              // Network protocol  网络协议
+//		"server": "192.168.1.100:8080", // Server address  服务器地址
+//		"connectTimeout": 30,           // Connection timeout in seconds  连接超时（秒）
+//		"heartbeatInterval": 60         // Heartbeat interval in seconds (0=disabled)  心跳间隔（秒，0=禁用）
+//	}
+//
+// Supported Protocols:
+// 支持的协议：
+//
+//   - "tcp": TCP protocol for reliable, connection-oriented communication
+//     TCP 协议，用于可靠的面向连接通信
+//   - "udp": UDP protocol for fast, connectionless communication
+//     UDP 协议，用于快速的无连接通信
+//   - "ip4:1", "ip6:ipv6-icmp", "ip6:58": Raw IP protocols
+//     原始 IP 协议
+//   - "unix", "unixgram": Unix domain sockets for local communication
+//     Unix 域套接字，用于本地通信
+//   - Any protocol supported by Go's net.Dial function
+//     Go net.Dial 函数支持的任何协议
+//
+// Message Format:
+// 消息格式：
+//
+// Messages are sent as raw bytes with an automatic newline terminator ('\n') appended.
+// This ensures proper message framing for protocols that require delimiters.
+//
+// 消息以原始字节发送，自动追加换行符（'\n'）作为终止符。
+// 这确保了需要分隔符的协议的正确消息帧。
+//
+// Connection Management:
+// 连接管理：
+//
+// The component implements:
+// 组件实现：
+//   - Automatic connection establishment and reconnection  自动连接建立和重连
+//   - Configurable heartbeat with ping mechanism  可配置的心跳和 ping 机制
+//   - Connection pooling through SharedNode pattern  通过 SharedNode 模式的连接池
+//   - Graceful connection cleanup on destroy  销毁时的优雅连接清理
+//
+// Heartbeat Mechanism:
+// 心跳机制：
+//
+// When heartbeatInterval > 0, the component sends periodic "ping\n" messages
+// to maintain connection liveness. Failed heartbeats trigger automatic reconnection.
+//
+// 当 heartbeatInterval > 0 时，组件发送周期性的 "ping\n" 消息来维持连接活性。
+// 心跳失败会触发自动重连。
+//
+// Error Handling and Reconnection:
+// 错误处理和重连：
+//
+// The component includes robust error handling with automatic reconnection on:
+// 组件包含强大的错误处理，在以下情况自动重连：
+//   - Connection timeouts  连接超时
+//   - Network errors during message sending  消息发送期间的网络错误
+//   - Heartbeat failures  心跳失败
+//   - Server disconnections  服务器断开连接
+//
+// Thread Safety:
+// 线程安全：
+//
+// The component uses atomic operations and mutex locks to ensure safe concurrent
+// access across multiple rule chain executions.
+//
+// 组件使用原子操作和互斥锁确保多个规则链执行间的安全并发访问。
+//
+// Output Relations:
+// 输出关系：
+//
+//   - Success: Message sent successfully  消息发送成功
+//   - Failure: Network error or connection failure  网络错误或连接失败
+//
+// Usage Examples:
+// 使用示例：
+//
+//	// TCP client for sending telemetry data
+//	// 用于发送遥测数据的 TCP 客户端
+//	{
+//		"id": "tcpSender",
+//		"type": "net",
+//		"configuration": {
+//			"protocol": "tcp",
+//			"server": "telemetry.example.com:9999",
+//			"connectTimeout": 30,
+//			"heartbeatInterval": 60
+//		}
+//	}
+//
+//	// UDP client for fast data transmission
+//	// 用于快速数据传输的 UDP 客户端
+//	{
+//		"id": "udpSender",
+//		"type": "net",
+//		"configuration": {
+//			"protocol": "udp",
+//			"server": "logs.example.com:514",
+//			"connectTimeout": 10,
+//			"heartbeatInterval": 0
+//		}
+//	}
 type NetNode struct {
 	base.SharedNode[net.Conn]
 	// 节点配置

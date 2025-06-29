@@ -14,33 +14,106 @@
  * limitations under the License.
  */
 
-// Package flow provides components for managing sub-rule chains and referencing components in the RuleGo rule engine.
+// Package flow provides components for managing sub-rule chains and component references in the RuleGo rule engine.
+// These components enable rule chain composition, modularity, and reusable processing patterns
+// through nested rule chain execution and component referencing.
 //
-// These components are designed to enhance the flexibility and modularity of rule chains:
+// Package flow 为 RuleGo 规则引擎提供管理子规则链和组件引用的组件。
+// 这些组件通过嵌套规则链执行和组件引用实现规则链组合、模块化和可重用处理模式。
 //
-// - ChainNode: Executes a sub-rule chain as part of the current rule chain
-// - RefNode: References and executes another component within the current rule chain
+// Available Components:
+// 可用组件：
 //
-// Each component is registered with the Registry, allowing them to be used
-// within rule chains. These components enable the creation of modular and
-// reusable rule structures.
+//   - FlowNode (ChainNode): Executes a sub-rule chain within the current rule chain
+//     FlowNode（ChainNode）：在当前规则链内执行子规则链
+//   - RefNode: References and executes another component within the current rule chain
+//     RefNode：在当前规则链内引用和执行其他组件
 //
-// The ChainNode allows for nested rule execution by invoking separate rule chains
-// as part of a larger workflow. The RefNode provides the ability to reference and
-// execute other components, promoting code reuse and maintainability.
+// Component Functions:
+// 组件功能：
 //
-// To use these components, include them in your rule chain configuration and
-// configure them to manage the flow and structure of your rule processing logic.
+// FlowNode (Sub-Chain Execution):
+// FlowNode（子链执行）：
+//   - Invokes separate rule chains as nested workflows
+//     调用独立规则链作为嵌套工作流
+//   - Enables rule chain composition and modularity
+//     启用规则链组合和模块化
+//   - Supports isolated processing contexts
+//     支持隔离的处理上下文
+//   - Allows complex workflow orchestration
+//     允许复杂的工作流编排
 //
-// You can use these components in your rule chain DSL file by referencing
-// their Type. For example:
+// RefNode (Component Reference):
+// RefNode（组件引用）：
+//   - References other components by type or ID
+//     按类型或ID引用其他组件
+//   - Promotes code reuse and maintainability
+//     促进代码重用和可维护性
+//   - Enables dynamic component selection
+//     启用动态组件选择
+//   - Supports configuration sharing patterns
+//     支持配置共享模式
 //
-//	{
-//	  "id": "node1",
-//	  "type": "flow",
-//	  "name": "sub rule chain",
-//	  "configuration": {
-//	    "targetId": "sub_chain_01"
-//	  }
+// Use Cases:
+// 使用场景：
+//
+// Sub-Chain Processing:
+// 子链处理：
+//   - Complex business logic breakdown
+//     复杂业务逻辑分解
+//   - Reusable processing workflows
+//     可重用处理工作流
+//   - Conditional workflow execution
+//     条件工作流执行
+//   - Multi-stage data processing
+//     多阶段数据处理
+//
+// Component Referencing:
+// 组件引用：
+//   - Shared component logic
+//     共享组件逻辑
+//   - Configuration templates
+//     配置模板
+//   - Dynamic processing paths
+//     动态处理路径
+//   - Component composition patterns
+//     组件组合模式
+//
+// Registration:
+// 注册：
+//
+// Components are automatically registered during package initialization:
+// 组件在包初始化期间自动注册：
+//
+//	func init() {
+//		Registry.Add(&FlowNode{})
+//		Registry.Add(&RefNode{})
 //	}
+//
+// Example Usage:
+// 使用示例：
+//
+//	// Execute sub-rule chain
+//	// 执行子规则链
+//	{
+//		"id": "processOrder",
+//		"type": "flow",
+//		"configuration": {
+//			"targetId": "order_processing_chain"
+//		}
+//	}
+//
+//	// Reference another component
+//	// 引用其他组件
+//	{
+//		"id": "validateData",
+//		"type": "ref",
+//		"configuration": {
+//			"componentType": "validator",
+//			"targetId": "schema_validator"
+//		}
+//	}
+//
+// For detailed documentation on individual components, see their respective source files.
+// 有关各个组件的详细文档，请参见其各自的源文件。
 package flow

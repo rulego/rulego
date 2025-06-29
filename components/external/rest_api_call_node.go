@@ -16,18 +16,6 @@
 
 package external
 
-//规则链节点配置示例：
-// {
-//        "id": "s3",
-//        "type": "restApiCall",
-//        "name": "推送数据",
-//        "debugMode": false,
-//        "configuration": {
-//          "restEndpointUrlPattern": "http://192.168.118.29:8080/msg",
-//          "requestMethod": "POST",
-//          "maxParallelRequestsCount": 200
-//        }
-//      }
 import (
 	"bufio"
 	"bytes"
@@ -114,9 +102,116 @@ type RestApiCallNodeConfiguration struct {
 	ProxyPassword string
 }
 
-// RestApiCallNode 将通过REST API调用GET | POST | PUT | DELETE到外部REST服务。
-// 如果请求成功，把HTTP响应消息发送到`Success`链, 否则发到`Failure`链，
-// metaData.status记录响应错误码和metaData.errorBody记录错误信息。
+// RestApiCallNode 用于进行外部API调用的HTTP/REST API客户端组件
+// RestApiCallNode provides HTTP/REST API client functionality for making external API calls.
+//
+// 核心算法：
+// Core Algorithm:
+// 1. 使用变量替换解析URL、请求头和请求体 - Parse URL, headers, and body with variable substitution
+// 2. 根据配置构建HTTP请求（GET/POST/PUT/DELETE等）- Build HTTP request based on configuration
+// 3. 通过配置的代理（可选）发送请求 - Send request through configured proxy (optional)
+// 4. 处理响应：JSON、SSE流或普通文本 - Handle response: JSON, SSE stream, or plain text
+// 5. 根据HTTP状态码路由到Success/Failure关系 - Route to Success/Failure relation based on HTTP status code
+//
+// 变量替换 - Variable substitution:
+//   - ${metadata.key}: 从消息元数据获取值 - Access message metadata
+//   - ${msg.key}: 从消息负荷获取值 - Access message payload fields
+//
+// 支持的HTTP方法 - Supported HTTP methods:
+//   - GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS
+//
+// 代理支持 - Proxy support:
+//   - 系统代理：HTTP_PROXY、HTTPS_PROXY环境变量 - System proxy via environment variables
+//   - 自定义代理：HTTP、HTTPS、SOCKS5协议 - Custom proxy with HTTP, HTTPS, SOCKS5 protocols
+//
+// 响应处理 - Response handling:
+//   - HTTP 200: Success relation - Success relation
+//   - 非200: Failure relation, error details stored in metadata - Failure relation with error details in metadata
+//   - SSE stream: process event data line by line - SSE streams: process event data line by line
+//
+// 配置示例 - Configuration examples:
+//
+//	// 基础POST请求 - Basic POST request
+//	{
+//		"id": "apiCall1",
+//		"type": "restApiCall",
+//		"configuration": {
+//			"restEndpointUrlPattern": "https://api.example.com/data",
+//			"requestMethod": "POST",
+//			"headers": {
+//				"Content-Type": "application/json",
+//				"Authorization": "Bearer ${metadata.token}"
+//			},
+//			"readTimeoutMs": 5000
+//		}
+//	}
+//
+//	// 带变量替换的GET请求 - GET request with variable substitution
+//	{
+//		"id": "apiCall2",
+//		"type": "restApiCall",
+//		"configuration": {
+//			"restEndpointUrlPattern": "https://api.example.com/users/${msg.userId}/profile",
+//			"requestMethod": "GET",
+//			"headers": {
+//				"Accept": "application/json",
+//				"X-API-Key": "${metadata.apiKey}"
+//			}
+//		}
+//	}
+//
+//	// 自定义请求体 - Custom request body
+//	{
+//		"id": "apiCall3",
+//		"type": "restApiCall",
+//		"configuration": {
+//			"restEndpointUrlPattern": "https://webhook.site/test",
+//			"requestMethod": "POST",
+//			"body": "{\"name\":\"${msg.name}\",\"age\":${msg.age},\"timestamp\":\"${metadata.timestamp}\"}",
+//			"headers": {
+//				"Content-Type": "application/json"
+//			}
+//		}
+//	}
+//
+//	// 代理配置 - Proxy configuration
+//	{
+//		"id": "apiCall4",
+//		"type": "restApiCall",
+//		"configuration": {
+//			"restEndpointUrlPattern": "https://external-api.com/endpoint",
+//			"requestMethod": "POST",
+//			"enableProxy": true,
+//			"proxyScheme": "http",
+//			"proxyHost": "proxy.company.com",
+//			"proxyPort": 8080,
+//			"proxyUser": "username",
+//			"proxyPassword": "password"
+//		}
+//	}
+//
+//	// SSE流式响应 - SSE streaming response
+//	{
+//		"id": "apiCall5",
+//		"type": "restApiCall",
+//		"configuration": {
+//			"restEndpointUrlPattern": "https://stream.example.com/events",
+//			"requestMethod": "GET",
+//			"headers": {
+//				"Accept": "text/event-stream",
+//				"Cache-Control": "no-cache"
+//			}
+//		}
+//	}
+//
+// 使用场景 - Use cases:
+//   - 第三方API集成：调用外部服务API获取数据 - Third-party API integration: call external service APIs
+//   - 数据推送：向下游系统推送处理结果 - Data pushing: push processing results to downstream systems
+//   - 微服务通信：在微服务架构中进行服务间调用 - Microservice communication: inter-service calls
+//   - Webhook触发：触发外部系统的webhook接口 - Webhook triggering: trigger external webhook interfaces
+//   - 数据同步：与外部数据源进行数据同步 - Data synchronization: sync data with external sources
+//   - 认证服务：调用认证服务验证用户身份 - Authentication service: call auth services for user verification
+//   - 流式数据处理：处理SSE或长连接的实时数据流 - Streaming data: process SSE or long-connection real-time streams
 type RestApiCallNode struct {
 	//节点配置
 	Config RestApiCallNodeConfiguration
@@ -165,7 +260,8 @@ func (x *RestApiCallNode) Init(ruleConfig types.Config, configuration types.Conf
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg 处理消息，发送HTTP请求并处理响应
+// OnMsg processes messages by sending HTTP requests and handling responses.
 func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var evn map[string]interface{}
 	if x.template.HasVar {

@@ -20,6 +20,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
+
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	"github.com/rulego/rulego/api/types"
@@ -27,7 +29,6 @@ import (
 	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"strings"
 )
 
 // 注册节点
@@ -62,6 +63,39 @@ type DbClientNodeConfiguration struct {
 	GetOne bool
 }
 
+// DbClientNode 为RuleGo规则引擎提供通用数据库连接和SQL执行能力的外部组件
+// DbClientNode provides universal database connectivity and SQL execution capabilities for the RuleGo rule engine.
+//
+// 核心算法：
+// Core Algorithm:
+// 1. 通过Go标准database/sql接口连接数据库 - Connect to database via Go standard database/sql interface
+// 2. 使用变量替换解析SQL参数 - Parse SQL parameters with variable substitution
+// 3. 根据SQL类型（SELECT/INSERT/UPDATE/DELETE）执行相应操作 - Execute corresponding operations based on SQL type
+// 4. 处理查询结果并设置到消息数据或元数据 - Process query results and set to message data or metadata
+// 5. 使用连接池进行高效资源管理 - Use connection pooling for efficient resource management
+//
+// 数据库驱动支持 - Database driver support:
+//   - 内置支持：MySQL、PostgreSQL - Built-in: MySQL, PostgreSQL
+//   - 第三方驱动：TDengine、SQL Server、Oracle、ClickHouse、SQLite、Snowflake等 - Third-party: TDengine, SQL Server, Oracle, ClickHouse, SQLite, Snowflake, etc.
+//   - 支持任何实现database/sql接口的驱动 - Supports any driver implementing database/sql interface
+//
+// 变量替换 - Variable substitution:
+//   - ${metadata.key}: 从消息元数据获取值 - Access message metadata
+//   - ${msg.key}: 从消息负荷获取值 - Access message payload variables
+//
+// SQL占位符转换 - SQL placeholder conversion:
+//   - MySQL/SQLite: 使用?占位符 - Uses ? placeholders
+//   - PostgreSQL: 自动转换为$1,$2,$3风格 - Automatically converts to $1, $2, $3 style
+//   - 其他数据库：遵循各自的占位符约定 - Other databases: follow their respective placeholder conventions
+//
+// 操作类型和结果 - Operation types and results:
+//   - SELECT: 返回查询结果到消息数据 - Returns query results in message data
+//   - INSERT: 设置rowsAffected和lastInsertId到元数据 - Sets rowsAffected and lastInsertId in metadata
+//   - UPDATE/DELETE: 设置rowsAffected到元数据 - Sets rowsAffected in metadata
+//
+// 连接管理 - Connection management:
+//   - 使用连接池和SharedNode模式共享连接 - Uses connection pooling and SharedNode pattern for sharing connections
+//   - 可配置的池大小和自动连接生命周期管理 - Configurable pool size and automatic connection lifecycle management
 type DbClientNode struct {
 	base.SharedNode[*sql.DB]
 	//节点配置
@@ -136,7 +170,8 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 	})
 }
 
-// OnMsg 处理消息
+// OnMsg 处理消息，执行SQL操作并处理结果
+// OnMsg processes messages by executing SQL operations and handling results.
 func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var data interface{}
 	var err error

@@ -17,12 +17,13 @@
 package aspect
 
 import (
+	"reflect"
+	"sync"
+
 	"github.com/gofrs/uuid/v5"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/utils/dsl"
-	"reflect"
-	"sync"
 )
 
 var (
@@ -31,27 +32,102 @@ var (
 	_ types.OnDestroyAspect = (*EndpointAspect)(nil)
 )
 
+// EndpointAspect manages the lifecycle of rule chain endpoints, providing
+// automatic endpoint creation, configuration, and cleanup. It bridges the
+// gap between rule chains and endpoint management.
+//
+// EndpointAspect 管理规则链端点的生命周期，提供自动端点创建、配置和清理。
+// 它在规则链和端点管理之间架起桥梁。
+//
+// Features:
+// 功能特性：
+//   - Automatic endpoint lifecycle management  自动端点生命周期管理
+//   - Dynamic endpoint creation and destruction  动态端点创建和销毁
+//   - Hot reloading of endpoint configurations  端点配置的热重载
+//   - Integration with rule engine pools  与规则引擎池的集成
+//   - Support for multiple endpoint types  支持多种端点类型
+//
+// Lifecycle Events:
+// 生命周期事件：
+//   - OnCreated: Creates endpoints when rule chain is created
+//     OnCreated：规则链创建时创建端点
+//   - OnReload: Updates endpoints when rule chain is reloaded
+//     OnReload：规则链重新加载时更新端点
+//   - OnDestroy: Cleans up endpoints when rule chain is destroyed
+//     OnDestroy：规则链销毁时清理端点
+//
+// Usage:
+// 使用方法：
+//
+//	// Create endpoint aspect with pool
+//	// 使用池创建端点切面
+//	endpointPool := endpoint.NewPool()
+//	aspect := &EndpointAspect{EndpointPool: endpointPool}
+//
+//	// Apply to rule engine
+//	// 应用到规则引擎
+//	config := types.NewConfig().WithAspects(aspect)
+//	engine := rulego.NewRuleEngine(config)
 type EndpointAspect struct {
-	EndpointPool      endpoint.Pool
-	ruleChainEndpoint *RuleChainEndpoint
+	EndpointPool      endpoint.Pool      // Pool for managing endpoint instances  管理端点实例的池
+	ruleChainEndpoint *RuleChainEndpoint // Associated rule chain endpoint manager  关联的规则链端点管理器
 }
 
+// Order returns the execution order of this aspect. Higher values execute later.
+// EndpointAspect has order 900, executing late to ensure other aspects are set up first.
+//
+// Order 返回此切面的执行顺序。值越高，执行越晚。
+// EndpointAspect 的顺序为 900，执行较晚以确保其他切面首先设置。
 func (aspect *EndpointAspect) Order() int {
 	return 900
 }
 
+// New creates a new instance of the endpoint aspect for each rule engine.
+// Each instance shares the same endpoint pool but maintains separate state.
+//
+// New 为每个规则引擎创建端点切面的新实例。
+// 每个实例共享相同的端点池但维护独立的状态。
 func (aspect *EndpointAspect) New() types.Aspect {
 	return &EndpointAspect{EndpointPool: aspect.EndpointPool}
 }
 
+// Type returns the unique identifier for this aspect type.
+//
+// Type 返回此切面类型的唯一标识符。
 func (aspect *EndpointAspect) Type() string {
 	return "endpoint"
 }
 
+// PointCut determines which nodes this aspect applies to.
+// Returns true for all nodes as endpoint management is chain-level.
+//
+// PointCut 确定此切面应用于哪些节点。
+// 对所有节点返回 true，因为端点管理是链级别的。
 func (aspect *EndpointAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
 	return true
 }
 
+// OnCreated is called when a rule chain is created. It initializes endpoints
+// defined in the rule chain metadata if endpoint functionality is enabled.
+//
+// OnCreated 在规则链创建时调用。如果启用了端点功能，它会初始化规则链元数据中定义的端点。
+//
+// Process:
+// 处理过程：
+//  1. Check if context is a chain context  检查上下文是否为链上下文
+//  2. Verify endpoint functionality is enabled  验证端点功能是否启用
+//  3. Create rule chain endpoint manager  创建规则链端点管理器
+//  4. Initialize all defined endpoints  初始化所有定义的端点
+//
+// Parameters:
+// 参数：
+//   - ctx: Node context containing rule chain information
+//     ctx：包含规则链信息的节点上下文
+//
+// Returns:
+// 返回：
+//   - error: Endpoint creation error if any, nil on success
+//     error：端点创建错误（如果有），成功时为 nil
 func (aspect *EndpointAspect) OnCreated(ctx types.NodeCtx) error {
 	if chainCtx, ok := ctx.(types.ChainCtx); ok {
 		if !chainCtx.Config().EndpointEnabled {
@@ -68,6 +144,28 @@ func (aspect *EndpointAspect) OnCreated(ctx types.NodeCtx) error {
 	return nil
 }
 
+// OnReload is called when a rule chain is reloaded. It updates the endpoint
+// configuration and manages endpoint lifecycle changes (add/remove/modify).
+//
+// OnReload 在规则链重新加载时调用。它更新端点配置并管理端点生命周期变化（添加/删除/修改）。
+//
+// Process:
+// 处理过程：
+//  1. Check if endpoints are still enabled  检查端点是否仍然启用
+//  2. Update configuration and pool references  更新配置和池引用
+//  3. Compare old and new endpoint definitions  比较旧的和新的端点定义
+//  4. Apply endpoint changes (add/remove/modify)  应用端点变化（添加/删除/修改）
+//
+// Parameters:
+// 参数：
+//   - _: Previous node context (unused)  之前的节点上下文（未使用）
+//   - ctx: New node context with updated configuration
+//     ctx：具有更新配置的新节点上下文
+//
+// Returns:
+// 返回：
+//   - error: Reload error if any, nil on success
+//     error：重新加载错误（如果有），成功时为 nil
 func (aspect *EndpointAspect) OnReload(_ types.NodeCtx, ctx types.NodeCtx) error {
 	if chainCtx, ok := ctx.(types.ChainCtx); ok && aspect.ruleChainEndpoint != nil {
 		if !ctx.Config().EndpointEnabled {
@@ -80,6 +178,11 @@ func (aspect *EndpointAspect) OnReload(_ types.NodeCtx, ctx types.NodeCtx) error
 	}
 	return nil
 }
+
+// OnDestroy is called when a rule chain is destroyed. It performs cleanup
+// of all associated endpoints to prevent resource leaks.
+//
+// OnDestroy 在规则链销毁时调用。它执行所有关联端点的清理以防止资源泄漏。
 func (aspect *EndpointAspect) OnDestroy(ctx types.NodeCtx) {
 	if aspect.ruleChainEndpoint != nil {
 		aspect.ruleChainEndpoint.Destroy()
