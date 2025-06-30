@@ -17,6 +17,7 @@
 package types
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"runtime"
@@ -787,4 +788,95 @@ func TestMemoryOptimization(t *testing.T) {
 	if allocDiff > maxAcceptableGrowth {
 		t.Errorf("可能存在内存泄漏，内存增长: %d bytes", allocDiff)
 	}
+}
+
+// TestRuleMsgDataTypeJSONMarshaling 测试RuleMsg在不同数据类型下的JSON编码
+func TestRuleMsgDataTypeJSONMarshaling(t *testing.T) {
+	metadata := NewMetadata()
+	metadata.PutValue("deviceId", "sensor001")
+	metadata.PutValue("location", "北京")
+
+	// 测试TEXT类型消息
+	textMsg := NewMsg(1640995200000, "TELEMETRY", TEXT, metadata, "Hello, 世界!")
+	textMsgJson, err := json.Marshal(textMsg)
+	assert.Nil(t, err)
+	// 验证TEXT数据正常编码为字符串
+	assert.True(t, strings.Contains(string(textMsgJson), "Hello, 世界!"))
+	assert.True(t, strings.Contains(string(textMsgJson), `"dataType":"TEXT"`))
+
+	// 测试JSON类型消息
+	jsonData := `{"temperature": 25.5, "humidity": 60.0, "status": "正常"}`
+	jsonMsg := NewMsg(1640995200000, "TELEMETRY", JSON, metadata, jsonData)
+	jsonMsgJson, err := json.Marshal(jsonMsg)
+	assert.Nil(t, err)
+	// 验证JSON数据正常编码
+	assert.True(t, strings.Contains(string(jsonMsgJson), "temperature"))
+	assert.True(t, strings.Contains(string(jsonMsgJson), `"dataType":"JSON"`))
+
+	// 测试BINARY类型消息 - 使用模拟的图片数据
+	binaryData := []byte{
+		0xFF, 0xD8, 0xFF, 0xE0, // JPEG文件头
+		0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, // JFIF
+		0x80, 0x81, 0x82, 0x83, // 一些二进制字节
+		0xFF, 0xFF, 0xFE, 0xFD, // 更多二进制字节
+		0x00, 0x01, 0x02, 0x03, // 控制字符
+	}
+	binaryMsg := NewMsgFromBytes(1640995200000, "IMAGE_DATA", BINARY, metadata, binaryData)
+	binaryMsgJson, err := json.Marshal(binaryMsg)
+	assert.Nil(t, err)
+
+	// 验证BINARY数据使用16进制编码
+	expectedHex := hex.EncodeToString(binaryData)
+	assert.True(t, strings.Contains(string(binaryMsgJson), expectedHex))
+	assert.True(t, strings.Contains(string(binaryMsgJson), `"dataType":"BINARY"`))
+	assert.True(t, strings.Contains(string(binaryMsgJson), `"type":"IMAGE_DATA"`))
+
+	// 测试包含无效UTF-8的TEXT消息
+	invalidUtf8Data := []byte{'H', 'e', 'l', 'l', 'o', 0xFF, 0xFE, 'W', 'o', 'r', 'l', 'd'}
+	invalidUtf8Msg := NewMsgFromBytes(1640995200000, "CORRUPTED_TEXT", TEXT, metadata, invalidUtf8Data)
+	invalidUtf8MsgJson, err := json.Marshal(invalidUtf8Msg)
+	assert.Nil(t, err)
+
+	// 验证无效UTF-8的TEXT数据也使用16进制编码
+	expectedInvalidHex := hex.EncodeToString(invalidUtf8Data)
+	assert.True(t, strings.Contains(string(invalidUtf8MsgJson), expectedInvalidHex))
+	assert.True(t, strings.Contains(string(invalidUtf8MsgJson), `"dataType":"TEXT"`))
+
+	// 测试消息复制后的数据类型保持
+	textMsgCopy := textMsg.Copy()
+	textMsgCopy.SetData("Modified text data")
+	textMsgCopyJson, err := json.Marshal(textMsgCopy)
+	assert.Nil(t, err)
+	assert.True(t, strings.Contains(string(textMsgCopyJson), "Modified text data"))
+	assert.True(t, strings.Contains(string(textMsgCopyJson), `"dataType":"TEXT"`))
+
+	// 验证原消息未受影响
+	originalTextJson, err := json.Marshal(textMsg)
+	assert.Nil(t, err)
+	assert.True(t, strings.Contains(string(originalTextJson), "Hello, 世界!"))
+
+	// 测试跨数据类型的数据设置
+	binaryMsgCopy := binaryMsg.Copy()
+	binaryMsgCopy.SetData("Now it's text data")
+	binaryMsgCopyJson, err := json.Marshal(binaryMsgCopy)
+	assert.Nil(t, err)
+	// 数据类型仍然是BINARY，但现在包含文本数据，应该使用16进制编码
+	textDataHex := hex.EncodeToString([]byte("Now it's text data"))
+	assert.True(t, strings.Contains(string(binaryMsgCopyJson), textDataHex))
+	assert.True(t, strings.Contains(string(binaryMsgCopyJson), `"dataType":"BINARY"`))
+
+	// 测试JSON反序列化
+	var deserializedTextMsg RuleMsg
+	err = json.Unmarshal(textMsgJson, &deserializedTextMsg)
+	assert.Nil(t, err)
+	assert.Equal(t, textMsg.Id, deserializedTextMsg.Id)
+	assert.Equal(t, textMsg.Type, deserializedTextMsg.Type)
+	assert.Equal(t, textMsg.DataType, deserializedTextMsg.DataType)
+	assert.Equal(t, textMsg.GetData(), deserializedTextMsg.GetData())
+	assert.Equal(t, textMsg.Metadata.GetValue("deviceId"), deserializedTextMsg.Metadata.GetValue("deviceId"))
+
+	// 演示数据完整性
+	decodedData, err := hex.DecodeString(expectedHex)
+	assert.Nil(t, err)
+	assert.Equal(t, binaryData, decodedData)
 }
