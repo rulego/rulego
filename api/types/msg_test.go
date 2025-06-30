@@ -880,3 +880,203 @@ func TestRuleMsgDataTypeJSONMarshaling(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, binaryData, decodedData)
 }
+
+// TestSharedDataJSONRoundTrip 测试SharedData JSON序列化/反序列化往返的修复
+// 这个测试用于验证前面修复的bug：UnmarshalJSON正确处理MarshalJSON生成的hex编码数据
+func TestSharedDataJSONRoundTrip(t *testing.T) {
+	// 测试1：BINARY数据类型的往返序列化
+	t.Run("BINARY data round-trip", func(t *testing.T) {
+		// 创建包含二进制数据的SharedData
+		binaryData := []byte{0x01, 0x02, 0xFF, 0xFE, 0x80, 0x7F, 0x00, 0x0A, 0x0D, 0x1F}
+		original := NewSharedDataFromBytesWithType(binaryData, BINARY)
+
+		// 验证原始数据
+		assert.Equal(t, BINARY, original.dataType)
+		assert.Equal(t, binaryData, original.GetBytes())
+		assert.Equal(t, string(binaryData), original.Get())
+
+		// JSON序列化
+		jsonData, err := json.Marshal(original)
+		assert.Nil(t, err)
+
+		// 验证序列化结果包含hex编码
+		expectedHex := hex.EncodeToString(binaryData)
+		jsonStr := string(jsonData)
+		assert.True(t, strings.Contains(jsonStr, expectedHex), "JSON should contain hex-encoded data")
+
+		// JSON反序列化
+		var deserialized SharedData
+		err = json.Unmarshal(jsonData, &deserialized)
+		assert.Nil(t, err)
+
+		// 验证反序列化后的数据正确
+		assert.Equal(t, binaryData, deserialized.GetBytes(), "Binary data should be correctly decoded from hex")
+		assert.Equal(t, BINARY, deserialized.dataType, "DataType should be inferred as BINARY")
+		assert.Equal(t, original.Get(), deserialized.Get(), "String representation should match")
+		assert.Equal(t, int64(1), deserialized.GetRefCount(), "RefCount should be initialized")
+	})
+
+	// 测试2：包含无效UTF-8的TEXT数据往返序列化
+	t.Run("Invalid UTF-8 TEXT data round-trip", func(t *testing.T) {
+		// 创建包含无效UTF-8字节的TEXT数据
+		invalidUtf8Data := []byte{'H', 'e', 'l', 'l', 'o', 0xFF, 0xFE, 'W', 'o', 'r', 'l', 'd'}
+		original := NewSharedDataFromBytesWithType(invalidUtf8Data, TEXT)
+
+		// 验证原始数据
+		assert.Equal(t, TEXT, original.dataType)
+		assert.Equal(t, invalidUtf8Data, original.GetBytes())
+
+		// JSON序列化
+		jsonData, err := json.Marshal(original)
+		assert.Nil(t, err)
+
+		// 验证序列化结果包含hex编码（因为包含无效UTF-8）
+		expectedHex := hex.EncodeToString(invalidUtf8Data)
+		jsonStr := string(jsonData)
+		assert.True(t, strings.Contains(jsonStr, expectedHex), "Invalid UTF-8 should be hex-encoded")
+
+		// JSON反序列化
+		var deserialized SharedData
+		err = json.Unmarshal(jsonData, &deserialized)
+		assert.Nil(t, err)
+
+		// 验证反序列化后的数据正确
+		assert.Equal(t, invalidUtf8Data, deserialized.GetBytes(), "Invalid UTF-8 data should be correctly decoded")
+		assert.Equal(t, BINARY, deserialized.dataType, "DataType should be inferred as BINARY for invalid UTF-8")
+	})
+
+	// 测试3：有效UTF-8的TEXT数据往返序列化
+	t.Run("Valid UTF-8 TEXT data round-trip", func(t *testing.T) {
+		textData := "Hello, 世界! This is valid UTF-8 text."
+		original := NewSharedDataWithType(textData, TEXT)
+
+		// 验证原始数据
+		assert.Equal(t, TEXT, original.dataType)
+		assert.Equal(t, textData, original.Get())
+
+		// JSON序列化
+		jsonData, err := json.Marshal(original)
+		assert.Nil(t, err)
+
+		// 验证序列化结果直接包含文本（不需要hex编码）
+		jsonStr := string(jsonData)
+		assert.True(t, strings.Contains(jsonStr, textData), "Valid UTF-8 should be stored as plain text")
+
+		// JSON反序列化
+		var deserialized SharedData
+		err = json.Unmarshal(jsonData, &deserialized)
+		assert.Nil(t, err)
+
+		// 验证反序列化后的数据正确
+		assert.Equal(t, textData, deserialized.Get(), "Text data should be preserved")
+		assert.Equal(t, TEXT, deserialized.dataType, "DataType should be inferred as TEXT")
+	})
+
+	// 测试4：JSON数据往返序列化
+	t.Run("JSON data round-trip", func(t *testing.T) {
+		jsonData := `{"name": "Alice", "age": 30, "active": true}`
+		original := NewSharedDataWithType(jsonData, JSON)
+
+		// 验证原始数据
+		assert.Equal(t, JSON, original.dataType)
+		assert.Equal(t, jsonData, original.Get())
+
+		// JSON序列化
+		serializedData, err := json.Marshal(original)
+		assert.Nil(t, err)
+
+		// JSON反序列化
+		var deserialized SharedData
+		err = json.Unmarshal(serializedData, &deserialized)
+		assert.Nil(t, err)
+
+		// 验证反序列化后的数据正确
+		assert.Equal(t, jsonData, deserialized.Get(), "JSON data should be preserved")
+		assert.Equal(t, JSON, deserialized.dataType, "DataType should be inferred as JSON")
+
+		// 验证JSON解析功能正常
+		parsedData, err := deserialized.GetJsonData()
+		assert.Nil(t, err)
+		parsedMap, ok := parsedData.(map[string]interface{})
+		assert.True(t, ok)
+		assert.Equal(t, "Alice", parsedMap["name"])
+		assert.Equal(t, float64(30), parsedMap["age"])
+	})
+
+	// 测试5：hex检测启发式算法的边界情况
+	t.Run("Hex detection heuristics", func(t *testing.T) {
+		// 短的有效hex字符串（应该被识别为普通文本）
+		shortHex := "cafe"
+		sd1 := NewSharedDataWithType(shortHex, TEXT)
+		jsonData1, _ := json.Marshal(sd1)
+
+		var deserialized1 SharedData
+		json.Unmarshal(jsonData1, &deserialized1)
+		assert.Equal(t, shortHex, deserialized1.Get(), "Short hex-like string should be treated as text")
+		assert.Equal(t, TEXT, deserialized1.dataType, "Should be inferred as TEXT")
+
+		// 长的有效hex字符串（应该被识别为hex编码）
+		longHex := "0123456789abcdef0123456789abcdef"
+		sd2 := NewSharedData(longHex)
+		jsonData2, _ := json.Marshal(sd2)
+
+		var deserialized2 SharedData
+		json.Unmarshal(jsonData2, &deserialized2)
+		// 这应该被解码为二进制数据
+		expectedBytes, _ := hex.DecodeString(longHex)
+		assert.Equal(t, expectedBytes, deserialized2.GetBytes(), "Long hex string should be decoded")
+		assert.Equal(t, BINARY, deserialized2.dataType, "Should be inferred as BINARY")
+
+		// 奇数长度hex字符串（不是有效hex）
+		oddHex := "123456789abcde1" // 15个字符，奇数长度
+		sd3 := NewSharedDataWithType(oddHex, TEXT)
+		jsonData3, _ := json.Marshal(sd3)
+
+		var deserialized3 SharedData
+		json.Unmarshal(jsonData3, &deserialized3)
+		assert.Equal(t, oddHex, deserialized3.Get(), "Odd length hex should be treated as text")
+		assert.Equal(t, TEXT, deserialized3.dataType, "Should be inferred as TEXT")
+
+		// 包含非hex字符的字符串
+		nonHex := "123456789abcdefg"
+		sd4 := NewSharedDataWithType(nonHex, TEXT)
+		jsonData4, _ := json.Marshal(sd4)
+
+		var deserialized4 SharedData
+		json.Unmarshal(jsonData4, &deserialized4)
+		assert.Equal(t, nonHex, deserialized4.Get(), "Non-hex string should be treated as text")
+		assert.Equal(t, TEXT, deserialized4.dataType, "Should be inferred as TEXT")
+	})
+
+	// 测试6：与RuleMsg的集成测试
+	t.Run("Integration with RuleMsg", func(t *testing.T) {
+		// 创建包含二进制数据的RuleMsg
+		binaryData := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A} // PNG文件头
+		metadata := NewMetadata()
+		metadata.PutValue("fileType", "png")
+
+		originalMsg := NewMsgFromBytes(12345, "IMAGE_UPLOAD", BINARY, metadata, binaryData)
+
+		// 序列化整个RuleMsg
+		msgJsonData, err := json.Marshal(originalMsg)
+		assert.Nil(t, err)
+
+		// 反序列化RuleMsg
+		var deserializedMsg RuleMsg
+		err = json.Unmarshal(msgJsonData, &deserializedMsg)
+		assert.Nil(t, err)
+
+		// 验证所有字段都正确恢复
+		assert.Equal(t, originalMsg.Id, deserializedMsg.Id)
+		assert.Equal(t, originalMsg.Type, deserializedMsg.Type)
+		assert.Equal(t, originalMsg.DataType, deserializedMsg.DataType)
+		assert.Equal(t, binaryData, deserializedMsg.GetBytes(), "Binary data should be preserved in RuleMsg")
+		assert.Equal(t, "png", deserializedMsg.Metadata.GetValue("fileType"))
+
+		// 验证SharedData的dataType被正确推断
+		// 注意：在RuleMsg中，DataType字段会被单独序列化，但SharedData的dataType需要被推断
+		sharedData := deserializedMsg.GetSharedData()
+		// 由于原始数据是二进制数据，SharedData应该推断为BINARY类型
+		assert.Equal(t, BINARY, sharedData.dataType, "SharedData should infer BINARY type")
+	})
+}
