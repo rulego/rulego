@@ -17,9 +17,11 @@
 package types
 
 import (
+	"encoding/hex"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/rulego/rulego/utils/json"
@@ -523,7 +525,7 @@ func newMsg(id string, ts int64, msgType string, dataType DataType, metaData *Me
 		Id:       id,
 		Type:     msgType,
 		DataType: dataType,
-		Data:     NewSharedDataFromBytes(data),
+		Data:     NewSharedDataFromBytesWithType(data, dataType),
 		Metadata: metadata,
 	}
 
@@ -542,7 +544,7 @@ func newMsg(id string, ts int64, msgType string, dataType DataType, metaData *Me
 // Safety: Protected by Copy-on-Write mechanism
 func (m *RuleMsg) SetData(data string) {
 	if m.Data == nil {
-		m.Data = NewSharedData(data)
+		m.Data = NewSharedDataWithType(data, m.DataType)
 	} else {
 		m.Data.SetUnsafe(data)
 	}
@@ -552,7 +554,7 @@ func (m *RuleMsg) SetData(data string) {
 // The input []byte will be copied to ensure data isolation.
 func (m *RuleMsg) SetBytes(data []byte) {
 	if m.Data == nil {
-		m.Data = NewSharedDataFromBytes(data)
+		m.Data = NewSharedDataFromBytesWithType(data, m.DataType)
 	} else {
 		m.Data.SetBytes(data)
 	}
@@ -604,7 +606,7 @@ func (m *RuleMsg) GetBytes() []byte {
 func (m *RuleMsg) GetSharedData() *SharedData {
 	if m.Data == nil {
 		// Return a new empty SharedData to avoid nil pointer issues
-		m.Data = NewSharedData("")
+		m.Data = NewSharedDataWithType("", m.DataType)
 	}
 	return m.Data
 }
@@ -625,7 +627,7 @@ func (m *RuleMsg) GetSharedData() *SharedData {
 //	msg.SetSharedData(sharedData)
 func (m *RuleMsg) SetSharedData(data *SharedData) {
 	if data == nil {
-		m.Data = NewSharedData("")
+		m.Data = NewSharedDataWithType("", m.DataType)
 	} else {
 		m.Data = data
 	}
@@ -659,7 +661,7 @@ func (m *RuleMsg) Copy() RuleMsg {
 	if m.Data != nil {
 		copiedData = m.Data.Copy()
 	} else {
-		copiedData = NewSharedData("")
+		copiedData = NewSharedDataWithType("", m.DataType)
 	}
 
 	copiedMsg := RuleMsg{
@@ -754,6 +756,8 @@ type WrapperMsg struct {
 type SharedData struct {
 	// data holds the actual payload data
 	data []byte
+	// dataType specifies the format of the data (JSON, TEXT, BINARY)
+	dataType DataType
 	// refCount tracks how many instances share this data (using atomic operations)
 	// This pointer is shared among all instances that share the same data
 	refCount *int64
@@ -774,7 +778,18 @@ func NewSharedData(data string) *SharedData {
 	refCount := int64(1)
 	return &SharedData{
 		data:     str.UnsafeBytesFromString(data),
+		dataType: TEXT,      // Default to TEXT for string data
 		refCount: &refCount, // Initial reference count is 1
+	}
+}
+
+// NewSharedDataWithType creates a new SharedData instance from string with specified data type.
+func NewSharedDataWithType(data string, dataType DataType) *SharedData {
+	refCount := int64(1)
+	return &SharedData{
+		data:     str.UnsafeBytesFromString(data),
+		dataType: dataType,
+		refCount: &refCount,
 	}
 }
 
@@ -783,6 +798,17 @@ func NewSharedDataFromBytes(data []byte) *SharedData {
 	refCount := int64(1)
 	return &SharedData{
 		data:     data,
+		dataType: BINARY, // Default to BINARY for byte data
+		refCount: &refCount,
+	}
+}
+
+// NewSharedDataFromBytesWithType creates a new SharedData instance from []byte with specified data type.
+func NewSharedDataFromBytesWithType(data []byte, dataType DataType) *SharedData {
+	refCount := int64(1)
+	return &SharedData{
+		data:     data,
+		dataType: dataType,
 		refCount: &refCount,
 	}
 }
@@ -795,6 +821,7 @@ func (sd *SharedData) Copy() *SharedData {
 	// Both reading the data/refCount pointer and incrementing the reference count
 	// must be done atomically under the same lock to prevent race conditions
 	data := sd.data
+	dataType := sd.dataType
 	refCountPtr := sd.refCount
 	parsedData := sd.parsedData
 	dataVersion := sd.dataVersion
@@ -811,6 +838,7 @@ func (sd *SharedData) Copy() *SharedData {
 	// 3. ensureUnique() will clear parsedData when creating unique copies
 	return &SharedData{
 		data:        data,
+		dataType:    dataType,
 		refCount:    refCountPtr, // Share the same reference count pointer
 		parsedData:  parsedData,  // Share parsed cache for performance (protected by COW)
 		dataVersion: dataVersion, // Copy the data version to maintain consistency
@@ -1003,10 +1031,26 @@ func (sd *SharedData) GetRefCount() int64 {
 }
 
 // MarshalJSON implements the json.Marshaler interface.
+// For binary data, it uses hex encoding to ensure data integrity and readability.
 func (sd *SharedData) MarshalJSON() ([]byte, error) {
 	sd.mu.RLock()
 	defer sd.mu.RUnlock()
-	return json.Marshal(str.UnsafeStringFromBytes(sd.data))
+
+	// For BINARY data type, always use hex encoding
+	if sd.dataType == BINARY {
+		encoded := hex.EncodeToString(sd.data)
+		return json.Marshal(encoded)
+	}
+
+	// For TEXT and JSON data types, check if data is valid UTF-8
+	if utf8.Valid(sd.data) {
+		// Data is valid UTF-8, marshal as string
+		return json.Marshal(str.UnsafeStringFromBytes(sd.data))
+	} else {
+		// Data contains invalid UTF-8 bytes, encode as hex even for TEXT/JSON
+		encoded := hex.EncodeToString(sd.data)
+		return json.Marshal(encoded)
+	}
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
