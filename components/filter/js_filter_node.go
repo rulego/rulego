@@ -41,48 +41,53 @@ const (
 	JsFilterFuncName = "Filter"
 	// JsFilterType JsFilter组件类型
 	JsFilterType = "jsFilter"
-	// JsFilterFuncTemplate JS函数模板，新增dataType参数
+	// JsFilterFuncTemplate JS函数模板
 	JsFilterFuncTemplate = "function Filter(msg, metadata, msgType, dataType) { %s }"
 )
 
+// init 注册JsFilterNode组件
 func init() {
 	Registry.Add(&JsFilterNode{})
 }
 
-// JsFilterNodeConfiguration 节点配置
+// JsFilterNodeConfiguration JsFilterNode配置结构
 type JsFilterNodeConfiguration struct {
-	//JsScript 配置函数体脚本内容
-	// 使用js脚本进行过滤
-	//完整脚本函数：
-	//function Filter(msg, metadata, msgType) { ${JsScript} }
-	//return bool
-	JsScript string
+	// JsScript JavaScript脚本，用于评估过滤条件
+	// 函数参数：msg, metadata, msgType, dataType
+	// 必须返回布尔值：true通过过滤，false不通过
+	//
+	// 内置变量：
+	//   - $ctx: 上下文对象，提供缓存操作
+	//   - global: 全局配置属性
+	//   - vars: 规则链变量
+	//   - UDF函数: 用户自定义函数
+	//
+	// 示例: "return msg.temperature > 25.0;"
+	JsScript string `json:"jsScript"`
 }
 
-// JsFilterNode 使用js脚本过滤传入信息
-// 如果 `True`发送信息到`True`链, `False`发到`False`链。
-// 如果 脚本执行失败则发送到`Failure`链
-// 消息体可以通过`msg`变量访问，如果消息的dataType是json类型，可以通过 `msg.XX`方式访问msg的字段。例如:`return msg.temperature > 50;`
-// 消息元数据可以通过`metadata`变量访问。例如 `metadata.customerName === 'Lala';`
-// 消息类型可以通过`msgType`变量访问.
+// JsFilterNode 使用JavaScript评估布尔条件的过滤器节点
 type JsFilterNode struct {
-	//节点配置
-	Config   JsFilterNodeConfiguration
+	// Config 节点配置
+	Config JsFilterNodeConfiguration
+
+	// jsEngine JavaScript执行引擎
 	jsEngine types.JsEngine
 }
 
-// Type 组件类型
+// Type 返回组件类型
 func (x *JsFilterNode) Type() string {
 	return JsFilterType
 }
 
+// New 创建新实例
 func (x *JsFilterNode) New() types.Node {
 	return &JsFilterNode{Config: JsFilterNodeConfiguration{
 		JsScript: "return msg.temperature > 50;",
 	}}
 }
 
-// Init 初始化
+// Init 初始化节点
 func (x *JsFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
@@ -92,7 +97,7 @@ func (x *JsFilterNode) Init(ruleConfig types.Config, configuration types.Configu
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg 处理消息，执行JavaScript过滤条件
 func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	// 准备传递给JS脚本的数据
 	data := base.NodeUtils.PrepareJsData(msg)
@@ -109,7 +114,9 @@ func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 }
 
-// Destroy 销毁
+// Destroy 清理资源
 func (x *JsFilterNode) Destroy() {
-	x.jsEngine.Stop()
+	if x.jsEngine != nil {
+		x.jsEngine.Stop()
+	}
 }

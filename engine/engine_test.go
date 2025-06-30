@@ -598,6 +598,7 @@ func TestOnMsgAndWait(t *testing.T) {
 	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		atomic.AddInt32(&count, 1)
 	}))
+	time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
 	assert.Equal(t, int32(2), count)
 	wg.Wait()
 
@@ -608,7 +609,7 @@ func TestOnMsgAndWait(t *testing.T) {
 	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		atomic.AddInt32(&count, 1)
 	}))
-
+	time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
 	assert.Equal(t, int32(1), count)
 	wg.Wait()
 
@@ -619,6 +620,7 @@ func TestOnMsgAndWait(t *testing.T) {
 	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		atomic.AddInt32(&count, 1)
 	}))
+	time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
 	assert.Equal(t, int32(1), count)
 	wg.Wait()
 }
@@ -794,6 +796,7 @@ func TestBatchOnMsgAndWaitMultipleOnEnd(t *testing.T) {
 		ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 			atomic.AddInt32(&count, 1)
 		}))
+		time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
 		assert.Equal(t, int32(2), atomic.LoadInt32(&count))
 	}
 	time.Sleep(time.Millisecond * 100)

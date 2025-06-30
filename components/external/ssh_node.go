@@ -30,6 +30,7 @@ package external
 import (
 	"errors"
 	"fmt"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/maps"
@@ -47,7 +48,8 @@ func init() {
 	Registry.Add(&SshNode{})
 }
 
-// SshConfiguration 配置
+// SshConfiguration SSH节点配置
+// SshConfiguration defines SSH node configuration.
 type SshConfiguration struct {
 	//Host ssh 主机地址
 	Host string
@@ -61,10 +63,63 @@ type SshConfiguration struct {
 	Cmd string
 }
 
-// SshNode shell 组件
-// 通过ssh协议执行远程shell脚本
-// 脚本执行结果返回到msg,交给下一个节点
-// DataType 会强制转成TEXT
+// SshNode SSH远程命令执行组件，建立SSH连接到远程主机并执行shell命令
+// SshNode provides SSH-based remote command execution capabilities.
+//
+// 核心算法：
+// Core Algorithm:
+// 1. 初始化时建立SSH连接 - Establish SSH connection during initialization
+// 2. 解析命令模板，支持变量替换 - Parse command template with variable substitution
+// 3. 创建SSH会话执行命令 - Create SSH session to execute command
+// 4. 捕获命令输出（stdout+stderr）- Capture command output (stdout+stderr)
+// 5. 关闭会话并返回结果 - Close session and return results
+//
+// 变量替换 - Variable substitution:
+//   - ${metadata.key}: 访问消息元数据变量 - Access message metadata variables
+//   - ${msg.key}: 访问消息负荷变量 - Access message payload variables
+//
+// 配置示例 - Configuration example:
+//
+//	{
+//		"host": "192.168.1.100",        // SSH服务器地址 - SSH server address
+//		"port": 22,                     // SSH端口 - SSH port
+//		"username": "admin",            // 用户名 - Username
+//		"password": "secret123",        // 密码 - Password
+//		"cmd": "ls -la /tmp/${metadata.path}"  // 支持变量替换的命令 - Command with variables
+//	}
+//
+// 使用示例 - Usage examples:
+//
+//	// 执行系统监控命令 - Execute system monitoring command
+//	{
+//		"id": "sshMonitor",
+//		"type": "ssh",
+//		"configuration": {
+//			"host": "server.example.com",
+//			"port": 22,
+//			"username": "monitor",
+//			"password": "mon123",
+//			"cmd": "df -h && free -m"
+//		}
+//	}
+//
+//	// 执行带动态参数的命令 - Execute command with dynamic parameters
+//	{
+//		"id": "sshDynamic",
+//		"type": "ssh",
+//		"configuration": {
+//			"host": "${metadata.targetHost}",
+//			"port": 22,
+//			"username": "admin",
+//			"password": "pass",
+//			"cmd": "cat /var/log/${msg.logFile} | tail -${metadata.lines}"
+//		}
+//	}
+//
+// 使用场景 - Use cases:
+//   - 远程系统监控和维护 - Remote system monitoring and maintenance
+//   - 批量服务器管理操作 - Batch server management operations
+//   - 自动化运维脚本执行 - Automated operations script execution
 type SshNode struct {
 	//节点配置
 	Config SshConfiguration
@@ -110,7 +165,6 @@ func (x *SshNode) Init(ruleConfig types.Config, configuration types.Configuratio
 		x.cmdTemplate = str.NewTemplate(x.Config.Cmd)
 	}
 	return err
-
 }
 
 // OnMsg 方法用来处理消息，每条流入组件的数据会经过该函数处理
@@ -148,7 +202,6 @@ func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	} else {
 		ctx.TellFailure(msg, err)
 	}
-
 }
 
 // Destroy 方法用来销毁组件，做一些资源释放操作
