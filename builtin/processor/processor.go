@@ -137,8 +137,9 @@ const (
 	//
 	// HeaderValueApplicationJson 是 JSON 内容的 MIME 类型。
 	// 在为 JSON 响应设置 Content-Type 头时使用。
-	HeaderValueApplicationJson = "application/json"
-
+	HeaderValueApplicationJson        = "application/json"
+	HeaderValueTextPlain              = "text/plain"
+	HeaderValueApplicationOctetStream = "application/octet-stream"
 	// KeyTopic is a metadata key used for storing message topic information.
 	// Commonly used in messaging scenarios to identify the source topic.
 	//
@@ -209,25 +210,33 @@ func init() {
 		return true
 	})
 
-	// Register input processor to set message data type to JSON and appropriate Content-Type.
-	// This processor prepares messages for JSON processing and sets HTTP response headers.
-	//
-	// 注册输入处理器设置消息数据类型为 JSON 并设置适当的 Content-Type。
-	// 此处理器为 JSON 处理准备消息并设置 HTTP 响应头。
+	// Register input processor to set JSON data type and Content-Type.After setting, the rule chain component will process data based on that type
+	// 注册输入处理器设置 JSON 数据类型和 Content-Type。设置后，规则链组件将根据该类型处理数据
 	InBuiltins.Register("setJsonDataType", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		msg.DataType = types.JSON
 		exchange.Out.Headers().Set(HeaderKeyContentType, HeaderValueApplicationJson)
 		return true
 	})
+	// Register input processor to set text data type and Content-Type.After setting, the rule chain component will process data based on that type
+	// 注册输入处理器设置文本数据类型和 Content-Type。设置后，规则链组件将根据该类型处理数据
+	InBuiltins.Register("setTextDataType", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		msg.DataType = types.TEXT
+		exchange.Out.Headers().Set(HeaderKeyContentType, HeaderValueTextPlain)
+		return true
+	})
+	// Register input processor to set binary data type and Content. After setting, the rule chain component will process data based on that type
+	// 注册输入处理器设置二进制数据类型和 Content-Type。设置后，规则链组件将根据该类型处理数据
+	InBuiltins.Register("setBinaryDataType", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		msg.DataType = types.BINARY
+		exchange.Out.Headers().Set(HeaderKeyContentType, HeaderValueApplicationOctetStream)
+		return true
+	})
 
 	// Register input processor to convert binary message data to hexadecimal string.
-	// This is useful for processing binary protocols or debugging binary data.
-	// Sets the message topic in metadata for traceability.
-	//
 	// 注册输入处理器将二进制消息数据转换为十六进制字符串。
-	// 这对于处理二进制协议或调试二进制数据很有用。
-	// 在元数据中设置消息主题以便跟踪。
 	InBuiltins.Register("toHex", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		from := exchange.In.From()
 		ruleMsg := types.NewMsg(0, from, types.TEXT, types.NewMetadata(), strings.ToUpper(hex.EncodeToString(exchange.In.Body())))
