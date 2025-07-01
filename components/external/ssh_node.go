@@ -30,6 +30,7 @@ package external
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
@@ -126,6 +127,8 @@ type SshNode struct {
 	// client 是一个 ssh.Client 类型的字段，用来保存 ssh 客户端对象
 	client      *ssh.Client
 	cmdTemplate str.Template
+	// 保护client字段的并发访问
+	clientMutex sync.RWMutex
 }
 
 // Type 方法用来返回组件的类型
@@ -170,10 +173,17 @@ func (x *SshNode) Init(ruleConfig types.Config, configuration types.Configuratio
 // OnMsg 方法用来处理消息，每条流入组件的数据会经过该函数处理
 func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var err error
-	if x.client == nil {
+
+	// 安全获取client引用
+	x.clientMutex.RLock()
+	client := x.client
+	x.clientMutex.RUnlock()
+
+	if client == nil {
 		ctx.TellFailure(msg, SshClientNotInitErr)
 		return
 	}
+
 	// 获取shell 命令
 	cmd := x.Config.Cmd
 	if cmd == "" {
@@ -186,7 +196,7 @@ func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var output []byte
 	var session *ssh.Session
 	// 如果有 ssh 客户端对象，则创建一个 ssh 会话，并执行远程 shell 命令，并获取其输出或错误信息
-	if session, err = x.client.NewSession(); err == nil {
+	if session, err = client.NewSession(); err == nil {
 		defer session.Close()
 		output, err = session.CombinedOutput(cmd)
 
@@ -206,7 +216,11 @@ func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy 方法用来销毁组件，做一些资源释放操作
 func (x *SshNode) Destroy() {
+	x.clientMutex.Lock()
+	defer x.clientMutex.Unlock()
+
 	if x.client != nil {
 		_ = x.client.Close()
+		x.client = nil
 	}
 }
