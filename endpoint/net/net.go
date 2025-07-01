@@ -658,8 +658,21 @@ func (ep *Net) listenUDP() error {
 func (ep *Net) acceptTCPConnections() {
 	// 循环接受客户端的连接请求
 	for {
+		// 检查是否已关闭，避免数据竞争
+		if atomic.LoadInt32(&ep.closed) == 1 {
+			ep.Printf("net endpoint stop")
+			return
+		}
+
+		// 获取监听器引用，避免在Close()过程中访问nil指针
+		listener := ep.listener
+		if listener == nil {
+			ep.Printf("net endpoint stop - listener is nil")
+			return
+		}
+
 		// 从监听器中获取一个客户端连接，返回连接对象和错误信息
-		conn, err := ep.listener.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
 			if opError, ok := err.(*net.OpError); ok && opError.Err == net.ErrClosed {
 				ep.Printf("net endpoint stop")
@@ -670,6 +683,14 @@ func (ep *Net) acceptTCPConnections() {
 				continue
 			}
 		}
+
+		// 再次检查关闭状态，防止在Accept()期间被关闭
+		if atomic.LoadInt32(&ep.closed) == 1 {
+			_ = conn.Close()
+			ep.Printf("net endpoint stop - closing accepted connection")
+			return
+		}
+
 		// 打印客户端连接的信息
 		//ep.Printf("new connection from:", conn.RemoteAddr().String())
 		h := TcpHandler{
