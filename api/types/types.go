@@ -461,6 +461,45 @@ type ComponentRegistry interface {
 //   - Use NodePool for expensive resource sharing across multiple instances
 //     使用 NodePool 在多个实例间共享昂贵资源
 //
+// Critical Race Condition Warning:
+// 关键竞争条件警告：
+//
+//	Components MUST implement proper concurrent safety between OnMsg() and Destroy():
+//	组件必须在 OnMsg() 和 Destroy() 之间实现适当的并发安全：
+//
+//	INCORRECT Pattern (Race Condition):
+//	错误模式（竞争条件）：
+//	  func (x *MyNode) OnMsg(ctx RuleContext, msg RuleMsg) {
+//	      client, _ := x.SharedNode.Get()  // 获取客户端
+//	      // ... 此时 Destroy() 可能被调用并关闭客户端
+//	      client.DoSomething()  // 使用已关闭的客户端 - 竞争条件！
+//	  }
+//	  func (x *MyNode) Destroy() {
+//	      client.Close()  // 强制关闭 - 可能打断正在进行的操作
+//	  }
+//
+//	CORRECT Pattern (Concurrent Safe):
+//	正确模式（并发安全）：
+//	  func (x *MyNode) OnMsg(ctx RuleContext, msg RuleMsg) {
+//	      x.SharedNode.BeginOp()
+//	      defer x.SharedNode.EndOp()
+//	      if x.SharedNode.IsShuttingDown() {
+//	          ctx.TellFailure(msg, errors.New("component shutting down"))
+//	          return
+//	      }
+//	      client, err := x.SharedNode.Get()
+//	      if err != nil || x.SharedNode.IsShuttingDown() {
+//	          ctx.TellFailure(msg, err)
+//	          return
+//	      }
+//	      // 安全使用client...
+//	  }
+//	  func (x *MyNode) Destroy() {
+//	      x.SharedNode.GracefulShutdown(0, func() {
+//	          // 清理资源...
+//	      })
+//	  }
+//
 // Best Practices:
 // 最佳实践：
 //   - Keep components stateless for better scalability
@@ -615,14 +654,6 @@ type Node interface {
 	// 返回：
 	//   - error: Initialization error, or nil if successful
 	//     error：初始化错误，成功时为 nil
-	//
-	// Thread Safety:
-	// 线程安全：
-	//	This method is called only once per component instance during rule chain
-	//	initialization, so thread safety is generally not a concern here.
-	//
-	//	此方法在规则链初始化期间每个组件实例只调用一次，
-	//	因此线程安全通常不是这里的关注点。
 	Init(ruleConfig Config, configuration Configuration) error
 
 	// OnMsg processes incoming messages and implements the component's core functionality.
@@ -664,41 +695,12 @@ type Node interface {
 	//	对于长时间运行的操作，使用 ctx.SubmitTask() 在后台 goroutine 中执行工作，
 	//	同时确保适当的链继续。
 	//
-	// Error Handling:
-	// 错误处理：
-	//	Handle errors gracefully by either:
-	//	通过以下方式优雅地处理错误：
-	//	- Forwarding via TellFailure() with error details
-	//	  通过 TellFailure() 转发并包含错误详情
-	//	- Logging and forwarding a modified success message
-	//	  记录日志并转发修改后的成功消息
-	//	- Using custom relationship types for specific error conditions
-	//	  为特定错误条件使用自定义关系类型
-	//
-	// Performance Considerations:
-	// 性能考虑：
-	//   - This method may be called concurrently for different messages
-	//     此方法可能为不同消息并发调用
-	//   - Avoid blocking operations that could impact throughput
-	//     避免可能影响吞吐量的阻塞操作
-	//   - Use connection pools and caching for expensive resources
-	//     为昂贵资源使用连接池和缓存
-	//   - Consider using object pools for frequently allocated objects
-	//     考虑为频繁分配的对象使用对象池
-	//
 	// Parameters:
 	// 参数：
 	//   - ctx: Rule context providing message routing and utility functions
 	//     ctx：提供消息路由和工具函数的规则上下文
 	//   - msg: The message to be processed by this component
 	//     msg：此组件要处理的消息
-	//
-	// Thread Safety:
-	// 线程安全：
-	//	This method MUST be thread-safe as it may be called concurrently
-	//	by multiple goroutines processing different messages.
-	//
-	//	此方法必须是线程安全的，因为可能被处理不同消息的多个 goroutine 并发调用。
 	OnMsg(ctx RuleContext, msg RuleMsg)
 
 	// Destroy releases any resources held by the component when it's no longer needed.
@@ -727,6 +729,29 @@ type Node interface {
 	//
 	//	实现优雅关闭模式以确保正在进行的操作正确完成，不会丢失数据或损坏。
 	//
+	//	For SharedNode components, NEVER directly close resources in Destroy().
+	//	Instead, use SharedNode.GracefulShutdown() to coordinate with ongoing OnMsg() operations:
+	//
+	//	对于 SharedNode 组件，永远不要在 Destroy() 中直接关闭资源。
+	//	而应使用 SharedNode.GracefulShutdown() 与正在进行的 OnMsg() 操作协调：
+	//
+	//	  // WRONG: Direct resource closing
+	//	  // 错误：直接关闭资源
+	//	  func (x *MyNode) Destroy() {
+	//	      x.client.Close()  // Race condition with OnMsg()!
+	//	  }
+	//
+	//	  // CORRECT: Graceful shutdown coordination
+	//	  // 正确：优雅关闭协调
+	//	  func (x *MyNode) Destroy() {
+	//	      x.SharedNode.GracefulShutdown(0, func() {
+	//	          if x.client != nil {
+	//	              x.client.Close()
+	//	              x.client = nil
+	//	          }
+	//	      })
+	//	  }
+	//
 	// Error Handling:
 	// 错误处理：
 	//	This method should not panic. Log any cleanup errors but don't fail
@@ -742,13 +767,6 @@ type Node interface {
 	//     为清理操作使用超时上下文以防止挂起
 	//   - Consider implementing a cleanup timeout to avoid blocking shutdown
 	//     考虑实现清理超时以避免阻塞关闭
-	//
-	// Thread Safety:
-	// 线程安全：
-	//	This method should be thread-safe as it might be called while other
-	//	methods are still executing during shutdown scenarios.
-	//
-	//	此方法应该是线程安全的，因为在关闭场景期间可能在其他方法仍在执行时被调用。
 	Destroy()
 }
 
