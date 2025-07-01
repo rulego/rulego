@@ -1,0 +1,112 @@
+{
+  "ruleChain": {
+    "id": "mqtt_data_processor",
+    "name": "MQTT Data Processor Chain",
+    "root": true,
+    "debugMode": true,
+    "additionalInfo": {
+      "layoutX": "280",
+      "layoutY": "280"
+    }
+  },
+  "metadata": {
+    "endpoints": [
+      {
+        "id": "mqtt_endpoint_1",
+        "type": "endpoint/mqtt",
+        "name": "MQTT Multi-Topic Subscriber",
+        "configuration": {
+          "server": "127.0.0.1:1883",
+          "username": "",
+          "password": "",
+          "qos": 1,
+          "clientId": "rulego_mqtt_server_multi"
+        },
+        "routers": [
+          {
+            "id": "sensor_json_router",
+            "from": {
+              "path": "sensors/+/data",
+              "processors": [
+                "setJsonDataType"
+              ]
+            },
+            "to": {
+              "path": "mqtt_data_processor:json_sensor_processor"
+            }
+          },
+          {
+            "id": "device_binary_router",
+            "from": {
+              "path": "devices/+/command",
+              "processors": [
+                "setBinaryDataType"
+              ]
+            },
+            "to": {
+              "path": "mqtt_data_processor:binary_device_processor"
+            }
+          },
+          {
+            "id": "system_json_router",
+            "from": {
+              "path": "system/#",
+              "processors": [
+                "setJsonDataType"
+              ]
+            },
+            "to": {
+              "path": "mqtt_data_processor:json_system_processor"
+            }
+          }
+        ],
+        "additionalInfo": {
+          "layoutX": 480,
+          "layoutY": 90
+        }
+      }
+    ],
+    "nodes": [
+      {
+        "id": "json_sensor_processor",
+        "type": "jsTransform",
+        "name": "JSON传感器数据处理器",
+        "configuration": {
+          "jsScript": "// JSON 传感器数据处理\n// msg已经是解析好的对象，无需JSON.parse\nvar sensorData = msg;\n\n// 添加处理时间戳\nsensorData.processedAt = new Date().toISOString();\nsensorData.status = 'processed';\n\n// 获取主题信息\nvar topic = metadata['topic'] || 'unknown';\nvar sensorId = sensorData.sensorId || 'unknown';\n\n// 温度报警检查\nif (sensorData.temperature !== undefined) {\n  if (sensorData.temperature > 30) {\n    sensorData.alert = 'HIGH_TEMPERATURE';\n    sensorData.alertLevel = 'WARNING';\n    msgType = 'TEMPERATURE_ALERT';\n  } else {\n    sensorData.alert = 'NORMAL';\n    sensorData.alertLevel = 'INFO';\n    msgType = 'SENSOR_DATA';\n  }\n}\n\n// 湿度检查\nif (sensorData.humidity !== undefined) {\n  if (sensorData.humidity > 70) {\n    sensorData.humidityAlert = 'HIGH_HUMIDITY';\n    if (!sensorData.alert || sensorData.alert === 'NORMAL') {\n      sensorData.alert = 'HIGH_HUMIDITY';\n      sensorData.alertLevel = 'WARNING';\n      msgType = 'HUMIDITY_ALERT';\n    }\n  } else {\n    sensorData.humidityAlert = 'NORMAL';}\n}\n\n// 电池电量检查\nif (sensorData.batteryLevel !== undefined && sensorData.batteryLevel < 20) {\n  sensorData.batteryAlert = 'LOW_BATTERY';\n  if (!sensorData.alert || sensorData.alert === 'NORMAL') {\n    sensorData.alert = 'LOW_BATTERY';\n    sensorData.alertLevel = 'WARNING';\n    msgType = 'BATTERY_ALERT';\n  }\n}\n\n// 添加处理元数据\nmetadata['processedBy'] = 'mqtt-sensor-processor';\nmetadata['originalTopic'] = topic;\nmetadata['sensorId'] = sensorId;\nmetadata['alertLevel'] = sensorData.alertLevel || 'INFO';\n\nreturn {\n  'msg': sensorData,\n  'metadata': metadata,\n  'msgType': msgType,\n  'dataType': 'JSON'\n};"
+        },
+        "debugMode": true,
+        "additionalInfo": {
+          "layoutX": 470,
+          "layoutY": 320
+        }
+      },
+      {
+        "id": "binary_device_processor",
+        "type": "jsTransform",
+        "name": "二进制设备命令处理器",
+        "configuration": {
+          "jsScript": "// 二进制设备命令处理\nvar binaryData = [];\n\n// 检查数据类型并正确处理\nif (msg instanceof Uint8Array) {\n    // 如果是Uint8Array（正确的二进制数据类型）\n    for (var i = 0; i < msg.length; i++) {\n        binaryData.push(msg[i]);\n    }\n} else if (typeof msg === 'string') {\n    // 如果是字符串（向后兼容）\n    for (var i = 0; i < msg.length; i++) {\n        binaryData.push(msg.charCodeAt(i));\n    }\n} else if (Array.isArray(msg)) {\n    // 如果是数组（可能的其他格式）\n    binaryData = msg;\n} else {\n    // 其他情况，尝试转换为字符串再处理\n    var msgStr = String(msg);\n    for (var i = 0; i < msgStr.length; i++) {\n        binaryData.push(msgStr.charCodeAt(i));\n    }\n}\n\nvar result = {\n  deviceId: null,\n  command: null,\n  value: null,\n  status: 'processed',\n  processedAt: new Date().toISOString()\n};\n\n// 获取主题信息\nvar topic = metadata['topic'] || 'unknown';\n\n// 解析二进制协议 (deviceId(2) + command(1) + value(4))\nif (binaryData.length >= 7) {\n  result.deviceId = (binaryData[0] << 8) | binaryData[1];\n  result.command = binaryData[2];\n  result.value = (binaryData[3] << 24) | (binaryData[4] << 16) | (binaryData[5] << 8) | binaryData[6];\n\n  // 命令处理逻辑\n  switch (result.command) {\n    case 0x01:\n      result.commandName = 'SET_PARAMETER';\n      result.response = '参数已设置为 ' + result.value;\n      result.priority = 'NORMAL';\n      break;\n    case 0x02:\n      result.commandName = 'GET_STATUS';\n      result.response = '设备状态: ' + (result.value > 0 ? '活动' : '非活动');\n      result.priority = 'LOW';\n      break;\n    case 0x03:\n      result.commandName = 'RESET';\n      result.response = '设备重置已完成';\n      result.priority = 'HIGH';\n      break;\n    case 0x04:\n      result.commandName = 'SET_THRESHOLD';\n      result.response = '阈值已设置为 ' + result.value;\n      result.priority = 'NORMAL';\n      break;\n    default:\n      result.commandName = 'UNKNOWN';\n      result.response = '未知命令: 0x' + result.command.toString(16);\n      result.priority = 'LOW';\n  }\n\n  msgType = 'DEVICE_COMMAND';\n} else {\n  result.error = '无效的二进制数据长度: ' + binaryData.length + ' (期望: 7)';\n  msgType = 'ERROR';\n}\n\n// 添加处理元数据\nmetadata['processedBy'] = 'mqtt-device-processor';\nmetadata['originalTopic'] = topic;\nmetadata['deviceId'] = result.deviceId ? result.deviceId.toString() : 'unknown';\nmetadata['commandType'] = result.commandName || 'unknown';\nmetadata['priority'] = result.priority || 'LOW';\nmetadata['originalLength'] = binaryData.length.toString();\nmetadata['dataTypeDetected'] = (msg instanceof Uint8Array) ? 'Uint8Array' : typeof msg;\n\nreturn {\n  'msg': result,\n  'metadata': metadata,\n  'msgType': msgType,\n  'dataType': 'JSON'\n};"
+        },
+        "debugMode": true,
+        "additionalInfo": {
+          "layoutX": 640,
+          "layoutY": 280
+        }
+      },
+      {
+        "id": "json_system_processor",
+        "type": "jsTransform",
+        "name": "JSON系统消息处理器",
+        "configuration": {
+          "jsScript": "// 系统消息处理\n// msg已经是解析好的对象，无需JSON.parse\nvar systemMsg = msg;\n\n// 添加处理时间戳\nsystemMsg.processedAt = new Date().toISOString();\nsystemMsg.status = 'processed';\n\n// 获取主题信息\nvar topic = metadata['topic'] || 'unknown';\nvar level = systemMsg.level || 'INFO';\n\n// 根据消息级别设置处理策略\nswitch (level.toUpperCase()) {\n  case 'ERROR':\n    systemMsg.urgency = 'HIGH';\n    systemMsg.action = 'IMMEDIATE_ATTENTION_REQUIRED';\n    msgType = 'SYSTEM_ERROR';\n    break;\n  case 'WARNING':\n    systemMsg.urgency = 'MEDIUM';\n    systemMsg.action = 'MONITORING_REQUIRED';\n    msgType = 'SYSTEM_WARNING';\n    break;\n  case 'INFO':\n    systemMsg.urgency = 'LOW';\n    systemMsg.action = 'LOG_ONLY';\n    msgType = 'SYSTEM_INFO';\n    break;\n  default:\n    systemMsg.urgency = 'LOW';\n    systemMsg.action = 'LOG_ONLY';\n    msgType = 'SYSTEM_MESSAGE';\n}\n\n// 添加系统上下文信息\nsystemMsg.systemContext = {\n  hostname: 'rulego-server',\n  environment: 'production',\n  version: '1.0.0'\n};\n\n// 添加处理元数据\nmetadata['processedBy'] = 'mqtt-system-processor';\nmetadata['originalTopic'] = topic;\nmetadata['messageLevel'] = level;\nmetadata['urgency'] = systemMsg.urgency;\nmetadata['source'] = systemMsg.source || 'unknown';\n\nreturn {\n  'msg': systemMsg,\n  'metadata': metadata,\n  'msgType': msgType,\n  'dataType': 'JSON'\n};"
+        },
+        "debugMode": true,
+        "additionalInfo": {
+          "layoutX": 840,
+          "layoutY": 260
+        }
+      }
+    ],
+    "connections": []
+  }
+}
