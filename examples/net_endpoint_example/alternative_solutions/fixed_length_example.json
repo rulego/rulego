@@ -1,0 +1,69 @@
+{
+  "ruleChain": {
+    "id": "fixedLengthProcessor",
+    "name": "Fixed Length Protocol Processor",
+    "root": true,
+    "debugMode": true,
+    "additionalInfo": {
+      "description": "处理固定长度数据包的示例",
+      "layoutX": "300",
+      "layoutY": "300"
+    }
+  },
+  "metadata": {
+    "endpoints": [
+      {
+        "id": "fixed_net_endpoint",
+        "type": "endpoint/net",
+        "name": "Fixed Length NET Server",
+        "configuration": {
+          "protocol": "tcp",
+          "server": ":8090",
+          "readTimeout": 60,
+          "encode": "",
+          "packetMode": "fixed",
+          "packetSize": 16,
+          "maxPacketSize": 1024
+        },
+        "routers": [
+          {
+            "id": "fixed_length_router",
+            "from": {
+              "path": ".*",
+              "processors": [
+                "setBinaryDataType"
+              ]
+            },
+            "to": {
+              "path": "fixedLengthProcessor:fixed_length_handler",
+              "processors": [
+                "responseToBody"
+              ]
+            }
+          }
+        ],
+        "additionalInfo": {
+          "layoutX": 350,
+          "layoutY": 180
+        }
+      }
+    ],
+    "nodes": [
+      {
+        "id": "fixed_length_handler",
+        "type": "jsTransform",
+        "name": "固定长度数据处理器",
+        "configuration": {
+          "jsScript": "// 固定长度协议处理器\n// 协议格式: 设备ID(4字节) + 命令类型(4字节) + 数据(8字节) = 16字节\n\nvar response;\n\n// 验证数据包长度\nif (msg.length !== 16) {\n    // 错误响应: 状态码(4字节) + 错误码(4字节) + 保留(8字节)\n    response = [0x00, 0x00, 0x00, 0x01, // 错误状态\n                0x00, 0x00, 0x00, 0xFF, // 错误码: 长度错误\n                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]; // 保留字段\n    \n    msgType = 'LENGTH_ERROR';\n    metadata['error'] = 'INVALID_PACKET_LENGTH';\n    metadata['expectedLength'] = 16;\n    metadata['actualLength'] = msg.length;\n} else {\n    // 解析固定长度数据包\n    var deviceId = (msg[0] << 24) | (msg[1] << 16) | (msg[2] << 8) | msg[3];\n    var commandType = (msg[4] << 24) | (msg[5] << 16) | (msg[6] << 8) | msg[7];\n    \n    // 解析数据字段(8字节)\n    var dataBytes = [];\n    for (var i = 8; i < 16; i++) {\n        dataBytes.push(msg[i]);\n    }\n    var dataValue = 0;\n    for (var i = 0; i < 4; i++) {\n        dataValue = (dataValue << 8) | dataBytes[i];\n    }\n    \n    // 记录解析的数据\n    metadata['deviceId'] = deviceId;\n    metadata['commandType'] = commandType;\n    metadata['dataValue'] = dataValue;\n    metadata['dataBytes'] = dataBytes.join(',');\n    \n    // 根据命令类型处理\n    switch(commandType) {\n        case 0x00000001: // READ_DATA\n            metadata['command'] = 'READ_DATA';\n            // 成功响应: 状态码(4字节) + 设备ID回显(4字节) + 读取的数据(8字节)\n            response = [0x00, 0x00, 0x00, 0x00, // 成功状态\n                       msg[0], msg[1], msg[2], msg[3], // 设备ID回显\n                       0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0]; // 模拟读取的数据\n            break;\n            \n        case 0x00000002: // WRITE_DATA\n            metadata['command'] = 'WRITE_DATA';\n            // 成功响应: 状态码(4字节) + 设备ID回显(4字节) + 写入确认(8字节)\n            response = [0x00, 0x00, 0x00, 0x00, // 成功状态\n                       msg[0], msg[1], msg[2], msg[3], // 设备ID回显\n                       0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]; // 写入成功标志\n            break;\n            \n        case 0x00000003: // RESET_DEVICE\n            metadata['command'] = 'RESET_DEVICE';\n            // 重置响应: 状态码(4字节) + 设备ID回显(4字节) + 重置时间戳(8字节)\n            var timestamp = Date.now();\n            response = [0x00, 0x00, 0x00, 0x00, // 成功状态\n                       msg[0], msg[1], msg[2], msg[3], // 设备ID回显\n                       (timestamp >> 56) & 0xFF, (timestamp >> 48) & 0xFF,\n                       (timestamp >> 40) & 0xFF, (timestamp >> 32) & 0xFF,\n                       (timestamp >> 24) & 0xFF, (timestamp >> 16) & 0xFF,\n                       (timestamp >> 8) & 0xFF, timestamp & 0xFF]; // 时间戳\n            break;\n            \n        default:\n            metadata['command'] = 'UNKNOWN';\n            // 未知命令响应\n            response = [0x00, 0x00, 0x00, 0x01, // 错误状态\n                       msg[0], msg[1], msg[2], msg[3], // 设备ID回显\n                       0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00]; // 未知命令错误\n            metadata['error'] = 'UNKNOWN_COMMAND';\n    }\n    \n    msgType = 'FIXED_LENGTH_COMMAND';\n}\n\n// 添加处理信息\nvar remoteAddr = metadata['remoteAddr'] || 'unknown';\nmetadata['responseType'] = 'binary';\nmetadata['protocolType'] = 'fixed_length_16bytes';\nmetadata['processedBy'] = 'fixed-length-processor';\nmetadata['clientAddr'] = remoteAddr;\nmetadata['timestamp'] = new Date().toISOString();\n\nreturn {\n    'msg': response,\n    'metadata': metadata,\n    'msgType': msgType,\n    'dataType': 'BINARY'\n};"
+        },
+        "debugMode": true,
+        "additionalInfo": {
+          "description": "处理16字节固定长度的设备协议",
+          "layoutX": 850,
+          "layoutY": 130
+        }
+      }
+    ],
+    "connections": []
+  }
+} 

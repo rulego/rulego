@@ -1,0 +1,71 @@
+{
+  "ruleChain": {
+    "id": "lengthPrefixProcessor",
+    "name": "Length Prefix Protocol Processor",
+    "root": true,
+    "debugMode": true,
+    "additionalInfo": {
+      "description": "处理长度前缀数据包的示例",
+      "layoutX": "320",
+      "layoutY": "320"
+    }
+  },
+  "metadata": {
+    "endpoints": [
+      {
+        "id": "length_prefix_endpoint",
+        "type": "endpoint/net",
+        "name": "Length Prefix NET Server",
+        "configuration": {
+          "protocol": "tcp",
+          "server": ":8091",
+          "readTimeout": 60,
+          "encode": "",
+          "packetMode": "length_prefix",
+          "lengthPrefixSize": 2,
+          "lengthPrefixBigEndian": true,
+          "lengthIncludesPrefix": false,
+          "maxPacketSize": 4096
+        },
+        "routers": [
+          {
+            "id": "length_prefix_router",
+            "from": {
+              "path": ".*",
+              "processors": [
+                "setBinaryDataType"
+              ]
+            },
+            "to": {
+              "path": "lengthPrefixProcessor:length_prefix_handler",
+              "processors": [
+                "responseToBody"
+              ]
+            }
+          }
+        ],
+        "additionalInfo": {
+          "layoutX": 370,
+          "layoutY": 190
+        }
+      }
+    ],
+    "nodes": [
+      {
+        "id": "length_prefix_handler",
+        "type": "jsTransform",
+        "name": "长度前缀数据处理器",
+        "configuration": {
+          "jsScript": "// 长度前缀协议处理器\n// 协议格式: 长度(2字节,大端序) + 消息类型(1字节) + 数据(变长)\n\nvar response;\n\n// 验证最小长度（长度前缀2字节 + 消息类型1字节）\nif (msg.length < 3) {\n    // 错误响应: 长度(2字节) + 错误状态(1字节) + 错误码(1字节)\n    response = [0x00, 0x02, // 长度: 2字节\n                0xFF,       // 错误状态\n                0x01];      // 错误码: 数据包太短\n    \n    msgType = 'LENGTH_ERROR';\n    metadata['error'] = 'PACKET_TOO_SHORT';\n    metadata['minLength'] = 3;\n    metadata['actualLength'] = msg.length;\n} else {\n    // 解析长度前缀（大端序）\n    var dataLength = (msg[0] << 8) | msg[1];\n    var messageType = msg[2];\n    \n    // 验证数据长度\n    var expectedTotalLength = dataLength + 2; // 数据长度 + 长度前缀(2字节)\n    if (msg.length !== expectedTotalLength) {\n        // 长度不匹配错误\n        response = [0x00, 0x03, // 长度: 3字节\n                    0xFF,       // 错误状态\n                    0x02,       // 错误码: 长度不匹配\n                    messageType]; // 回显消息类型\n        \n        msgType = 'LENGTH_MISMATCH';\n        metadata['error'] = 'LENGTH_MISMATCH';\n        metadata['expectedLength'] = expectedTotalLength;\n        metadata['actualLength'] = msg.length;\n        metadata['declaredDataLength'] = dataLength;\n    } else {\n        // 提取数据部分（跳过长度前缀和消息类型）\n        var payload = [];\n        for (var i = 3; i < msg.length; i++) {\n            payload.push(msg[i]);\n        }\n        \n        // 记录解析的数据\n        metadata['dataLength'] = dataLength;\n        metadata['messageType'] = messageType;\n        metadata['payloadLength'] = payload.length;\n        \n        // 根据消息类型处理\n        switch(messageType) {\n            case 0x10: // HEARTBEAT\n                metadata['command'] = 'HEARTBEAT';\n                // 心跳响应: 长度(2字节) + 确认状态(1字节) + 时间戳(4字节)\n                var timestamp = Math.floor(Date.now() / 1000);\n                response = [0x00, 0x05, // 长度: 5字节\n                           0x00,       // 成功状态\n                           (timestamp >> 24) & 0xFF, (timestamp >> 16) & 0xFF,\n                           (timestamp >> 8) & 0xFF, timestamp & 0xFF]; // 时间戳\n                break;\n                \n            case 0x20: // DATA_UPLOAD\n                metadata['command'] = 'DATA_UPLOAD';\n                // 解析上传的数据\n                if (payload.length >= 4) {\n                    var sensorId = (payload[0] << 8) | payload[1];\n                    var dataValue = (payload[2] << 8) | payload[3];\n                    metadata['sensorId'] = sensorId;\n                    metadata['sensorValue'] = dataValue;\n                    \n                    // 数据确认响应: 长度(2字节) + 确认状态(1字节) + 传感器ID回显(2字节)\n                    response = [0x00, 0x03, // 长度: 3字节\n                               0x00,       // 成功状态\n                               payload[0], payload[1]]; // 传感器ID回显\n                } else {\n                    // 数据格式错误\n                    response = [0x00, 0x02, // 长度: 2字节\n                               0xFF,       // 错误状态\n                               0x03];      // 错误码: 数据格式错误\n                    metadata['error'] = 'INVALID_DATA_FORMAT';\n                }\n                break;\n                \n            case 0x30: // CONFIG_UPDATE\n                metadata['command'] = 'CONFIG_UPDATE';\n                // 配置更新（可变长度数据）\n                var configData = payload.map(function(b) { return '0x' + b.toString(16).padStart(2, '0'); }).join(' ');\n                metadata['configData'] = configData;\n                \n                // 配置确认响应: 长度(2字节) + 确认状态(1字节) + 配置版本(2字节)\n                var configVersion = Math.floor(Math.random() * 65536);\n                response = [0x00, 0x03, // 长度: 3字节\n                           0x00,       // 成功状态\n                           (configVersion >> 8) & 0xFF, configVersion & 0xFF]; // 配置版本\n                metadata['configVersion'] = configVersion;\n                break;\n                \n            case 0x40: // DEVICE_INFO_REQUEST\n                metadata['command'] = 'DEVICE_INFO_REQUEST';\n                // 设备信息响应（包含设备名称字符串）\n                var deviceName = 'RuleGo-Device-001';\n                var deviceNameBytes = [];\n                for (var i = 0; i < deviceName.length; i++) {\n                    deviceNameBytes.push(deviceName.charCodeAt(i));\n                }\n                \n                // 设备信息响应: 长度(2字节) + 状态(1字节) + 设备类型(1字节) + 设备名称(变长)\n                var responseLength = 2 + deviceNameBytes.length; // 状态 + 设备类型 + 设备名称\n                response = [0x00, responseLength, // 长度\n                           0x00,                 // 成功状态\n                           0x01]                 // 设备类型\n                           .concat(deviceNameBytes); // 设备名称\n                metadata['deviceName'] = deviceName;\n                metadata['deviceType'] = 0x01;\n                break;\n                \n            default:\n                metadata['command'] = 'UNKNOWN';\n                // 未知消息类型响应\n                response = [0x00, 0x02, // 长度: 2字节\n                           0xFF,       // 错误状态\n                           0x04];      // 错误码: 未知消息类型\n                metadata['error'] = 'UNKNOWN_MESSAGE_TYPE';\n        }\n        \n        msgType = 'LENGTH_PREFIX_COMMAND';\n    }\n}\n\n// 添加处理信息\nvar remoteAddr = metadata['remoteAddr'] || 'unknown';\nmetadata['responseType'] = 'binary';\nmetadata['protocolType'] = 'length_prefix_variable';\nmetadata['processedBy'] = 'length-prefix-processor';\nmetadata['clientAddr'] = remoteAddr;\nmetadata['timestamp'] = new Date().toISOString();\n\nreturn {\n    'msg': response,\n    'metadata': metadata,\n    'msgType': msgType,\n    'dataType': 'BINARY'\n};"
+        },
+        "debugMode": true,
+        "additionalInfo": {
+          "description": "处理变长的长度前缀协议",
+          "layoutX": 870,
+          "layoutY": 140
+        }
+      }
+    ],
+    "connections": []
+  }
+} 

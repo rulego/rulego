@@ -183,14 +183,14 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-//replace github.com/rulego/rulego => ../../../rulego
+replace github.com/rulego/rulego => ../../../rulego
 
-//replace github.com/rulego/rulego-components => ../../../rulego-components
+replace github.com/rulego/rulego-components => ../../../rulego-components
 
 //replace github.com/rulego/rulego-components-ai => ../../../rulego-components-ai
 
 //replace github.com/rulego/rulego-components-ci => ../../../rulego-components-ci
 
-//replace github.com/rulego/rulego-components-iot => ../../../rulego-components-iot
+replace github.com/rulego/rulego-components-iot => ../../../rulego-components-iot
 
 //replace github.com/rulego/rulego-components-etl => ../../../rulego-components-etl

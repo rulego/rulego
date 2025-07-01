@@ -1,0 +1,67 @@
+{
+  "ruleChain": {
+    "id": "dataProcessor",
+    "name": "NET Data Processor Chain",
+    "root": true,
+    "debugMode": true,
+    "additionalInfo": {
+      "layoutX": "280",
+      "layoutY": "280"
+    }
+  },
+  "metadata": {
+    "endpoints": [
+      {
+        "id": "net_endpoint_1",
+        "type": "endpoint/net",
+        "name": "NET TCP Server",
+        "configuration": {
+          "protocol": "tcp",
+          "server": ":8088",
+          "readTimeout": 300,
+          "encode": "",
+          "packetMode": "delimiter",
+          "delimiter": "0x0A",
+          "maxPacketSize": 1024
+        },
+        "routers": [
+          {
+            "id": "binary_router",
+            "from": {
+              "path": ".*",
+              "processors": [
+                "setBinaryDataType"
+              ]
+            },
+            "to": {
+              "path": "dataProcessor:binary_data_processor",
+              "processors": [
+                "responseToBody"
+              ]
+            }
+          }
+        ],
+        "additionalInfo": {
+          "layoutX": 330,
+          "layoutY": 170
+        }
+      }
+    ],
+    "nodes": [
+      {
+        "id": "binary_data_processor",
+        "type": "jsTransform",
+        "name": "二进制数据处理器",
+        "configuration": {
+          "jsScript": "// 二进制数据处理 - 支持灵活的协议格式\n// msg 是 Uint8Array 格式\n\n// 创建响应数据\nvar response;\n\n// 解析二进制协议 (deviceId(2) + command(1) + value(4) = 7字节)\nif (msg.length >= 7) {\n    var deviceId = (msg[0] << 8) | msg[1];\n    var command = msg[2];\n    var value = (msg[3] << 24) | (msg[4] << 16) | (msg[5] << 8) | msg[6];\n    \n    // 记录收到的命令\n    metadata['command'] = command;\n    metadata['deviceId'] = deviceId;\n    metadata['value'] = value;\n    \n    // 简单的响应：成功状态 (1字节) + 设备ID (2字节) + 命令回显 (1字节) + 换行符 (1字节)\n    response = [0x01, msg[0], msg[1], command, 0x0A];\n    \n    msgType = 'DEVICE_COMMAND';\n    \n    // 根据命令类型设置不同的处理逻辑\n    switch(command) {\n        case 0x01: // SET_PARAMETER\n            metadata['action'] = 'SET_PARAMETER';\n            break;\n        case 0x02: // GET_STATUS\n            metadata['action'] = 'GET_STATUS';\n            break;\n        case 0x03: // RESET\n            metadata['action'] = 'RESET';\n            break;\n        case 0x04: // SET_THRESHOLD\n            metadata['action'] = 'SET_THRESHOLD';\n            break;\n        default:\n            metadata['action'] = 'UNKNOWN';\n    }\n} else {\n    // 错误响应：错误状态 (1字节) + 错误码 (1字节) + 换行符 (1字节)\n    response = [0x00, 0xFF, 0x0A];\n    \n    msgType = 'ERROR';\n    metadata['error'] = 'INVALID_PACKET_LENGTH';\n    metadata['receivedLength'] = msg.length;\n}\n\n// 获取网络连接信息\nvar remoteAddr = metadata['remoteAddr'] || 'unknown';\n\n// 添加响应元数据\nmetadata['responseType'] = 'binary';\nmetadata['processedBy'] = 'net-endpoint';\nmetadata['clientAddr'] = remoteAddr;\nmetadata['protocolMode'] = 'delimiter_0x0A';\nmetadata['timestamp'] = new Date().toISOString();\n\nreturn {\n    'msg': response,\n    'metadata': metadata,\n    'msgType': msgType,\n    'dataType': 'BINARY'\n};"
+        },
+        "debugMode": true,
+        "additionalInfo": {
+          "layoutX": 830,
+          "layoutY": 120
+        }
+      }
+    ],
+    "connections": []
+  }
+}

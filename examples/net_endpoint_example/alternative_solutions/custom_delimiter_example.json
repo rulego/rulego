@@ -1,0 +1,69 @@
+{
+  "ruleChain": {
+    "id": "customDelimiterProcessor",
+    "name": "Custom Delimiter Protocol Processor",
+    "root": true,
+    "debugMode": true,
+    "additionalInfo": {
+      "description": "处理自定义分隔符数据包的示例",
+      "layoutX": "340",
+      "layoutY": "340"
+    }
+  },
+  "metadata": {
+    "endpoints": [
+      {
+        "id": "custom_delimiter_endpoint",
+        "type": "endpoint/net",
+        "name": "Custom Delimiter NET Server",
+        "configuration": {
+          "protocol": "tcp",
+          "server": ":8092",
+          "readTimeout": 60,
+          "encode": "",
+          "packetMode": "delimiter",
+          "delimiter": "0x0D0A",
+          "maxPacketSize": 2048
+        },
+        "routers": [
+          {
+            "id": "custom_delimiter_router",
+            "from": {
+              "path": ".*",
+              "processors": [
+                "setBinaryDataType"
+              ]
+            },
+            "to": {
+              "path": "customDelimiterProcessor:custom_delimiter_handler",
+              "processors": [
+                "responseToBody"
+              ]
+            }
+          }
+        ],
+        "additionalInfo": {
+          "layoutX": 390,
+          "layoutY": 200
+        }
+      }
+    ],
+    "nodes": [
+      {
+        "id": "custom_delimiter_handler",
+        "type": "jsTransform",
+        "name": "自定义分隔符数据处理器",
+        "configuration": {
+          "jsScript": "// 自定义分隔符协议处理器\n// 协议格式: 命令字符串，以 \\r\\n (0x0D0A) 分隔\n// 支持类似AT命令或Modbus ASCII等协议\n\nvar response;\nvar responseStr = '';\n\n// 将字节数组转换为字符串\nfunction bytesToString(bytes) {\n    var str = '';\n    for (var i = 0; i < bytes.length; i++) {\n        str += String.fromCharCode(bytes[i]);\n    }\n    return str;\n}\n\n// 将字符串转换为字节数组\nfunction stringToBytes(str) {\n    var bytes = [];\n    for (var i = 0; i < str.length; i++) {\n        bytes.push(str.charCodeAt(i));\n    }\n    return bytes;\n}\n\n// 解析接收到的命令字符串\nvar commandStr = bytesToString(msg);\nmetadata['receivedCommand'] = commandStr;\nmetadata['commandLength'] = commandStr.length;\n\n// 移除可能的空白字符\ncommandStr = commandStr.trim();\n\n// 解析命令格式（类似AT命令）\nif (commandStr.startsWith('AT+')) {\n    // AT命令格式处理\n    var command = commandStr.substring(3); // 移除 'AT+' 前缀\n    var parts = command.split('=');\n    var cmdName = parts[0];\n    var cmdValue = parts.length > 1 ? parts[1] : '';\n    \n    metadata['commandType'] = 'AT_COMMAND';\n    metadata['commandName'] = cmdName;\n    metadata['commandValue'] = cmdValue;\n    \n    switch(cmdName) {\n        case 'INFO':\n            // 设备信息查询\n            responseStr = 'OK\\r\\nDevice: RuleGo-NET-Server\\r\\nVersion: 1.0.0\\r\\nStatus: Running';\n            msgType = 'DEVICE_INFO';\n            break;\n            \n        case 'CONFIG':\n            if (cmdValue) {\n                // 配置设置\n                responseStr = 'OK\\r\\nConfig set: ' + cmdValue;\n                metadata['configValue'] = cmdValue;\n            } else {\n                // 配置查询\n                responseStr = 'OK\\r\\nConfig: mode=auto,timeout=30,debug=on';\n            }\n            msgType = 'CONFIG_OPERATION';\n            break;\n            \n        case 'STATUS':\n            // 状态查询\n            var uptime = Math.floor(Date.now() / 1000);\n            responseStr = 'OK\\r\\nStatus: Online\\r\\nUptime: ' + uptime + 's\\r\\nConnections: 1';\n            metadata['uptime'] = uptime;\n            msgType = 'STATUS_QUERY';\n            break;\n            \n        case 'RESET':\n            // 重置命令\n            responseStr = 'OK\\r\\nDevice will reset in 3 seconds...';\n            msgType = 'RESET_COMMAND';\n            break;\n            \n        case 'TEST':\n            if (cmdValue) {\n                // 测试命令带参数\n                responseStr = 'OK\\r\\nTest result: ' + cmdValue + ' - PASS';\n                metadata['testValue'] = cmdValue;\n            } else {\n                responseStr = 'OK\\r\\nSelf test: PASS';\n            }\n            msgType = 'TEST_COMMAND';\n            break;\n            \n        default:\n            responseStr = 'ERROR\\r\\nUnknown command: ' + cmdName;\n            metadata['error'] = 'UNKNOWN_AT_COMMAND';\n            msgType = 'COMMAND_ERROR';\n    }\n} else if (commandStr.startsWith(':')) {\n    // Modbus ASCII 格式 (简化版)\n    metadata['commandType'] = 'MODBUS_ASCII';\n    \n    if (commandStr.length >= 7) {\n        var deviceAddr = commandStr.substring(1, 3);\n        var functionCode = commandStr.substring(3, 5);\n        var data = commandStr.substring(5, commandStr.length - 2); // 移除LRC校验\n        \n        metadata['deviceAddress'] = deviceAddr;\n        metadata['functionCode'] = functionCode;\n        metadata['data'] = data;\n        \n        switch(functionCode) {\n            case '03': // 读取保持寄存器\n                responseStr = ':' + deviceAddr + '03040102030455'; // 模拟响应\n                msgType = 'MODBUS_READ_HOLDING';\n                break;\n            case '06': // 写单个寄存器\n                responseStr = ':' + deviceAddr + '06' + data + 'A1'; // 回显\n                msgType = 'MODBUS_WRITE_SINGLE';\n                break;\n            default:\n                responseStr = ':' + deviceAddr + '83011A'; // 异常响应\n                metadata['error'] = 'UNSUPPORTED_FUNCTION_CODE';\n                msgType = 'MODBUS_ERROR';\n        }\n    } else {\n        responseStr = 'ERROR\\r\\nInvalid Modbus format';\n        metadata['error'] = 'INVALID_MODBUS_FORMAT';\n        msgType = 'FORMAT_ERROR';\n    }\n} else if (commandStr.match(/^[A-Z0-9,]+$/)) {\n    // CSV格式命令 (例如: SENSOR,001,TEMP,25.6)\n    metadata['commandType'] = 'CSV_COMMAND';\n    \n    var csvParts = commandStr.split(',');\n    if (csvParts.length >= 2) {\n        var operation = csvParts[0];\n        var deviceId = csvParts[1];\n        \n        metadata['operation'] = operation;\n        metadata['deviceId'] = deviceId;\n        \n        switch(operation) {\n            case 'SENSOR':\n                if (csvParts.length >= 4) {\n                    var sensorType = csvParts[2];\n                    var sensorValue = csvParts[3];\n                    metadata['sensorType'] = sensorType;\n                    metadata['sensorValue'] = sensorValue;\n                    \n                    responseStr = 'ACK,' + deviceId + ',' + sensorType + ',OK';\n                } else {\n                    responseStr = 'NAK,' + deviceId + ',INVALID_FORMAT';\n                }\n                msgType = 'SENSOR_DATA';\n                break;\n                \n            case 'COMMAND':\n                if (csvParts.length >= 3) {\n                    var cmdType = csvParts[2];\n                    metadata['cmdType'] = cmdType;\n                    \n                    responseStr = 'ACK,' + deviceId + ',' + cmdType + ',EXECUTED';\n                } else {\n                    responseStr = 'NAK,' + deviceId + ',MISSING_COMMAND';\n                }\n                msgType = 'DEVICE_COMMAND';\n                break;\n                \n            default:\n                responseStr = 'NAK,' + deviceId + ',UNKNOWN_OPERATION';\n                metadata['error'] = 'UNKNOWN_CSV_OPERATION';\n                msgType = 'CSV_ERROR';\n        }\n    } else {\n        responseStr = 'NAK,INVALID_CSV_FORMAT';\n        metadata['error'] = 'INVALID_CSV_FORMAT';\n        msgType = 'FORMAT_ERROR';\n    }\n} else {\n    // 未知格式\n    metadata['commandType'] = 'UNKNOWN';\n    responseStr = 'ERROR\\r\\nUnknown command format';\n    metadata['error'] = 'UNKNOWN_COMMAND_FORMAT';\n    msgType = 'UNKNOWN_FORMAT';\n}\n\n// 添加CRLF分隔符到响应\nif (!responseStr.endsWith('\\r\\n')) {\n    responseStr += '\\r\\n';\n}\n\n// 转换响应字符串为字节数组\nresponse = stringToBytes(responseStr);\n\n// 添加处理信息\nvar remoteAddr = metadata['remoteAddr'] || 'unknown';\nmetadata['responseType'] = 'text';\nmetadata['protocolType'] = 'custom_delimiter_CRLF';\nmetadata['processedBy'] = 'custom-delimiter-processor';\nmetadata['clientAddr'] = remoteAddr;\nmetadata['responseString'] = responseStr.replace(/\\r\\n/g, '\\\\r\\\\n'); // 用于显示\nmetadata['timestamp'] = new Date().toISOString();\n\nreturn {\n    'msg': response,\n    'metadata': metadata,\n    'msgType': msgType,\n    'dataType': 'BINARY'\n};"
+        },
+        "debugMode": true,
+        "additionalInfo": {
+          "description": "处理CRLF分隔符的多种文本协议",
+          "layoutX": 890,
+          "layoutY": 150
+        }
+      }
+    ],
+    "connections": []
+  }
+} 
