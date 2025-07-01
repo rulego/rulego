@@ -17,9 +17,11 @@
 package types
 
 import (
+	"encoding/hex"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/rulego/rulego/utils/json"
@@ -523,7 +525,7 @@ func newMsg(id string, ts int64, msgType string, dataType DataType, metaData *Me
 		Id:       id,
 		Type:     msgType,
 		DataType: dataType,
-		Data:     NewSharedDataFromBytes(data),
+		Data:     NewSharedDataFromBytesWithType(data, dataType),
 		Metadata: metadata,
 	}
 
@@ -542,7 +544,7 @@ func newMsg(id string, ts int64, msgType string, dataType DataType, metaData *Me
 // Safety: Protected by Copy-on-Write mechanism
 func (m *RuleMsg) SetData(data string) {
 	if m.Data == nil {
-		m.Data = NewSharedData(data)
+		m.Data = NewSharedDataWithType(data, m.DataType)
 	} else {
 		m.Data.SetUnsafe(data)
 	}
@@ -552,7 +554,7 @@ func (m *RuleMsg) SetData(data string) {
 // The input []byte will be copied to ensure data isolation.
 func (m *RuleMsg) SetBytes(data []byte) {
 	if m.Data == nil {
-		m.Data = NewSharedDataFromBytes(data)
+		m.Data = NewSharedDataFromBytesWithType(data, m.DataType)
 	} else {
 		m.Data.SetBytes(data)
 	}
@@ -604,7 +606,7 @@ func (m *RuleMsg) GetBytes() []byte {
 func (m *RuleMsg) GetSharedData() *SharedData {
 	if m.Data == nil {
 		// Return a new empty SharedData to avoid nil pointer issues
-		m.Data = NewSharedData("")
+		m.Data = NewSharedDataWithType("", m.DataType)
 	}
 	return m.Data
 }
@@ -625,7 +627,7 @@ func (m *RuleMsg) GetSharedData() *SharedData {
 //	msg.SetSharedData(sharedData)
 func (m *RuleMsg) SetSharedData(data *SharedData) {
 	if data == nil {
-		m.Data = NewSharedData("")
+		m.Data = NewSharedDataWithType("", m.DataType)
 	} else {
 		m.Data = data
 	}
@@ -659,7 +661,7 @@ func (m *RuleMsg) Copy() RuleMsg {
 	if m.Data != nil {
 		copiedData = m.Data.Copy()
 	} else {
-		copiedData = NewSharedData("")
+		copiedData = NewSharedDataWithType("", m.DataType)
 	}
 
 	copiedMsg := RuleMsg{
@@ -754,6 +756,8 @@ type WrapperMsg struct {
 type SharedData struct {
 	// data holds the actual payload data
 	data []byte
+	// dataType specifies the format of the data (JSON, TEXT, BINARY)
+	dataType DataType
 	// refCount tracks how many instances share this data (using atomic operations)
 	// This pointer is shared among all instances that share the same data
 	refCount *int64
@@ -774,7 +778,18 @@ func NewSharedData(data string) *SharedData {
 	refCount := int64(1)
 	return &SharedData{
 		data:     str.UnsafeBytesFromString(data),
+		dataType: TEXT,      // Default to TEXT for string data
 		refCount: &refCount, // Initial reference count is 1
+	}
+}
+
+// NewSharedDataWithType creates a new SharedData instance from string with specified data type.
+func NewSharedDataWithType(data string, dataType DataType) *SharedData {
+	refCount := int64(1)
+	return &SharedData{
+		data:     str.UnsafeBytesFromString(data),
+		dataType: dataType,
+		refCount: &refCount,
 	}
 }
 
@@ -783,6 +798,17 @@ func NewSharedDataFromBytes(data []byte) *SharedData {
 	refCount := int64(1)
 	return &SharedData{
 		data:     data,
+		dataType: BINARY, // Default to BINARY for byte data
+		refCount: &refCount,
+	}
+}
+
+// NewSharedDataFromBytesWithType creates a new SharedData instance from []byte with specified data type.
+func NewSharedDataFromBytesWithType(data []byte, dataType DataType) *SharedData {
+	refCount := int64(1)
+	return &SharedData{
+		data:     data,
+		dataType: dataType,
 		refCount: &refCount,
 	}
 }
@@ -795,6 +821,7 @@ func (sd *SharedData) Copy() *SharedData {
 	// Both reading the data/refCount pointer and incrementing the reference count
 	// must be done atomically under the same lock to prevent race conditions
 	data := sd.data
+	dataType := sd.dataType
 	refCountPtr := sd.refCount
 	parsedData := sd.parsedData
 	dataVersion := sd.dataVersion
@@ -811,6 +838,7 @@ func (sd *SharedData) Copy() *SharedData {
 	// 3. ensureUnique() will clear parsedData when creating unique copies
 	return &SharedData{
 		data:        data,
+		dataType:    dataType,
 		refCount:    refCountPtr, // Share the same reference count pointer
 		parsedData:  parsedData,  // Share parsed cache for performance (protected by COW)
 		dataVersion: dataVersion, // Copy the data version to maintain consistency
@@ -1003,10 +1031,26 @@ func (sd *SharedData) GetRefCount() int64 {
 }
 
 // MarshalJSON implements the json.Marshaler interface.
+// For binary data, it uses hex encoding to ensure data integrity and readability.
 func (sd *SharedData) MarshalJSON() ([]byte, error) {
 	sd.mu.RLock()
 	defer sd.mu.RUnlock()
-	return json.Marshal(str.UnsafeStringFromBytes(sd.data))
+
+	// For BINARY data type, always use hex encoding
+	if sd.dataType == BINARY {
+		encoded := hex.EncodeToString(sd.data)
+		return json.Marshal(encoded)
+	}
+
+	// For TEXT and JSON data types, check if data is valid UTF-8
+	if utf8.Valid(sd.data) {
+		// Data is valid UTF-8, marshal as string
+		return json.Marshal(str.UnsafeStringFromBytes(sd.data))
+	} else {
+		// Data contains invalid UTF-8 bytes, encode as hex even for TEXT/JSON
+		encoded := hex.EncodeToString(sd.data)
+		return json.Marshal(encoded)
+	}
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
@@ -1032,12 +1076,156 @@ func (sd *SharedData) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	sd.data = str.UnsafeBytesFromString(s)
+	// Try to detect and decode hex-encoded data that was encoded by MarshalJSON
+	if isLikelyHexEncoded(s) {
+		if decoded, err := hex.DecodeString(s); err == nil {
+			sd.data = decoded
+			sd.dataType = BINARY
+		} else {
+			// Decoding failed, treat as regular string
+			sd.data = str.UnsafeBytesFromString(s)
+			sd.dataType = inferDataTypeFromContent(sd.data)
+		}
+	} else {
+		// Use string as-is and infer data type
+		sd.data = str.UnsafeBytesFromString(s)
+		sd.dataType = inferDataTypeFromContent(sd.data)
+	}
+
 	// Increment data version to invalidate cached parsed data
 	sd.dataVersion++
 	// Clear parsed data cache since data has changed
 	sd.parsedData = nil
 	return nil
+}
+
+// isLikelyHexEncoded uses heuristics to determine if a string represents hex-encoded data
+// that was generated by MarshalJSON. This helps distinguish between legitimate strings
+// that happen to contain hex characters and actual hex-encoded binary data.
+func isLikelyHexEncoded(s string) bool {
+	// Empty string is not hex-encoded
+	if len(s) == 0 {
+		return false
+	}
+
+	// Hex encoding requires even number of characters (each byte = 2 hex chars)
+	if len(s)%2 != 0 {
+		return false
+	}
+
+	// Must contain only valid hex characters
+	for _, r := range s {
+		if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+			return false
+		}
+	}
+
+	// Use length-based heuristic to avoid false positives:
+	// Short strings like "cafe", "dead", "beef" could be legitimate words
+	// Longer strings are more likely to be hex-encoded binary data
+	if len(s) < 8 {
+		return false
+	}
+
+	// Additional heuristic: if the string contains common patterns that suggest
+	// it's hex-encoded binary data rather than a legitimate hex string
+	return true
+}
+
+// inferDataTypeFromContent attempts to determine the appropriate DataType
+// based on the content of the data bytes with performance optimizations.
+func inferDataTypeFromContent(data []byte) DataType {
+	// If data contains invalid UTF-8 sequences, it's likely binary
+	if !utf8.Valid(data) {
+		return BINARY
+	}
+
+	// For valid UTF-8 data, try to determine if it's JSON
+	// Skip empty data to avoid false JSON detection
+	if len(data) == 0 {
+		return TEXT
+	}
+
+	// Fast JSON detection without full parsing to avoid performance penalty
+	// Only check for basic JSON patterns to minimize overhead
+	if isLikelyJSON(data) {
+		return JSON
+	}
+
+	// Default to TEXT for valid UTF-8 that's not JSON
+	return TEXT
+}
+
+// isLikelyJSON performs fast heuristic JSON detection without full parsing
+// to avoid the performance penalty of json.Unmarshal during inference.
+func isLikelyJSON(data []byte) bool {
+	// Find first non-whitespace character
+	start := 0
+	for start < len(data) {
+		char := data[start]
+		if char != ' ' && char != '\t' && char != '\n' && char != '\r' {
+			break
+		}
+		start++
+	}
+
+	if start >= len(data) {
+		return false
+	}
+
+	// Find last non-whitespace character
+	end := len(data) - 1
+	for end >= start {
+		char := data[end]
+		if char != ' ' && char != '\t' && char != '\n' && char != '\r' {
+			break
+		}
+		end--
+	}
+
+	if end < start {
+		return false
+	}
+
+	firstChar := data[start]
+	lastChar := data[end]
+
+	// Quick pattern matching for JSON objects and arrays
+	if (firstChar == '{' && lastChar == '}') || (firstChar == '[' && lastChar == ']') {
+		// Additional heuristic: check for common JSON patterns
+		// Look for quotes, colons, commas which are common in JSON
+		hasQuotes := false
+		hasColons := false
+		hasCommas := false
+
+		// Sample a few characters to avoid scanning the entire content
+		sampleSize := 50
+		if len(data) < sampleSize {
+			sampleSize = len(data)
+		}
+
+		for i := start; i < start+sampleSize && i <= end; i++ {
+			switch data[i] {
+			case '"':
+				hasQuotes = true
+			case ':':
+				hasColons = true
+			case ',':
+				hasCommas = true
+			}
+		}
+
+		// For objects, expect quotes and colons
+		if firstChar == '{' {
+			return hasQuotes && hasColons
+		}
+		// For arrays, quotes or commas are good indicators
+		if firstChar == '[' {
+			return hasQuotes || hasCommas
+		}
+	}
+
+	return false
 }
 
 // GetJsonData returns the data parsed as JSON with caching.
