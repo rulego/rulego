@@ -632,8 +632,6 @@ func TestConfigDefaults(t *testing.T) {
 // 测试并发安全性 - 简化版本
 func TestPacketSplitterConcurrency(t *testing.T) {
 	// 简化的并发测试，只测试基本功能
-	ep := &Net{}
-
 	// 测试多个分割器同时创建
 	var wg sync.WaitGroup
 	results := make(chan error, 10)
@@ -642,8 +640,9 @@ func TestPacketSplitterConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ep.Config = Config{PacketMode: "line"}
-			_, err := CreatePacketSplitter(ep.Config)
+			// 每个 goroutine 使用独立的配置，避免数据竞争
+			config := Config{PacketMode: "line"}
+			_, err := CreatePacketSplitter(config)
 			results <- err
 		}()
 	}
