@@ -416,3 +416,14 @@ func copyMap(inputMap map[string]string) map[string]string {
 	}
 	return result
 }
+
+// Destroy safely destroys the embedded node
+func (rn *RuleNodeCtx) Destroy() {
+	rn.RLock()
+	node := rn.Node
+	rn.RUnlock()
+
+	if node != nil {
+		node.Destroy()
+	}
+}

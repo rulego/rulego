@@ -17,6 +17,7 @@
 package external
 
 import (
+	"fmt"
 	"net"
 	"sync/atomic"
 	"time"
@@ -81,14 +82,26 @@ type NetNodeConfiguration struct {
 //   - Any protocol supported by Go's net.Dial function
 //     Go net.Dial 函数支持的任何协议
 //
+// Smart Data Type Handling:
+// 智能数据类型处理：
+//
+// The component intelligently handles different data types:
+// 组件智能处理不同的数据类型：
+//   - BINARY: Uses GetBytes(), sends raw bytes without terminator
+//     二进制：使用 GetBytes()，发送原始字节不添加终止符
+//   - JSON/TEXT: Uses GetData(), appends newline terminator ('\n')
+//     JSON/文本：使用 GetData()，追加换行符终止符（'\n'）
+//
 // Message Format:
 // 消息格式：
 //
-// Messages are sent as raw bytes with an automatic newline terminator ('\n') appended.
-// This ensures proper message framing for protocols that require delimiters.
+// For non-binary data, messages are sent with an automatic newline terminator ('\n') appended.
+// Binary data is sent as-is without any modifications.
+// This ensures proper message framing while preserving binary data integrity.
 //
-// 消息以原始字节发送，自动追加换行符（'\n'）作为终止符。
-// 这确保了需要分隔符的协议的正确消息帧。
+// 对于非二进制数据，消息发送时自动追加换行符终止符（'\n'）。
+// 二进制数据按原样发送，不做任何修改。
+// 这确保了正确的消息帧同时保持二进制数据的完整性。
 //
 // Connection Management:
 // 连接管理：
@@ -136,8 +149,8 @@ type NetNodeConfiguration struct {
 // Usage Examples:
 // 使用示例：
 //
-//	// TCP client for sending telemetry data
-//	// 用于发送遥测数据的 TCP 客户端
+//	// TCP client for sending JSON telemetry data
+//	// 用于发送 JSON 遥测数据的 TCP 客户端
 //	{
 //		"id": "tcpSender",
 //		"type": "net",
@@ -149,14 +162,14 @@ type NetNodeConfiguration struct {
 //		}
 //	}
 //
-//	// UDP client for fast data transmission
-//	// 用于快速数据传输的 UDP 客户端
+//	// UDP client for sending binary data (no terminator added)
+//	// 用于发送二进制数据的 UDP 客户端（不添加终止符）
 //	{
-//		"id": "udpSender",
+//		"id": "udpBinarySender",
 //		"type": "net",
 //		"configuration": {
 //			"protocol": "udp",
-//			"server": "logs.example.com:514",
+//			"server": "binary.example.com:8888",
 //			"connectTimeout": 10,
 //			"heartbeatInterval": 0
 //		}
@@ -206,16 +219,39 @@ func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuratio
 
 // OnMsg 处理消息
 func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	// 将消息的数据转换为字节数组
-	data := []byte(msg.GetData())
-	// 在数据的末尾加上结束符
-	data = append(data, EndSign)
+	// 开始操作，增加活跃操作计数
+	x.SharedNode.BeginOp()
+	defer x.SharedNode.EndOp()
+
+	// 检查是否正在关闭
+	if x.SharedNode.IsShuttingDown() {
+		ctx.TellFailure(msg, fmt.Errorf("net client is shutting down"))
+		return
+	}
+
+	var data []byte
+
+	// 根据数据类型智能处理
+	if msg.GetDataType() == types.BINARY {
+		// 二进制数据：直接获取字节数组，不添加结束符
+		data = msg.GetBytes()
+	} else {
+		// 文本或JSON数据：获取字符串并添加换行符结束符
+		strData := msg.GetData()
+		data = []byte(strData)
+		data = append(data, EndSign)
+	}
+
 	x.onWrite(ctx, msg, data)
 }
 
 // Destroy 销毁
 func (x *NetNode) Destroy() {
-	x.onDisconnect()
+	// 使用优雅关闭机制，等待活跃操作完成后再关闭资源
+	x.SharedNode.GracefulShutdown(0, func() {
+		// 只在非资源池模式下关闭本地资源
+		x.onDisconnect()
+	})
 }
 
 func (x *NetNode) Printf(format string, v ...interface{}) {
@@ -287,6 +323,12 @@ func (x *NetNode) onPing() {
 }
 
 func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
+	// 再次检查是否正在关闭，防止在获取连接前被关闭
+	if x.SharedNode.IsShuttingDown() {
+		ctx.TellFailure(msg, fmt.Errorf("net client is shutting down"))
+		return
+	}
+
 	// 向服务器发送数据
 	if conn, err := x.SharedNode.Get(); err != nil {
 		ctx.TellFailure(msg, err)

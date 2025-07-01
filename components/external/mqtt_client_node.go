@@ -18,6 +18,7 @@ package external
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -165,12 +166,29 @@ func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Confi
 // OnMsg 处理消息，使用变量替换解析主题并发布MQTT消息
 // OnMsg processes messages by parsing topic with variable substitution and publishing MQTT messages.
 func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	// 开始操作，增加活跃操作计数
+	x.SharedNode.BeginOp()
+	defer x.SharedNode.EndOp()
+
+	// 检查是否正在关闭
+	if x.SharedNode.IsShuttingDown() {
+		ctx.TellFailure(msg, fmt.Errorf("mqtt client is shutting down"))
+		return
+	}
+
 	topic := x.topicTemplate.ExecuteFn(func() map[string]any {
 		return base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	})
+
 	if client, err := x.SharedNode.Get(); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
+		// 再次检查是否正在关闭，防止在Get()之后被关闭
+		if x.SharedNode.IsShuttingDown() {
+			ctx.TellFailure(msg, fmt.Errorf("mqtt client is shutting down"))
+			return
+		}
+
 		if err := client.Publish(topic, x.Config.QOS, []byte(msg.GetData())); err != nil {
 			ctx.TellFailure(msg, err)
 		} else {
@@ -181,13 +199,16 @@ func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy 销毁
 func (x *MqttClientNode) Destroy() {
-	x.clientMutex.RLock()
-	client := x.client
-	x.clientMutex.RUnlock()
-
-	if client != nil {
-		_ = client.Close()
-	}
+	// 使用优雅关闭机制，等待活跃操作完成后再关闭资源
+	x.SharedNode.GracefulShutdown(0, func() {
+		// 只在非资源池模式下关闭本地资源
+		x.clientMutex.Lock()
+		defer x.clientMutex.Unlock()
+		if x.client != nil {
+			_ = x.client.Close()
+			x.client = nil
+		}
+	})
 }
 
 // initClient 初始化客户端

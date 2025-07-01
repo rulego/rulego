@@ -173,6 +173,16 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 // OnMsg 处理消息，执行SQL操作并处理结果
 // OnMsg processes messages by executing SQL operations and handling results.
 func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	// 开始操作，增加活跃操作计数
+	x.SharedNode.BeginOp()
+	defer x.SharedNode.EndOp()
+
+	// 检查是否正在关闭
+	if x.SharedNode.IsShuttingDown() {
+		ctx.TellFailure(msg, fmt.Errorf("db client is shutting down"))
+		return
+	}
+
 	var data interface{}
 	var err error
 	var rowsAffected int64
@@ -210,6 +220,13 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.TellFailure(msg, err)
 		return
 	}
+
+	// 再次检查是否正在关闭，防止在Get()之后被关闭
+	if x.SharedNode.IsShuttingDown() {
+		ctx.TellFailure(msg, fmt.Errorf("db client is shutting down"))
+		return
+	}
+
 	switch opType {
 	case SELECT:
 		data, err = x.query(client, sqlStr, params, x.Config.GetOne)
@@ -353,9 +370,14 @@ func (x *DbClientNode) delete(client *sql.DB, sqlStr string, params []interface{
 
 // Destroy 销毁组件
 func (x *DbClientNode) Destroy() {
-	if x.client != nil {
-		_ = x.client.Close()
-	}
+	// 使用优雅关闭机制，等待活跃操作完成后再关闭资源
+	x.SharedNode.GracefulShutdown(0, func() {
+		// 只在非资源池模式下关闭本地资源
+		if x.client != nil {
+			_ = x.client.Close()
+			x.client = nil
+		}
+	})
 }
 
 // initClient 初始化客户端

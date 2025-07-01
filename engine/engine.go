@@ -523,13 +523,35 @@ func (e *RuleEngine) RootRuleChainCtx() types.ChainCtx {
 // Stop gracefully shuts down the rule engine, cleaning up all resources.
 // Stop 优雅地关闭规则引擎，清理所有资源。
 func (e *RuleEngine) Stop() {
+	defer func() {
+		if r := recover(); r != nil {
+			e.Config.Logger.Printf("RuleEngine.Stop() panic recovered: %v", r)
+		}
+	}()
+
 	if e.rootRuleChainCtx != nil {
-		e.rootRuleChainCtx.Destroy()
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					e.Config.Logger.Printf("RuleChainCtx.Destroy() panic recovered: %v", r)
+				}
+			}()
+			e.rootRuleChainCtx.Destroy()
+		}()
 	}
+
 	// 清理实例缓存
 	if e.Config.Cache != nil && e.rootRuleChainCtx != nil {
-		_ = e.Config.Cache.DeleteByPrefix(e.rootRuleChainCtx.GetNodeId().Id + types.NamespaceSeparator)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					e.Config.Logger.Printf("Cache cleanup panic recovered: %v", r)
+				}
+			}()
+			_ = e.Config.Cache.DeleteByPrefix(e.rootRuleChainCtx.GetNodeId().Id + types.NamespaceSeparator)
+		}()
 	}
+
 	e.initialized = false
 }
 
