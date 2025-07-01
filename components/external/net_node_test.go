@@ -17,12 +17,13 @@
 package external
 
 import (
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/test"
-	"github.com/rulego/rulego/test/assert"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/test"
+	"github.com/rulego/rulego/test/assert"
 )
 
 func TestNetNode(t *testing.T) {
@@ -99,6 +100,21 @@ func TestNetNode(t *testing.T) {
 				MsgType:    "ACTIVITY_EVENT2",
 				Data:       "{\"temperature\":60}",
 				AfterSleep: time.Second * 3,
+			},
+			// 测试二进制数据处理
+			{
+				MetaData:   metaData,
+				MsgType:    "BINARY_EVENT1",
+				DataType:   types.BINARY,
+				Data:       string([]byte{0x01, 0x02, 0x03, 0x04}), // 二进制数据
+				AfterSleep: time.Millisecond * 200,
+			},
+			{
+				MetaData:   metaData,
+				MsgType:    "JSON_EVENT",
+				DataType:   types.JSON,
+				Data:       "{\"sensor\":\"temp\",\"value\":25.5}",
+				AfterSleep: time.Millisecond * 200,
 			},
 		}
 

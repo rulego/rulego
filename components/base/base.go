@@ -21,6 +21,8 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/rulego/rulego/api/types"
 )
@@ -146,6 +148,9 @@ type SharedNode[T any] struct {
 	//是否从资源池获取
 	isFromPool bool
 	Locker     sync.Mutex
+	// 优雅关闭相关字段
+	isShuttingDown int64 // 使用原子操作
+	activeOps      int64 // 活跃操作计数器
 }
 
 // Init 初始化，如果 resourcePath 为 ref:// 开头，则从网络资源池获取，否则调用 initInstanceFunc 初始化
@@ -213,8 +218,114 @@ func (x *SharedNode[T]) IsFromPool() bool {
 	return x.isFromPool
 }
 
+// BeginOp 开始一个操作，增加活跃操作计数
+func (x *SharedNode[T]) BeginOp() {
+	atomic.AddInt64(&x.activeOps, 1)
+}
+
+// EndOp 结束一个操作，减少活跃操作计数
+func (x *SharedNode[T]) EndOp() {
+	atomic.AddInt64(&x.activeOps, -1)
+}
+
+// IsShuttingDown 检查是否正在关闭
+func (x *SharedNode[T]) IsShuttingDown() bool {
+	return atomic.LoadInt64(&x.isShuttingDown) == 1
+}
+
+// BeginShutdown 开始优雅关闭过程，设置关闭状态
+func (x *SharedNode[T]) BeginShutdown() {
+	atomic.StoreInt64(&x.isShuttingDown, 1)
+}
+
+// GracefulShutdown 优雅关闭，等待活跃操作完成
+// timeout: 等待超时时间，如果为0则使用默认10秒
+// closeFunc: 可选的关闭函数，用于关闭非资源池管理的资源
+func (x *SharedNode[T]) GracefulShutdown(timeout time.Duration, closeFunc func()) {
+	// 设置关闭状态
+	x.BeginShutdown()
+
+	// 如果是从资源池获取的，不需要关闭，直接返回
+	if x.isFromPool {
+		return
+	}
+
+	// 设置默认超时时间
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
+
+	// 等待所有活跃操作完成
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		activeCount := atomic.LoadInt64(&x.activeOps)
+		if activeCount == 0 {
+			break
+		}
+
+		select {
+		case <-timer.C:
+			// 超时，强制关闭
+			goto forceClose
+		case <-ticker.C:
+			// 继续等待
+		}
+	}
+
+forceClose:
+	// 执行自定义关闭函数
+	if closeFunc != nil {
+		closeFunc()
+	}
+}
+
+// GetActiveOpsCount 获取当前活跃操作数量
+func (x *SharedNode[T]) GetActiveOpsCount() int64 {
+	return atomic.LoadInt64(&x.activeOps)
+}
+
 // zeroValue 函数用于返回 T 类型的零值
 func zeroValue[T any]() T {
 	var zero T
 	return zero
 }
+
+// 使用示例：
+//
+// 在继承SharedNode的组件中：
+//
+// type MyNode struct {
+//     base.SharedNode[MyClient]
+//     // 其他字段...
+// }
+//
+// func (x *MyNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+//     defer x.SharedNode.EndOp()
+//     x.SharedNode.BeginOp()
+//
+//     if x.SharedNode.IsShuttingDown() {
+//         ctx.TellFailure(msg, errors.New("component is shutting down"))
+//         return
+//     }
+//
+//     client, err := x.SharedNode.Get()
+//     if err != nil {
+//         ctx.TellFailure(msg, err)
+//         return
+//     }
+//     // 使用client处理消息...
+// }
+//
+// func (x *MyNode) Destroy() {
+//     x.SharedNode.GracefulShutdown(0, func() {
+//         // 只在非资源池模式下关闭本地资源
+//         if x.localClient != nil {
+//             x.localClient.Close()
+//         }
+//     })
+// }
