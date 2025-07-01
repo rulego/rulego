@@ -170,6 +170,9 @@ func (s *LengthPrefixSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) 
 			length = uint32(prefixBytes[0])
 		case 2:
 			length = uint32(binary.BigEndian.Uint16(prefixBytes))
+		case 3:
+			// 大端序3字节：在前面补0变成4字节
+			length = uint32(prefixBytes[0])<<16 | uint32(prefixBytes[1])<<8 | uint32(prefixBytes[2])
 		case 4:
 			length = binary.BigEndian.Uint32(prefixBytes)
 		default:
@@ -181,6 +184,9 @@ func (s *LengthPrefixSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) 
 			length = uint32(prefixBytes[0])
 		case 2:
 			length = uint32(binary.LittleEndian.Uint16(prefixBytes))
+		case 3:
+			// 小端序3字节：将3字节按小端序组合
+			length = uint32(prefixBytes[0]) | uint32(prefixBytes[1])<<8 | uint32(prefixBytes[2])<<16
 		case 4:
 			length = binary.LittleEndian.Uint32(prefixBytes)
 		default:
