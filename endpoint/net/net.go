@@ -44,6 +44,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rulego/rulego/api/types"
@@ -481,7 +482,7 @@ type Net struct {
 	udpConn *net.UDPConn
 	// 路由映射表
 	routers map[string]*RegexpRouter
-	closed  bool
+	closed  int32 // 使用int32类型支持原子操作，0表示未关闭，1表示已关闭
 }
 
 // Type 组件类型
@@ -526,7 +527,7 @@ func (ep *Net) Destroy() {
 }
 
 func (ep *Net) Close() error {
-	ep.closed = true
+	atomic.StoreInt32(&ep.closed, 1)
 	if ep.listener != nil {
 		err := ep.listener.Close()
 		ep.listener = nil
@@ -911,13 +912,13 @@ func (x *UDPHandler) handler() {
 	buffer := make([]byte, bufferSize)
 
 	for {
-		if x.endpoint.udpConn == nil || x.endpoint.closed {
+		if x.endpoint.udpConn == nil || atomic.LoadInt32(&x.endpoint.closed) == 1 {
 			break
 		}
 		n, addr, err := x.endpoint.udpConn.ReadFromUDP(buffer)
 		if err != nil {
 			time.Sleep(time.Second)
-			if x.endpoint.closed {
+			if atomic.LoadInt32(&x.endpoint.closed) == 1 {
 				break
 			}
 			err = x.endpoint.listenUDP()
