@@ -513,6 +513,14 @@ func (rc *RuleChainCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy cleans up resources and executes destroy aspects
 func (rc *RuleChainCtx) Destroy() {
+	defer func() {
+		if r := recover(); r != nil {
+			if rc.config.Logger != nil {
+				rc.config.Logger.Printf("RuleChainCtx.Destroy() panic recovered: %v", r)
+			}
+		}
+	}()
+
 	// Get copies of what we need to destroy without holding locks for too long
 	rc.RLock()
 	nodesToDestroy := make([]types.NodeCtx, 0, len(rc.nodes))
@@ -523,11 +531,21 @@ func (rc *RuleChainCtx) Destroy() {
 	copy(destroyAspects, rc.destroyAspects)
 	// Pre-fetch the node ID to avoid calling GetNodeId() in OnDestroy which needs a lock
 	nodeId := rc.getNodeIdUnsafe()
+	config := rc.config
 	rc.RUnlock()
 
 	// Destroy nodes without holding any locks
 	for _, v := range nodesToDestroy {
-		v.Destroy()
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					if config.Logger != nil {
+						config.Logger.Printf("Node.Destroy() panic recovered: %v", r)
+					}
+				}
+			}()
+			v.Destroy()
+		}()
 	}
 
 	// Create a wrapper to avoid GetNodeId() calls in OnDestroy
@@ -539,7 +557,16 @@ func (rc *RuleChainCtx) Destroy() {
 	// Execute destroy aspects without holding locks
 	// Note: We avoid calling methods that need locks within OnDestroy by pre-fetching data
 	for _, aop := range destroyAspects {
-		aop.OnDestroy(wrapper)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					if config.Logger != nil {
+						config.Logger.Printf("OnDestroy aspect panic recovered: %v", r)
+					}
+				}
+			}()
+			aop.OnDestroy(wrapper)
+		}()
 	}
 }
 
@@ -601,6 +628,14 @@ func (rc *RuleChainCtx) ReloadSelf(def []byte) error {
 //   - Context initialization failures  上下文初始化失败
 //   - Aspect execution errors  切面执行错误
 func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
+	defer func() {
+		if r := recover(); r != nil {
+			if rc.config.Logger != nil {
+				rc.config.Logger.Printf("ReloadSelfFromDef panic recovered: %v", r)
+			}
+		}
+	}()
+
 	if def.RuleChain.Disabled {
 		return ErrDisabled
 	}
@@ -615,11 +650,21 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 		copy(destroyAspects, rc.destroyAspects)
 		// Pre-fetch the node ID to avoid deadlock in OnDestroy
 		nodeId := rc.getNodeIdUnsafe()
+		config := rc.config
 		rc.RUnlock()
 
 		// Destroy old nodes without holding any locks
 		for _, v := range oldNodes {
-			v.Destroy()
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						if config.Logger != nil {
+							config.Logger.Printf("Node destroy in reload panic recovered: %v", r)
+						}
+					}
+				}()
+				v.Destroy()
+			}()
 		}
 
 		// Create a wrapper to avoid GetNodeId() calls in OnDestroy
@@ -630,7 +675,16 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 
 		// Execute destroy aspects without holding locks
 		for _, aop := range destroyAspects {
-			aop.OnDestroy(wrapper)
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						if config.Logger != nil {
+							config.Logger.Printf("OnDestroy aspect in reload panic recovered: %v", r)
+						}
+					}
+				}()
+				aop.OnDestroy(wrapper)
+			}()
 		}
 
 		// Now lock and copy the new context
@@ -640,9 +694,20 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 
 		// Execute reload aspects
 		for _, aop := range rc.afterReloadAspects {
-			if err := aop.OnReload(rc, rc); err != nil {
-				return err
-			}
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						if config.Logger != nil {
+							config.Logger.Printf("OnReload aspect panic recovered: %v", r)
+						}
+					}
+				}()
+				if err := aop.OnReload(rc, rc); err != nil {
+					if config.Logger != nil {
+						config.Logger.Printf("OnReload aspect error: %v", err)
+					}
+				}
+			}()
 		}
 		return nil
 	} else {
