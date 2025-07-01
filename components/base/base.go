@@ -18,6 +18,7 @@
 package base
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"sync"
@@ -242,45 +243,74 @@ func (x *SharedNode[T]) BeginShutdown() {
 // timeout: 等待超时时间，如果为0则使用默认10秒
 // closeFunc: 可选的关闭函数，用于关闭非资源池管理的资源
 func (x *SharedNode[T]) GracefulShutdown(timeout time.Duration, closeFunc func()) {
-	// 设置关闭状态
-	x.BeginShutdown()
-
-	// 如果是从资源池获取的，不需要关闭，直接返回
-	if x.isFromPool {
-		return
-	}
-
 	// 设置默认超时时间
 	if timeout == 0 {
 		timeout = 10 * time.Second
 	}
 
-	// 等待所有活跃操作完成
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
+	if x.isFromPool {
+		// 共享资源模式：只等待当前活跃操作完成，不设置关闭状态
+		// 共享资源的生命周期由资源池管理，不应被单个节点影响
+		x.waitForActiveOpsComplete(timeout)
 
-	ticker := time.NewTicker(100 * time.Millisecond)
+		// 执行自定义关闭函数，让具体节点决定是否需要清理本地资源
+		// 注意：不调用 BeginShutdown()，因为其他节点可能还在使用共享资源
+		if closeFunc != nil {
+			closeFunc()
+		}
+	} else {
+		// 非共享资源模式：立即设置关闭状态，等待操作完成，然后关闭资源
+		x.BeginShutdown()
+		x.waitForActiveOpsComplete(timeout)
+
+		// 执行自定义关闭函数
+		if closeFunc != nil {
+			closeFunc()
+		}
+	}
+}
+
+// waitForActiveOpsComplete 等待所有活跃操作完成
+// 返回 true 表示正常完成，false 表示超时
+func (x *SharedNode[T]) waitForActiveOpsComplete(timeout time.Duration) bool {
+	// 如果没有活跃操作，立即返回
+	if atomic.LoadInt64(&x.activeOps) == 0 {
+		return true
+	}
+
+	// 创建带超时的 context
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// 使用自适应的检查间隔
+	checkInterval := x.calculateCheckInterval(timeout)
+	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
 	for {
-		activeCount := atomic.LoadInt64(&x.activeOps)
-		if activeCount == 0 {
-			break
-		}
-
 		select {
-		case <-timer.C:
-			// 超时，强制关闭
-			goto forceClose
+		case <-ctx.Done():
+			// 超时
+			return false
 		case <-ticker.C:
-			// 继续等待
+			if atomic.LoadInt64(&x.activeOps) == 0 {
+				// 所有操作完成
+				return true
+			}
 		}
 	}
+}
 
-forceClose:
-	// 执行自定义关闭函数
-	if closeFunc != nil {
-		closeFunc()
+// calculateCheckInterval 根据超时时间计算合适的检查间隔
+// 优化性能：短超时使用更频繁的检查，长超时使用较少的检查
+func (x *SharedNode[T]) calculateCheckInterval(timeout time.Duration) time.Duration {
+	switch {
+	case timeout <= 1*time.Second:
+		return 10 * time.Millisecond // 短超时：10ms 检查
+	case timeout <= 5*time.Second:
+		return 50 * time.Millisecond // 中等超时：50ms 检查
+	default:
+		return 100 * time.Millisecond // 长超时：100ms 检查
 	}
 }
 
