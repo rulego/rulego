@@ -26,7 +26,7 @@ import (
 
 var (
 	testdataFolder   = "../../testdata/rule"
-	testServer       = ":6335"
+	testServer       = ":16335" // 使用一个不太可能冲突的端口号
 	testConfigServer = "127.0.0.1:8889"
 	msgContent1      = "{\"test\":\"AA\"}"
 	msgContent2      = "{\"test\":\"BB\"}"
@@ -243,8 +243,10 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		Config: Config{
 			Protocol:      "tcp",
 			ReadTimeout:   60,
-			Server:        ":6335",
+			Server:        ":6335", // 使用实际的默认值，而不是测试端口
 			PacketMode:    "line",
+			PacketSize:    2,      // 实际默认值
+			Encode:        "none", // 实际默认值
 			MaxPacketSize: 65536,
 		},
 	}, ep.New()))
@@ -318,6 +320,8 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 
 	assert.Nil(t, err)
 	<-stop
+	// 确保资源被正确清理
+	ep.Destroy()
 	assert.Equal(t, int32(5), atomic.LoadInt32(&router1Count))
 	assert.Equal(t, int32(4), atomic.LoadInt32(&router2Count))
 	wg.Done()
