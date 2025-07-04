@@ -19,6 +19,7 @@
 package engine
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -86,7 +87,7 @@ func TestPlugin(t *testing.T) {
 	}
 
 	ruleEngine, err := New(string2.RandomStr(10), []byte(testPluginRuleFile), WithConfig(config))
-	defer ruleEngine.Stop()
+	defer ruleEngine.Stop(context.Background())
 	for i := 0; i < maxTimes; i++ {
 		if err == nil {
 			metaData := types.BuildMetadata(make(map[string]string))

@@ -88,12 +88,14 @@ func TestCache(t *testing.T) {
 
 func TestRuleContext(t *testing.T) {
 	config := NewConfig(types.WithDefaultPool())
-	ruleEngine, _ := New("TestRuleContext", []byte(ruleChainFile), WithConfig(config))
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
 
 	t.Run("hasOnEnd", func(t *testing.T) {
+		ruleEngine, _ := New("TestRuleContext_hasOnEnd", []byte(ruleChainFile), WithConfig(config))
+		defer Del(ruleEngine.Id())
+
 		ctx := NewRuleContext(context.Background(), config, ruleEngine.RootRuleChainCtx().(*RuleChainCtx), nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 
 		}, nil)
@@ -110,23 +112,32 @@ func TestRuleContext(t *testing.T) {
 		err = ruleEngine.ReloadChild("", []byte("{"))
 		assert.NotNil(t, err)
 
-		ruleEngine.Stop()
+		ruleEngine.Stop(context.Background())
 
 		err = ruleEngine.ReloadChild("", []byte("{"))
 		assert.Equal(t, "unexpected end of JSON input", err.Error())
 		time.Sleep(time.Millisecond * 100)
 	})
 	t.Run("notEnd", func(t *testing.T) {
+		ruleEngine, _ := New("TestRuleContext_notEnd", []byte(ruleChainFile), WithConfig(config))
+		defer Del(ruleEngine.Id())
+
 		ctx := NewRuleContext(context.Background(), config, ruleEngine.RootRuleChainCtx().(*RuleChainCtx), nil, nil, nil, nil, nil)
 		ctx.DoOnEnd(msg, nil, types.Success)
 	})
 	t.Run("doOnEnd", func(t *testing.T) {
+		ruleEngine, _ := New("TestRuleContext_doOnEnd", []byte(ruleChainFile), WithConfig(config))
+		defer Del(ruleEngine.Id())
+
 		ctx := NewRuleContext(context.Background(), config, ruleEngine.RootRuleChainCtx().(*RuleChainCtx), nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, types.Success, relationType)
 		}, nil)
 		ctx.DoOnEnd(msg, nil, types.Success)
 	})
 	t.Run("notSelf", func(t *testing.T) {
+		ruleEngine, _ := New("TestRuleContext_notSelf", []byte(ruleChainFile), WithConfig(config))
+		defer Del(ruleEngine.Id())
+
 		ctx := NewRuleContext(context.Background(), config, ruleEngine.RootRuleChainCtx().(*RuleChainCtx), nil, nil, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, types.Success, relationType)
 		}, nil)
@@ -148,6 +159,7 @@ func TestRuleContext(t *testing.T) {
 		}
 		nodeCtx, _ := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
 		ruleEngine2, _ := New("TestRuleContextTellSelf", []byte(ruleChainFile), WithConfig(config))
+		defer Del(ruleEngine2.Id())
 
 		ctx := NewRuleContext(context.Background(), config, ruleEngine2.RootRuleChainCtx().(*RuleChainCtx), nil, nodeCtx, nil, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			//assert.Equal(t, "", relationType)
@@ -157,6 +169,9 @@ func TestRuleContext(t *testing.T) {
 		ctx.tellSelf(msg, nil, types.Success)
 	})
 	t.Run("WithStartNode", func(t *testing.T) {
+		ruleEngine, _ := New("TestRuleContext_WithStartNode", []byte(ruleChainFile), WithConfig(config))
+		defer Del(ruleEngine.Id())
+
 		var count = int32(0)
 		ruleEngine.OnMsg(msg, types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&count, 1)
@@ -188,6 +203,9 @@ func TestRuleContext(t *testing.T) {
 		assert.Equal(t, int32(0), atomic.LoadInt32(&count))
 	})
 	t.Run("WithTellNext", func(t *testing.T) {
+		ruleEngine, _ := New("TestRuleContext_WithTellNext", []byte(ruleChainFile), WithConfig(config))
+		defer Del(ruleEngine.Id())
+
 		var count = int32(0)
 		ruleEngine.OnMsg(msg, types.WithTellNext("s1", types.True), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&count, 1)

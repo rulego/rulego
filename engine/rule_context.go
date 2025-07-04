@@ -943,6 +943,23 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 		}
 	}()
 
+	// 统一检查上下文是否已取消（优雅停机）
+	// Unified check for context cancellation (graceful shutdown)
+	if ctx.GetContext() != nil {
+		select {
+		case <-ctx.GetContext().Done():
+			// 上下文已取消，停止处理并通知失败
+			// Context cancelled, stop processing and notify failure
+			// 使用DoOnEnd确保正确触发结束回调和活跃消息计数减少
+			// DoOnEnd内部会调用childDone()，所以这里不需要再次调用
+			ctx.DoOnEnd(msg, fmt.Errorf("processing cancelled due to shutdown: %w", ctx.GetContext().Err()), types.Failure)
+			return
+		default:
+			// 上下文正常，继续处理
+			// Context is normal, continue processing
+		}
+	}
+
 	nextCtx := ctx.NewNextNodeRuleContext(nextNode)
 
 	//环绕aop

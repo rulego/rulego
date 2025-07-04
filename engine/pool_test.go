@@ -17,6 +17,7 @@
 package engine
 
 import (
+	"context"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -109,7 +110,7 @@ func TestRuleGo(t *testing.T) {
 	assert.True(t, atomic.LoadInt32(&chainMsgTypeSwitchDone) == 1)
 
 	ruleEngine, _ := myRuleGo.Get("test_context_chain")
-	ruleEngine.Stop()
+	ruleEngine.Stop(context.Background())
 
 	ruleEngine.OnMsg(msg)
 

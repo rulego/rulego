@@ -17,6 +17,7 @@
 package engine
 
 import (
+	"context"
 	"log"
 	"strings"
 	"sync"
@@ -197,7 +198,7 @@ func (g *Pool) Get(id string) (types.RuleEngine, bool) {
 func (g *Pool) Del(id string) {
 	v, ok := g.entries.Load(id)
 	if ok {
-		v.(*RuleEngine).Stop()
+		v.(*RuleEngine).Stop(context.Background())
 		g.entries.Delete(id)
 		if g.Callbacks.OnDeleted != nil {
 			g.Callbacks.OnDeleted(id)
@@ -209,7 +210,7 @@ func (g *Pool) Del(id string) {
 func (g *Pool) Stop() {
 	g.entries.Range(func(key, value any) bool {
 		if item, ok := value.(*RuleEngine); ok {
-			item.Stop()
+			item.Stop(context.Background())
 		}
 		g.entries.Delete(key)
 		if g.Callbacks.OnDeleted != nil {

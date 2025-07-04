@@ -720,11 +720,28 @@ func (e *BaseEndpoint) AddInterceptors(interceptors ...endpoint.Process) {
 // and subsequent steps are not executed.
 // 如果任何拦截器或 From 处理返回 false，管道提前终止，后续步骤不会执行。
 //
+// Context Cancellation / 上下文取消：
+// The method checks for context cancellation at key points to support graceful shutdown.
+// 该方法在关键点检查上下文取消以支持优雅停机。
+//
 // Thread Safety / 线程安全：
 // This method creates a thread-safe copy of interceptors to avoid race conditions
 // during concurrent interceptor modifications.
 // 此方法创建拦截器的线程安全副本，以避免并发拦截器修改期间的竞态条件。
 func (e *BaseEndpoint) DoProcess(baseCtx context.Context, router endpoint.Router, exchange *endpoint.Exchange) {
+	// Check if context is already cancelled before starting processing
+	// 在开始处理前检查上下文是否已被取消
+	if baseCtx != nil {
+		select {
+		case <-baseCtx.Done():
+			// Context cancelled, set error and return early
+			// 上下文已取消，设置错误并提前返回
+			exchange.Out.SetError(fmt.Errorf("processing cancelled: %w", baseCtx.Err()))
+			return
+		default:
+		}
+	}
+
 	//创建上下文  Create context  创建上下文
 	ctx := e.createContext(baseCtx, router, exchange)
 
@@ -735,17 +752,52 @@ func (e *BaseEndpoint) DoProcess(baseCtx context.Context, router endpoint.Router
 	e.RUnlock()
 
 	for _, item := range interceptors {
+		// Check for context cancellation before each interceptor
+		// 在每个拦截器前检查上下文取消
+		if ctx != nil {
+			select {
+			case <-ctx.Done():
+				exchange.Out.SetError(fmt.Errorf("processing cancelled during interceptor: %w", ctx.Err()))
+				return
+			default:
+			}
+		}
+
 		//执行全局拦截器  Execute global interceptors  执行全局拦截器
 		if !item(router, exchange) {
 			return
 		}
 	}
+
+	// Check for context cancellation before From processing
+	// 在 From 处理前检查上下文取消
+	if ctx != nil {
+		select {
+		case <-ctx.Done():
+			exchange.Out.SetError(fmt.Errorf("processing cancelled before From: %w", ctx.Err()))
+			return
+		default:
+		}
+	}
+
 	//执行from端逻辑  Execute From endpoint logic  执行 From 端逻辑
 	if fromFlow := router.GetFrom(); fromFlow != nil {
 		if !fromFlow.ExecuteProcess(router, exchange) {
 			return
 		}
 	}
+
+	// Check for context cancellation before To processing
+	// 在 To 处理前检查上下文取消
+	if ctx != nil {
+		select {
+		case <-ctx.Done():
+			exchange.Out.SetError(fmt.Errorf("processing cancelled before To: %w", ctx.Err()))
+			return
+		default:
+		}
+	}
+
 	//执行to端逻辑  Execute To endpoint logic  执行 To 端逻辑
 	if router.GetFrom() != nil && router.GetFrom().GetTo() != nil {
 		router.GetFrom().GetTo().Execute(ctx, exchange)
