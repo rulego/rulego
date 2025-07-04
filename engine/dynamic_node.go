@@ -17,7 +17,10 @@
 package engine
 
 import (
+	"context"
 	"errors"
+	"strings"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/dsl"
@@ -25,7 +28,6 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/schema"
 	"github.com/rulego/rulego/utils/str"
-	"strings"
 )
 
 // ErrRuleEnginePoolNil rule engine pool is nil
@@ -177,7 +179,7 @@ func (x *DynamicNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 // Destroy 销毁
 func (x *DynamicNode) Destroy() {
 	if x.ruleEngine != nil {
-		x.ruleEngine.Stop()
+		x.ruleEngine.Stop(context.Background())
 	}
 }
 

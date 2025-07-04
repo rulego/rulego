@@ -637,7 +637,7 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 	}()
 
 	if def.RuleChain.Disabled {
-		return ErrDisabled
+		return types.ErrEngineDisabled
 	}
 	if ctx, err := InitRuleChainCtx(rc.config, rc.aspects, &def); err == nil {
 		// First, execute destroy operations without holding locks to avoid deadlock

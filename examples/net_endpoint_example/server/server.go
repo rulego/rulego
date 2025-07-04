@@ -25,13 +25,15 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/rulego/rulego"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/rulego/rulego"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/engine"
@@ -106,6 +108,6 @@ func main() {
 	<-c
 
 	fmt.Println("\nShutting down server...")
-	ruleEngine.Stop()
+	ruleEngine.Stop(context.Background())
 	fmt.Println("Server stopped")
 }

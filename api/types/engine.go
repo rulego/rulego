@@ -16,7 +16,11 @@
 
 package types
 
-import "github.com/rulego/rulego/api/types/metrics"
+import (
+	"context"
+
+	"github.com/rulego/rulego/api/types/metrics"
+)
 
 // RuleEngineOption defines a function type for configuring a RuleEngine.
 // It follows the functional options pattern for flexible configuration.
@@ -65,6 +69,50 @@ func WithAspects(aspects ...Aspect) RuleEngineOption {
 func WithRuleEnginePool(ruleEnginePool RuleEnginePool) RuleEngineOption {
 	return func(re RuleEngine) error {
 		re.SetRuleEnginePool(ruleEnginePool)
+		return nil
+	}
+}
+
+// WithMaxReloadWaiters creates a RuleEngineOption to limit concurrent goroutines waiting for reload completion.
+// This prevents memory overflow during high-traffic reload operations by controlling the maximum number
+// of messages that can wait for reload to finish.
+//
+// WithMaxReloadWaiters 创建一个 RuleEngineOption 来限制等待重载完成的并发 goroutine 数量。
+// 这通过控制可以等待重载完成的最大消息数量，防止高流量重载操作期间的内存溢出。
+//
+// Parameters:
+// 参数：
+//   - maxWaiters: Maximum number of concurrent goroutines allowed to wait for reload
+//     If 0, disables the limit (unlimited waiters - use with caution)
+//     If negative, uses default value (1000)
+//     maxWaiters: 允许等待重载的最大并发 goroutine 数量
+//     如果为 0，禁用限制（无限等待者 - 谨慎使用）
+//     如果为负数，使用默认值（1000）
+//
+// Memory Safety Benefits:
+// 内存安全优势：
+//   - Prevents unlimited goroutine creation during reload  防止重载期间无限制的 goroutine 创建
+//   - Avoids memory overflow in high-traffic scenarios  避免高流量场景下的内存溢出
+//   - Provides predictable memory usage patterns  提供可预测的内存使用模式
+//   - Enables graceful degradation under load  启用负载下的优雅降级
+//
+// Usage Examples:
+// 使用示例：
+//
+//	// Limit to 500 concurrent waiters (recommended for high-traffic systems)
+//	// 限制为 500 个并发等待者（推荐用于高流量系统）
+//	engine, err := NewRuleEngine("myEngine", dsl, WithMaxReloadWaiters(500))
+//
+//	// Disable limit (allow unlimited waiters - use with caution in production)
+//	// 禁用限制（允许无限等待者 - 生产环境中谨慎使用）
+//	engine, err := NewRuleEngine("myEngine", dsl, WithMaxReloadWaiters(0))
+//
+//	// Use default limit (1000 waiters)
+//	// 使用默认限制（1000 个等待者）
+//	engine, err := NewRuleEngine("myEngine", dsl, WithMaxReloadWaiters(-1))
+func WithMaxReloadWaiters(maxWaiters int64) RuleEngineOption {
+	return func(re RuleEngine) error {
+		re.SetMaxReloadWaiters(maxWaiters)
 		return nil
 	}
 }
@@ -163,11 +211,21 @@ type RuleEngine interface {
 	// 如果引擎具有有效的规则链配置，则返回 true。
 	Initialized() bool
 
-	// Stop gracefully shuts down the RuleEngine and releases all resources.
-	// This should be called when the engine is no longer needed.
-	// Stop 优雅地关闭 RuleEngine 并释放所有资源。
-	// 当不再需要引擎时应调用此方法。
-	Stop()
+	// IsShuttingDown returns whether the RuleEngine is currently in shutdown process.
+	// This can be used to check shutdown status before performing operations.
+	// IsShuttingDown 返回 RuleEngine 当前是否处于停机过程中。
+	// 这可用于在执行操作前检查停机状态。
+	IsShuttingDown() bool
+
+	// Stop shuts down the RuleEngine and releases all resources.
+	// If ctx is provided, it will wait for active messages to complete within the context deadline.
+	// If ctx is no deadline, it uses a default 10-second timeout.
+	// If ctx is nil, it performs immediate shutdown.
+	// Stop 关闭 RuleEngine 并释放所有资源。
+	// 如果提供了 ctx，它将在上下文截止时间内等待活跃消息完成。
+	// 如果 ctx 没有截止时间，则使用默认的10秒超时。
+	// 如果 ctx 为 nil，则执行立即停机。
+	Stop(ctx context.Context)
 
 	// OnMsg processes a message asynchronously with the given context options.
 	// This is the primary method for feeding data into the rule engine.
@@ -192,6 +250,28 @@ type RuleEngine interface {
 	// GetMetrics 返回 RuleEngine 的性能和执行指标。
 	// 这对监控、调试和性能优化很有用。
 	GetMetrics() *metrics.EngineMetrics
+
+	// SetMaxReloadWaiters configures the maximum number of concurrent goroutines
+	// that can wait for reload completion. This prevents memory overflow during
+	// high-traffic reload scenarios.
+	//
+	// SetMaxReloadWaiters 配置可以等待重载完成的最大并发 goroutine 数量。
+	// 这防止高流量重载场景下的内存溢出。
+	//
+	// Parameters:
+	// 参数：
+	//   - maxWaiters: Maximum number of concurrent goroutines allowed to wait
+	//     If 0, disables the limit (unlimited waiters)
+	//     If negative, keeps current setting unchanged
+	//     maxWaiters: 允许等待的最大并发 goroutine 数量
+	//     如果为 0，禁用限制（无限等待者）
+	//     如果为负数，保持当前设置不变
+	//
+	// Thread Safety:
+	// 线程安全：
+	//   This method is thread-safe and can be called during message processing.
+	//   此方法是线程安全的，可以在消息处理期间调用。
+	SetMaxReloadWaiters(maxWaiters int64)
 }
 
 // RuleEnginePool is an interface for managing a collection of rule engines.

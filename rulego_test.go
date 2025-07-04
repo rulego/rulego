@@ -17,6 +17,7 @@
 package rulego
 
 import (
+	"context"
 	"math"
 	"os"
 	"reflect"
@@ -154,11 +155,13 @@ func TestRuleGo(t *testing.T) {
 	myRuleGo.OnMsg(msg)
 
 	ruleEngine, _ := myRuleGo.Get("test_context_chain")
-	ruleEngine.Stop()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	ruleEngine.Stop(ctx) //故意在OnMsg之前停止
 
 	ruleEngine.OnMsg(msg)
-
-	time.Sleep(time.Millisecond * 200)
 
 	myRuleGo.Stop()
 

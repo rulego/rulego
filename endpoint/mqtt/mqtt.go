@@ -575,6 +575,10 @@ type Mqtt struct {
 	// SharedNode 启用多个端点实例之间的客户端共享
 	base.SharedNode[*mqtt.Client]
 
+	// GracefulShutdown provides graceful shutdown capabilities
+	// GracefulShutdown 提供优雅停机功能
+	base.GracefulShutdown
+
 	// RuleConfig provides access to the rule engine configuration
 	// RuleConfig 提供对规则引擎配置的访问
 	RuleConfig types.Config
@@ -582,10 +586,6 @@ type Mqtt struct {
 	// Config contains the MQTT client configuration settings
 	// Config 包含 MQTT 客户端配置设置
 	Config mqtt.Config
-
-	// client is the underlying MQTT client instance
-	// client 是底层的 MQTT 客户端实例
-	client *mqtt.Client
 
 	// started indicates whether the MQTT client has been started and is subscribing
 	// started 指示 MQTT 客户端是否已启动并正在订阅
@@ -617,22 +617,40 @@ func (x *Mqtt) Init(ruleConfig types.Config, configuration types.Configuration) 
 	}
 	err := maps.Map2Struct(configuration, &x.Config)
 	x.RuleConfig = ruleConfig
-	_ = x.SharedNode.Init(x.RuleConfig, x.Type(), x.Config.Server, true, func() (*mqtt.Client, error) {
+
+	// 初始化优雅停机功能 - 使用合理的默认超时(10秒)
+	x.GracefulShutdown.InitGracefulShutdown(x.RuleConfig.Logger, 10*time.Second)
+
+	_ = x.SharedNode.InitWithClose(x.RuleConfig, x.Type(), x.Config.Server, true, func() (*mqtt.Client, error) {
 		return x.initClient()
+	}, func(client *mqtt.Client) error {
+		if client != nil {
+			return client.Close()
+		}
+		return nil
 	})
 	return err
 }
 
 // Destroy 销毁
 func (x *Mqtt) Destroy() {
-	_ = x.Close()
+	x.GracefulShutdown.GracefulStop(func() {
+		_ = x.Close()
+	})
+}
+
+// GracefulStop provides graceful shutdown for the MQTT endpoint
+// GracefulStop 为 MQTT 端点提供优雅停机
+func (x *Mqtt) GracefulStop() {
+	x.GracefulShutdown.GracefulStop(func() {
+		_ = x.Close()
+	})
 }
 
 func (x *Mqtt) Close() error {
-	if x.client != nil {
-		return x.client.Close()
-	}
-	return nil
+	// SharedNode 会通过 InitWithClose 中的清理函数来管理客户端的关闭
+	// SharedNode manages client closure through the cleanup function in InitWithClose
+	return x.SharedNode.Close()
 }
 
 func (x *Mqtt) Id() string {
@@ -648,7 +666,7 @@ func (x *Mqtt) AddRouter(router endpoint.Router, params ...interface{}) (string,
 	//服务已经启动
 	if x.started {
 		if form := router.GetFrom(); form != nil {
-			client, err := x.SharedNode.Get()
+			client, err := x.SharedNode.GetSafely()
 			if err != nil {
 				return "", err
 			}
@@ -665,7 +683,7 @@ func (x *Mqtt) AddRouter(router endpoint.Router, params ...interface{}) (string,
 func (x *Mqtt) RemoveRouter(routerId string, params ...interface{}) error {
 	router := x.deleteRouter(routerId)
 	if router != nil {
-		client, _ := x.SharedNode.Get()
+		client, _ := x.SharedNode.GetSafely()
 		if client != nil {
 			return client.UnregisterHandler(router.FromToString())
 		} else {
@@ -680,7 +698,7 @@ func (x *Mqtt) Start() error {
 	if x.started {
 		return nil
 	}
-	client, err := x.SharedNode.Get()
+	client, err := x.SharedNode.GetSafely()
 	if err != nil {
 		return err
 	}
@@ -730,6 +748,17 @@ func (x *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Mes
 				x.Printf("mqtt endpoint handler err :\n%v", runtime.Stack())
 			}
 		}()
+
+		// 检查是否正在停机
+		if err := x.GracefulShutdown.CheckShutdownSignal(); err != nil {
+			x.Printf("MQTT message ignored due to shutdown: %v", err)
+			return
+		}
+
+		// 增加活跃操作计数
+		x.GracefulShutdown.IncrementActiveOperations()
+		defer x.GracefulShutdown.DecrementActiveOperations()
+
 		exchange := &endpoint.Exchange{
 			In: &RequestMessage{
 				request: data,
@@ -739,7 +768,8 @@ func (x *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Mes
 				response: c,
 			}}
 
-		x.DoProcess(context.Background(), router, exchange)
+		// 使用停机上下文处理消息
+		x.DoProcess(x.GracefulShutdown.GetShutdownContext(), router, exchange)
 	}
 }
 
@@ -751,20 +781,7 @@ func (x *Mqtt) Printf(format string, v ...interface{}) {
 
 // initClient 初始化客户端
 func (x *Mqtt) initClient() (*mqtt.Client, error) {
-	if x.client != nil {
-		return x.client, nil
-	} else {
-		ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
-		x.Lock()
-		defer func() {
-			cancel()
-			x.Unlock()
-		}()
-		if x.client != nil {
-			return x.client, nil
-		}
-		var err error
-		x.client, err = mqtt.NewClient(ctx, x.Config)
-		return x.client, err
-	}
+	ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
+	defer cancel()
+	return mqtt.NewClient(ctx, x.Config)
 }

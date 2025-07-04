@@ -54,4 +54,19 @@ var (
 	// ErrConcurrencyLimitReached is the error returned when the concurrency limit has been reached
 	ErrConcurrencyLimitReached = errors.New("concurrency limit reached")
 	ErrCacheNotInitialized     = errors.New("cache not initialized")
+	// ErrEngineShuttingDown is the error returned when the engine is shutting down and cannot accept new messages
+	ErrEngineShuttingDown = errors.New("engine is shutting down")
+	// ErrEngineNotInitialized is the error returned when the rule engine is not initialized
+	ErrEngineNotInitialized = errors.New("rule engine not initialized")
+	// ErrEngineReloadTimeout is the error returned when engine reload operation times out
+	ErrEngineReloadTimeout = errors.New("engine reload timeout")
+	// ErrEngineReloadBackpressureLimit is the error returned when reload backpressure limit is reached
+	// to prevent memory overflow during high-traffic reload operations
+	ErrEngineReloadBackpressureLimit = errors.New("engine reload backpressure limit reached - rejecting message to prevent memory overflow")
+	// ErrRuleChainHasNoNodes is the error returned when the rule chain has no nodes
+	ErrRuleChainHasNoNodes = errors.New("the rule chain has no nodes")
+	// ErrEngineDisabled is returned when attempting to use a disabled rule chain.
+	ErrEngineDisabled = errors.New("the rule chain has been disabled")
+	// ErrEngineDslEmpty is returned when the rule chain dsl is empty.
+	ErrEngineDslEmpty = errors.New("dsl can not empty")
 )

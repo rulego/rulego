@@ -100,7 +100,6 @@ type DbClientNode struct {
 	base.SharedNode[*sql.DB]
 	//节点配置
 	Config DbClientNodeConfiguration
-	client *sql.DB
 	//操作类型 SELECT\UPDATE\INSERT\DELETE
 	opType string
 	//sqlTemplate    str.Template
@@ -165,24 +164,17 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 
 	}
 	//初始化客户端
-	return x.SharedNode.Init(ruleConfig, x.Type(), x.Config.Dsn, ruleConfig.NodeClientInitNow, func() (*sql.DB, error) {
+	return x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Dsn, ruleConfig.NodeClientInitNow, func() (*sql.DB, error) {
 		return x.initClient()
+	}, func(client *sql.DB) error {
+		// 清理回调函数
+		return client.Close()
 	})
 }
 
 // OnMsg 处理消息，执行SQL操作并处理结果
 // OnMsg processes messages by executing SQL operations and handling results.
 func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	// 开始操作，增加活跃操作计数
-	x.SharedNode.BeginOp()
-	defer x.SharedNode.EndOp()
-
-	// 检查是否正在关闭
-	if x.SharedNode.IsShuttingDown() {
-		ctx.TellFailure(msg, fmt.Errorf("db client is shutting down"))
-		return
-	}
-
 	var data interface{}
 	var err error
 	var rowsAffected int64
@@ -215,15 +207,9 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 		params = append(params, param)
 	}
-	client, err := x.SharedNode.Get()
+	client, err := x.SharedNode.GetSafely()
 	if err != nil {
 		ctx.TellFailure(msg, err)
-		return
-	}
-
-	// 再次检查是否正在关闭，防止在Get()之后被关闭
-	if x.SharedNode.IsShuttingDown() {
-		ctx.TellFailure(msg, fmt.Errorf("db client is shutting down"))
 		return
 	}
 
@@ -370,37 +356,18 @@ func (x *DbClientNode) delete(client *sql.DB, sqlStr string, params []interface{
 
 // Destroy 销毁组件
 func (x *DbClientNode) Destroy() {
-	// 使用优雅关闭机制，等待活跃操作完成后再关闭资源
-	x.SharedNode.GracefulShutdown(0, func() {
-		// 只在非资源池模式下关闭本地资源
-		if x.client != nil {
-			_ = x.client.Close()
-			x.client = nil
-		}
-	})
+	_ = x.SharedNode.Close()
 }
 
 // initClient 初始化客户端
 func (x *DbClientNode) initClient() (*sql.DB, error) {
-	if x.client != nil {
-		return x.client, nil
-	} else {
-		x.Locker.Lock()
-		defer x.Locker.Unlock()
-		if x.client != nil {
-			return x.client, nil
-		}
-		var err error
-		x.client, err = sql.Open(x.Config.DriverName, x.Config.Dsn)
-		if err == nil {
-			x.client.SetMaxOpenConns(x.Config.PoolSize)
-			x.client.SetMaxIdleConns(x.Config.PoolSize / 2)
-			err = x.client.Ping()
-			return x.client, err
-		} else {
-			return nil, err
-		}
+	client, err := sql.Open(x.Config.DriverName, x.Config.Dsn)
+	if err == nil {
+		client.SetMaxOpenConns(x.Config.PoolSize)
+		client.SetMaxIdleConns(x.Config.PoolSize / 2)
+		err = client.Ping()
 	}
+	return client, err
 }
 
 func (x *DbClientNode) getOpType(sql string) string {

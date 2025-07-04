@@ -17,7 +17,6 @@
 package external
 
 import (
-	"fmt"
 	"net"
 	"sync/atomic"
 	"time"
@@ -180,8 +179,6 @@ type NetNode struct {
 	Config NetNodeConfiguration
 	// ruleGo配置
 	ruleConfig types.Config
-	// 客户端连接对象
-	conn net.Conn
 	// 创建一个心跳定时器，用于定期发送心跳消息，可以为0表示不发心跳
 	heartbeatTimer *time.Timer
 	//心跳间隔
@@ -214,21 +211,15 @@ func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	// 设置默认值
 	x.setDefaultConfig()
 	x.heartbeatDuration = time.Duration(x.Config.HeartbeatInterval) * time.Second
-	return x.SharedNode.Init(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow, x.initConnect)
+	return x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow, x.initConnect, func(conn net.Conn) error {
+		// 清理回调函数：关闭连接并清理相关状态
+		x.onDisconnect()
+		return conn.Close()
+	})
 }
 
 // OnMsg 处理消息
 func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	// 开始操作，增加活跃操作计数
-	x.SharedNode.BeginOp()
-	defer x.SharedNode.EndOp()
-
-	// 检查是否正在关闭
-	if x.SharedNode.IsShuttingDown() {
-		ctx.TellFailure(msg, fmt.Errorf("net client is shutting down"))
-		return
-	}
-
 	var data []byte
 
 	// 根据数据类型智能处理
@@ -247,11 +238,7 @@ func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy 销毁
 func (x *NetNode) Destroy() {
-	// 使用优雅关闭机制，等待活跃操作完成后再关闭资源
-	x.SharedNode.GracefulShutdown(0, func() {
-		// 只在非资源池模式下关闭本地资源
-		x.onDisconnect()
-	})
+	_ = x.SharedNode.Close()
 }
 
 func (x *NetNode) Printf(format string, v ...interface{}) {
@@ -260,19 +247,11 @@ func (x *NetNode) Printf(format string, v ...interface{}) {
 
 // initConnect 方法简化
 func (x *NetNode) initConnect() (net.Conn, error) {
-	x.Locker.Lock()
-	defer x.Locker.Unlock()
-
-	if x.conn != nil && !x.isDisconnected() {
-		return x.conn, nil
-	}
-
 	conn, err := net.DialTimeout(x.Config.Protocol, x.Config.Server, time.Duration(x.Config.ConnectTimeout)*time.Second)
 	if err != nil {
 		return nil, err
 	}
 
-	x.conn = conn
 	x.setDisconnected(false)
 	if x.heartbeatDuration != 0 {
 		// 初始化心跳定时器
@@ -289,15 +268,12 @@ func (x *NetNode) initConnect() (net.Conn, error) {
 
 // 重连
 func (x *NetNode) tryReconnect() {
-	conn, err := net.DialTimeout(x.Config.Protocol, x.Config.Server, time.Duration(x.Config.ConnectTimeout)*time.Second)
-	if err != nil {
+	// 尝试通过SharedNode获取新连接（会触发重新初始化）
+	if conn, err := x.SharedNode.GetSafely(); err != nil {
 		// 5秒后重试
 		x.heartbeatTimer.Reset(5 * time.Second)
 	} else {
-		x.Locker.Lock()
-		x.conn = conn
 		x.setDisconnected(false)
-		x.Locker.Unlock()
 		x.Printf("Reconnected to: %s", conn.RemoteAddr().String())
 		// 重连成功后，重置为正常的心跳间隔
 		x.heartbeatTimer.Reset(x.heartbeatDuration)
@@ -311,7 +287,7 @@ func (x *NetNode) onPing() {
 		return
 	}
 	// 发送心跳
-	if conn, err := x.SharedNode.Get(); err == nil {
+	if conn, err := x.SharedNode.GetSafely(); err == nil {
 		if _, err := conn.Write(PingData); err != nil {
 			x.Printf("Ping failed: %v", err)
 			x.setDisconnected(true)
@@ -323,14 +299,8 @@ func (x *NetNode) onPing() {
 }
 
 func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
-	// 再次检查是否正在关闭，防止在获取连接前被关闭
-	if x.SharedNode.IsShuttingDown() {
-		ctx.TellFailure(msg, fmt.Errorf("net client is shutting down"))
-		return
-	}
-
 	// 向服务器发送数据
-	if conn, err := x.SharedNode.Get(); err != nil {
+	if conn, err := x.SharedNode.GetSafely(); err != nil {
 		ctx.TellFailure(msg, err)
 	} else if _, err := conn.Write(data); err != nil {
 		if atomic.LoadInt32(&x.disconnectedCount) == 0 {
@@ -352,14 +322,11 @@ func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte)
 }
 
 func (x *NetNode) onDisconnect() {
-	if x.conn != nil {
-		// 停止心跳定时器
-		if x.heartbeatTimer != nil {
-			x.heartbeatTimer.Stop()
-		}
-		_ = x.conn.Close()
-		x.setDisconnected(true)
+	// 停止心跳定时器
+	if x.heartbeatTimer != nil {
+		x.heartbeatTimer.Stop()
 	}
+	x.setDisconnected(true)
 }
 
 func (x *NetNode) isDisconnected() bool {
