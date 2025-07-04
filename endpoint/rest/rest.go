@@ -788,6 +788,8 @@ type Rest struct {
 	// started indicates whether the HTTP server has been started
 	// started 指示 HTTP 服务器是否已启动
 	started bool
+	// resourceMapping is the resource mapping for static file serving
+	resourceMapping string
 }
 
 // Type 组件类型
@@ -867,6 +869,9 @@ func (rest *Rest) Restart() error {
 			}
 		}
 
+	}
+	if rest.resourceMapping != "" {
+		rest.RegisterStaticFiles(rest.resourceMapping)
 	}
 	return nil
 }
@@ -1054,6 +1059,7 @@ func (rest *Rest) GlobalOPTIONS(handler http.Handler) endpoint.HttpEndpoint {
 
 func (rest *Rest) RegisterStaticFiles(resourceMapping string) endpoint.HttpEndpoint {
 	if resourceMapping != "" {
+		rest.resourceMapping = resourceMapping
 		mapping := strings.Split(resourceMapping, ",")
 		for _, item := range mapping {
 			files := strings.Split(item, "=")
