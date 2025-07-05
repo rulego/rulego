@@ -17,6 +17,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -99,7 +100,7 @@ func TestSkipFallbackAspect(t *testing.T) {
 	}))
 
 	time.Sleep(time.Second * 3)
-	ruleEngine.Stop()
+	ruleEngine.Stop(context.Background())
 
 }
 
@@ -193,7 +194,7 @@ func TestEngineAspect(t *testing.T) {
 	}
 	assert.Equal(t, int32(1), count)
 	//销毁
-	ruleEngine.Stop()
+	ruleEngine.Stop(context.Background())
 	time.Sleep(time.Millisecond * 200)
 
 	assert.True(t, atomic.LoadInt32(&onCompleted) == 1)
@@ -234,7 +235,7 @@ func TestBeforeInitErrAspect(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, int32(2), count)
 	//销毁
-	ruleEngine.Stop()
+	ruleEngine.Stop(context.Background())
 }
 
 func TestChainAspect(t *testing.T) {

@@ -18,8 +18,6 @@ package external
 
 import (
 	"context"
-	"fmt"
-	"sync"
 	"time"
 
 	"github.com/rulego/rulego/utils/mqtt"
@@ -133,8 +131,6 @@ type MqttClientNode struct {
 	Config MqttClientNodeConfiguration
 	//topic 模板
 	topicTemplate str.Template
-	client        *mqtt.Client
-	clientMutex   sync.RWMutex // Add mutex for thread safety
 }
 
 // Type 组件类型
@@ -155,8 +151,11 @@ func (x *MqttClientNode) New() types.Node {
 func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		_ = x.SharedNode.Init(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow, func() (*mqtt.Client, error) {
+		_ = x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow, func() (*mqtt.Client, error) {
 			return x.initClient()
+		}, func(client *mqtt.Client) error {
+			// 清理回调函数
+			return client.Close()
 		})
 		x.topicTemplate = str.NewTemplate(x.Config.Topic)
 	}
@@ -166,29 +165,13 @@ func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Confi
 // OnMsg 处理消息，使用变量替换解析主题并发布MQTT消息
 // OnMsg processes messages by parsing topic with variable substitution and publishing MQTT messages.
 func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	// 开始操作，增加活跃操作计数
-	x.SharedNode.BeginOp()
-	defer x.SharedNode.EndOp()
-
-	// 检查是否正在关闭
-	if x.SharedNode.IsShuttingDown() {
-		ctx.TellFailure(msg, fmt.Errorf("mqtt client is shutting down"))
-		return
-	}
-
 	topic := x.topicTemplate.ExecuteFn(func() map[string]any {
 		return base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	})
 
-	if client, err := x.SharedNode.Get(); err != nil {
+	if client, err := x.SharedNode.GetSafely(); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
-		// 再次检查是否正在关闭，防止在Get()之后被关闭
-		if x.SharedNode.IsShuttingDown() {
-			ctx.TellFailure(msg, fmt.Errorf("mqtt client is shutting down"))
-			return
-		}
-
 		if err := client.Publish(topic, x.Config.QOS, []byte(msg.GetData())); err != nil {
 			ctx.TellFailure(msg, err)
 		} else {
@@ -199,39 +182,14 @@ func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy 销毁
 func (x *MqttClientNode) Destroy() {
-	// 使用优雅关闭机制，等待活跃操作完成后再关闭资源
-	x.SharedNode.GracefulShutdown(0, func() {
-		// 只在非资源池模式下关闭本地资源
-		x.clientMutex.Lock()
-		defer x.clientMutex.Unlock()
-		if x.client != nil {
-			_ = x.client.Close()
-			x.client = nil
-		}
-	})
+	_ = x.SharedNode.Close()
 }
 
 // initClient 初始化客户端
 func (x *MqttClientNode) initClient() (*mqtt.Client, error) {
-	x.Locker.Lock()
-	defer x.Locker.Unlock()
-
-	x.clientMutex.RLock()
-	if x.client != nil {
-		existingClient := x.client
-		x.clientMutex.RUnlock()
-		return existingClient, nil
-	}
-	x.clientMutex.RUnlock()
-
-	ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
 
 	client, err := mqtt.NewClient(ctx, x.Config.ToMqttConfig())
-	if err == nil {
-		x.clientMutex.Lock()
-		x.client = client
-		x.clientMutex.Unlock()
-	}
 	return client, err
 }

@@ -1472,7 +1472,7 @@ func TestDisabled(t *testing.T) {
 
 	defStr = strings.Replace(defStr, "\"disabled\": false", "\"disabled\": true", -1)
 	err = e.ReloadSelf([]byte(defStr))
-	assert.Equal(t, ErrDisabled.Error(), err.Error())
+	assert.Equal(t, types.ErrEngineDisabled.Error(), err.Error())
 
 	defStr = strings.Replace(defStr, "\"disabled\": true", "\"disabled\": false", -1)
 	err = e.ReloadSelf([]byte(defStr))
@@ -1483,7 +1483,7 @@ func TestDisabled(t *testing.T) {
 
 	defStr = strings.Replace(ruleChainFile, "\"disabled\": false", "\"disabled\": true", -1)
 	_, err = New("testDisabled2", []byte(defStr), WithConfig(config))
-	assert.Equal(t, ErrDisabled.Error(), err.Error())
+	assert.Equal(t, types.ErrEngineDisabled.Error(), err.Error())
 }
 
 // TestMetadataCopyOnWritePerformance 测试新 Metadata 设计在多节点并发场景下的性能和正确性

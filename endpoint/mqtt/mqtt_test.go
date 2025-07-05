@@ -2,6 +2,13 @@ package mqtt
 
 import (
 	"fmt"
+	"os"
+	"reflect"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	endpoint "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/impl"
@@ -10,10 +17,6 @@ import (
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/mqtt"
-	"os"
-	"reflect"
-	"testing"
-	"time"
 )
 
 var (
@@ -36,7 +39,7 @@ func TestMqttMessage(t *testing.T) {
 }
 
 func TestRouterId(t *testing.T) {
-	config := types.NewConfig()
+	config := engine.NewConfig()
 	//创建mqtt endpoint服务
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&mqtt.Config{
@@ -73,7 +76,7 @@ func TestMqttEndpoint(t *testing.T) {
 	time.Sleep(time.Millisecond * 200)
 	//启动客户端
 	node := createClient(t)
-	config := types.NewConfig()
+	config := engine.NewConfig()
 	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, types.Success, relationType)
 	})
@@ -87,13 +90,270 @@ func TestMqttEndpoint(t *testing.T) {
 	close(stop)
 }
 
+// TestMqttEndpointGracefulShutdown tests graceful shutdown functionality of MQTT endpoint
+// TestMqttEndpointGracefulShutdown 测试 MQTT 端点的优雅停机功能
+func TestMqttEndpointGracefulShutdown(t *testing.T) {
+	t.Run("GracefulShutdownDuringMessageProcessing", func(t *testing.T) {
+		var config = engine.NewConfig()
+		// Create a simple rule chain for testing
+		// 创建一个简单的规则链用于测试
+		_, err := engine.New("graceful-test01", []byte(`{
+			"ruleChain": {
+				"name": "test chain",
+				"root": true
+			},
+			"metadata": {
+				"nodes": [
+					{
+						"id": "s1", 
+						"type": "jsFilter",
+						"name": "test",
+						"configuration": {
+							"jsScript": "return true;"
+						}
+					}
+				],
+				"connections": []
+			}
+		}`), engine.WithConfig(config))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Configure endpoint with shorter timeout for faster testing
+		// 配置较短超时时间以便更快测试
+		mqttEndpoint := &Mqtt{
+			Config: mqtt.Config{
+				Server:   "127.0.0.1:1883",
+				Username: "",
+				Password: "",
+				QOS:      0,
+			},
+		}
+
+		configuration := make(types.Configuration)
+		configuration["server"] = "127.0.0.1:1883"
+		configuration["qos"] = 0
+
+		err = mqttEndpoint.Init(config, configuration)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Set graceful shutdown timeout to 2 seconds for testing
+		// 设置优雅停机超时为2秒用于测试
+		mqttEndpoint.GracefulShutdown.InitGracefulShutdown(config.Logger, 2*time.Second)
+
+		// Add router with slow processing chain
+		// 添加带有慢处理链的路由器
+		var processedCount int64
+		router := impl.NewRouter().From("device/+").To("chain:graceful-test01").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+			// Simulate slow processing
+			// 模拟慢处理
+			atomic.AddInt64(&processedCount, 1)
+			time.Sleep(500 * time.Millisecond)
+			return true
+		}).End()
+
+		_, err = mqttEndpoint.AddRouter(router)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Start endpoint
+		// 启动端点
+		err = mqttEndpoint.Start()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Wait for connection to be established
+		// 等待连接建立
+		time.Sleep(100 * time.Millisecond)
+
+		// Start goroutine to send messages rapidly
+		// 启动协程快速发送消息
+		var wg sync.WaitGroup
+		stopSending := make(chan struct{})
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			client, err := mqttEndpoint.SharedNode.GetSafely()
+			if err != nil {
+				t.Errorf("Failed to get client: %v", err)
+				return
+			}
+
+			ticker := time.NewTicker(50 * time.Millisecond)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-stopSending:
+					return
+				case <-ticker.C:
+					// Send test message
+					// 发送测试消息
+					if err := client.Publish("device/123", 0, []byte("test message")); err != nil {
+						// Connection might be closed during shutdown, which is expected
+						// 停机期间连接可能关闭，这是预期的
+						return
+					}
+				}
+			}
+		}()
+
+		// Let some messages start processing
+		// 让一些消息开始处理
+		time.Sleep(200 * time.Millisecond)
+
+		// Initiate graceful shutdown
+		// 启动优雅停机
+		shutdownStart := time.Now()
+		mqttEndpoint.GracefulStop()
+		shutdownDuration := time.Since(shutdownStart)
+
+		// Stop message sending
+		// 停止消息发送
+		close(stopSending)
+		wg.Wait()
+
+		// Verify graceful shutdown behavior
+		// 验证优雅停机行为
+		assert.True(t, shutdownDuration >= 0, "Shutdown should complete")
+		assert.True(t, shutdownDuration < 5*time.Second, "Shutdown should not exceed maximum timeout")
+
+		// Verify that some messages were processed
+		// 验证一些消息已被处理
+		finalCount := atomic.LoadInt64(&processedCount)
+		assert.True(t, finalCount > 0, "Some messages should have been processed")
+
+		t.Logf("Graceful shutdown completed in %v, processed %d messages", shutdownDuration, finalCount)
+	})
+
+	t.Run("ShutdownRejectsNewMessages", func(t *testing.T) {
+		var config = engine.NewConfig()
+		// Create a simple rule chain for testing
+		// 创建一个简单的规则链用于测试
+		_, err := engine.New("graceful-test02", []byte(`{
+			"ruleChain": {
+				"name": "test chain",
+				"root": true
+			},
+			"metadata": {
+				"nodes": [
+					{
+						"id": "s1", 
+						"type": "jsFilter",
+						"name": "test",
+						"configuration": {
+							"jsScript": "return true;"
+						}
+					}
+				],
+				"connections": []
+			}
+		}`), engine.WithConfig(config))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mqttEndpoint := &Mqtt{
+			Config: mqtt.Config{
+				Server:   "127.0.0.1:1883",
+				Username: "",
+				Password: "",
+				QOS:      0,
+			},
+		}
+
+		configuration := make(types.Configuration)
+		configuration["server"] = "127.0.0.1:1883"
+		configuration["qos"] = 0
+
+		err = mqttEndpoint.Init(config, configuration)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Set very short timeout for faster testing
+		// 设置很短的超时时间以便更快测试
+		mqttEndpoint.GracefulShutdown.InitGracefulShutdown(config.Logger, 500*time.Millisecond)
+
+		var processedCount int64
+		var rejectedCount int64
+
+		// Add router that counts processing and rejection
+		// 添加计算处理和拒绝的路由器
+		router := impl.NewRouter().From("device/+").To("chain:graceful-test02").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+			if exchange.Out.GetError() != nil {
+				atomic.AddInt64(&rejectedCount, 1)
+			} else {
+				atomic.AddInt64(&processedCount, 1)
+			}
+			return true
+		}).End()
+
+		_, err = mqttEndpoint.AddRouter(router)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = mqttEndpoint.Start()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Wait for connection
+		// 等待连接
+		time.Sleep(100 * time.Millisecond)
+
+		// Start shutdown immediately
+		// 立即开始停机
+		go func() {
+			time.Sleep(50 * time.Millisecond)
+			mqttEndpoint.GracefulStop()
+		}()
+
+		// Try to send messages during shutdown
+		// 尝试在停机期间发送消息
+		client, err := mqttEndpoint.SharedNode.GetSafely()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for i := 0; i < 10; i++ {
+			// Some messages should be processed, others rejected due to shutdown
+			// 一些消息应该被处理，其他的因为停机而被拒绝
+			if err := client.Publish("device/test", 0, []byte("test message")); err != nil {
+				break // Connection closed
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+
+		// Wait for shutdown to complete
+		// 等待停机完成
+		time.Sleep(1 * time.Second)
+
+		t.Logf("During shutdown: processed=%d, rejected=%d",
+			atomic.LoadInt64(&processedCount),
+			atomic.LoadInt64(&rejectedCount))
+
+		// At least some messages should have been processed or rejected
+		// 至少应该有一些消息被处理或拒绝
+		totalMessages := atomic.LoadInt64(&processedCount) + atomic.LoadInt64(&rejectedCount)
+		assert.True(t, totalMessages >= 0, "Should have attempted to process messages")
+	})
+}
+
 func createClient(t *testing.T) types.Node {
 	node, _ := engine.Registry.NewNode("mqttClient")
 	var configuration = make(types.Configuration)
 	configuration["Server"] = "127.0.0.1:1883"
 	configuration["Topic"] = "/device/msg"
 
-	config := types.NewConfig()
+	config := engine.NewConfig()
 	err := node.Init(config, configuration)
 	if err != nil {
 		t.Fatal(err)

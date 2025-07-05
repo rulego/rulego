@@ -788,6 +788,8 @@ type Rest struct {
 	// started indicates whether the HTTP server has been started
 	// started 指示 HTTP 服务器是否已启动
 	started bool
+	// resourceMapping is the resource mapping for static file serving
+	resourceMapping string
 }
 
 // Type 组件类型
@@ -813,8 +815,13 @@ func (rest *Rest) Init(ruleConfig types.Config, configuration types.Configuratio
 		return err
 	}
 	rest.RuleConfig = ruleConfig
-	return rest.SharedNode.Init(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
+	return rest.SharedNode.InitWithClose(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
 		return rest.initServer()
+	}, func(server *Rest) error {
+		if server != nil {
+			return server.Close()
+		}
+		return nil
 	})
 }
 
@@ -823,15 +830,61 @@ func (rest *Rest) Destroy() {
 	_ = rest.Close()
 }
 
-func (rest *Rest) Restart() error {
-	if rest.Server != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		_ = rest.Server.Shutdown(ctx)
+// shutdownServer 统一的服务器关闭逻辑
+// Unified server shutdown logic
+// 统一的服务器关闭逻辑
+func (rest *Rest) shutdownServer() error {
+	// 使用锁保护并发安全
+	rest.Lock()
+	defer rest.Unlock()
+
+	// 检查服务器是否已经关闭（幂等性保证）
+	if rest.Server == nil {
+		return nil
 	}
 
+	// 增加关闭超时时间到5秒，确保有足够时间完成优雅关闭
+	// Increase shutdown timeout to 5 seconds to ensure graceful shutdown completion
+	// 增加关闭超时时间到5秒
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var shutdownErr error
+	// 优雅关闭服务器
+	// Gracefully shutdown the server
+	// 优雅关闭服务器
+	if err := rest.Server.Shutdown(ctx); err != nil {
+		// 如果优雅关闭失败，强制关闭
+		// Force close if graceful shutdown fails
+		// 如果优雅关闭失败，强制关闭
+		rest.Printf("graceful shutdown failed, forcing close: %v", err)
+		if closeErr := rest.Server.Close(); closeErr != nil {
+			rest.Printf("force close failed: %v", closeErr)
+		}
+		shutdownErr = err
+	}
+
+	// 先标记为停止状态
+	rest.started = false
+	// 清理服务器引用，防止重复关闭
+	// Clear server reference to prevent duplicate shutdown
+	// 清理服务器引用
+	rest.Server = nil
+
+	// 等待一小段时间确保端口完全释放
+	// Wait a moment to ensure port is fully released
+	// 等待确保端口完全释放
+	time.Sleep(100 * time.Millisecond)
+
+	return shutdownErr
+}
+
+func (rest *Rest) Restart() error {
+	// 使用统一的关闭方法，忽略错误继续重启流程
+	_ = rest.shutdownServer()
+
 	if rest.SharedNode.InstanceId != "" {
-		if shared, err := rest.SharedNode.Get(); err == nil {
+		if shared, err := rest.SharedNode.GetSafely(); err == nil {
 			return shared.Restart()
 		} else {
 			return err
@@ -851,7 +904,6 @@ func (rest *Rest) Restart() error {
 	rest.Unlock()
 
 	rest.RouterStorage = make(map[string]endpoint.Router)
-	rest.started = false
 
 	if err := rest.Start(); err != nil {
 		return err
@@ -868,22 +920,24 @@ func (rest *Rest) Restart() error {
 		}
 
 	}
+	if rest.resourceMapping != "" {
+		rest.RegisterStaticFiles(rest.resourceMapping)
+	}
 	return nil
 }
 
 func (rest *Rest) Close() error {
-	if rest.Server != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		if err := rest.Server.Shutdown(ctx); err != nil {
-			return err
-		}
+	// 使用统一的关闭方法，保留错误处理
+	if err := rest.shutdownServer(); err != nil {
+		// 在Close()方法中，我们需要继续清理，即使关闭失败
+		rest.Printf("server shutdown error during close: %v", err)
 	}
+
 	if rest.router != nil {
 		rest.newRouter()
 	}
 	if rest.SharedNode.InstanceId != "" {
-		if shared, err := rest.SharedNode.Get(); err == nil {
+		if shared, err := rest.SharedNode.GetSafely(); err == nil {
 			rest.RLock()
 			defer rest.RUnlock()
 			for key := range rest.RouterStorage {
@@ -894,7 +948,6 @@ func (rest *Rest) Close() error {
 		}
 	}
 
-	rest.started = false
 	rest.BaseEndpoint.Destroy()
 	return nil
 }
@@ -947,7 +1000,7 @@ func (rest *Rest) Start() error {
 	if err := rest.checkIsInitSharedNode(); err != nil {
 		return err
 	}
-	if netResource, err := rest.SharedNode.Get(); err == nil {
+	if netResource, err := rest.SharedNode.GetSafely(); err == nil {
 		return netResource.startServer()
 	} else {
 		return err
@@ -988,7 +1041,7 @@ func (rest *Rest) addRouter(method string, routers ...endpoint.Router) error {
 		item.SetParams(method)
 		rest.RouterStorage[item.GetId()] = item
 		if rest.SharedNode.InstanceId != "" {
-			if shared, err := rest.SharedNode.Get(); err == nil {
+			if shared, err := rest.SharedNode.GetSafely(); err == nil {
 				return shared.addRouter(method, item)
 			} else {
 				return err
@@ -1054,6 +1107,7 @@ func (rest *Rest) GlobalOPTIONS(handler http.Handler) endpoint.HttpEndpoint {
 
 func (rest *Rest) RegisterStaticFiles(resourceMapping string) endpoint.HttpEndpoint {
 	if resourceMapping != "" {
+		rest.resourceMapping = resourceMapping
 		mapping := strings.Split(resourceMapping, ",")
 		for _, item := range mapping {
 			files := strings.Split(item, "=")
@@ -1084,8 +1138,13 @@ func (rest *Rest) RegisterStaticFiles(resourceMapping string) endpoint.HttpEndpo
 
 func (rest *Rest) checkIsInitSharedNode() error {
 	if !rest.SharedNode.IsInit() {
-		err := rest.SharedNode.Init(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
+		err := rest.SharedNode.InitWithClose(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
 			return rest.initServer()
+		}, func(server *Rest) error {
+			if server != nil {
+				return server.Close()
+			}
+			return nil
 		})
 		if err != nil {
 			return err
@@ -1097,7 +1156,7 @@ func (rest *Rest) checkIsInitSharedNode() error {
 func (rest *Rest) Router() *httprouter.Router {
 	rest.checkIsInitSharedNode()
 
-	if fromPool, err := rest.SharedNode.Get(); err != nil {
+	if fromPool, err := rest.SharedNode.GetSafely(); err != nil {
 		rest.Printf("get router err :%v", err)
 		return rest.newRouter()
 	} else {
@@ -1166,15 +1225,19 @@ func (rest *Rest) Printf(format string, v ...interface{}) {
 
 // Started 返回服务是否已经启动
 func (rest *Rest) Started() bool {
+	rest.RLock()
+	defer rest.RUnlock()
 	return rest.started
 }
 
 // GetServer 获取HTTP服务
 func (rest *Rest) GetServer() *http.Server {
+	rest.RLock()
+	defer rest.RUnlock()
 	if rest.Server != nil {
 		return rest.Server
 	} else if rest.SharedNode.InstanceId != "" {
-		if shared, err := rest.SharedNode.Get(); err == nil {
+		if shared, err := rest.SharedNode.GetSafely(); err == nil {
 			return shared.Server
 		}
 	}
@@ -1185,7 +1248,10 @@ func (rest *Rest) newRouter() *httprouter.Router {
 	rest.router = httprouter.New()
 	//设置跨域
 	if rest.Config.AllowCors {
-		rest.GlobalOPTIONS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 直接设置 GlobalOPTIONS 而不调用 Router() 方法，避免递归锁
+		// Set GlobalOPTIONS directly without calling Router() method to avoid recursive lock
+		// 直接设置 GlobalOPTIONS 避免递归锁
+		rest.router.GlobalOPTIONS = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get(HeaderKeyAccessControlRequestMethod) != "" {
 				// 设置 CORS 相关的响应头
 				header := w.Header()
@@ -1195,7 +1261,7 @@ func (rest *Rest) newRouter() *httprouter.Router {
 			}
 			// 返回 204 状态码
 			w.WriteHeader(http.StatusNoContent)
-		}))
+		})
 		// 直接操作 Interceptors 字段，避免调用 AddInterceptors 造成递归锁
 		corsInterceptor := func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			exchange.Out.Headers().Set(HeaderKeyAccessControlAllowOrigin, HeaderValueAll)
@@ -1214,9 +1280,12 @@ func (rest *Rest) initServer() (*Rest, error) {
 }
 
 func (rest *Rest) startServer() error {
+	rest.RLock()
 	if rest.started {
+		rest.RUnlock()
 		return nil
 	}
+	rest.RUnlock()
 	var err error
 
 	// 创建HTTP服务器并应用超时配置
@@ -1255,28 +1324,48 @@ func (rest *Rest) startServer() error {
 		return err
 	}
 	//标记已经启动
+	rest.Lock()
 	rest.started = true
+	rest.Unlock()
 
+	// 安全地访问Config字段和Server字段
+	rest.RLock()
 	isTls := rest.Config.CertKeyFile != "" && rest.Config.CertFile != ""
-	if rest.OnEvent != nil {
-		rest.OnEvent(endpoint.EventInitServer, rest)
+	certFile := rest.Config.CertFile
+	certKeyFile := rest.Config.CertKeyFile
+	serverAddr := rest.Config.Server
+	onEvent := rest.OnEvent
+	server := rest.Server // 保存Server引用，防止在goroutine中访问时被其他goroutine修改
+	rest.RUnlock()
+
+	// 在锁外部调用OnEvent回调，避免死锁
+	if onEvent != nil {
+		onEvent(endpoint.EventInitServer, rest)
 	}
 	if isTls {
-		rest.Printf("started rest server with TLS on %s", rest.Config.Server)
+		rest.Printf("started rest server with TLS on %s", serverAddr)
 		go func() {
 			defer ln.Close()
-			err = rest.Server.ServeTLS(ln, rest.Config.CertFile, rest.Config.CertKeyFile)
-			if rest.OnEvent != nil {
-				rest.OnEvent(endpoint.EventCompletedServer, err)
+			err = server.ServeTLS(ln, certFile, certKeyFile)
+			// 安全地访问OnEvent字段
+			rest.RLock()
+			onEvent := rest.OnEvent
+			rest.RUnlock()
+			if onEvent != nil {
+				onEvent(endpoint.EventCompletedServer, err)
 			}
 		}()
 	} else {
-		rest.Printf("started rest server on %s", rest.Config.Server)
+		rest.Printf("started rest server on %s", serverAddr)
 		go func() {
 			defer ln.Close()
-			err = rest.Server.Serve(ln)
-			if rest.OnEvent != nil {
-				rest.OnEvent(endpoint.EventCompletedServer, err)
+			err = server.Serve(ln)
+			// 安全地访问OnEvent字段
+			rest.RLock()
+			onEvent := rest.OnEvent
+			rest.RUnlock()
+			if onEvent != nil {
+				onEvent(endpoint.EventCompletedServer, err)
 			}
 		}()
 	}

@@ -18,12 +18,10 @@
 package base
 
 import (
-	"context"
 	"errors"
+	"reflect"
 	"strings"
 	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/rulego/rulego/api/types"
 )
@@ -144,21 +142,33 @@ type SharedNode[T any] struct {
 	InstanceId string
 	//初始化实例资源函数
 	InitInstanceFunc func() (T, error)
+	//清理资源的回调函数
+	CloseFunc func(T) error
 	////初始化资源资源，防止并发初始化
 	//lock int32
 	//是否从资源池获取
 	isFromPool bool
-	Locker     sync.Mutex
-	// 优雅关闭相关字段
-	isShuttingDown int64 // 使用原子操作
-	activeOps      int64 // 活跃操作计数器
+	Locker     sync.RWMutex
+
+	// 本地客户端缓存（新API使用）
+	localClient       T
+	clientInitialized bool
 }
 
 // Init 初始化，如果 resourcePath 为 ref:// 开头，则从网络资源池获取，否则调用 initInstanceFunc 初始化
 // initNow=true，会在立刻初始化，否则在 GetInstance() 时候初始化
 func (x *SharedNode[T]) Init(ruleConfig types.Config, nodeType, resourcePath string, initNow bool, initInstanceFunc func() (T, error)) error {
+	return x.InitWithClose(ruleConfig, nodeType, resourcePath, initNow, initInstanceFunc, func(T) error {
+		return nil
+	})
+}
+
+// InitWithClose 初始化，支持自定义清理函数
+// 推荐与 GetSafely() 方法配合使用，提供完整的资源生命周期管理
+func (x *SharedNode[T]) InitWithClose(ruleConfig types.Config, nodeType, resourcePath string, initNow bool, initInstanceFunc func() (T, error), closeFunc func(T) error) error {
 	x.RuleConfig = ruleConfig
 	x.NodeType = nodeType
+	x.CloseFunc = closeFunc
 
 	if instanceId := NodeUtils.GetInstanceId(ruleConfig, resourcePath); instanceId == "" {
 		x.InitInstanceFunc = initInstanceFunc
@@ -181,11 +191,39 @@ func (x *SharedNode[T]) IsInit() bool {
 
 // GetInstance 获取共享实例
 func (x *SharedNode[T]) GetInstance() (interface{}, error) {
-	return x.Get()
+	return x.GetSafely()
 }
 
 // Get 获取共享实例，并返回具体类型
-func (x *SharedNode[T]) Get() (T, error) {
+// Deprecated: 建议使用 GetSafely() 方法，该方法提供更好的并发性能和资源管理。
+// 使用 GetSafely() 时需要配合 InitWithClose() 和 Close() 方法进行完整的资源管理。
+//func (x *SharedNode[T]) Get() (T, error) {
+//	if x.InstanceId != "" {
+//		//从网络资源池获取
+//		if x.RuleConfig.NetPool == nil {
+//			return zeroValue[T](), ErrNetPoolNil
+//		}
+//		if p, err := x.RuleConfig.NetPool.GetInstance(x.InstanceId); err == nil {
+//			return p.(T), nil
+//		} else {
+//			return zeroValue[T](), err
+//		}
+//	} else if x.InitInstanceFunc != nil {
+//		//根据当前组件配置初始化一个客户端
+//		return x.InitInstanceFunc()
+//	} else {
+//		return zeroValue[T](), ErrClientNotInit
+//	}
+//}
+
+// GetSafely 安全获取共享实例，使用双重检查锁定模式提高并发性能
+// 推荐新组件使用此方法进行资源管理。
+//
+// 使用说明：
+// 1. 初始化时使用 InitWithClose() 方法并提供清理函数
+// 2. 获取实例时使用 GetSafely() 方法
+// 3. 组件销毁时调用 Close() 方法清理资源
+func (x *SharedNode[T]) GetSafely() (T, error) {
 	if x.InstanceId != "" {
 		//从网络资源池获取
 		if x.RuleConfig.NetPool == nil {
@@ -197,126 +235,94 @@ func (x *SharedNode[T]) Get() (T, error) {
 			return zeroValue[T](), err
 		}
 	} else if x.InitInstanceFunc != nil {
-		//根据当前组件配置初始化一个客户端
-		return x.InitInstanceFunc()
+		// 首先使用读锁检查客户端是否已存在
+		x.Locker.RLock()
+		if x.clientInitialized {
+			client := x.localClient
+			x.Locker.RUnlock()
+			return client, nil
+		}
+		x.Locker.RUnlock()
+
+		// 客户端不存在，使用写锁进行创建
+		x.Locker.Lock()
+		defer x.Locker.Unlock()
+
+		// 双重检查：可能在等待写锁期间其他goroutine已经创建了客户端
+		if x.clientInitialized {
+			return x.localClient, nil
+		}
+
+		// 初始化客户端
+		client, err := x.InitInstanceFunc()
+		if err != nil {
+			// 初始化失败，如果返回了部分初始化的客户端，尝试清理
+			if !isZeroValue(client) && x.CloseFunc != nil {
+				_ = x.CloseFunc(client)
+			}
+			return zeroValue[T](), err
+		}
+
+		// 初始化成功，缓存客户端
+		x.localClient = client
+		x.clientInitialized = true
+		return client, nil
 	} else {
 		return zeroValue[T](), ErrClientNotInit
 	}
 }
 
-//// TryLock 获取锁，如果获取不到则返回false
-//func (x *SharedNode[T]) TryLock() bool {
-//	return atomic.CompareAndSwapInt32(&x.lock, 0, 1)
-//}
-//
-//// ReleaseLock 释放锁
-//func (x *SharedNode[T]) ReleaseLock() {
-//	atomic.StoreInt32(&x.lock, 0)
-//}
+// isZeroValue 检查值是否为零值
+// 使用反射来安全地比较值，避免在不可比较类型上出现运行时恐慌
+func isZeroValue[T any](v T) bool {
+	// 使用反射来安全地检查零值
+	rv := reflect.ValueOf(v)
+	if !rv.IsValid() {
+		return true
+	}
+	return rv.IsZero()
+}
+
+// Close 清理本地缓存的客户端资源
+// 与 GetSafely() 和 InitWithClose() 配合使用，提供完整的资源生命周期管理
+// 注意：此方法不会影响从资源池获取的客户端
+func (x *SharedNode[T]) Close() error {
+	// 只清理本地缓存的客户端，不影响资源池中的客户端
+	if x.InstanceId != "" {
+		// 资源池模式，不需要清理本地客户端
+		return nil
+	}
+
+	x.Locker.Lock()
+	defer x.Locker.Unlock()
+
+	if x.clientInitialized {
+		client := x.localClient
+
+		// 使用用户提供的清理函数或默认的Close方法
+		var err error
+		if x.CloseFunc != nil {
+			err = x.CloseFunc(client)
+		} else {
+			// 尝试调用客户端的Close方法（如果有的话）
+			if closer, ok := any(client).(interface{ Close() error }); ok {
+				err = closer.Close()
+			}
+		}
+
+		// 重置本地客户端状态
+		x.clientInitialized = false
+		x.localClient = zeroValue[T]()
+
+		return err
+	}
+
+	return nil
+}
 
 // IsFromPool 是否从资源池获取
 func (x *SharedNode[T]) IsFromPool() bool {
 	return x.isFromPool
-}
-
-// BeginOp 开始一个操作，增加活跃操作计数
-func (x *SharedNode[T]) BeginOp() {
-	atomic.AddInt64(&x.activeOps, 1)
-}
-
-// EndOp 结束一个操作，减少活跃操作计数
-func (x *SharedNode[T]) EndOp() {
-	atomic.AddInt64(&x.activeOps, -1)
-}
-
-// IsShuttingDown 检查是否正在关闭
-func (x *SharedNode[T]) IsShuttingDown() bool {
-	return atomic.LoadInt64(&x.isShuttingDown) == 1
-}
-
-// BeginShutdown 开始优雅关闭过程，设置关闭状态
-func (x *SharedNode[T]) BeginShutdown() {
-	atomic.StoreInt64(&x.isShuttingDown, 1)
-}
-
-// GracefulShutdown 优雅关闭，等待活跃操作完成
-// timeout: 等待超时时间，如果为0则使用默认10秒
-// closeFunc: 可选的关闭函数，用于关闭非资源池管理的资源
-func (x *SharedNode[T]) GracefulShutdown(timeout time.Duration, closeFunc func()) {
-	// 设置默认超时时间
-	if timeout == 0 {
-		timeout = 10 * time.Second
-	}
-
-	if x.isFromPool {
-		// 共享资源模式：只等待当前活跃操作完成，不设置关闭状态
-		// 共享资源的生命周期由资源池管理，不应被单个节点影响
-		x.waitForActiveOpsComplete(timeout)
-
-		// 执行自定义关闭函数，让具体节点决定是否需要清理本地资源
-		// 注意：不调用 BeginShutdown()，因为其他节点可能还在使用共享资源
-		if closeFunc != nil {
-			closeFunc()
-		}
-	} else {
-		// 非共享资源模式：立即设置关闭状态，等待操作完成，然后关闭资源
-		x.BeginShutdown()
-		x.waitForActiveOpsComplete(timeout)
-
-		// 执行自定义关闭函数
-		if closeFunc != nil {
-			closeFunc()
-		}
-	}
-}
-
-// waitForActiveOpsComplete 等待所有活跃操作完成
-// 返回 true 表示正常完成，false 表示超时
-func (x *SharedNode[T]) waitForActiveOpsComplete(timeout time.Duration) bool {
-	// 如果没有活跃操作，立即返回
-	if atomic.LoadInt64(&x.activeOps) == 0 {
-		return true
-	}
-
-	// 创建带超时的 context
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	// 使用自适应的检查间隔
-	checkInterval := x.calculateCheckInterval(timeout)
-	ticker := time.NewTicker(checkInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			// 超时
-			return false
-		case <-ticker.C:
-			if atomic.LoadInt64(&x.activeOps) == 0 {
-				// 所有操作完成
-				return true
-			}
-		}
-	}
-}
-
-// calculateCheckInterval 根据超时时间计算合适的检查间隔
-// 优化性能：短超时使用更频繁的检查，长超时使用较少的检查
-func (x *SharedNode[T]) calculateCheckInterval(timeout time.Duration) time.Duration {
-	switch {
-	case timeout <= 1*time.Second:
-		return 10 * time.Millisecond // 短超时：10ms 检查
-	case timeout <= 5*time.Second:
-		return 50 * time.Millisecond // 中等超时：50ms 检查
-	default:
-		return 100 * time.Millisecond // 长超时：100ms 检查
-	}
-}
-
-// GetActiveOpsCount 获取当前活跃操作数量
-func (x *SharedNode[T]) GetActiveOpsCount() int64 {
-	return atomic.LoadInt64(&x.activeOps)
 }
 
 // zeroValue 函数用于返回 T 类型的零值
@@ -324,38 +330,3 @@ func zeroValue[T any]() T {
 	var zero T
 	return zero
 }
-
-// 使用示例：
-//
-// 在继承SharedNode的组件中：
-//
-// type MyNode struct {
-//     base.SharedNode[MyClient]
-//     // 其他字段...
-// }
-//
-// func (x *MyNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-//     defer x.SharedNode.EndOp()
-//     x.SharedNode.BeginOp()
-//
-//     if x.SharedNode.IsShuttingDown() {
-//         ctx.TellFailure(msg, errors.New("component is shutting down"))
-//         return
-//     }
-//
-//     client, err := x.SharedNode.Get()
-//     if err != nil {
-//         ctx.TellFailure(msg, err)
-//         return
-//     }
-//     // 使用client处理消息...
-// }
-//
-// func (x *MyNode) Destroy() {
-//     x.SharedNode.GracefulShutdown(0, func() {
-//         // 只在非资源池模式下关闭本地资源
-//         if x.localClient != nil {
-//             x.localClient.Close()
-//         }
-//     })
-// }

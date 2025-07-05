@@ -17,6 +17,7 @@
 package integration
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -65,7 +66,7 @@ func testTCPDelimiterWithJSTransformDSL(t *testing.T) {
 
 	// 启动DSL配置的服务器
 	ruleEngine := startDSLServer(t, "delimiterProcessor", dslConfig)
-	defer ruleEngine.Stop()
+	defer ruleEngine.Stop(context.Background())
 
 	time.Sleep(time.Millisecond * 300) // 等待服务器启动
 
@@ -151,7 +152,7 @@ func testTCPFixedLengthBinaryDSL(t *testing.T) {
 
 	// 启动DSL配置的服务器
 	ruleEngine := startDSLServer(t, "fixedLengthProcessor", dslConfig)
-	defer ruleEngine.Stop()
+	defer ruleEngine.Stop(context.Background())
 
 	time.Sleep(time.Millisecond * 300)
 
@@ -242,7 +243,7 @@ func testUDPTextCommunicationDSL(t *testing.T) {
 
 	// 启动DSL配置的服务器
 	ruleEngine := startDSLServer(t, "udpProcessor", dslConfig)
-	defer ruleEngine.Stop()
+	defer ruleEngine.Stop(context.Background())
 
 	time.Sleep(time.Millisecond * 300)
 
@@ -321,7 +322,7 @@ func testTCPLengthPrefixProtocolDSL(t *testing.T) {
 
 	// 启动DSL配置的服务器
 	ruleEngine := startDSLServer(t, "lengthPrefixProcessor", dslConfig)
-	defer ruleEngine.Stop()
+	defer ruleEngine.Stop(context.Background())
 
 	time.Sleep(time.Millisecond * 300)
 
@@ -396,7 +397,7 @@ func TestNetEndpointComplexScenarioDSL(t *testing.T) {
 
 	// 启动DSL配置的服务器
 	ruleEngine := startDSLServer(t, "complexProcessor", dslConfig)
-	defer ruleEngine.Stop()
+	defer ruleEngine.Stop(context.Background())
 
 	time.Sleep(time.Millisecond * 400)
 
@@ -472,7 +473,7 @@ func TestSimpleNetEndpointIntegrationDSL(t *testing.T) {
 
 	// 启动DSL配置的服务器
 	ruleEngine := startDSLServer(t, "simpleProcessor", dslConfig)
-	defer ruleEngine.Stop()
+	defer ruleEngine.Stop(context.Background())
 
 	// 等待服务器启动
 	time.Sleep(time.Millisecond * 400)
@@ -533,7 +534,7 @@ func TestNetEndpointHotReloadDSL(t *testing.T) {
 
 	// 启动DSL配置的服务器
 	ruleEngine := startDSLServer(t, "hotReloadProcessor", initialDSL)
-	defer ruleEngine.Stop()
+	defer ruleEngine.Stop(context.Background())
 
 	time.Sleep(time.Millisecond * 300) // 等待服务器启动
 
