@@ -712,6 +712,9 @@ func TestExecuteNode(t *testing.T) {
 	//更新规则链，groupFilter必须所有节点都满足True,才走True链
 	_ = ruleEngine.ReloadSelf([]byte(newChainJsonFile1))
 
+	// 等待规则链重新加载完成
+	time.Sleep(time.Millisecond * 200)
+
 	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, "false", msg.Metadata.GetValue("result"))
 	}))
