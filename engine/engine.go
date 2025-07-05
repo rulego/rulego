@@ -69,6 +69,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -267,6 +268,7 @@ type RuleEngine struct {
 	// reloadBackpressureEnabled enables/disables backpressure control
 	// reloadBackpressureEnabled 启用/禁用背压控制
 	reloadBackpressureEnabled bool
+	reloadLock                sync.Mutex
 }
 
 // NewRuleEngine creates a new RuleEngine instance with the given ID and definition.
@@ -476,16 +478,22 @@ func (e *RuleEngine) initChain(def types.RuleChain) error {
 // 返回：
 //   - error: Reload error if any  如果有的话，重载错误
 func (e *RuleEngine) ReloadSelf(dsl []byte, opts ...types.RuleEngineOption) error {
+	e.reloadLock.Lock()
+	defer e.reloadLock.Unlock()
+	return e.reloadSelf(dsl, opts...)
+}
+
+func (e *RuleEngine) reloadSelf(dsl []byte, opts ...types.RuleEngineOption) error {
 	// Apply the options to the RuleEngine.
 	// 将选项应用于 RuleEngine。
 	for _, opt := range opts {
 		_ = opt(e)
 	}
 
-	// Wait for any ongoing reload to complete before starting a new one
-	// 在开始新的重载前等待任何正在进行的重载完成
-	if err := e.waitForReloadComplete(); err != nil {
-		return err
+	// Check if engine is shutting down, if so, reject reload operation
+	// 检查引擎是否正在停机，如果是，拒绝重载操作
+	if e.IsShuttingDown() {
+		return types.ErrEngineShuttingDown
 	}
 
 	// Set reloading state to block new messages during reload
@@ -566,20 +574,19 @@ func (e *RuleEngine) waitForReloadComplete() error {
 // 返回：
 //   - error: Update error if any  如果有的话，更新错误
 func (e *RuleEngine) ReloadChild(ruleNodeId string, dsl []byte) error {
+	e.reloadLock.Lock()
+	defer e.reloadLock.Unlock()
+
 	if len(dsl) == 0 {
 		return types.ErrEngineDslEmpty
 	} else if e.rootRuleChainCtx == nil {
 		return types.ErrEngineNotInitialized
+	} else if e.IsShuttingDown() {
+		return types.ErrEngineShuttingDown
 	} else if ruleNodeId == "" {
 		//更新根规则链
-		return e.ReloadSelf(dsl)
+		return e.reloadSelf(dsl)
 	} else {
-		// Wait for any ongoing reload to complete before starting a new one
-		// 在开始新的重载前等待任何正在进行的重载完成
-		if err := e.waitForReloadComplete(); err != nil {
-			return err
-		}
-
 		// Set reloading state to block new messages during reload
 		// 设置重载状态以在重载期间阻塞新消息
 		e.SetReloading(true)
