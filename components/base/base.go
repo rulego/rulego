@@ -164,7 +164,6 @@ func (x *SharedNode[T]) Init(ruleConfig types.Config, nodeType, resourcePath str
 }
 
 // InitWithClose 初始化，支持自定义清理函数
-// 推荐与 GetSafely() 方法配合使用，提供完整的资源生命周期管理
 func (x *SharedNode[T]) InitWithClose(ruleConfig types.Config, nodeType, resourcePath string, initNow bool, initInstanceFunc func() (T, error), closeFunc func(T) error) error {
 	x.RuleConfig = ruleConfig
 	x.NodeType = nodeType
@@ -216,7 +215,7 @@ func (x *SharedNode[T]) GetInstance() (interface{}, error) {
 //	}
 //}
 
-// GetSafely 安全获取共享实例，使用双重检查锁定模式提高并发性能
+// GetSafely 安全获取共享实例，如果没有实例则初始化一个
 // 推荐新组件使用此方法进行资源管理。
 //
 // 使用说明：
@@ -323,6 +322,12 @@ func (x *SharedNode[T]) Close() error {
 // IsFromPool 是否从资源池获取
 func (x *SharedNode[T]) IsFromPool() bool {
 	return x.isFromPool
+}
+
+func (x *SharedNode[T]) Initialized() bool {
+	x.Locker.RLock()
+	defer x.Locker.RUnlock()
+	return x.clientInitialized
 }
 
 // zeroValue 函数用于返回 T 类型的零值
