@@ -74,7 +74,7 @@ func TestNetNode(t *testing.T) {
 	t.Run("OnMsg", func(t *testing.T) {
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"server":            "127.0.0.1:9999",
-			"heartbeatInterval": 1,
+			"heartbeatInterval": 5, // 增加心跳间隔以减少日志输出
 		}, Registry)
 		assert.Nil(t, err)
 
@@ -82,7 +82,7 @@ func TestNetNode(t *testing.T) {
 			"protocol":          "tcp",
 			"server":            "127.0.0.1:6666",
 			"connectTimeout":    60,
-			"heartbeatInterval": 1,
+			"heartbeatInterval": 0, // 禁用心跳以避免无限重连
 		}, Registry)
 		assert.Nil(t, err)
 
