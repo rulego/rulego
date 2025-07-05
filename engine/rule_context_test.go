@@ -115,7 +115,7 @@ func TestRuleContext(t *testing.T) {
 		ruleEngine.Stop(context.Background())
 
 		err = ruleEngine.ReloadChild("", []byte("{"))
-		assert.Equal(t, "unexpected end of JSON input", err.Error())
+		assert.Equal(t, "engine is shutting down", err.Error())
 		time.Sleep(time.Millisecond * 100)
 	})
 	t.Run("notEnd", func(t *testing.T) {
