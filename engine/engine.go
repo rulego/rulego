@@ -804,97 +804,18 @@ func (e *RuleEngine) Stop(ctx context.Context) {
 // This method ensures that message processing respects shutdown signals while preserving
 // user-provided context functionality.
 //
-// Context application strategy:
-// 上下文应用策略：
-//  1. If user hasn't provided custom context: use shutdown context directly
-//     如果用户没有提供自定义上下文：直接使用停机上下文
-//  2. If user provided custom context: combine both contexts
-//     如果用户提供了自定义上下文：组合两个上下文
-//     - Preserves user context values and behavior  保留用户上下文值和行为
-//     - Adds shutdown cancellation capability  添加停机取消能力
-//     - Cancellation triggers when either context is cancelled  任一上下文取消时触发取消
-//
-// This design ensures both user functionality and graceful shutdown work correctly together.
-//
 // applyShutdownContext 对规则上下文副本应用优雅停机上下文处理。
 // 此方法确保消息处理尊重停机信号，同时保留用户提供的上下文功能。
+//
+// Note: We no longer combine contexts to avoid goroutine leaks in high concurrency.
+// Shutdown signals are now checked via the shutdown signal channel, not context.
+// 注意：我们不再组合上下文以避免高并发时的 goroutine 泄漏。
+// 停机信号现在通过停机信号通道检查，而不是上下文。
 func (e *RuleEngine) applyShutdownContext(rootCtxCopy, rootCtx *DefaultRuleContext) {
-	shutdownCtx := e.GetShutdownContext()
-	if shutdownCtx == nil {
-		return
-	}
-
-	if rootCtxCopy.GetContext() == rootCtx.GetContext() {
-		// No custom context was set by user options, use shutdown context directly
-		// 用户选项没有设置自定义上下文，直接使用停机上下文
-		rootCtxCopy.SetContext(shutdownCtx)
-	} else {
-		// User provided custom context, combine it with shutdown context
-		// The combined context will be cancelled when either the user context or shutdown context is cancelled
-		// 用户提供了自定义上下文，将其与停机上下文组合
-		// 当用户上下文或停机上下文任一被取消时，组合上下文都会被取消
-		userCtx := rootCtxCopy.GetContext()
-		combinedCtx := e.combineContexts(userCtx, shutdownCtx)
-		rootCtxCopy.SetContext(combinedCtx)
-	}
-}
-
-// combineContexts creates a combined context that respects both user requirements and system shutdown.
-// This ensures that message processing can be cancelled by either:
-// 1. User-provided context cancellation (for user-specific timeouts/cancellation)
-// 2. System shutdown context cancellation (for graceful shutdown)
-//
-// The combined context inherits values from the user context while being cancellable
-// by either the user context or the shutdown context, whichever happens first.
-//
-// Implementation uses a separate goroutine to monitor both contexts,
-// ensuring the goroutine exits when either context is cancelled to prevent goroutine leaks.
-//
-// combineContexts 创建一个组合上下文，既尊重用户需求又响应系统停机。
-// 这确保消息处理可以被以下任一方式取消：
-// 1. 用户提供的上下文取消（用于用户特定的超时/取消）
-// 2. 系统停机上下文取消（用于优雅停机）
-//
-// 组合上下文继承用户上下文的值，同时可以被用户上下文或停机上下文取消，以先发生者为准。
-//
-// 实现使用单独的goroutine监控两个上下文，确保在任一上下文被取消时goroutine都能退出，防止goroutine泄漏。
-func (e *RuleEngine) combineContexts(userCtx, shutdownCtx context.Context) context.Context {
-	// Create a context that inherits from user context but can be cancelled independently
-	// 创建一个继承自用户上下文但可以独立取消的上下文
-	combinedCtx, cancel := context.WithCancel(userCtx)
-
-	// Monitor contexts to prevent goroutine leaks
-	// The goroutine will exit when any context is cancelled or timeout occurs
-	// 监控上下文以防止goroutine泄漏
-	// 当任一上下文被取消或超时发生时goroutine都会退出
-	go func() {
-		defer cancel() // Ensure cancel is always called
-
-		// Use a timeout as a safety net to prevent goroutine leaks
-		// even if contexts are never cancelled
-		// 使用超时作为安全网，即使上下文永远不被取消也能防止goroutine泄漏
-		timeout := 30 * time.Minute // Conservative timeout for long-running operations
-		timer := time.NewTimer(timeout)
-		defer timer.Stop()
-
-		select {
-		case <-shutdownCtx.Done():
-			// System shutdown signal received
-			// 收到系统停机信号
-		case <-userCtx.Done():
-			// User context cancelled (timeout, manual cancellation, etc.)
-			// 用户上下文被取消（超时、手动取消等）
-		case <-combinedCtx.Done():
-			// Combined context cancelled externally
-			// 组合上下文被外部取消
-		case <-timer.C:
-			// Safety timeout reached - this should rarely happen in normal operations
-			// 达到安全超时 - 在正常操作中这应该很少发生
-			e.Config.Logger.Printf("combineContexts monitor goroutine safety timeout reached")
-		}
-	}()
-
-	return combinedCtx
+	// Simply preserve user context without modification
+	// 简单地保留用户上下文而不进行修改
+	// User context is only used for user-specific functionality
+	// 用户上下文仅用于用户特定的功能
 }
 
 // incrementActiveMessages 增加活跃消息计数
@@ -1489,6 +1410,31 @@ func (e *RuleEngine) GetReloadWaitersStats() (maxWaiters int64, currentWaiters i
 	return atomic.LoadInt64(&e.maxConcurrentReloadWaiters),
 		atomic.LoadInt64(&e.currentReloadWaiters),
 		e.IsReloading()
+}
+
+// GetShutdownSignal returns the shutdown signal channel for checking shutdown requests.
+// Components can use this to detect when the engine is shutting down.
+//
+// GetShutdownSignal 返回用于检查停机请求的停机信号通道。
+// 组件可以使用此方法检测引擎何时正在停机。
+//
+// Returns:
+// 返回：
+//   - <-chan struct{}: Read-only channel that is closed when shutdown starts
+//     只读通道，在停机开始时关闭
+//
+// Usage Example:
+// 使用示例：
+//
+//	select {
+//	case <-engine.GetShutdownSignal():
+//	    // Handle shutdown
+//	    return fmt.Errorf("engine shutting down")
+//	default:
+//	    // Continue processing
+//	}
+func (e *RuleEngine) GetShutdownSignal() <-chan struct{} {
+	return e.GracefulShutdown.GetShutdownSignal()
 }
 
 // incrementReloadWaiters atomically increments the reload waiter count.

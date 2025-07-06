@@ -20,6 +20,7 @@ package base
 import (
 	"context"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -38,7 +39,7 @@ const DefaultShutdownTimeout = 10 * time.Second
 //
 // Key Features:
 // 主要特性：
-//   - Context-based shutdown signaling  基于上下文的停机信号
+//   - Channel-based shutdown signaling  基于通道的停机信号
 //   - Configurable shutdown timeout  可配置的停机超时
 //   - Atomic shutdown state management  原子停机状态管理
 //   - Thread-safe operations  线程安全操作
@@ -48,7 +49,7 @@ const DefaultShutdownTimeout = 10 * time.Second
 // 使用模式：
 //  1. Embed GracefulShutdown in your struct  在结构体中嵌入 GracefulShutdown
 //  2. Call InitGracefulShutdown() during initialization  在初始化期间调用 InitGracefulShutdown()
-//  3. Use GetShutdownContext() to check shutdown signals  使用 GetShutdownContext() 检查停机信号
+//  3. Use GetShutdownSignal() to check shutdown signals  使用 GetShutdownSignal() 检查停机信号
 //  4. Call GracefulStop() to initiate shutdown  调用 GracefulStop() 启动停机
 //  5. Override doStop() to implement custom cleanup  重写 doStop() 实现自定义清理
 //
@@ -61,10 +62,16 @@ const DefaultShutdownTimeout = 10 * time.Second
 //	所有操作都是线程安全的，可以从多个 goroutine 并发调用，
 //	无需额外的同步。
 type GracefulShutdown struct {
-	// shutdownCtx is the context for coordinating graceful shutdown
-	// shutdownCtx 是协调优雅停机的上下文
-	shutdownCtx    context.Context
-	shutdownCancel context.CancelFunc
+	// shutdownSignal is a channel that is closed when shutdown is initiated
+	// shutdownSignal 是一个在启动停机时关闭的通道
+	shutdownSignal chan struct{}
+	closeOnce      sync.Once
+	initOnce       sync.Once
+
+	// shutdownCtx is a context that is cancelled when shutdown is initiated, for backward compatibility.
+	shutdownCtx context.Context
+	// Used to lazily initialize shutdownCtx
+	ctxOnce sync.Once
 
 	// shutdownTimeout defines the maximum time to wait for graceful shutdown
 	// shutdownTimeout 定义优雅停机的最大等待时间
@@ -105,31 +112,57 @@ func (g *GracefulShutdown) InitGracefulShutdown(logger types.Logger, timeout tim
 
 	g.shutdownTimeout = timeout
 	g.logger = logger
-	g.shutdownCtx, g.shutdownCancel = context.WithCancel(context.Background())
+	g.shutdownSignal = make(chan struct{})
 	atomic.StoreInt32(&g.isShuttingDown, 0)
+	// Reset Once instances to allow re-initialization
+	g.initOnce = sync.Once{}
+	g.closeOnce = sync.Once{}
+	g.ctxOnce = sync.Once{}
+	g.shutdownCtx = nil
 }
 
-// GetShutdownContext returns the shutdown context for checking shutdown signals.
-// Components can use this context to detect when shutdown has been initiated.
+// GetShutdownSignal returns the shutdown signal channel for checking shutdown signals.
+// Components can use this channel to detect when shutdown has been initiated.
 //
-// GetShutdownContext 返回用于检查停机信号的停机上下文。
-// 组件可以使用此上下文来检测何时启动了停机。
+// GetShutdownSignal 返回用于检查停机信号的停机信号通道。
+// 组件可以使用此通道来检测何时启动了停机。
 //
 // Returns:
 // 返回：
-//   - context.Context: Context that is canceled when shutdown starts  停机开始时取消的上下文
+//   - <-chan struct{}: Read-only channel that is closed when shutdown starts  停机开始时关闭的只读通道
 //
 // Usage Example:
 // 使用示例：
 //
 //	select {
-//	case <-g.GetShutdownContext().Done():
+//	case <-g.GetShutdownSignal():
 //	    // Handle shutdown signal
 //	    return fmt.Errorf("shutdown requested")
 //	default:
 //	    // Continue normal operation
 //	}
+func (g *GracefulShutdown) GetShutdownSignal() <-chan struct{} {
+	g.lazyInit()
+	return g.shutdownSignal
+}
+
+// GetShutdownContext is deprecated. Use GetShutdownSignal() instead.
+// 已弃用。请使用 GetShutdownSignal()。
 func (g *GracefulShutdown) GetShutdownContext() context.Context {
+	// For backward compatibility, return a context that is cancelled when shutdown signal is closed
+	// 为了向后兼容，返回一个在停机信号关闭时取消的上下文
+	g.lazyInit()
+	g.ctxOnce.Do(func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		g.shutdownCtx = ctx
+
+		// This single goroutine will be created only once per initialization
+		// and will terminate when the shutdown signal is triggered.
+		go func() {
+			<-g.shutdownSignal
+			cancel()
+		}()
+	})
 	return g.shutdownCtx
 }
 
@@ -148,11 +181,11 @@ func (g *GracefulShutdown) IsShuttingDown() bool {
 
 // GracefulStop initiates graceful shutdown with two-phase design.
 // Phase 1: Sets shutdown flag to reject new operations but allows ongoing operations to complete.
-// Phase 2: Only cancels context after timeout to force interrupt ongoing operations.
+// Phase 2: Closes the shutdown signal channel after all operations complete or timeout.
 //
 // GracefulStop 启动两阶段优雅停机。
 // 第一阶段：设置停机标志拒绝新操作，但允许正在进行的操作完成。
-// 第二阶段：只有在超时后才取消上下文强制中断正在进行的操作。
+// 第二阶段：在所有操作完成或超时后关闭停机信号通道。
 //
 // Parameters:
 // 参数：
@@ -163,7 +196,7 @@ func (g *GracefulShutdown) IsShuttingDown() bool {
 // 优雅停机过程：
 //  1. Sets shutdown flag to prevent new operations  设置停机标志以防止新操作
 //  2. Waits for ongoing operations to complete  等待正在进行的操作完成
-//  3. Only cancels context if timeout is exceeded  只有超时时才取消上下文
+//  3. Closes shutdown signal channel  关闭停机信号通道
 //  4. Calls stopFunc() for cleanup  调用 stopFunc() 进行清理
 func (g *GracefulShutdown) GracefulStop(stopFunc func()) {
 	// 如果已经在停机，直接返回
@@ -176,18 +209,23 @@ func (g *GracefulShutdown) GracefulStop(stopFunc func()) {
 	if stopFunc != nil {
 		stopFunc()
 	}
+
+	// 关闭停机信号通道（stopFunc 应该负责等待逻辑）
+	g.ForceStop()
 }
 
-// ForceStop immediately cancels the shutdown context to interrupt all ongoing operations.
+// ForceStop immediately closes the shutdown signal to interrupt all ongoing operations.
 // This should only be called after graceful shutdown timeout.
 //
-// ForceStop 立即取消停机上下文以中断所有正在进行的操作。
+// ForceStop 立即关闭停机信号以中断所有正在进行的操作。
 // 这应该只在优雅停机超时后调用。
 func (g *GracefulShutdown) ForceStop() {
-	// 强制取消上下文，中断所有正在进行的操作
-	if g.shutdownCancel != nil {
-		g.shutdownCancel()
-	}
+	g.closeOnce.Do(func() {
+		// 关闭停机信号通道，通知所有监听者
+		if g.shutdownSignal != nil {
+			close(g.shutdownSignal)
+		}
+	})
 }
 
 // CheckShutdownSignal is a convenience method for components to check shutdown signals.
@@ -207,20 +245,19 @@ func (g *GracefulShutdown) ForceStop() {
 //	    return err // Exit the operation
 //	}
 func (g *GracefulShutdown) CheckShutdownSignal() error {
+	g.lazyInit()
 	// First check if shutdown flag is set (phase 1 of graceful shutdown)
 	// 首先检查停机标志是否已设置（优雅停机的第一阶段）
 	if atomic.LoadInt32(&g.isShuttingDown) == 1 {
 		return fmt.Errorf("operation cancelled due to shutdown")
 	}
 
-	// Also check if context has been cancelled (phase 2 of graceful shutdown)
-	// 同时检查上下文是否已被取消（优雅停机的第二阶段）
-	if g.shutdownCtx != nil {
-		select {
-		case <-g.shutdownCtx.Done():
-			return fmt.Errorf("operation cancelled due to shutdown")
-		default:
-		}
+	// Also check shutdown signal
+	g.lazyInit()
+	select {
+	case <-g.shutdownSignal:
+		return fmt.Errorf("operation cancelled due to shutdown")
+	default:
 	}
 	return nil
 }
@@ -246,6 +283,7 @@ func (g *GracefulShutdown) CheckShutdownSignal() error {
 //	    return err
 //	}
 func (g *GracefulShutdown) CheckShutdownContext(ctx context.Context) error {
+	// Check the provided context for cancellation
 	if ctx != nil {
 		select {
 		case <-ctx.Done():
@@ -253,6 +291,15 @@ func (g *GracefulShutdown) CheckShutdownContext(ctx context.Context) error {
 		default:
 		}
 	}
+
+	// Also check shutdown signal
+	g.lazyInit()
+	select {
+	case <-g.shutdownSignal:
+		return fmt.Errorf("operation cancelled due to shutdown")
+	default:
+	}
+
 	return nil
 }
 
@@ -608,4 +655,24 @@ func (g *GracefulShutdown) WaitForReloadComplete(timeout time.Duration) bool {
 			}
 		}
 	}
+}
+
+// lazyInit ensures that the graceful shutdown mechanism is initialized.
+// This prevents panics when methods are called on a non-initialized instance.
+func (g *GracefulShutdown) lazyInit() {
+	// Use initOnce for thread-safe lazy initialization.
+	g.initOnce.Do(func() {
+		if g.shutdownSignal == nil {
+			// This is equivalent to calling InitGracefulShutdown with default values,
+			// but without resetting g.initOnce, which would cause a panic.
+			if g.shutdownTimeout == 0 {
+				g.shutdownTimeout = DefaultShutdownTimeout
+			}
+			g.shutdownSignal = make(chan struct{})
+			atomic.StoreInt32(&g.isShuttingDown, 0)
+			g.closeOnce = sync.Once{}
+			g.ctxOnce = sync.Once{}
+			g.shutdownCtx = nil
+		}
+	})
 }

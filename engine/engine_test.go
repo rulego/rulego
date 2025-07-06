@@ -362,7 +362,7 @@ func TestRuleChainDebugMode(t *testing.T) {
 	atomic.StoreInt32(&outTimes, 0)
 	//处理消息并得到处理结果
 	ruleEngine.OnMsg(msg)
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond * 200)
 
 	assert.Equal(t, int32(1), atomic.LoadInt32(&inTimes))
 	assert.Equal(t, int32(1), atomic.LoadInt32(&outTimes))

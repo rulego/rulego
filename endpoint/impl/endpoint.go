@@ -56,6 +56,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/rulego/rulego/components/base"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/engine"
@@ -666,6 +668,9 @@ type BaseEndpoint struct {
 	OnEvent endpoint.OnEvent
 	//全局拦截器 - 导出字段，允许直接访问以避免锁竞争  Global interceptors - exported field for direct access to avoid lock contention  全局拦截器
 	Interceptors []endpoint.Process
+	// GracefulShutdown provides graceful shutdown capabilities
+	// GracefulShutdown 提供优雅停机功能
+	base.GracefulShutdown
 	sync.RWMutex
 }
 
@@ -729,77 +734,55 @@ func (e *BaseEndpoint) AddInterceptors(interceptors ...endpoint.Process) {
 // during concurrent interceptor modifications.
 // 此方法创建拦截器的线程安全副本，以避免并发拦截器修改期间的竞态条件。
 func (e *BaseEndpoint) DoProcess(baseCtx context.Context, router endpoint.Router, exchange *endpoint.Exchange) {
-	// Check if context is already cancelled before starting processing
-	// 在开始处理前检查上下文是否已被取消
-	if baseCtx != nil {
-		select {
-		case <-baseCtx.Done():
-			// Context cancelled, set error and return early
-			// 上下文已取消，设置错误并提前返回
-			exchange.Out.SetError(fmt.Errorf("processing cancelled: %w", baseCtx.Err()))
-			return
-		default:
+	// 检查优雅停机信号和上下文取消
+	if err := e.GracefulShutdown.CheckShutdownContext(baseCtx); err != nil {
+		if exchange.Out.GetError() == nil {
+			exchange.Out.SetError(err)
 		}
+		return
 	}
 
-	//创建上下文  Create context  创建上下文
 	ctx := e.createContext(baseCtx, router, exchange)
 
-	// 线程安全地获取拦截器副本  Thread-safely get interceptor copy  线程安全地获取拦截器副本
 	e.RLock()
 	interceptors := make([]endpoint.Process, len(e.Interceptors))
 	copy(interceptors, e.Interceptors)
 	e.RUnlock()
 
 	for _, item := range interceptors {
-		// Check for context cancellation before each interceptor
-		// 在每个拦截器前检查上下文取消
-		if ctx != nil {
-			select {
-			case <-ctx.Done():
-				exchange.Out.SetError(fmt.Errorf("processing cancelled during interceptor: %w", ctx.Err()))
-				return
-			default:
+		// 检查优雅停机信号和上下文取消
+		if err := e.GracefulShutdown.CheckShutdownContext(ctx); err != nil {
+			if exchange.Out.GetError() == nil {
+				exchange.Out.SetError(err)
 			}
+			return
 		}
-
-		//执行全局拦截器  Execute global interceptors  执行全局拦截器
 		if !item(router, exchange) {
 			return
 		}
 	}
 
-	// Check for context cancellation before From processing
-	// 在 From 处理前检查上下文取消
-	if ctx != nil {
-		select {
-		case <-ctx.Done():
-			exchange.Out.SetError(fmt.Errorf("processing cancelled before From: %w", ctx.Err()))
-			return
-		default:
-		}
-	}
-
-	//执行from端逻辑  Execute From endpoint logic  执行 From 端逻辑
 	if fromFlow := router.GetFrom(); fromFlow != nil {
+		// 检查优雅停机信号和上下文取消
+		if err := e.GracefulShutdown.CheckShutdownContext(ctx); err != nil {
+			if exchange.Out.GetError() == nil {
+				exchange.Out.SetError(err)
+			}
+			return
+		}
 		if !fromFlow.ExecuteProcess(router, exchange) {
 			return
 		}
 	}
 
-	// Check for context cancellation before To processing
-	// 在 To 处理前检查上下文取消
-	if ctx != nil {
-		select {
-		case <-ctx.Done():
-			exchange.Out.SetError(fmt.Errorf("processing cancelled before To: %w", ctx.Err()))
-			return
-		default:
-		}
-	}
-
-	//执行to端逻辑  Execute To endpoint logic  执行 To 端逻辑
 	if router.GetFrom() != nil && router.GetFrom().GetTo() != nil {
+		// 检查优雅停机信号和上下文取消
+		if err := e.GracefulShutdown.CheckShutdownContext(ctx); err != nil {
+			if exchange.Out.GetError() == nil {
+				exchange.Out.SetError(err)
+			}
+			return
+		}
 		router.GetFrom().GetTo().Execute(ctx, exchange)
 	}
 }
@@ -817,7 +800,6 @@ func (e *BaseEndpoint) createContext(baseCtx context.Context, router endpoint.Ro
 	} else {
 		return context.Background()
 	}
-
 }
 
 func (e *BaseEndpoint) CheckAndSetRouterId(router endpoint.Router) string {

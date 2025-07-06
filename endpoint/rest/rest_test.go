@@ -2,6 +2,13 @@ package rest
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/components/action"
@@ -10,12 +17,6 @@ import (
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
-	"net/http"
-	"os"
-	"reflect"
-	"sync"
-	"testing"
-	"time"
 )
 
 var testdataFolder = "../../testdata/rule"
