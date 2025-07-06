@@ -818,6 +818,13 @@ func (e *RuleEngine) Stop(ctx context.Context) {
 //
 // applyShutdownContext 对规则上下文副本应用优雅停机上下文处理。
 // 此方法确保消息处理尊重停机信号，同时保留用户提供的上下文功能。
+// applyShutdownContext applies shutdown context handling to the rule context.
+// This method now only preserves context values from user context while using shutdown context for cancellation.
+// The user context cancellation feature has been removed to prevent goroutine leaks in high concurrency scenarios.
+//
+// applyShutdownContext 将停机上下文处理应用到规则上下文。
+// 此方法现在只保留用户上下文的值，同时使用停机上下文进行取消。
+// 已移除用户上下文取消功能以防止高并发场景下的协程泄漏。
 func (e *RuleEngine) applyShutdownContext(rootCtxCopy, rootCtx *DefaultRuleContext) {
 	shutdownCtx := e.GetShutdownContext()
 	if shutdownCtx == nil {
@@ -829,72 +836,60 @@ func (e *RuleEngine) applyShutdownContext(rootCtxCopy, rootCtx *DefaultRuleConte
 		// 用户选项没有设置自定义上下文，直接使用停机上下文
 		rootCtxCopy.SetContext(shutdownCtx)
 	} else {
-		// User provided custom context, combine it with shutdown context
-		// The combined context will be cancelled when either the user context or shutdown context is cancelled
-		// 用户提供了自定义上下文，将其与停机上下文组合
-		// 当用户上下文或停机上下文任一被取消时，组合上下文都会被取消
+		// User provided custom context, preserve its values but use shutdown context for cancellation
+		// This prevents goroutine leaks while maintaining context value inheritance
+		// 用户提供了自定义上下文，保留其值但使用停机上下文进行取消
+		// 这防止了协程泄漏同时保持上下文值继承
 		userCtx := rootCtxCopy.GetContext()
-		combinedCtx := e.combineContexts(userCtx, shutdownCtx)
+		combinedCtx := e.combineContextsValueOnly(userCtx, shutdownCtx)
 		rootCtxCopy.SetContext(combinedCtx)
 	}
 }
 
-// combineContexts creates a combined context that respects both user requirements and system shutdown.
-// This ensures that message processing can be cancelled by either:
-// 1. User-provided context cancellation (for user-specific timeouts/cancellation)
-// 2. System shutdown context cancellation (for graceful shutdown)
+// combineContextsValueOnly creates a context that inherits values from user context
+// but uses shutdown context for cancellation only. This prevents goroutine leaks
+// that occurred in the previous implementation while preserving context value inheritance.
 //
-// The combined context inherits values from the user context while being cancellable
-// by either the user context or the shutdown context, whichever happens first.
+// The returned context:
+// 1. Inherits all values from the user context
+// 2. Can only be cancelled by the shutdown context (not user context)
+// 3. Does not create any monitoring goroutines
 //
-// Implementation uses a separate goroutine to monitor both contexts,
-// ensuring the goroutine exits when either context is cancelled to prevent goroutine leaks.
+// combineContextsValueOnly 创建一个从用户上下文继承值但仅使用停机上下文进行取消的上下文。
+// 这防止了之前实现中出现的协程泄漏，同时保留了上下文值继承。
 //
-// combineContexts 创建一个组合上下文，既尊重用户需求又响应系统停机。
-// 这确保消息处理可以被以下任一方式取消：
-// 1. 用户提供的上下文取消（用于用户特定的超时/取消）
-// 2. 系统停机上下文取消（用于优雅停机）
-//
-// 组合上下文继承用户上下文的值，同时可以被用户上下文或停机上下文取消，以先发生者为准。
-//
-// 实现使用单独的goroutine监控两个上下文，确保在任一上下文被取消时goroutine都能退出，防止goroutine泄漏。
-func (e *RuleEngine) combineContexts(userCtx, shutdownCtx context.Context) context.Context {
-	// Create a context that inherits from user context but can be cancelled independently
-	// 创建一个继承自用户上下文但可以独立取消的上下文
-	combinedCtx, cancel := context.WithCancel(userCtx)
+// 返回的上下文：
+// 1. 从用户上下文继承所有值
+// 2. 只能被停机上下文取消（不能被用户上下文取消）
+// 3. 不创建任何监控协程
+func (e *RuleEngine) combineContextsValueOnly(userCtx, shutdownCtx context.Context) context.Context {
+	// Create a value-only context that inherits values from user context
+	// but uses shutdown context for cancellation
+	// 创建一个仅值上下文，从用户上下文继承值但使用停机上下文进行取消
+	return &valueOnlyContext{
+		Context:  shutdownCtx,
+		valueCtx: userCtx,
+	}
+}
 
-	// Monitor contexts to prevent goroutine leaks
-	// The goroutine will exit when any context is cancelled or timeout occurs
-	// 监控上下文以防止goroutine泄漏
-	// 当任一上下文被取消或超时发生时goroutine都会退出
-	go func() {
-		defer cancel() // Ensure cancel is always called
+// valueOnlyContext is a context implementation that inherits values from one context
+// but uses another context for cancellation and deadlines.
+// valueOnlyContext 是一个上下文实现，从一个上下文继承值但使用另一个上下文进行取消和截止时间。
+type valueOnlyContext struct {
+	context.Context                 // Used for cancellation and deadlines 用于取消和截止时间
+	valueCtx        context.Context // Used for values 用于值
+}
 
-		// Use a timeout as a safety net to prevent goroutine leaks
-		// even if contexts are never cancelled
-		// 使用超时作为安全网，即使上下文永远不被取消也能防止goroutine泄漏
-		timeout := 30 * time.Minute // Conservative timeout for long-running operations
-		timer := time.NewTimer(timeout)
-		defer timer.Stop()
-
-		select {
-		case <-shutdownCtx.Done():
-			// System shutdown signal received
-			// 收到系统停机信号
-		case <-userCtx.Done():
-			// User context cancelled (timeout, manual cancellation, etc.)
-			// 用户上下文被取消（超时、手动取消等）
-		case <-combinedCtx.Done():
-			// Combined context cancelled externally
-			// 组合上下文被外部取消
-		case <-timer.C:
-			// Safety timeout reached - this should rarely happen in normal operations
-			// 达到安全超时 - 在正常操作中这应该很少发生
-			e.Config.Logger.Printf("combineContexts monitor goroutine safety timeout reached")
-		}
-	}()
-
-	return combinedCtx
+// Value returns the value associated with this context for key, or nil
+// if no value is associated with key. It first checks the value context,
+// then falls back to the cancellation context.
+// Value 返回与此上下文中键关联的值，如果没有与键关联的值则返回nil。
+// 它首先检查值上下文，然后回退到取消上下文。
+func (c *valueOnlyContext) Value(key interface{}) interface{} {
+	if val := c.valueCtx.Value(key); val != nil {
+		return val
+	}
+	return c.Context.Value(key)
 }
 
 // incrementActiveMessages 增加活跃消息计数
