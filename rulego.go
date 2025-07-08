@@ -254,8 +254,8 @@ func Range(f func(key, value any) bool) {
 // NewConfig creates a new Config and applies the options.
 func NewConfig(opts ...types.Option) types.Config {
 	config := engine.NewConfig(opts...)
-	if config.NetPool == nil {
-		config.NetPool = node_pool.DefaultNodePool
+	if config.NodePool == nil {
+		config.NodePool = node_pool.DefaultNodePool
 	}
 	return config
 }

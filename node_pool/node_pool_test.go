@@ -74,7 +74,7 @@ func TestLoadFromRuleChain(t *testing.T) {
 
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 	assert.Equal(t, 0, len(pool.GetAll()))
 	ctx, err := pool.Load(dsl)
 	assert.NotNil(t, ctx)
@@ -132,7 +132,7 @@ func TestEndpointPool(t *testing.T) {
 
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 	assert.Equal(t, 0, len(pool.GetAll()))
 	var def types.EndpointDsl
 	_ = json.Unmarshal(dsl1, &def)
@@ -212,7 +212,7 @@ func TestRuleNodePool(t *testing.T) {
 
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 	assert.Equal(t, 0, len(pool.GetAll()))
 	nodeDef, err := config.Parser.DecodeRuleNode(dsl1)
 	ctx, err := pool.NewFromRuleNode(nodeDef)
@@ -279,7 +279,7 @@ func TestEngineFromNetPool(t *testing.T) {
 
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 	assert.Equal(t, 0, len(pool.GetAll()))
 	nodeDef, err := config.Parser.DecodeRuleNode(dsl1)
 	ctx, err := pool.NewFromRuleNode(nodeDef)
@@ -366,7 +366,7 @@ func TestEngineFromNetPool(t *testing.T) {
 func TestSharedNodeLifecycleManagement(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	// 创建共享MQTT节点
 	var mqttNodeDsl = []byte(`{
@@ -430,7 +430,7 @@ func TestSharedNodeLifecycleManagement(t *testing.T) {
 func TestMultipleReferenceIndependence(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	// 创建共享MQTT节点
 	var mqttNodeDsl = []byte(`{
@@ -519,7 +519,7 @@ func TestMultipleReferenceIndependence(t *testing.T) {
 func TestSharedResourceRestartImpact(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	// 创建共享MQTT节点
 	var mqttNodeDsl = []byte(`{
@@ -615,7 +615,7 @@ func TestSharedResourceRestartImpact(t *testing.T) {
 func TestConcurrentSharedResourceAccess(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	// 创建共享MQTT节点
 	var mqttNodeDsl = []byte(`{
@@ -715,7 +715,7 @@ func TestConcurrentSharedResourceAccess(t *testing.T) {
 func TestGracefulShutdownBehavior(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	t.Run("SharedResourceGracefulShutdown", func(t *testing.T) {
 		// 创建共享节点
@@ -856,7 +856,7 @@ func TestGracefulShutdownBehavior(t *testing.T) {
 func TestSharedNodeGetSafelyAPI(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	t.Run("GetSafelyConcurrentAccess", func(t *testing.T) {
 		// 创建共享MQTT节点
@@ -1006,7 +1006,7 @@ func TestSharedNodeGetSafelyAPI(t *testing.T) {
 func TestSharedNodeResourceManagement(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	t.Run("ResourceCleanupOnError", func(t *testing.T) {
 		// 测试初始化错误时的资源清理
@@ -1165,7 +1165,7 @@ func TestSharedNodeResourceManagement(t *testing.T) {
 func TestSharedNodeLockOptimization(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	t.Run("ReadWriteLockBehavior", func(t *testing.T) {
 		// 创建共享节点

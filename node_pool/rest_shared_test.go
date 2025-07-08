@@ -34,7 +34,7 @@ import (
 func TestRestSharedNodeBasicOperations(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	// 子测试1：基本SharedNode功能
 	t.Run("BasicSharedNodeFunctionality", func(t *testing.T) {
@@ -131,7 +131,7 @@ func TestRestSharedNodeBasicOperations(t *testing.T) {
 func TestRestSharedNodeLifecycleManagement(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	// 子测试1：重启功能测试
 	t.Run("RestartFunctionality", func(t *testing.T) {
@@ -250,7 +250,7 @@ func TestRestSharedNodeLifecycleManagement(t *testing.T) {
 func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	// 子测试1：路由功能测试
 	t.Run("RouteFunctionality", func(t *testing.T) {
@@ -361,7 +361,7 @@ func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
 func TestRestSharedNodeWithRefProtocol(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	// 子测试1：基本ref://引用功能
 	t.Run("BasicRefProtocol", func(t *testing.T) {
@@ -530,7 +530,7 @@ func TestRestSharedNodeDynamicRestart(t *testing.T) {
 
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
-	config.NetPool = pool
+	config.NodePool = pool
 
 	// 创建共享节点
 	var def types.EndpointDsl

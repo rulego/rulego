@@ -125,7 +125,7 @@ func NewRuleEngineServiceAndInitRuleGo(c config.Config, username string) (*RuleE
 	ruleConfig := rulego.NewConfig(types.WithDefaultPool(),
 		types.WithLogger(logger.Logger),
 		types.WithComponentsRegistry(componentRegistry),
-		types.WithNetPool(node_pool.DefaultNodePool))
+		types.WithNodePool(node_pool.DefaultNodePool))
 	ruleConfig.Logger.Printf("init %s data", username)
 
 	service, err := NewRuleEngineService(c, ruleConfig, username)
