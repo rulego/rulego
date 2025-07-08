@@ -412,15 +412,17 @@ func (e *DynamicEndpoint) GetRuleChain() *types.RuleChain {
 
 // newEndpoint creates a new Endpoint with the provided DSL.
 func (e *DynamicEndpoint) newEndpoint(dsl types.EndpointDsl) error {
-	if dsl.Configuration == nil {
-		dsl.Configuration = make(types.Configuration)
+	var configuration = make(types.Configuration)
+	if dsl.Configuration != nil {
+		configuration = dsl.Configuration.Copy()
 	}
 	//注入完整的规则链定义
 	def := e.GetRuleChain()
+
 	if def != nil {
-		dsl.Configuration[types.NodeConfigurationKeyRuleChainDefinition] = def
+		configuration[types.NodeConfigurationKeyRuleChainDefinition] = def
 	}
-	if ep, err := Registry.New(dsl.Type, e.ruleConfig, dsl.Configuration); err != nil {
+	if ep, err := Registry.New(dsl.Type, e.ruleConfig, configuration); err != nil {
 		return err
 	} else {
 		e.Endpoint = ep
