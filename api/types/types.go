@@ -207,6 +207,30 @@ type OnEndFunc = func(ctx RuleContext, msg RuleMsg, err error, relationType stri
 //	}
 type Configuration map[string]interface{}
 
+// Copy creates a shallow copy of the Configuration.
+// Copy 创建 Configuration 的浅拷贝。
+//
+// This method creates a new Configuration map and copies all key-value pairs from the original.
+// Note that this is a shallow copy - if values are pointers or reference types,
+// they will still reference the same underlying data.
+// 此方法创建一个新的 Configuration 映射并从原始映射复制所有键值对。
+// 注意这是浅拷贝 - 如果值是指针或引用类型，它们仍将引用相同的底层数据。
+//
+// Returns:
+// 返回值：
+//   - Configuration: A new Configuration containing copies of all key-value pairs
+//     Configuration：包含所有键值对副本的新 Configuration
+func (c Configuration) Copy() Configuration {
+	if c == nil {
+		return nil
+	}
+	copy := make(Configuration, len(c))
+	for key, value := range c {
+		copy[key] = value
+	}
+	return copy
+}
+
 // ComponentType is an enum for component types: rule nodes or sub-rule chains.
 // ComponentType 是组件类型的枚举：规则节点或子规则链。
 //
