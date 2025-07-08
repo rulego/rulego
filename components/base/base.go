@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	ErrNetPoolNil    = errors.New("node pool is nil")
+	ErrNodePoolNil   = errors.New("node pool is nil")
 	ErrClientNotInit = errors.New("client not init")
 )
 
@@ -72,12 +72,12 @@ func (n *nodeUtils) GetEvnAndMetadata(ctx types.RuleContext, msg types.RuleMsg) 
 	return n.getEvnAndMetadata(ctx, msg, true)
 }
 
-func (n *nodeUtils) IsNetPool(config types.Config, server string) bool {
+func (n *nodeUtils) IsNodePool(config types.Config, server string) bool {
 	return strings.HasPrefix(server, types.NodeConfigurationPrefixInstanceId)
 }
 
 func (n *nodeUtils) GetInstanceId(config types.Config, server string) string {
-	if n.IsNetPool(config, server) {
+	if n.IsNodePool(config, server) {
 		//截取资源ID
 		return server[len(types.NodeConfigurationPrefixInstanceId):]
 	}
@@ -199,10 +199,10 @@ func (x *SharedNode[T]) GetInstance() (interface{}, error) {
 //func (x *SharedNode[T]) Get() (T, error) {
 //	if x.InstanceId != "" {
 //		//从网络资源池获取
-//		if x.RuleConfig.NetPool == nil {
-//			return zeroValue[T](), ErrNetPoolNil
+//		if x.RuleConfig.NodePool == nil {
+//			return zeroValue[T](), ErrNodePoolNil
 //		}
-//		if p, err := x.RuleConfig.NetPool.GetInstance(x.InstanceId); err == nil {
+//		if p, err := x.RuleConfig.NodePool.GetInstance(x.InstanceId); err == nil {
 //			return p.(T), nil
 //		} else {
 //			return zeroValue[T](), err
@@ -225,10 +225,10 @@ func (x *SharedNode[T]) GetInstance() (interface{}, error) {
 func (x *SharedNode[T]) GetSafely() (T, error) {
 	if x.InstanceId != "" {
 		//从网络资源池获取
-		if x.RuleConfig.NetPool == nil {
-			return zeroValue[T](), ErrNetPoolNil
+		if x.RuleConfig.NodePool == nil {
+			return zeroValue[T](), ErrNodePoolNil
 		}
-		if p, err := x.RuleConfig.NetPool.GetInstance(x.InstanceId); err == nil {
+		if p, err := x.RuleConfig.NodePool.GetInstance(x.InstanceId); err == nil {
 			return p.(T), nil
 		} else {
 			return zeroValue[T](), err

@@ -141,8 +141,8 @@ func WithPool(pool Pool) Option {
 	}
 }
 
-// WithNetPool is an option that sets the netPool of the Config.
-// WithNetPool 是设置 Config 网络池的选项。
+// WithNodePool is an option that sets the netPool of the Config.
+// WithNodePool 是设置 Config 网络池的选项。
 //
 // The network pool manages shared network resources like HTTP clients, database connections,
 // and message queue connections across multiple rule chains. This enables resource reuse
@@ -167,9 +167,9 @@ func WithPool(pool Pool) Option {
 //     数据库连接池
 //   - Message queue connection sharing
 //     消息队列连接共享
-func WithNetPool(pool NodePool) Option {
+func WithNodePool(pool NodePool) Option {
 	return func(c *Config) error {
-		c.NetPool = pool
+		c.NodePool = pool
 		return nil
 	}
 }

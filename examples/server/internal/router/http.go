@@ -40,7 +40,7 @@ var SystemNodePool *node_pool.NodePool
 func InitRulegoConfig() {
 	SystemRulegoConfig = rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger.Logger))
 	SystemNodePool = node_pool.NewNodePool(SystemRulegoConfig)
-	SystemRulegoConfig.NetPool = SystemNodePool
+	SystemRulegoConfig.NodePool = SystemNodePool
 }
 
 // NewRestServe rest服务 接收端点

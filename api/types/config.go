@@ -207,8 +207,8 @@ type Config struct {
 	//	  }]
 	//	}
 	EndpointEnabled bool
-	// NetPool is the interface for a shared Component Pool.
-	// NetPool 是共享组件池的接口。
+	// NodePool is the interface for a shared Component Pool.
+	// NodePool 是共享组件池的接口。
 	//
 	// The network pool manages shared network resources such as HTTP clients,
 	// database connections, and message queue connections across multiple rule chains.
@@ -216,7 +216,7 @@ type Config struct {
 	// 网络池管理多个规则链间的共享网络资源，
 	// 如 HTTP 客户端、数据库连接和消息队列连接。
 	// 这支持资源重用和连接池以提高性能。
-	NetPool NodePool
+	NodePool NodePool
 	// NodeClientInitNow indicates whether to initialize the net client node immediately after creation.
 	//True: During the component's Init phase, the client connection is established. If the client initialization fails, the rule chain initialization fails.
 	//False: During the component's OnMsg phase, the client connection is established.
