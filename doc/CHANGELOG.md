@@ -1,4 +1,50 @@
 # CHANGELOG
+
+# [v0.32.0] 2025/07/11
+
+### rulego-core
+- feat: endpoint/http restApiCall支持无感切换成fasthttp实现
+- feat: endpoint配置支持变量替换
+- feat: 规则引擎重载增加错误恢复机制
+- feat: 规则引擎增加优雅关闭
+- feat: 增加消息传递的写时复制(Copy-on-Write)机制
+- feat: RuleMsg增加zero-copy API
+- feat: RuleMsg消息负荷使用[]byte代替string
+- feat: 脚本组件支持处理字节数组输入
+- feat(endpoint/http): 增加读写超时配置
+- feat(endpoint/ws): 改进事件注册
+- feat(endpoint/net): 支持多种拆包配置
+- fix: 修复多个组件OnMsg和Destroy方法之间的竞态条件
+- fix: 修复表达式引擎`vm.VM`并发故障问题
+- fix: 增强ReloadChild和ReloadSelf方法保护
+- fix: 修复endpoint Marshal DSL循环依赖问题
+- fix: 修复groupAction、groupFilter数据竞争
+- fix(endpoint/mqtt): MaxReconnectInterval支持秒数配置方法
+- refactor: 组件配置字段名优先从JSON tag获取
+- refactor: 优化exprFilter组件初始化错误
+- refactor: 改进restApiCall组件代理逻辑
+- refactor: 将Config NetPool字段重命名为NodePool
+- refactor: 不在支持直接访问msg.Data，使用msg.GetData()和msg.SetData('')代替
+- perf: 脚本组件增加智能直通模式
+- perf: 简化共享节点组件实现
+- perf: 使用对象池优化DefaultRuleContext
+- perf: 优化表达式获取变量性能
+- perf: 所有组件和测试用例通过`-race`模式测试
+- perf: 完善代码注释
+- perf: 增加更多的示例和测试用例
+
+### rulego-components
+- feat: 增加fasthttp组件
+- feat: kafka组件增加SASL和TLS配置
+- feat: Lua脚本支持处理字节流
+- feat: Lua脚本支持数组转换
+- feat: 增加集成测试和CI设置
+- feat(ci): 增加全面的GitHub Actions CI/CD流水线和中间件测试
+- feat(ci): 为所有拉取请求触发CI
+- fix: 修复kafka组件重连问题
+- perf: 使用零拷贝优化元数据访问
+- perf: 改进生命周期管理和测试
+
 # [v0.31.0] 2025/05/20
 
 ### rulego-core
@@ -462,4 +508,4 @@
 - 新增RuleGo扩展组件库项目，欢迎贡献组件
     - 详情点击：[Gitee](https://gitee.com/rulego/rulego-components) 或者 [Github](https://github.com/rulego/rulego-components)
 
-- 欢迎在 [Gitee](https://gitee.com/rulego/rulego) 或者 [Github](https://github.com/rulego/rulego) 上提交反馈或建议    
+- 欢迎在 [Gitee](https://gitee.com/rulego/rulego) 或者 [Github](https://github.com/rulego/rulego) 上提交反馈或建议
