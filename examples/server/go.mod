@@ -9,11 +9,11 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/mark3labs/mcp-go v0.18.0
 	github.com/rulego/rulego v0.32.0-alpha.1.0.20250708104057-c85f552fb24e
-	github.com/rulego/rulego-components v0.32.0-alpha.1.0.20250708105707-9a3f57e1bec5
+	github.com/rulego/rulego-components v0.32.0
 	github.com/rulego/rulego-components-ai v0.31.1
 	github.com/rulego/rulego-components-ci v0.31.1-0.20250602161121-89f21f4c54fe
 	github.com/rulego/rulego-components-etl v0.29.1-0.20250602160310-2d30a072f03b
-	github.com/rulego/rulego-components-iot v0.32.0-alpha.1
+	github.com/rulego/rulego-components-iot v0.32.0
 	gopkg.in/ini.v1 v1.67.0
 )
 
@@ -183,14 +183,14 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/rulego/rulego => ../../../rulego
+//replace github.com/rulego/rulego => ../../../rulego
 
-replace github.com/rulego/rulego-components => ../../../rulego-components
+//replace github.com/rulego/rulego-components => ../../../rulego-components
 
 //replace github.com/rulego/rulego-components-ai => ../../../rulego-components-ai
 
 //replace github.com/rulego/rulego-components-ci => ../../../rulego-components-ci
 
-replace github.com/rulego/rulego-components-iot => ../../../rulego-components-iot
+//replace github.com/rulego/rulego-components-iot => ../../../rulego-components-iot
 
 //replace github.com/rulego/rulego-components-etl => ../../../rulego-components-etl
