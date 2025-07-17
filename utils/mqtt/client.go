@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2025 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
@@ -47,6 +48,7 @@ import (
 
 	"io/ioutil"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -86,14 +88,18 @@ type Client struct {
 	client paho.Client
 	//订阅主题和处理器映射
 	msgHandlerMap map[string]Handler
+	// 连接状态标识 (0=未连接, 1=已连接)
+	isConnected int32
 }
 
 // NewClient 创建一个MQTT客户端实例
+// 支持自动重连和指数退避重试策略
 func NewClient(ctx context.Context, conf Config) (*Client, error) {
 	var err error
 
 	b := Client{
 		msgHandlerMap: make(map[string]Handler),
+		isConnected:   0, // 初始化为未连接状态
 	}
 
 	opts := paho.NewClientOptions()
@@ -107,8 +113,14 @@ func NewClient(ctx context.Context, conf Config) (*Client, error) {
 	} else {
 		opts.SetClientID(conf.ClientID)
 	}
+
+	// 设置回调函数
 	opts.SetOnConnectHandler(b.onConnected)
 	opts.SetConnectionLostHandler(b.onConnectionLost)
+	opts.SetReconnectingHandler(b.onReconnecting)
+
+	// 配置自动重连
+	opts.SetAutoReconnect(true)
 	if conf.MaxReconnectInterval <= 0 {
 		conf.MaxReconnectInterval = time.Second * 60
 	}
@@ -124,20 +136,36 @@ func NewClient(ctx context.Context, conf Config) (*Client, error) {
 	}
 	b.client = paho.NewClient(opts)
 
-	for {
+	// 初始连接重试逻辑，使用指数退避策略
+	maxRetries := 5
+	retryInterval := time.Second * 2
+
+	for i := 0; i < maxRetries; i++ {
 		if token := b.client.Connect(); token.Wait() && token.Error() != nil {
 			select {
 			case <-ctx.Done():
-				//context被取消或超时，返回错误
-				return nil, token.Error()
-			case <-time.After(2 * time.Second):
-				//定时器到期，继续重试
+				// context被取消或超时，返回错误
+				return nil, ctx.Err()
+			case <-time.After(retryInterval):
+				// 指数退避：每次重试间隔增加50%
+				retryInterval = time.Duration(float64(retryInterval) * 1.5)
+				if retryInterval > conf.MaxReconnectInterval {
+					retryInterval = conf.MaxReconnectInterval
+				}
 			}
 		} else {
-			break
+			// 连接成功，设置连接状态
+			atomic.StoreInt32(&b.isConnected, 1)
+			return &b, nil
 		}
 	}
 
+	// 达到最大重试次数，返回最后一次连接错误
+	if token := b.client.Connect(); token.Wait() && token.Error() != nil {
+		return nil, fmt.Errorf("failed to connect after %d retries: %v", maxRetries, token.Error())
+	}
+
+	atomic.StoreInt32(&b.isConnected, 1)
 	return &b, nil
 }
 
@@ -191,16 +219,34 @@ func (b *Client) Close() error {
 	return nil
 }
 
-// Publish 发布数据
-func (b *Client) Publish(topic string, qos byte, data []byte) error {
-	if token := b.client.Publish(topic, qos, false, data); token.Wait() && token.Error() != nil {
-		return token.Error()
-	} else {
-		return nil
-	}
+// IsConnected 检查MQTT客户端是否已连接
+func (b *Client) IsConnected() bool {
+	return atomic.LoadInt32(&b.isConnected) == 1
 }
 
+// Publish 发布数据
+func (b *Client) Publish(topic string, qos byte, data []byte) error {
+	// 检查连接状态
+	if !b.IsConnected() {
+		return errors.New("MQTT client is not connected")
+	}
+
+	token := b.client.Publish(topic, qos, false, data)
+	// 使用5秒超时等待发布完成
+	if !token.WaitTimeout(5 * time.Second) {
+		return errors.New("publish timeout after 5 seconds")
+	}
+
+	if token.Error() != nil {
+		return token.Error()
+	}
+
+	return nil
+}
+
+// onConnected MQTT连接成功回调
 func (b *Client) onConnected(c paho.Client) {
+	atomic.StoreInt32(&b.isConnected, 1)
 	b.subscribe()
 }
 
@@ -236,7 +282,15 @@ func is128Err(token *paho.SubscribeToken, topic string) bool {
 	return ok && result == 128
 }
 
+// onReconnecting MQTT重连中回调
+// 在客户端尝试重新连接时被调用
+func (b *Client) onReconnecting(c paho.Client, opts *paho.ClientOptions) {
+}
+
+// onConnectionLost MQTT连接丢失回调
+// 当与MQTT代理的连接意外丢失时被调用
 func (b *Client) onConnectionLost(c paho.Client, reason error) {
+	atomic.StoreInt32(&b.isConnected, 0)
 }
 
 func newTLSConfig(CAFile, certFile, certKeyFile string) (*tls.Config, error) {
