@@ -172,34 +172,35 @@ func TestRuleGo(t *testing.T) {
 func TestHttpEndpointAspect(t *testing.T) {
 	ruleDsl, err := os.ReadFile("testdata/rule/with_http_endpoint.json")
 	assert.Nil(t, err)
+	ruleDslStr := strings.Replace(string(ruleDsl), "9090", "9095", -1)
 
 	id := "withHttpEndpoint"
-	ruleEngine, err := New(id, ruleDsl)
+	ruleEngine, err := New(id, []byte(ruleDslStr))
 	assert.Nil(t, err)
 
 	//端口已经占用错误
-	_, err = New("withHttpEndpoint2", ruleDsl)
+	_, err = New("withHttpEndpoint2", []byte(ruleDslStr))
 	assert.NotNil(t, err)
 
 	config := engine.NewConfig(types.WithDefaultPool())
 	metaData := types.BuildMetadata(make(map[string]string))
 	msg := types.NewMsg(0, "TEST_MSG_TYPE_AA", types.JSON, metaData, "{\"name\":\"lala\"}")
 
-	sendMsg(t, "http://127.0.0.1:9090/api/v1/test/"+id, "POST", msg, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:9095/api/v1/test/"+id, "POST", msg, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, types.Success, relationType)
 		assert.Equal(t, "{\"name\":\"lala\"}", msg.GetData())
 	}))
 	time.Sleep(time.Millisecond * 500)
 
-	newRuleDsl := strings.Replace(string(ruleDsl), "9090", "8080", -1)
+	newRuleDsl := strings.Replace(ruleDslStr, "9095", "8085", -1)
 	err = ruleEngine.ReloadSelf([]byte(newRuleDsl))
 	assert.Nil(t, err)
 
-	sendMsg(t, "http://127.0.0.1:9090/api/v1/test/"+id, "POST", msg, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:9095/api/v1/test/"+id, "POST", msg, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, types.Failure, relationType)
 	}))
 
-	sendMsg(t, "http://127.0.0.1:8080/api/v1/test/"+id, "POST", msg, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:8085/api/v1/test/"+id, "POST", msg, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, types.Success, relationType)
 		assert.Equal(t, "{\"name\":\"lala\"}", msg.GetData())
 	}))
