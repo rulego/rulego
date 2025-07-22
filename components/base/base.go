@@ -131,6 +131,16 @@ func (n *nodeUtils) PrepareJsData(msg types.RuleMsg) interface{} {
 	return data
 }
 
+// TrimStrings 去除配置中所有字符串值的前后空格
+// 遍历 Configuration 中的所有值，如果是字符串类型则去除前后空格
+func (n *nodeUtils) TrimStrings(config types.Configuration) {
+	for key, value := range config {
+		if strValue, ok := value.(string); ok {
+			config[key] = strings.TrimSpace(strValue)
+		}
+	}
+}
+
 // SharedNode 共享资源组件，通过 Get 获取共享实例，多个节点可以在共享池中获取相同的实例
 // 例如：mqtt 客户端、数据库客户端，也可以http server以及是可复用的节点。
 type SharedNode[T any] struct {
