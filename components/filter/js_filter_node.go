@@ -102,7 +102,7 @@ func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	// 准备传递给JS脚本的数据
 	data := base.NodeUtils.PrepareJsData(msg)
 
-	out, err := x.jsEngine.Execute(ctx, JsFilterFuncName, data, msg.Metadata.Values(), msg.Type, msg.DataType)
+	out, err := x.jsEngine.Execute(ctx, JsFilterFuncName, data, msg.Metadata.Values(), msg.Type, string(msg.DataType))
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {

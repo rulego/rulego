@@ -179,7 +179,7 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 
 	// 执行JavaScript脚本
-	out, err := x.jsEngine.Execute(ctx, JsTransformFuncName, data, metadataValues, msg.Type, msg.DataType)
+	out, err := x.jsEngine.Execute(ctx, JsTransformFuncName, data, metadataValues, msg.Type, string(msg.DataType))
 	if err != nil {
 		ctx.TellFailure(msg, err)
 		return
