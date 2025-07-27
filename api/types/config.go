@@ -69,16 +69,8 @@ type Config struct {
 	// 此回调对于开发、测试和生产监控至关重要。
 	// 它提供规则链内消息流和转换的实时可见性。
 	OnDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)
-	// OnEnd is a deprecated callback function that is called when the rule chain execution is complete. If there are multiple endpoints, it will be executed multiple times.
-	// Deprecated: Use types.WithEndFunc instead.
-	// OnEnd 是规则链执行完成时调用的已弃用回调函数。如果有多个端点，将执行多次。
-	// 已弃用：使用 types.WithEndFunc 代替。
-	//
-	// This field is maintained for backward compatibility but should not be used in new code.
-	// Use the more flexible WithEndFunc option pattern instead.
-	// 此字段保持向后兼容性，但不应在新代码中使用。
-	// 改用更灵活的 WithEndFunc 选项模式。
-	OnEnd func(msg RuleMsg, err error)
+	// OnEnd 规则链子链执行完全局回调
+	OnEnd OnEndFunc
 	// ScriptMaxExecutionTime is the maximum execution time for scripts, defaulting to 2000 milliseconds.
 	// ScriptMaxExecutionTime 是脚本的最大执行时间，默认为 2000 毫秒。
 	//

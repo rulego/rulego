@@ -654,7 +654,7 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 	//通过`Config.OnEnd`设置
 	if configOnEnd != nil {
 		ctx.SubmitTask(func() {
-			configOnEnd(msgToUse, err)
+			configOnEnd(ctx, msgToUse, err, relationType)
 		})
 	}
 	//单条消息的context回调
