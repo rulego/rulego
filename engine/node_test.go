@@ -111,7 +111,7 @@ func TestNodeCtx(t *testing.T) {
 
 		jsonParser := JsonParser{}
 		def, _ := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
-		chainCtx, err := InitRuleChainCtx(config, nil, &def)
+		chainCtx, err := InitRuleChainCtx(config, nil, &def, nil)
 		assert.Nil(t, err)
 		result, _ = processVariables(config, chainCtx, types.Configuration{"name": "${global.name}", "ip": "${vars.ip}"})
 		assert.Equal(t, "lala", result["name"])
