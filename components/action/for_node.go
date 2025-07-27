@@ -407,7 +407,7 @@ func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleConte
 	var msgData []string
 	var lastMsg types.RuleMsg
 	if x.ruleNodeId.Type == types.CHAIN {
-		ctx.TellFlow(ctx.GetContext(), x.ruleNodeId.Id, fromMsg, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		ctx.TellFlow(x.ruleNodeId.Id, fromMsg, types.WithContext(ctx.GetContext()), types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			if err != nil {
 				returnErr = err
 			} else {
@@ -420,9 +420,9 @@ func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleConte
 				}
 				msgData = append(msgData, msg.GetData())
 			}
-		}, func() {
+		}), types.WithOnAllNodeCompleted(func() {
 			wg.Done()
-		})
+		}))
 	} else {
 		ctx.TellNode(ctx.GetContext(), x.ruleNodeId.Id, fromMsg, false, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			if err != nil {
@@ -454,7 +454,7 @@ func (x *ForNode) executeItem(ctxWithCancel context.Context, ctx types.RuleConte
 func (x *ForNode) asyncExecuteItem(ctxWithCancel context.Context, ctx types.RuleContext, fromMsg types.RuleMsg) error {
 	fromMsg = fromMsg.Copy()
 	if x.ruleNodeId.Type == types.CHAIN {
-		ctx.TellFlow(ctx.GetContext(), x.ruleNodeId.Id, fromMsg, nil, nil)
+		ctx.TellFlow(x.ruleNodeId.Id, fromMsg, types.WithContext(ctx.GetContext()))
 	} else {
 		ctx.TellNode(ctx.GetContext(), x.ruleNodeId.Id, fromMsg, false, nil, nil)
 	}

@@ -98,7 +98,7 @@ func (m *MockRuleContext) GetResults() []string {
 func (m *MockRuleContext) TellSelf(msg types.RuleMsg, delayMs int64) {}
 func (m *MockRuleContext) TellNextOrElse(msg types.RuleMsg, defaultRelationType string, relationTypes ...string) {
 }
-func (m *MockRuleContext) TellFlow(ctx context.Context, ruleChainId string, msg types.RuleMsg, endFunc types.OnEndFunc, onAllNodeCompleted func()) {
+func (m *MockRuleContext) TellFlow(ruleChainId string, msg types.RuleMsg, options ...types.RuleContextOption) {
 }
 func (m *MockRuleContext) TellChainNode(ctx context.Context, ruleChainId, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc, onAllNodeCompleted func()) {
 }
