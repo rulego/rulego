@@ -28,5 +28,6 @@ import (
 	_ "github.com/rulego/rulego-components/external/redis"
 	_ "github.com/rulego/rulego-components/external/wukongim"
 	_ "github.com/rulego/rulego-components/filter"
+	_ "github.com/rulego/rulego-components/stats/streamsql"
 	_ "github.com/rulego/rulego-components/transform"
 )
