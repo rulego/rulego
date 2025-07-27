@@ -218,7 +218,7 @@ type RuleChainCtx struct {
 //   - Node component creation errors  节点组件创建错误
 //   - Variable processing failures  变量处理失败
 //   - Invalid rule chain definitions  无效的规则链定义
-func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDef *types.RuleChain) (*RuleChainCtx, error) {
+func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDef *types.RuleChain, ruleChainPool types.RuleEnginePool) (*RuleChainCtx, error) {
 	// Retrieve aspects for the engine
 	chainBeforeInitAspects, _, _, afterReloadAspects, destroyAspects := aspects.GetEngineAspects()
 	for _, aspect := range chainBeforeInitAspects {
@@ -240,6 +240,7 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		aspects:            aspects,
 		afterReloadAspects: afterReloadAspects,
 		destroyAspects:     destroyAspects,
+		ruleChainPool:      ruleChainPool,
 	}
 	// Set the ID of the rule chain context if provided in the definition
 	if ruleChainDef.RuleChain.ID != "" {
@@ -493,7 +494,7 @@ func (rc *RuleChainCtx) New() types.Node {
 func (rc *RuleChainCtx) Init(_ types.Config, configuration types.Configuration) error {
 	if rootRuleChainDef, ok := configuration["selfDefinition"]; ok {
 		if v, ok := rootRuleChainDef.(*types.RuleChain); ok {
-			if ruleChainCtx, err := InitRuleChainCtx(rc.config, rc.aspects, v); err == nil {
+			if ruleChainCtx, err := InitRuleChainCtx(rc.config, rc.aspects, v, nil); err == nil {
 				rc.Copy(ruleChainCtx)
 			} else {
 				return err
@@ -508,7 +509,7 @@ func (rc *RuleChainCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	rc.RLock()
 	id := rc.Id.Id
 	rc.RUnlock()
-	ctx.TellFlow(context.Background(), id, msg, nil, nil)
+	ctx.TellFlow(id, msg)
 }
 
 // Destroy cleans up resources and executes destroy aspects
@@ -639,7 +640,7 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 	if def.RuleChain.Disabled {
 		return types.ErrEngineDisabled
 	}
-	if ctx, err := InitRuleChainCtx(rc.config, rc.aspects, &def); err == nil {
+	if ctx, err := InitRuleChainCtx(rc.config, rc.aspects, &def, rc.ruleChainPool); err == nil {
 		// First, execute destroy operations without holding locks to avoid deadlock
 		rc.RLock()
 		oldNodes := make(map[types.RuleNodeId]types.NodeCtx)

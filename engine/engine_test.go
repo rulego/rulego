@@ -425,7 +425,7 @@ func TestNotDebugModel(t *testing.T) {
 func TestGetNodeId(t *testing.T) {
 	parser := JsonParser{}
 	def, _ := parser.DecodeRuleChain([]byte(ruleChainFile))
-	ctx, err := InitRuleChainCtx(NewConfig(), nil, &def)
+	ctx, err := InitRuleChainCtx(NewConfig(), nil, &def, nil)
 	assert.Nil(t, err)
 	nodeCtx, ok := ctx.GetNodeById(types.RuleNodeId{Id: "s1", Type: types.NODE})
 	assert.True(t, ok)

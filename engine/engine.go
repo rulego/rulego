@@ -428,13 +428,11 @@ func (e *RuleEngine) initChain(def types.RuleChain) error {
 	if def.RuleChain.Disabled {
 		return types.ErrEngineDisabled
 	}
-	if ctx, err := InitRuleChainCtx(e.Config, e.Aspects, &def); err == nil {
+	if ctx, err := InitRuleChainCtx(e.Config, e.Aspects, &def, e.ruleChainPool); err == nil {
 		if e.rootRuleChainCtx != nil {
 			ctx.Id = e.rootRuleChainCtx.Id
 		}
 		e.rootRuleChainCtx = ctx
-		//设置子规则链池
-		e.rootRuleChainCtx.SetRuleEnginePool(e.ruleChainPool)
 		//执行创建切面逻辑
 		_, _, createdAspects, _, _ := e.Aspects.GetEngineAspects()
 		for _, aop := range createdAspects {
@@ -518,8 +516,8 @@ func (e *RuleEngine) reloadSelf(dsl []byte, opts ...types.RuleEngineOption) erro
 		e.rootRuleChainCtx.SetAspects(e.Aspects)
 		//更新规则链
 		err = e.rootRuleChainCtx.ReloadSelf(dsl)
-		//设置子规则链池
-		e.rootRuleChainCtx.SetRuleEnginePool(e.ruleChainPool)
+		////设置子规则链池
+		//e.rootRuleChainCtx.SetRuleEnginePool(e.ruleChainPool)
 		if err == nil && e.OnUpdated != nil {
 			e.OnUpdated(e.id, e.id, dsl)
 		}
