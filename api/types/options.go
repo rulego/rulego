@@ -114,6 +114,14 @@ func WithOnDebug(onDebug func(ruleChainId string, flowType string, nodeId string
 	}
 }
 
+// WithOnEndGlobal is an option that sets the global on end callback of the Config.
+func WithOnEndGlobal(onEnd func(ctx RuleContext, msg RuleMsg, err error, relationType string)) Option {
+	return func(c *Config) error {
+		c.OnEnd = onEnd
+		return nil
+	}
+}
+
 // WithPool is an option that sets the pool of the Config.
 // WithPool 是设置 Config 池的选项。
 //

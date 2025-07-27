@@ -331,6 +331,7 @@ func NewRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*Rule
 			// 如果没有提供 ID，则使用规则链 ID。
 			ruleEngine.id = ruleEngine.rootRuleChainCtx.Id.Id
 		}
+
 	}
 
 	return ruleEngine, err
@@ -1049,7 +1050,7 @@ func (e *RuleEngine) onErrHandler(msg types.RuleMsg, rootCtxCopy *DefaultRuleCon
 	// Trigger the configured OnEnd callback with the error.
 	// 使用错误触发配置的 OnEnd 回调。
 	if rootCtxCopy.config.OnEnd != nil {
-		rootCtxCopy.config.OnEnd(msg, err)
+		rootCtxCopy.config.OnEnd(rootCtxCopy, msg, err, types.Failure)
 	}
 	// Trigger the onEnd callback with the error and Failure relation type.
 	// 使用错误和失败关系类型触发 onEnd 回调。
@@ -1216,15 +1217,8 @@ func (e *RuleEngine) handleEngineNotInitializedError(msg types.RuleMsg, opts ...
 			onEndCallback = tempCtx.onEnd
 			break
 		}
-		// Also check config.OnEnd for compatibility
-		// 同时检查 config.OnEnd 以保持兼容性
 		if tempCtx.config.OnEnd != nil {
-			// Wrap config.OnEnd to match OnEndFunc signature
-			// 包装 config.OnEnd 以匹配 OnEndFunc 签名
-			configOnEnd := tempCtx.config.OnEnd
-			onEndCallback = func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-				configOnEnd(msg, err)
-			}
+			onEndCallback = tempCtx.config.OnEnd
 			break
 		}
 	}
