@@ -118,16 +118,30 @@ func (x *RefNode) New() types.Node {
 // Init initializes the component.
 func (x *RefNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
-	values := strings.Split(x.Config.TargetId, ":")
-	if len(values) == 0 {
-		return errors.New("targetId is empty")
-	} else if len(values) == 1 {
-		x.nodeId = values[0]
-	} else {
-		x.chainId = values[0]
-		x.nodeId = values[1]
+	if err != nil {
+		return err
 	}
-	return err
+
+	if x.Config.TargetId == "" {
+		return errors.New("targetId is empty")
+	}
+
+	values := strings.Split(x.Config.TargetId, ":")
+	if len(values) == 1 {
+		x.nodeId = strings.TrimSpace(values[0])
+		if x.nodeId == "" {
+			return errors.New("nodeId is empty")
+		}
+	} else if len(values) == 2 {
+		x.chainId = strings.TrimSpace(values[0])
+		x.nodeId = strings.TrimSpace(values[1])
+		if x.chainId == "" || x.nodeId == "" {
+			return errors.New("chainId or nodeId is empty")
+		}
+	} else {
+		return errors.New("invalid targetId format, expected 'nodeId' or 'chainId:nodeId'")
+	}
+	return nil
 }
 
 // OnMsg 处理消息，通过执行引用的节点来处理传入消息

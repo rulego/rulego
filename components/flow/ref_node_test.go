@@ -17,11 +17,13 @@
 package flow
 
 import (
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
-	"testing"
-	"time"
 )
 
 func TestRefNode(t *testing.T) {
@@ -32,65 +34,128 @@ func TestRefNode(t *testing.T) {
 	})
 
 	t.Run("InitNode", func(t *testing.T) {
-		test.NodeInit(t, targetNodeType, types.Configuration{}, types.Configuration{}, Registry)
+		// Test successful initialization with valid targetId
+		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"targetId": "test_node",
+		}, Registry)
+		assert.Nil(t, err)
+		refNode := node.(*RefNode)
+		assert.Equal(t, "test_node", refNode.nodeId)
+		assert.Equal(t, "", refNode.chainId)
 	})
 
 	t.Run("DefaultConfig", func(t *testing.T) {
-		test.NodeInit(t, targetNodeType, types.Configuration{}, types.Configuration{}, Registry)
+		// Test that initialization fails with empty configuration
+		_, err := test.CreateAndInitNode(targetNodeType, types.Configuration{}, Registry)
+		assert.NotNil(t, err)
+		assert.True(t, strings.Contains(err.Error(), "targetId is empty"))
 	})
 
 	t.Run("OnMsg", func(t *testing.T) {
-		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{}, Registry)
-		assert.Nil(t, err)
+		// Test initialization failure with empty targetId
+		t.Run("EmptyTargetId", func(t *testing.T) {
+			_, err := test.CreateAndInitNode(targetNodeType, types.Configuration{}, Registry)
+			assert.NotNil(t, err)
+			assert.True(t, strings.Contains(err.Error(), "targetId is empty"))
+		})
 
-		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"targetId": "chain01:node01",
-		}, Registry)
-		assert.Equal(t, "chain01", node2.(*RefNode).chainId)
-		assert.Equal(t, "node01", node2.(*RefNode).nodeId)
+		// Test valid external chain reference
+		t.Run("ExternalChainReference", func(t *testing.T) {
+			node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+				"targetId": "chain01:node01",
+			}, Registry)
+			assert.Nil(t, err)
+			refNode := node.(*RefNode)
+			assert.Equal(t, "chain01", refNode.chainId)
+			assert.Equal(t, "node01", refNode.nodeId)
+		})
 
-		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"targetId": "node01",
-		}, Registry)
-		assert.Equal(t, "", node3.(*RefNode).chainId)
-		assert.Equal(t, "node01", node3.(*RefNode).nodeId)
+		// Test valid local node reference
+		t.Run("LocalNodeReference", func(t *testing.T) {
+			node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+				"targetId": "node01",
+			}, Registry)
+			assert.Nil(t, err)
+			refNode := node.(*RefNode)
+			assert.Equal(t, "", refNode.chainId)
+			assert.Equal(t, "node01", refNode.nodeId)
+		})
 
-		metaData := types.BuildMetadata(make(map[string]string))
-		metaData.PutValue("productType", "test")
-		msgList := []test.Msg{
-			{
+		// Test message handling with non-existent target nodes
+		t.Run("MessageHandling", func(t *testing.T) {
+			metaData := types.BuildMetadata(make(map[string]string))
+			metaData.PutValue("productType", "test")
+
+			testMsg := test.Msg{
 				MetaData:   metaData,
 				MsgType:    "ACTIVITY_EVENT2",
 				Data:       "{\"temperature\":60}",
 				AfterSleep: time.Millisecond * 200,
-			},
-		}
+			}
 
-		var nodeList = []test.NodeAndCallback{
-			{
-				Node:    node1,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Failure, relationType)
-				},
-			},
-			{
-				Node:    node2,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Failure, relationType)
-				},
-			},
-			{
-				Node:    node3,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Failure, relationType)
-				},
-			},
-		}
-		for _, item := range nodeList {
-			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
-		}
+			// Test external chain reference (should fail since chain doesn't exist)
+			t.Run("ExternalChain", func(t *testing.T) {
+				node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+					"targetId": "chain01:node01",
+				}, Registry)
+				assert.Nil(t, err)
+
+				// Use a struct to pass results through channel to avoid data race
+				type testResult struct {
+					relationType string
+					err          error
+				}
+				resultChan := make(chan testResult, 1)
+
+				callback := func(msg types.RuleMsg, relationType string, err error) {
+					resultChan <- testResult{
+						relationType: relationType,
+						err:          err,
+					}
+				}
+
+				test.NodeOnMsgWithChildrenAndConfig(t, types.NewConfig(), node, []test.Msg{testMsg}, nil, callback)
+
+				select {
+				case result := <-resultChan:
+					assert.Equal(t, types.Failure, result.relationType)
+					assert.NotNil(t, result.err)
+				case <-time.After(time.Second):
+					t.Fatal("Test timed out")
+				}
+			})
+
+			// Test local node reference (should fail since node doesn't exist)
+			t.Run("LocalNode", func(t *testing.T) {
+				node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+					"targetId": "node01",
+				}, Registry)
+				assert.Nil(t, err)
+
+				// Use a struct to pass results through channel to avoid data race
+				type testResult struct {
+					relationType string
+					err          error
+				}
+				resultChan := make(chan testResult, 1)
+
+				callback := func(msg types.RuleMsg, relationType string, err error) {
+					resultChan <- testResult{
+						relationType: relationType,
+						err:          err,
+					}
+				}
+
+				test.NodeOnMsgWithChildrenAndConfig(t, types.NewConfig(), node, []test.Msg{testMsg}, nil, callback)
+
+				select {
+				case result := <-resultChan:
+					assert.Equal(t, types.Failure, result.relationType)
+					assert.NotNil(t, result.err)
+				case <-time.After(time.Second):
+					t.Fatal("Test timed out")
+				}
+			})
+		})
 	})
 }
