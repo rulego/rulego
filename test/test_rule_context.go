@@ -187,23 +187,35 @@ func (ctx *NodeTestRuleContext) GetContext() context.Context {
 	return ctx.context
 }
 
-func (ctx *NodeTestRuleContext) TellFlow(chainCtx context.Context, chainId string, msg types.RuleMsg, endFunc types.OnEndFunc, onAllNodeCompleted func()) {
+func (ctx *NodeTestRuleContext) TellFlow(chainId string, msg types.RuleMsg, opts ...types.RuleContextOption) {
+	for _, opt := range opts {
+		opt(ctx)
+	}
 	if chainId == "" {
-		endFunc(ctx, msg, errors.New("chainId can not nil"), types.Failure)
+		if ctx.onEndFunc != nil {
+			ctx.onEndFunc(ctx, msg, errors.New("chainId can not nil"), types.Failure)
+		}
+
 	} else if chainId == "notfound" {
-		endFunc(ctx, msg, fmt.Errorf("ruleChain id=%s not found", chainId), types.Failure)
-		if onAllNodeCompleted != nil {
-			onAllNodeCompleted()
+		if ctx.onEndFunc != nil {
+			ctx.onEndFunc(ctx, msg, fmt.Errorf("ruleChain id=%s not found", chainId), types.Failure)
+		}
+		if ctx.onAllNodeCompleted != nil {
+			ctx.onAllNodeCompleted()
 		}
 	} else if chainId == "toTrue" {
-		endFunc(ctx, msg, nil, types.True)
-		if onAllNodeCompleted != nil {
-			onAllNodeCompleted()
+		if ctx.onEndFunc != nil {
+			ctx.onEndFunc(ctx, msg, nil, types.True)
+		}
+		if ctx.onAllNodeCompleted != nil {
+			ctx.onAllNodeCompleted()
 		}
 	} else {
-		endFunc(ctx, msg, nil, types.Success)
-		if onAllNodeCompleted != nil {
-			onAllNodeCompleted()
+		if ctx.onEndFunc != nil {
+			ctx.onEndFunc(ctx, msg, nil, types.Success)
+		}
+		if ctx.onAllNodeCompleted != nil {
+			ctx.onAllNodeCompleted()
 		}
 	}
 }
@@ -288,6 +300,10 @@ func (ctx *NodeTestRuleContext) setOut(msg types.RuleMsg) {
 
 func (ctx *NodeTestRuleContext) GetErr() error {
 	return nil
+}
+
+func (ctx *NodeTestRuleContext) TellStream(msg types.RuleMsg) {
+	ctx.TellNext(msg, types.Stream)
 }
 
 // GetEnv 获取环境变量和元数据

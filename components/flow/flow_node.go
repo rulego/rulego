@@ -124,14 +124,14 @@ func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 // TellFlowAndNoMerge 执行子规则链而不合并结果，每个输出单独转发
 // TellFlowAndNoMerge executes the sub-rule chain without merging results.
 func (x *ChainNode) TellFlowAndNoMerge(ctx types.RuleContext, msg types.RuleMsg) {
-	ctx.TellFlow(ctx.GetContext(), x.Config.TargetId, msg, func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
+	ctx.TellFlow(x.Config.TargetId, msg, types.WithContext(ctx.GetContext()), types.WithOnEnd(func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
 		if err != nil {
 			ctx.TellFailure(onEndMsg, err)
 		} else {
 			ctx.TellNext(onEndMsg, relationType)
 		}
 
-	}, nil)
+	}))
 }
 
 // TellFlowAndMerge 执行子规则链并将所有结果合并为单个输出
@@ -143,7 +143,7 @@ func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg) {
 	var targetErr error
 	//使用一个互斥锁来保护对msgs切片的并发写入和metadata合并
 	var mu sync.Mutex
-	ctx.TellFlow(ctx.GetContext(), x.Config.TargetId, msg, func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
+	ctx.TellFlow(x.Config.TargetId, msg, types.WithContext(ctx.GetContext()), types.WithOnEnd(func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
 		mu.Lock()
 		defer mu.Unlock()
 		errStr := ""
@@ -172,7 +172,7 @@ func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg) {
 			NodeId: selfId,
 		})
 
-	}, func() {
+	}), types.WithOnAllNodeCompleted(func() {
 		wrapperMsg.DataType = types.JSON
 		wrapperMsg.SetData(str.ToString(msgs))
 		if targetRelationType == types.Failure {
@@ -180,7 +180,7 @@ func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg) {
 		} else {
 			ctx.TellSuccess(wrapperMsg)
 		}
-	})
+	}))
 }
 
 // Destroy 清理资源

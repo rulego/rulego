@@ -144,11 +144,14 @@ import (
 //     Failure：消息处理失败，路由到错误处理
 //   - True/False: Boolean logic routing for filter and condition nodes
 //     True/False：用于过滤器和条件节点的布尔逻辑路由
+//   - Stream: Streaming data flow for real-time data processing
+//     Stream：用于实时数据处理的流式数据流
 const (
 	Success = "Success"
 	Failure = "Failure"
 	True    = "True"
 	False   = "False"
+	Stream  = "Stream"
 )
 
 // Flow direction types indicate the direction of message flow into and out of nodes.
@@ -862,7 +865,7 @@ type RuleContext interface {
 	// onEndFunc: Callback for when a branch of the sub-rule chain completes, returning the result of that chain. If multiple branches are triggered, it will be called multiple times.
 	// onAllNodeCompleted: Callback for when all nodes have completed, with no result returned.
 	// If the rule chain is not found, the message is sent to the next node via the 'Failure' relationship.
-	TellFlow(ctx context.Context, ruleChainId string, msg RuleMsg, endFunc OnEndFunc, onAllNodeCompleted func())
+	TellFlow(ruleChainId string, msg RuleMsg, opts ...RuleContextOption)
 	// TellNode starts execution from a specified node. If skipTellNext=true, only the current node is executed without notifying the next node.
 	// onEnd is used to view the final execution result.
 	TellNode(ctx context.Context, nodeId string, msg RuleMsg, skipTellNext bool, onEnd OnEndFunc, onAllNodeCompleted func())

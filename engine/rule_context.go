@@ -549,9 +549,9 @@ func (ctx *DefaultRuleContext) SubmitTask(task func()) {
 // onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次
 // onAllNodeCompleted 所以节点执行完触发，无结果返回
 // 如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
-func (ctx *DefaultRuleContext) TellFlow(chanCtx context.Context, ruleChainId string, msg types.RuleMsg, onEndFunc types.OnEndFunc, onAllNodeCompleted func()) {
+func (ctx *DefaultRuleContext) TellFlow(ruleChainId string, msg types.RuleMsg, opts ...types.RuleContextOption) {
 	if e, ok := ctx.GetRuleChainPool().Get(ruleChainId); ok {
-		e.OnMsg(msg, types.WithOnEnd(onEndFunc), types.WithContext(chanCtx), types.WithOnAllNodeCompleted(onAllNodeCompleted))
+		e.OnMsg(msg, opts...)
 	} else {
 		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found", ruleChainId))
 	}
