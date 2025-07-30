@@ -9,7 +9,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/mark3labs/mcp-go v0.18.0
 	github.com/rulego/rulego v0.33.0-alpha.1
-	github.com/rulego/rulego-components v0.32.1-0.20250727112839-a28462d3c200
+	github.com/rulego/rulego-components v0.32.1-0.20250730102737-03180afbfd90
 	github.com/rulego/rulego-components-ai v0.31.1
 	github.com/rulego/rulego-components-ci v0.31.1-0.20250602161121-89f21f4c54fe
 	github.com/rulego/rulego-components-etl v0.29.1-0.20250602160310-2d30a072f03b
@@ -145,7 +145,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/redis/go-redis/v9 v9.10.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/rulego/streamsql v0.10.0 // indirect
+	github.com/rulego/streamsql v0.0.0-20250730102243-ffb050dc5134 // indirect
 	github.com/sashabaranov/go-openai v1.37.0 // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
