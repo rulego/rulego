@@ -174,6 +174,11 @@ type RuleChainCtx struct {
 	// isEmpty 指示规则链是否没有节点，用于空链的优化和错误处理
 	isEmpty bool
 
+	// hasEndNode indicates whether the rule chain has configured end nodes,
+	// cached during initialization to avoid repeated traversal for performance
+	// hasEndNode 指示规则链是否配置了结束节点，在初始化时缓存以避免重复遍历提高性能
+	hasEndNode bool
+
 	// RWMutex provides thread-safe access to the rule chain context,
 	// allowing concurrent reads while ensuring exclusive writes
 	// RWMutex 为规则链上下文提供线程安全访问，允许并发读取同时确保独占写入
@@ -269,6 +274,16 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		}
 		ruleChainCtx.nodes[ruleNodeId] = ruleNodeCtx
 	}
+
+	// Check if there are any end nodes and cache the result
+	// 检查是否有结束节点并缓存结果
+	for _, nodeCtx := range ruleChainCtx.nodes {
+		if nodeCtx.Type() == types.NodeTypeEnd {
+			ruleChainCtx.hasEndNode = true
+			break
+		}
+	}
+
 	// Load node relationship information
 	for _, item := range ruleChainDef.Metadata.Connections {
 		inNodeId := types.RuleNodeId{Id: item.FromId, Type: types.NODE}
@@ -819,6 +834,14 @@ func (rc *RuleChainCtx) GetAspects() types.AspectList {
 	rc.RLock()
 	defer rc.RUnlock()
 	return rc.aspects
+}
+
+// HasEndNode 检查规则链是否配置了结束节点
+// HasEndNode checks if the rule chain has configured end nodes
+func (rc *RuleChainCtx) HasEndNode() bool {
+	rc.RLock()
+	defer rc.RUnlock()
+	return rc.hasEndNode
 }
 
 // decryptSecret decrypts the secrets in the input map using the provided secret key

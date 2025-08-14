@@ -86,6 +86,160 @@ func TestCache(t *testing.T) {
 	})
 }
 
+// TestEndNodeBehavior 测试结束节点的行为
+func TestEndNodeBehavior(t *testing.T) {
+	config := NewConfig()
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
+
+	// 测试配置了结束节点的规则链，OnEnd只会调用一次
+	t.Run("WithEndNode", func(t *testing.T) {
+		// 创建包含结束节点的规则链
+		ruleChainWithEndNode := `{
+			"ruleChain": {
+				"id": "test_with_end_node",
+				"name": "testRuleChainWithEndNode",
+				"debugMode": true,
+				"root": true
+			},
+			"metadata": {
+				"firstNodeIndex": 0,
+				"nodes": [
+					{
+						"id": "s1",
+						"type": "jsFilter",
+						"name": "过滤",
+						"configuration": {
+							"jsScript": "return msg.temperature>10;"
+						}
+					},
+					{
+						"id": "s2",
+						"type": "jsTransform",
+						"name": "转换1",
+						"configuration": {
+							"jsScript": "msgType='TRANSFORM1';return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+						}
+					},
+					{
+						"id": "s3",
+						"type": "jsTransform",
+						"name": "转换2",
+						"configuration": {
+							"jsScript": "msgType='TRANSFORM2';return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+						}
+					},
+					{
+						"id": "end1",
+						"type": "end",
+						"name": "结束节点"
+					}
+				],
+				"connections": [
+					{
+						"fromId": "s1",
+						"toId": "s2",
+						"type": "True"
+					},
+					{
+						"fromId": "s1",
+						"toId": "s3",
+						"type": "True"
+					},
+					{
+						"fromId": "s2",
+						"toId": "end1",
+						"type": "Success"
+					}
+				]
+			}
+		}`
+
+		ruleEngine, err := New("TestEndNodeBehavior_WithEndNode", []byte(ruleChainWithEndNode), WithConfig(config))
+		assert.Nil(t, err)
+		defer Del(ruleEngine.Id())
+
+		var onEndCallCount int32
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			atomic.AddInt32(&onEndCallCount, 1)
+			assert.Equal(t, types.Success, relationType)
+		}))
+
+		time.Sleep(time.Millisecond * 200)
+		// 配置了结束节点，即使有多个分支，OnEnd也只会调用一次
+		assert.Equal(t, int32(1), atomic.LoadInt32(&onEndCallCount))
+	})
+
+	// 测试没有配置结束节点的规则链，OnEnd会调用多次
+	t.Run("WithoutEndNode", func(t *testing.T) {
+		// 创建不包含结束节点的规则链
+		ruleChainWithoutEndNode := `{
+			"ruleChain": {
+				"id": "test_without_end_node",
+				"name": "testRuleChainWithoutEndNode",
+				"debugMode": true,
+				"root": true
+			},
+			"metadata": {
+				"firstNodeIndex": 0,
+				"nodes": [
+					{
+						"id": "s1",
+						"type": "jsFilter",
+						"name": "过滤",
+						"configuration": {
+							"jsScript": "return msg.temperature>10;"
+						}
+					},
+					{
+						"id": "s2",
+						"type": "jsTransform",
+						"name": "转换1",
+						"configuration": {
+							"jsScript": "msgType='TRANSFORM1';return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+						}
+					},
+					{
+						"id": "s3",
+						"type": "jsTransform",
+						"name": "转换2",
+						"configuration": {
+							"jsScript": "msgType='TRANSFORM2';return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+						}
+					}
+				],
+				"connections": [
+					{
+						"fromId": "s1",
+						"toId": "s2",
+						"type": "True"
+					},
+					{
+						"fromId": "s1",
+						"toId": "s3",
+						"type": "True"
+					}
+				]
+			}
+		}`
+
+		ruleEngine, err := New("TestEndNodeBehavior_WithoutEndNode", []byte(ruleChainWithoutEndNode), WithConfig(config))
+		assert.Nil(t, err)
+		defer Del(ruleEngine.Id())
+
+		var onEndCallCount int32
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			atomic.AddInt32(&onEndCallCount, 1)
+			assert.Equal(t, types.Success, relationType)
+		}))
+
+		time.Sleep(time.Millisecond * 200)
+		// 没有配置结束节点，每个分支结束时都会调用OnEnd，所以会调用2次
+		assert.Equal(t, int32(2), atomic.LoadInt32(&onEndCallCount))
+	})
+}
+
 func TestRuleContext(t *testing.T) {
 	config := NewConfig(types.WithDefaultPool())
 	metaData := types.NewMetadata()

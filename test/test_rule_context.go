@@ -291,6 +291,10 @@ func (ctx *NodeTestRuleContext) GetOut() types.RuleMsg {
 	return ctx.out
 }
 
+func (ctx *NodeTestRuleContext) GetRelationTypes() []string {
+	return nil
+}
+
 // setOut safely sets the out field
 func (ctx *NodeTestRuleContext) setOut(msg types.RuleMsg) {
 	ctx.mutex.Lock()
