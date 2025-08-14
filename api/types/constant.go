@@ -78,3 +78,13 @@ var (
 	// ErrEngineDslEmpty is returned when the rule chain dsl is empty.
 	ErrEngineDslEmpty = errors.New("dsl can not empty")
 )
+
+const (
+	// DefaultRelationType 找不到匹配节点时使用的默认关系名称
+	// DefaultRelationType is the default relation name used when no matching node is found.
+	DefaultRelationType = "Default"
+
+	// DefaultRelationTypeKey 用于自定义默认关系类型的配置属性键
+	// DefaultRelationTypeKey is the configuration property key for customizing the default relation type.
+	DefaultRelationTypeKey = "defaultRelationType"
+)

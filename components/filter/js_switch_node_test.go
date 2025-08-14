@@ -55,9 +55,9 @@ func TestJsSwitchNode(t *testing.T) {
 		node := JsSwitchNode{}
 		err := node.Init(config, types.Configuration{})
 		assert.Nil(t, err)
-		assert.Equal(t, node.defaultRelationType, KeyDefaultRelationType)
+		assert.Equal(t, node.defaultRelationType, types.DefaultRelationType)
 
-		config.Properties.PutValue(KeyOtherRelationTypeName, "Default")
+		config.Properties.PutValue(types.DefaultRelationTypeKey, "Default")
 		err = node.Init(config, types.Configuration{})
 		assert.Nil(t, err)
 		assert.Equal(t, node.defaultRelationType, "Default")

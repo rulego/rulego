@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2025 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package action
+package common
 
 import (
 	"errors"
@@ -33,7 +33,7 @@ import (
 // init 注册IteratorNode组件
 // init registers the IteratorNode component with the default registry.
 func init() {
-	Registry.Add(&IteratorNode{})
+	//Registry.Add(&IteratorNode{}) //弃用，使用 for 组件代替
 }
 
 // IteratorNodeConfiguration IteratorNode配置结构

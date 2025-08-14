@@ -348,3 +348,144 @@ func (ctx *NodeTestRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[
 
 	return envVars
 }
+
+// ExtendedTestRuleContext 扩展的测试上下文，支持结果收集和节点处理器设置
+// 可以替代 SimpleTestContext 和 MockRuleContext
+type ExtendedTestRuleContext struct {
+	*NodeTestRuleContext
+	nodeHandlers map[string]func(msg types.RuleMsg) (string, error)
+	results      []string
+	resultsChan  chan TestResult
+	handlerMutex sync.RWMutex
+}
+
+// TestResult 测试结果结构
+type TestResult struct {
+	RelationType string
+	Err          error
+}
+
+// NewExtendedTestRuleContext 创建扩展的测试上下文
+// 用于替代 SimpleTestContext 和 MockRuleContext
+func NewExtendedTestRuleContext(config types.Config, callback func(msg types.RuleMsg, relationType string, err error)) *ExtendedTestRuleContext {
+	baseCtx := NewRuleContext(config, callback).(*NodeTestRuleContext)
+	return &ExtendedTestRuleContext{
+		NodeTestRuleContext: baseCtx,
+		nodeHandlers:        make(map[string]func(msg types.RuleMsg) (string, error)),
+		results:             make([]string, 0),
+		resultsChan:         make(chan TestResult, 10),
+	}
+}
+
+// NewExtendedTestRuleContextWithChannel 创建带结果通道的扩展测试上下文
+// 主要用于替代 SimpleTestContext
+func NewExtendedTestRuleContextWithChannel() *ExtendedTestRuleContext {
+	config := types.NewConfig()
+	baseCtx := NewRuleContext(config, nil).(*NodeTestRuleContext)
+	return &ExtendedTestRuleContext{
+		NodeTestRuleContext: baseCtx,
+		nodeHandlers:        make(map[string]func(msg types.RuleMsg) (string, error)),
+		results:             make([]string, 0),
+		resultsChan:         make(chan TestResult, 10),
+	}
+}
+
+// SetNodeHandler 设置节点处理器，用于模拟节点行为
+// 替代 MockRuleContext 的 SetNodeHandler 方法
+func (ctx *ExtendedTestRuleContext) SetNodeHandler(nodeId string, handler func(msg types.RuleMsg) (string, error)) {
+	ctx.handlerMutex.Lock()
+	defer ctx.handlerMutex.Unlock()
+	ctx.nodeHandlers[nodeId] = handler
+}
+
+// GetResults 获取收集的结果
+// 替代 MockRuleContext 的 GetResults 方法
+func (ctx *ExtendedTestRuleContext) GetResults() []string {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
+	results := make([]string, len(ctx.results))
+	copy(results, ctx.results)
+	return results
+}
+
+// GetResultsChannel 获取结果通道
+// 用于替代 SimpleTestContext 的 results 通道
+func (ctx *ExtendedTestRuleContext) GetResultsChannel() <-chan TestResult {
+	return ctx.resultsChan
+}
+
+// TellNode 重写 TellNode 方法以支持节点处理器
+func (ctx *ExtendedTestRuleContext) TellNode(context context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, callback types.OnEndFunc, onAllNodeCompleted func()) {
+	ctx.handlerMutex.RLock()
+	handler, hasHandler := ctx.nodeHandlers[nodeId]
+	ctx.handlerMutex.RUnlock()
+
+	if hasHandler {
+		// 使用自定义处理器（模拟节点行为）
+		go func() {
+			relationType, err := handler(msg)
+			if callback != nil {
+				callback(ctx, msg, err, relationType)
+			}
+			if onAllNodeCompleted != nil {
+				onAllNodeCompleted()
+			}
+		}()
+	} else {
+		// 使用原有的 TellNode 逻辑
+		ctx.NodeTestRuleContext.TellNode(context, nodeId, msg, skipTellNext, callback, onAllNodeCompleted)
+	}
+}
+
+// TellNext 重写以支持结果收集
+func (ctx *ExtendedTestRuleContext) TellNext(msg types.RuleMsg, relationTypes ...string) {
+	// 调用原有逻辑
+	ctx.NodeTestRuleContext.TellNext(msg, relationTypes...)
+
+	// 收集结果
+	if len(relationTypes) > 0 {
+		ctx.mutex.Lock()
+		ctx.results = append(ctx.results, relationTypes[0])
+		ctx.mutex.Unlock()
+
+		// 发送到结果通道
+		select {
+		case ctx.resultsChan <- TestResult{RelationType: relationTypes[0], Err: nil}:
+		default:
+		}
+	}
+}
+
+// TellSuccess 重写以支持结果收集
+func (ctx *ExtendedTestRuleContext) TellSuccess(msg types.RuleMsg) {
+	// 调用原有逻辑
+	ctx.NodeTestRuleContext.TellSuccess(msg)
+
+	// 收集结果
+	ctx.mutex.Lock()
+	ctx.results = append(ctx.results, "Success")
+	ctx.mutex.Unlock()
+
+	// 发送到结果通道
+	select {
+	case ctx.resultsChan <- TestResult{RelationType: "Success", Err: nil}:
+	default:
+	}
+}
+
+// TellFailure 重写以支持结果收集
+func (ctx *ExtendedTestRuleContext) TellFailure(msg types.RuleMsg, err error) {
+	// 调用原有逻辑
+	ctx.NodeTestRuleContext.TellFailure(msg, err)
+
+	// 收集结果
+	ctx.mutex.Lock()
+	ctx.results = append(ctx.results, "Failure")
+	ctx.mutex.Unlock()
+
+	// 发送到结果通道
+	select {
+	case ctx.resultsChan <- TestResult{RelationType: "Failure", Err: err}:
+	default:
+	}
+}

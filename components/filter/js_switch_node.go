@@ -92,10 +92,10 @@ func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configu
 	if err == nil {
 		jsScript := fmt.Sprintf("function Switch(msg, metadata, msgType, dataType) { %s }", x.Config.JsScript)
 		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, base.NodeUtils.GetVars(configuration))
-		if v := ruleConfig.Properties.GetValue(KeyOtherRelationTypeName); v != "" {
+		if v := ruleConfig.Properties.GetValue(types.DefaultRelationTypeKey); v != "" {
 			x.defaultRelationType = v
 		} else {
-			x.defaultRelationType = KeyDefaultRelationType
+			x.defaultRelationType = types.DefaultRelationType
 		}
 	}
 	return err

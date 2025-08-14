@@ -44,9 +44,9 @@ func TestMsgTypeSwitchNode(t *testing.T) {
 		node := MsgTypeSwitchNode{}
 		err := node.Init(config, types.Configuration{})
 		assert.Nil(t, err)
-		assert.Equal(t, node.defaultRelationType, KeyDefaultRelationType)
+		assert.Equal(t, node.defaultRelationType, types.DefaultRelationType)
 
-		config.Properties.PutValue(KeyOtherRelationTypeName, "Default")
+		config.Properties.PutValue(types.DefaultRelationType, "Default")
 		err = node.Init(config, types.Configuration{})
 		assert.Nil(t, err)
 		assert.Equal(t, node.defaultRelationType, "Default")

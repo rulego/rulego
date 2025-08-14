@@ -26,14 +26,6 @@ import (
 	"github.com/rulego/rulego/api/types"
 )
 
-// KeyDefaultRelationType 找不到匹配节点时使用的默认关系名称
-// KeyDefaultRelationType is the default relation name used when no matching node is found.
-const KeyDefaultRelationType = "Default"
-
-// KeyOtherRelationTypeName 用于自定义默认关系类型的配置属性键
-// KeyOtherRelationTypeName is the configuration property key for customizing the default relation type.
-const KeyOtherRelationTypeName = "defaultRelationType"
-
 // init 注册MsgTypeSwitchNode组件
 // init registers the MsgTypeSwitchNode component with the default registry.
 func init() {
@@ -88,10 +80,10 @@ func (x *MsgTypeSwitchNode) New() types.Node {
 // Init 初始化组件，从全局属性配置默认关系类型名称
 // Init initializes the component.
 func (x *MsgTypeSwitchNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	if v := ruleConfig.Properties.GetValue(KeyOtherRelationTypeName); v != "" {
+	if v := ruleConfig.Properties.GetValue(types.DefaultRelationTypeKey); v != "" {
 		x.defaultRelationType = v
 	} else {
-		x.defaultRelationType = KeyDefaultRelationType
+		x.defaultRelationType = types.DefaultRelationType
 	}
 	return nil
 }
