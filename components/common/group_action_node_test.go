@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2025 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-package action
+package common
 
 import (
 	"context"
 	"errors"
+	"github.com/rulego/rulego/components/action"
 	"runtime"
 	"sync/atomic"
 	"testing"
@@ -79,19 +80,19 @@ func TestGroupFilterNode(t *testing.T) {
 	t.Run("OnMsg", func(t *testing.T) {
 
 		//测试函数
-		Functions.Register("groupActionTest1", func(ctx types.RuleContext, msg types.RuleMsg) {
+		action.Functions.Register("groupActionTest1", func(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue("test1", time.Now().String())
 			msg.SetData(`{"addValue":"addFromTest1"}`)
 			ctx.TellSuccess(msg)
 		})
 
-		Functions.Register("groupActionTest2", func(ctx types.RuleContext, msg types.RuleMsg) {
+		action.Functions.Register("groupActionTest2", func(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue("test2", time.Now().String())
 			msg.SetData(`{"addValue":"addFromTest2"}`)
 			ctx.TellSuccess(msg)
 		})
 
-		Functions.Register("groupActionTestFailure", func(ctx types.RuleContext, msg types.RuleMsg) {
+		action.Functions.Register("groupActionTestFailure", func(ctx types.RuleContext, msg types.RuleMsg) {
 			time.Sleep(time.Millisecond * 100)
 			ctx.TellFailure(msg, errors.New("test error"))
 		})
@@ -136,17 +137,17 @@ func TestGroupFilterNode(t *testing.T) {
 
 		node1, err := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "groupActionTest1",
-		}, Registry)
+		}, action.Registry)
 
 		node2, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "groupActionTest2",
-		}, Registry)
+		}, action.Registry)
 		node3, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "groupActionTestFailure",
-		}, Registry)
+		}, action.Registry)
 		node4, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "notFound",
-		}, Registry)
+		}, action.Registry)
 
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
@@ -261,12 +262,12 @@ func TestGroupFilterNode(t *testing.T) {
 func TestGroupActionConcurrencySafety(t *testing.T) {
 	t.Run("Concurrent Match Count Race Condition", func(t *testing.T) {
 		// 注册测试用的函数
-		Functions.Register("testConcurrentSuccess", func(ctx types.RuleContext, msg types.RuleMsg) {
+		action.Functions.Register("testConcurrentSuccess", func(ctx types.RuleContext, msg types.RuleMsg) {
 			time.Sleep(time.Millisecond * 1) // 模拟处理时间
 			ctx.TellSuccess(msg)
 		})
 
-		Functions.Register("testConcurrentFailure", func(ctx types.RuleContext, msg types.RuleMsg) {
+		action.Functions.Register("testConcurrentFailure", func(ctx types.RuleContext, msg types.RuleMsg) {
 			time.Sleep(time.Millisecond * 2) // 模拟处理时间
 			ctx.TellFailure(msg, errors.New("test failure"))
 		})
@@ -282,16 +283,16 @@ func TestGroupActionConcurrencySafety(t *testing.T) {
 		// 创建子节点
 		successNode1, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "testConcurrentSuccess",
-		}, Registry)
+		}, action.Registry)
 		successNode2, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "testConcurrentSuccess",
-		}, Registry)
+		}, action.Registry)
 		failureNode1, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "testConcurrentFailure",
-		}, Registry)
+		}, action.Registry)
 		failureNode2, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "testConcurrentFailure",
-		}, Registry)
+		}, action.Registry)
 
 		childrenNodes := map[string]types.Node{
 			"success1": successNode1,
@@ -355,13 +356,13 @@ func TestGroupActionConcurrencySafety(t *testing.T) {
 		// 创建子节点
 		successNode1, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "testConcurrentSuccess",
-		}, Registry)
+		}, action.Registry)
 		successNode2, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "testConcurrentSuccess",
-		}, Registry)
+		}, action.Registry)
 		failureNode1, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "testConcurrentFailure",
-		}, Registry)
+		}, action.Registry)
 
 		childrenNodes := map[string]types.Node{
 			"success1": successNode1,
@@ -424,7 +425,7 @@ func TestGroupActionNodeTimeoutSimple(t *testing.T) {
 	initialGoroutines := runtime.NumGoroutine()
 
 	// 创建一个简单的超时测试
-	Functions.Register("timeoutTestFunc", func(ctx types.RuleContext, msg types.RuleMsg) {
+	action.Functions.Register("timeoutTestFunc", func(ctx types.RuleContext, msg types.RuleMsg) {
 		// 模拟慢处理，但要检查context取消
 		for i := 0; i < 30; i++ { // 3秒总时间
 			select {
@@ -448,11 +449,21 @@ func TestGroupActionNodeTimeoutSimple(t *testing.T) {
 	assert.Nil(t, err)
 
 	// 创建简单的测试context
-	testCtx := &SimpleTestContext{
-		ctx:       context.Background(),
-		startTime: time.Now(),
-		results:   make(chan TestResult, 1),
-	}
+	testCtx := test.NewExtendedTestRuleContextWithChannel()
+	// 设置节点处理器来模拟超时行为
+	testCtx.SetNodeHandler("test1", func(msg types.RuleMsg) (string, error) {
+		// 模拟慢处理，但要检查context取消
+		for i := 0; i < 30; i++ { // 3秒总时间
+			select {
+			case <-testCtx.GetContext().Done():
+				// context取消，直接返回
+				return "", testCtx.GetContext().Err()
+			default:
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+		return types.Success, nil
+	})
 
 	msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{}`)
 
@@ -467,7 +478,7 @@ func TestGroupActionNodeTimeoutSimple(t *testing.T) {
 
 	// 验证收到结果
 	select {
-	case result := <-testCtx.results:
+	case result := <-testCtx.GetResultsChannel():
 		assert.Equal(t, "Failure", result.RelationType, "Should receive Failure on timeout")
 		assert.NotNil(t, result.Err, "Should receive timeout error")
 		t.Logf("收到预期的超时结果: %s, err: %v", result.RelationType, result.Err)
@@ -491,103 +502,15 @@ func TestGroupActionNodeTimeoutSimple(t *testing.T) {
 		goroutineIncrease, initialGoroutines, finalGoroutines)
 }
 
-// SimpleTestContext 简单的测试context
-type SimpleTestContext struct {
-	ctx       context.Context
-	startTime time.Time
-	results   chan TestResult
+// createSimpleTestContext 创建简单的测试上下文，现在使用 ExtendedTestRuleContext
+// 保持向后兼容性
+func createSimpleTestContext(onEnd func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string)) *test.ExtendedTestRuleContext {
+	ctx := test.NewExtendedTestRuleContextWithChannel()
+	// 设置节点处理器来模拟超时行为
+	ctx.SetNodeHandler("timeout", func(msg types.RuleMsg) (string, error) {
+		return "timeout", context.DeadlineExceeded
+	})
+	return ctx
 }
 
-type TestResult struct {
-	RelationType string
-	Err          error
-}
-
-func (s *SimpleTestContext) GetContext() context.Context {
-	return s.ctx
-}
-
-func (s *SimpleTestContext) TellNode(ctx context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc, onAllNodeCompleted func()) {
-	// 模拟异步节点调用
-	go func() {
-		// 直接在这里模拟超时测试函数的行为
-		for i := 0; i < 30; i++ { // 3秒总时间
-			select {
-			case <-ctx.Done():
-				// context取消，直接返回，不调用回调
-				return
-			default:
-				time.Sleep(100 * time.Millisecond)
-			}
-		}
-
-		// 如果没有被取消，正常调用回调
-		if onEnd != nil {
-			onEnd(s, msg, nil, types.Success)
-		}
-	}()
-}
-
-func (s *SimpleTestContext) TellSuccess(msg types.RuleMsg) {
-	select {
-	case s.results <- TestResult{RelationType: "Success", Err: nil}:
-	default:
-	}
-}
-
-func (s *SimpleTestContext) TellFailure(msg types.RuleMsg, err error) {
-	select {
-	case s.results <- TestResult{RelationType: "Failure", Err: err}:
-	default:
-	}
-}
-
-func (s *SimpleTestContext) TellNext(msg types.RuleMsg, relationType ...string) {
-	rt := "Success"
-	if len(relationType) > 0 {
-		rt = relationType[0]
-	}
-	select {
-	case s.results <- TestResult{RelationType: rt, Err: nil}:
-	default:
-	}
-}
-
-// 实现其他必要的RuleContext方法（简化版本）
-func (s *SimpleTestContext) Config() types.Config                                      { return types.NewConfig() }
-func (s *SimpleTestContext) GetSelfId() string                                         { return "test" }
-func (s *SimpleTestContext) Self() types.NodeCtx                                       { return nil }
-func (s *SimpleTestContext) From() types.NodeCtx                                       { return nil }
-func (s *SimpleTestContext) RuleChain() types.NodeCtx                                  { return nil }
-func (s *SimpleTestContext) SubmitTack(task func())                                    { task() }
-func (s *SimpleTestContext) SubmitTask(task func())                                    { task() }
-func (s *SimpleTestContext) SetEndFunc(f types.OnEndFunc) types.RuleContext            { return s }
-func (s *SimpleTestContext) GetEndFunc() types.OnEndFunc                               { return nil }
-func (s *SimpleTestContext) SetContext(c context.Context) types.RuleContext            { return s }
-func (s *SimpleTestContext) SetOnAllNodeCompleted(onAllNodeCompleted func())           {}
-func (s *SimpleTestContext) DoOnEnd(msg types.RuleMsg, err error, relationType string) {}
-func (s *SimpleTestContext) SetCallbackFunc(functionName string, f interface{})        {}
-func (s *SimpleTestContext) GetCallbackFunc(functionName string) interface{}           { return nil }
-func (s *SimpleTestContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-}
-func (s *SimpleTestContext) SetExecuteNode(nodeId string, relationTypes ...string) {}
-func (s *SimpleTestContext) TellCollect(msg types.RuleMsg, callback func(msgList []types.WrapperMsg)) bool {
-	return false
-}
-func (s *SimpleTestContext) GetOut() types.RuleMsg    { return types.RuleMsg{} }
-func (s *SimpleTestContext) GetErr() error            { return nil }
-func (s *SimpleTestContext) GlobalCache() types.Cache { return nil }
-func (s *SimpleTestContext) ChainCache() types.Cache  { return nil }
-func (s *SimpleTestContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[string]interface{} {
-	return nil
-}
-func (s *SimpleTestContext) TellSelf(msg types.RuleMsg, delayMs int64) {}
-func (s *SimpleTestContext) TellNextOrElse(msg types.RuleMsg, defaultRelationType string, relationTypes ...string) {
-}
-func (s *SimpleTestContext) TellFlow(ruleChainId string, msg types.RuleMsg, opts ...types.RuleContextOption) {
-}
-func (s *SimpleTestContext) TellChainNode(ctx context.Context, ruleChainId, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc, onAllNodeCompleted func()) {
-}
-func (s *SimpleTestContext) NewMsg(msgType string, metaData *types.Metadata, data string) types.RuleMsg {
-	return types.RuleMsg{}
-}
+// TestResult 现在使用 test 包中的定义

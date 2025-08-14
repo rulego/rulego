@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2025 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package action
+package common
 
 import (
 	"fmt"
+	"github.com/rulego/rulego/components/action"
 	"strconv"
 	"sync"
 	"testing"
@@ -56,7 +57,7 @@ func TestForNode(t *testing.T) {
 		data1 := "{\"humidity\":90,\"temperature\":41}"
 		data2 := "{\"humidity\":70,\"temperature\":66}"
 		//测试函数
-		Functions.Register("groupActionTest1", func(ctx types.RuleContext, msg types.RuleMsg) {
+		action.Functions.Register("groupActionTest1", func(ctx types.RuleContext, msg types.RuleMsg) {
 			index := msg.Metadata.GetValue(KeyLoopIndex)
 			msg.Metadata.PutValue("add"+index, "value"+index)
 			rangeType := msg.Metadata.GetValue("rangeType")
@@ -89,7 +90,7 @@ func TestForNode(t *testing.T) {
 		})
 		childrenNode1, err := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "groupActionTest1",
-		}, Registry)
+		}, action.Registry)
 		childrenNodes := map[string]types.Node{
 			"node1": childrenNode1,
 		}

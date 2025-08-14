@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2025 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ func TestSwitchNode(t *testing.T) {
 		msg4 := test.Msg{
 			MetaData: types.BuildMetadata(map[string]string{
 				"productType":  "test2",
-				"relationType": KeyDefaultRelationType,
+				"relationType": types.DefaultRelationType,
 			}),
 			MsgType:    "ACTIVITY_EVENT",
 			Data:       "{\"name\":\"aa\",\"temperature\":10,\"humidity\":30}",

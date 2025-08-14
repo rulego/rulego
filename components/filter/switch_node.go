@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The RuleGo Authors.
+ * Copyright 2025 The RuleGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -187,7 +187,7 @@ func (x *SwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 	}
 	//没匹配到，默认转发到Default链
-	ctx.TellNext(msg, KeyDefaultRelationType)
+	ctx.TellNext(msg, types.DefaultRelationType)
 }
 
 // Destroy 清理资源

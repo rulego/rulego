@@ -26,13 +26,6 @@
 // All components are automatically registered during package initialization:
 // 所有组件在包初始化期间自动注册：
 //
-//	func init() {
-//		Registry.Add(&DelayNode{})
-//		Registry.Add(&ForNode{})
-//		Registry.Add(&ExecNode{})
-//		// ... other components
-//	}
-//
 // Example Usage:
 // 使用示例：
 //
@@ -47,17 +40,6 @@
 //		}
 //	}
 //
-//	// Iterate over collection
-//	// 遍历集合
-//	{
-//		"id": "processItems",
-//		"type": "for",
-//		"configuration": {
-//			"range": "msg.items",
-//			"do": "processItem",
-//			"mode": 1
-//		}
-//	}
 //
 //	// Execute custom function
 //	// 执行自定义函数
