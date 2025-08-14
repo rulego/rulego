@@ -388,6 +388,17 @@ func (r *RunSnapshot) onRuleChainCompleted(ctx types.RuleContext) {
 }
 
 // NewNextNodeRuleContext creates a new instance of RuleContext for the next node in the rule engine.
+// 预定义常用关系类型的单例 slice，避免重复分配
+// Pre-defined singleton slices for common relation types to avoid repeated allocations
+var (
+	successRelationTypes = []string{types.Success}
+	failureRelationTypes = []string{types.Failure}
+	trueRelationTypes    = []string{types.True}
+	falseRelationTypes   = []string{types.False}
+)
+
+// NewNextNodeRuleContext 创建下一个节点的规则上下文
+// NewNextNodeRuleContext creates a rule context for the next node
 func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *DefaultRuleContext {
 	// Create a new context directly instead of using object pool to avoid data races
 	// 但是复用不可变的共享状态以减少内存开销
@@ -414,6 +425,8 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		observer:   ctx.observer, // 共享observer实例
 		err:        ctx.err,
 		chainCache: ctx.chainCache, // 共享缓存
+
+		relationTypes: make([]string, 1),
 	}
 
 	return nextCtx
@@ -652,7 +665,9 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 
 	//全局回调
 	//通过`Config.OnEnd`设置
-	if configOnEnd != nil {
+	// 如果配置了结束节点，只有结束节点才能触发回调；如果没有配置结束节点，所有节点都可以触发
+	isEndNode := ctx.self != nil && ctx.self.Type() == types.NodeTypeEnd
+	if configOnEnd != nil && (ctx.ruleChainCtx == nil || !ctx.ruleChainCtx.HasEndNode() || isEndNode) {
 		ctx.SubmitTask(func() {
 			configOnEnd(ctx, msgToUse, err, relationType)
 		})
@@ -661,7 +676,10 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 	//通过OnMsgWithEndFunc(msg, endFunc)设置
 	if contextOnEnd != nil {
 		ctx.SubmitTask(func() {
-			contextOnEnd(ctx, msgToUse, err, relationType)
+			// 如果配置了结束节点，只有结束节点才能触发回调；如果没有配置结束节点，所有节点都可以触发
+			if ctx.ruleChainCtx == nil || !ctx.ruleChainCtx.HasEndNode() || isEndNode {
+				contextOnEnd(ctx, msgToUse, err, relationType)
+			}
 			ctx.childDone()
 		})
 	} else {
@@ -742,6 +760,8 @@ func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, node
 
 }
 
+// SetExecuteNode 设置要执行的节点和关系类型
+// 如果relationTypes为空，则执行当前节点；否则通过relationTypes查找子节点执行
 func (ctx *DefaultRuleContext) SetExecuteNode(nodeId string, relationTypes ...string) {
 	//如果relationTypes为空，则执行当前节点
 	ctx.isFirst = len(relationTypes) == 0
@@ -752,6 +772,11 @@ func (ctx *DefaultRuleContext) SetExecuteNode(nodeId string, relationTypes ...st
 	} else {
 		ctx.err = fmt.Errorf("SetExecuteNode node id=%s not found", nodeId)
 	}
+}
+
+// GetRelationTypes 获取当前输入节点执行关系
+func (ctx *DefaultRuleContext) GetRelationTypes() []string {
+	return ctx.relationTypes
 }
 
 func (ctx *DefaultRuleContext) GetOut() types.RuleMsg {
@@ -969,6 +994,27 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 		return
 	}
 	// AroundAop 已经执行节点OnMsg逻辑，不在执行下面的逻辑
-
+	ctx.setRelationType(nextCtx, relationType)
 	nextNode.OnMsg(nextCtx, msg)
+}
+
+// setRelationType 优化关系类型的赋值，使用预定义的单例或复用已分配的 slice
+// setRelationType optimizes relation type assignment using predefined singletons or reusing allocated slices
+func (ctx *DefaultRuleContext) setRelationType(nextCtx *DefaultRuleContext, relationType string) {
+	// 对于常用的关系类型，使用预定义的单例 slice 以避免内存分配
+	// For common relation types, use predefined singleton slices to avoid memory allocation
+	switch relationType {
+	case types.Success:
+		nextCtx.relationTypes = successRelationTypes
+	case types.Failure:
+		nextCtx.relationTypes = failureRelationTypes
+	case types.True:
+		nextCtx.relationTypes = trueRelationTypes
+	case types.False:
+		nextCtx.relationTypes = falseRelationTypes
+	default:
+		// 对于自定义关系类型，复用已分配的 slice
+		// For custom relation types, reuse the pre-allocated slice
+		nextCtx.relationTypes[0] = relationType
+	}
 }

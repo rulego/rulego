@@ -39,6 +39,14 @@ const (
 	NamespaceSeparator = ":"
 )
 
+// Node type constants define the standard node types used in rule chains.
+// 节点类型常量定义规则链中使用的标准节点类型。
+const (
+	// NodeTypeEnd represents the end node type that triggers rule chain completion callbacks
+	// NodeTypeEnd 表示触发规则链完成回调的结束节点类型
+	NodeTypeEnd = "end"
+)
+
 const (
 	//NodeConfigurationKeyIsInitNetResource 组件配置key是否是初始化网络资源，用于节点组件初始化参数校验区分
 	NodeConfigurationKeyIsInitNetResource = "$initNetResource"

@@ -24,6 +24,7 @@ import (
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/action"
+	"github.com/rulego/rulego/components/common"
 	"github.com/rulego/rulego/components/external"
 	"github.com/rulego/rulego/components/filter"
 	"github.com/rulego/rulego/components/flow"
@@ -46,6 +47,7 @@ func init() {
 	components = append(components, transform.Registry.Components()...)
 	components = append(components, external.Registry.Components()...)
 	components = append(components, flow.Registry.Components()...)
+	components = append(components, common.Registry.Components()...)
 
 	// Register all components to the default component registry.
 	for _, node := range components {

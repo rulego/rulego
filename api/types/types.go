@@ -918,6 +918,8 @@ type RuleContext interface {
 	GetOut() RuleMsg
 	// GetErr retrieves the IN or OUT error.
 	GetErr() error
+	// GetRelationTypes retrieves the IN relationTypes
+	GetRelationTypes() []string
 	// GlobalCache returns a Cache instance for global cache operations
 	// The cache items will persist until manually deleted or expired
 	GlobalCache() Cache
@@ -935,6 +937,8 @@ type RuleContextOption func(RuleContext)
 
 // WithEndFunc is a callback function for when a branch of the rule chain completes.
 // Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
+// If an explicit end node is configured in the rule chain, the callback will only be triggered
+// when the message flow reaches that specific end node branch.
 // Deprecated: Use `types.WithOnEnd` instead.
 func WithEndFunc(endFunc func(ctx RuleContext, msg RuleMsg, err error)) RuleContextOption {
 	return func(rc RuleContext) {
@@ -946,6 +950,8 @@ func WithEndFunc(endFunc func(ctx RuleContext, msg RuleMsg, err error)) RuleCont
 
 // WithOnEnd is a callback function for when a branch of the rule chain completes.
 // Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
+// If an explicit end node is configured in the rule chain, the callback will only be triggered
+// when the message flow reaches that specific end node branch.
 func WithOnEnd(endFunc func(ctx RuleContext, msg RuleMsg, err error, relationType string)) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetEndFunc(endFunc)
