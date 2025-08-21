@@ -19,6 +19,7 @@ package base
 
 import (
 	"errors"
+	"github.com/rulego/rulego/utils/json"
 	"reflect"
 	"strings"
 	"sync"
@@ -67,9 +68,8 @@ func (n *nodeUtils) GetEvn(ctx types.RuleContext, msg types.RuleMsg) map[string]
 	return n.getEvnAndMetadata(ctx, msg, false)
 }
 
-// GetEvnAndMetadata 和Metadata key合并
 func (n *nodeUtils) GetEvnAndMetadata(ctx types.RuleContext, msg types.RuleMsg) map[string]interface{} {
-	return n.getEvnAndMetadata(ctx, msg, true)
+	return ctx.GetEnv(msg, true)
 }
 
 func (n *nodeUtils) IsNodePool(config types.Config, server string) bool {
@@ -94,14 +94,6 @@ func (n *nodeUtils) getEvnAndMetadata(ctx types.RuleContext, msg types.RuleMsg, 
 	return ctx.GetEnv(msg, useMetadata)
 }
 
-// ReleaseEvn 释放环境变量map到对象池，减少GC压力
-// 注意：调用此方法后不应再使用传入的map
-// 现在由 RuleContext 自动管理，此方法保留用于向后兼容
-func (n *nodeUtils) ReleaseEvn(evn map[string]interface{}) {
-	// 环境变量的释放现在由 RuleContext 自动管理
-	// 此方法保留用于向后兼容，实际上不需要手动释放
-}
-
 // PrepareJsData 准备传递给JavaScript脚本的数据
 // 根据消息的数据类型进行不同的处理：
 // - JSON类型：解析为map以便JavaScript处理
@@ -113,8 +105,10 @@ func (n *nodeUtils) PrepareJsData(msg types.RuleMsg) interface{} {
 	// 根据数据类型进行不同的处理
 	switch msg.DataType {
 	case types.JSON:
-		// JSON类型：尝试解析为map以便JavaScript处理
-		if dataMap, err := msg.GetJsonData(); err == nil {
+		var dataMap interface{}
+
+		// JSON类型：尝试解析为map以便JavaScript处理，js会修改数据，所以这里需要重新解析
+		if err := json.Unmarshal(msg.GetBytes(), &dataMap); err == nil {
 			data = dataMap
 		} else {
 			data = msg.GetData()
