@@ -1,16 +1,19 @@
 package el
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/utils/str"
-	"regexp"
-	"strings"
 )
 
 type Template interface {
 	Parse() error
 	Execute(data map[string]any) (interface{}, error)
+	ExecuteFn(loadDataFunc func() map[string]any) (interface{}, error)
+	ExecuteAsString(data map[string]any) string
 	// Deprecated: Use HasVar instead.
 	// IsNotVar 是否是模板变量
 	IsNotVar() bool
@@ -125,6 +128,18 @@ func (t *ExprTemplate) HasVar() bool {
 	return true
 }
 
+// ExecuteAsString 执行模板并返回字符串结果
+func (t *ExprTemplate) ExecuteAsString(data map[string]any) string {
+	result, err := t.Execute(data)
+	if err != nil {
+		return ""
+	}
+	if result == nil {
+		return ""
+	}
+	return str.ToString(result)
+}
+
 // NotTemplate 原样输出
 type NotTemplate struct {
 	Tmpl string
@@ -136,6 +151,16 @@ func (t *NotTemplate) Parse() error {
 
 func (t *NotTemplate) Execute(data map[string]any) (interface{}, error) {
 	return t.Tmpl, nil
+}
+
+// ExecuteFn 执行模板函数
+func (t *NotTemplate) ExecuteFn(loadDataFunc func() map[string]any) (interface{}, error) {
+	return t.Tmpl, nil
+}
+
+// ExecuteAsString 执行模板并返回字符串结果
+func (t *NotTemplate) ExecuteAsString(data map[string]any) string {
+	return t.Tmpl
 }
 
 func (t *NotTemplate) IsNotVar() bool {
@@ -156,6 +181,16 @@ func (t *AnyTemplate) Parse() error {
 
 func (t *AnyTemplate) Execute(data map[string]any) (interface{}, error) {
 	return t.Tmpl, nil
+}
+
+// ExecuteFn 执行模板函数
+func (t *AnyTemplate) ExecuteFn(loadDataFunc func() map[string]any) (interface{}, error) {
+	return t.Tmpl, nil
+}
+
+// ExecuteAsString 执行模板并返回字符串结果
+func (t *AnyTemplate) ExecuteAsString(data map[string]any) string {
+	return str.ToString(t.Tmpl)
 }
 
 func (t *AnyTemplate) IsNotVar() bool {

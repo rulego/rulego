@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/dsl"
 	"github.com/rulego/rulego/utils/str"
 )
 
@@ -207,6 +208,19 @@ func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 		if err = node.Init(config, configuration); err != nil {
 			return &RuleNodeCtx{}, fmt.Errorf("nodeType:%s for id:%s init error:%s", selfDefinition.Type, selfDefinition.Id, err.Error())
 		} else {
+			// Parse and add node dependencies during initialization
+			// 在初始化时解析并添加节点依赖
+			if chainCtx != nil {
+				referencedNodeIds := dsl.ExtractReferencedNodeIds(selfDefinition.Configuration)
+				for _, dependentNodeId := range referencedNodeIds {
+					// Only add dependencies for nodes that exist in the rule chain
+					// 只为规则链中存在的节点添加依赖
+					if dsl.IsNodeIdDefined(*chainCtx.SelfDefinition, dependentNodeId) {
+						chainCtx.AddNodeDependency(selfDefinition.Id, dependentNodeId)
+					}
+				}
+			}
+			
 			// Return a RuleNodeCtx with the initialized node and provided context and definition.
 			return &RuleNodeCtx{
 				Node:              node,

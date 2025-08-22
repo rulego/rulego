@@ -179,6 +179,14 @@ type RuleChainCtx struct {
 	// hasEndNode 指示规则链是否配置了结束节点，在初始化时缓存以避免重复遍历提高性能
 	hasEndNode bool
 
+	// referencedNodes contains the list of nodes that are referenced by other nodes
+	// referencedNodes 包含被其他节点引用的节点列表
+	referencedNodes []string
+
+	// nodeDependencies stores the dependency mapping for each node
+	// nodeDependencies 存储每个节点的依赖关系映射
+	nodeDependencies map[string][]string
+
 	// RWMutex provides thread-safe access to the rule chain context,
 	// allowing concurrent reads while ensuring exclusive writes
 	// RWMutex 为规则链上下文提供线程安全访问，允许并发读取同时确保独占写入
@@ -246,6 +254,7 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		afterReloadAspects: afterReloadAspects,
 		destroyAspects:     destroyAspects,
 		ruleChainPool:      ruleChainPool,
+		referencedNodes:    make([]string, 0),
 	}
 	// Set the ID of the rule chain context if provided in the definition
 	if ruleChainDef.RuleChain.ID != "" {
@@ -842,6 +851,66 @@ func (rc *RuleChainCtx) HasEndNode() bool {
 	rc.RLock()
 	defer rc.RUnlock()
 	return rc.hasEndNode
+}
+
+// GetReferencedNodes 获取被其他节点引用的节点列表
+// GetReferencedNodes gets the list of nodes that are referenced by other nodes
+func (rc *RuleChainCtx) GetReferencedNodes() []string {
+	rc.RLock()
+	defer rc.RUnlock()
+	return rc.referencedNodes
+}
+
+// GetNodeDependencies 获取指定节点的依赖节点ID列表
+// GetNodeDependencies gets the dependent node IDs for the specified node
+func (rc *RuleChainCtx) GetNodeDependencies(nodeId string) []string {
+	rc.RLock()
+	defer rc.RUnlock()
+	if dependencies, exists := rc.nodeDependencies[nodeId]; exists {
+		return dependencies
+	}
+	return nil
+}
+
+// AddNodeDependency 添加节点之间的依赖关系
+// AddNodeDependency adds a dependency relationship between nodes
+func (rc *RuleChainCtx) AddNodeDependency(nodeId string, dependentNodeId string) {
+	rc.Lock()
+	defer rc.Unlock()
+
+	// Initialize nodeDependencies map if it doesn't exist
+	if rc.nodeDependencies == nil {
+		rc.nodeDependencies = make(map[string][]string)
+	}
+
+	// Get existing dependencies for the node
+	dependencies, exists := rc.nodeDependencies[nodeId]
+	if !exists {
+		dependencies = make([]string, 0)
+	}
+
+	// Check if dependency already exists to avoid duplicates
+	for _, existingDep := range dependencies {
+		if existingDep == dependentNodeId {
+			return // Dependency already exists
+		}
+	}
+
+	// Add the new dependency
+	dependencies = append(dependencies, dependentNodeId)
+	rc.nodeDependencies[nodeId] = dependencies
+
+	// Add to referencedNodes if not already present
+	alreadyReferenced := false
+	for _, referencedNode := range rc.referencedNodes {
+		if referencedNode == dependentNodeId {
+			alreadyReferenced = true
+			break
+		}
+	}
+	if !alreadyReferenced {
+		rc.referencedNodes = append(rc.referencedNodes, dependentNodeId)
+	}
 }
 
 // decryptSecret decrypts the secrets in the input map using the provided secret key

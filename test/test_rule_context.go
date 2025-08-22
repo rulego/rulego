@@ -349,6 +349,12 @@ func (ctx *NodeTestRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[
 	return envVars
 }
 
+// GetNodeRuleMsg 获取节点的完整消息信息（测试上下文中暂不支持跨节点取值）
+// GetNodeRuleMsg retrieves the complete RuleMsg of a node (not supported in test context)
+func (ctx *NodeTestRuleContext) GetNodeRuleMsg(nodeId string) (types.RuleMsg, bool) {
+	return types.RuleMsg{}, false
+}
+
 // ExtendedTestRuleContext 扩展的测试上下文，支持结果收集和节点处理器设置
 // 可以替代 SimpleTestContext 和 MockRuleContext
 type ExtendedTestRuleContext struct {

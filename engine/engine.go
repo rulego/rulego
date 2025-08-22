@@ -1238,6 +1238,9 @@ func (e *RuleEngine) createRootContextCopy(msg types.RuleMsg, opts ...types.Rule
 	rootCtxCopy.isFirst = rootCtx.isFirst
 	rootCtxCopy.runSnapshot = NewRunSnapshot(msg.Id, rootCtxCopy.ruleChainCtx, time.Now().UnixMilli())
 
+	// Create a new nodeOutputCache instance for current message processing and set cross-node dependencies
+	rootCtxCopy.nodeOutputCache.SetCacheableNodes(rootCtx.ruleChainCtx.referencedNodes)
+
 	// Apply the provided options to the context copy
 	// 将提供的选项应用于上下文副本
 	for _, opt := range opts {

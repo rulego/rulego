@@ -844,6 +844,14 @@ type ChainCtx interface {
 	// 引擎池管理多个规则引擎实例，用于高并发场景中的负载均衡
 	// 和资源优化。
 	GetRuleEnginePool() RuleEnginePool
+	// AddNodeDependency adds a dependency relationship between nodes.
+	// AddNodeDependency 添加节点之间的依赖关系。
+	//
+	// This method allows dynamic addition of node dependencies for runtime
+	// dependency management and cache optimization.
+	// 此方法允许动态添加节点依赖关系，用于运行时
+	// 依赖管理和缓存优化。
+	AddNodeDependency(nodeId string, dependentNodeId string)
 }
 
 // RuleContext is the interface for message processing context within the rule engine.
@@ -930,6 +938,19 @@ type RuleContext interface {
 	// GetEnv gets environment variables and metadata from message
 	// useMetadata: whether to include metadata in the result
 	GetEnv(msg RuleMsg, useMetadata bool) map[string]interface{}
+	// GetNodeRuleMsg retrieves the complete RuleMsg of a specific executed node by nodeId
+	// Returns the RuleMsg and a boolean indicating if the node was found
+	// This method provides access to message data, metadata, and other information
+	//
+	// IMPORTANT: Node dependency must be established before accessing node output data.
+	// The dependency relationship is automatically established when:
+	// 1. Using FetchNodeOutputNode component - calls chainCtx.AddNodeDependency() in Init()
+	// 2. Manually calling chainCtx.AddNodeDependency(currentNodeId, targetNodeId)
+	// 3. Node configuration contains references to other nodes. e.g. ${nodeId.msg.xx} (auto-detected)
+	//
+	// Only nodes with established dependencies will have their outputs cached and accessible.
+	// Without dependency relationship, this method will return (RuleMsg{}, false).
+	GetNodeRuleMsg(nodeId string) (RuleMsg, bool)
 }
 
 // RuleContextOption is a function type for modifying RuleContext options.
