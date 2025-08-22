@@ -357,15 +357,10 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 		dataTypeValue := types.TEXT
 		result, err := str.ToStringMaybeErr(dataTypeValue)
 
-		// 这里会显示问题：DataType被JSON序列化后带引号
-		t.Logf("DataType value: %v, converted string: %s", dataTypeValue, result)
-
 		// 修正期望值：ToStringMaybeErr会对DataType进行JSON序列化，所以结果会是带引号的字符串
 		assert.Nil(t, err)
 		assert.Equal(t, `"TEXT"`, result) // DataType被JSON序列化后会带引号
 
-		// 这就是为什么我们需要在JS transform中传递string(msg.DataType)而不是msg.DataType
-		// 正确的做法是先转换为字符串
 		stringResult, err2 := str.ToStringMaybeErr(string(dataTypeValue))
 		assert.Nil(t, err2)
 		assert.Equal(t, "TEXT", stringResult) // 字符串不会被JSON序列化
@@ -398,21 +393,8 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 
 		// 处理消息
 		node.OnMsg(ctx, testMsg)
-
-		// 输出调试信息
-		t.Logf("Original DataType: %v (%T)", testMsg.DataType, testMsg.DataType)
-		if resultErr == nil {
-			t.Logf("Result DataType: %v (%T)", resultMsg.DataType, resultMsg.DataType)
-			t.Logf("Result DataType string: %s", string(resultMsg.DataType))
-		}
-
-		// 验证结果
-		if resultErr != nil {
-			t.Logf("Error occurred: %v", resultErr)
-		}
 		assert.Nil(t, resultErr)
 		assert.Equal(t, types.Success, resultRelationType)
-		// 这里可能会失败，因为DataType可能变成了"\"TEXT\""而不是"TEXT"
 		assert.Equal(t, types.TEXT, resultMsg.DataType)
 	})
 }

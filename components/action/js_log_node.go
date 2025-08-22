@@ -107,7 +107,7 @@ func (x *LogNode) Init(ruleConfig types.Config, configuration types.Configuratio
 // OnMsg 处理消息，执行JavaScript脚本格式化并记录日志
 func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	// 准备传递给JS脚本的数据
-	data := base.NodeUtils.PrepareJsData(msg)
+	data := base.NodeUtils.GetDataByType(msg, true)
 
 	var metadataValues map[string]string
 	if msg.Metadata != nil {
