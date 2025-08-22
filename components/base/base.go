@@ -115,8 +115,16 @@ func (n *nodeUtils) PrepareJsData(msg types.RuleMsg) interface{} {
 		}
 
 	case types.BINARY:
-		// 二进制类型：直接传递字节数组，JavaScript会将其视为Uint8Array
-		data = msg.GetBytes()
+		// 二进制类型：创建字节数组副本以避免并发修改问题，JavaScript会将其视为Uint8Array
+		originalBytes := msg.GetBytes()
+		if originalBytes != nil {
+			// 创建副本以确保并发安全
+			copyBytes := make([]byte, len(originalBytes))
+			copy(copyBytes, originalBytes)
+			data = copyBytes
+		} else {
+			data = originalBytes
+		}
 	default:
 		// 其他类型：使用原始字符串数据
 		data = msg.GetData()
