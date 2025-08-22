@@ -28,13 +28,12 @@ package action
 //  }
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
-	"github.com/rulego/rulego/utils/str"
 )
 
 // Functions 全局函数注册表，用于注册和查找自定义处理函数
@@ -127,15 +126,15 @@ type FunctionsNodeConfiguration struct {
 //
 // 函数名解析 - Function name resolution:
 //   - 静态名称：直接使用 - Static names: used directly
-//   - 动态名称：支持${metadata.key}和${msg.key}变量替换 - Dynamic names: support variable substitution
+//   - 动态名称：支持${metadata.key}、${msg.key}和${nodeId.metadata.key}变量替换 - Dynamic names: support variable substitution including cross-node access
 type FunctionsNode struct {
 	// Config 节点配置
 	// Config holds the node configuration including function name specification
 	Config FunctionsNodeConfiguration
 
-	// HasVars 标识函数名是否包含占位符变量，用于优化
-	// HasVars indicates whether the function name contains placeholder variables
-	HasVars bool
+	// functionNameTemplate 函数名模板，用于解析动态函数名
+	// functionNameTemplate template for resolving dynamic function names
+	functionNameTemplate el.Template
 }
 
 // Type 返回组件类型
@@ -156,11 +155,17 @@ func (x *FunctionsNode) New() types.Node {
 // Init initializes the component.
 func (x *FunctionsNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
-
-	if strings.Contains(x.Config.FunctionName, "${") {
-		x.HasVars = true
+	if err != nil {
+		return err
 	}
-	return err
+
+	// 初始化函数名模板
+	// Initialize function name template
+	x.functionNameTemplate, err = el.NewTemplate(x.Config.FunctionName)
+	if err != nil {
+		return fmt.Errorf("failed to create function name template: %w", err)
+	}
+	return nil
 }
 
 // OnMsg 处理消息，调用指定的函数
@@ -182,13 +187,12 @@ func (x *FunctionsNode) Destroy() {
 	// No resources to clean up
 }
 
-// getFunctionName 解析函数名称，处理静态和动态情况
-// getFunctionName resolves the function name, handling both static and dynamic cases.
+// getFunctionName 解析函数名称，处理静态和动态情况，支持跨节点取值
+// getFunctionName resolves the function name, handling both static and dynamic cases with cross-node access support.
 func (x *FunctionsNode) getFunctionName(ctx types.RuleContext, msg types.RuleMsg) string {
-	if x.HasVars {
-		evn := base.NodeUtils.GetEvnAndMetadata(ctx, msg)
-		return str.ExecuteTemplate(x.Config.FunctionName, evn)
-	} else {
-		return x.Config.FunctionName
+	if x.functionNameTemplate != nil {
+		// Execute template
+		return x.functionNameTemplate.ExecuteAsString(base.NodeUtils.GetEvnAndMetadata(ctx, msg))
 	}
+	return x.Config.FunctionName
 }
