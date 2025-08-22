@@ -94,37 +94,47 @@ func (n *nodeUtils) getEvnAndMetadata(ctx types.RuleContext, msg types.RuleMsg, 
 	return ctx.GetEnv(msg, useMetadata)
 }
 
-// PrepareJsData 准备传递给JavaScript脚本的数据
+// GetDataByType 准备传递给JavaScript脚本的数据
 // 根据消息的数据类型进行不同的处理：
 // - JSON类型：解析为map以便JavaScript处理
 // - BINARY类型：转换为字节数组，JavaScript将其视为Uint8Array
 // - 其他类型：使用原始字符串数据
-func (n *nodeUtils) PrepareJsData(msg types.RuleMsg) interface{} {
+func (n *nodeUtils) GetDataByType(msg types.RuleMsg, readOnly bool) interface{} {
 	var data interface{}
-
 	// 根据数据类型进行不同的处理
 	switch msg.DataType {
 	case types.JSON:
-		var dataMap interface{}
-
-		// JSON类型：尝试解析为map以便JavaScript处理，js会修改数据，所以这里需要重新解析
-		if err := json.Unmarshal(msg.GetBytes(), &dataMap); err == nil {
-			data = dataMap
+		if readOnly {
+			if dataMap, err := msg.GetJsonData(); err == nil {
+				data = dataMap
+			} else {
+				data = msg.GetData()
+			}
 		} else {
-			data = msg.GetData()
+			// JSON类型：js会修改数据，所以这里需要重新解析
+			var dataMap interface{}
+			if err := json.Unmarshal(msg.GetBytes(), &dataMap); err == nil {
+				data = dataMap
+			} else {
+				data = msg.GetData()
+			}
 		}
-
 	case types.BINARY:
-		// 二进制类型：创建字节数组副本以避免并发修改问题，JavaScript会将其视为Uint8Array
-		originalBytes := msg.GetBytes()
-		if originalBytes != nil {
-			// 创建副本以确保并发安全
-			copyBytes := make([]byte, len(originalBytes))
-			copy(copyBytes, originalBytes)
-			data = copyBytes
+		if readOnly {
+			data = msg.GetBytes()
 		} else {
-			data = originalBytes
+			// 二进制类型：创建字节数组副本以避免并发修改问题，JavaScript会将其视为Uint8Array
+			originalBytes := msg.GetBytes()
+			if originalBytes != nil {
+				// 创建副本以确保并发安全
+				copyBytes := make([]byte, len(originalBytes))
+				copy(copyBytes, originalBytes)
+				data = copyBytes
+			} else {
+				data = originalBytes
+			}
 		}
+
 	default:
 		// 其他类型：使用原始字符串数据
 		data = msg.GetData()

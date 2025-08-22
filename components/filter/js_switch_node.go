@@ -104,7 +104,7 @@ func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configu
 // OnMsg 处理消息，执行JavaScript脚本确定路由路径
 func (x *JsSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	// 准备传递给JS脚本的数据
-	data := base.NodeUtils.PrepareJsData(msg)
+	data := base.NodeUtils.GetDataByType(msg, true)
 
 	out, err := x.jsEngine.Execute(ctx, "Switch", data, msg.Metadata.Values(), msg.Type, msg.DataType)
 

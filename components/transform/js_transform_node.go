@@ -168,8 +168,8 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		return
 	}
 
-	// 准备传递给JS脚本的数据
-	data := base.NodeUtils.PrepareJsData(msg)
+	// 准备传递给JS脚本的数据，因为js对data就行修改，会影响原始数据，所以需要复制一份
+	data := base.NodeUtils.GetDataByType(msg, false)
 
 	var metadataValues map[string]string
 	if msg.Metadata != nil {
