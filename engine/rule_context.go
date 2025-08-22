@@ -31,7 +31,7 @@ import (
 var _ types.RuleContext = (*DefaultRuleContext)(nil)
 
 // GetEnv 获取环境变量和元数据
-func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[string]interface{} {
+func (ctx *DefaultRuleContext) getEnv(msg types.RuleMsg, useMetadata bool, nodeIds ...string) map[string]interface{} {
 	// 预分配合适大小的map，减少扩容开销
 	capacity := 7 // 基础字段数量：id, ts, data, msgType, dataType, msg, metadata
 	if msg.Metadata != nil && useMetadata {
@@ -72,6 +72,36 @@ func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[s
 	}
 
 	return evn
+}
+
+// GetEnv 获取环境变量和元数据，支持跨节点取值
+// msg: 当前消息
+// useMetadata: 是否包含metadata
+// 返回包含跨节点数据的上下文map，格式为 nodeId.msg.xx 和 nodeId.metadata.xx
+func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[string]interface{} {
+	// 获取基础环境变量和metadata
+	baseContext := ctx.getEnv(msg, useMetadata)
+
+	if ctx.nodeOutputCache == nil {
+		return baseContext
+	}
+
+	// 确定需要访问的节点ID列表
+	var targetNodeIds []string
+	// 自动获取当前节点的依赖节点ID列表
+	if ctx.ruleChainCtx != nil {
+		currentNodeId := ctx.GetSelfId()
+		targetNodeIds = ctx.ruleChainCtx.GetNodeDependencies(currentNodeId)
+	}
+
+	// 为每个节点ID添加跨节点数据
+	for _, nodeId := range targetNodeIds {
+		if nodeMsg, found := ctx.nodeOutputCache.GetNodeRuleMsg(nodeId); found {
+			baseContext[nodeId] = ctx.getEnv(nodeMsg, false)
+		}
+	}
+
+	return baseContext
 }
 
 // ContextObserver tracks the execution state of nodes in the rule chain.
@@ -229,6 +259,8 @@ type DefaultRuleContext struct {
 	// IN or OUT err
 	err        error
 	chainCache types.Cache
+	// nodeOutputCache 节点输出缓存，用于跨节点取值
+	nodeOutputCache *NodeOutputCache
 }
 
 func (ctx *DefaultRuleContext) GlobalCache() types.Cache {
@@ -237,6 +269,12 @@ func (ctx *DefaultRuleContext) GlobalCache() types.Cache {
 
 func (ctx *DefaultRuleContext) ChainCache() types.Cache {
 	return ctx.chainCache
+}
+
+// GetNodeOutputCache 获取节点输出缓存
+// GetNodeOutputCache returns the node output cache
+func (ctx *DefaultRuleContext) GetNodeOutputCache() *NodeOutputCache {
+	return ctx.nodeOutputCache
 }
 
 // NewRuleContext creates a new instance of the default rule engine message processing context.
@@ -262,21 +300,22 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 	}
 	// Return a new DefaultRuleContext populated with the provided parameters and aspects.
 	return &DefaultRuleContext{
-		context:       context,
-		config:        config,
-		ruleChainCtx:  ruleChainCtx,
-		from:          from,
-		self:          self,
-		isFirst:       from == nil,
-		pool:          pool,
-		onEnd:         onEnd,
-		ruleChainPool: ruleChainPool,
-		aspects:       aspects,
-		aroundAspects: aroundAspects,
-		beforeAspects: beforeAspects,
-		afterAspects:  afterAspects,
-		observer:      &ContextObserver{},
-		chainCache:    chainCache,
+		context:         context,
+		config:          config,
+		ruleChainCtx:    ruleChainCtx,
+		from:            from,
+		self:            self,
+		isFirst:         from == nil,
+		pool:            pool,
+		onEnd:           onEnd,
+		ruleChainPool:   ruleChainPool,
+		aspects:         aspects,
+		aroundAspects:   aroundAspects,
+		beforeAspects:   beforeAspects,
+		afterAspects:    afterAspects,
+		observer:        &ContextObserver{},
+		chainCache:      chainCache,
+		nodeOutputCache: &NodeOutputCache{},
 	}
 }
 
@@ -422,9 +461,10 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		// 共享运行时状态
 		runSnapshot: ctx.runSnapshot,
 		// 子context共享observer
-		observer:   ctx.observer, // 共享observer实例
-		err:        ctx.err,
-		chainCache: ctx.chainCache, // 共享缓存
+		observer:        ctx.observer, // 共享observer实例
+		err:             ctx.err,
+		chainCache:      ctx.chainCache,      // 共享缓存
+		nodeOutputCache: ctx.nodeOutputCache, // 共享节点输出缓存
 
 		relationTypes: make([]string, 1),
 	}
@@ -985,6 +1025,10 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 		}
 	}
 
+	// 在执行下一个节点之前，存储当前节点的输出到缓存
+	// Store current node output to cache before executing next node
+	ctx.StoreNodeOutput(ctx.GetSelfId(), msg)
+
 	nextCtx := ctx.NewNextNodeRuleContext(nextNode)
 
 	//环绕aop
@@ -1017,4 +1061,37 @@ func (ctx *DefaultRuleContext) setRelationType(nextCtx *DefaultRuleContext, rela
 		// For custom relation types, reuse the pre-allocated slice
 		nextCtx.relationTypes[0] = relationType
 	}
+}
+
+// GetNodeRuleMsg retrieves the complete RuleMsg of a specific executed node by nodeId
+// IMPORTANT: Node dependency must be established beforehand to successfully retrieve data
+//
+// Dependency establishment methods:
+// 1. Using FetchNodeOutputNode component (automatic)
+// 2. Manually calling chainCtx.AddNodeDependency(currentNodeId, targetNodeId)
+// 3. Node configuration contains references to other nodes. e.g. ${nodeId.msg.xx} (auto-detected)
+func (ctx *DefaultRuleContext) GetNodeRuleMsg(nodeId string) (types.RuleMsg, bool) {
+	// 从节点输出缓存中获取目标节点的RuleMsg
+	// 只有建立了依赖关系的节点输出才会被缓存
+	// Retrieve target node's RuleMsg from node output cache
+	// Only outputs from nodes with established dependencies are cached
+	if ruleMsg, ok := ctx.nodeOutputCache.GetNodeRuleMsg(nodeId); ok {
+		return ruleMsg, true
+	}
+	// Target node output not found, possible reasons:
+	// 1. Node not yet executed
+	// 2. Dependency not established
+	// 3. Node execution failed
+	return types.RuleMsg{}, false
+}
+
+// StoreNodeOutput 存储节点输出到缓存中，用于跨节点取值
+// 只有在以下情况下才会进行缓存：
+// 1. 配置中启用了节点输出缓存 (EnableNodeOutputCache = true)
+// 2. 或者已检测到跨节点取值用法 (通过EnableCrossNodeAccess()启用)
+// 参数:
+//   - nodeId: 节点ID
+//   - msg: 规则消息
+func (ctx *DefaultRuleContext) StoreNodeOutput(nodeId string, msg types.RuleMsg) {
+	ctx.nodeOutputCache.StoreNodeOutput(nodeId, msg)
 }
