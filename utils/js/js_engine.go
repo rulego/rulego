@@ -115,61 +115,66 @@ func (g *GojaJsEngine) PreCompileJs(config types.Config) error {
 // NewVm new a js VM
 func (g *GojaJsEngine) NewVm(config types.Config, fromVars map[string]interface{}) *goja.Runtime {
 	vm := goja.New()
-	vars := make(map[string]interface{})
+
+	// Set fromVars directly
 	if fromVars != nil {
 		for k, v := range fromVars {
-			vars[k] = v
+			if err := vm.Set(k, v); err != nil {
+				config.Logger.Printf("set fromVar %s error: %s", k, err.Error())
+			}
 		}
 	}
+
+	// Set global properties directly
 	if len(config.Properties.Values()) != 0 {
-		////Add global properties to the JavaScript runtime and call them through the global.xx method
-		vars[GlobalKey] = config.Properties.Values()
+		if err := vm.Set(GlobalKey, config.Properties.Values()); err != nil {
+			config.Logger.Printf("set global properties error: %s", err.Error())
+		}
 	}
-	//Add global custom functions to the JavaScript runtime
+
+	// Process UDF functions
 	for k, v := range config.Udf {
 		var err error
 		if _, ok := v.(string); ok {
-			if p, ok := g.jsUdfProgramCache[k]; ok {
+			// JS string - run precompiled program
+			if p, exists := g.jsUdfProgramCache[k]; exists {
 				_, err = vm.RunProgram(p)
 			}
 		} else if script, scriptOk := v.(types.Script); scriptOk {
 			if script.Type == types.Js || script.Type == types.AllScript {
-				// parse  JS script
 				if _, ok := script.Content.(string); ok {
-					if p, ok := g.jsUdfProgramCache[k]; ok {
+					// JS string content - run precompiled program
+					if p, exists := g.jsUdfProgramCache[k]; exists {
 						_, err = vm.RunProgram(p)
 					}
 				} else if _, ok := script.Content.(*goja.Program); ok {
-					if p, ok := g.jsUdfProgramCache[k]; ok {
+					// Precompiled program - run it
+					if p, exists := g.jsUdfProgramCache[k]; exists {
 						_, err = vm.RunProgram(p)
 					}
-				} else {
+				} else if script.Content != nil {
+					// Go function in script wrapper
 					funcName := strings.Replace(k, types.Js+types.ScriptFuncSeparator, "", 1)
-					vars[funcName] = vm.ToValue(script.Content)
+					err = vm.Set(funcName, script.Content)
 				}
 			}
 		} else {
-			// parse go func
-			vars[k] = vm.ToValue(v)
+			// Direct Go function
+			err = vm.Set(k, v)
 		}
+
 		if err != nil {
-			config.Logger.Printf("parse js script=" + k + " error,err:" + err.Error())
-		}
-	}
-	for k, v := range vars {
-		if err := vm.Set(k, v); err != nil {
-			config.Logger.Printf("set variable error,err:" + err.Error())
+			config.Logger.Printf("parse js script=%s error: %s", k, err.Error())
 		}
 	}
 
-	state := g.setTimeout(vm)
-
+	// Run main script with timeout
+	timer := g.startTimeout(vm)
 	_, err := vm.RunProgram(g.jsScript)
-	//If there is no timeout, state=0; otherwise, state=-2
-	closeStateChan(state)
+	g.stopTimeout(timer)
 
 	if err != nil {
-		config.Logger.Printf("js vm error,err:" + err.Error())
+		config.Logger.Printf("js vm error: %s", err.Error())
 	}
 	return vm
 }
@@ -183,49 +188,64 @@ func (g *GojaJsEngine) Execute(ctx types.RuleContext, functionName string, argum
 	}()
 
 	vm := g.vmPool.Get().(*goja.Runtime)
+	defer g.vmPool.Put(vm)
 
-	vm.Set(CtxKey, ctx)
+	// Only set context if provided to avoid nil overhead
+	if ctx != nil {
+		vm.Set(CtxKey, ctx)
+	}
 
-	state := g.setTimeout(vm)
+	// Use timeout only if configured
+	var timer *time.Timer
+	if g.config.ScriptMaxExecutionTime > 0 {
+		timer = g.startTimeout(vm)
+		defer g.stopTimeout(timer)
+	}
 
+	// Get function
 	f, ok := goja.AssertFunction(vm.Get(functionName))
 	if !ok {
 		return nil, errors.New(functionName + " is not a function")
 	}
+
+	// Optimized parameter conversion - pre-allocate slice
 	var params []goja.Value
-	for _, v := range argumentList {
-		params = append(params, vm.ToValue(v))
+	if len(argumentList) > 0 {
+		params = make([]goja.Value, len(argumentList))
+		for i, v := range argumentList {
+			params[i] = vm.ToValue(v)
+		}
 	}
+
+	// Execute function
 	res, err := f(goja.Undefined(), params...)
-	//If there is no timeout, state=0; otherwise, state=-2
-	closeStateChan(state)
-	//Put back to the pool
-	g.vmPool.Put(vm)
 	if err != nil {
 		return nil, err
 	}
-	return res.Export(), err
+	return res.Export(), nil
 }
 
 func (g *GojaJsEngine) Stop() {
 }
 
-// setTimeout if timeout interrupt the js script execution
-func (g *GojaJsEngine) setTimeout(vm *goja.Runtime) chan int {
-	state := make(chan int, 1)
-	state <- 0
-	time.AfterFunc(g.config.ScriptMaxExecutionTime, func() {
-		if <-state == 0 {
-			state <- 2
-			vm.Interrupt("execution timeout")
-		}
+// startTimeout starts a timeout for JS script execution using time.AfterFunc
+// Returns nil if timeout is not configured
+func (g *GojaJsEngine) startTimeout(vm *goja.Runtime) *time.Timer {
+	// Skip timeout if not configured
+	if g.config.ScriptMaxExecutionTime <= 0 {
+		return nil
+	}
+
+	// Use time.AfterFunc to avoid creating goroutines
+	// This is more efficient and prevents goroutine leaks
+	return time.AfterFunc(g.config.ScriptMaxExecutionTime, func() {
+		vm.Interrupt("execution timeout")
 	})
-	return state
 }
 
-func closeStateChan(state chan int) {
-	if <-state == 0 {
-		state <- 1
+// stopTimeout stops the timeout timer
+func (g *GojaJsEngine) stopTimeout(timer *time.Timer) {
+	if timer != nil {
+		timer.Stop()
 	}
-	close(state)
 }
