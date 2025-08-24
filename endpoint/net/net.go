@@ -195,12 +195,8 @@ func (r *RequestMessage) GetMsg() *types.RuleMsg {
 		// Decide how to create the message based on data type
 		var ruleMsg types.RuleMsg
 		if dataType == types.BINARY {
-			// 对于二进制数据，使用 NewMsgFromBytes 避免字符串转换
-			// For binary data, use NewMsgFromBytes to avoid string conversion
 			ruleMsg = types.NewMsgFromBytes(0, r.From(), dataType, types.NewMetadata(), r.Body())
 		} else {
-			// 对于文本和JSON数据，可以安全地转换为字符串
-			// For text and JSON data, it's safe to convert to string
 			ruleMsg = types.NewMsg(0, r.From(), dataType, types.NewMetadata(), string(r.Body()))
 		}
 		r.msg = &ruleMsg
@@ -483,6 +479,7 @@ type Net struct {
 	// 路由映射表
 	routers map[string]*RegexpRouter
 	closed  int32 // 使用int32类型支持原子操作，0表示未关闭，1表示已关闭
+	mu      sync.RWMutex // 保护listener和udpConn的并发访问
 }
 
 // Type 组件类型
@@ -526,19 +523,26 @@ func (ep *Net) Destroy() {
 	_ = ep.Close()
 }
 
+// Close 关闭网络端点
 func (ep *Net) Close() error {
 	atomic.StoreInt32(&ep.closed, 1)
+	
+	ep.mu.Lock()
+	defer ep.mu.Unlock()
+	
+	var err error
 	if ep.listener != nil {
-		err := ep.listener.Close()
+		err = ep.listener.Close()
 		ep.listener = nil
-		return err
 	}
 	if ep.udpConn != nil {
-		err := ep.udpConn.Close()
+		udpErr := ep.udpConn.Close()
 		ep.udpConn = nil
-		return err
+		if err == nil {
+			err = udpErr
+		}
 	}
-	return nil
+	return err
 }
 
 func (ep *Net) Id() string {
@@ -614,16 +618,22 @@ func (ep *Net) RemoveRouter(routerId string, params ...interface{}) error {
 	}
 	return nil
 }
+// Start 启动Net端点
 func (ep *Net) Start() error {
 	var err error
 	// 根据配置的协议和地址，创建一个服务器监听器
 	switch ep.Config.Protocol {
 
 	case ProtocolTCP, ProtocolTCP4, ProtocolTCP6, ProtocolUnix, ProtocolUnixPacket:
-		ep.listener, err = net.Listen(ep.Config.Protocol, ep.Config.Server)
+		listener, err := net.Listen(ep.Config.Protocol, ep.Config.Server)
 		if err != nil {
 			return err
 		}
+		
+		ep.mu.Lock()
+		ep.listener = listener
+		ep.mu.Unlock()
+		
 		ep.Printf("started TCP server on %s", ep.Config.Server)
 		go ep.acceptTCPConnections()
 	case ProtocolUDP, ProtocolUDP4, ProtocolUDP6:
@@ -643,15 +653,21 @@ func (ep *Net) Start() error {
 	return nil
 }
 
+// listenUDP 启动UDP监听
 func (ep *Net) listenUDP() error {
 	udpAddr, err := net.ResolveUDPAddr(ep.Config.Protocol, ep.Config.Server)
 	if err != nil {
 		return err
 	}
-	ep.udpConn, err = net.ListenUDP(ep.Config.Protocol, udpAddr)
+	udpConn, err := net.ListenUDP(ep.Config.Protocol, udpAddr)
 	if err != nil {
 		return err
 	}
+	
+	ep.mu.Lock()
+	ep.udpConn = udpConn
+	ep.mu.Unlock()
+	
 	return nil
 }
 
@@ -665,7 +681,10 @@ func (ep *Net) acceptTCPConnections() {
 		}
 
 		// 获取监听器引用，避免在Close()过程中访问nil指针
+		ep.mu.RLock()
 		listener := ep.listener
+		ep.mu.RUnlock()
+		
 		if listener == nil {
 			ep.Printf("net endpoint stop - listener is nil")
 			return
@@ -933,10 +952,19 @@ func (x *UDPHandler) handler() {
 	buffer := make([]byte, bufferSize)
 
 	for {
-		if x.endpoint.udpConn == nil || atomic.LoadInt32(&x.endpoint.closed) == 1 {
+		if atomic.LoadInt32(&x.endpoint.closed) == 1 {
 			break
 		}
-		n, addr, err := x.endpoint.udpConn.ReadFromUDP(buffer)
+		
+		x.endpoint.mu.RLock()
+		udpConn := x.endpoint.udpConn
+		x.endpoint.mu.RUnlock()
+		
+		if udpConn == nil {
+			break
+		}
+		
+		n, addr, err := udpConn.ReadFromUDP(buffer)
 		if err != nil {
 			time.Sleep(time.Second)
 			if atomic.LoadInt32(&x.endpoint.closed) == 1 {
