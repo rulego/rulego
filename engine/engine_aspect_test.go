@@ -18,7 +18,9 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/rulego/rulego/components/action"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -582,4 +584,149 @@ func TestAroundAspect(t *testing.T) {
 	}))
 
 	time.Sleep(time.Millisecond * 20000)
+}
+
+func TestConcurrencyLimiterAspect(t *testing.T) {
+	var ruleChainFile = `{
+          "ruleChain": {
+            "id": "testDoOnEnd",
+            "name": "TestDoOnEnd"
+          },
+          "metadata": {
+            "nodes": [
+              {
+                "id": "s1",
+                "type": "functions",
+                "name": "结束函数",
+                "debugMode": true,
+                "configuration": {
+                  "functionName": "doSleep"
+                }
+              }
+            ],
+            "connections": [
+            ]
+          }
+        }`
+
+	//测试函数
+	action.Functions.Register("doSleep", func(ctx types.RuleContext, msg types.RuleMsg) {
+		time.Sleep(time.Millisecond * 200)
+		ctx.TellNext(msg, types.Success)
+	})
+	config := NewConfig(types.WithDefaultPool())
+	//限制并发1
+	ruleEngine, err := New("testLimiterAspect", []byte(ruleChainFile), WithConfig(config),
+		types.WithAspects(&aspect.Debug{}, aspect.NewConcurrencyLimiterAspect(1)))
+	assert.Nil(t, err)
+	metaData := types.NewMetadata()
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"body\":{\"sms\":[\"aa\"]}}")
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.Success, relationType)
+	}))
+	time.Sleep(time.Millisecond * 100)
+	//上一条没执行完，并发超过限制
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.Failure, relationType)
+	}))
+	time.Sleep(time.Millisecond * 200)
+	//都已经执行完，解除并发限制
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.Success, relationType)
+	}))
+	time.Sleep(time.Millisecond * 250)
+	//修改并发2
+	_ = ruleEngine.Reload(types.WithAspects(&aspect.Debug{}, aspect.NewConcurrencyLimiterAspect(2)))
+	msg = types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"body\":{\"sms\":[\"aa\"]}}")
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.Success, relationType)
+	}))
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.Success, relationType)
+	}))
+	time.Sleep(time.Millisecond * 100)
+	//触发并发限制
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.Failure, relationType)
+	}))
+	time.Sleep(time.Millisecond * 250)
+	//取消限制并发
+	_ = ruleEngine.Reload(types.WithAspects(&aspect.Debug{}))
+	var i = 0
+	for i < 10 {
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			assert.Equal(t, types.Success, relationType)
+		}))
+		i++
+	}
+	time.Sleep(time.Millisecond * 400)
+
+	//重新设置并发
+	_ = ruleEngine.Reload(types.WithAspects(&aspect.Debug{}, aspect.NewConcurrencyLimiterAspect(1)))
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.Success, relationType)
+	}))
+	time.Sleep(time.Millisecond * 100)
+	//上一条没执行完，并发超过限制
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		assert.Equal(t, types.Failure, relationType)
+	}))
+	time.Sleep(time.Millisecond * 100)
+}
+
+func TestMetricsAspect(t *testing.T) {
+	ruleFile := loadFile("./test_metrics_chain.json")
+	//测试函数
+	action.Functions.Register("doErr", func(ctx types.RuleContext, msg types.RuleMsg) {
+		time.Sleep(time.Millisecond * 100)
+		ctx.TellFailure(msg, errors.New("error"))
+	})
+	action.Functions.Register("doSuccess", func(ctx types.RuleContext, msg types.RuleMsg) {
+		time.Sleep(time.Millisecond * 100)
+		ctx.TellNext(msg, types.Success)
+	})
+
+	config := NewConfig(types.WithDefaultPool())
+	ruleEngine, err := New("testMetricsAspect", ruleFile, WithConfig(config))
+	assert.Nil(t, err)
+
+	metaData := types.NewMetadata()
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"body\":{\"sms\":[\"aa\"]}}")
+	ruleEngine.OnMsg(msg)
+	ruleEngine.OnMsg(msg)
+	time.Sleep(time.Millisecond * 50)
+	metrics := ruleEngine.GetMetrics().Get()
+	//正在执行
+	assert.Equal(t, int64(2), metrics.Current)
+
+	time.Sleep(time.Millisecond * 500)
+	//等待所有规则链支持完
+	metrics = ruleEngine.GetMetrics().Get()
+	assert.Equal(t, int64(0), metrics.Current)
+	assert.Equal(t, int64(2), metrics.Total)
+	assert.Equal(t, int64(2), metrics.Failed)
+	assert.Equal(t, int64(4), metrics.Success)
+	//重置
+	ruleEngine.GetMetrics().Reset()
+	assert.Equal(t, int64(0), ruleEngine.GetMetrics().Get().Total)
+	assert.Equal(t, int64(0), ruleEngine.GetMetrics().Get().Failed)
+	assert.Equal(t, int64(0), ruleEngine.GetMetrics().Get().Success)
+
+	ruleEngine.OnMsg(msg)
+	ruleEngine.OnMsg(msg)
+	time.Sleep(time.Millisecond * 500)
+	metrics = ruleEngine.GetMetrics().Get()
+	assert.Equal(t, int64(0), metrics.Current)
+	assert.Equal(t, int64(2), metrics.Total)
+	assert.Equal(t, int64(2), metrics.Failed)
+	assert.Equal(t, int64(4), metrics.Success)
+
+	//刷新，指标不变
+	_ = ruleEngine.Reload()
+	metrics = ruleEngine.GetMetrics().Get()
+	assert.Equal(t, int64(0), metrics.Current)
+	assert.Equal(t, int64(2), metrics.Total)
+	assert.Equal(t, int64(2), metrics.Failed)
+	assert.Equal(t, int64(4), metrics.Success)
+
 }
