@@ -117,8 +117,11 @@ package processor
 
 import (
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
@@ -235,6 +238,24 @@ func init() {
 		return true
 	})
 
+	// Register input processor to enable streaming mode for AI components
+	// 注册输入处理器为AI组件启用流式模式
+	InBuiltins.Register("enableStreaming", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		msg.Metadata.PutValue("stream", "true")
+		exchange.Out.Headers().Set("X-Stream-Enabled", "true")
+		return true
+	})
+
+	// Register input processor to set AI agent context for orchestrator components
+	// 注册输入处理器为编排组件设置AI智能体上下文
+	InBuiltins.Register("setAgentContext", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		msg := exchange.In.GetMsg()
+		msg.Metadata.PutValue("agent_mode", "orchestrator")
+		msg.Metadata.PutValue("context_type", "conversation")
+		return true
+	})
+
 	// Register input processor to convert binary message data to hexadecimal string.
 	// 注册输入处理器将二进制消息数据转换为十六进制字符串。
 	InBuiltins.Register("toHex", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
@@ -271,6 +292,45 @@ func init() {
 		return true
 	})
 
+	// Register output processor for streaming response handling
+	// 注册流式响应处理的输出处理器
+	OutBuiltins.Register("streamingResponse", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Lock()
+		defer exchange.Unlock()
+
+		if err := exchange.Out.GetError(); err != nil {
+			// Handle streaming error
+			exchange.Out.SetStatusCode(400)
+			exchange.Out.Headers().Set(HeaderKeyContentType, "text/event-stream")
+			errorData := fmt.Sprintf(`data: {"error": "%s"}\n\n`, err.Error())
+			exchange.Out.SetBody([]byte(errorData))
+		} else if msg := exchange.Out.GetMsg(); msg != nil {
+			// Handle streaming data
+			exchange.Out.Headers().Set(HeaderKeyContentType, "text/event-stream")
+			exchange.Out.Headers().Set("Cache-Control", "no-cache")
+			exchange.Out.Headers().Set("Connection", "keep-alive")
+
+			// Check if this is a chunk or complete response
+			isChunk := msg.Metadata.GetValue("chunk") == "true"
+			isCompleted := msg.Metadata.GetValue("stream_completed") == "true"
+
+			if isChunk {
+				// Stream chunk data
+				chunkData := fmt.Sprintf(`data: {"chunk": "%s"}\n\n`, msg.GetData())
+				exchange.Out.SetBody([]byte(chunkData))
+			} else if isCompleted {
+				// Stream completion signal
+				completeData := fmt.Sprintf(`data: {"completed": true, "final": "%s"}\n\ndata: [DONE]\n\n`, msg.GetData())
+				exchange.Out.SetBody([]byte(completeData))
+			} else {
+				// Regular streaming of full message
+				streamData := fmt.Sprintf(`data: {"content": "%s"}\n\n`, msg.GetData())
+				exchange.Out.SetBody([]byte(streamData))
+			}
+		}
+		return true
+	})
+
 	// Register output processor to map message metadata to HTTP response headers.
 	// This enables rule chains to set custom HTTP headers through message metadata.
 	// Also handles error cases by setting appropriate status code and error body.
@@ -292,6 +352,47 @@ func init() {
 				exchange.Out.Headers().Set(k, v)
 				return true // continue iteration  继续迭代
 			})
+		}
+		return true
+	})
+
+	// Register output processor for AI agent response formatting
+	// 注册AI智能体响应格式化的输出处理器
+	OutBuiltins.Register("agentResponseFormat", func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Lock()
+		defer exchange.Unlock()
+
+		if err := exchange.Out.GetError(); err != nil {
+			// Format agent error response
+			agentError := map[string]interface{}{
+				"type":      "agent_error",
+				"message":   err.Error(),
+				"timestamp": time.Now().Unix(),
+			}
+			errorData, _ := json.Marshal(agentError)
+			exchange.Out.SetStatusCode(400)
+			exchange.Out.Headers().Set(HeaderKeyContentType, HeaderValueApplicationJson)
+			exchange.Out.SetBody(errorData)
+		} else if msg := exchange.Out.GetMsg(); msg != nil {
+			// Format successful agent response
+			agentResponse := map[string]interface{}{
+				"type":      "agent_response",
+				"content":   msg.GetData(),
+				"timestamp": time.Now().Unix(),
+				"metadata":  make(map[string]string),
+			}
+
+			// Add metadata
+			if metadata, ok := agentResponse["metadata"].(map[string]string); ok {
+				msg.Metadata.ForEach(func(k, v string) bool {
+					metadata[k] = v
+					return true
+				})
+			}
+
+			responseData, _ := json.Marshal(agentResponse)
+			exchange.Out.Headers().Set(HeaderKeyContentType, HeaderValueApplicationJson)
+			exchange.Out.SetBody(responseData)
 		}
 		return true
 	})

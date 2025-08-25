@@ -7,7 +7,7 @@ toolchain go1.23.7
 require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/mark3labs/mcp-go v0.18.0
+	github.com/mark3labs/mcp-go v0.30.2-0.20250529062849-bfc377391e4c
 	github.com/rulego/rulego v0.33.0-alpha.2.0.20250823152233-262dc1a6a34f
 	github.com/rulego/rulego-components v0.32.1-0.20250730114152-d37c4d32ea1a
 	github.com/rulego/rulego-components-ai v0.31.1
@@ -143,10 +143,10 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rabbitmq/amqp091-go v1.10.1-0.20240821123418-dc67c21576c2 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
-	github.com/redis/go-redis/v9 v9.10.0 // indirect
+	github.com/redis/go-redis/v9 v9.11.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rulego/streamsql v0.10.1 // indirect
-	github.com/sashabaranov/go-openai v1.37.0 // indirect
+	github.com/sashabaranov/go-openai v1.40.1-0.20250520134540-8c65b35c57ad // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/shirou/gopsutil/v4 v4.25.5-0.20250517063057-34ac457e154c // indirect
@@ -156,6 +156,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
@@ -214,7 +215,7 @@ require (
 
 //replace github.com/rulego/streamsql => ../../../streamsql
 
-//replace github.com/rulego/rulego-components-ai => ../../../rulego-components-ai
+replace github.com/rulego/rulego-components-ai => ../../../rulego-components-ai
 
 //replace github.com/rulego/rulego-components-ci => ../../../rulego-components-ci
 

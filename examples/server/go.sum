@@ -160,6 +160,8 @@ github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
 github.com/fortytw2/leaktest v1.3.0/go.mod h1:jDsjWgpAGjm2CA7WthBh/CdZYEPF31XHquHwclZch5g=
+github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
+github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.6.0 h1:n+5WquG0fcWoWp6xPWfHdbskMCQaFnG6PfBrh1Ky4HY=
 github.com/fsnotify/fsnotify v1.6.0/go.mod h1:sl3t1tCWJFWoRz9R8WJCbQihKKwmorjAbSClcnxKAGw=
 github.com/fullstorydev/grpcurl v1.9.1 h1:YxX1aCcCc4SDBQfj9uoWcTLe8t4NWrZe1y+mk83BQgo=
@@ -326,8 +328,8 @@ github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 h1:6E+4a0GO5zZEnZ
 github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0/go.mod h1:zJYVVT2jmtg6P3p1VtQj7WsuWi/y4VnjVBn7F8KPB3I=
 github.com/magiconair/properties v1.8.7 h1:IeQXZAiQcpL9mgcAe1Nu6cX9LLw6ExEHKjN0VQdvPDY=
 github.com/magiconair/properties v1.8.7/go.mod h1:Dhd985XPs7jluiymwWYZ0G4Z61jb3vdS329zhj2hYo0=
-github.com/mark3labs/mcp-go v0.18.0 h1:YuhgIVjNlTG2ZOwmrkORWyPTp0dz1opPEqvsPtySXao=
-github.com/mark3labs/mcp-go v0.18.0/go.mod h1:KmJndYv7GIgcPVwEKJjNcbhVQ+hJGJhrCCB/9xITzpE=
+github.com/mark3labs/mcp-go v0.30.2-0.20250529062849-bfc377391e4c h1:VBTGPNZFKwiLVrG4P9mUNWXutSeAI8B1YNWmthaDgFs=
+github.com/mark3labs/mcp-go v0.30.2-0.20250529062849-bfc377391e4c/go.mod h1:rXqOudj/djTORU/ThxYx8fqEVj/5pvTuuebQ2RC7uk4=
 github.com/mattn/go-colorable v0.1.2 h1:/bC9yWikZXAL9uJdulbSfyVNIR3n3trXl+v8+1sx8mU=
 github.com/mattn/go-colorable v0.1.2/go.mod h1:U0ppj6V5qS13XJ6of8GYAs25YV2eR4EVcfRqFIhoBtE=
 github.com/mattn/go-isatty v0.0.8/go.mod h1:Iq45c/XA43vh69/j3iqttzPXn0bhXyGjM0Hdxcsrc5s=
@@ -444,8 +446,8 @@ github.com/rabbitmq/amqp091-go v1.10.1-0.20240821123418-dc67c21576c2 h1:cE/EWqWe
 github.com/rabbitmq/amqp091-go v1.10.1-0.20240821123418-dc67c21576c2/go.mod h1:Hy4jKW5kQART1u+JkDTF9YYOQUHXqMuhrgxOEeS7G4o=
 github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 h1:N/ElC8H3+5XpJzTSTfLsJV/mx9Q9g7kxmchpfZyxgzM=
 github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
-github.com/redis/go-redis/v9 v9.10.0 h1:FxwK3eV8p/CQa0Ch276C7u2d0eNC9kCmAYQ7mCXCzVs=
-github.com/redis/go-redis/v9 v9.10.0/go.mod h1:huWgSWd8mW6+m0VPhJjSSQ+d6Nh1VICQ6Q5lHuCH/Iw=
+github.com/redis/go-redis/v9 v9.11.0 h1:E3S08Gl/nJNn5vkxd2i78wZxWAPNZgUNTp8WIJUAiIs=
+github.com/redis/go-redis/v9 v9.11.0/go.mod h1:huWgSWd8mW6+m0VPhJjSSQ+d6Nh1VICQ6Q5lHuCH/Iw=
 github.com/robfig/cron/v3 v3.0.1 h1:WdRxkvbJztn8LMz/QEvLN5sBU+xKpSqwwUO1Pjr4qDs=
 github.com/robfig/cron/v3 v3.0.1/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzGIFLtro=
 github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTEfhy4qGm1nDQc=
@@ -455,8 +457,6 @@ github.com/rulego/rulego v0.33.0-alpha.2.0.20250823152233-262dc1a6a34f h1:nzmuNm
 github.com/rulego/rulego v0.33.0-alpha.2.0.20250823152233-262dc1a6a34f/go.mod h1:rG+UAVIHH1I7UZkDoG3R6fbDoPGImvIHOFqb9V91Sqk=
 github.com/rulego/rulego-components v0.32.1-0.20250730114152-d37c4d32ea1a h1:xjoUCdjzP3v4+ngGTG3T9WnEAEq/UIMDcGCUMPUYhJs=
 github.com/rulego/rulego-components v0.32.1-0.20250730114152-d37c4d32ea1a/go.mod h1:iIyKcAmdFPNQMdOKytkk6VDncVaOBMFpHUGpxk8wfZQ=
-github.com/rulego/rulego-components-ai v0.31.1 h1:XU608X0xL/y+sKG4G+Urm6wybE62K5QgfI+yhdsNlsc=
-github.com/rulego/rulego-components-ai v0.31.1/go.mod h1:jVZ9bKhKAdYn2No5Q+EIUp2l31vBmDnhLwq/KM2IUu8=
 github.com/rulego/rulego-components-ci v0.31.1-0.20250602161121-89f21f4c54fe h1:+kLBmKIfBxTwWQrfbY0wrtZg6BrOBrrNV0vHe1iiJKI=
 github.com/rulego/rulego-components-ci v0.31.1-0.20250602161121-89f21f4c54fe/go.mod h1:2+PXpaIDxvozwUXO0QTn79mOTEHFi19WOWY6WDp4QQk=
 github.com/rulego/rulego-components-etl v0.29.1-0.20250602160310-2d30a072f03b h1:4OWOLHZQEI+cEN4NcIZ4OyOVdTOuTNsfSNjkr8taSvI=
@@ -465,8 +465,8 @@ github.com/rulego/rulego-components-iot v0.32.0 h1:UJo75CAy4ycZ/79l8uR5GJBHj1qXN
 github.com/rulego/rulego-components-iot v0.32.0/go.mod h1:tlgkyGxHKZ6i4AV0OpE8pRT1E4ABl+lVw4exgf7h9RY=
 github.com/rulego/streamsql v0.10.1 h1:icY7mzBpWmDFoyycszdCozsSFyB9T2HTkAgDcppxvZY=
 github.com/rulego/streamsql v0.10.1/go.mod h1:dCGO0P8aZJx0gkPvPhpmGZ+phIyjLopn1/WtjxZlkjw=
-github.com/sashabaranov/go-openai v1.37.0 h1:hQQowgYm4OXJ1Z/wTrE+XZaO20BYsL0R3uRPSpfNZkY=
-github.com/sashabaranov/go-openai v1.37.0/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
+github.com/sashabaranov/go-openai v1.40.1-0.20250520134540-8c65b35c57ad h1:eMD5jT+g7bl4ZxjZG4zXsYwfzfsZa61d1FtufcZfAuk=
+github.com/sashabaranov/go-openai v1.40.1-0.20250520134540-8c65b35c57ad/go.mod h1:lj5b/K+zjTSFxVLijLSTDZuP7adOgerWeFyZLUhAKRg=
 github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 h1:D0vL7YNisV2yqE55+q0lFuGse6U8lxlg7fYTctlT5Gc=
 github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38/go.mod h1:sM7Mt7uEoCeFSCBM+qBrqvEo+/9vdmj19wzp3yzUhmg=
 github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 h1:n661drycOFuPLCN3Uc8sB6B/s6Z4t2xvBgU1htSHuq8=
@@ -493,6 +493,8 @@ github.com/skeema/knownhosts v1.3.1 h1:X2osQ+RAjK76shCbvhHHHVl3ZlgDm8apHEHFqRjnB
 github.com/skeema/knownhosts v1.3.1/go.mod h1:r7KTdC8l4uxWRyK2TpQZ/1o5HaSzh06ePQNxPwTcfiY=
 github.com/spaolacci/murmur3 v1.1.0 h1:7c1g84S4BPRrfL5Xrdp6fOJ206sU9y293DDHaoy0bLI=
 github.com/spaolacci/murmur3 v1.1.0/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
+github.com/spf13/cast v1.7.1 h1:cuNEagBQEHWN1FnbGEjCXL2szYEXqfJPbP2HNUaca9Y=
+github.com/spf13/cast v1.7.1/go.mod h1:ancEpBxwJDODSW/UG4rDrAqiKolqNNh2DX3mk86cAdo=
 github.com/spiffe/go-spiffe/v2 v2.5.0 h1:N2I01KCUkv1FAjZXJMwh95KK1ZIQLYbPfhaxw8WS0hE=
 github.com/spiffe/go-spiffe/v2 v2.5.0/go.mod h1:P+NxobPc6wXhVtINNtFjNWGBTreew1GBUCwT2wPmb7g=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

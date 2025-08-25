@@ -206,11 +206,11 @@ func (s *McpService) componentToolHandler(componentType string) func(ctx context
 		if err != nil {
 			return nil, err
 		}
-		err = node.Init(s.ruleConfig, request.Params.Arguments)
+		err = node.Init(s.ruleConfig, request.GetArguments())
 		if err != nil {
 			return nil, err
 		}
-		message := str.ToString(request.Params.Arguments[constants.KeyInMessage])
+		message := str.ToString(request.GetArguments()[constants.KeyInMessage])
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		var result string
@@ -277,9 +277,9 @@ func (s *McpService) ruleChainToolHandler(chainId string) func(ctx context.Conte
 			return nil, errors.New("rule chain not found")
 		} else {
 			var msg string
-			if params, ok := request.Params.Arguments[constants.KeyInMessage]; ok {
+			if params, ok := request.GetArguments()[constants.KeyInMessage]; ok {
 				msg = str.ToString(params)
-			} else if v, err := json.Marshal(request.Params.Arguments); err != nil {
+			} else if v, err := json.Marshal(request.GetArguments()); err != nil {
 				return nil, err
 			} else {
 				msg = string(v)
@@ -331,16 +331,16 @@ func (s *McpService) AddListRuleTool() {
 		mcp.WithNumber(constants.KeySize, mcp.Description("Number of items per page for pagination")),
 	)
 	s.mcpServer.AddTool(tool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		keywords := strings.TrimSpace(str.ToString(request.Params.Arguments[constants.KeyKeywords]))
+		keywords := strings.TrimSpace(str.ToString(request.GetArguments()[constants.KeyKeywords]))
 		rootStr := strings.TrimSpace(str.ToString(constants.KeyRoot))
 		rootDisabled := strings.TrimSpace(str.ToString(constants.KeyDisabled))
 		var page = 1
 		var size = 20
-		currentStr := str.ToString(request.Params.Arguments[constants.KeyPage])
+		currentStr := str.ToString(request.GetArguments()[constants.KeyPage])
 		if i, err := strconv.Atoi(currentStr); err == nil {
 			page = i
 		}
-		pageSizeStr := str.ToString(request.Params.Arguments[constants.KeySize])
+		pageSizeStr := str.ToString(request.GetArguments()[constants.KeySize])
 		if i, err := strconv.Atoi(pageSizeStr); err == nil {
 			size = i
 		}
@@ -378,11 +378,11 @@ func (s *McpService) AddSaveRuleTool() {
 		mcp.WithObject(constants.KeyBody, mcp.Required(), mcp.Description("rule chain")),
 	)
 	s.mcpServer.AddTool(tool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		id, ok := request.Params.Arguments[constants.KeyId]
+		id, ok := request.GetArguments()[constants.KeyId]
 		if !ok {
 			return nil, errors.New("id is required")
 		}
-		body, ok := request.Params.Arguments[constants.KeyBody]
+		body, ok := request.GetArguments()[constants.KeyBody]
 		if !ok {
 			return nil, errors.New("body is required")
 		}
@@ -405,7 +405,7 @@ func (s *McpService) AddDeleteRuleTool() {
 		mcp.WithString(constants.KeyId, mcp.Required(), mcp.Description("rule chain id")),
 	)
 	s.mcpServer.AddTool(tool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		id, ok := request.Params.Arguments[constants.KeyId]
+		id, ok := request.GetArguments()[constants.KeyId]
 		if !ok {
 			return nil, errors.New("id is required")
 		}
@@ -424,11 +424,11 @@ func (s *McpService) AddExecuteRuleTool() {
 		mcp.WithObject(constants.KeyInMessage, mcp.Required(), mcp.Description("Execute rule chain input message")),
 	)
 	s.mcpServer.AddTool(tool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		id := str.ToString(request.Params.Arguments[constants.KeyId])
+		id := str.ToString(request.GetArguments()[constants.KeyId])
 		if id == "" {
 			return nil, errors.New("id is required")
 		}
-		ruleMsg := types.NewMsgWithJsonData(str.ToString(request.Params.Arguments[constants.KeyInMessage]))
+		ruleMsg := types.NewMsgWithJsonData(str.ToString(request.GetArguments()[constants.KeyInMessage]))
 		wg := sync.WaitGroup{}
 		wg.Add(1)
 		var result string
