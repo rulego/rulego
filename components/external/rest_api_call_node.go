@@ -35,7 +35,6 @@ import (
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
-	"github.com/rulego/rulego/utils/str"
 	"golang.org/x/net/proxy"
 )
 
@@ -267,13 +266,7 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if x.template.HasVar {
 		evn = base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	}
-	var endpointUrl = ""
-	if v, err := x.template.UrlTemplate.Execute(evn); err != nil {
-		ctx.TellFailure(msg, err)
-		return
-	} else {
-		endpointUrl = str.ToString(v)
-	}
+	var endpointUrl = x.template.UrlTemplate.ExecuteAsString(evn)
 	var req *http.Request
 	var err error
 	var body []byte
@@ -281,12 +274,7 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		req, err = http.NewRequest(x.Config.RequestMethod, endpointUrl, nil)
 	} else {
 		if x.template.BodyTemplate != nil {
-			if v, err := x.template.BodyTemplate.Execute(evn); err != nil {
-				ctx.TellFailure(msg, err)
-				return
-			} else {
-				body = []byte(str.ToString(v))
-			}
+			body = []byte(x.template.BodyTemplate.ExecuteAsString(evn))
 		} else {
 			body = []byte(msg.GetData())
 		}

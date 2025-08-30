@@ -20,6 +20,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/el"
 	"os"
 	"strconv"
 	"testing"
@@ -98,6 +99,8 @@ func TestSendEmailNode(t *testing.T) {
 	})
 
 	t.Run("InitNode", func(t *testing.T) {
+		subjectTemplate, _ := el.NewTemplate("测试邮件WithTls")
+		bodyTemplate, _ := el.NewTemplate("<b>测试内容WithTls</b>")
 		test.NodeInit(t, targetNodeType, mailConfigWithTls, types.Configuration{
 			"smtpHost":  smtpHost,
 			"smtpPort":  smtpTlsPort,
@@ -105,29 +108,37 @@ func TestSendEmailNode(t *testing.T) {
 			"password":  password,
 			"enableTls": true,
 			"email": Email{
-				From:    username,
-				To:      username,
-				Cc:      username,
-				Bcc:     username,
-				Subject: "测试邮件WithTls",
-				Body:    "<b>测试内容WithTls</b>",
+				From:            username,
+				To:              username,
+				Cc:              username,
+				Bcc:             username,
+				Subject:         "测试邮件WithTls",
+				Body:            "<b>测试内容WithTls</b>",
+				subjectTemplate: subjectTemplate,
+				bodyTemplate:    bodyTemplate,
+				hasVar:          false,
 			},
 		}, Registry)
 	})
 
 	t.Run("DefaultConfig", func(t *testing.T) {
+		subjectTemplate, _ := el.NewTemplate("测试邮件WithTls")
+		bodyTemplate, _ := el.NewTemplate("<b>测试内容WithTls</b>")
 		test.NodeInit(t, targetNodeType, types.Configuration{
 			"connectTimeout": 10,
 			"email":          emailWithTls,
 		}, types.Configuration{
 			"connectTimeout": 10,
 			"email": Email{
-				From:    username,
-				To:      username,
-				Cc:      username,
-				Bcc:     username,
-				Subject: "测试邮件WithTls",
-				Body:    "<b>测试内容WithTls</b>",
+				From:            username,
+				To:              username,
+				Cc:              username,
+				Bcc:             username,
+				Subject:         "测试邮件WithTls",
+				Body:            "<b>测试内容WithTls</b>",
+				subjectTemplate: subjectTemplate,
+				bodyTemplate:    bodyTemplate,
+				hasVar:          false,
 			},
 		}, Registry)
 	})
@@ -140,7 +151,7 @@ func TestSendEmailNode(t *testing.T) {
 		assert.Nil(t, err)
 		mailConfigHostErr := types.Configuration{
 			"smtpHost":  "smtp.xx.com",
-			"smtpPort":  emailWithTls,
+			"smtpPort":  25,
 			"username":  "xx@163.com",
 			"password":  "xx",
 			"enableTls": true,
@@ -208,5 +219,103 @@ func TestSendEmailNode(t *testing.T) {
 		for _, item := range nodeList {
 			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
+	})
+
+	t.Run("TemplateProcessing", func(t *testing.T) {
+		// 测试带有模板变量的邮件配置
+		templateEmailConfig := types.Configuration{
+			"to":      "${to}",
+			"subject": "Alert: ${productType} temperature is ${temperature}",
+			"body":    "<b>Product ${productType} has temperature ${temperature}°C</b>",
+		}
+
+		templateMailConfig := types.Configuration{
+			"smtpHost":  smtpHost,
+			"smtpPort":  smtpPort,
+			"username":  username,
+			"password":  password,
+			"enableTls": true,
+			"email":     templateEmailConfig,
+		}
+
+		node, err := test.CreateAndInitNode(targetNodeType, templateMailConfig, Registry)
+		assert.Nil(t, err)
+
+		// 验证节点配置中的模板字段已正确初始化
+		emailNode := node.(*SendEmailNode)
+		// 验证hasVar字段被正确设置
+		assert.True(t, emailNode.Config.Email.hasVar)
+
+		// 测试模板处理
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "sensor")
+		metaData.PutValue("temperature", "75")
+		metaData.PutValue("to", "test@example.com")
+
+		msgList := []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "{\"temperature\":75,\"productType\":\"sensor\"}",
+				AfterSleep: time.Millisecond * 200,
+			},
+		}
+
+		// 测试消息处理
+		test.NodeOnMsgWithChildren(t, node, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
+			if username == "xx@163.com" {
+				// 如果使用默认测试用户名，预期会失败（因为认证问题）
+				assert.Equal(t, types.Failure, relationType)
+			} else {
+				// 如果使用真实的邮件配置，预期会成功
+				assert.Equal(t, types.Success, relationType)
+			}
+		})
+	})
+
+	t.Run("NoTemplateProcessing", func(t *testing.T) {
+		// 测试不带模板变量的邮件配置
+		noTemplateEmailConfig := types.Configuration{
+			"to":      "test@example.com",
+			"subject": "Simple Alert",
+			"body":    "<b>This is a simple message without variables</b>",
+		}
+
+		noTemplateMailConfig := types.Configuration{
+			"smtpHost":  smtpHost,
+			"smtpPort":  smtpPort,
+			"username":  username,
+			"password":  password,
+			"enableTls": false,
+			"email":     noTemplateEmailConfig,
+		}
+
+		node, err := test.CreateAndInitNode(targetNodeType, noTemplateMailConfig, Registry)
+		assert.Nil(t, err)
+
+		// 验证节点配置中的hasVar字段为false
+		emailNode := node.(*SendEmailNode)
+		assert.False(t, emailNode.Config.Email.hasVar)
+
+		// 测试消息处理
+		metaData := types.BuildMetadata(make(map[string]string))
+		msgList := []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "{\"test\":\"data\"}",
+				AfterSleep: time.Millisecond * 200,
+			},
+		}
+
+		test.NodeOnMsgWithChildren(t, node, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
+			if username == "xx@163.com" {
+				// 如果使用默认测试用户名，预期会失败（因为认证问题）
+				assert.Equal(t, types.Failure, relationType)
+			} else {
+				// 如果使用真实的邮件配置，预期会成功
+				assert.Equal(t, types.Success, relationType)
+			}
+		})
 	})
 }

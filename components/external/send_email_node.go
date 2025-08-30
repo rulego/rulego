@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
-	string2 "github.com/rulego/rulego/utils/str"
 	"net"
 	"net/smtp"
 	"strings"
@@ -51,14 +51,48 @@ type Email struct {
 	Subject string `json:"subject"`
 	//Body 邮件模板，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
 	Body string `json:"body"`
+	// subjectTemplate 邮件主题模板
+	subjectTemplate el.Template `json:"-"`
+	// bodyTemplate 邮件正文模板
+	bodyTemplate el.Template `json:"-"`
+	// hasVar 标识模板是否包含变量
+	hasVar bool `json:"-"`
 }
 
+// initTemplates 初始化邮件模板
+// Initialize email templates
+// initTemplates 初始化邮件主题和正文的模板
+func (e *Email) initTemplates() error {
+	// 创建主题模板
+	if subjectTemplate, err := el.NewTemplate(e.Subject); err != nil {
+		return err
+	} else {
+		e.subjectTemplate = subjectTemplate
+	}
+
+	// 创建正文模板
+	if bodyTemplate, err := el.NewTemplate(e.Body); err != nil {
+		return err
+	} else {
+		e.bodyTemplate = bodyTemplate
+	}
+
+	// 检查是否包含变量
+	e.hasVar = e.subjectTemplate.HasVar() || e.bodyTemplate.HasVar()
+	return nil
+}
+
+// createEmailMsg 创建邮件消息内容
 func (e *Email) createEmailMsg(ctx types.RuleContext, ruleMsg types.RuleMsg) ([]byte, []string) {
-	evn := base.NodeUtils.GetEvnAndMetadata(ctx, ruleMsg)
+	var subject, body string
+	var evn map[string]interface{}
+	if e.hasVar {
+		evn = base.NodeUtils.GetEvnAndMetadata(ctx, ruleMsg)
+	}
 	// 设置邮件主题
-	subject := string2.ExecuteTemplate(e.Subject, evn)
+	subject = e.subjectTemplate.ExecuteAsString(evn)
 	// 设置邮件正文，使用HTML格式
-	body := string2.ExecuteTemplate(e.Body, evn)
+	body = e.bodyTemplate.ExecuteAsString(evn)
 
 	to := strings.Split(e.To, splitUserSep)
 	// 将所有的收件人、抄送和密送合并为一个切片
@@ -197,6 +231,11 @@ func (x *SendEmailNode) Init(ruleConfig types.Config, configuration types.Config
 	if err == nil {
 		if x.Config.Email.To == "" {
 			return errors.New("to address can not empty")
+		}
+		// 初始化邮件模板
+		err = x.Config.Email.initTemplates()
+		if err != nil {
+			return err
 		}
 		x.smtpAddr = fmt.Sprintf("%s:%d", x.Config.SmtpHost, x.Config.SmtpPort)
 		// 创建一个PLAIN认证
