@@ -146,6 +146,18 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 	if configField.Type != nil {
 		for i := 0; i < configField.Type.NumField(); i++ {
 			field := configField.Type.Field(i)
+			
+			// 跳过私有字段（首字母小写）
+			if !field.IsExported() {
+				continue
+			}
+			
+			// 检查json标签，如果是"-"则跳过
+			jsonTag := field.Tag.Get("json")
+			if jsonTag == "-" {
+				continue
+			}
+			
 			var defaultValue interface{}
 			if configValue.Field(i).CanInterface() {
 				defaultValue = configValue.Field(i).Interface()
@@ -173,8 +185,8 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 				})
 			}
 			// 优先从json标签获取字段名
-			fieldName := field.Tag.Get("json")
-			if fieldName == "" || fieldName == "-" {
+			fieldName := jsonTag
+			if fieldName == "" {
 				fieldName = str.ToLowerFirst(field.Name)
 			} else {
 				// 处理json标签中的选项，如 "name,omitempty"

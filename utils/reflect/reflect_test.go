@@ -113,8 +113,8 @@ func TestGetFieldsWithJSONTag(t *testing.T) {
 	node := &TestJSONTagNode{}
 	form := GetComponentForm(node)
 
-	// 验证字段数量
-	assert.Equal(t, 5, len(form.Fields))
+	// 验证字段数量 - 应该只有4个字段，因为json:"-"的字段被排除了
+	assert.Equal(t, 4, len(form.Fields))
 
 	// 测试带JSON标签的字段，应该使用JSON标签名称
 	fieldWithJSON, found := form.Fields.GetField("custom_field_name")
@@ -137,12 +137,9 @@ func TestGetFieldsWithJSONTag(t *testing.T) {
 	assert.Equal(t, "带omitempty的字段", fieldWithOmit.Label)
 	assert.Equal(t, "JSON标签包含omitempty", fieldWithOmit.Desc)
 
-	// 测试JSON标签为"-"的字段，应该使用默认字段名称
-	fieldWithIgnore, found := form.Fields.GetField("fieldWithJSONIgnore")
-	assert.True(t, found)
-	assert.Equal(t, "fieldWithJSONIgnore", fieldWithIgnore.Name)
-	assert.Equal(t, "忽略的字段", fieldWithIgnore.Label)
-	assert.Equal(t, "JSON标签为-", fieldWithIgnore.Desc)
+	// 测试JSON标签为"-"的字段，应该被排除，不应该出现在结果中
+	_, found = form.Fields.GetField("fieldWithJSONIgnore")
+	assert.False(t, found)
 
 	// 测试空JSON标签的字段，应该使用默认字段名称
 	fieldWithEmpty, found := form.Fields.GetField("fieldWithEmptyJSON")
@@ -150,4 +147,66 @@ func TestGetFieldsWithJSONTag(t *testing.T) {
 	assert.Equal(t, "fieldWithEmptyJSON", fieldWithEmpty.Name)
 	assert.Equal(t, "空JSON标签", fieldWithEmpty.Label)
 	assert.Equal(t, "JSON标签为空字符串", fieldWithEmpty.Desc)
+}
+
+// TestPrivateFieldConfiguration 测试私有字段的配置结构
+type TestPrivateFieldConfiguration struct {
+	PublicField  string `label:"公有字段" desc:"这是一个公有字段"`
+	privateField string `label:"私有字段" desc:"这是一个私有字段"`
+	AnotherPublic int   `label:"另一个公有字段" desc:"这是另一个公有字段"`
+	anotherPrivate bool `label:"另一个私有字段" desc:"这是另一个私有字段"`
+	IgnoredField string `json:"-" label:"被忽略的字段" desc:"这个字段应该被忽略"`
+}
+
+// TestPrivateFieldNode 测试私有字段的节点
+type TestPrivateFieldNode struct {
+	Config TestPrivateFieldConfiguration
+}
+
+func (x *TestPrivateFieldNode) Type() string {
+	return "testPrivateField"
+}
+
+func (x *TestPrivateFieldNode) New() types.Node {
+	return &TestPrivateFieldNode{}
+}
+
+func (x *TestPrivateFieldNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	return nil
+}
+
+func (x *TestPrivateFieldNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {}
+
+func (x *TestPrivateFieldNode) Destroy() {}
+
+func TestGetFieldsExcludePrivateFields(t *testing.T) {
+	node := &TestPrivateFieldNode{}
+	form := GetComponentForm(node)
+
+	// 验证字段数量 - 应该只有2个公有字段，私有字段和json:"-"字段被排除
+	assert.Equal(t, 2, len(form.Fields))
+
+	// 验证公有字段存在
+	publicField, found := form.Fields.GetField("publicField")
+	assert.True(t, found)
+	assert.Equal(t, "publicField", publicField.Name)
+	assert.Equal(t, "公有字段", publicField.Label)
+	assert.Equal(t, "这是一个公有字段", publicField.Desc)
+
+	anotherPublicField, found := form.Fields.GetField("anotherPublic")
+	assert.True(t, found)
+	assert.Equal(t, "anotherPublic", anotherPublicField.Name)
+	assert.Equal(t, "另一个公有字段", anotherPublicField.Label)
+	assert.Equal(t, "这是另一个公有字段", anotherPublicField.Desc)
+
+	// 验证私有字段不存在
+	_, found = form.Fields.GetField("privateField")
+	assert.False(t, found)
+
+	_, found = form.Fields.GetField("anotherPrivate")
+	assert.False(t, found)
+
+	// 验证json:"-"字段不存在
+	_, found = form.Fields.GetField("ignoredField")
+	assert.False(t, found)
 }
