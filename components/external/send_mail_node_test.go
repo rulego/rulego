@@ -64,7 +64,7 @@ func TestSendEmailNode(t *testing.T) {
 		"cc":      username,
 		"bcc":     username,
 		"subject": "测试邮件WithTls",
-		"body":    "<b>测试内容WithTls</b>",
+		"body":    "<b>测试内容WithTls，productType:${metadata.productType}</b>",
 	}
 	mailConfigWithTls := types.Configuration{
 		"smtpHost":  smtpHost,
@@ -80,7 +80,7 @@ func TestSendEmailNode(t *testing.T) {
 		"cc":      username,
 		"bcc":     username,
 		"subject": "测试邮件WithNotTls",
-		"body":    "<b>测试内容WithNotTls</b>",
+		"body":    "<b>测试内容WithNotTls，productType:${metadata.productType}</b>",
 	}
 	mailConfigWithNotTls := types.Configuration{
 		"smtpHost":  smtpHost,
@@ -110,7 +110,7 @@ func TestSendEmailNode(t *testing.T) {
 				Cc:      username,
 				Bcc:     username,
 				Subject: "测试邮件WithTls",
-				Body:    "<b>测试内容WithTls</b>",
+				Body:    "<b>测试内容WithTls，productType:${metadata.productType}</b>",
 			},
 		}, Registry)
 	})
@@ -127,7 +127,7 @@ func TestSendEmailNode(t *testing.T) {
 				Cc:      username,
 				Bcc:     username,
 				Subject: "测试邮件WithTls",
-				Body:    "<b>测试内容WithTls</b>",
+				Body:    "<b>测试内容WithTls，productType:${metadata.productType}</b>",
 			},
 		}, Registry)
 	})
@@ -140,7 +140,7 @@ func TestSendEmailNode(t *testing.T) {
 		assert.Nil(t, err)
 		mailConfigHostErr := types.Configuration{
 			"smtpHost":  "smtp.xx.com",
-			"smtpPort":  emailWithTls,
+			"smtpPort":  25,
 			"username":  "xx@163.com",
 			"password":  "xx",
 			"enableTls": true,
@@ -208,5 +208,7 @@ func TestSendEmailNode(t *testing.T) {
 		for _, item := range nodeList {
 			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
+		time.Sleep(time.Second * 1)
 	})
+
 }

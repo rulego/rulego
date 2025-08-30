@@ -59,8 +59,8 @@ type LevelKey struct {
 
 // LevelKeyTemplate 缓存key模板
 type LevelKeyTemplate struct {
-	level       string            // 缓存级别
-	keyTemplate *el.MixedTemplate // 缓存key模板
+	level       string      // 缓存级别
+	keyTemplate el.Template // 缓存key模板
 }
 
 // CacheGetNodeConfiguration 缓存获取节点配置
@@ -167,7 +167,7 @@ func (x *CacheGetNode) Init(ruleConfig types.Config, configuration types.Configu
 
 	//初始化keys模板
 	for _, item := range x.Config.Keys {
-		template, err := el.NewMixedTemplate(item.Key)
+		template, err := el.NewTemplate(item.Key)
 		if err != nil {
 			return err
 		}
@@ -268,7 +268,7 @@ type CacheItem struct {
 
 type CacheItemTemplate struct {
 	level         string
-	keyTemplate   *el.MixedTemplate
+	keyTemplate   el.Template
 	valueTemplate el.Template
 	ttl           string
 }
@@ -366,7 +366,7 @@ func (x *CacheSetNode) Init(ruleConfig types.Config, configuration types.Configu
 	var hasVar = false
 	//初始化缓存项列表模板
 	for _, item := range x.Config.Items {
-		keyTemplate, err := el.NewMixedTemplate(item.Key)
+		keyTemplate, err := el.NewTemplate(item.Key)
 		if err != nil {
 			return err
 		}

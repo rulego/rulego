@@ -34,8 +34,8 @@ import (
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
-	"github.com/rulego/rulego/utils/str"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -125,8 +125,13 @@ type SshNode struct {
 	//节点配置
 	Config SshConfiguration
 	// client 是一个 ssh.Client 类型的字段，用来保存 ssh 客户端对象
-	client      *ssh.Client
-	cmdTemplate str.Template
+	client *ssh.Client
+	// cmdTemplate 命令模板，用于解析动态命令
+	// cmdTemplate template for resolving dynamic commands
+	cmdTemplate el.Template
+	// hasVar 标识模板是否包含变量
+	// hasVar indicates whether the template contains variables
+	hasVar bool
 	// 保护client字段的并发访问
 	clientMutex sync.RWMutex
 }
@@ -165,7 +170,14 @@ func (x *SshNode) Init(ruleConfig types.Config, configuration types.Configuratio
 		} else {
 			return SshConfigEmptyErr
 		}
-		x.cmdTemplate = str.NewTemplate(x.Config.Cmd)
+		if x.Config.Cmd == "" {
+			return SshCmdEmptyErr
+		}
+		x.cmdTemplate, err = el.NewTemplate(x.Config.Cmd)
+		if err != nil {
+			return err
+		}
+		x.hasVar = x.cmdTemplate.HasVar()
 	}
 	return err
 }
@@ -185,14 +197,11 @@ func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 
 	// 获取shell 命令
-	cmd := x.Config.Cmd
-	if cmd == "" {
-		ctx.TellFailure(msg, SshCmdEmptyErr)
-		return
+	var evn map[string]interface{}
+	if x.hasVar {
+		evn = base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	}
-	cmd = x.cmdTemplate.ExecuteFn(func() map[string]any {
-		return base.NodeUtils.GetEvnAndMetadata(ctx, msg)
-	})
+	cmd := x.cmdTemplate.ExecuteAsString(evn)
 	var output []byte
 	var session *ssh.Session
 	// 如果有 ssh 客户端对象，则创建一个 ssh 会话，并执行远程 shell 命令，并获取其输出或错误信息

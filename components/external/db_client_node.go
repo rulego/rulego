@@ -101,14 +101,13 @@ type DbClientNode struct {
 	//节点配置
 	Config DbClientNodeConfiguration
 	//操作类型 SELECT\UPDATE\INSERT\DELETE
-	opType string
-	//sqlTemplate    str.Template
-	//paramsTemplate []str.Template
+	opType         string
+	sqlTemplate    el.Template
+	paramsTemplate []el.Template
 	//sql是否有变量
 	sqlHasVar bool
 	//参数是否有变量
-	paramsHasVar   bool
-	paramsTemplate []el.Template
+	paramsHasVar bool
 }
 
 // Type 返回组件类型
@@ -140,10 +139,13 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 		}
 		//检查是否需要转换成$1风格占位符
 		x.Config.Sql = str.ConvertDollarPlaceholder(x.Config.Sql, x.Config.DriverName)
-		if str.CheckHasVar(x.Config.Sql) {
-			x.sqlHasVar = true
+		x.sqlTemplate, err = el.NewTemplate(x.Config.Sql)
+		if err != nil {
+			return err
 		}
-		if !x.sqlHasVar {
+		if x.sqlTemplate.HasVar() {
+			x.sqlHasVar = true
+		} else {
 			x.opType = x.getOpType(x.Config.Sql)
 			if err = x.checkOpType(x.opType, x.Config.Sql); err != nil {
 				return err
@@ -151,12 +153,11 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 		}
 		//检查是参数否有变量
 		for _, item := range x.Config.Params {
-
 			if temp, err := el.NewTemplate(item); err != nil {
 				return err
 			} else {
 				x.paramsTemplate = append(x.paramsTemplate, temp)
-				if !temp.IsNotVar() {
+				if temp.HasVar() {
 					x.paramsHasVar = true
 				}
 			}
@@ -186,7 +187,7 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var sqlStr = x.Config.Sql
 	if x.sqlHasVar {
 		//转换sql变量
-		sqlStr = str.ExecuteTemplate(x.Config.Sql, evn)
+		sqlStr = x.sqlTemplate.ExecuteAsString(evn)
 		sqlStr = str.ConvertDollarPlaceholder(sqlStr, x.Config.DriverName)
 	}
 	opType := x.opType

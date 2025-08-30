@@ -24,8 +24,8 @@ import (
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
-	"github.com/rulego/rulego/utils/str"
 )
 
 // MqttClientNode 为MQTT代理提供MQTT客户端功能以发布消息的外部组件
@@ -129,8 +129,12 @@ type MqttClientNode struct {
 	base.SharedNode[*mqtt.Client]
 	//节点配置
 	Config MqttClientNodeConfiguration
-	//topic 模板
-	topicTemplate str.Template
+	// topicTemplate 主题模板，用于解析动态主题
+	// topicTemplate template for resolving dynamic topics
+	topicTemplate el.Template
+	// hasVar 标识模板是否包含变量
+	// hasVar indicates whether the template contains variables
+	hasVar bool
 }
 
 // Type 组件类型
@@ -157,7 +161,11 @@ func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Confi
 			// 清理回调函数
 			return client.Close()
 		})
-		x.topicTemplate = str.NewTemplate(x.Config.Topic)
+		x.topicTemplate, err = el.NewTemplate(x.Config.Topic)
+		if err != nil {
+			return err
+		}
+		x.hasVar = x.topicTemplate.HasVar()
 	}
 	return err
 }
@@ -165,9 +173,11 @@ func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Confi
 // OnMsg 处理消息，使用变量替换解析主题并发布MQTT消息
 // OnMsg processes messages by parsing topic with variable substitution and publishing MQTT messages.
 func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	topic := x.topicTemplate.ExecuteFn(func() map[string]any {
-		return base.NodeUtils.GetEvnAndMetadata(ctx, msg)
-	})
+	var evn map[string]interface{}
+	if x.hasVar {
+		evn = base.NodeUtils.GetEvnAndMetadata(ctx, msg)
+	}
+	topic := x.topicTemplate.ExecuteAsString(evn)
 
 	if client, err := x.SharedNode.GetSafely(); err != nil {
 		ctx.TellFailure(msg, err)
