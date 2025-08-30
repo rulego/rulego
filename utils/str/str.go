@@ -60,6 +60,8 @@ var tplVarRegex = regexp.MustCompile(`\$\{ *([^}]+) *\}`)
 // original是一个字符串，包含${key}形式的变量占位符。支持多级变量如：${key.subKey}
 // Example: ExecuteTemplate("Hello,${name}",map[string]string{"name":"Alice"}). return "Hello,Alice!".
 // 如果没匹配到变量，则保留原样
+// Deprecated: Use github.com/rulego/rulego/utils/el.NewTemplate instead.
+// This function will be removed in a future version.
 func ExecuteTemplate(original string, dict map[string]interface{}) string {
 	// 快速检查：如果字符串中没有模板变量，直接返回
 	if !strings.Contains(original, "${") {

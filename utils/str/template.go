@@ -19,6 +19,9 @@ package str
 // Template is an interface for parsing and executing string templates.
 // It provides methods for parsing the template, executing it with provided data,
 // executing it with a data loading function, and checking if it contains variables
+//
+// Deprecated: Use github.com/rulego/rulego/utils/el.Template instead.
+// This interface will be removed in a future version.
 type Template interface {
 	Parse() error
 	Execute(data map[string]any) string
@@ -27,6 +30,10 @@ type Template interface {
 	IsNotVar() bool
 }
 
+// NewTemplate creates a new template instance.
+//
+// Deprecated: Use github.com/rulego/rulego/utils/el.NewTemplate instead.
+// This function will be removed in a future version.
 func NewTemplate(tmpl string, params ...any) Template {
 	if CheckHasVar(tmpl) {
 		return &VarTemplate{Tmpl: tmpl}
@@ -35,6 +42,9 @@ func NewTemplate(tmpl string, params ...any) Template {
 }
 
 // VarTemplate 模板变量支持 这种方式 ${xx}
+//
+// Deprecated: Use github.com/rulego/rulego/utils/el.Template instead.
+// This type will be removed in a future version.
 type VarTemplate struct {
 	Tmpl string
 }
@@ -60,6 +70,9 @@ func (t *VarTemplate) IsNotVar() bool {
 }
 
 // NotTemplate 原样输出
+//
+// Deprecated: Use github.com/rulego/rulego/utils/el.Template instead.
+// This type will be removed in a future version.
 type NotTemplate struct {
 	Tmpl string
 }
