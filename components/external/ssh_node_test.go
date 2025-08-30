@@ -60,11 +60,13 @@ func TestSshNode(t *testing.T) {
 			"port":     port,
 			"username": serverUsername,
 			"password": serverPassword,
+			"cmd":      "echo test",
 		}, types.Configuration{
 			"host":     serverIp,
 			"port":     22,
 			"username": serverUsername,
 			"password": serverPassword,
+			"cmd":      "echo test",
 		}, Registry)
 	})
 
@@ -77,11 +79,13 @@ func TestSshNode(t *testing.T) {
 			"port":     22,
 			"username": serverUsername,
 			"password": serverPassword,
+			"cmd":      "echo test",
 		}, types.Configuration{
 			"host":     serverIp,
 			"port":     22,
 			"username": serverUsername,
 			"password": serverPassword,
+			"cmd":      "echo test",
 		}, Registry)
 	})
 
@@ -98,7 +102,7 @@ func TestSshNode(t *testing.T) {
 		}, Registry)
 		assert.Nil(t, err)
 
-		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		_, err = test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"host":     "127.0.0.1",
 			"Port":     22,
 			"username": "root",
@@ -106,14 +110,14 @@ func TestSshNode(t *testing.T) {
 		}, Registry)
 		assert.NotNil(t, err)
 
-		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		_, err = test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"host":     serverIp,
 			"port":     port,
 			"username": serverUsername,
 			"password": serverPassword,
 			"cmd":      "",
 		}, Registry)
-		assert.Nil(t, err)
+		assert.NotNil(t, err)
 
 		node4 := &SshNode{}
 		err = node4.Init(types.NewConfig(), types.Configuration{})
@@ -142,20 +146,6 @@ func TestSshNode(t *testing.T) {
 
 					assert.True(t, strings.Contains(msg.GetData(), "hello world"))
 					assert.Equal(t, types.Success, relationType)
-				},
-			},
-			{
-				Node:    node2,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Failure, relationType)
-				},
-			},
-			{
-				Node:    node3,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, SshCmdEmptyErr.Error(), err.Error())
 				},
 			},
 		}

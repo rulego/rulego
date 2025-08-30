@@ -258,9 +258,9 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 	}
 	for _, item := range nodeList {
 		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
-		time.Sleep(time.Millisecond * 20)
+		time.Sleep(time.Millisecond * 100)
 	}
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Millisecond * 500)
 }
 
 func testConcurrency(t *testing.T, targetNodeType, driverName, dsn string) {

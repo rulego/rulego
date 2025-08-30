@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
-	string2 "github.com/rulego/rulego/utils/str"
 	"net"
 	"net/smtp"
 	"strings"
@@ -53,48 +53,124 @@ type Email struct {
 	Body string `json:"body"`
 }
 
-func (e *Email) createEmailMsg(ctx types.RuleContext, ruleMsg types.RuleMsg) ([]byte, []string) {
-	evn := base.NodeUtils.GetEvnAndMetadata(ctx, ruleMsg)
-	// 设置邮件主题
-	subject := string2.ExecuteTemplate(e.Subject, evn)
-	// 设置邮件正文，使用HTML格式
-	body := string2.ExecuteTemplate(e.Body, evn)
+// EmailTemplates 邮件模板结构体，统一管理所有邮件字段的模板
+type EmailTemplates struct {
+	// fromTemplate 发件人模板
+	fromTemplate    el.Template
+	// toTemplate 收件人模板
+	toTemplate      el.Template
+	// ccTemplate 抄送人模板
+	ccTemplate      el.Template
+	// bccTemplate 密送人模板
+	bccTemplate     el.Template
+	// subjectTemplate 主题模板
+	subjectTemplate el.Template
+	// bodyTemplate 正文模板
+	bodyTemplate    el.Template
+	// hasVar 标识模板是否包含变量
+	hasVar          bool
+}
 
-	to := strings.Split(e.To, splitUserSep)
-	// 将所有的收件人、抄送和密送合并为一个切片
-	sendTo := to
-
-	var cc, bcc []string
-	if e.Cc != "" {
-		cc = strings.Split(e.Cc, splitUserSep)
-		sendTo = append(sendTo, cc...)
+// initTemplates 初始化邮件模板
+// Initialize email templates
+// initTemplates 初始化所有邮件字段的模板
+func (x *SendEmailNode) initTemplates() error {
+	var err error
+	
+	// 创建发件人模板
+	if x.templates.fromTemplate, err = el.NewTemplate(x.Config.Email.From); err != nil {
+		return err
 	}
-	if e.Bcc != "" {
-		bcc = strings.Split(e.Bcc, splitUserSep)
-		sendTo = append(sendTo, bcc...)
+	
+	// 创建收件人模板
+	if x.templates.toTemplate, err = el.NewTemplate(x.Config.Email.To); err != nil {
+		return err
+	}
+	
+	// 创建抄送人模板
+	if x.templates.ccTemplate, err = el.NewTemplate(x.Config.Email.Cc); err != nil {
+		return err
+	}
+	
+	// 创建密送人模板
+	if x.templates.bccTemplate, err = el.NewTemplate(x.Config.Email.Bcc); err != nil {
+		return err
+	}
+	
+	// 创建主题模板
+	if x.templates.subjectTemplate, err = el.NewTemplate(x.Config.Email.Subject); err != nil {
+		return err
+	}
+
+	// 创建正文模板
+	if x.templates.bodyTemplate, err = el.NewTemplate(x.Config.Email.Body); err != nil {
+		return err
+	}
+
+	// 检查是否包含变量
+	x.templates.hasVar = x.templates.fromTemplate.HasVar() || x.templates.toTemplate.HasVar() || 
+						 x.templates.ccTemplate.HasVar() || x.templates.bccTemplate.HasVar() ||
+						 x.templates.subjectTemplate.HasVar() || x.templates.bodyTemplate.HasVar()
+	return nil
+}
+
+// createEmailMsg 创建邮件消息内容
+func (x *SendEmailNode) createEmailMsg(ctx types.RuleContext, ruleMsg types.RuleMsg) ([]byte, []string) {
+	var from, to, cc, bcc, subject, body string
+	var evn map[string]interface{}
+	if x.templates.hasVar {
+		evn = base.NodeUtils.GetEvnAndMetadata(ctx, ruleMsg)
+	}
+	
+	// 执行模板渲染
+	from = x.templates.fromTemplate.ExecuteAsString(evn)
+	to = x.templates.toTemplate.ExecuteAsString(evn)
+	cc = x.templates.ccTemplate.ExecuteAsString(evn)
+	bcc = x.templates.bccTemplate.ExecuteAsString(evn)
+	subject = x.templates.subjectTemplate.ExecuteAsString(evn)
+	body = x.templates.bodyTemplate.ExecuteAsString(evn)
+
+	toList := strings.Split(to, splitUserSep)
+	// 将所有的收件人、抄送和密送合并为一个切片
+	sendTo := toList
+
+	var ccList, bccList []string
+	if cc != "" {
+		ccList = strings.Split(cc, splitUserSep)
+		sendTo = append(sendTo, ccList...)
+	}
+	if bcc != "" {
+		bccList = strings.Split(bcc, splitUserSep)
+		sendTo = append(sendTo, bccList...)
 	}
 
 	// 创建一个邮件消息，符合RFC 822标准
-	msg := []byte("To: " + e.To + "\r\n" +
-		"From: " + e.From + "\r\n" +
+	msg := []byte("To: " + to + "\r\n" +
+		"From: " + from + "\r\n" +
 		"Subject: " + subject + "\r\n" +
-		"Cc: " + e.Cc + "\r\n" +
-		"Bcc: " + e.Bcc + "\r\n" +
+		"Cc: " + cc + "\r\n" +
+		"Bcc: " + bcc + "\r\n" +
 		"Content-Type: text/html; charset=UTF-8\r\n" +
 		"\r\n" +
 		body)
 	return msg, sendTo
 }
 
-func (e *Email) SendEmail(ctx types.RuleContext, ruleMsg types.RuleMsg, addr string, auth smtp.Auth, connectTimeout time.Duration) error {
-	msg, sendTo := e.createEmailMsg(ctx, ruleMsg)
+func (x *SendEmailNode) SendEmail(ctx types.RuleContext, ruleMsg types.RuleMsg, addr string, auth smtp.Auth, connectTimeout time.Duration) error {
+	msg, sendTo := x.createEmailMsg(ctx, ruleMsg)
+	// 获取渲染后的发件人地址
+	var evn map[string]interface{}
+	if x.templates.hasVar {
+		evn = base.NodeUtils.GetEvnAndMetadata(ctx, ruleMsg)
+	}
+	from := x.templates.fromTemplate.ExecuteAsString(evn)
 	// 调用SendMail函数发送邮件
-	return smtp.SendMail(addr, auth, e.From, sendTo, msg)
+	return smtp.SendMail(addr, auth, from, sendTo, msg)
 }
 
-func (e *Email) SendEmailWithTls(ctx types.RuleContext, ruleMsg types.RuleMsg, addr string, auth smtp.Auth, connectTimeout time.Duration) error {
+func (x *SendEmailNode) SendEmailWithTls(ctx types.RuleContext, ruleMsg types.RuleMsg, addr string, auth smtp.Auth, connectTimeout time.Duration) error {
 
-	msg, sendTo := e.createEmailMsg(ctx, ruleMsg)
+	msg, sendTo := x.createEmailMsg(ctx, ruleMsg)
 
 	host, _, _ := net.SplitHostPort(addr)
 
@@ -123,7 +199,13 @@ func (e *Email) SendEmailWithTls(ctx types.RuleContext, ruleMsg types.RuleMsg, a
 	}
 
 	// To && From
-	if err = c.Mail(e.From); err != nil {
+	// 获取渲染后的发件人地址
+	var evn map[string]interface{}
+	if x.templates.hasVar {
+		evn = base.NodeUtils.GetEvnAndMetadata(ctx, ruleMsg)
+	}
+	from := x.templates.fromTemplate.ExecuteAsString(evn)
+	if err = c.Mail(from); err != nil {
 		return err
 	}
 
@@ -176,6 +258,8 @@ type SendEmailNode struct {
 	ConnectTimeoutDuration time.Duration
 	smtpAddr               string
 	smtpAuth               smtp.Auth
+	// templates 邮件模板管理器
+	templates              EmailTemplates
 }
 
 // Type 组件类型
@@ -198,6 +282,11 @@ func (x *SendEmailNode) Init(ruleConfig types.Config, configuration types.Config
 		if x.Config.Email.To == "" {
 			return errors.New("to address can not empty")
 		}
+		// 初始化邮件模板
+		err = x.initTemplates()
+		if err != nil {
+			return err
+		}
 		x.smtpAddr = fmt.Sprintf("%s:%d", x.Config.SmtpHost, x.Config.SmtpPort)
 		// 创建一个PLAIN认证
 		x.smtpAuth = smtp.PlainAuth("", x.Config.Username, x.Config.Password, x.Config.SmtpHost)
@@ -211,12 +300,11 @@ func (x *SendEmailNode) Init(ruleConfig types.Config, configuration types.Config
 
 // OnMsg 处理消息
 func (x *SendEmailNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	emailPojo := x.Config.Email
 	var err error
 	if x.Config.EnableTls {
-		err = emailPojo.SendEmailWithTls(ctx, msg, x.smtpAddr, x.smtpAuth, x.ConnectTimeoutDuration)
+		err = x.SendEmailWithTls(ctx, msg, x.smtpAddr, x.smtpAuth, x.ConnectTimeoutDuration)
 	} else {
-		err = emailPojo.SendEmail(ctx, msg, x.smtpAddr, x.smtpAuth, x.ConnectTimeoutDuration)
+		err = x.SendEmail(ctx, msg, x.smtpAddr, x.smtpAuth, x.ConnectTimeoutDuration)
 
 	}
 	if err != nil {
