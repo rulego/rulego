@@ -228,19 +228,24 @@ func (t *MixedTemplate) Parse() error {
 	}
 
 	t.hasVars = true
-	parts := strings.Split(t.Tmpl, "${")
-	if len(parts) == 1 {
-		return nil
-	}
+	tmpl := t.Tmpl
+	start := 0
 
-	for i := 1; i < len(parts); i++ {
-		part := parts[i]
-		end := strings.Index(part, "}")
-		if end == -1 {
-			continue
+	for {
+		idx := strings.Index(tmpl[start:], "${")
+		if idx == -1 {
+			break
 		}
 
-		varName := part[:end]
+		varStart := start + idx
+		endIdx := strings.Index(tmpl[varStart+2:], "}")
+		if endIdx == -1 {
+			break
+		}
+
+		varEnd := varStart + 2 + endIdx
+		varName := tmpl[varStart+2 : varEnd]
+
 		program, err := expr.Compile(varName, expr.AllowUndefinedVariables())
 		if err != nil {
 			return err
@@ -251,15 +256,22 @@ func (t *MixedTemplate) Parse() error {
 			end   int
 			expr  *vm.Program
 		}{
-			start: strings.Index(t.Tmpl, "${"+varName+"}"),
-			end:   strings.Index(t.Tmpl, "${"+varName+"}") + len("${"+varName+"}"),
+			start: varStart,
+			end:   varEnd + 1,
 			expr:  program,
 		})
+
+		start = varEnd + 1
 	}
+
 	return nil
 }
 
 func (t *MixedTemplate) Execute(data map[string]any) (interface{}, error) {
+	return t.execute(data)
+}
+
+func (t *MixedTemplate) execute(data map[string]any) (string, error) {
 	// 如果没有变量，直接返回原始字符串
 	if !t.hasVars {
 		return t.Tmpl, nil
@@ -276,7 +288,7 @@ func (t *MixedTemplate) Execute(data map[string]any) (interface{}, error) {
 		sb.WriteString(t.Tmpl[lastPos:v.start])
 		val, err := vm.Run(v.expr, data)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		sb.WriteString(str.ToString(val))
 		lastPos = v.end
@@ -290,7 +302,21 @@ func (t *MixedTemplate) ExecuteFn(loadDataFunc func() map[string]any) (interface
 	if loadDataFunc != nil {
 		data = loadDataFunc()
 	}
-	return t.Execute(data)
+	return t.execute(data)
+}
+
+func (t *MixedTemplate) ExecuteAsString(data map[string]any) string {
+	val, _ := t.execute(data)
+	return val
+}
+
+func (t *MixedTemplate) ExecuteFnAsString(loadDataFunc func() map[string]any) string {
+	var data map[string]any
+	if loadDataFunc != nil {
+		data = loadDataFunc()
+	}
+	val, _ := t.execute(data)
+	return val
 }
 
 func (t *MixedTemplate) IsNotVar() bool {
@@ -299,14 +325,4 @@ func (t *MixedTemplate) IsNotVar() bool {
 
 func (t *MixedTemplate) HasVar() bool {
 	return t.hasVars
-}
-
-func (t *MixedTemplate) ExecuteAsString(data map[string]any) string {
-	val, _ := t.Execute(data)
-	return str.ToString(val)
-}
-
-func (t *MixedTemplate) ExecuteFnAsString(loadDataFunc func() map[string]any) string {
-	val, _ := t.ExecuteFn(loadDataFunc)
-	return str.ToString(val)
 }
