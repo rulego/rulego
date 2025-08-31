@@ -21,12 +21,25 @@ type Template interface {
 	HasVar() bool
 }
 
+// NewTemplate 根据模板内容创建相应的模板实例
+// 识别规则：
+// 1. 如果是完整的单个表达式 ${...}，创建 ExprTemplate
+// 2. 如果包含变量但不是单个表达式，创建 MixedTemplate  
+// 3. 如果不包含变量，创建 NotTemplate
+// 4. 如果不是字符串类型，创建 AnyTemplate
 func NewTemplate(tmpl any, params ...any) (Template, error) {
 	if v, ok := tmpl.(string); ok {
 		trimV := strings.TrimSpace(v)
+		// 检查是否是完整的单个表达式：以 ${ 开头，以 } 结尾，且中间没有其他 ${ 或 }
 		if strings.HasPrefix(trimV, str.VarPrefix) && strings.HasSuffix(trimV, str.VarSuffix) {
-			return NewExprTemplate(v)
-		} else if str.CheckHasVar(v) {
+			// 检查是否是单个完整表达式（中间不包含额外的 ${ 或 }）
+			middle := trimV[2 : len(trimV)-1] // 去掉开头的 ${ 和结尾的 }
+			if !strings.Contains(middle, "${") && !strings.Contains(middle, "}") {
+				return NewExprTemplate(v)
+			}
+		}
+		// 如果包含变量但不是单个表达式，使用 MixedTemplate
+		if str.CheckHasVar(v) {
 			return NewMixedTemplate(v)
 		} else {
 			return &NotTemplate{Tmpl: v}, nil
