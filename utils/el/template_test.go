@@ -70,6 +70,15 @@ func TestExprTemplate(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "simple variable with no ${}",
+			tmpl: `user.Name`,
+			data: map[string]interface{}{
+				"user": struct{ Name string }{Name: "lala"},
+			},
+			expected: "lala",
+			wantErr:  false,
+		},
+		{
 			name:    "invalid template",
 			tmpl:    `${user.Name`,
 			data:    map[string]interface{}{},
@@ -274,9 +283,33 @@ func TestNewTemplate(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name:     "string with variables",
+			name:     "single expression template",
 			input:    "${user.Name}",
 			wantType: "*el.ExprTemplate",
+			wantErr:  false,
+		},
+		{
+			name:     "mixed template with multiple variables",
+			input:    "${metadata.prefix}_${metadata.suffix}",
+			wantType: "*el.MixedTemplate",
+			wantErr:  false,
+		},
+		{
+			name:     "mixed template with text and variable",
+			input:    "Hello ${user.Name}!",
+			wantType: "*el.MixedTemplate",
+			wantErr:  false,
+		},
+		{
+			name:     "mixed template with variable in middle",
+			input:    "prefix_${id}_suffix",
+			wantType: "*el.MixedTemplate",
+			wantErr:  false,
+		},
+		{
+			name:     "expression with additional text should be mixed",
+			input:    "${user.name}_test",
+			wantType: "*el.MixedTemplate",
 			wantErr:  false,
 		},
 		{
@@ -297,6 +330,18 @@ func TestNewTemplate(t *testing.T) {
 			wantType: "*el.NotTemplate",
 			wantErr:  false,
 		},
+		{
+			name:     "single expression with spaces",
+			input:    "  ${user.Age}  ",
+			wantType: "*el.ExprTemplate",
+			wantErr:  false,
+		},
+		{
+			name:     "complex single expression",
+			input:    "${user.Name + ' - ' + user.Email}",
+			wantType: "*el.ExprTemplate",
+			wantErr:  false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -312,6 +357,76 @@ func TestNewTemplate(t *testing.T) {
 		})
 	}
 }
+
+// TestMixedTemplateExecution 测试混合模板的执行功能
+func TestMixedTemplateExecution(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		data     map[string]interface{}
+		expected string
+	}{
+		{
+			name:     "multiple variables with underscore",
+			template: "${metadata.prefix}_${metadata.suffix}",
+			data: map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"prefix": "user",
+					"suffix": "123",
+				},
+			},
+			expected: "user_123",
+		},
+		{
+			name:     "text with variable",
+			template: "Hello ${user.name}!",
+			data: map[string]interface{}{
+				"user": map[string]interface{}{
+					"name": "Alice",
+				},
+			},
+			expected: "Hello Alice!",
+		},
+		{
+			name:     "multiple variables in path",
+			template: "/api/${version}/users/${userId}/profile",
+			data: map[string]interface{}{
+				"version": "v1",
+				"userId": "12345",
+			},
+			expected: "/api/v1/users/12345/profile",
+		},
+		{
+			name:     "variable with prefix and suffix",
+			template: "prefix_${id}_suffix",
+			data: map[string]interface{}{
+				"id": "test",
+			},
+			expected: "prefix_test_suffix",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpl, err := NewTemplate(tt.template)
+			if err != nil {
+				t.Fatalf("NewTemplate() error = %v", err)
+			}
+
+			// 验证模板类型
+			if _, ok := tmpl.(*MixedTemplate); !ok {
+				t.Errorf("Expected MixedTemplate, got %T", tmpl)
+			}
+
+			// 测试执行结果
+			result := tmpl.ExecuteAsString(tt.data)
+			if result != tt.expected {
+				t.Errorf("ExecuteAsString() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestExprTemplate2(t *testing.T) {
 	var params = []string{
 		"${msg.customer_id}",
