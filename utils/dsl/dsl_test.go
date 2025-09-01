@@ -168,6 +168,112 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	}
 	referencedNodes5 := ExtractReferencedNodeIds(config5)
 	assert.Equal(t, 0, len(referencedNodes5)) // map values are not processed
+
+	// Test case 6: Function expressions with node references
+	// 测试包含函数表达式的节点引用
+	config6 := types.Configuration{
+		"param1": "${upper(node1.msg.name)}",
+		"param2": "${lower(node2.data.value)}",
+		"param3": "${trim(config_node.metadata.description)}",
+		"param4": "${substring(service_node.msg.content, 0, 10)}",
+	}
+	referencedNodes6 := ExtractReferencedNodeIds(config6)
+	assert.Equal(t, 4, len(referencedNodes6))
+	assert.True(t, contains(referencedNodes6, "node1"))
+	assert.True(t, contains(referencedNodes6, "node2"))
+	assert.True(t, contains(referencedNodes6, "config_node"))
+	assert.True(t, contains(referencedNodes6, "service_node"))
+
+	// Test case 7: Mixed function expressions and regular references
+	// 测试混合函数表达式和常规引用
+	config7 := types.Configuration{
+		"script": "var name = ${upper(node1.msg.name)}; var value = ${node2.data.value}; return name + value;",
+		"url":    "http://localhost:8080/${lower(api_node.metadata.endpoint)}/${node3.data.id}",
+	}
+	referencedNodes7 := ExtractReferencedNodeIds(config7)
+	assert.Equal(t, 4, len(referencedNodes7))
+	assert.True(t, contains(referencedNodes7, "node1"))
+	assert.True(t, contains(referencedNodes7, "node2"))
+	assert.True(t, contains(referencedNodes7, "api_node"))
+	assert.True(t, contains(referencedNodes7, "node3"))
+
+	// Test case 8: Function expressions with nested properties
+	// 测试包含嵌套属性的函数表达式
+	config8 := types.Configuration{
+		"param1": "${format(node1.data.user.name)}",
+		"param2": "${validate(node2.metadata.config.rules)}",
+	}
+	referencedNodes8 := ExtractReferencedNodeIds(config8)
+	assert.Equal(t, 2, len(referencedNodes8))
+	assert.True(t, contains(referencedNodes8, "node1"))
+	assert.True(t, contains(referencedNodes8, "node2"))
+
+	// Test case 9: Function expressions should not match built-in variables
+	// 测试函数表达式不应匹配内置变量
+	config9 := types.Configuration{
+		"param1": "${upper(msg.name)}",
+		"param2": "${lower(metadata.type)}",
+		"param3": "${format(global.config)}",
+		"param4": "${trim(vars.description)}",
+	}
+	referencedNodes9 := ExtractReferencedNodeIds(config9)
+	assert.Equal(t, 0, len(referencedNodes9)) // Should not extract built-in variables
+
+	// Test case 10: Complex expr-lang expressions with nested functions
+	// 测试复杂的expr-lang表达式，包含嵌套函数
+	config10 := types.Configuration{
+		"param1": "${split(lower(node1.data.Name), ' ')}",
+		"param2": "${join(upper(node2.data.items), ',')}",
+		"param3": "${substring(trim(config_node.metadata.description), 0, 10)}",
+	}
+	referencedNodes10 := ExtractReferencedNodeIds(config10)
+	assert.Equal(t, 3, len(referencedNodes10))
+	assert.True(t, contains(referencedNodes10, "node1"))
+	assert.True(t, contains(referencedNodes10, "node2"))
+	assert.True(t, contains(referencedNodes10, "config_node"))
+
+	// Test case 11: Complex conditional and mathematical expressions
+	// 测试复杂的条件和数学表达式
+	config11 := types.Configuration{
+		"condition1": "${node1.data.value > 100 && node2.metadata.status == 'active'}",
+		"condition2": "${len(processor_node.msg.items) > 0 ? validator_node.data.result : 'default'}",
+		"calculation": "${(node1.data.price * node2.data.quantity) + service_node.metadata.tax}",
+	}
+	referencedNodes11 := ExtractReferencedNodeIds(config11)
+	assert.Equal(t, 5, len(referencedNodes11))
+	assert.True(t, contains(referencedNodes11, "node1"))
+	assert.True(t, contains(referencedNodes11, "node2"))
+	assert.True(t, contains(referencedNodes11, "processor_node"))
+	assert.True(t, contains(referencedNodes11, "validator_node"))
+	assert.True(t, contains(referencedNodes11, "service_node"))
+
+	// Test case 12: Array/slice operations and nested property access
+	// 测试数组/切片操作和嵌套属性访问
+	config12 := types.Configuration{
+		"nested": "${api_node.data.response.user.profile.name}",
+		"array_op": "${node1.data.items[0].name + node2.msg.values[node3.data.index]}",
+		"complex": "${transform_node.metadata.config.rules[0].condition && filter_node.data.results[1].status}",
+	}
+	referencedNodes12 := ExtractReferencedNodeIds(config12)
+	assert.Equal(t, 6, len(referencedNodes12))
+	assert.True(t, contains(referencedNodes12, "api_node"))
+	assert.True(t, contains(referencedNodes12, "node1"))
+	assert.True(t, contains(referencedNodes12, "node2"))
+	assert.True(t, contains(referencedNodes12, "node3"))
+	assert.True(t, contains(referencedNodes12, "transform_node"))
+	assert.True(t, contains(referencedNodes12, "filter_node"))
+
+	// Test case 13: Mixed complex expressions in single string
+	// 测试单个字符串中的混合复杂表达式
+	config13 := types.Configuration{
+		"script": "var name = ${upper(node1.msg.name)}; var items = ${split(node2.data.list, ',')}; return ${node3.data.value > 0 ? processor_node.metadata.result : 'empty'};",
+	}
+	referencedNodes13 := ExtractReferencedNodeIds(config13)
+	assert.Equal(t, 4, len(referencedNodes13))
+	assert.True(t, contains(referencedNodes13, "node1"))
+	assert.True(t, contains(referencedNodes13, "node2"))
+	assert.True(t, contains(referencedNodes13, "node3"))
+	assert.True(t, contains(referencedNodes13, "processor_node"))
 }
 
 // TestParseCrossNodeDependencies 测试解析规则链中的跨节点依赖关系
