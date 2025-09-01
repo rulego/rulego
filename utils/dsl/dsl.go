@@ -90,33 +90,78 @@ func IsNodeIdDefined(def types.RuleChain, nodeId string) bool {
 	return false
 }
 
-// extractReferencedNodeIds 从节点配置中提取被引用的节点ID
-// extractReferencedNodeIds extracts referenced node IDs from node configuration
+// ExtractReferencedNodeIds 从节点配置中提取被引用的节点ID，支持复杂的expr-lang表达式
+// ExtractReferencedNodeIds extracts referenced node IDs from node configuration, supports complex expr-lang expressions
 func ExtractReferencedNodeIds(configuration types.Configuration) []string {
 	var nodeIds []string
 	uniqueNodeIds := make(map[string]bool)
 
 	for _, fieldValue := range configuration {
 		if strV, ok := fieldValue.(string); ok {
-			// 解析模板语法中的跨节点变量引用: ${nodeId.data.xxx}, ${nodeId.metadata.xxx}, ${nodeId.msg.xxx}
-			re := regexp.MustCompile(`\$\{([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)(?:\.[^}]*)?\}`)
-			matches := re.FindAllStringSubmatch(strV, -1)
+			// 提取所有${...}表达式内容
+			// Extract all ${...} expression content
+			expressionRegex := regexp.MustCompile(`\$\{([^}]+)\}`)
+			expressionMatches := expressionRegex.FindAllStringSubmatch(strV, -1)
 
-			for _, match := range matches {
-				if len(match) > 1 {
-					nodeId := match[1]
-					// 排除内置变量，只处理真正的跨节点引用
-					// Exclude built-in variables, only process real cross-node references
-					if nodeId != "msg" && nodeId != "metadata" && nodeId != "msgType" && nodeId != "global" && nodeId != "vars" {
-						// 确保这是一个跨节点引用（第二个捕获组是字段名）
-						// Ensure this is a cross-node reference (second capture group is field name)
-						if len(match) > 2 && match[2] != "" {
-							if !uniqueNodeIds[nodeId] {
-								uniqueNodeIds[nodeId] = true
-								nodeIds = append(nodeIds, nodeId)
-							}
+			for _, exprMatch := range expressionMatches {
+				if len(exprMatch) > 1 {
+					expressionContent := exprMatch[1]
+					// 从表达式内容中提取节点引用
+					// Extract node references from expression content
+					extractedNodes := ExtractNodeReferencesFromExpression(expressionContent)
+					for _, nodeId := range extractedNodes {
+						if !uniqueNodeIds[nodeId] {
+							uniqueNodeIds[nodeId] = true
+							nodeIds = append(nodeIds, nodeId)
 						}
 					}
+				}
+			}
+		}
+	}
+
+	return nodeIds
+}
+
+// BuiltinVars 内置变量列表，这些不应该被识别为节点ID
+// Built-in variables list, these should not be recognized as node IDs
+var BuiltinVars = map[string]bool{
+	"msg":      true,
+	"metadata": true,
+	"msgType":  true,
+	"global":   true,
+	"vars":     true,
+	"len":      true,
+	"string":   true,
+	"int":      true,
+	"float":    true,
+	"bool":     true,
+	"true":     true,
+	"false":    true,
+}
+
+// ExtractNodeReferencesFromExpression 从表达式内容中提取节点引用
+// ExtractNodeReferencesFromExpression extracts node references from expression content
+func ExtractNodeReferencesFromExpression(expression string) []string {
+	var nodeIds []string
+	uniqueNodeIds := make(map[string]bool)
+
+	// 使用精确的正则表达式来匹配节点引用
+	// Use precise regex to match node references
+	// 只匹配 nodeId.data, nodeId.msg, nodeId.metadata 这三种模式
+	// Only match nodeId.data, nodeId.msg, nodeId.metadata patterns
+	nodeRefRegex := regexp.MustCompile(`\b([a-zA-Z][a-zA-Z0-9_]*)\.(data|msg|metadata)\b`)
+	matches := nodeRefRegex.FindAllStringSubmatch(expression, -1)
+
+	for _, match := range matches {
+		if len(match) > 1 {
+			nodeId := match[1]
+			// 排除内置变量，只处理真正的跨节点引用
+			// Exclude built-in variables, only process real cross-node references
+			if !BuiltinVars[nodeId] {
+				if !uniqueNodeIds[nodeId] {
+					uniqueNodeIds[nodeId] = true
+					nodeIds = append(nodeIds, nodeId)
 				}
 			}
 		}
