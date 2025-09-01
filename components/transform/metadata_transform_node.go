@@ -32,10 +32,9 @@ package transform
 //	}
 //}
 import (
-	"github.com/expr-lang/expr"
-	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 )
@@ -82,7 +81,7 @@ type MetadataTransformNodeConfiguration struct {
 type MetadataTransformNode struct {
 	//节点配置
 	Config         MetadataTransformNodeConfiguration
-	programMapping map[string]*vm.Program
+	templateMapping map[string]el.Template
 }
 
 // Type 组件类型
@@ -104,12 +103,12 @@ func (x *MetadataTransformNode) Init(_ types.Config, configuration types.Configu
 	x.Config.Mapping = map[string]string{}
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
-		x.programMapping = make(map[string]*vm.Program)
+		x.templateMapping = make(map[string]el.Template)
 		for k, v := range x.Config.Mapping {
-			if program, err := expr.Compile(v, expr.AllowUndefinedVariables()); err != nil {
+			if template, err := el.NewExprTemplate(v); err != nil {
 				return err
 			} else {
-				x.programMapping[k] = program
+				x.templateMapping[k] = template
 			}
 		}
 	}
@@ -119,10 +118,9 @@ func (x *MetadataTransformNode) Init(_ types.Config, configuration types.Configu
 // OnMsg 处理消息
 func (x *MetadataTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	evn := base.NodeUtils.GetEvn(ctx, msg)
-	var exprVm = vm.VM{}
 	mapResult := make(map[string]string)
-	for fieldName, program := range x.programMapping {
-		if out, err := exprVm.Run(program, evn); err != nil {
+	for fieldName, template := range x.templateMapping {
+		if out, err := template.Execute(evn); err != nil {
 			ctx.TellFailure(msg, err)
 			return
 		} else {

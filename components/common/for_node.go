@@ -32,12 +32,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/rulego/rulego/utils/el"
 	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/expr-lang/expr"
-	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/json"
@@ -72,7 +71,7 @@ func init() {
 // ForNodeConfiguration defines the configuration for the ForNode.
 type ForNodeConfiguration struct {
 	// Range is the target expression to iterate over, supporting arrays, slices, and structs.
-	// Expr expressions are allowed, e.g., msg.items, 1..5 to iterate over []int{1,2,3,4,5}.
+	// Expr expressions are allowed, e.g., ${msg.items}, 1..5 to iterate over []int{1,2,3,4,5}.
 	// If empty, it iterates over the msg payload.
 	Range string
 	// Do specifies the node or sub-rule chain to process the iterated elements,
@@ -207,10 +206,10 @@ type ForNodeConfiguration struct {
 type ForNode struct {
 	//节点配置
 	Config ForNodeConfiguration
-	// range variable
-	program *vm.Program
 	// do variable nodeId or chainId
 	ruleNodeId types.RuleNodeId
+	// range template
+	rangeTemplate el.Template
 }
 
 // Type 组件类型
@@ -235,10 +234,11 @@ func (x *ForNode) Init(_ types.Config, configuration types.Configuration) error 
 	x.Config.Range = strings.TrimSpace(x.Config.Range)
 	// Compile the Range expression if it's not empty.
 	if x.Config.Range != "" {
-		if program, err := expr.Compile(x.Config.Range, expr.AllowUndefinedVariables()); err != nil {
-			return err
+
+		if template, err := el.NewExprTemplate(x.Config.Range); err != nil {
+			return fmt.Errorf("failed to create range template: %w", err)
 		} else {
-			x.program = program
+			x.rangeTemplate = template
 		}
 	}
 	// Trim whitespace from the Do configuration and validate it's not empty.
@@ -273,12 +273,12 @@ func (x *ForNode) toList(dataType types.DataType, itemDataList []string) []inter
 // OnMsg processes the message.
 func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var err error
-	evn := base.NodeUtils.GetEvn(ctx, msg)
+
 	var inData = msg.GetData()
 	var data interface{}
-	var exprVm = vm.VM{}
-	if x.program != nil {
-		if out, err := exprVm.Run(x.program, evn); err != nil {
+	if x.rangeTemplate != nil {
+		evn := base.NodeUtils.GetEvn(ctx, msg)
+		if out, err := x.rangeTemplate.Execute(evn); err != nil {
 			ctx.TellFailure(msg, err)
 			return
 		} else {

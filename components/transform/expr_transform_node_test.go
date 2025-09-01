@@ -194,4 +194,142 @@ func TestExprTransformNode(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond * 20)
 	})
+
+	// 测试节点依赖表达式语法 ${node1.msg.xx}
+	// Test node dependency expression syntax ${node1.msg.xx}
+	t.Run("NodeDependencyExpression", func(t *testing.T) {
+		// 测试单个表达式中的节点依赖
+		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"expr": "${node1.msg.temperature} + 10",
+		}, Registry)
+		assert.Nil(t, err)
+
+		// 测试映射中的节点依赖
+		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"mapping": map[string]string{
+				"prevTemp":    "${node1.msg.temperature}",
+				"currentTemp": "msg.temperature",
+				"tempDiff":    "msg.temperature - ${node1.msg.temperature}",
+			},
+		}, Registry)
+		assert.Nil(t, err)
+
+		// 测试混合节点依赖和元数据
+		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"expr": "${node1.metadata.deviceType} + '_' + msg.sensorId",
+		}, Registry)
+		assert.Nil(t, err)
+
+		// 测试嵌套节点依赖
+		node4, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"mapping": map[string]string{
+				"sensor1": "${node1.msg.sensor.temperature}",
+				"sensor2": "${node2.msg.sensor.humidity}",
+				"combined": "${node1.msg.sensor.temperature} + ${node2.msg.sensor.humidity}",
+			},
+		}, Registry)
+		assert.Nil(t, err)
+
+		// 验证节点创建成功
+		assert.NotNil(t, node1)
+		assert.NotNil(t, node2)
+		assert.NotNil(t, node3)
+		assert.NotNil(t, node4)
+	})
+
+	// 测试不带 ${} 的传统表达式仍然正常工作
+	// Test traditional expressions without ${} still work normally
+	t.Run("TraditionalExpression", func(t *testing.T) {
+		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"expr": "msg.temperature * 2",
+		}, Registry)
+		assert.Nil(t, err)
+
+		metaData := types.BuildMetadata(make(map[string]string))
+		msgList := []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "TELEMETRY",
+				Data:       `{"temperature":25}`,
+				AfterSleep: time.Millisecond * 200,
+			},
+		}
+
+		var nodeList = []test.NodeAndCallback{
+			{
+				Node:    node,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+					assert.Equal(t, "50", msg.Data.String())
+				},
+			},
+		}
+		test.NodeOnMsgWithChildren(t, nodeList[0].Node, nodeList[0].MsgList, nodeList[0].ChildrenNodes, nodeList[0].Callback)
+	})
+
+	// 测试无效的节点依赖表达式
+	// Test invalid node dependency expressions
+	t.Run("InvalidNodeDependencyExpression", func(t *testing.T) {
+		// 测试语法错误的表达式
+		_, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"expr": "${node1.msg.temperature +",
+		}, Registry)
+		assert.NotNil(t, err)
+
+		// 测试映射中的无效表达式
+		_, err2 := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"mapping": map[string]string{
+				"invalid": "${node1.msg.temperature",
+			},
+		}, Registry)
+		assert.NotNil(t, err2)
+	})
+
+	// 测试表达式优先级（Expr 优先于 Mapping）
+	// Test expression priority (Expr takes precedence over Mapping)
+	t.Run("ExpressionPriority", func(t *testing.T) {
+		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"expr": "'from_expr'",
+			"mapping": map[string]string{
+				"result": "'from_mapping'",
+			},
+		}, Registry)
+		assert.Nil(t, err)
+
+		metaData := types.BuildMetadata(make(map[string]string))
+		msgList := []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "TELEMETRY",
+				Data:       `{"test":"data"}`,
+				AfterSleep: time.Millisecond * 200,
+			},
+		}
+
+		var nodeList = []test.NodeAndCallback{
+			{
+				Node:    node,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+					assert.Equal(t, "from_expr", msg.Data.String())
+				},
+			},
+		}
+		test.NodeOnMsgWithChildren(t, nodeList[0].Node, nodeList[0].MsgList, nodeList[0].ChildrenNodes, nodeList[0].Callback)
+	})
+}
+
+// TestExprTransformNodeDestroy 测试销毁节点
+// TestExprTransformNodeDestroy tests destroying the node.
+func TestExprTransformNodeDestroy(t *testing.T) {
+	var node ExprTransformNode
+	var configuration = make(types.Configuration)
+	configuration["expr"] = "msg.temperature * 2"
+	err := node.Init(types.NewConfig(), configuration)
+	assert.Nil(t, err)
+
+	// 调用 Destroy 方法不应该引发错误
+	node.Destroy()
 }

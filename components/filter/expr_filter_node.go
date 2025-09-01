@@ -30,10 +30,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/expr-lang/expr"
-	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
 )
 
@@ -91,9 +90,9 @@ type ExprFilterNode struct {
 	// Config holds the expression filter configuration
 	Config ExprFilterNodeConfiguration
 
-	// program 用于高效执行的编译表达式
-	// program is the compiled expression for efficient execution
-	program *vm.Program
+	// exprTemplate 执行的编译表达式模板
+	// exprTemplate is the compiled expression template for execution
+	exprTemplate el.Template
 }
 
 // Type 返回组件类型
@@ -118,7 +117,11 @@ func (x *ExprFilterNode) Init(ruleConfig types.Config, configuration types.Confi
 		return fmt.Errorf("expr can not be empty")
 	}
 	if err == nil {
-		x.program, err = expr.Compile(x.Config.Expr, expr.AllowUndefinedVariables())
+		if template, err := el.NewExprTemplate(x.Config.Expr); err != nil {
+			return fmt.Errorf("failed to create expression template: %w", err)
+		} else {
+			x.exprTemplate = template
+		}
 	}
 	return err
 }
@@ -128,7 +131,7 @@ func (x *ExprFilterNode) Init(ruleConfig types.Config, configuration types.Confi
 func (x *ExprFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	evn := base.NodeUtils.GetEvn(ctx, msg)
 
-	if out, err := vm.Run(x.program, evn); err != nil {
+	if out, err := x.exprTemplate.Execute(evn); err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
 		if result, ok := out.(bool); ok && result {

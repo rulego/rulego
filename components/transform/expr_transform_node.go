@@ -32,13 +32,13 @@ package transform
 //	}
 //}
 import (
-	"github.com/expr-lang/expr"
-	"github.com/expr-lang/expr/vm"
+	"strings"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
-	"strings"
 )
 
 func init() {
@@ -84,8 +84,8 @@ type ExprTransformNodeConfiguration struct {
 type ExprTransformNode struct {
 	//节点配置
 	Config         ExprTransformNodeConfiguration
-	program        *vm.Program
-	programMapping map[string]*vm.Program
+	exprTemplate   el.Template
+	templateMapping map[string]el.Template
 }
 
 // Type 组件类型
@@ -102,18 +102,18 @@ func (x *ExprTransformNode) Init(ruleConfig types.Config, configuration types.Co
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
 		if exprV := strings.TrimSpace(x.Config.Expr); exprV != "" {
-			if program, err := expr.Compile(exprV, expr.AllowUndefinedVariables()); err != nil {
+			if template, err := el.NewExprTemplate(exprV); err != nil {
 				return err
 			} else {
-				x.program = program
+				x.exprTemplate = template
 			}
 		} else {
-			x.programMapping = make(map[string]*vm.Program)
+			x.templateMapping = make(map[string]el.Template)
 			for k, v := range x.Config.Mapping {
-				if program, err := expr.Compile(v, expr.AllowUndefinedVariables()); err != nil {
+				if template, err := el.NewExprTemplate(v); err != nil {
 					return err
 				} else {
-					x.programMapping[k] = program
+					x.templateMapping[k] = template
 				}
 			}
 		}
@@ -126,9 +126,8 @@ func (x *ExprTransformNode) Init(ruleConfig types.Config, configuration types.Co
 func (x *ExprTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	evn := base.NodeUtils.GetEvn(ctx, msg)
 	var result interface{}
-	var exprVm = vm.VM{}
-	if x.program != nil {
-		if out, err := exprVm.Run(x.program, evn); err != nil {
+	if x.exprTemplate != nil {
+		if out, err := x.exprTemplate.Execute(evn); err != nil {
 			ctx.TellFailure(msg, err)
 			return
 		} else {
@@ -136,8 +135,8 @@ func (x *ExprTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 	} else {
 		mapResult := make(map[string]interface{})
-		for fieldName, program := range x.programMapping {
-			if out, err := exprVm.Run(program, evn); err != nil {
+		for fieldName, template := range x.templateMapping {
+			if out, err := template.Execute(evn); err != nil {
 				ctx.TellFailure(msg, err)
 				return
 			} else {

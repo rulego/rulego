@@ -137,6 +137,11 @@ func TestForNode(t *testing.T) {
 			"do":    "node1",
 			"mode":  MergeValues,
 		}, Registry)
+		node8_1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"range": "${msg.items}",
+			"do":    "node1",
+			"mode":  MergeValues,
+		}, Registry)
 		node9, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"range": "msg.items",
 			"do":    "node1",
@@ -243,6 +248,20 @@ func TestForNode(t *testing.T) {
 			},
 			{
 				Node: node8,
+				MsgList: []test.Msg{
+					{
+						MetaData:   types.BuildMetadata(map[string]string{}),
+						MsgType:    "ACTIVITY_EVENT1",
+						Data:       "{\"humidity\":90,\"temperature\":41,\"items\":" + "[" + data1 + "," + data2 + "]" + "}",
+						AfterSleep: time.Millisecond * 20,
+					},
+				},
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, "["+data1+","+data2+"]", msg.GetData())
+				},
+			},
+			{
+				Node: node8_1,
 				MsgList: []test.Msg{
 					{
 						MetaData:   types.BuildMetadata(map[string]string{}),
