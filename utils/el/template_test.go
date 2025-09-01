@@ -58,6 +58,30 @@ func TestExprTemplate(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "object content",
+			tmpl: `{"name":"lala", "age":10}`,
+			data: map[string]interface{}{
+				"user": struct {
+					Name string
+					Age  int
+				}{Name: "lala", Age: 10},
+			},
+			expected: map[string]interface{}{"name": "lala", "age": 10},
+			wantErr:  false,
+		},
+		{
+			name: "object content with ${}",
+			tmpl: `${{"name":"lala", "age":10}}`,
+			data: map[string]interface{}{
+				"user": struct {
+					Name string
+					Age  int
+				}{Name: "lala", Age: 10},
+			},
+			expected: map[string]interface{}{"name": "lala", "age": 10},
+			wantErr:  false,
+		},
+		{
 			name: "quoted variable should not be replaced",
 			tmpl: `{"name":"${user.Name}", "age":${user.Age}}`,
 			data: map[string]interface{}{
@@ -392,7 +416,7 @@ func TestMixedTemplateExecution(t *testing.T) {
 			template: "/api/${version}/users/${userId}/profile",
 			data: map[string]interface{}{
 				"version": "v1",
-				"userId": "12345",
+				"userId":  "12345",
 			},
 			expected: "/api/v1/users/12345/profile",
 		},
