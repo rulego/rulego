@@ -1,5 +1,42 @@
 # CHANGELOG
 
+# [v0.33.0] 2025/09/03
+### rulego-core
+- feat: 完善组件配置表达式取值系统，支持跨节点取值，例如:${node1.msg.xx}
+- feat: 增加 end 节点组件
+- feat: 增加跨节点取值节点组件
+- feat: 节点组件配置表单生成，跳过不可导出和 `json:-` 字段
+- perf: 完善mqtt客户端重连机制
+- perf: 优化js引擎超时处理
+- perf: 优化表达式引擎混合字符串场景性能
+- perf: 使用 el.NewTemplate 代替 str.NewTemplate
+- perf: 完善net endpoint组件数据竞争问题
+- fix: js节点组件，dataType 字段类型转换错误
+- fix: Reload engine chainCtx lost
+- fix: 修复js脚本部分场景会读写错误
+- refactor: 重构 ctx.TellFlow 入参
+- refactor: 增加公共组件分类，重新调整部分组件分类
+- chore: expr 升级到1.17.6
+
+### rulego-components
+- feat: 增加 pulsar 发布和订阅节点组件
+- feat: 增加 pulsar 发布和订阅节点组件
+- feat: 增加流式计算转换节点组件
+- feat: 增加流式聚合运算节点组件
+
+### rulego-server
+- fix: 完善mqtt客户端重连机制
+- fix: add defer resp.Body.Close() for GetComponentsFromMarketplace
+
+### rulego-editor
+- feat: 默认【输入】节点可以删除
+- feat: 增加最新节点组件支持
+- feat: 如果节点没配置，首次添加到画布，不弹出属性配置表单
+- feat: 增加新型画布节点，应用于for、节点组等分组组件展示效果
+- feat: 增加sql编辑器表单组件
+- fix:左边栏高度适配
+- chore: 升级最新的依赖
+
 # [v0.32.0] 2025/07/11
 
 ### rulego-core
