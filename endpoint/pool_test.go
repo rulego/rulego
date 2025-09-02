@@ -56,7 +56,9 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ep, err = New("e_http", endpointBuf, endpoint.DynamicEndpointOptions.WithConfig(config))
+	endpointStr := strings.Replace(string(endpointBuf), "9090", "9082", -1)
+
+	ep, err = New("e_http", []byte(endpointStr), endpoint.DynamicEndpointOptions.WithConfig(config))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,13 +66,13 @@ func TestNew(t *testing.T) {
 	time.Sleep(time.Millisecond * 200)
 
 	var def types.EndpointDsl
-	_ = json.Unmarshal(endpointBuf, &def)
+	_ = json.Unmarshal([]byte(endpointStr), &def)
 	v, _ := json.Marshal(def)
 	dsl := strings.Replace(string(v), " ", "", -1)
 
 	assert.Equal(t, dsl, strings.Replace(string(ep.DSL()), " ", "", -1))
 	assert.True(t, reflect.DeepEqual(def, ep.Definition()))
-	sendMsg(t, "http://127.0.0.1:9090/api/v1/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:9082/api/v1/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Success)
 	}))
 
@@ -78,23 +80,25 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = ep.Reload(endpointBuf)
+	endpointStr = strings.Replace(string(endpointBuf), "9090", "9082", -1)
+
+	_ = ep.Reload([]byte(endpointStr))
 	time.Sleep(time.Millisecond * 200)
 
-	sendMsg(t, "http://127.0.0.1:9090/api/v1/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:9082/api/v1/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Failure)
 	}))
-	sendMsg(t, "http://127.0.0.1:9090/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:9082/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Success)
 	}))
 
-	_ = ep.Reload(endpointBuf, endpoint.DynamicEndpointOptions.WithRestart(true))
+	_ = ep.Reload([]byte(endpointStr), endpoint.DynamicEndpointOptions.WithRestart(true))
 	time.Sleep(time.Millisecond * 200)
 
-	sendMsg(t, "http://127.0.0.1:9090/api/v1/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:9082/api/v1/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Failure)
 	}))
-	sendMsg(t, "http://127.0.0.1:9090/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:9082/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Success)
 	}))
 
@@ -116,10 +120,10 @@ func TestNew(t *testing.T) {
 	_ = ep.AddOrReloadRouter([]byte(router1))
 	time.Sleep(time.Millisecond * 200)
 
-	sendMsg(t, "http://127.0.0.1:9090/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:9082/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Failure)
 	}))
-	sendMsg(t, "http://127.0.0.1:9090/api/v3/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:9082/api/v3/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Success)
 	}))
 
@@ -127,16 +131,16 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	newDsl := strings.Replace(string(endpointBuf), ":9090", ":9091", -1)
+	newDsl := strings.Replace(string(endpointBuf), ":9090", ":9083", -1)
 	ep, ok := Get("e_http")
 	assert.True(t, ok)
 	_ = ep.Reload([]byte(newDsl))
 	time.Sleep(time.Millisecond * 500)
 
-	sendMsg(t, "http://127.0.0.1:9090/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:9082/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Failure)
 	}))
-	sendMsg(t, "http://127.0.0.1:9091/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
+	sendMsg(t, "http://127.0.0.1:9083/api/v2/test/test01", "POST", msg1, test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
 		assert.Equal(t, relationType, types.Success)
 	}))
 	time.Sleep(time.Millisecond * 200)
@@ -166,13 +170,16 @@ func TestFactory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	endpointStr := strings.Replace(string(endpointBuf), "9090", "9080", -1)
+
 	ruleDsl, err := os.ReadFile(testRulesFolder + "/filter_node.json")
 
 	_, err = engine.New("test01", ruleDsl)
 
 	assert.True(t, reflect.DeepEqual(DefaultPool.factory, DefaultPool.Factory()))
 
-	ep1, err := DefaultPool.factory.NewFromDsl(endpointBuf)
+	ep1, err := DefaultPool.factory.NewFromDsl([]byte(endpointStr))
 	assert.Nil(t, err)
 
 	def := ep1.Definition()
