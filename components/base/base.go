@@ -195,8 +195,16 @@ func (x *SharedNode[T]) InitWithClose(ruleConfig types.Config, nodeType, resourc
 		x.InitInstanceFunc = initInstanceFunc
 		if initNow {
 			//非资源池方式，初始化
-			_, err := x.InitInstanceFunc()
-			return err
+			client, err := x.InitInstanceFunc()
+			if err != nil {
+				return err
+			}
+			x.Locker.Lock()
+			defer x.Locker.Unlock()
+			// 初始化成功，缓存客户端
+			x.localClient = client
+			x.clientInitialized = true
+			return nil
 		}
 	} else {
 		x.isFromPool = true
