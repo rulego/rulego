@@ -167,7 +167,8 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 		"config":  map[string]interface{}{"key": "${node1.data.value}"},
 	}
 	referencedNodes5 := ExtractReferencedNodeIds(config5)
-	assert.Equal(t, 0, len(referencedNodes5)) // map values are not processed
+	assert.Equal(t, 1, len(referencedNodes5)) // map values are now processed
+	assert.True(t, contains(referencedNodes5, "node1"))
 
 	// Test case 6: Function expressions with node references
 	// 测试包含函数表达式的节点引用
@@ -274,6 +275,91 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes13, "node2"))
 	assert.True(t, contains(referencedNodes13, "node3"))
 	assert.True(t, contains(referencedNodes13, "processor_node"))
+
+	// Test case 14: Deep nested field node references
+	// 测试深层嵌套字段节点引用
+	config14 := types.Configuration{
+		"deepNested1": "${user_node.data.profile.personal.address.street.name}",
+		"deepNested2": "${config_node.metadata.settings.database.connection.pool.maxSize}",
+		"deepNested3": "${api_node.msg.response.data.items[0].attributes.category.subcategory.name}",
+		"deepNested4": "${service_node.data.result.analysis.statistics.performance.metrics.cpu.usage}",
+		"deepNested5": "${transform_node.metadata.config.rules[0].conditions[1].field.validation.pattern}",
+	}
+	referencedNodes14 := ExtractReferencedNodeIds(config14)
+	assert.Equal(t, 5, len(referencedNodes14))
+	assert.True(t, contains(referencedNodes14, "user_node"))
+	assert.True(t, contains(referencedNodes14, "config_node"))
+	assert.True(t, contains(referencedNodes14, "api_node"))
+	assert.True(t, contains(referencedNodes14, "service_node"))
+	assert.True(t, contains(referencedNodes14, "transform_node"))
+
+	// Test case 15: Nested field references with function expressions
+	// 测试带函数表达式的嵌套字段引用
+	config15 := types.Configuration{
+		"nestedFunc1": "${upper(user_node.data.profile.contact.email.domain)}",
+		"nestedFunc2": "${lower(product_node.metadata.category.main.subcategory.name)}",
+		"nestedFunc3": "${trim(order_node.msg.customer.billing.address.city)}",
+		"nestedFunc4": "${substring(log_node.data.events[0].details.message.content, 0, 50)}",
+		"nestedFunc5": "${format(stats_node.metadata.reports.daily.summary.totals.revenue)}",
+	}
+	referencedNodes15 := ExtractReferencedNodeIds(config15)
+	assert.Equal(t, 5, len(referencedNodes15))
+	assert.True(t, contains(referencedNodes15, "user_node"))
+	assert.True(t, contains(referencedNodes15, "product_node"))
+	assert.True(t, contains(referencedNodes15, "order_node"))
+	assert.True(t, contains(referencedNodes15, "log_node"))
+	assert.True(t, contains(referencedNodes15, "stats_node"))
+
+	// Test case 16: Complex nested field references with mixed operations
+	// 测试复杂嵌套字段引用与混合操作
+	config16 := types.Configuration{
+		"complexNested1": "${user_node.data.profile.preferences.settings.theme.colors.primary} + ${ui_node.metadata.config.styles.default.background}",
+		"complexNested2": "${order_node.msg.items[0].product.details.specifications.dimensions.width} * ${calc_node.data.factors.scaling.horizontal}",
+		"complexNested3": "${auth_node.data.session.user.permissions.roles[0].access.level} > ${security_node.metadata.policies.minimum.required.level}",
+		"complexNested4": "${len(inventory_node.msg.products.categories.electronics.items)} > 0 ? ${display_node.data.templates.list.format} : ${display_node.data.templates.empty.format}",
+	}
+	referencedNodes16 := ExtractReferencedNodeIds(config16)
+	assert.Equal(t, 8, len(referencedNodes16))
+	assert.True(t, contains(referencedNodes16, "user_node"))
+	assert.True(t, contains(referencedNodes16, "ui_node"))
+	assert.True(t, contains(referencedNodes16, "order_node"))
+	assert.True(t, contains(referencedNodes16, "calc_node"))
+	assert.True(t, contains(referencedNodes16, "auth_node"))
+	assert.True(t, contains(referencedNodes16, "security_node"))
+	assert.True(t, contains(referencedNodes16, "inventory_node"))
+	assert.True(t, contains(referencedNodes16, "display_node"))
+
+	// Test case 17: Nested field references within JSON object structures
+	// 测试JSON对象结构内的嵌套字段引用
+	config17 := types.Configuration{
+		"jsonNested1": map[string]interface{}{"aa": "${user_node.data.profile.personal}"},
+		"jsonNested2": map[string]interface{}{"config": "${config_node.metadata.settings.database}", "backup": "${backup_node.data.path}"},
+		"jsonNested3": map[string]interface{}{"items": []interface{}{"${item_node.msg.list[0]}", "${item_node.data.count}"}},
+		"jsonNested4": map[string]interface{}{"nested": map[string]interface{}{"deep": "${deep_node.metadata.config.rules}"}},
+	}
+	referencedNodes17 := ExtractReferencedNodeIds(config17)
+	assert.Equal(t, 5, len(referencedNodes17))
+	assert.True(t, contains(referencedNodes17, "user_node"))
+	assert.True(t, contains(referencedNodes17, "config_node"))
+	assert.True(t, contains(referencedNodes17, "backup_node"))
+	assert.True(t, contains(referencedNodes17, "item_node"))
+	assert.True(t, contains(referencedNodes17, "deep_node"))
+
+	// Test case 18: Mixed string and object nested field references
+	// 测试混合字符串和对象嵌套字段引用
+	config18 := types.Configuration{
+		"mixedNested1": "prefix_${prefix_node.data.value}_suffix",
+		"mixedNested2": map[string]interface{}{"key": "${key_node.metadata.secret}", "value": "static_value"},
+		"mixedNested3": []interface{}{"${array_node.msg.items[0]}", "static_item", "${array_node.data.length}"},
+		"mixedNested4": "${format_node.data.template} with ${param_node.metadata.values}",
+	}
+	referencedNodes18 := ExtractReferencedNodeIds(config18)
+	assert.Equal(t, 5, len(referencedNodes18))
+	assert.True(t, contains(referencedNodes18, "prefix_node"))
+	assert.True(t, contains(referencedNodes18, "key_node"))
+	assert.True(t, contains(referencedNodes18, "array_node"))
+	assert.True(t, contains(referencedNodes18, "format_node"))
+	assert.True(t, contains(referencedNodes18, "param_node"))
 }
 
 // TestParseCrossNodeDependencies 测试解析规则链中的跨节点依赖关系
