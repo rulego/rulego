@@ -90,37 +90,67 @@ func IsNodeIdDefined(def types.RuleChain, nodeId string) bool {
 	return false
 }
 
-// ExtractReferencedNodeIds 从节点配置中提取被引用的节点ID，支持复杂的expr-lang表达式
-// ExtractReferencedNodeIds extracts referenced node IDs from node configuration, supports complex expr-lang expressions
+// ExtractReferencedNodeIds 从节点配置中提取被引用的节点ID列表（支持嵌套字段）
+// ExtractReferencedNodeIds extracts referenced node IDs from node configuration (supports nested fields)
 func ExtractReferencedNodeIds(configuration types.Configuration) []string {
 	var nodeIds []string
 	uniqueNodeIds := make(map[string]bool)
 
-	for _, fieldValue := range configuration {
-		if strV, ok := fieldValue.(string); ok {
-			// 提取所有${...}表达式内容
-			// Extract all ${...} expression content
-			expressionRegex := regexp.MustCompile(`\$\{([^}]+)\}`)
-			expressionMatches := expressionRegex.FindAllStringSubmatch(strV, -1)
+	for _, value := range configuration {
+		extractNodeIdsFromValue(value, uniqueNodeIds, &nodeIds)
+	}
 
-			for _, exprMatch := range expressionMatches {
-				if len(exprMatch) > 1 {
-					expressionContent := exprMatch[1]
-					// 从表达式内容中提取节点引用
-					// Extract node references from expression content
-					extractedNodes := ExtractNodeReferencesFromExpression(expressionContent)
-					for _, nodeId := range extractedNodes {
-						if !uniqueNodeIds[nodeId] {
-							uniqueNodeIds[nodeId] = true
-							nodeIds = append(nodeIds, nodeId)
-						}
+	return nodeIds
+}
+
+// extractNodeIdsFromValue 递归提取任意类型值中的节点引用
+// extractNodeIdsFromValue recursively extracts node references from values of any type
+func extractNodeIdsFromValue(value interface{}, uniqueNodeIds map[string]bool, nodeIds *[]string) {
+	switch v := value.(type) {
+	case string:
+		// 处理字符串类型，提取${...}表达式
+		// Process string type, extract ${...} expressions
+		expressionRegex := regexp.MustCompile(`\$\{([^}]+)\}`)
+		expressionMatches := expressionRegex.FindAllStringSubmatch(v, -1)
+
+		for _, exprMatch := range expressionMatches {
+			if len(exprMatch) > 1 {
+				expressionContent := exprMatch[1]
+				// 从表达式内容中提取节点引用
+				// Extract node references from expression content
+				extractedNodes := ExtractNodeReferencesFromExpression(expressionContent)
+				for _, nodeId := range extractedNodes {
+					if !uniqueNodeIds[nodeId] {
+						uniqueNodeIds[nodeId] = true
+						*nodeIds = append(*nodeIds, nodeId)
 					}
 				}
 			}
 		}
+	case map[string]interface{}:
+		// 递归处理map类型
+		// Recursively process map type
+		for _, mapValue := range v {
+			extractNodeIdsFromValue(mapValue, uniqueNodeIds, nodeIds)
+		}
+	case []interface{}:
+		// 递归处理slice类型
+		// Recursively process slice type
+		for _, sliceValue := range v {
+			extractNodeIdsFromValue(sliceValue, uniqueNodeIds, nodeIds)
+		}
+	case types.Configuration:
+		// 递归处理Configuration类型
+		// Recursively process Configuration type
+		for _, configValue := range v {
+			extractNodeIdsFromValue(configValue, uniqueNodeIds, nodeIds)
+		}
+	// 对于其他类型（int, bool, float等），不包含节点引用，直接忽略
+	// For other types (int, bool, float, etc.), no node references, ignore
+	default:
+		// 不处理其他类型
+		// Do not process other types
 	}
-
-	return nodeIds
 }
 
 // BuiltinVars 内置变量列表，这些不应该被识别为节点ID
@@ -146,11 +176,11 @@ func ExtractNodeReferencesFromExpression(expression string) []string {
 	var nodeIds []string
 	uniqueNodeIds := make(map[string]bool)
 
-	// 使用精确的正则表达式来匹配节点引用
-	// Use precise regex to match node references
-	// 只匹配 nodeId.data, nodeId.msg, nodeId.metadata 这三种模式
-	// Only match nodeId.data, nodeId.msg, nodeId.metadata patterns
-	nodeRefRegex := regexp.MustCompile(`\b([a-zA-Z][a-zA-Z0-9_]*)\.(data|msg|metadata)\b`)
+	// 使用正则表达式来匹配节点引用
+	// Use regex to match node references
+	// 匹配 nodeId.data, nodeId.msg, nodeId.metadata 的模式，确保前面不是点号
+	// Match nodeId.data, nodeId.msg, nodeId.metadata patterns, ensuring not preceded by a dot
+	nodeRefRegex := regexp.MustCompile(`(?:^|[^a-zA-Z0-9_.])([a-zA-Z][a-zA-Z0-9_]*)\.(data|msg|metadata)(?:[^a-zA-Z0-9_]|$)`)
 	matches := nodeRefRegex.FindAllStringSubmatch(expression, -1)
 
 	for _, match := range matches {
