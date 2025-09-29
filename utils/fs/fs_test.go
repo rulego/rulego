@@ -11,7 +11,7 @@ import (
 func TestSaveAndLoadFile(t *testing.T) {
 	tempDir := t.TempDir()
 	testFilePath := filepath.Join(tempDir, "testfile.txt")
-	testData := []byte("hello world")
+	testData := []byte("hello world中文")
 
 	// Test SaveFile
 	err := SaveFile(testFilePath, testData)

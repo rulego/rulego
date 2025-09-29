@@ -22,15 +22,26 @@ package fs
 
 import (
 	"bufio"
-	"io/fs"
+	"fmt"
+	"github.com/spf13/afero"
 	"os"
 	"path/filepath"
 )
 
+var vfs = afero.NewOsFs() //local file
+
+func SetFileAdapter(fs afero.Fs) {
+	fmt.Printf("change vfs: %v -> %v \n", vfs.Name(), fs.Name())
+	vfs = fs
+}
+func GetFileAdapter() afero.Fs {
+	return vfs
+}
+
 // SaveFile A function that saves a file to a given path, overwriting it if it exists
 func SaveFile(path string, data []byte) error {
 	// Create or truncate the file
-	file, err := os.Create(path)
+	file, err := vfs.Create(path) //os.Create(path)
 	if err != nil {
 		return err
 	}
@@ -54,7 +65,7 @@ func SaveFile(path string, data []byte) error {
 
 // LoadFile 加载文件
 func LoadFile(filePath string) []byte {
-	buf, err := os.ReadFile(filePath)
+	buf, err := afero.ReadFile(vfs, filePath) //os.ReadFile(filePath)
 	if err != nil {
 		return nil
 	} else {
@@ -68,7 +79,7 @@ func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string,
 	dir, file := filepath.Split(loadFilePattern)
 	var paths []string
 	// 遍历目录
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err := afero.Walk(vfs, dir, func(path string, d os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -95,7 +106,7 @@ func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string,
 
 // IsExist 判断路径是否存在
 func IsExist(path string) bool {
-	_, err := os.Stat(path)
+	_, err := vfs.Stat(path) //os.Stat(path)
 	if err != nil {
 		if os.IsExist(err) {
 			return true
@@ -111,14 +122,14 @@ func IsExist(path string) bool {
 // CreateDirs 创建文件夹
 func CreateDirs(path string) error {
 	if !IsExist(path) {
-		err := os.MkdirAll(path, os.ModePerm)
+		err := vfs.MkdirAll(path, os.ModePerm)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
-func isMatch(d fs.DirEntry, patterns ...string) bool {
+func isMatch(d os.FileInfo, patterns ...string) bool {
 	for _, item := range patterns {
 		if matched, _ := filepath.Match(item, d.Name()); matched {
 			return true
