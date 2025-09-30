@@ -27,8 +27,32 @@ import (
 	"path/filepath"
 )
 
+type RepositoryStorage interface {
+	SaveFile(path string, data []byte) error
+	LoadFile(filePath string) []byte
+	GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string, error)
+	IsExist(path string) bool
+	CreateDirs(path string) error
+	Name() string
+}
+type fileStorage struct {
+	name string
+}
+
+var storage = NewFileStorage()
+
+func NewFileStorage() RepositoryStorage {
+	return &fileStorage{
+		name: "defult",
+	}
+}
+
+func (f *fileStorage) Name() string {
+	return f.name
+}
+
 // SaveFile A function that saves a file to a given path, overwriting it if it exists
-func SaveFile(path string, data []byte) error {
+func (f *fileStorage) SaveFile(path string, data []byte) error {
 	// Create or truncate the file
 	file, err := os.Create(path)
 	if err != nil {
@@ -53,7 +77,7 @@ func SaveFile(path string, data []byte) error {
 }
 
 // LoadFile 加载文件
-func LoadFile(filePath string) []byte {
+func (f *fileStorage) LoadFile(filePath string) []byte {
 	buf, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil
@@ -63,7 +87,7 @@ func LoadFile(filePath string) []byte {
 }
 
 // GetFilePaths 返回匹配的文件路径列表
-func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string, error) {
+func (f *fileStorage) GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string, error) {
 	// 分割输入参数为目录和文件名
 	dir, file := filepath.Split(loadFilePattern)
 	var paths []string
@@ -94,7 +118,7 @@ func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string,
 }
 
 // IsExist 判断路径是否存在
-func IsExist(path string) bool {
+func (f *fileStorage) IsExist(path string) bool {
 	_, err := os.Stat(path)
 	if err != nil {
 		if os.IsExist(err) {
@@ -109,8 +133,8 @@ func IsExist(path string) bool {
 }
 
 // CreateDirs 创建文件夹
-func CreateDirs(path string) error {
-	if !IsExist(path) {
+func (f *fileStorage) CreateDirs(path string) error {
+	if !f.IsExist(path) {
 		err := os.MkdirAll(path, os.ModePerm)
 		if err != nil {
 			return err
@@ -118,11 +142,43 @@ func CreateDirs(path string) error {
 	}
 	return nil
 }
-func isMatch(d fs.DirEntry, patterns ...string) bool {
+func isMatch(d os.DirEntry, patterns ...string) bool {
 	for _, item := range patterns {
 		if matched, _ := filepath.Match(item, d.Name()); matched {
 			return true
 		}
 	}
 	return false
+}
+
+func SetRepositoryStorage(fs RepositoryStorage) {
+	storage = fs
+}
+func GetRepositoryStorage() RepositoryStorage {
+	return storage
+}
+
+// SaveFile A function that saves a file to a given path, overwriting it if it exists
+func SaveFile(path string, data []byte) error {
+	return storage.SaveFile(path, data)
+}
+
+// LoadFile 加载文件
+func LoadFile(filePath string) []byte {
+	return storage.LoadFile(filePath)
+}
+
+// GetFilePaths 返回匹配的文件路径列表
+func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string, error) {
+	return storage.GetFilePaths(loadFilePattern, excludedPatterns...)
+}
+
+// IsExist 判断路径是否存在
+func IsExist(path string) bool {
+	return storage.IsExist(path)
+}
+
+// CreateDirs 创建文件夹
+func CreateDirs(path string) error {
+	return storage.CreateDirs(path)
 }
