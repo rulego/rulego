@@ -23,25 +23,40 @@ package fs
 import (
 	"bufio"
 	"fmt"
-	"github.com/spf13/afero"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
 
-var vfs = afero.NewOsFs() //local file
-
-func SetFileAdapter(fs afero.Fs) {
-	fmt.Printf("change vfs: %v -> %v \n", vfs.Name(), fs.Name())
-	vfs = fs
+type RepositoryStorage interface {
+	SaveFile(path string, data []byte) error
+	LoadFile(filePath string) []byte
+	GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string, error)
+	IsExist(path string) bool
+	CreateDirs(path string) error
+	Name() string
 }
-func GetFileAdapter() afero.Fs {
-	return vfs
+type fileStorage struct {
+	name string
+}
+
+var storage = NewFileStorage()
+
+func NewFileStorage() RepositoryStorage {
+	fmt.Printf("RuleGo init RepositoryStorage : defult\n")
+	return &fileStorage{
+		name: "defult",
+	}
+}
+
+func (f *fileStorage) Name() string {
+	return f.name
 }
 
 // SaveFile A function that saves a file to a given path, overwriting it if it exists
-func SaveFile(path string, data []byte) error {
+func (f *fileStorage) SaveFile(path string, data []byte) error {
 	// Create or truncate the file
-	file, err := vfs.Create(path) //os.Create(path)
+	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
@@ -64,8 +79,8 @@ func SaveFile(path string, data []byte) error {
 }
 
 // LoadFile 加载文件
-func LoadFile(filePath string) []byte {
-	buf, err := afero.ReadFile(vfs, filePath) //os.ReadFile(filePath)
+func (f *fileStorage) LoadFile(filePath string) []byte {
+	buf, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil
 	} else {
@@ -74,12 +89,12 @@ func LoadFile(filePath string) []byte {
 }
 
 // GetFilePaths 返回匹配的文件路径列表
-func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string, error) {
+func (f *fileStorage) GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string, error) {
 	// 分割输入参数为目录和文件名
 	dir, file := filepath.Split(loadFilePattern)
 	var paths []string
 	// 遍历目录
-	err := afero.Walk(vfs, dir, func(path string, d os.FileInfo, err error) error {
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -105,8 +120,8 @@ func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string,
 }
 
 // IsExist 判断路径是否存在
-func IsExist(path string) bool {
-	_, err := vfs.Stat(path) //os.Stat(path)
+func (f *fileStorage) IsExist(path string) bool {
+	_, err := os.Stat(path)
 	if err != nil {
 		if os.IsExist(err) {
 			return true
@@ -120,20 +135,53 @@ func IsExist(path string) bool {
 }
 
 // CreateDirs 创建文件夹
-func CreateDirs(path string) error {
-	if !IsExist(path) {
-		err := vfs.MkdirAll(path, os.ModePerm)
+func (f *fileStorage) CreateDirs(path string) error {
+	if !f.IsExist(path) {
+		err := os.MkdirAll(path, os.ModePerm)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
-func isMatch(d os.FileInfo, patterns ...string) bool {
+func isMatch(d os.DirEntry, patterns ...string) bool {
 	for _, item := range patterns {
 		if matched, _ := filepath.Match(item, d.Name()); matched {
 			return true
 		}
 	}
 	return false
+}
+
+func SetRepositoryStorage(fs RepositoryStorage) {
+	fmt.Printf("change RepositoryStorage: %v -> %v \n", storage.Name(), fs.Name())
+	storage = fs
+}
+func GetRepositoryStorage() RepositoryStorage {
+	return storage
+}
+
+// SaveFile A function that saves a file to a given path, overwriting it if it exists
+func SaveFile(path string, data []byte) error {
+	return storage.SaveFile(path, data)
+}
+
+// LoadFile 加载文件
+func LoadFile(filePath string) []byte {
+	return storage.LoadFile(filePath)
+}
+
+// GetFilePaths 返回匹配的文件路径列表
+func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string, error) {
+	return storage.GetFilePaths(loadFilePattern, excludedPatterns...)
+}
+
+// IsExist 判断路径是否存在
+func IsExist(path string) bool {
+	return storage.IsExist(path)
+}
+
+// CreateDirs 创建文件夹
+func CreateDirs(path string) error {
+	return storage.CreateDirs(path)
 }
