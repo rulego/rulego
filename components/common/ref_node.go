@@ -47,6 +47,10 @@ type RefNodeConfiguration struct {
 	// Format: [{chainId}]:{nodeId} for external chain nodes
 	// Format: {nodeId} for current chain nodes
 	TargetId string
+	// TellChain controls whether to execute the entire chain starting from TargetId.
+	// If false (default), only the TargetId node itself is executed.
+	// If true, the flow continues through the whole sub-chain rooted at TargetId.
+	TellChain bool
 }
 
 // RefNode 引用并执行来自相同或不同规则链的节点的流控制组件
@@ -147,7 +151,7 @@ func (x *RefNode) Init(ruleConfig types.Config, configuration types.Configuratio
 // OnMsg 处理消息，通过执行引用的节点来处理传入消息
 // OnMsg processes incoming messages by executing the referenced node.
 func (x *RefNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	ctx.TellChainNode(ctx.GetContext(), x.chainId, x.nodeId, msg, true, func(newCtx types.RuleContext, newMsg types.RuleMsg, err error, relationType string) {
+	ctx.TellChainNode(ctx.GetContext(), x.chainId, x.nodeId, msg, !x.Config.TellChain, func(newCtx types.RuleContext, newMsg types.RuleMsg, err error, relationType string) {
 		if err != nil {
 			ctx.TellFailure(msg, err)
 		} else {
