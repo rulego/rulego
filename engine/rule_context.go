@@ -619,6 +619,11 @@ func (ctx *DefaultRuleContext) TellNode(chanCtx context.Context, nodeId string, 
 		rootCtxCopy.onAllNodeCompleted = onAllNodeCompleted
 		//Whether to only execute the current node
 		rootCtxCopy.skipTellNext = skipTellNext
+
+		if ctx.GetNodeOutputCache() != nil {
+			rootCtxCopy.nodeOutputCache = ctx.GetNodeOutputCache()
+		}
+
 		rootCtxCopy.tell(msg, nil, "")
 	} else {
 		if onEnd != nil {
