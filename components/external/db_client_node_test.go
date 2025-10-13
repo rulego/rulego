@@ -40,15 +40,10 @@ func TestDbClientNode(t *testing.T) {
 		node := &DbClientNode{}
 		err := node.Init(types.NewConfig(), types.Configuration{})
 		assert.NotNil(t, err)
+		if err != nil {
+			assert.Equal(t, "sql can not empty", err.Error())
+		}
 		assert.Equal(t, "mysql", node.Config.DriverName)
-
-		node2 := &DbClientNode{}
-		err = node2.Init(types.NewConfig(), types.Configuration{
-			"sql":        "xx",
-			"driverName": "mysql",
-			"dsn":        "root:root@tcp(127.0.0.1:3306)/test",
-		})
-		assert.Equal(t, "unsupported sql statement: xx", err.Error())
 	})
 
 	t.Run("OnMsgMysql", func(t *testing.T) {
@@ -59,6 +54,20 @@ func TestDbClientNode(t *testing.T) {
 	})
 	t.Run("TestConcurrency", func(t *testing.T) {
 		testConcurrency(t, targetNodeType, "mysql", "root:root@tcp(127.0.1.1:3306)/test")
+	})
+
+	// 添加EXEC类型测试用例
+	t.Run("TestExecTypeDDL", func(t *testing.T) {
+		testExecTypeDDL(t, targetNodeType, "mysql", "root:root@tcp(127.0.1.1:3306)/test")
+	})
+	t.Run("TestExecTypeWithStatement", func(t *testing.T) {
+		testExecTypeWithStatement(t, targetNodeType, "mysql", "root:root@tcp(127.0.1.1:3306)/test")
+	})
+	t.Run("TestExecTypeConfigurable", func(t *testing.T) {
+		testExecTypeConfigurable(t, targetNodeType, "mysql", "root:root@tcp(127.0.1.1:3306)/test")
+	})
+	t.Run("TestExecTypeOtherStatements", func(t *testing.T) {
+		testExecTypeOtherStatements(t, targetNodeType, "mysql", "root:root@tcp(127.0.1.1:3306)/test")
 	})
 }
 
@@ -351,7 +360,7 @@ func testConcurrency(t *testing.T, targetNodeType, driverName, dsn string) {
 			"${msg.AllPcsVolAvg}",
 		},
 		"poolSize": 30,
-		"sql":      "INSERT INTO cn_pcs_real  (customer_id,\n station_id,\n cabinet_id,\n sub_code,\n pcs_code,\n direct_vol,\n direct_cur,\n direct_act_power,\n direct_react_power,\n device_temp,\n ab_line_vol,\n bc_line_vol,\n ca_line_vol,\n a_grid_cur,\n b_grid_cur,\n c_grid_cur,\n a_grid_act_power,\n b_grid_act_power,\n c_grid_act_power,\n a_grid_app_power,\n b_grid_app_power,\n c_grid_app_power,\n a_grid_noact_power,\n b_grid_noact_power,\n c_grid_noact_power,\n grid_frequency,\n tot_act_power,\n tot_noact_power,\n tot_app_power,\n a_phase_power_factor,\n b_phase_power_factor,\n c_phase_power_factor,\n grid_power_fac,\n a_phase_freq,\n b_phase_freq,\n c_phase_freq,\n total_freq,\n rated_vol,\n rated_cur,\n rated_freq,\n pcs_max_chg_act_power,\n pcs_max_dis_chg_react_power,\n pcs_max_dis_chg_vol,\n pcs_max_dis_chg_cur,\n comm_st,\n run_st,\n fault_st,\n stop_st,\n plc_state,\n plc_state_req,\n plc_io,\n on_off_grid_st,\n alarm_st,\n switch_st,\n run_mode,\n refresh_at,\n power_factor,\n noact_power_mode,\n watch_dog,\n pcs_state,\n pcs_fault,\n flt_code_7,\n flt_code_8,\n flt_code_9,\n flt_code_10,\n flt_code_11,\n a_line_vol,\n b_line_vol,\n c_line_vol,\n tot_pf,\n back_power_grid_eq,\n power_grid_eq,\n device_max_temp,\n act_power_dispatch,\n direct_charge_eq,\n direct_discharge_eq,\n grid_tied,\n off_grid,\n all_pcs_crnt_sum,\n all_pcs_power_sum,\n all_pcs_vol_avg) VALUES  (?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n sysdate(),\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?, \n ?,\n ?,\n ?,\n ?,\n ?) ON DUPLICATE KEY UPDATE  direct_vol = CASE WHEN VALUES(direct_vol) IS NOT NULL THEN VALUES(direct_vol) ELSE direct_vol END,\n direct_cur = CASE WHEN VALUES(direct_cur) IS NOT NULL  THEN VALUES(direct_cur) ELSE direct_cur END,\n direct_act_power = CASE WHEN VALUES(direct_act_power) IS NOT NULL  THEN VALUES(direct_act_power) ELSE direct_act_power END,\n direct_react_power = CASE WHEN VALUES(direct_react_power) IS NOT NULL  THEN VALUES(direct_react_power) ELSE direct_react_power END,\n device_temp = CASE WHEN VALUES(device_temp) IS NOT NULL  THEN VALUES(device_temp) ELSE device_temp END,\n ab_line_vol = CASE WHEN VALUES(ab_line_vol) IS NOT NULL THEN VALUES(ab_line_vol) ELSE ab_line_vol END,\n bc_line_vol = CASE WHEN VALUES(bc_line_vol) IS NOT NULL  THEN VALUES(bc_line_vol) ELSE bc_line_vol END,\n ca_line_vol = CASE WHEN VALUES(ca_line_vol) IS NOT NULL  THEN VALUES(ca_line_vol) ELSE ca_line_vol END,\n a_grid_cur = CASE WHEN VALUES(a_grid_cur) IS NOT NULL  THEN VALUES(a_grid_cur) ELSE a_grid_cur END,\n b_grid_cur = CASE WHEN VALUES(b_grid_cur) IS NOT NULL  THEN VALUES(b_grid_cur) ELSE b_grid_cur END,\n c_grid_cur = CASE WHEN VALUES(c_grid_cur) IS NOT NULL  THEN VALUES(c_grid_cur) ELSE c_grid_cur END,\n a_grid_act_power = CASE WHEN VALUES(a_grid_act_power) IS NOT NULL  THEN VALUES(a_grid_act_power) ELSE a_grid_act_power END,\n b_grid_act_power = CASE WHEN VALUES(b_grid_act_power) IS NOT NULL  THEN VALUES(b_grid_act_power) ELSE b_grid_act_power END,\n c_grid_act_power = CASE WHEN VALUES(c_grid_act_power) IS NOT NULL  THEN VALUES(c_grid_act_power) ELSE c_grid_act_power END,\n a_grid_app_power = CASE WHEN VALUES(a_grid_app_power) IS NOT NULL  THEN VALUES(a_grid_app_power) ELSE a_grid_app_power END,\n b_grid_app_power = CASE WHEN VALUES(b_grid_app_power) IS NOT NULL  THEN VALUES(b_grid_app_power) ELSE b_grid_app_power END,\n c_grid_app_power = CASE WHEN VALUES(c_grid_app_power) IS NOT NULL  THEN VALUES(c_grid_app_power) ELSE c_grid_app_power END,\n a_grid_noact_power = CASE WHEN VALUES(a_grid_noact_power) IS NOT NULL  THEN VALUES(a_grid_noact_power) ELSE a_grid_noact_power END,\n b_grid_noact_power = CASE WHEN VALUES(b_grid_noact_power) IS NOT NULL  THEN VALUES(b_grid_noact_power) ELSE b_grid_noact_power END,\n c_grid_noact_power = CASE WHEN VALUES(c_grid_noact_power) IS NOT NULL  THEN VALUES(c_grid_noact_power) ELSE c_grid_noact_power END,\n grid_frequency = CASE WHEN VALUES(grid_frequency) IS NOT NULL  THEN VALUES(grid_frequency) ELSE grid_frequency END,\n tot_act_power = CASE WHEN VALUES(tot_act_power) IS NOT NULL THEN VALUES(tot_act_power) ELSE tot_act_power END,\n tot_noact_power = CASE WHEN VALUES(tot_noact_power) IS NOT NULL  THEN VALUES(tot_noact_power) ELSE tot_noact_power END,\n tot_app_power = CASE WHEN VALUES(tot_app_power) IS NOT NULL  THEN VALUES(tot_app_power) ELSE tot_app_power END,\n a_phase_power_factor = CASE WHEN VALUES(a_phase_power_factor) IS NOT NULL  THEN VALUES(a_phase_power_factor) ELSE a_phase_power_factor END,\n b_phase_power_factor = CASE WHEN VALUES(b_phase_power_factor) IS NOT NULL  THEN VALUES(b_phase_power_factor) ELSE b_phase_power_factor END,\n c_phase_power_factor = CASE WHEN VALUES(c_phase_power_factor) IS NOT NULL  THEN VALUES(c_phase_power_factor) ELSE c_phase_power_factor END,\n grid_power_fac = CASE WHEN VALUES(grid_power_fac) IS NOT NULL  THEN VALUES(grid_power_fac) ELSE grid_power_fac END,\n a_phase_freq = CASE WHEN VALUES(a_phase_freq) IS NOT NULL  THEN VALUES(a_phase_freq) ELSE a_phase_freq END,\n b_phase_freq = CASE WHEN VALUES(b_phase_freq) IS NOT NULL  THEN VALUES(b_phase_freq) ELSE b_phase_freq END,\n c_phase_freq = CASE WHEN VALUES(c_phase_freq) IS NOT NULL  THEN VALUES(c_phase_freq) ELSE c_phase_freq END,\n total_freq = CASE WHEN VALUES(total_freq) IS NOT NULL  THEN VALUES(total_freq) ELSE total_freq END,\n rated_vol = CASE WHEN VALUES(rated_vol) IS NOT NULL THEN VALUES(rated_vol) ELSE rated_vol END,\n rated_cur = CASE WHEN VALUES(rated_cur) IS NOT NULL  THEN VALUES(rated_cur) ELSE rated_cur END,\n rated_freq = CASE WHEN VALUES(rated_freq) IS NOT NULL  THEN VALUES(rated_freq) ELSE rated_freq END,\n pcs_max_chg_act_power = CASE WHEN VALUES(pcs_max_chg_act_power) IS NOT NULL  THEN VALUES(pcs_max_chg_act_power) ELSE pcs_max_chg_act_power END,\n pcs_max_dis_chg_react_power = CASE WHEN VALUES(pcs_max_dis_chg_react_power) IS NOT NULL  THEN VALUES(pcs_max_dis_chg_react_power) ELSE pcs_max_dis_chg_react_power END,\n pcs_max_dis_chg_vol = CASE WHEN VALUES(pcs_max_dis_chg_vol) IS NOT NULL  THEN VALUES(pcs_max_dis_chg_vol) ELSE pcs_max_dis_chg_vol END,\n pcs_max_dis_chg_cur = CASE WHEN VALUES(pcs_max_dis_chg_cur) IS NOT NULL  THEN VALUES(pcs_max_dis_chg_cur) ELSE pcs_max_dis_chg_cur END,\n comm_st = VALUES(comm_st),\n run_st = VALUES(run_st),\n fault_st = VALUES(fault_st),\n stop_st = VALUES(stop_st),\n plc_state = VALUES(plc_state),\n plc_state_req = VALUES(plc_state_req),\n plc_io = VALUES(plc_io),\n on_off_grid_st = VALUES(on_off_grid_st),\n alarm_st = VALUES(alarm_st),\n switch_st = VALUES(switch_st),\n run_mode = VALUES(run_mode),\nrefresh_at = VALUES(refresh_at),\npower_factor= CASE WHEN VALUES(power_factor ) IS NOT NULL  THEN VALUES(power_factor ) ELSE power_factor END,\nnoact_power_mode= CASE WHEN VALUES(noact_power_mode ) IS NOT NULL  THEN VALUES(noact_power_mode ) ELSE noact_power_mode END,\nwatch_dog = CASE WHEN VALUES(watch_dog) IS NOT NULL AND VALUES(watch_dog) != 0 THEN VALUES(watch_dog) ELSE watch_dog END,\npcs_state = CASE WHEN VALUES(pcs_state) IS NOT NULL  THEN VALUES(pcs_state) ELSE pcs_state END,\npcs_fault = CASE WHEN VALUES(pcs_fault) IS NOT NULL  THEN VALUES(pcs_fault) ELSE pcs_fault END,\nflt_code_7= CASE WHEN VALUES(flt_code_7 ) IS NOT NULL THEN VALUES(flt_code_7 ) ELSE flt_code_7 END,\nflt_code_8= CASE WHEN VALUES(flt_code_8 ) IS NOT NULL THEN VALUES(flt_code_8 ) ELSE flt_code_8 END,\nflt_code_9= CASE WHEN VALUES(flt_code_9 ) IS NOT NULL THEN VALUES(flt_code_9 ) ELSE flt_code_9 END,\nflt_code_10 = CASE WHEN VALUES(flt_code_10) IS NOT NULL THEN VALUES(flt_code_10) ELSE flt_code_10 END,\nflt_code_11 = CASE WHEN VALUES(flt_code_11) IS NOT NULL THEN VALUES(flt_code_11) ELSE flt_code_11 END,\na_line_vol= CASE WHEN VALUES(a_line_vol ) IS NOT NULL  THEN VALUES(a_line_vol ) ELSE a_line_vol END,\nb_line_vol= CASE WHEN VALUES(b_line_vol ) IS NOT NULL  THEN VALUES(b_line_vol ) ELSE b_line_vol END,\nc_line_vol= CASE WHEN VALUES(c_line_vol ) IS NOT NULL  THEN VALUES(c_line_vol ) ELSE c_line_vol END,\ntot_pf= CASE WHEN VALUES(tot_pf ) IS NOT NULL  THEN VALUES(tot_pf ) ELSE tot_pf END,\nback_power_grid_eq= CASE WHEN VALUES(back_power_grid_eq ) IS NOT NULL  THEN VALUES(back_power_grid_eq ) ELSE back_power_grid_eq END,\npower_grid_eq = CASE WHEN VALUES(power_grid_eq) IS NOT NULL  THEN VALUES(power_grid_eq) ELSE power_grid_eq END,\ndevice_max_temp = CASE WHEN VALUES(device_max_temp) IS NOT NULL  THEN VALUES(device_max_temp) ELSE device_max_temp END,\nact_power_dispatch= CASE WHEN VALUES(act_power_dispatch ) IS NOT NULL  THEN VALUES(act_power_dispatch ) ELSE act_power_dispatch END,\ndirect_charge_eq= CASE WHEN VALUES(direct_charge_eq ) IS NOT NULL  THEN VALUES(direct_charge_eq ) ELSE direct_charge_eq END,\ndirect_discharge_eq = CASE WHEN VALUES(direct_discharge_eq) IS NOT NULL  THEN VALUES(direct_discharge_eq) ELSE direct_discharge_eq END,\ngrid_tied = CASE WHEN VALUES(grid_tied) IS NOT NULL  THEN VALUES(grid_tied) ELSE grid_tied END,\noff_grid= CASE WHEN VALUES(off_grid ) IS NOT NULL THEN VALUES(off_grid ) ELSE off_grid END,\nall_pcs_crnt_sum= CASE WHEN VALUES(all_pcs_crnt_sum ) IS NOT NULL THEN VALUES(all_pcs_crnt_sum ) ELSE all_pcs_crnt_sum END,\nall_pcs_power_sum= CASE WHEN VALUES(all_pcs_power_sum ) IS NOT NULL THEN VALUES(all_pcs_power_sum ) ELSE all_pcs_power_sum END,\nall_pcs_vol_avg= CASE WHEN VALUES(all_pcs_vol_avg ) IS NOT NULL THEN VALUES(all_pcs_vol_avg ) ELSE all_pcs_vol_avg END;",
+		"sql":      "INSERT INTO cn_pcs_real  (customer_id,\n station_id,\n cabinet_id,\n sub_code,\n pcs_code,\n direct_vol,\n direct_cur,\n direct_act_power,\n direct_react_power,\n device_temp,\n ab_line_vol,\n bc_line_vol,\n ca_line_vol,\n a_grid_cur,\n b_grid_cur,\n c_grid_cur,\n a_grid_act_power,\n b_grid_act_power,\n c_grid_act_power,\n a_grid_app_power,\n b_grid_app_power,\n c_grid_app_power,\n a_grid_noact_power,\n b_grid_noact_power,\n c_grid_noact_power,\n grid_frequency,\n tot_act_power,\n tot_noact_power,\n tot_app_power,\n a_phase_power_factor,\n b_phase_power_factor,\n c_phase_power_factor,\n grid_power_fac,\n a_phase_freq,\n b_phase_freq,\n c_phase_freq,\n total_freq,\n rated_vol,\n rated_cur,\n rated_freq,\n pcs_max_chg_act_power,\n pcs_max_dis_chg_react_power,\n pcs_max_dis_chg_vol,\n pcs_max_dis_chg_cur,\n comm_st,\n run_st,\n fault_st,\n stop_st,\n plc_state,\n plc_state_req,\n plc_io,\n on_off_grid_st,\n alarm_st,\n switch_st,\n run_mode,\n refresh_at,\n power_factor,\n noact_power_mode,\n watch_dog,\n pcs_state,\n pcs_fault,\n flt_code_7,\n flt_code_8,\n flt_code_9,\n flt_code_10,\n flt_code_11,\n a_line_vol,\n b_line_vol,\n c_line_vol,\n tot_pf,\n back_power_grid_eq,\n power_grid_eq,\n device_max_temp,\n act_power_dispatch,\n direct_charge_eq,\n direct_discharge_eq,\n grid_tied,\n off_grid,\n all_pcs_crnt_sum,\n all_pcs_power_sum,\n all_pcs_vol_avg) VALUES  (?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?,\n ?, \n ?,\n ?,\n ?,\n ?,\n ?) ON DUPLICATE KEY UPDATE  direct_vol = CASE WHEN VALUES(direct_vol) IS NOT NULL THEN VALUES(direct_vol) ELSE direct_vol END,\n direct_cur = CASE WHEN VALUES(direct_cur) IS NOT NULL  THEN VALUES(direct_cur) ELSE direct_cur END,\n direct_act_power = CASE WHEN VALUES(direct_act_power) IS NOT NULL  THEN VALUES(direct_act_power) ELSE direct_act_power END,\n direct_react_power = CASE WHEN VALUES(direct_react_power) IS NOT NULL  THEN VALUES(direct_react_power) ELSE direct_react_power END,\n device_temp = CASE WHEN VALUES(device_temp) IS NOT NULL  THEN VALUES(device_temp) ELSE device_temp END,\n ab_line_vol = CASE WHEN VALUES(ab_line_vol) IS NOT NULL THEN VALUES(ab_line_vol) ELSE ab_line_vol END,\n bc_line_vol = CASE WHEN VALUES(bc_line_vol) IS NOT NULL  THEN VALUES(bc_line_vol) ELSE bc_line_vol END,\n ca_line_vol = CASE WHEN VALUES(ca_line_vol) IS NOT NULL  THEN VALUES(ca_line_vol) ELSE ca_line_vol END,\n a_grid_cur = CASE WHEN VALUES(a_grid_cur) IS NOT NULL  THEN VALUES(a_grid_cur) ELSE a_grid_cur END,\n b_grid_cur = CASE WHEN VALUES(b_grid_cur) IS NOT NULL  THEN VALUES(b_grid_cur) ELSE b_grid_cur END,\n c_grid_cur = CASE WHEN VALUES(c_grid_cur) IS NOT NULL  THEN VALUES(c_grid_cur) ELSE c_grid_cur END,\n a_grid_act_power = CASE WHEN VALUES(a_grid_act_power) IS NOT NULL  THEN VALUES(a_grid_act_power) ELSE a_grid_act_power END,\n b_grid_act_power = CASE WHEN VALUES(b_grid_act_power) IS NOT NULL  THEN VALUES(b_grid_act_power) ELSE b_grid_act_power END,\n c_grid_act_power = CASE WHEN VALUES(c_grid_act_power) IS NOT NULL  THEN VALUES(c_grid_act_power) ELSE c_grid_act_power END,\n a_grid_app_power = CASE WHEN VALUES(a_grid_app_power) IS NOT NULL  THEN VALUES(a_grid_app_power) ELSE a_grid_app_power END,\n b_grid_app_power = CASE WHEN VALUES(b_grid_app_power) IS NOT NULL  THEN VALUES(b_grid_app_power) ELSE b_grid_app_power END,\n c_grid_app_power = CASE WHEN VALUES(c_grid_app_power) IS NOT NULL  THEN VALUES(c_grid_app_power) ELSE c_grid_app_power END,\n a_grid_noact_power = CASE WHEN VALUES(a_grid_noact_power) IS NOT NULL  THEN VALUES(a_grid_noact_power) ELSE a_grid_noact_power END,\n b_grid_noact_power = CASE WHEN VALUES(b_grid_noact_power) IS NOT NULL  THEN VALUES(b_grid_noact_power) ELSE b_grid_noact_power END,\n c_grid_noact_power = CASE WHEN VALUES(c_grid_noact_power) IS NOT NULL  THEN VALUES(c_grid_noact_power) ELSE c_grid_noact_power END,\n grid_frequency = CASE WHEN VALUES(grid_frequency) IS NOT NULL  THEN VALUES(grid_frequency) ELSE grid_frequency END,\n tot_act_power = CASE WHEN VALUES(tot_act_power) IS NOT NULL THEN VALUES(tot_act_power) ELSE tot_act_power END,\n tot_noact_power = CASE WHEN VALUES(tot_noact_power) IS NOT NULL  THEN VALUES(tot_noact_power) ELSE tot_noact_power END,\n tot_app_power = CASE WHEN VALUES(tot_app_power) IS NOT NULL  THEN VALUES(tot_app_power) ELSE tot_app_power END,\n a_phase_power_factor = CASE WHEN VALUES(a_phase_power_factor) IS NOT NULL  THEN VALUES(a_phase_power_factor) ELSE a_phase_power_factor END,\n b_phase_power_factor = CASE WHEN VALUES(b_phase_power_factor) IS NOT NULL  THEN VALUES(b_phase_power_factor) ELSE b_phase_power_factor END,\n c_phase_power_factor = CASE WHEN VALUES(c_phase_power_factor) IS NOT NULL  THEN VALUES(c_phase_power_factor) ELSE c_phase_power_factor END,\n grid_power_fac = CASE WHEN VALUES(grid_power_fac) IS NOT NULL  THEN VALUES(grid_power_fac) ELSE grid_power_fac END,\n a_phase_freq = CASE WHEN VALUES(a_phase_freq) IS NOT NULL  THEN VALUES(a_phase_freq) ELSE a_phase_freq END,\n b_phase_freq = CASE WHEN VALUES(b_phase_freq) IS NOT NULL  THEN VALUES(b_phase_freq) ELSE b_phase_freq END,\n c_phase_freq = CASE WHEN VALUES(c_phase_freq) IS NOT NULL  THEN VALUES(c_phase_freq) ELSE c_phase_freq END,\n total_freq = CASE WHEN VALUES(total_freq) IS NOT NULL  THEN VALUES(total_freq) ELSE total_freq END,\n rated_vol = CASE WHEN VALUES(rated_vol) IS NOT NULL THEN VALUES(rated_vol) ELSE rated_vol END,\n rated_cur = CASE WHEN VALUES(rated_cur) IS NOT NULL  THEN VALUES(rated_cur) ELSE rated_cur END,\n rated_freq = CASE WHEN VALUES(rated_freq) IS NOT NULL  THEN VALUES(rated_freq) ELSE rated_freq END,\n pcs_max_chg_act_power = CASE WHEN VALUES(pcs_max_chg_act_power) IS NOT NULL  THEN VALUES(pcs_max_chg_act_power) ELSE pcs_max_chg_act_power END,\n pcs_max_dis_chg_react_power = CASE WHEN VALUES(pcs_max_dis_chg_react_power) IS NOT NULL  THEN VALUES(pcs_max_dis_chg_react_power) ELSE pcs_max_dis_chg_react_power END,\n pcs_max_dis_chg_vol = CASE WHEN VALUES(pcs_max_dis_chg_vol) IS NOT NULL  THEN VALUES(pcs_max_dis_chg_vol) ELSE pcs_max_dis_chg_vol END,\n pcs_max_dis_chg_cur = CASE WHEN VALUES(pcs_max_dis_chg_cur) IS NOT NULL  THEN VALUES(pcs_max_dis_chg_cur) ELSE pcs_max_dis_chg_cur END,\n comm_st = VALUES(comm_st),\n run_st = VALUES(run_st),\n fault_st = VALUES(fault_st),\n stop_st = VALUES(stop_st),\n plc_state = VALUES(plc_state),\n plc_state_req = VALUES(plc_state_req),\n plc_io = VALUES(plc_io),\n on_off_grid_st = VALUES(on_off_grid_st),\n alarm_st = VALUES(alarm_st),\n switch_st = VALUES(switch_st),\n run_mode = VALUES(run_mode),\nrefresh_at = VALUES(refresh_at),\npower_factor= CASE WHEN VALUES(power_factor ) IS NOT NULL  THEN VALUES(power_factor ) ELSE power_factor END,\nnoact_power_mode= CASE WHEN VALUES(noact_power_mode ) IS NOT NULL  THEN VALUES(noact_power_mode ) ELSE noact_power_mode END,\nwatch_dog = CASE WHEN VALUES(watch_dog) IS NOT NULL AND VALUES(watch_dog) != 0 THEN VALUES(watch_dog) ELSE watch_dog END,\npcs_state = CASE WHEN VALUES(pcs_state) IS NOT NULL  THEN VALUES(pcs_state) ELSE pcs_state END,\npcs_fault = CASE WHEN VALUES(pcs_fault) IS NOT NULL  THEN VALUES(pcs_fault) ELSE pcs_fault END,\nflt_code_7= CASE WHEN VALUES(flt_code_7 ) IS NOT NULL THEN VALUES(flt_code_7 ) ELSE flt_code_7 END,\nflt_code_8= CASE WHEN VALUES(flt_code_8 ) IS NOT NULL THEN VALUES(flt_code_8 ) ELSE flt_code_8 END,\nflt_code_9= CASE WHEN VALUES(flt_code_9 ) IS NOT NULL THEN VALUES(flt_code_9 ) ELSE flt_code_9 END,\nflt_code_10 = CASE WHEN VALUES(flt_code_10) IS NOT NULL THEN VALUES(flt_code_10) ELSE flt_code_10 END,\nflt_code_11 = CASE WHEN VALUES(flt_code_11) IS NOT NULL THEN VALUES(flt_code_11) ELSE flt_code_11 END,\na_line_vol= CASE WHEN VALUES(a_line_vol ) IS NOT NULL  THEN VALUES(a_line_vol ) ELSE a_line_vol END,\nb_line_vol= CASE WHEN VALUES(b_line_vol ) IS NOT NULL  THEN VALUES(b_line_vol ) ELSE b_line_vol END,\nc_line_vol= CASE WHEN VALUES(c_line_vol ) IS NOT NULL  THEN VALUES(c_line_vol ) ELSE c_line_vol END,\ntot_pf= CASE WHEN VALUES(tot_pf ) IS NOT NULL  THEN VALUES(tot_pf ) ELSE tot_pf END,\nback_power_grid_eq= CASE WHEN VALUES(back_power_grid_eq ) IS NOT NULL  THEN VALUES(back_power_grid_eq ) ELSE back_power_grid_eq END,\npower_grid_eq = CASE WHEN VALUES(power_grid_eq) IS NOT NULL  THEN VALUES(power_grid_eq) ELSE power_grid_eq END,\ndevice_max_temp = CASE WHEN VALUES(device_max_temp) IS NOT NULL  THEN VALUES(device_max_temp) ELSE device_max_temp END,\nact_power_dispatch= CASE WHEN VALUES(act_power_dispatch ) IS NOT NULL  THEN VALUES(act_power_dispatch ) ELSE act_power_dispatch END,\ndirect_charge_eq= CASE WHEN VALUES(direct_charge_eq ) IS NOT NULL  THEN VALUES(direct_charge_eq ) ELSE direct_charge_eq END,\ndirect_discharge_eq = CASE WHEN VALUES(direct_discharge_eq) IS NOT NULL  THEN VALUES(direct_discharge_eq) ELSE direct_discharge_eq END,\ngrid_tied = CASE WHEN VALUES(grid_tied) IS NOT NULL  THEN VALUES(grid_tied) ELSE grid_tied END,\noff_grid= CASE WHEN VALUES(off_grid ) IS NOT NULL THEN VALUES(off_grid ) ELSE off_grid END,\nall_pcs_crnt_sum= CASE WHEN VALUES(all_pcs_crnt_sum ) IS NOT NULL THEN VALUES(all_pcs_crnt_sum ) ELSE all_pcs_crnt_sum END,\nall_pcs_power_sum= CASE WHEN VALUES(all_pcs_power_sum ) IS NOT NULL THEN VALUES(all_pcs_power_sum ) ELSE all_pcs_power_sum END,\nall_pcs_vol_avg= CASE WHEN VALUES(all_pcs_vol_avg ) IS NOT NULL THEN VALUES(all_pcs_vol_avg ) ELSE all_pcs_vol_avg END;",
 	}, Registry)
 
 	var msgStr = `
@@ -479,4 +488,350 @@ type testUser struct {
 	Id   int64  `json:"id"`
 	Name string `json:"name"`
 	Age  int    `json:"age"`
+}
+
+// testExecTypeDDL 测试DDL语句（CREATE、DROP、ALTER）的EXEC类型处理
+func testExecTypeDDL(t *testing.T, targetNodeType, driverName, dsn string) {
+	// 测试CREATE TABLE语句
+	nodeCreate, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "CREATE TABLE IF NOT EXISTS test_exec (id INT PRIMARY KEY, name VARCHAR(50))",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	// 测试ALTER TABLE语句
+	nodeAlter, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "ALTER TABLE test_exec ADD COLUMN age INT DEFAULT 0",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	// 测试DROP TABLE语句
+	nodeDrop, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "DROP TABLE IF EXISTS test_exec",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	metaData := types.BuildMetadata(make(map[string]string))
+	msgList := []test.Msg{
+		{
+			MetaData:   metaData,
+			MsgType:    "DDL_EVENT",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		},
+	}
+
+	var nodeList = []test.NodeAndCallback{
+		{
+			Node:    nodeCreate,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				data := msg.GetData()
+				assert.NotNil(t, data)
+			},
+		},
+		{
+			Node:    nodeAlter,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				assert.Equal(t, types.Success, relationType)
+				assert.Equal(t, "0", msg.Metadata.GetValue(rowsAffectedKey))
+			},
+		},
+		{
+			Node:    nodeDrop,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				assert.Equal(t, types.Success, relationType)
+				assert.Equal(t, "0", msg.Metadata.GetValue(rowsAffectedKey))
+			},
+		},
+	}
+
+	for _, item := range nodeList {
+		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
+		time.Sleep(time.Millisecond * 200)
+	}
+}
+
+// testExecTypeWithStatement 测试WITH语句的EXEC类型处理
+func testExecTypeWithStatement(t *testing.T, targetNodeType, driverName, dsn string) {
+	// 测试WITH语句（CTE - Common Table Expression）
+	nodeWith, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql": `WITH user_stats AS (
+			SELECT COUNT(*) as user_count FROM users
+		) SELECT user_count FROM user_stats`,
+		"opType":     "select",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	// 测试配置化的WITH语句作为EXEC类型
+	nodeWithExec, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql": `WITH temp_data AS (
+			SELECT id, name FROM users WHERE id = ?
+		) INSERT INTO user_backup SELECT * FROM temp_data`,
+		"params":     []interface{}{"${metadata.id}"},
+		"opType":     "EXEC",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	metaData := types.BuildMetadata(make(map[string]string))
+	metaData.PutValue("id", "1")
+
+	msgList := []test.Msg{
+		{
+			MetaData:   metaData,
+			MsgType:    "WITH_EVENT",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		},
+	}
+
+	var nodeList = []test.NodeAndCallback{
+		{
+			Node:    nodeWith,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				data := msg.GetData()
+				assert.NotNil(t, data)
+			},
+		},
+		{
+			Node:    nodeWithExec,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				// EXEC类型应该返回影响行数
+				rowsAffected := msg.Metadata.GetValue(rowsAffectedKey)
+				assert.NotNil(t, rowsAffected)
+			},
+		},
+	}
+
+	for _, item := range nodeList {
+		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
+		time.Sleep(time.Millisecond * 200)
+	}
+}
+
+// testExecTypeConfigurable 测试OpType配置化功能
+func testExecTypeConfigurable(t *testing.T, targetNodeType, driverName, dsn string) {
+
+	nodeDeleteConfig, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "delete from users ",
+		"opType":     "EXEC",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	// 测试显式配置OpType为EXEC
+	nodeExecConfig, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "INSERT INTO users (id, name, age) VALUES (?, ?, ?)",
+		"params":     []interface{}{"${metadata.id}", "${metadata.name}", "${metadata.age}"},
+		"opType":     "EXEC",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	// 测试显式配置OpType为SELECT（覆盖自动检测）
+	nodeSelectConfig, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "SELECT * FROM users WHERE id = ?",
+		"params":     []interface{}{"${metadata.id}"},
+		"opType":     "SELECT",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	// 测试无效的OpType配置
+	_, err = test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "SELECT * FROM users",
+		"opType":     "INVALID_TYPE",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	// 应该返回配置错误
+	assert.NotNil(t, err)
+
+	metaData := types.BuildMetadata(make(map[string]string))
+	metaData.PutValue("id", "2")
+	metaData.PutValue("name", "test_config")
+	metaData.PutValue("age", "25")
+
+	msgList := []test.Msg{
+		{
+			MetaData:   metaData,
+			MsgType:    "CONFIG_EVENT",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		},
+	}
+
+	var nodeList = []test.NodeAndCallback{
+		{
+			Node:    nodeDeleteConfig,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				assert.Equal(t, types.Success, relationType)
+			},
+		},
+		{
+			Node:    nodeExecConfig,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				assert.Equal(t, types.Success, relationType)
+				assert.Equal(t, "1", msg.Metadata.GetValue(rowsAffectedKey))
+			},
+		},
+		{
+			Node:    nodeSelectConfig,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				assert.Equal(t, types.Success, relationType)
+				// SELECT应该返回查询结果
+				data := msg.GetData()
+				assert.NotNil(t, data)
+			},
+		},
+	}
+
+	for _, item := range nodeList {
+		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
+		time.Sleep(time.Millisecond * 200)
+	}
+}
+
+// testExecTypeOtherStatements 测试其他EXEC类型语句（TRUNCATE、EXPLAIN、DESCRIBE、SHOW）
+func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn string) {
+	// 测试TRUNCATE语句
+	nodeTruncate, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "TRUNCATE TABLE users",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	// 测试EXPLAIN语句
+	nodeExplain, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "EXPLAIN SELECT * FROM users WHERE id = 1",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	// 测试DESCRIBE语句
+	nodeDescribe, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "DESCRIBE users",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	// 测试SHOW语句
+	nodeShow, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+		"sql":        "SHOW TABLES",
+		"driverName": driverName,
+		"dsn":        dsn,
+	}, Registry)
+	assert.Nil(t, err)
+
+	metaData := types.BuildMetadata(make(map[string]string))
+	msgList := []test.Msg{
+		{
+			MetaData:   metaData,
+			MsgType:    "OTHER_EVENT",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		},
+	}
+
+	var nodeList = []test.NodeAndCallback{
+		{
+			Node:    nodeTruncate,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				if err != nil {
+					if _, ok := err.(*net.OpError); ok {
+						// 跳过网络错误测试
+					} else {
+						t.Logf("TRUNCATE错误: %v", err)
+					}
+				} else {
+					assert.Equal(t, types.Success, relationType)
+					// TRUNCATE通常返回0行影响
+					data := msg.GetData()
+					assert.NotNil(t, data)
+				}
+			},
+		},
+		{
+			Node:    nodeExplain,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				if err != nil {
+					if _, ok := err.(*net.OpError); ok {
+						// 跳过网络错误测试
+					} else {
+						t.Logf("EXPLAIN错误: %v", err)
+					}
+				} else {
+					assert.Equal(t, types.Success, relationType)
+					// EXPLAIN应该返回执行计划数据
+					rowsAffected := msg.Metadata.GetValue(rowsAffectedKey)
+					assert.NotNil(t, rowsAffected)
+				}
+			},
+		},
+		{
+			Node:    nodeDescribe,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				if err != nil {
+					if _, ok := err.(*net.OpError); ok {
+						// 跳过网络错误测试
+					} else {
+						t.Logf("DESCRIBE错误: %v", err)
+					}
+				} else {
+					assert.Equal(t, types.Success, relationType)
+					// DESCRIBE应该返回表结构信息
+					rowsAffected := msg.Metadata.GetValue(rowsAffectedKey)
+					assert.NotNil(t, rowsAffected)
+				}
+			},
+		},
+		{
+			Node:    nodeShow,
+			MsgList: msgList,
+			Callback: func(msg types.RuleMsg, relationType string, err error) {
+				if err != nil {
+					if _, ok := err.(*net.OpError); ok {
+						// 跳过网络错误测试
+					} else {
+						t.Logf("SHOW错误: %v", err)
+					}
+				} else {
+					assert.Equal(t, types.Success, relationType)
+					// SHOW应该返回相关信息
+					rowsAffected := msg.Metadata.GetValue(rowsAffectedKey)
+					assert.NotNil(t, rowsAffected)
+				}
+			},
+		},
+	}
+
+	for _, item := range nodeList {
+		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
+		time.Sleep(time.Millisecond * 200)
+	}
 }

@@ -84,7 +84,7 @@ func TestNodeCtx(t *testing.T) {
 		selfDefinition := types.RuleNode{
 			Id:            "s1",
 			Type:          "dbClient",
-			Configuration: types.Configuration{"sql": "xx"},
+			Configuration: types.Configuration{"sql": ""},
 		}
 		_, err := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
 		assert.NotNil(t, err)
