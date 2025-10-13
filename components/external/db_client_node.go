@@ -19,8 +19,8 @@ package external
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"strings"
+	"sync"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -39,65 +39,75 @@ func init() {
 const (
 	SELECT = "SELECT"
 	INSERT = "INSERT"
-	DELETE = "DELETE"
 	UPDATE = "UPDATE"
+	DELETE = "DELETE"
+	// EXEC 统一的执行类型，用于DDL和其他语句
+	EXEC = "EXEC"
+	// 自动检测
+	AUTO = "AUTO"
 )
 const (
 	rowsAffectedKey = "rowsAffected"
 	lastInsertIdKey = "lastInsertId"
 )
 
+var (
+	// 全局 SQL 校验器，默认使用 DefaultSqlValidator
+	// Global SQL validator, defaults to DefaultSqlValidator
+	globalSqlValidator SqlValidator = &DefaultSqlValidator{}
+	// 保护全局 SQL 校验器的读写锁
+	// Read-write lock to protect global SQL validator
+	globalValidatorMutex sync.RWMutex
+)
+
+// SetGlobalSqlValidator 设置全局 SQL 校验器
+// SetGlobalSqlValidator sets the global SQL validator
+func SetGlobalSqlValidator(validator SqlValidator) {
+	globalValidatorMutex.Lock()
+	defer globalValidatorMutex.Unlock()
+	if validator != nil {
+		globalSqlValidator = validator
+	}
+}
+
+// GetGlobalSqlValidator 获取全局 SQL 校验器
+// GetGlobalSqlValidator gets the global SQL validator
+func GetGlobalSqlValidator() SqlValidator {
+	globalValidatorMutex.RLock()
+	defer globalValidatorMutex.RUnlock()
+	return globalSqlValidator
+}
+
 // DbClientNodeConfiguration 节点配置
 type DbClientNodeConfiguration struct {
 	// DriverName 数据库驱动名称，mysql或postgres
-	DriverName string
+	DriverName string `json:"driverName"`
 	// Dsn 数据库连接配置，参考sql.Open参数
-	Dsn string
+	Dsn string `json:"dsn"`
 	// PoolSize 连接池大小
-	PoolSize int
+	PoolSize int `json:"poolSize"`
+	// OpType 操作类型配置，可选值：SELECT、INSERT、UPDATE、DELETE、EXEC
+	// 如果不配置，则自动根据SQL语句的第一个单词判断
+	OpType string `json:"opType"`
 	// Sql SQL语句，v0.23.0之后不再支持运行时变量进行替换
-	Sql string
+	Sql string `json:"sql"`
 	// Params SQL语句参数列表，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	Params []interface{}
+	Params []interface{} `json:"params"`
 	// GetOne 是否只返回一条记录，true:返回结构不是数组结构，false：返回数据是数组结构
-	GetOne bool
+	GetOne bool `json:"getOne"`
 }
 
-// DbClientNode 为RuleGo规则引擎提供通用数据库连接和SQL执行能力的外部组件
-// DbClientNode provides universal database connectivity and SQL execution capabilities for the RuleGo rule engine.
+// DbClientNode 数据库客户端节点，提供通用数据库连接和SQL执行能力
+// DbClientNode provides universal database connectivity and SQL execution capabilities
 //
-// 核心算法：
-// Core Algorithm:
-// 1. 通过Go标准database/sql接口连接数据库 - Connect to database via Go standard database/sql interface
-// 2. 使用变量替换解析SQL参数 - Parse SQL parameters with variable substitution
-// 3. 根据SQL类型（SELECT/INSERT/UPDATE/DELETE）执行相应操作 - Execute corresponding operations based on SQL type
-// 4. 处理查询结果并设置到消息数据或元数据 - Process query results and set to message data or metadata
-// 5. 使用连接池进行高效资源管理 - Use connection pooling for efficient resource management
-//
-// 数据库驱动支持 - Database driver support:
-//   - 内置支持：MySQL、PostgreSQL - Built-in: MySQL, PostgreSQL
-//   - 第三方驱动：TDengine、SQL Server、Oracle、ClickHouse、SQLite、Snowflake等 - Third-party: TDengine, SQL Server, Oracle, ClickHouse, SQLite, Snowflake, etc.
-//   - 支持任何实现database/sql接口的驱动 - Supports any driver implementing database/sql interface
-//
-// 变量替换 - Variable substitution:
-//   - ${metadata.key}: 从消息元数据获取值 - Access message metadata
-//   - ${msg.key}: 从消息负荷获取值 - Access message payload variables
-//
-// SQL占位符转换 - SQL placeholder conversion:
-//   - MySQL/SQLite: 使用?占位符 - Uses ? placeholders
-//   - PostgreSQL: 自动转换为$1,$2,$3风格 - Automatically converts to $1, $2, $3 style
-//   - 其他数据库：遵循各自的占位符约定 - Other databases: follow their respective placeholder conventions
-//
-// 操作类型和结果 - Operation types and results:
-//   - SELECT: 返回查询结果到消息数据 - Returns query results in message data
-//   - INSERT: 设置rowsAffected和lastInsertId到元数据 - Sets rowsAffected and lastInsertId in metadata
-//   - UPDATE/DELETE: 设置rowsAffected到元数据 - Sets rowsAffected in metadata
-//
-// 连接管理 - Connection management:
-//   - 使用连接池和SharedNode模式共享连接 - Uses connection pooling and SharedNode pattern for sharing connections
-//   - 可配置的池大小和自动连接生命周期管理 - Configurable pool size and automatic connection lifecycle management
+// 支持的数据库：MySQL、PostgreSQL（内置），TDengine、SQL Server、Oracle、ClickHouse、SQLite等（需引入第三方驱动）
+// 支持任何实现database/sql接口的驱动 - Supports any driver implementing database/sql interface
+// 变量替换：${metadata.key}、${msg.key}
+// 操作类型：SELECT、INSERT、UPDATE、DELETE、EXEC（可配置或自动检测）
+// 连接管理：使用连接池和SharedNode模式共享连接
 type DbClientNode struct {
 	base.SharedNode[*sql.DB]
+	ruleConfig types.Config
 	//节点配置
 	Config DbClientNodeConfiguration
 	//操作类型 SELECT\UPDATE\INSERT\DELETE
@@ -108,6 +118,9 @@ type DbClientNode struct {
 	sqlHasVar bool
 	//参数是否有变量
 	paramsHasVar bool
+	// SQL校验器，用于自定义SQL校验逻辑
+	// SQL validator for custom SQL validation logic
+	sqlValidator SqlValidator
 }
 
 // Type 返回组件类型
@@ -123,6 +136,12 @@ func (x *DbClientNode) New() types.Node {
 	}}
 }
 
+// SetSqlValidator 设置自定义SQL校验器
+// SetSqlValidator sets custom SQL validator
+func (x *DbClientNode) SetSqlValidator(validator SqlValidator) {
+	x.sqlValidator = validator
+}
+
 // Init 初始化组件
 func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
@@ -132,7 +151,19 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 	if x.Config.DriverName == "" {
 		x.Config.DriverName = "mysql"
 	}
+	x.ruleConfig = ruleConfig
+	// 初始化SQL校验器：优先使用实例级别的校验器，如果没有则使用全局校验器
+	// Initialize SQL validator: prioritize instance-level validator, fallback to global validator
+	if x.sqlValidator == nil {
+		x.sqlValidator = GetGlobalSqlValidator()
+	}
 
+	x.opType = strings.TrimSpace(strings.ToUpper(x.Config.OpType))
+	if x.opType != "" {
+		if err = x.checkOpType(x.opType); err != nil {
+			return err
+		}
+	}
 	if !base.NodeUtils.IsInitNetResource(ruleConfig, configuration) {
 		if x.Config.Sql == "" {
 			return errors.New("sql can not empty")
@@ -146,8 +177,11 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 		if x.sqlTemplate.HasVar() {
 			x.sqlHasVar = true
 		} else {
-			x.opType = x.getOpType(x.Config.Sql)
-			if err = x.checkOpType(x.opType, x.Config.Sql); err != nil {
+			// 只有在没有配置OpType时才自动检测
+			if x.opType == "" || x.opType == AUTO {
+				x.opType = x.getOpType(x.Config.Sql)
+			}
+			if err = x.validateSQL(x.opType, x.Config.Sql); err != nil {
 				return err
 			}
 		}
@@ -162,7 +196,6 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 				}
 			}
 		}
-
 	}
 	//初始化客户端
 	return x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Dsn, ruleConfig.NodeClientInitNow, func() (*sql.DB, error) {
@@ -191,9 +224,9 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		sqlStr = str.ConvertDollarPlaceholder(sqlStr, x.Config.DriverName)
 	}
 	opType := x.opType
-	if opType == "" {
+	if opType == "" || x.opType == AUTO {
 		opType = x.getOpType(sqlStr)
-		if err := x.checkOpType(opType, sqlStr); err != nil {
+		if err := x.validateSQL(x.opType, sqlStr); err != nil {
 			ctx.TellFailure(msg, err)
 			return
 		}
@@ -217,14 +250,13 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	switch opType {
 	case SELECT:
 		data, err = x.query(client, sqlStr, params, x.Config.GetOne)
-	case UPDATE:
-		rowsAffected, err = x.update(client, sqlStr, params)
+	case UPDATE, DELETE:
+		rowsAffected, err = x.execSQL(client, sqlStr, params, false)
 	case INSERT:
 		rowsAffected, lastInsertId, err = x.insert(client, sqlStr, params)
-	case DELETE:
-		rowsAffected, err = x.delete(client, sqlStr, params)
 	default:
-		err = fmt.Errorf("unsupported sql statement: %s", sqlStr)
+		// 对于EXEC或者未明确定义的SQL语句类型，使用exec方法进行处理
+		rowsAffected, err = x.execSQL(client, sqlStr, params, true)
 	}
 
 	if err != nil {
@@ -233,11 +265,14 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		switch opType {
 		case SELECT:
 			msg.SetData(str.ToString(data))
-		case UPDATE, DELETE:
+		case UPDATE, DELETE, EXEC:
 			msg.Metadata.PutValue(rowsAffectedKey, str.ToString(rowsAffected))
 		case INSERT:
 			msg.Metadata.PutValue(rowsAffectedKey, str.ToString(rowsAffected))
 			msg.Metadata.PutValue(lastInsertIdKey, str.ToString(lastInsertId))
+		default:
+			// 对于其他类型，设置影响行数
+			msg.Metadata.PutValue(rowsAffectedKey, str.ToString(rowsAffected))
 		}
 		ctx.TellSuccess(msg)
 	}
@@ -313,19 +348,6 @@ func (x *DbClientNode) query(client *sql.DB, sqlStr string, params []interface{}
 
 }
 
-// update 修改数据并返回影响行数
-func (x *DbClientNode) update(client *sql.DB, sqlStr string, params []interface{}) (int64, error) {
-	result, err := client.Exec(sqlStr, params...)
-	if err != nil {
-		return 0, err
-	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	return rowsAffected, nil
-}
-
 // insert 插入数据并返回自增ID
 func (x *DbClientNode) insert(client *sql.DB, sqlStr string, params []interface{}) (int64, int64, error) {
 	result, err := client.Exec(sqlStr, params...)
@@ -342,14 +364,19 @@ func (x *DbClientNode) insert(client *sql.DB, sqlStr string, params []interface{
 	}
 }
 
-// delete 删除数据并返回影响行数
-func (x *DbClientNode) delete(client *sql.DB, sqlStr string, params []interface{}) (int64, error) {
+// execSQL 执行SQL语句并返回影响行数
+// ignorRowsAffectedError: 是否忽略RowsAffected错误（用于DDL语句）
+func (x *DbClientNode) execSQL(client *sql.DB, sqlStr string, params []interface{}, ignoreRowsAffectedError bool) (int64, error) {
 	result, err := client.Exec(sqlStr, params...)
 	if err != nil {
 		return 0, err
 	}
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
+		if ignoreRowsAffectedError {
+			// 某些DDL语句可能不支持RowsAffected，这种情况下返回0而不是错误
+			return 0, nil
+		}
 		return 0, err
 	}
 	return rowsAffected, nil
@@ -371,20 +398,63 @@ func (x *DbClientNode) initClient() (*sql.DB, error) {
 	return client, err
 }
 
+// getOpType 获取SQL语句的操作类型
+// 支持识别 WITH AS 开头的 ETL 表达式和各种 DDL 语句
+// 如果配置了OpType，则优先使用配置的类型
 func (x *DbClientNode) getOpType(sql string) string {
+	// 如果配置了OpType，则优先使用配置的类型
+	if x.Config.OpType != "" {
+		return x.Config.OpType
+	}
+
 	if sql == "" {
 		return ""
 	}
 	words := strings.Fields(sql)
+	if len(words) == 0 {
+		return ""
+	}
+
 	return strings.ToUpper(words[0])
+
 }
 
-func (x *DbClientNode) checkOpType(opType string, sql string) error {
-	//检查操作类型是否支持
+// checkOpType 检查配置的SQL操作类型是否支持
+func (x *DbClientNode) checkOpType(opType string) error {
 	switch opType {
-	case SELECT, UPDATE, INSERT, DELETE:
+	case SELECT, INSERT, UPDATE, DELETE, EXEC, AUTO:
 		return nil
 	default:
-		return fmt.Errorf("unsupported sql statement: %s", sql)
+		return errors.New("unsupported opTypet: " + opType)
 	}
+}
+
+// SqlValidator SQL校验器接口，用于自定义SQL语句校验逻辑
+// SqlValidator interface for custom SQL statement validation logic
+type SqlValidator interface {
+	// ValidateSQL 校验SQL语句
+	// ValidateSQL validates SQL statement
+	// opType: 操作类型 (SELECT, INSERT, UPDATE, DELETE, EXEC)
+	// sql: SQL语句
+	// 返回错误信息，如果校验通过则返回nil
+	ValidateSQL(config types.Config, opType, sql string) error
+}
+
+// DefaultSqlValidator 默认SQL校验器实现
+// DefaultSqlValidator default SQL validator implementation
+type DefaultSqlValidator struct{}
+
+// ValidateSQL 默认的SQL校验实现
+// ValidateSQL default SQL validation implementation
+func (v *DefaultSqlValidator) ValidateSQL(config types.Config, opType, sql string) error {
+	return nil
+}
+
+// validateSQL 使用配置的 SQL 校验器验证操作类型和 SQL 语句
+// validateSQL validates operation type and SQL statement using configured SQL validator
+func (x *DbClientNode) validateSQL(opType, sql string) error {
+	if x.sqlValidator != nil {
+		return x.sqlValidator.ValidateSQL(x.RuleConfig, opType, sql)
+	}
+	return nil
 }
