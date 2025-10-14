@@ -12,6 +12,22 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    # 添加MySQL服务
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    
     strategy:
       matrix:
         go-version: ['1.18.10', '1.20', '1.22']
@@ -29,6 +45,25 @@ jobs:
         with:
           version: '1.6'
           ports: '1883:1883'
+      
+      # 等待MySQL服务启动并初始化数据库
+      - name: Wait for MySQL
+        run: |
+          while ! mysqladmin ping -h"127.0.0.1" -P3306 -uroot -proot --silent; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+          echo "MySQL is ready!"
+      
+      # 初始化MySQL数据库表结构
+      - name: Initialize MySQL Database
+        run: |
+          # 确保数据库存在
+          mysql -h127.0.0.1 -P3306 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS test;"
+          # 执行表结构初始化
+          mysql -h127.0.0.1 -P3306 -uroot -proot test < testdata/sql/db_client_test_mysql_init.sql
+          echo "Database and tables initialized successfully!"
+      
       - name: Build plugin
         run: go build -buildmode=plugin -o plugin.so testdata/plugin/plugin.go
       - name: Run tests with race detector
@@ -41,6 +76,8 @@ jobs:
           TEST_SMTP_USERNAME: ${{ secrets.TEST_SMTP_USERNAME }}
           TEST_SMTP_PASSWORD: ${{ secrets.TEST_SMTP_PASSWORD }}
           TEST_SSE_SERVER: ${{ secrets.TEST_SSE_SERVER }}
+          # MySQL测试环境变量
+          MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/test"
       - name: Run plugin tests with coverage
         if: matrix.go-version == '1.18.10'
         run: go test -v --tags=test_plugin ./... -coverprofile="codecov.report"
@@ -51,6 +88,8 @@ jobs:
           TEST_SMTP_USERNAME: ${{ secrets.TEST_SMTP_USERNAME }}
           TEST_SMTP_PASSWORD: ${{ secrets.TEST_SMTP_PASSWORD }}
           TEST_SSE_SERVER: ${{ secrets.TEST_SSE_SERVER }}
+          # MySQL测试环境变量
+          MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/test"
       - name: Upload coverage reports to Codecov
         if: matrix.go-version == '1.18.10'
         uses: codecov/codecov-action@v3
