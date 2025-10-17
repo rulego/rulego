@@ -134,8 +134,6 @@ func NewRuleEngineServiceAndInitRuleGo(c config.Config, username string) (*RuleE
 	}
 	//初始化规则链
 	service.InitRuleGo(logger.Logger, c.DataDir, username)
-	//加载自定义组件
-	service.componentService.LoadComponents()
 	if service.mcpService != nil {
 		service.mcpService.LoadTools()
 	}
@@ -544,7 +542,8 @@ func (s *RuleEngineService) InitRuleGo(logger *log.Logger, workspacePath string,
 	if err != nil {
 		s.logger.Printf("parser plugin file error:", err)
 	}
-
+	// 优先加载自定义组件
+	s.componentService.LoadComponents()
 	//加载规则链
 	rulesPath := path.Join(workspacePath, constants.DirWorkflows, username, constants.DirWorkflowsRule)
 	_ = s.loadRules(rulesPath)
