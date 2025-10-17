@@ -40,6 +40,7 @@ import (
 	"strings"
 
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/str"
 )
 
@@ -106,6 +107,9 @@ func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.Com
 	if def.ComponentKind != "" {
 		toComponentForm.ComponentKind = def.ComponentKind
 	}
+	if def.Icon != "" {
+		toComponentForm.Icon = def.Icon
+	}
 	toComponentForm.Disabled = def.Disabled
 
 	return toComponentForm
@@ -146,18 +150,18 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 	if configField.Type != nil {
 		for i := 0; i < configField.Type.NumField(); i++ {
 			field := configField.Type.Field(i)
-			
+
 			// 跳过私有字段（首字母小写）
 			if !field.IsExported() {
 				continue
 			}
-			
+
 			// 检查json标签，如果是"-"则跳过
 			jsonTag := field.Tag.Get("json")
 			if jsonTag == "-" {
 				continue
 			}
-			
+
 			var defaultValue interface{}
 			if configValue.Field(i).CanInterface() {
 				defaultValue = configValue.Field(i).Interface()
@@ -184,6 +188,18 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 					"message":  "This field is required",
 				})
 			}
+			
+			// 从rules标签获取验证规则配置
+			rulesTag := field.Tag.Get("rules")
+			if rulesTag != "" {
+				// 解析JSON格式的rules标签
+				// 例如: rules:"[{\"required\":true,\"message\":\"必填字段\"},{\"min\":1,\"message\":\"最小值为1\"}]"
+				var tagRules []map[string]interface{}
+				if err := json.Unmarshal([]byte(rulesTag), &tagRules); err == nil {
+					// 如果解析成功，将标签中的规则添加到现有规则中
+					rules = append(rules, tagRules...)
+				}
+			}
 			// 优先从json标签获取字段名
 			fieldName := jsonTag
 			if fieldName == "" {
@@ -193,6 +209,15 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 				if commaIndex := strings.Index(fieldName, ","); commaIndex != -1 {
 					fieldName = fieldName[:commaIndex]
 				}
+			}
+
+			// 从component标签获取UI组件配置
+			var component map[string]interface{}
+			componentTag := field.Tag.Get("component")
+			if componentTag != "" {
+				// 解析JSON格式的component标签
+				// 例如: component:"{\"type\":\"select\",\"filterable\":true,\"options\":[{\"label\":\"mysql\",\"value\":\"mysql\"}]}"
+				_=json.Unmarshal([]byte(componentTag), &component)
 			}
 
 			fields = append(fields,
@@ -205,6 +230,7 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 					Rules:        rules,
 					Validate:     validate,
 					Fields:       subFields,
+					Component:    component,
 				})
 		}
 	}

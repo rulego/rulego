@@ -210,3 +210,124 @@ func TestGetFieldsExcludePrivateFields(t *testing.T) {
 	_, found = form.Fields.GetField("ignoredField")
 	assert.False(t, found)
 }
+
+// TestJSONTagsConfiguration 测试JSON格式标签的配置结构
+type TestJSONTagsConfiguration struct {
+	// 测试JSON格式的rules标签
+	RequiredField string `json:"required_field" label:"必填字段" desc:"测试JSON格式rules标签" rules:"[{\"required\":true,\"message\":\"此字段为必填项\"},{\"min\":3,\"message\":\"最少3个字符\"}]"`
+	
+	// 测试JSON格式的component标签
+	SelectField string `json:"select_field" label:"选择字段" desc:"测试JSON格式component标签" component:"{\"type\":\"select\",\"filterable\":true,\"options\":[{\"label\":\"选项1\",\"value\":\"option1\"},{\"label\":\"选项2\",\"value\":\"option2\"}]}"`
+	
+	// 测试同时使用JSON格式的rules和component标签
+	ComplexField int `json:"complex_field" label:"复杂字段" desc:"同时使用rules和component标签" rules:"[{\"required\":true,\"message\":\"必填\"},{\"min\":1,\"message\":\"最小值为1\"},{\"max\":100,\"message\":\"最大值为100\"}]" component:"{\"type\":\"number\",\"step\":1,\"placeholder\":\"请输入1-100的数字\"}"`
+	
+	// 测试required标签与JSON格式rules标签的组合
+	MixedField string `json:"mixed_field" label:"混合字段" desc:"required标签与JSON格式rules标签组合" required:"true" rules:"[{\"pattern\":\"^[a-zA-Z]+$\",\"message\":\"只能包含字母\"}]"`
+}
+
+// TestJSONTagsNode 测试JSON格式标签的节点
+type TestJSONTagsNode struct {
+	Config TestJSONTagsConfiguration
+}
+
+// Type 返回节点类型
+func (x *TestJSONTagsNode) Type() string {
+	return "testJSONTags"
+}
+
+// New 创建新的节点实例
+func (x *TestJSONTagsNode) New() types.Node {
+	return &TestJSONTagsNode{Config: TestJSONTagsConfiguration{
+		RequiredField: "default",
+		SelectField:   "option1",
+		ComplexField:  50,
+		MixedField:    "test",
+	}}
+}
+
+// Init 初始化节点
+func (x *TestJSONTagsNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	return nil
+}
+
+// OnMsg 处理消息
+func (x *TestJSONTagsNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {}
+
+// Destroy 销毁节点
+func (x *TestJSONTagsNode) Destroy() {}
+
+// TestGetFieldsWithJSONTags 测试JSON格式的rules和component标签解析
+func TestGetFieldsWithJSONTags(t *testing.T) {
+	node := &TestJSONTagsNode{}
+	componentForm := GetComponentForm(node)
+	
+	// 验证字段数量
+	assert.Equal(t, 4, len(componentForm.Fields))
+	
+	// 测试RequiredField的JSON格式rules标签
+	requiredField := componentForm.Fields[0]
+	assert.Equal(t, "required_field", requiredField.Name)
+	assert.Equal(t, "必填字段", requiredField.Label)
+	assert.Equal(t, 2, len(requiredField.Rules))
+	
+	// 验证第一个规则
+	rule1 := requiredField.Rules[0]
+	assert.Equal(t, true, rule1["required"])
+	assert.Equal(t, "此字段为必填项", rule1["message"])
+	
+	// 验证第二个规则
+	rule2 := requiredField.Rules[1]
+	assert.Equal(t, float64(3), rule2["min"]) // JSON解析数字为float64
+	assert.Equal(t, "最少3个字符", rule2["message"])
+	
+	// 测试SelectField的JSON格式component标签
+	selectField := componentForm.Fields[1]
+	assert.Equal(t, "select_field", selectField.Name)
+	assert.Equal(t, "选择字段", selectField.Label)
+	assert.NotNil(t, selectField.Component)
+	
+	// 验证component配置
+	component := selectField.Component
+	assert.Equal(t, "select", component["type"])
+	assert.Equal(t, true, component["filterable"])
+	
+	// 验证options数组
+	options, ok := component["options"].([]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, 2, len(options))
+	
+	option1, ok := options[0].(map[string]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, "选项1", option1["label"])
+	assert.Equal(t, "option1", option1["value"])
+	
+	// 测试ComplexField的复杂配置
+	complexField := componentForm.Fields[2]
+	assert.Equal(t, "complex_field", complexField.Name)
+	assert.Equal(t, "复杂字段", complexField.Label)
+	assert.Equal(t, 3, len(complexField.Rules))
+	assert.NotNil(t, complexField.Component)
+	
+	// 验证复杂字段的component配置
+	complexComponent := complexField.Component
+	assert.Equal(t, "number", complexComponent["type"])
+	assert.Equal(t, float64(1), complexComponent["step"])
+	assert.Equal(t, "请输入1-100的数字", complexComponent["placeholder"])
+	
+	// 测试MixedField的required标签与JSON格式rules标签组合
+	mixedField := componentForm.Fields[3]
+	assert.Equal(t, "mixed_field", mixedField.Name)
+	assert.Equal(t, "混合字段", mixedField.Label)
+	assert.Equal(t, 2, len(mixedField.Rules)) // required标签生成的规则 + JSON格式rules标签的规则
+	
+	// 验证required标签生成的规则
+	requiredRule := mixedField.Rules[0]
+	assert.Equal(t, true, requiredRule["required"])
+	assert.Equal(t, "This field is required", requiredRule["message"])
+	
+	// 验证JSON格式rules标签的规则
+	patternRule := mixedField.Rules[1]
+	assert.Equal(t, "^[a-zA-Z]+$", patternRule["pattern"])
+	assert.Equal(t, "只能包含字母", patternRule["message"])
+}
