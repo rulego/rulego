@@ -103,8 +103,8 @@ func (x *FieldFilterNode) New() types.Node {
 // Init initializes the component.
 func (x *FieldFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
-	x.DataNamesList = strings.Split(x.Config.DataNames, ",")
-	x.MetadataNamesList = strings.Split(x.Config.MetadataNames, ",")
+	x.DataNamesList = filterEmptyStrings(strings.Split(x.Config.DataNames, ","))
+	x.MetadataNamesList = filterEmptyStrings(strings.Split(x.Config.MetadataNames, ","))
 	return err
 }
 
@@ -173,6 +173,18 @@ func (x *FieldFilterNode) checkAtLeastOneMetadata(metadata *types.Metadata) bool
 		}
 	}
 	return false
+}
+
+// filterEmptyStrings 过滤掉字符串切片中的空字符串
+// filterEmptyStrings filters out empty strings from a string slice.
+func filterEmptyStrings(strs []string) []string {
+	var result []string
+	for _, str := range strs {
+		if strings.TrimSpace(str) != "" {
+			result = append(result, strings.TrimSpace(str))
+		}
+	}
+	return result
 }
 
 // checkAtLeastOneData 验证至少一个指定的数据字段存在

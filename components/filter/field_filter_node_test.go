@@ -62,8 +62,13 @@ func TestFieldFilterNode(t *testing.T) {
 			"metadataNames": "productType,name",
 		}, Registry)
 		assert.Nil(t, err)
+		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"checkAllKeys": true,
+			"dataNames":    "temperature",
+		}, Registry)
+		assert.Nil(t, err)
 
-		var nodeList = []types.Node{node1}
+		var nodeList = []types.Node{node1, node2}
 
 		for _, node := range nodeList {
 			metaData := types.BuildMetadata(make(map[string]string))
