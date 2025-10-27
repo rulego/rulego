@@ -153,15 +153,15 @@ func (c *ContextObserver) getInMsgList(joinNodeId string) []types.WrapperMsg {
 }
 
 // registerNodeDoneEvent registers a callback for when a join node completes.
-func (c *ContextObserver) registerNodeDoneEvent(joinNodeId string, parentIds []string, callback func([]types.WrapperMsg)) {
+func (c *ContextObserver) registerNodeDoneEvent(joinNodeId, lcaNodeId string, callback func([]types.WrapperMsg)) {
 	c.Lock()
 	defer c.Unlock()
 	if c.nodeDoneEvent == nil {
 		c.nodeDoneEvent = make(map[string]joinNodeCallback)
 	}
 	c.nodeDoneEvent[joinNodeId] = joinNodeCallback{
+		lcaNodeId:  lcaNodeId,
 		joinNodeId: joinNodeId,
-		parentIds:  parentIds,
 		callback:   callback,
 	}
 }
@@ -189,7 +189,7 @@ func (c *ContextObserver) checkAndTrigger() {
 
 	if c.nodeDoneEvent != nil {
 		for joinNodeId, item := range c.nodeDoneEvent {
-			if c.checkNodesDone(item.parentIds...) {
+			if c.checkNodesDone(item.lcaNodeId) {
 				delete(c.nodeDoneEvent, joinNodeId)
 				// 获取消息列表并触发回调
 				msgList := c.nodeInMsgList[joinNodeId]
@@ -205,8 +205,8 @@ func (c *ContextObserver) checkAndTrigger() {
 
 // joinNodeCallback represents a callback function for when a join node completes.
 type joinNodeCallback struct {
+	lcaNodeId  string //joinNodeId 节点最近共同祖先节点
 	joinNodeId string
-	parentIds  []string
 	callback   func([]types.WrapperMsg)
 }
 
@@ -505,25 +505,25 @@ func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgL
 		errStr = ctx.GetErr().Error()
 	}
 	if ctx.observer.addInMsg(selfNodeId, fromId, msg, errStr) {
-		//因为已经存在一条合并链，说明其他分支正在处理join节点
-		//当前分支的任务已完成(消息已添加到join消息列表)，需要立即通知父节点分支结束
-		//避免join节点阻塞导致父节点计数器无法正确递减，防止整个规则链hang住
-		//注意：这里不能等到DoOnEnd时再调用childDone，因为join节点会阻塞当前分支的执行流程
+		//通知当前节点至共同祖先这分支链已经执行完。
 		if ctx.parentRuleCtx != nil {
-			ctx.parentRuleCtx.childDone()
+			ctx.parentRuleCtx.childDoneWithoutCallback()
 		}
 		return false
 	} else {
-		var parentIds []string
-		// 添加nil检查，避免空指针异常
+		//通知当前节点至共同祖先这分支链已经执行完。
+		if ctx.parentRuleCtx != nil {
+			ctx.parentRuleCtx.childDoneWithoutCallback()
+		}
+		lcaNodeId := ""
 		if ctx.ruleChainCtx != nil && ctx.self != nil {
-			if nodes, ok := ctx.ruleChainCtx.GetParentNodeIds(ctx.self.GetNodeId()); ok {
-				for _, nodeId := range nodes {
-					parentIds = append(parentIds, nodeId.Id)
-				}
+			// 获取LCA节点
+			if lcaNode, ok := ctx.ruleChainCtx.GetLCA(ctx.self.GetNodeId()); ok {
+				lcaNodeId = lcaNode.Id
 			}
 		}
-		ctx.observer.registerNodeDoneEvent(selfNodeId, parentIds, func(inMsgList []types.WrapperMsg) {
+
+		ctx.observer.registerNodeDoneEvent(selfNodeId, lcaNodeId, func(inMsgList []types.WrapperMsg) {
 			callback(inMsgList)
 		})
 		if ctx.from != nil {
@@ -730,6 +730,10 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 	} else {
 		ctx.childDone()
 	}
+	// fixed:结束节点执行完成后，没执行afterAop
+	if isEndNode {
+		msg = ctx.executeAfterAop(msg, err, relationType)
+	}
 }
 
 func (ctx *DefaultRuleContext) SetCallbackFunc(functionName string, f interface{}) {
@@ -875,6 +879,41 @@ func (ctx *DefaultRuleContext) childDone() {
 			if onAllNodeCompleted != nil {
 				onAllNodeCompleted()
 			}
+		}
+	}
+}
+
+// childDoneWithoutCallback 通知父节点有一个子节点执行完成，但不触发 onAllNodeCompleted 回调事件
+//
+// 与 childDone() 方法的区别：
+// 1. childDone(): 子节点执行完成时会触发 onAllNodeCompleted 回调，适用于正常节点执行完成场景
+// 2. childDoneWithoutCallback(): 子节点执行完成时不触发回调，专用于聚合多条分支链数据场景
+//
+// 使用场景：
+// - 配合 TellCollect 方法使用，查询该节点的父节点共同祖先是否所有分支到当前聚合节点都已经执行完成
+// - 用于多分支汇聚场景的状态跟踪，避免过早触发完成事件
+func (ctx *DefaultRuleContext) childDoneWithoutCallback() {
+	if atomic.AddInt32(&ctx.waitingCount, -1) <= 0 {
+		//if atomic.CompareAndSwapInt32(&ctx.onAllNodeCompletedDone, 0, 1) {
+
+		// 在进行任何异步操作前捕获需要的值，避免并发问题
+		parentRuleCtx := ctx.parentRuleCtx
+		selfId := ctx.GetSelfId()
+		var parentSelfId string
+		if parentRuleCtx != nil {
+			parentSelfId = parentRuleCtx.GetSelfId()
+		}
+		observer := ctx.observer
+
+		//有子节点执行完成，通知父节点
+		if parentRuleCtx != nil {
+			parentRuleCtx.childDoneWithoutCallback()
+		}
+
+		// 只有在observer存在时才记录节点执行完成（通常是join节点场景）
+		if observer != nil && (parentRuleCtx == nil || selfId != parentSelfId) {
+			//记录当前节点执行完成
+			observer.executedNode(selfId)
 		}
 	}
 }

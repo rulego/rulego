@@ -1464,6 +1464,44 @@ func TestJoinNode(t *testing.T) {
 		// 验证所有消息都能正常处理
 		assert.Equal(t, int32(concurrentCount), atomic.LoadInt32(&successCount))
 	})
+
+	t.Run("Multi Branch Join Test", func(t *testing.T) {
+		// 测试多分支Join场景 - 一个过滤器分出两个分支，都汇聚到join节点
+		var ruleChainFile = loadFile("test_join_multi_branch.json")
+		config := NewConfig(types.WithDefaultPool())
+		ruleEngine, err := New("multiBranchJoinTest", ruleChainFile, WithConfig(config))
+		assert.Nil(t, err)
+
+		// 测试温度 > 50 的情况，会走True分支到node_4
+		t.Run("High Temperature", func(t *testing.T) {
+			var wg sync.WaitGroup
+			wg.Add(1)
+			var joinCallbackReceived bool
+			var callbackCount int32
+
+			metaData := types.NewMetadata()
+			metaData.PutValue("testType", "highTemp")
+			msg := types.NewMsg(0, "HIGH_TEMP_TEST", types.JSON, metaData,
+				`{"temperature":60,"humidity":70}`)
+
+			ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+				if ctx.GetSelfId() == "node_7" {
+					atomic.AddInt32(&callbackCount, 1)
+					joinCallbackReceived = true
+
+					// join节点应该能正常处理
+					assert.Equal(t, types.Success, relationType)
+					assert.Nil(t, err)
+
+					wg.Done()
+				}
+			}))
+
+			wg.Wait()
+			assert.True(t, joinCallbackReceived, "应该收到join节点的回调")
+			assert.Equal(t, int32(1), atomic.LoadInt32(&callbackCount))
+		})
+	})
 }
 
 func TestDisabled(t *testing.T) {

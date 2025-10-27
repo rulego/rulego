@@ -1,0 +1,97 @@
+{
+  "ruleChain": {
+    "id": "InVGNEN0NOnN",
+    "name": "测试join",
+    "debugMode": true,
+    "root": true,
+    "disabled": false,
+    "additionalInfo": {
+      "createTime": "2025/10/27 16:09:02",
+      "description": "",
+      "layoutX": "280",
+      "layoutY": "280",
+      "noDefaultInput": false,
+      "updateTime": "2025/10/27 16:10:09",
+      "username": "admin"
+    }
+  },
+  "metadata": {
+    "endpoints": [],
+    "nodes": [
+      {
+        "id": "node_2",
+        "additionalInfo": {
+          "layoutX": 489,
+          "layoutY": 279
+        },
+        "type": "jsFilter",
+        "name": "js过滤",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "return msg.temperature > 50;"
+        }
+      },
+      {
+        "id": "node_4",
+        "additionalInfo": {
+          "layoutX": 702,
+          "layoutY": 204
+        },
+        "type": "jsTransform",
+        "name": "js转换1",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
+        }
+      },
+      {
+        "id": "node_5",
+        "additionalInfo": {
+          "layoutX": 715,
+          "layoutY": 333
+        },
+        "type": "jsTransform",
+        "name": "js转换2",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
+        }
+      },
+      {
+        "id": "node_7",
+        "additionalInfo": {
+          "layoutX": 975,
+          "layoutY": 284
+        },
+        "type": "join",
+        "name": "合并",
+        "debugMode": false,
+        "configuration": {
+          "timeout": 0
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "node_2",
+        "toId": "node_4",
+        "type": "True"
+      },
+      {
+        "fromId": "node_2",
+        "toId": "node_5",
+        "type": "False"
+      },
+      {
+        "fromId": "node_4",
+        "toId": "node_7",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_5",
+        "toId": "node_7",
+        "type": "Success"
+      }
+    ]
+  }
+}
