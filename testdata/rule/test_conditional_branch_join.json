@@ -1,0 +1,88 @@
+{
+	"ruleChain": {
+		"id": "VbMyQ-IcrrIu",
+		"name": "条件分支join",
+		"debugMode": true,
+		"root": true,
+		"disabled": false,
+		"additionalInfo": {
+			"createTime": "2025/10/28 10:20:49",
+			"description": "",
+			"updateTime": "2025/10/28 10:20:49",
+			"username": "admin",
+			"noDefaultInput": false,
+			"layoutX": "280",
+			"layoutY": "280"
+		}
+	},
+	"metadata": {
+		"endpoints": [],
+		"nodes": [
+			{
+				"id": "node_2",
+				"type": "switch",
+				"name": "条件分支",
+				"configuration": {
+					"cases": [
+						{
+							"case": "msg.temperature>=20 && msg.temperature<=50",
+							"then": "Case1"
+						},
+						{
+							"case": "msg.temperature>50",
+							"then": "Case2"
+						}
+					]
+				},
+				"debugMode": false,
+				"additionalInfo": {
+					"layoutX": 561,
+					"layoutY": 234
+				}
+			},
+			{
+				"id": "node_4",
+				"type": "join",
+				"name": "合并",
+				"configuration": {
+					"timeout": 1
+				},
+				"debugMode": false,
+				"additionalInfo": {
+					"layoutX": 948,
+					"layoutY": 192
+				}
+			},
+			{
+				"id": "node_6",
+				"type": "jsTransform",
+				"name": "js转换1",
+				"configuration": {
+					"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
+				},
+				"debugMode": false,
+				"additionalInfo": {
+					"layoutX": 709,
+					"layoutY": 90
+				}
+			}
+		],
+		"connections": [
+			{
+				"fromId": "node_2",
+				"toId": "node_6",
+				"type": "Case1"
+			},
+			{
+				"fromId": "node_6",
+				"toId": "node_4",
+				"type": "Success"
+			},
+			{
+				"fromId": "node_2",
+				"toId": "node_4",
+				"type": "Case2"
+			}
+		]
+	}
+}
