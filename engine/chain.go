@@ -565,13 +565,39 @@ func (rc *RuleChainCtx) GetLCA(id types.RuleNodeId) (types.RuleNodeId, bool) {
 	} else {
 		// Handle multiple parents case
 		// 处理多父节点情况
-		parentAncestorsByLevel, maxLevels := rc.buildParentAncestorMaps(parentIds)
-
-		// Find the first level with common ancestors
-		// 找到有共同祖先的第一层
-		for level := 0; level < maxLevels; level++ {
-			if lca, found = rc.findCommonAncestorAtLevel(parentAncestorsByLevel, level); found {
+		
+		// First check if any parent is an ancestor of all other parents
+		// 首先检查是否有任何父节点是所有其他父节点的祖先
+		for _, candidateParent := range parentIds {
+			isCommonAncestor := true
+			for _, otherParent := range parentIds {
+				if candidateParent.Id == otherParent.Id {
+					continue // Skip self
+				}
+				// Check if candidateParent is an ancestor of otherParent
+				if !rc.isAncestor(candidateParent, otherParent) {
+					isCommonAncestor = false
+					break
+				}
+			}
+			if isCommonAncestor {
+				lca = candidateParent
+				found = true
 				break
+			}
+		}
+		
+		// If no parent is a common ancestor, use the original algorithm
+		// 如果没有父节点是公共祖先，使用原始算法
+		if !found {
+			parentAncestorsByLevel, maxLevels := rc.buildParentAncestorMaps(parentIds)
+
+			// Find the first level with common ancestors
+			// 找到有共同祖先的第一层
+			for level := 0; level < maxLevels; level++ {
+				if lca, found = rc.findCommonAncestorAtLevel(parentAncestorsByLevel, level); found {
+					break
+				}
 			}
 		}
 	}
@@ -622,6 +648,34 @@ func (rc *RuleChainCtx) getAncestorsByLevel(nodeId types.RuleNodeId) [][]types.R
 	}
 
 	return ancestorsByLevel
+}
+
+// isAncestor checks if ancestor is an ancestor of descendant
+// isAncestor 检查 ancestor 是否是 descendant 的祖先
+func (rc *RuleChainCtx) isAncestor(ancestor, descendant types.RuleNodeId) bool {
+	visited := make(map[types.RuleNodeId]bool)
+	queue := []types.RuleNodeId{descendant}
+	visited[descendant] = true
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		// Get parents of current node
+		if parents, exists := rc.parentNodeIds[current]; exists {
+			for _, parent := range parents {
+				if parent.Id == ancestor.Id {
+					return true
+				}
+				if !visited[parent] {
+					visited[parent] = true
+					queue = append(queue, parent)
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 // GetNextNodes retrieves the child nodes of the current node with the specified relationship

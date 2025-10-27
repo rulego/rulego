@@ -22,6 +22,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
+	"os"
 	"strings"
 	"testing"
 )
@@ -620,5 +621,66 @@ func TestGetLCA(t *testing.T) {
 		transformParents, hasTransformParents := ctx.GetParentNodeIds(transformNodeId)
 		assert.False(t, hasTransformParents)
 		assert.Equal(t, 0, len(transformParents))
+	})
+
+	t.Run("ConditionalBranchJoin", func(t *testing.T) {
+		// 测试条件分支Join的情况
+		// node_2 (switch) 有两个输出：Case1 -> node_6 -> node_4, Case2 -> node_4
+		// node_4 的 LCA 应该是 node_2
+		
+		// 从文件加载规则链配置
+		ruleChainFile, err := os.ReadFile("../testdata/rule/test_conditional_branch_join.json")
+		assert.Nil(t, err)
+		
+		jsonParser := JsonParser{}
+		def, err := jsonParser.DecodeRuleChain(ruleChainFile)
+		assert.Nil(t, err)
+		
+		ctx, err := InitRuleChainCtx(config, nil, &def, nil)
+		assert.Nil(t, err)
+		
+		// 测试 node_4 的父节点关系
+		joinNodeId := types.RuleNodeId{Id: "node_4", Type: types.NODE}
+		parentIds, hasParents := ctx.GetParentNodeIds(joinNodeId)
+		assert.True(t, hasParents)
+		assert.Equal(t, 2, len(parentIds)) // node_4 应该有两个父节点：node_2 和 node_6
+		
+		// 验证父节点包含 node_2 和 node_6
+		parentIdStrings := make([]string, len(parentIds))
+		for i, pid := range parentIds {
+			parentIdStrings[i] = pid.Id
+		}
+		// 检查是否包含 node_2 和 node_6
+		hasNode2 := false
+		hasNode6 := false
+		for _, id := range parentIdStrings {
+			if id == "node_2" {
+				hasNode2 = true
+			}
+			if id == "node_6" {
+				hasNode6 = true
+			}
+		}
+		assert.True(t, hasNode2, "node_4 的父节点应该包含 node_2")
+		assert.True(t, hasNode6, "node_4 的父节点应该包含 node_6")
+		
+		// 测试 node_4 的 LCA - 应该返回 node_2 - with debug output
+		fmt.Println("=== Testing LCA for node_4 ===")
+		lca, hasLCA := ctx.GetLCA(joinNodeId)
+		assert.True(t, hasLCA)
+		assert.Equal(t, "node_2", lca.Id, "node_4 的 LCA 应该是 node_2，因为 node_2 是两个父节点路径的共同祖先")
+		
+		// 验证 node_6 的父节点是 node_2
+		node6Id := types.RuleNodeId{Id: "node_6", Type: types.NODE}
+		node6Parents, hasNode6Parents := ctx.GetParentNodeIds(node6Id)
+		assert.True(t, hasNode6Parents)
+		assert.Equal(t, 1, len(node6Parents))
+		assert.Equal(t, "node_2", node6Parents[0].Id)
+		
+		// 验证 node_2 没有父节点（它是起始节点）
+		node2Id := types.RuleNodeId{Id: "node_2", Type: types.NODE}
+		node2Parents, hasNode2Parents := ctx.GetParentNodeIds(node2Id)
+		assert.False(t, hasNode2Parents)
+		assert.Equal(t, 0, len(node2Parents))
 	})
 }
