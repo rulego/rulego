@@ -23,6 +23,7 @@ import (
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/aes"
+	"github.com/rulego/rulego/utils/lca"
 	"github.com/rulego/rulego/utils/str"
 )
 
@@ -134,9 +135,9 @@ type RuleChainCtx struct {
 	// relationCache 基于传入节点和关系类型缓存传出节点列表，显著提高频繁访问路径的路由性能
 	relationCache map[RelationCache][]types.NodeCtx
 
-	// lcaCache caches the lowest common ancestor (LCA) results for node IDs,
-	// lcaCache 缓存节点 ID 的最低共同祖先 (LCA) 结果
-	lcaCache map[types.RuleNodeId]types.RuleNodeId
+	// lcaCalculator provides LCA calculation functionality
+	// lcaCalculator 提供LCA计算功能
+	lcaCalculator *lca.LCACalculator
 
 	// rootRuleContext is the root context for message processing within this rule chain,
 	// providing the entry point for message flow and execution coordination
@@ -251,7 +252,6 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		nodes:              make(map[types.RuleNodeId]types.NodeCtx),
 		nodeRoutes:         make(map[types.RuleNodeId][]types.RuleNodeRelation),
 		relationCache:      make(map[RelationCache][]types.NodeCtx),
-		lcaCache:           make(map[types.RuleNodeId]types.RuleNodeId),
 		parentNodeIds:      make(map[types.RuleNodeId][]types.RuleNodeId),
 		componentsRegistry: config.ComponentsRegistry,
 		initialized:        true,
@@ -261,6 +261,8 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		ruleChainPool:      ruleChainPool,
 		referencedNodes:    make([]string, 0),
 	}
+	// Initialize LCA calculator
+	ruleChainCtx.lcaCalculator = lca.NewLCACalculator(ruleChainCtx)
 	// Set the ID of the rule chain context if provided in the definition
 	if ruleChainDef.RuleChain.ID != "" {
 		ruleChainCtx.Id = types.RuleNodeId{Id: ruleChainDef.RuleChain.ID, Type: types.CHAIN}
@@ -427,255 +429,10 @@ func (rc *RuleChainCtx) GetParentNodeIds(id types.RuleNodeId) ([]types.RuleNodeI
 	return nodeIds, ok
 }
 
-// checkLCACache checks if the LCA result is already cached
-// checkLCACache 检查LCA结果是否已缓存
-func (rc *RuleChainCtx) checkLCACache(id types.RuleNodeId) (types.RuleNodeId, bool) {
-	rc.RLock()
-	defer rc.RUnlock()
-
-	if cachedLCA, exists := rc.lcaCache[id]; exists {
-		return cachedLCA, true
-	}
-	return types.RuleNodeId{}, false
-}
-
-// cacheLCAResult safely caches the LCA result
-// cacheLCAResult 安全地缓存LCA结果
-func (rc *RuleChainCtx) cacheLCAResult(id, lca types.RuleNodeId) {
-	rc.Lock()
-	defer rc.Unlock()
-	rc.lcaCache[id] = lca
-}
-
-// computeSingleParentLCA computes LCA for nodes with only one parent
-// computeSingleParentLCA 计算只有一个父节点的节点的LCA
-func (rc *RuleChainCtx) computeSingleParentLCA(parentId types.RuleNodeId) (types.RuleNodeId, bool) {
-	// 对于单父节点情况，如果父节点还有父节点，则查找父节点的祖先
-	// 如果父节点没有父节点，则返回父节点本身
-	rc.RLock()
-	defer rc.RUnlock()
-	
-	// 检查父节点是否还有父节点
-	if _, hasGrandParent := rc.parentNodeIds[parentId]; hasGrandParent {
-		// 如果父节点还有父节点，查找祖先
-		ancestors := rc.getAncestorsByLevel(parentId)
-		if len(ancestors) > 0 && len(ancestors[0]) > 0 {
-			return ancestors[0][0], true
-		}
-	}
-	
-	// 如果父节点没有父节点，返回父节点本身作为 LCA
-	return parentId, true
-}
-
-// buildParentAncestorMaps builds ancestor maps for all parent nodes
-// buildParentAncestorMaps 为所有父节点构建祖先映射
-func (rc *RuleChainCtx) buildParentAncestorMaps(parentIds []types.RuleNodeId) ([][]map[types.RuleNodeId]bool, int) {
-	rc.RLock()
-	defer rc.RUnlock()
-
-	parentAncestorsByLevel := make([][]map[types.RuleNodeId]bool, len(parentIds))
-	maxLevels := 0
-
-	for i, parentId := range parentIds {
-		ancestorsByLevel := rc.getAncestorsByLevel(parentId)
-		levelMaps := make([]map[types.RuleNodeId]bool, len(ancestorsByLevel))
-
-		for j, levelAncestors := range ancestorsByLevel {
-			levelMap := make(map[types.RuleNodeId]bool)
-			for _, ancestor := range levelAncestors {
-				levelMap[ancestor] = true
-			}
-			levelMaps[j] = levelMap
-		}
-
-		parentAncestorsByLevel[i] = levelMaps
-		if len(levelMaps) > maxLevels {
-			maxLevels = len(levelMaps)
-		}
-	}
-
-	return parentAncestorsByLevel, maxLevels
-}
-
-// findCommonAncestorAtLevel finds common ancestors at a specific level
-// findCommonAncestorAtLevel 在特定层级查找共同祖先
-func (rc *RuleChainCtx) findCommonAncestorAtLevel(parentAncestorsByLevel [][]map[types.RuleNodeId]bool, level int) (types.RuleNodeId, bool) {
-	// Start with the first parent's ancestors at this level
-	// 从第一个父节点在此层的祖先开始
-	if level >= len(parentAncestorsByLevel[0]) {
-		return types.RuleNodeId{}, false
-	}
-
-	commonAtLevel := make(map[types.RuleNodeId]bool)
-	for ancestor := range parentAncestorsByLevel[0][level] {
-		commonAtLevel[ancestor] = true
-	}
-
-	// Intersect with other parents' ancestors at this level
-	// 与其他父节点在此层的祖先求交集
-	for i := 1; i < len(parentAncestorsByLevel); i++ {
-		if level >= len(parentAncestorsByLevel[i]) {
-			// This parent has no ancestors at this level, so no common ancestors
-			// 此父节点在此层没有祖先，所以没有共同祖先
-			return types.RuleNodeId{}, false
-		}
-
-		// Keep only ancestors that exist in both sets
-		// 只保留两个集合中都存在的祖先
-		for ancestor := range commonAtLevel {
-			if !parentAncestorsByLevel[i][level][ancestor] {
-				delete(commonAtLevel, ancestor)
-			}
-		}
-	}
-
-	// Return the first common ancestor found
-	// 返回找到的第一个共同祖先
-	for ancestor := range commonAtLevel {
-		return ancestor, true
-	}
-
-	return types.RuleNodeId{}, false
-}
-
-// GetLCA finds the lowest common ancestor of a node's parent nodes
-// GetLCA 查找节点所有父节点的最低共同祖先
+// GetLCA finds the lowest common ancestor of a node's parent nodes using optimized algorithm
+// GetLCA 使用优化算法查找节点所有父节点的最低共同祖先
 func (rc *RuleChainCtx) GetLCA(id types.RuleNodeId) (types.RuleNodeId, bool) {
-	// Check cache first
-	// 首先检查缓存
-	if cachedLCA, exists := rc.checkLCACache(id); exists {
-		return cachedLCA, true
-	}
-
-	// Get parent nodes
-	// 获取父节点
-	parentIds, exists := rc.GetParentNodeIds(id)
-	if !exists || len(parentIds) == 0 {
-		return types.RuleNodeId{}, false
-	}
-
-	var lca types.RuleNodeId
-	var found bool
-
-	// Handle single parent case
-	// 处理单父节点情况
-	if len(parentIds) == 1 {
-		lca, found = rc.computeSingleParentLCA(parentIds[0])
-	} else {
-		// Handle multiple parents case
-		// 处理多父节点情况
-		
-		// First check if any parent is an ancestor of all other parents
-		// 首先检查是否有任何父节点是所有其他父节点的祖先
-		for _, candidateParent := range parentIds {
-			isCommonAncestor := true
-			for _, otherParent := range parentIds {
-				if candidateParent.Id == otherParent.Id {
-					continue // Skip self
-				}
-				// Check if candidateParent is an ancestor of otherParent
-				if !rc.isAncestor(candidateParent, otherParent) {
-					isCommonAncestor = false
-					break
-				}
-			}
-			if isCommonAncestor {
-				lca = candidateParent
-				found = true
-				break
-			}
-		}
-		
-		// If no parent is a common ancestor, use the original algorithm
-		// 如果没有父节点是公共祖先，使用原始算法
-		if !found {
-			parentAncestorsByLevel, maxLevels := rc.buildParentAncestorMaps(parentIds)
-
-			// Find the first level with common ancestors
-			// 找到有共同祖先的第一层
-			for level := 0; level < maxLevels; level++ {
-				if lca, found = rc.findCommonAncestorAtLevel(parentAncestorsByLevel, level); found {
-					break
-				}
-			}
-		}
-	}
-
-	// Cache the result if found
-	// 如果找到结果则缓存
-	if found {
-		rc.cacheLCAResult(id, lca)
-		return lca, true
-	}
-
-	return types.RuleNodeId{}, false
-}
-
-// getAncestorsByLevel performs level-by-level BFS to find ancestors grouped by distance
-// getAncestorsByLevel 执行逐层BFS以查找按距离分组的祖先
-//
-// Note: This function assumes the caller already holds the appropriate lock
-// 注意：此函数假设调用者已经持有适当的锁
-func (rc *RuleChainCtx) getAncestorsByLevel(nodeId types.RuleNodeId) [][]types.RuleNodeId {
-	visited := make(map[types.RuleNodeId]bool)
-	ancestorsByLevel := make([][]types.RuleNodeId, 0)
-	currentLevel := []types.RuleNodeId{nodeId}
-	visited[nodeId] = true
-
-	for len(currentLevel) > 0 {
-		nextLevel := make([]types.RuleNodeId, 0)
-		levelAncestors := make([]types.RuleNodeId, 0)
-
-		for _, current := range currentLevel {
-			// Get parents of current node
-			// 获取当前节点的父节点
-			if parents, exists := rc.parentNodeIds[current]; exists {
-				for _, parent := range parents {
-					if !visited[parent] {
-						visited[parent] = true
-						levelAncestors = append(levelAncestors, parent)
-						nextLevel = append(nextLevel, parent)
-					}
-				}
-			}
-		}
-
-		if len(levelAncestors) > 0 {
-			ancestorsByLevel = append(ancestorsByLevel, levelAncestors)
-		}
-		currentLevel = nextLevel
-	}
-
-	return ancestorsByLevel
-}
-
-// isAncestor checks if ancestor is an ancestor of descendant
-// isAncestor 检查 ancestor 是否是 descendant 的祖先
-func (rc *RuleChainCtx) isAncestor(ancestor, descendant types.RuleNodeId) bool {
-	visited := make(map[types.RuleNodeId]bool)
-	queue := []types.RuleNodeId{descendant}
-	visited[descendant] = true
-
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
-
-		// Get parents of current node
-		if parents, exists := rc.parentNodeIds[current]; exists {
-			for _, parent := range parents {
-				if parent.Id == ancestor.Id {
-					return true
-				}
-				if !visited[parent] {
-					visited[parent] = true
-					queue = append(queue, parent)
-				}
-			}
-		}
-	}
-
-	return false
+	return rc.lcaCalculator.GetLCA(id)
 }
 
 // GetNextNodes retrieves the child nodes of the current node with the specified relationship
@@ -982,7 +739,6 @@ func (rc *RuleChainCtx) copyUnsafe(newCtx *RuleChainCtx) {
 	rc.decryptSecrets = newCtx.decryptSecrets
 	// Clear cache
 	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
-	rc.lcaCache = make(map[types.RuleNodeId]types.RuleNodeId)
 }
 
 // ReloadChild reloads a child node
