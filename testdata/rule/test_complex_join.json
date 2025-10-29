@@ -1,0 +1,124 @@
+{
+  "ruleChain": {
+    "id": "InVGNEN0NOnN",
+    "name": "测试join",
+    "debugMode": true,
+    "root": true,
+    "disabled": false,
+    "additionalInfo": {
+      "createTime": "2025/10/27 16:09:02",
+      "description": "",
+      "layoutX": "274",
+      "layoutY": "279",
+      "noDefaultInput": false,
+      "updateTime": "2025/10/29 17:39:39",
+      "username": "admin"
+    }
+  },
+  "metadata": {
+    "endpoints": [],
+    "nodes": [
+      {
+        "id": "node_13",
+        "additionalInfo": {
+          "layoutX": 473,
+          "layoutY": 279
+        },
+        "type": "switch",
+        "name": "条件分支",
+        "debugMode": false,
+        "configuration": {
+          "cases": [
+            {
+              "case": "msg.temperature>=20 && msg.temperature<=50",
+              "then": "Case1"
+            },
+            {
+              "case": "msg.temperature>50",
+              "then": "Case2"
+            }
+          ]
+        }
+      },
+      {
+        "id": "node_4",
+        "additionalInfo": {
+          "layoutX": 702,
+          "layoutY": 204
+        },
+        "type": "jsTransform",
+        "name": "js转换1",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
+        }
+      },
+      {
+        "id": "node_5",
+        "additionalInfo": {
+          "layoutX": 723,
+          "layoutY": 333
+        },
+        "type": "jsTransform",
+        "name": "js转换2",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
+        }
+      },
+      {
+        "id": "node_7",
+        "additionalInfo": {
+          "layoutX": 1080,
+          "layoutY": 356
+        },
+        "type": "join",
+        "name": "合并",
+        "debugMode": false,
+        "configuration": {
+          "timeout": 0
+        }
+      },
+      {
+        "id": "node_14",
+        "additionalInfo": {
+          "layoutX": 938,
+          "layoutY": 200
+        },
+        "type": "jsTransform",
+        "name": "js转换1",
+        "debugMode": false,
+        "configuration": {
+          "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "node_5",
+        "toId": "node_7",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_13",
+        "toId": "node_4",
+        "type": "Case1"
+      },
+      {
+        "fromId": "node_13",
+        "toId": "node_5",
+        "type": "Case2"
+      },
+      {
+        "fromId": "node_4",
+        "toId": "node_14",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_14",
+        "toId": "node_7",
+        "type": "Success"
+      }
+    ]
+  }
+}

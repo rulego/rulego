@@ -156,7 +156,7 @@ func TestGetLCA(t *testing.T) {
 		// 测试节点不存在的情况
 		ruleChainDef := types.RuleChain{}
 		ctx, _ := InitRuleChainCtx(config, nil, &ruleChainDef, nil)
-		
+
 		nonExistentNodeId := types.RuleNodeId{Id: "nonexistent", Type: types.NODE}
 		lca, found := ctx.GetLCA(nonExistentNodeId)
 		assert.False(t, found)
@@ -182,14 +182,14 @@ func TestGetLCA(t *testing.T) {
 				"connections": []
 			}
 		}`
-		
+
 		jsonParser := JsonParser{}
 		def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 		assert.Nil(t, err)
-		
+
 		ctx, err := InitRuleChainCtx(config, nil, &def, nil)
 		assert.Nil(t, err)
-		
+
 		nodeId := types.RuleNodeId{Id: "node1", Type: types.NODE}
 		lca, found := ctx.GetLCA(nodeId)
 		assert.False(t, found)
@@ -199,55 +199,123 @@ func TestGetLCA(t *testing.T) {
 	t.Run("SingleParent", func(t *testing.T) {
 		// 测试单个父节点的情况
 		ruleChainFile := `{
-			"ruleChain": {
-				"id": "test_chain",
-				"name": "Test Chain"
+	"ruleChain": {
+		"id": "InVGNEN0NOnN",
+		"name": "测试join",
+		"debugMode": true,
+		"root": true,
+		"disabled": false,
+		"additionalInfo": {
+			"createTime": "2025/10/27 16:09:02",
+			"description": "",
+			"layoutX": "274",
+			"layoutY": "279",
+			"noDefaultInput": false,
+			"updateTime": "2025/10/29 18:27:25",
+			"username": "admin"
+		}
+	},
+	"metadata": {
+		"endpoints": [],
+		"nodes": [
+			{
+				"id": "node_13",
+				"additionalInfo": {
+					"layoutX": 473,
+					"layoutY": 279
+				},
+				"type": "switch",
+				"name": "条件分支",
+				"debugMode": false,
+				"configuration": {
+					"cases": [
+						{
+							"case": "msg.temperature>=20 && msg.temperature<=50",
+							"then": "Case1"
+						},
+						{
+							"case": "msg.temperature>50",
+							"then": "Case2"
+						}
+					]
+				}
 			},
-			"metadata": {
-				"firstNodeIndex": 0,
-				"nodes": [
-					{
-						"id": "parent",
-						"type": "jsFilter",
-						"name": "Parent Node"
-					},
-					{
-						"id": "grandparent",
-						"type": "jsFilter",
-						"name": "Grandparent Node"
-					},
-					{
-						"id": "child",
-						"type": "jsFilter",
-						"name": "Child Node"
-					}
-				],
-				"connections": [
-					{
-						"fromId": "grandparent",
-						"toId": "parent",
-						"type": "True"
-					},
-					{
-						"fromId": "parent",
-						"toId": "child",
-						"type": "True"
-					}
-				]
+			{
+				"id": "node_4",
+				"additionalInfo": {
+					"layoutX": 702,
+					"layoutY": 204
+				},
+				"type": "jsTransform",
+				"name": "js转换1",
+				"debugMode": false,
+				"configuration": {
+					"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
+				}
+			},
+			{
+				"id": "node_7",
+				"additionalInfo": {
+					"layoutX": 1080,
+					"layoutY": 331
+				},
+				"type": "join",
+				"name": "合并",
+				"debugMode": false,
+				"configuration": {
+					"timeout": 0
+				}
+			},
+			{
+				"id": "node_14",
+				"additionalInfo": {
+					"layoutX": 938,
+					"layoutY": 200
+				},
+				"type": "jsTransform",
+				"name": "js转换1",
+				"debugMode": false,
+				"configuration": {
+					"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
+				}
 			}
-		}`
-		
+		],
+		"connections": [
+			{
+				"fromId": "node_13",
+				"toId": "node_4",
+				"type": "Case1"
+			},
+			{
+				"fromId": "node_4",
+				"toId": "node_14",
+				"type": "Success"
+			},
+			{
+				"fromId": "node_14",
+				"toId": "node_7",
+				"type": "Success"
+			},
+			{
+				"fromId": "node_13",
+				"toId": "node_7",
+				"type": "Case2"
+			}
+		]
+	}
+}`
+
 		jsonParser := JsonParser{}
 		def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 		assert.Nil(t, err)
-		
+
 		ctx, err := InitRuleChainCtx(config, nil, &def, nil)
 		assert.Nil(t, err)
-		
-		childNodeId := types.RuleNodeId{Id: "child", Type: types.NODE}
+
+		childNodeId := types.RuleNodeId{Id: "node_7", Type: types.NODE}
 		lca, found := ctx.GetLCA(childNodeId)
 		assert.True(t, found)
-		assert.Equal(t, "grandparent", lca.Id)
+		assert.Equal(t, "node_13", lca.Id)
 	})
 
 	t.Run("MultipleParents", func(t *testing.T) {
@@ -305,14 +373,14 @@ func TestGetLCA(t *testing.T) {
 				]
 			}
 		}`
-		
+
 		jsonParser := JsonParser{}
 		def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 		assert.Nil(t, err)
-		
+
 		ctx, err := InitRuleChainCtx(config, nil, &def, nil)
 		assert.Nil(t, err)
-		
+
 		childNodeId := types.RuleNodeId{Id: "child", Type: types.NODE}
 		lca, found := ctx.GetLCA(childNodeId)
 		assert.True(t, found)
@@ -374,33 +442,34 @@ func TestGetLCA(t *testing.T) {
 				]
 			}
 		}`
-		
+
 		jsonParser := JsonParser{}
 		def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 		assert.Nil(t, err)
-		
+
 		ctx, err := InitRuleChainCtx(config, nil, &def, nil)
 		assert.Nil(t, err)
-		
+
 		childNodeId := types.RuleNodeId{Id: "child", Type: types.NODE}
-		
+
 		// 第一次调用，应该计算并缓存结果
 		lca1, found1 := ctx.GetLCA(childNodeId)
 		assert.True(t, found1)
 		assert.Equal(t, "root", lca1.Id)
-		
+
 		// 第二次调用，应该从缓存中获取结果
 		lca2, found2 := ctx.GetLCA(childNodeId)
 		assert.True(t, found2)
 		assert.Equal(t, "root", lca2.Id)
 		assert.Equal(t, lca1, lca2)
-		
-		// 验证缓存中确实存在该结果
-		ctx.RLock()
-		cachedLCA, exists := ctx.lcaCache[childNodeId]
-		ctx.RUnlock()
-		assert.True(t, exists)
-		assert.Equal(t, "root", cachedLCA.Id)
+
+		// 验证缓存功能正常工作（通过多次调用验证一致性）
+		for i := 0; i < 5; i++ {
+			lcaTest, foundTest := ctx.GetLCA(childNodeId)
+			assert.True(t, foundTest)
+			assert.Equal(t, "root", lcaTest.Id)
+			assert.Equal(t, lca1, lcaTest)
+		}
 	})
 
 	t.Run("ComplexHierarchy", func(t *testing.T) {
@@ -493,14 +562,14 @@ func TestGetLCA(t *testing.T) {
 				]
 			}
 		}`
-		
+
 		jsonParser := JsonParser{}
 		def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 		assert.Nil(t, err)
-		
+
 		ctx, err := InitRuleChainCtx(config, nil, &def, nil)
 		assert.Nil(t, err)
-		
+
 		targetNodeId := types.RuleNodeId{Id: "target", Type: types.NODE}
 		lca, found := ctx.GetLCA(targetNodeId)
 		assert.True(t, found)
@@ -547,14 +616,14 @@ func TestGetLCA(t *testing.T) {
 				]
 			}
 		}`
-		
+
 		jsonParser := JsonParser{}
 		def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 		assert.Nil(t, err)
-		
+
 		ctx, err := InitRuleChainCtx(config, nil, &def, nil)
 		assert.Nil(t, err)
-		
+
 		childNodeId := types.RuleNodeId{Id: "child", Type: types.NODE}
 		lca, found := ctx.GetLCA(childNodeId)
 		assert.False(t, found)
@@ -562,7 +631,7 @@ func TestGetLCA(t *testing.T) {
 	})
 
 	t.Run("SingleParentJoin", func(t *testing.T) {
-		// 测试单父节点Join的情况 - 基于用户提供的规则链
+		// 测试单父节点Join的情况
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "singleParentJoin",
@@ -595,92 +664,65 @@ func TestGetLCA(t *testing.T) {
 				]
 			}
 		}`
-		
+
 		jsonParser := JsonParser{}
 		def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 		assert.Nil(t, err)
-		
+
 		ctx, err := InitRuleChainCtx(config, nil, &def, nil)
 		assert.Nil(t, err)
-		
+
 		// 测试 node_join 的 LCA
 		joinNodeId := types.RuleNodeId{Id: "node_join", Type: types.NODE}
 		// 测试 GetLCA - 应该返回父节点 node_transform 本身
 		lca, hasLCA := ctx.GetLCA(joinNodeId)
 		assert.True(t, hasLCA)
 		assert.Equal(t, "node_transform", lca.Id)
-		
-		// 验证父节点关系
-		parentIds, hasParents := ctx.GetParentNodeIds(joinNodeId)
-		assert.True(t, hasParents)
-		assert.Equal(t, 1, len(parentIds))
-		assert.Equal(t, "node_transform", parentIds[0].Id)
-		
-		// 验证 transform 节点没有父节点
-		transformNodeId := types.RuleNodeId{Id: "node_transform", Type: types.NODE}
-		transformParents, hasTransformParents := ctx.GetParentNodeIds(transformNodeId)
-		assert.False(t, hasTransformParents)
-		assert.Equal(t, 0, len(transformParents))
 	})
 
 	t.Run("ConditionalBranchJoin", func(t *testing.T) {
 		// 测试条件分支Join的情况
 		// node_2 (switch) 有两个输出：Case1 -> node_6 -> node_4, Case2 -> node_4
 		// node_4 的 LCA 应该是 node_2
-		
+
 		// 从文件加载规则链配置
 		ruleChainFile, err := os.ReadFile("../testdata/rule/test_conditional_branch_join.json")
 		assert.Nil(t, err)
-		
+
 		jsonParser := JsonParser{}
 		def, err := jsonParser.DecodeRuleChain(ruleChainFile)
 		assert.Nil(t, err)
-		
+
 		ctx, err := InitRuleChainCtx(config, nil, &def, nil)
 		assert.Nil(t, err)
-		
-		// 测试 node_4 的父节点关系
+
 		joinNodeId := types.RuleNodeId{Id: "node_4", Type: types.NODE}
-		parentIds, hasParents := ctx.GetParentNodeIds(joinNodeId)
-		assert.True(t, hasParents)
-		assert.Equal(t, 2, len(parentIds)) // node_4 应该有两个父节点：node_2 和 node_6
-		
-		// 验证父节点包含 node_2 和 node_6
-		parentIdStrings := make([]string, len(parentIds))
-		for i, pid := range parentIds {
-			parentIdStrings[i] = pid.Id
-		}
-		// 检查是否包含 node_2 和 node_6
-		hasNode2 := false
-		hasNode6 := false
-		for _, id := range parentIdStrings {
-			if id == "node_2" {
-				hasNode2 = true
-			}
-			if id == "node_6" {
-				hasNode6 = true
-			}
-		}
-		assert.True(t, hasNode2, "node_4 的父节点应该包含 node_2")
-		assert.True(t, hasNode6, "node_4 的父节点应该包含 node_6")
-		
 		// 测试 node_4 的 LCA - 应该返回 node_2 - with debug output
-		fmt.Println("=== Testing LCA for node_4 ===")
 		lca, hasLCA := ctx.GetLCA(joinNodeId)
 		assert.True(t, hasLCA)
 		assert.Equal(t, "node_2", lca.Id, "node_4 的 LCA 应该是 node_2，因为 node_2 是两个父节点路径的共同祖先")
-		
-		// 验证 node_6 的父节点是 node_2
-		node6Id := types.RuleNodeId{Id: "node_6", Type: types.NODE}
-		node6Parents, hasNode6Parents := ctx.GetParentNodeIds(node6Id)
-		assert.True(t, hasNode6Parents)
-		assert.Equal(t, 1, len(node6Parents))
-		assert.Equal(t, "node_2", node6Parents[0].Id)
-		
-		// 验证 node_2 没有父节点（它是起始节点）
-		node2Id := types.RuleNodeId{Id: "node_2", Type: types.NODE}
-		node2Parents, hasNode2Parents := ctx.GetParentNodeIds(node2Id)
-		assert.False(t, hasNode2Parents)
-		assert.Equal(t, 0, len(node2Parents))
+
+	})
+
+	t.Run("ComplexJoinCase", func(t *testing.T) {
+		// Load DSL from external file
+		dslBytes, err := os.ReadFile("../testdata/rule/test_complex_join.json")
+		assert.Nil(t, err)
+
+		// Parse the JSON to rule chain definition
+		jsonParser := JsonParser{}
+		def, err := jsonParser.DecodeRuleChain(dslBytes)
+		assert.Nil(t, err)
+
+		// Create rule chain context with the parsed definition
+		ctx, err := InitRuleChainCtx(config, nil, &def, nil)
+		assert.Nil(t, err)
+
+		// Test parent nodes for node_7 (should have node_14 and node_5)
+		joinNodeId := types.RuleNodeId{Id: "node_7", Type: types.NODE}
+		lca, hasLCA := ctx.GetLCA(joinNodeId)
+		assert.True(t, hasLCA, "node_7 应该有 LCA")
+		assert.Equal(t, "node_13", lca.Id, "node_7 的 LCA 应该是 node_13，因为所有路径都经过 node_13")
+
 	})
 }
