@@ -35,23 +35,32 @@ jobs:
           CGO_ENABLED=0 GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-linux-arm64
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-macos-arm64
           CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-windows-arm64.exe
+      - name: Create compressed archives
+        run: |
+          cd examples/server/cmd/server
+          # 为每个二进制文件创建单独的压缩包
+          # 带有所有扩展的版本
+          tar -czf rulego-server-all-linux-amd64.tar.gz rulego-server-all-linux-amd64
+          zip rulego-server-all-windows-amd64.zip rulego-server-all-windows-amd64.exe
+          tar -czf rulego-server-all-macos-amd64.tar.gz rulego-server-all-macos-amd64
+          tar -czf rulego-server-all-linux-arm64.tar.gz rulego-server-all-linux-arm64
+          tar -czf rulego-server-all-macos-arm64.tar.gz rulego-server-all-macos-arm64
+          zip rulego-server-all-windows-arm64.zip rulego-server-all-windows-arm64.exe
+          
+          # 基础版本
+          tar -czf rulego-server-linux-amd64.tar.gz rulego-server-linux-amd64
+          zip rulego-server-windows-amd64.zip rulego-server-windows-amd64.exe
+          tar -czf rulego-server-macos-amd64.tar.gz rulego-server-macos-amd64
+          tar -czf rulego-server-linux-arm64.tar.gz rulego-server-linux-arm64
+          tar -czf rulego-server-macos-arm64.tar.gz rulego-server-macos-arm64
+          zip rulego-server-windows-arm64.zip rulego-server-windows-arm64.exe
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rulego-server-binaries
+          name: rulego-server-compressed
           path: |
-            examples/server/cmd/server/rulego-server-linux-amd64
-            examples/server/cmd/server/rulego-server-windows-amd64.exe
-            examples/server/cmd/server/rulego-server-macos-amd64
-            examples/server/cmd/server/rulego-server-linux-arm64
-            examples/server/cmd/server/rulego-server-macos-arm64
-            examples/server/cmd/server/rulego-server-windows-arm64.exe
-            examples/server/cmd/server/rulego-server-all-linux-amd64
-            examples/server/cmd/server/rulego-server-all-windows-amd64.exe
-            examples/server/cmd/server/rulego-server-all-macos-amd64
-            examples/server/cmd/server/rulego-server-all-linux-arm64
-            examples/server/cmd/server/rulego-server-all-macos-arm64
-            examples/server/cmd/server/rulego-server-all-windows-arm64.exe
+            examples/server/cmd/server/*.tar.gz
+            examples/server/cmd/server/*.zip
 #      - name: Create Release
 #        uses: actions/create-release@v1
 #        env:
