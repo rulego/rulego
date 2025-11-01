@@ -14,6 +14,8 @@
 - fix(components): CheckAllKeys 模式下逻辑错误
 - fix(components): join组件某些情况下阻塞
 - chore(ci):actions workflow增加mysql
+### rulego-components
+- feat: nats endpoint组件支持 QueueSubscribe 模式
 
 # [v0.33.0] 2025/09/03
 ### rulego-core
