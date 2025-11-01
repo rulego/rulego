@@ -10,6 +10,8 @@
 
 [English](README.md)| 简体中文
 
+**[我正在参加 Gitee 2025 最受欢迎的开源软件投票活动，快来给我投票吧！🔥 🔥 🔥 ](https://gitee.com/activity/2025opensource?ident=IM6TAN)**
+
 [官网](https://rulego.cc) | [文档](https://rulego.cc/pages/0f6af2/) | [贡献指南](CONTRIBUTION_CN.md) 
 
 <img src="doc/imgs/logo.png" alt="logo" width="100"/>  
