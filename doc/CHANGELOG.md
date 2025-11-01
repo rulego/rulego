@@ -1,5 +1,20 @@
 # CHANGELOG
 
+# [v0.34.0] 2025/11/03
+### rulego-core
+- feat(components): 延迟组件(delayNode),延迟时间支持毫秒
+- feat(components): 引用组件(refNode)支持引用子链
+- feat(components): 数据库客户端组件(dbClient)支持执行DDL和数据库方言
+- feat: 组件表单生成，支持生成 icon 字段
+- feat: 组件表单生成，完善通过tag配置表单
+- fix: 修复mqtt endpoint组件会初始化2个客户端
+- fix: 修复不支持多层嵌套跨节点取值
+- fix: 修复子链不支持跨节点取值
+- fix(components): fieldFilter组件CheckAllKeys 模式下逻辑错误
+- fix(components): CheckAllKeys 模式下逻辑错误
+- fix(components): join组件某些情况下阻塞
+- chore(ci):actions workflow增加mysql
+
 # [v0.33.0] 2025/09/03
 ### rulego-core
 - feat: 完善组件配置表达式取值系统，支持跨节点取值，例如:${node1.msg.xx}
