@@ -1061,7 +1061,7 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 			// Context cancelled, stop processing and notify failure
 			// 使用DoOnEnd确保正确触发结束回调和活跃消息计数减少
 			// DoOnEnd内部会调用childDone()，所以这里不需要再次调用
-			ctx.DoOnEnd(msg, fmt.Errorf("processing cancelled due to shutdown: %w", ctx.GetContext().Err()), types.Failure)
+			ctx.DoOnEnd(msg, fmt.Errorf("processing cancelled: %w", ctx.GetContext().Err()), types.Failure)
 			return
 		default:
 			// 上下文正常，继续处理
