@@ -846,49 +846,227 @@ func (e *RuleEngine) applyShutdownContext(rootCtxCopy, rootCtx *DefaultRuleConte
 }
 
 // combineContextsValueOnly creates a context that inherits values from user context
-// but uses shutdown context for cancellation only. This prevents goroutine leaks
-// that occurred in the previous implementation while preserving context value inheritance.
+// and can be cancelled by either the user context or shutdown context.
 //
 // The returned context:
 // 1. Inherits all values from the user context
-// 2. Can only be cancelled by the shutdown context (not user context)
-// 3. Does not create any monitoring goroutines
+// 2. Can be cancelled by either user context or shutdown context
+// 3. Uses a controlled goroutine that is cleaned up when context is cancelled
 //
-// combineContextsValueOnly 创建一个从用户上下文继承值但仅使用停机上下文进行取消的上下文。
-// 这防止了之前实现中出现的协程泄漏，同时保留了上下文值继承。
+// combineContextsValueOnly 创建一个从用户上下文继承值且可以被用户上下文或停机上下文取消的上下文。
 //
 // 返回的上下文：
 // 1. 从用户上下文继承所有值
-// 2. 只能被停机上下文取消（不能被用户上下文取消）
-// 3. 不创建任何监控协程
+// 2. 可以被用户上下文或停机上下文取消
+// 3. 使用受控的协程，当上下文被取消时会被清理
 func (e *RuleEngine) combineContextsValueOnly(userCtx, shutdownCtx context.Context) context.Context {
-	// Create a value-only context that inherits values from user context
-	// but uses shutdown context for cancellation
-	// 创建一个仅值上下文，从用户上下文继承值但使用停机上下文进行取消
-	return &valueOnlyContext{
-		Context:  shutdownCtx,
-		valueCtx: userCtx,
+	// Check if either context is already cancelled
+	// 检查任一上下文是否已取消
+	select {
+	case <-userCtx.Done():
+		// User context already cancelled, return it directly
+		// 用户上下文已取消，直接返回
+		return userCtx
+	case <-shutdownCtx.Done():
+		// Shutdown context already cancelled, return it directly
+		// 停机上下文已取消，直接返回
+		return shutdownCtx
+	default:
+		// Both contexts are active, create combined context
+		// 两个上下文都活跃，创建组合上下文
+		return newCombinedCancelContext(userCtx, shutdownCtx)
 	}
 }
 
-// valueOnlyContext is a context implementation that inherits values from one context
-// but uses another context for cancellation and deadlines.
-// valueOnlyContext 是一个上下文实现，从一个上下文继承值但使用另一个上下文进行取消和截止时间。
-type valueOnlyContext struct {
-	context.Context                 // Used for cancellation and deadlines 用于取消和截止时间
-	valueCtx        context.Context // Used for values 用于值
+// combinedCancelContext is a context implementation that can be cancelled by either
+// of two parent contexts. It uses lazy goroutine creation - only creates a goroutine
+// when Done() is first called, avoiding unnecessary goroutines for contexts that are
+// never checked for cancellation.
+// combinedCancelContext 是一个可以被两个父上下文中的任一个取消的上下文实现。
+// 它使用延迟协程创建 - 只在首次调用Done()时创建协程，避免为不需要检查取消的上下文创建不必要的协程。
+type combinedCancelContext struct {
+	userCtx     context.Context
+	shutdownCtx context.Context
+	ctx         context.Context // Internal context for cancellation
+	cancel      context.CancelFunc
+	err         error
+	errOnce     sync.Once
+	errMu       sync.Mutex
+	doneOnce    sync.Once
+	done        chan struct{} // Lazy initialized channel
 }
 
-// Value returns the value associated with this context for key, or nil
-// if no value is associated with key. It first checks the value context,
-// then falls back to the cancellation context.
+// newCombinedCancelContext creates a new combined context that can be cancelled
+// by either userCtx or shutdownCtx. It uses a single goroutine to monitor both
+// contexts, which exits immediately when either context is cancelled.
+// newCombinedCancelContext 创建一个新的组合上下文，可以被userCtx或shutdownCtx取消。
+// 它使用单个协程来监控两个上下文，当任一上下文取消时立即退出。
+func newCombinedCancelContext(userCtx, shutdownCtx context.Context) *combinedCancelContext {
+	// Check if either context is already cancelled to avoid creating unnecessary goroutine
+	// 检查任一上下文是否已取消，以避免创建不必要的协程
+	select {
+	case <-userCtx.Done():
+		// User context already cancelled, create a context that's already cancelled
+		// 用户上下文已取消，创建一个已取消的上下文
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Immediately cancel
+		done := make(chan struct{})
+		close(done) // Already cancelled
+		c := &combinedCancelContext{
+			userCtx:     userCtx,
+			shutdownCtx: shutdownCtx,
+			ctx:         ctx,
+			cancel:      cancel,
+			done:        done,
+		}
+		c.setErr(userCtx.Err())
+		return c
+	case <-shutdownCtx.Done():
+		// Shutdown context already cancelled, create a context that's already cancelled
+		// 停机上下文已取消，创建一个已取消的上下文
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Immediately cancel
+		done := make(chan struct{})
+		close(done) // Already cancelled
+		c := &combinedCancelContext{
+			userCtx:     userCtx,
+			shutdownCtx: shutdownCtx,
+			ctx:         ctx,
+			cancel:      cancel,
+			done:        done,
+		}
+		c.setErr(shutdownCtx.Err())
+		return c
+	default:
+		// Both contexts are active, will create goroutine lazily when Done() is called
+		// 两个上下文都活跃，将在首次调用Done()时延迟创建协程
+	}
+
+	// Create an internal context that will be cancelled when either parent is cancelled
+	// 创建一个内部上下文，当任一父上下文取消时将被取消
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return &combinedCancelContext{
+		userCtx:     userCtx,
+		shutdownCtx: shutdownCtx,
+		ctx:         ctx,
+		cancel:      cancel,
+		// done will be initialized lazily when Done() is first called
+		// done 将在首次调用Done()时延迟初始化
+	}
+}
+
+// startMonitoring starts a goroutine to monitor both parent contexts.
+// This is called lazily when Done() is first accessed.
+// startMonitoring 启动一个协程来监控两个父上下文。
+// 这在首次访问Done()时延迟调用。
+func (c *combinedCancelContext) startMonitoring() {
+	c.doneOnce.Do(func() {
+		// Initialize done channel
+		// 初始化done通道
+		c.done = make(chan struct{})
+
+		// Start a single goroutine to monitor both contexts
+		// This goroutine will exit immediately when either context is cancelled
+		// 启动单个协程来监控两个上下文
+		// 当任一上下文取消时，此协程将立即退出
+		go func() {
+			select {
+			case <-c.userCtx.Done():
+				c.setErr(c.userCtx.Err())
+				c.cancel()
+				close(c.done)
+			case <-c.shutdownCtx.Done():
+				c.setErr(c.shutdownCtx.Err())
+				c.cancel()
+				close(c.done)
+			case <-c.ctx.Done():
+				// Internal context cancelled, exit goroutine
+				// 内部上下文已取消，退出协程
+				close(c.done)
+			}
+		}()
+	})
+}
+
+// setErr sets the error once when the context is cancelled
+// setErr 在上下文被取消时设置错误（仅设置一次）
+func (c *combinedCancelContext) setErr(err error) {
+	c.errOnce.Do(func() {
+		c.errMu.Lock()
+		c.err = err
+		c.errMu.Unlock()
+	})
+}
+
+// Done returns a channel that is closed when the context is cancelled.
+// The goroutine is created lazily on first call to avoid unnecessary goroutines.
+// Done 返回一个在上下文被取消时关闭的通道。
+// 协程在首次调用时延迟创建，以避免不必要的协程。
+func (c *combinedCancelContext) Done() <-chan struct{} {
+	// Check if already cancelled before starting monitoring
+	// 在开始监控前检查是否已取消
+	select {
+	case <-c.userCtx.Done():
+		// Already cancelled, return closed channel
+		// 已取消，返回已关闭的通道
+		c.setErr(c.userCtx.Err())
+		done := make(chan struct{})
+		close(done)
+		return done
+	case <-c.shutdownCtx.Done():
+		// Already cancelled, return closed channel
+		// 已取消，返回已关闭的通道
+		c.setErr(c.shutdownCtx.Err())
+		done := make(chan struct{})
+		close(done)
+		return done
+	default:
+		// Start monitoring lazily
+		// 延迟开始监控
+		c.startMonitoring()
+		return c.done
+	}
+}
+
+// Err returns the error if either parent context is cancelled, nil otherwise.
+// Err 如果任一父上下文被取消则返回错误，否则返回nil。
+func (c *combinedCancelContext) Err() error {
+	c.errMu.Lock()
+	defer c.errMu.Unlock()
+	return c.err
+}
+
+// Deadline returns the earlier deadline of the two parent contexts, or ok=false if neither has a deadline.
+// Deadline 返回两个父上下文中较早的截止时间，如果都没有截止时间则ok=false。
+func (c *combinedCancelContext) Deadline() (time.Time, bool) {
+	userDeadline, userOk := c.userCtx.Deadline()
+	shutdownDeadline, shutdownOk := c.shutdownCtx.Deadline()
+
+	if !userOk && !shutdownOk {
+		return time.Time{}, false
+	}
+	if !userOk {
+		return shutdownDeadline, shutdownOk
+	}
+	if !shutdownOk {
+		return userDeadline, userOk
+	}
+	if userDeadline.Before(shutdownDeadline) {
+		return userDeadline, true
+	}
+	return shutdownDeadline, true
+}
+
+// Value returns the value associated with this context for key, or nil if no value is associated with key.
+// It first checks the user context, then falls back to the shutdown context.
 // Value 返回与此上下文中键关联的值，如果没有与键关联的值则返回nil。
-// 它首先检查值上下文，然后回退到取消上下文。
-func (c *valueOnlyContext) Value(key interface{}) interface{} {
-	if val := c.valueCtx.Value(key); val != nil {
+// 它首先检查用户上下文，然后回退到停机上下文。
+func (c *combinedCancelContext) Value(key interface{}) interface{} {
+	if val := c.userCtx.Value(key); val != nil {
 		return val
 	}
-	return c.Context.Value(key)
+	return c.shutdownCtx.Value(key)
 }
 
 // incrementActiveMessages 增加活跃消息计数

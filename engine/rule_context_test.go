@@ -20,11 +20,14 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/str"
 )
@@ -390,4 +393,106 @@ func TestRuleContext(t *testing.T) {
 		time.Sleep(time.Millisecond * 100)
 		assert.Equal(t, int32(0), atomic.LoadInt32(&count))
 	})
+	t.Run("ContextCancellation", func(t *testing.T) {
+		// 测试 OnMsg context 取消
+		ruleChainWithFunctions := `{
+			"ruleChain": {
+				"id": "test_context_cancellation",
+				"name": "testRuleChainContextCancellation",
+				"debugMode": true,
+				"root": true
+			},
+			"metadata": {
+				"firstNodeIndex": 0,
+				"nodes": [
+					{
+						"id": "s1",
+						"type": "functions",
+						"name": "测试函数节点",
+						"configuration": {
+							"functionName": "testContextCancellation"
+						}
+					}
+				],
+				"connections": []
+			}
+		}`
+
+		// 注册测试函数
+		var contextCancelled int32
+		var functionExecuted int32
+		action.Functions.Register("testContextCancellation", func(ctx types.RuleContext, msg types.RuleMsg) {
+			atomic.StoreInt32(&functionExecuted, 1)
+			// 模拟一些处理时间，在处理过程中检查 context 是否被取消
+			// 由于新的实现不使用goroutine，我们需要轮询检查Err()方法
+			done := make(chan struct{})
+			go func() {
+				time.Sleep(time.Millisecond * 50)
+				close(done)
+			}()
+
+			// 检查 context 是否被取消（使用Done() channel监听）
+			if ctx.GetContext() != nil {
+				select {
+				case <-done:
+					// 处理完成，context 正常
+					ctx.TellSuccess(msg)
+					return
+				case <-ctx.GetContext().Done():
+					// 收到取消信号
+					atomic.StoreInt32(&contextCancelled, 1)
+					ctx.TellFailure(msg, ctx.GetContext().Err())
+					return
+				}
+			}
+			// 如果没有 context，直接成功
+			<-done
+			ctx.TellSuccess(msg)
+		})
+		defer action.Functions.UnRegister("testContextCancellation")
+
+		ruleEngine, err := New("TestRuleContext_ContextCancellation", []byte(ruleChainWithFunctions), WithConfig(config))
+		assert.Nil(t, err)
+		defer Del(ruleEngine.Id())
+
+		// 创建一个可取消的 context
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		// 启动一个 goroutine，在函数执行过程中取消 context
+		go func() {
+			time.Sleep(time.Millisecond * 10) // 等待函数开始执行
+			cancel()                          // 取消 context
+		}()
+
+		var onEndCalled int32
+		var endError error
+		var endErrorMu sync.Mutex
+		ruleEngine.OnMsg(msg, types.WithContext(ctx), types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			atomic.StoreInt32(&onEndCalled, 1)
+			endErrorMu.Lock()
+			endError = err
+			endErrorMu.Unlock()
+		}))
+
+		// 等待处理完成
+		time.Sleep(time.Millisecond * 200)
+
+		// 验证函数被执行了
+		assert.Equal(t, int32(1), atomic.LoadInt32(&functionExecuted), "函数应该被执行")
+
+		// 验证收到了 context 取消信号
+		assert.Equal(t, int32(1), atomic.LoadInt32(&contextCancelled), "应该检测到 context 取消")
+
+		// 验证 OnEnd 被调用
+		assert.Equal(t, int32(1), atomic.LoadInt32(&onEndCalled), "OnEnd 应该被调用")
+
+		// 验证错误信息包含取消信息
+		endErrorMu.Lock()
+		errValue := endError
+		endErrorMu.Unlock()
+		assert.NotNil(t, errValue, "应该返回错误")
+		assert.True(t, strings.Contains(errValue.Error(), "canceled"), "错误信息应该包含 canceled")
+	})
+
 }

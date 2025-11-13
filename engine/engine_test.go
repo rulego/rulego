@@ -700,11 +700,18 @@ func TestExecuteNode(t *testing.T) {
 
 	msg1 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
 
+	// Use WaitGroup to ensure callback completes before reload
+	// 使用 WaitGroup 确保回调完成后再重新加载
+	var firstCallbackDone sync.WaitGroup
+	firstCallbackDone.Add(1)
 	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		defer firstCallbackDone.Done()
 		assert.Equal(t, "true", msg.Metadata.GetValue("result"))
 	}))
 
-	time.Sleep(time.Millisecond * 200)
+	// Wait for callback to complete before reloading
+	// 等待回调完成后再重新加载
+	firstCallbackDone.Wait()
 
 	chainJsonFile1 := string(loadFile("./test_group_filter_node.json"))
 	newChainJsonFile1 := strings.Replace(chainJsonFile1, `"allMatches": false`, `"allMatches": true`, -1)
