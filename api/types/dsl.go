@@ -56,6 +56,15 @@ type RuleChain struct {
 	Metadata RuleMetadata `json:"metadata"`
 }
 
+func (r RuleChain) GetNode(nodeId string) (*RuleNode, bool) {
+	for _, item := range r.Metadata.Nodes {
+		if item.Id == nodeId {
+			return item, true
+		}
+	}
+	return nil, false
+}
+
 // RuleChainBaseInfo defines the basic information of a rule chain.
 // RuleChainBaseInfo 定义规则链的基本信息。
 //
@@ -387,6 +396,14 @@ type RuleNode struct {
 	//     动态配置更新
 	//
 	Configuration Configuration `json:"configuration"`
+}
+
+func (n RuleNode) GetAdditionalInfo(key string) (interface{}, bool) {
+	if n.AdditionalInfo == nil {
+		return "", false
+	}
+	v, ok := n.AdditionalInfo[key]
+	return v, ok
 }
 
 // NodeAdditionalInfo is used for visualization position information (reserved field).
