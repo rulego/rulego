@@ -19,6 +19,7 @@ package common
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -223,7 +224,7 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				msgsMutex.Unlock()
 
 				wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgsCopy)))
-				mergeMetadata(msgsCopy, &wrapperMsg)
+				_ = mergeMetadata(msgsCopy, &wrapperMsg)
 
 				// 使用非阻塞发送，防止在超时情况下channel阻塞
 				select {
@@ -273,13 +274,21 @@ func filterEmptyAndRemoveMeta(msgs []types.WrapperMsg) []types.WrapperMsg {
 
 // mergeMetadata 合并成功执行的元数据到包装消息中
 // mergeMetadata merges metadata from successful group executions into the wrapper message.
-func mergeMetadata(msgs []types.WrapperMsg, wrapperMsg *types.RuleMsg) {
+func mergeMetadata(msgs []types.WrapperMsg, wrapperMsg *types.RuleMsg) error {
+	var errStr string
 	for _, msg := range msgs {
 		if msg.NodeId != "" && msg.Err == "" {
 			msg.Msg.Metadata.ForEach(func(k, v string) bool {
 				wrapperMsg.Metadata.PutValue(k, v)
 				return true // continue iteration
 			})
+		} else if msg.Err != "" {
+			errStr += fmt.Sprintf("NodeId=%s,Err=%s ", msg.NodeId, msg.Err)
 		}
+	}
+	if errStr != "" {
+		return errors.New(errStr)
+	} else {
+		return nil
 	}
 }

@@ -105,17 +105,18 @@ func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	var wrapperMsg = msg.Copy()
 
+	var err error
 	ok := ctx.TellCollect(msg, func(msgList []types.WrapperMsg) {
-		// 检查context是否已被取消，避免无意义的计算
+		// 检查context是否已被取消
 		select {
 		case <-chanCtx.Done():
-			return // 提前退出，避免资源浪费
+			return
 		default:
 		}
 
 		wrapperMsg.SetDataType(types.JSON)
 		wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgList)))
-		mergeMetadata(msgList, &wrapperMsg)
+		err = mergeMetadata(msgList, &wrapperMsg)
 		select {
 		case c <- struct{}{}:
 		default: // 防止阻塞
@@ -126,7 +127,11 @@ func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		case <-chanCtx.Done():
 			ctx.TellFailure(wrapperMsg, chanCtx.Err())
 		case <-c:
-			ctx.TellSuccess(wrapperMsg)
+			if err != nil {
+				ctx.TellFailure(wrapperMsg, err)
+			} else {
+				ctx.TellSuccess(wrapperMsg)
+			}
 		}
 	}
 }
