@@ -65,7 +65,7 @@ func (x *EndNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if relationTypes := ctx.GetRelationTypes(); len(relationTypes) > 0 {
 		relationType = relationTypes[0]
 	}
-	ctx.DoOnEnd(msg, nil, relationType)
+	ctx.DoOnEnd(msg, ctx.GetErr(), relationType)
 }
 
 func (x *EndNode) Destroy() {
