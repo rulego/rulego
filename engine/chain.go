@@ -833,6 +833,56 @@ func (rc *RuleChainCtx) HasEndNode() bool {
 	return rc.hasEndNode
 }
 
+// HasEndDescendant 从指定节点开始，判断其是否存在“结束节点”的后代
+// HasEndDescendant determines whether there exists a descendant end node starting from the given node
+//
+// 参数:
+//   - startId: 起始节点的标识符
+//
+// 返回:
+//   - bool: 如果能到达任意结束节点则返回 true，否则返回 false
+//
+// 说明:
+//   - 通过广度优先遍历沿着当前规则链的路由前进；当遇到子规则链连接时，若该子规则链已配置结束节点，则视为存在结束节点后代
+func (rc *RuleChainCtx) HasEndDescendant(startId types.RuleNodeId) bool {
+	visited := make(map[types.RuleNodeId]struct{})
+	queue := []types.RuleNodeId{startId}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		relations, ok := rc.GetNodeRoutes(current)
+		if !ok {
+			continue
+		}
+
+		for _, rel := range relations {
+			nextId := rel.OutId
+			if _, seen := visited[nextId]; seen {
+				continue
+			}
+			visited[nextId] = struct{}{}
+
+			if nodeCtx, ok := rc.GetNodeById(nextId); ok {
+				if nodeCtx.Type() == types.NodeTypeEnd {
+					return true
+				} else if nextId.Type == types.CHAIN {
+					if subChain, _ := nodeCtx.(*RuleChainCtx); subChain != nil {
+						if subChain.HasEndNode() {
+							return true
+						}
+					}
+				}
+			}
+
+			queue = append(queue, nextId)
+		}
+	}
+
+	return false
+}
+
 // GetReferencedNodes 获取被其他节点引用的节点列表
 // GetReferencedNodes gets the list of nodes that are referenced by other nodes
 func (rc *RuleChainCtx) GetReferencedNodes() []string {

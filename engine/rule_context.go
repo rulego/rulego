@@ -261,6 +261,8 @@ type DefaultRuleContext struct {
 	chainCache types.Cache
 	// nodeOutputCache 节点输出缓存，用于跨节点取值
 	nodeOutputCache *NodeOutputCache
+	//该链是否有结束节点
+	hasEndNode bool
 }
 
 func (ctx *DefaultRuleContext) GlobalCache() types.Cache {
@@ -298,6 +300,10 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 	if chainId != "" {
 		chainCache = cache.NewNamespaceCache(config.Cache, chainId+types.NamespaceSeparator)
 	}
+	hasEndNode := false
+	if ruleChainCtx != nil {
+		hasEndNode = ruleChainCtx.HasEndNode()
+	}
 	// Return a new DefaultRuleContext populated with the provided parameters and aspects.
 	return &DefaultRuleContext{
 		context:         context,
@@ -316,6 +322,7 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 		observer:        &ContextObserver{},
 		chainCache:      chainCache,
 		nodeOutputCache: &NodeOutputCache{},
+		hasEndNode:      hasEndNode,
 	}
 }
 
@@ -467,6 +474,7 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		nodeOutputCache: ctx.nodeOutputCache, // 共享节点输出缓存
 
 		relationTypes: make([]string, 1),
+		hasEndNode:    ctx.hasEndNode,
 	}
 
 	return nextCtx
@@ -614,11 +622,18 @@ func (ctx *DefaultRuleContext) TellFlow(ruleChainId string, msg types.RuleMsg, o
 // onEnd 查看获得最终执行结果
 // onAllNodeCompleted 所以节点执行完触发，无结果返回
 func (ctx *DefaultRuleContext) TellNode(chanCtx context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc, onAllNodeCompleted func()) {
-	if nodeCtx, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
+	startId := types.RuleNodeId{Id: nodeId}
+	if nodeCtx, ok := ctx.ruleChainCtx.GetNodeById(startId); ok {
 		rootCtxCopy := NewRuleContext(chanCtx, ctx.config, ctx.ruleChainCtx, nil, nodeCtx, ctx.pool, onEnd, ctx.ruleChainPool)
 		rootCtxCopy.onAllNodeCompleted = onAllNodeCompleted
 		//Whether to only execute the current node
 		rootCtxCopy.skipTellNext = skipTellNext
+		if skipTellNext {
+			//如果只执行一个节点，则肯定没有结束节点（它本身就是结束节点）
+			rootCtxCopy.hasEndNode = false
+		} else if ctx.ruleChainCtx != nil {
+			rootCtxCopy.hasEndNode = ctx.ruleChainCtx.HasEndDescendant(startId)
+		}
 
 		if ctx.GetNodeOutputCache() != nil {
 			rootCtxCopy.nodeOutputCache = ctx.GetNodeOutputCache()
@@ -687,6 +702,10 @@ func (ctx *DefaultRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) 
 	ctx.onAllNodeCompleted = onAllNodeCompleted
 }
 
+func (ctx *DefaultRuleContext) HasEndNode() bool {
+	return ctx.hasEndNode
+}
+
 // DoOnEnd  结束规则链分支执行，触发 OnEnd 回调函数
 func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationType string) {
 	// 在提交异步任务前捕获需要的值，避免并发访问
@@ -712,7 +731,7 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 	//通过`Config.OnEnd`设置
 	// 如果配置了结束节点，只有结束节点才能触发回调；如果没有配置结束节点，所有节点都可以触发
 	isEndNode := ctx.self != nil && ctx.self.Type() == types.NodeTypeEnd
-	if configOnEnd != nil && (ctx.ruleChainCtx == nil || !ctx.ruleChainCtx.HasEndNode() || isEndNode) {
+	if configOnEnd != nil && (ctx.ruleChainCtx == nil || !ctx.HasEndNode() || isEndNode) {
 		ctx.SubmitTask(func() {
 			configOnEnd(ctx, msgToUse, err, relationType)
 		})
@@ -722,7 +741,7 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 	if contextOnEnd != nil {
 		ctx.SubmitTask(func() {
 			// 如果配置了结束节点，只有结束节点才能触发回调；如果没有配置结束节点，所有节点都可以触发
-			if ctx.ruleChainCtx == nil || !ctx.ruleChainCtx.HasEndNode() || isEndNode {
+			if ctx.ruleChainCtx == nil || !ctx.HasEndNode() || isEndNode {
 				contextOnEnd(ctx, msgToUse, err, relationType)
 			}
 			ctx.childDone()
@@ -996,6 +1015,8 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 						})
 					}
 				} else {
+					//调用DoOnEnd 会调用 childDone()对waitingCount会减1，所以childReady和childDone成对出现
+					ctx.childReady()
 					//找不到子节点，则执行结束回调
 					ctx.DoOnEnd(msg, err, relationType)
 				}
