@@ -8,7 +8,7 @@ require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/mark3labs/mcp-go v0.18.0
-	github.com/rulego/rulego v0.34.2
+	github.com/rulego/rulego v0.34.3-0.20251127101136-50fd46c9c434
 	github.com/rulego/rulego-components v0.34.0
 	github.com/rulego/rulego-components-ai v0.31.1
 	github.com/rulego/rulego-components-ci v0.31.1-0.20250602161121-89f21f4c54fe
@@ -37,7 +37,6 @@ require (
 	github.com/apache/pulsar-client-go v0.16.0 // indirect
 	github.com/ardielle/ardielle-go v1.5.2 // indirect
 	github.com/aws/aws-sdk-go v1.34.0 // indirect
-	github.com/beanstalkd/go-beanstalk v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.4.0 // indirect
 	github.com/bufbuild/protocompile v0.14.1 // indirect
