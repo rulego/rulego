@@ -304,33 +304,45 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
 			}
 
-			// 执行并，检查是否有取消请求
+			// 执行并检查是否有取消请求
 			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg, x.Config.Mode); err != nil {
 				break
 			} else if x.Config.Mode == MergeValues {
 				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
 			} else if x.Config.Mode == ReplaceValues {
 				msg = lastMsg
+			}
+
+			// 检测是否触发中断
+			if msg.Metadata.GetValue(MdKeyBreak) == MdValueBreak {
+				msg.Metadata.Delete(MdKeyBreak)
+				break
 			}
 		}
 	case []int:
 		for index, item := range v {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
-			// 执行并，检查是否有取消请求
+			// 执行并检查是否有取消请求
 			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg, x.Config.Mode); err != nil {
 				break
 			} else if x.Config.Mode == MergeValues {
 				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
 			} else if x.Config.Mode == ReplaceValues {
 				msg = lastMsg
+			}
+
+			// 检测是否触发中断
+			if msg.Metadata.GetValue(MdKeyBreak) == MdValueBreak {
+				msg.Metadata.Delete(MdKeyBreak)
+				break
 			}
 		}
 	case []int64:
 		for index, item := range v {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
-			// 执行并，检查是否有取消请求
+			// 执行并检查是否有取消请求
 			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg, x.Config.Mode); err != nil {
 				break
 			} else if x.Config.Mode == MergeValues {
@@ -338,18 +350,30 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			} else if x.Config.Mode == ReplaceValues {
 				msg = lastMsg
 			}
+
+			// 检测是否触发中断
+			if msg.Metadata.GetValue(MdKeyBreak) == MdValueBreak {
+				msg.Metadata.Delete(MdKeyBreak)
+				break
+			}
 		}
 	case []float64:
 		for index, item := range v {
 			msg.Metadata.PutValue(KeyLoopIndex, strconv.Itoa(index))
 			msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
-			// 执行并，检查是否有取消请求
+			// 执行并检查是否有取消请求
 			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg, x.Config.Mode); err != nil {
 				break
 			} else if x.Config.Mode == MergeValues {
 				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
 			} else if x.Config.Mode == ReplaceValues {
 				msg = lastMsg
+			}
+
+			// 检测是否触发中断
+			if msg.Metadata.GetValue(MdKeyBreak) == MdValueBreak {
+				msg.Metadata.Delete(MdKeyBreak)
+				break
 			}
 		}
 	case map[string]interface{}:
@@ -363,13 +387,19 @@ func (x *ForNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			} else {
 				msg.Metadata.PutValue(KeyLoopItem, str.ToString(item))
 			}
-			// 执行并，检查是否有取消请求
+			// 执行并检查是否有取消请求
 			if lastMsg, itemDataList, err = x.executeItem(ctxWithCancel, ctx, msg, x.Config.Mode); err != nil {
 				break
 			} else if x.Config.Mode == MergeValues {
 				resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
 			} else if x.Config.Mode == ReplaceValues {
 				msg = lastMsg
+			}
+
+			// 检测是否触发中断
+			if msg.Metadata.GetValue(MdKeyBreak) == MdValueBreak {
+				msg.Metadata.Delete(MdKeyBreak)
+				break
 			}
 			index++
 		}
