@@ -312,6 +312,25 @@ func (md *Metadata) PutValue(key, value string) {
 	md.data[key] = value
 }
 
+// Delete removes the specified key and its value with Copy-on-Write semantics
+func (md *Metadata) Delete(key string) {
+
+	md.mu.Lock()
+	defer md.mu.Unlock()
+
+	if md.shared {
+		// Create a new copy of the data
+		newData := make(map[string]string, len(md.data))
+		for k, v := range md.data {
+			newData[k] = v
+		}
+		md.data = newData
+		md.shared = false
+	}
+
+	delete(md.data, key)
+}
+
 // Values returns all key-value pairs in the metadata.
 func (md *Metadata) Values() map[string]string {
 	md.mu.RLock()
