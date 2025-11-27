@@ -17,9 +17,11 @@
 package common
 
 import (
-	"github.com/rulego/rulego/components/filter"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/components/filter"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
@@ -94,6 +96,9 @@ func TestInclusiveNode(t *testing.T) {
 		}
 
 		seen := map[string]int{}
+		var seenMu sync.Mutex
+		var wg sync.WaitGroup
+		wg.Add(5)
 
 		var nodeList = []test.NodeAndCallback{
 			{
@@ -107,7 +112,9 @@ func TestInclusiveNode(t *testing.T) {
 					switch expect {
 					case "multi":
 						if relationType == "case1" || relationType == "case3" {
+							seenMu.Lock()
 							seen[relationType]++
+							seenMu.Unlock()
 						} else {
 							assert.True(t, false)
 						}
@@ -116,6 +123,7 @@ func TestInclusiveNode(t *testing.T) {
 					case "default":
 						assert.Equal(t, types.DefaultRelationType, relationType)
 					}
+					wg.Done()
 				},
 			},
 			{
@@ -123,6 +131,7 @@ func TestInclusiveNode(t *testing.T) {
 				MsgList: []test.Msg{msgMulti},
 				Callback: func(m types.RuleMsg, relationType string, err error) {
 					assert.Equal(t, types.Failure, relationType)
+					wg.Done()
 				},
 			},
 		}
@@ -131,7 +140,7 @@ func TestInclusiveNode(t *testing.T) {
 			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
 
-		time.Sleep(time.Millisecond * 50)
+		wg.Wait()
 		assert.Equal(t, 1, seen["case1"]) // 多匹配应路由到 case1
 		assert.Equal(t, 1, seen["case3"]) // 多匹配应路由到 case3
 	})
