@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package filter
+package common
 
 //规则链节点配置示例：
 //{
@@ -33,13 +33,14 @@ import (
 	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/components/filter"
 	"github.com/rulego/rulego/utils/maps"
 )
 
 // init 注册SwitchNode组件
 // init registers the SwitchNode component with the default registry.
 func init() {
-	Registry.Add(&SwitchNode{})
+	filter.Registry.Add(&SwitchNode{})
 }
 
 // SwitchNodeConfiguration SwitchNode配置结构
