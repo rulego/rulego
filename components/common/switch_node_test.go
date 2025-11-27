@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package filter
+package common
 
 import (
+	"github.com/rulego/rulego/components/filter"
 	"testing"
 	"time"
 
@@ -29,7 +30,7 @@ func TestSwitchNode(t *testing.T) {
 	var targetNodeType = "switch"
 
 	t.Run("NewNode", func(t *testing.T) {
-		test.NodeNew(t, targetNodeType, &SwitchNode{}, types.Configuration{}, Registry)
+		test.NodeNew(t, targetNodeType, &SwitchNode{}, types.Configuration{}, filter.Registry)
 	})
 
 	t.Run("InitNode", func(t *testing.T) {
@@ -55,7 +56,7 @@ func TestSwitchNode(t *testing.T) {
 					Then: "case2",
 				},
 			},
-		}, Registry)
+		}, filter.Registry)
 	})
 
 	t.Run("OnMsg", func(t *testing.T) {
@@ -66,13 +67,13 @@ func TestSwitchNode(t *testing.T) {
 				{"case": "msg.temperature > 30 && msg.humidity > 20", "then": "case3"},
 				{"case": "msg.temperature2!=nil &&msg.temperature2 > 50", "then": "case4"},
 			},
-		}, Registry)
+		}, filter.Registry)
 		assert.Nil(t, err)
 		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"cases": []map[string]string{
 				{"then": "case4", "case": "msg.temperature2 > 50"},
 			},
-		}, Registry)
+		}, filter.Registry)
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
 		msg1 := test.Msg{
