@@ -119,6 +119,117 @@ func TestDelayNode(t *testing.T) {
 		})
 	})
 
+	// 延迟偏移：偏移时间大于或等于延迟，立即执行
+	t.Run("DelayOffsetImmediate", func(t *testing.T) {
+		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"delayMs":        "1000",
+			"maxPendingMsgs": 1,
+		}, Registry)
+		assert.Nil(t, err)
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "test")
+		// 等于延迟
+		metaData.PutValue(KeyDelayOffsetMs, "1000")
+
+		var msgList = []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "AA",
+				AfterSleep: time.Millisecond * 200,
+			},
+		}
+		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+			assert.Equal(t, types.Success, relationType)
+		})
+
+		// 大于延迟
+		metaData.PutValue(KeyDelayOffsetMs, "1500")
+		msgList = []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "BB",
+				AfterSleep: time.Millisecond * 200,
+			},
+		}
+		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+			assert.Equal(t, types.Success, relationType)
+		})
+	})
+
+	// 延迟偏移：偏移时间小于延迟，按剩余时间延迟
+	t.Run("DelayOffsetReduced", func(t *testing.T) {
+		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"delayMs":        "2000",
+			"maxPendingMsgs": 1,
+		}, Registry)
+		assert.Nil(t, err)
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "test")
+		metaData.PutValue(KeyDelayOffsetMs, "500")
+
+		var msgList = []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "AA",
+				AfterSleep: time.Millisecond * 1800,
+			},
+		}
+		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+			assert.Equal(t, types.Success, relationType)
+		})
+	})
+
+	// 延迟偏移：元数据值非法，走失败链路
+	t.Run("DelayOffsetInvalid", func(t *testing.T) {
+		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"delayMs":        "1000",
+			"maxPendingMsgs": 1,
+		}, Registry)
+		assert.Nil(t, err)
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "test")
+		metaData.PutValue(KeyDelayOffsetMs, "invalid")
+
+		var msgList = []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "AA",
+				AfterSleep: time.Millisecond * 200,
+			},
+		}
+		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+			assert.Equal(t, types.Failure, relationType)
+		})
+	})
+
+	// 兼容旧配置：periodInSeconds + 延迟偏移
+	t.Run("DelayOffsetWithPeriodInSeconds", func(t *testing.T) {
+		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"periodInSeconds": 2,
+			"maxPendingMsgs":  1,
+		}, Registry)
+		assert.Nil(t, err)
+		metaData := types.BuildMetadata(make(map[string]string))
+		metaData.PutValue("productType", "test")
+		metaData.PutValue(KeyDelayOffsetMs, "1000")
+
+		var msgList = []test.Msg{
+			{
+				MetaData:   metaData,
+				MsgType:    "ACTIVITY_EVENT",
+				Data:       "AA",
+				AfterSleep: time.Millisecond * 1200,
+			},
+		}
+		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+			assert.Equal(t, types.Success, relationType)
+		})
+	})
+
 	// 测试向后兼容性 - 旧的periodInSeconds字段
 	t.Run("BackwardCompatibility", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{

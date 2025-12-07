@@ -43,6 +43,10 @@ import (
 
 var DelayNodeMsgType = "DELAY_NODE_MSG_TYPE"
 
+// KeyDelayOffsetMs 内部特殊元数据键：延迟偏移时间（毫秒），用于组件执行恢复后从偏移点继续执行
+// KeyDelayOffsetMs internal special metadata key: delay offset time in milliseconds
+const KeyDelayOffsetMs = "_delayOffsetMs"
+
 // 注册节点
 func init() {
 	Registry.Add(&DelayNode{})
@@ -179,6 +183,23 @@ func (x *DelayNode) getDelayMilliseconds(ctx types.RuleContext, msg types.RuleMs
 	return int64(periodInSeconds * 1000), nil
 }
 
+// getOffsetMilliseconds 从元数据中获取延迟偏移时间（毫秒）
+// getOffsetMilliseconds reads delay offset time in milliseconds from message metadata
+func (x *DelayNode) getOffsetMilliseconds(msg types.RuleMsg) (int64, error) {
+	if msg.Metadata == nil {
+		return 0, nil
+	}
+	v := msg.Metadata.GetValue(KeyDelayOffsetMs)
+	if v == "" {
+		return 0, nil
+	}
+	if offset, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err != nil {
+		return 0, fmt.Errorf("failed to parse offset ms from metadata '%s': %w", v, err)
+	} else {
+		return offset, nil
+	}
+}
+
 // OnMsg 处理消息，实现延迟队列逻辑
 func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
@@ -216,6 +237,19 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				ctx.TellFailure(msg, err)
 				return
 			}
+			// 从元数据读取偏移时间
+			offsetMs, err := x.getOffsetMilliseconds(msg)
+			if err != nil {
+				ctx.TellFailure(msg, err)
+				return
+			}
+			// 计算实际延迟
+			adjustedDelay := periodInMilliseconds - offsetMs
+			if adjustedDelay <= 0 {
+				// 少于等于0，立即执行，不再进入延迟队列
+				ctx.TellSuccess(msg)
+				return
+			}
 
 			//如果是覆盖模式
 			if x.Config.Overwrite {
@@ -227,7 +261,7 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 			ackMsg := msg.Copy()
 			ackMsg.Type = DelayNodeMsgType
-			ctx.TellSelf(ackMsg, periodInMilliseconds)
+			ctx.TellSelf(ackMsg, adjustedDelay)
 		} else {
 			ctx.TellFailure(msg, fmt.Errorf("max limit of pending messages"))
 		}
