@@ -820,10 +820,6 @@ func (e *RuleEngine) Stop(ctx context.Context) {
 // applyShutdownContext applies shutdown context handling to the rule context.
 // This method now only preserves context values from user context while using shutdown context for cancellation.
 // The user context cancellation feature has been removed to prevent goroutine leaks in high concurrency scenarios.
-//
-// applyShutdownContext 将停机上下文处理应用到规则上下文。
-// 此方法现在只保留用户上下文的值，同时使用停机上下文进行取消。
-// 已移除用户上下文取消功能以防止高并发场景下的协程泄漏。
 func (e *RuleEngine) applyShutdownContext(rootCtxCopy, rootCtx *DefaultRuleContext) {
 	shutdownCtx := e.GetShutdownContext()
 	if shutdownCtx == nil {
@@ -838,10 +834,21 @@ func (e *RuleEngine) applyShutdownContext(rootCtxCopy, rootCtx *DefaultRuleConte
 		// User provided custom context, preserve its values but use shutdown context for cancellation
 		// This prevents goroutine leaks while maintaining context value inheritance
 		// 用户提供了自定义上下文，保留其值但使用停机上下文进行取消
-		// 这防止了协程泄漏同时保持上下文值继承
 		userCtx := rootCtxCopy.GetContext()
-		combinedCtx := e.combineContextsValueOnly(userCtx, shutdownCtx)
+		combinedCtx, cancel := e.combineContextsValueOnly(userCtx, shutdownCtx)
 		rootCtxCopy.SetContext(combinedCtx)
+
+		// Ensure context is cancelled when rule chain execution completes
+		// 确保规则链执行完成时取消上下文
+		if cancel != nil {
+			originalOnAllNodeCompleted := rootCtxCopy.onAllNodeCompleted
+			rootCtxCopy.SetOnAllNodeCompleted(func() {
+				cancel()
+				if originalOnAllNodeCompleted != nil {
+					originalOnAllNodeCompleted()
+				}
+			})
+		}
 	}
 }
 
@@ -859,22 +866,23 @@ func (e *RuleEngine) applyShutdownContext(rootCtxCopy, rootCtx *DefaultRuleConte
 // 1. 从用户上下文继承所有值
 // 2. 可以被用户上下文或停机上下文取消
 // 3. 使用受控的协程，当上下文被取消时会被清理
-func (e *RuleEngine) combineContextsValueOnly(userCtx, shutdownCtx context.Context) context.Context {
+func (e *RuleEngine) combineContextsValueOnly(userCtx, shutdownCtx context.Context) (context.Context, context.CancelFunc) {
 	// Check if either context is already cancelled
 	// 检查任一上下文是否已取消
 	select {
 	case <-userCtx.Done():
 		// User context already cancelled, return it directly
 		// 用户上下文已取消，直接返回
-		return userCtx
+		return userCtx, func() {}
 	case <-shutdownCtx.Done():
 		// Shutdown context already cancelled, return it directly
 		// 停机上下文已取消，直接返回
-		return shutdownCtx
+		return shutdownCtx, func() {}
 	default:
 		// Both contexts are active, create combined context
 		// 两个上下文都活跃，创建组合上下文
-		return newCombinedCancelContext(userCtx, shutdownCtx)
+		c := newCombinedCancelContext(userCtx, shutdownCtx)
+		return c, c.Cancel
 	}
 }
 
@@ -893,7 +901,6 @@ type combinedCancelContext struct {
 	errOnce     sync.Once
 	errMu       sync.Mutex
 	doneOnce    sync.Once
-	done        chan struct{} // Lazy initialized channel
 }
 
 // newCombinedCancelContext creates a new combined context that can be cancelled
@@ -910,14 +917,11 @@ func newCombinedCancelContext(userCtx, shutdownCtx context.Context) *combinedCan
 		// 用户上下文已取消，创建一个已取消的上下文
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Immediately cancel
-		done := make(chan struct{})
-		close(done) // Already cancelled
 		c := &combinedCancelContext{
 			userCtx:     userCtx,
 			shutdownCtx: shutdownCtx,
 			ctx:         ctx,
 			cancel:      cancel,
-			done:        done,
 		}
 		c.setErr(userCtx.Err())
 		return c
@@ -926,14 +930,11 @@ func newCombinedCancelContext(userCtx, shutdownCtx context.Context) *combinedCan
 		// 停机上下文已取消，创建一个已取消的上下文
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Immediately cancel
-		done := make(chan struct{})
-		close(done) // Already cancelled
 		c := &combinedCancelContext{
 			userCtx:     userCtx,
 			shutdownCtx: shutdownCtx,
 			ctx:         ctx,
 			cancel:      cancel,
-			done:        done,
 		}
 		c.setErr(shutdownCtx.Err())
 		return c
@@ -956,39 +957,6 @@ func newCombinedCancelContext(userCtx, shutdownCtx context.Context) *combinedCan
 	}
 }
 
-// startMonitoring starts a goroutine to monitor both parent contexts.
-// This is called lazily when Done() is first accessed.
-// startMonitoring 启动一个协程来监控两个父上下文。
-// 这在首次访问Done()时延迟调用。
-func (c *combinedCancelContext) startMonitoring() {
-	c.doneOnce.Do(func() {
-		// Initialize done channel
-		// 初始化done通道
-		c.done = make(chan struct{})
-
-		// Start a single goroutine to monitor both contexts
-		// This goroutine will exit immediately when either context is cancelled
-		// 启动单个协程来监控两个上下文
-		// 当任一上下文取消时，此协程将立即退出
-		go func() {
-			select {
-			case <-c.userCtx.Done():
-				c.setErr(c.userCtx.Err())
-				c.cancel()
-				close(c.done)
-			case <-c.shutdownCtx.Done():
-				c.setErr(c.shutdownCtx.Err())
-				c.cancel()
-				close(c.done)
-			case <-c.ctx.Done():
-				// Internal context cancelled, exit goroutine
-				// 内部上下文已取消，退出协程
-				close(c.done)
-			}
-		}()
-	})
-}
-
 // setErr sets the error once when the context is cancelled
 // setErr 在上下文被取消时设置错误（仅设置一次）
 func (c *combinedCancelContext) setErr(err error) {
@@ -997,6 +965,12 @@ func (c *combinedCancelContext) setErr(err error) {
 		c.err = err
 		c.errMu.Unlock()
 	})
+}
+
+// Cancel cancels the context and stops the monitoring goroutine.
+// Cancel 取消上下文并停止监控协程。
+func (c *combinedCancelContext) Cancel() {
+	c.cancel()
 }
 
 // Done returns a channel that is closed when the context is cancelled.
@@ -1011,21 +985,17 @@ func (c *combinedCancelContext) Done() <-chan struct{} {
 		// Already cancelled, return closed channel
 		// 已取消，返回已关闭的通道
 		c.setErr(c.userCtx.Err())
-		done := make(chan struct{})
-		close(done)
-		return done
+		return c.userCtx.Done()
 	case <-c.shutdownCtx.Done():
 		// Already cancelled, return closed channel
 		// 已取消，返回已关闭的通道
 		c.setErr(c.shutdownCtx.Err())
-		done := make(chan struct{})
-		close(done)
-		return done
+		return c.shutdownCtx.Done()
 	default:
 		// Start monitoring lazily
 		// 延迟开始监控
 		c.startMonitoring()
-		return c.done
+		return c.ctx.Done()
 	}
 }
 
@@ -1034,7 +1004,10 @@ func (c *combinedCancelContext) Done() <-chan struct{} {
 func (c *combinedCancelContext) Err() error {
 	c.errMu.Lock()
 	defer c.errMu.Unlock()
-	return c.err
+	if c.err != nil {
+		return c.err
+	}
+	return c.ctx.Err()
 }
 
 // Deadline returns the earlier deadline of the two parent contexts, or ok=false if neither has a deadline.
@@ -1378,8 +1351,57 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 	e.processMessage(rootCtxCopy, processedMsg, wait)
 }
 
-// onStart executes the list of start aspects before the rule chain begins processing a message.
-// onStart 在规则链开始处理消息前执行开始切面列表。
+// processMessage processes the message through the rule chain with optional waiting.
+// processMessage 通过规则链处理消息，可选择等待。
+func (e *RuleEngine) processMessage(rootCtxCopy *DefaultRuleContext, msg types.RuleMsg, wait bool) {
+	// Set up a custom function to be called upon completion of all nodes
+	// 设置在所有节点完成时要调用的自定义函数
+	customFunc := rootCtxCopy.onAllNodeCompleted
+
+	// Wrap the custom function to ensure execution order: customFunc (cancel) -> doOnAllNodeCompleted logic
+	// This wrapper ensures that the cancel function registered in applyShutdownContext is executed
+	// regardless of whether we wait or not, and it's executed as part of the completion chain.
+	// 包装自定义函数以确保执行顺序：customFunc (cancel) -> doOnAllNodeCompleted 逻辑
+	// 此包装器确保 applyShutdownContext 中注册的取消函数无论是否等待都会执行，并且作为完成链的一部分执行。
+
+	if wait {
+		// If waiting is required, set up a channel to synchronize the completion
+		// 如果需要等待，设置通道来同步完成
+		c := make(chan struct{})
+		rootCtxCopy.onAllNodeCompleted = func() {
+			defer close(c)
+			// Execute the original custom function (which includes cancel) first if it exists
+			// 如果存在，首先执行原始自定义函数（包括取消）
+			if customFunc != nil {
+				customFunc()
+			}
+			// Execute the completion handling function
+			// 执行完成处理函数
+			e.doOnAllNodeCompleted(rootCtxCopy, msg, nil)
+		}
+		// Process the message through the rule chain
+		// 通过规则链处理消息
+		rootCtxCopy.TellNext(msg, rootCtxCopy.relationTypes...)
+		// Block until all nodes have completed
+		// 阻塞直到所有节点完成
+		<-c
+	} else {
+		// If not waiting, simply set the completion handling function
+		// 如果不等待，只需设置完成处理函数
+		rootCtxCopy.onAllNodeCompleted = func() {
+			// Execute the original custom function (which includes cancel) first if it exists
+			// 如果存在，首先执行原始自定义函数（包括取消）
+			if customFunc != nil {
+				customFunc()
+			}
+			e.doOnAllNodeCompleted(rootCtxCopy, msg, nil)
+		}
+		// Process the message through the rule chain
+		// 通过规则链处理消息
+		rootCtxCopy.TellNext(msg, rootCtxCopy.relationTypes...)
+	}
+}
+
 // handleEngineNotInitializedError handles the case when the rule engine is not initialized.
 // handleEngineNotInitializedError 处理规则引擎未初始化的情况。
 func (e *RuleEngine) handleEngineNotInitializedError(msg types.RuleMsg, opts ...types.RuleContextOption) {
@@ -1459,41 +1481,6 @@ func (e *RuleEngine) setupEndCallback(rootCtxCopy *DefaultRuleContext) {
 		if customOnEndFunc != nil {
 			customOnEndFunc(ctx, msg, err, relationType)
 		}
-	}
-}
-
-// processMessage processes the message through the rule chain with optional waiting.
-// processMessage 通过规则链处理消息，可选择等待。
-func (e *RuleEngine) processMessage(rootCtxCopy *DefaultRuleContext, msg types.RuleMsg, wait bool) {
-	// Set up a custom function to be called upon completion of all nodes
-	// 设置在所有节点完成时要调用的自定义函数
-	customFunc := rootCtxCopy.onAllNodeCompleted
-
-	if wait {
-		// If waiting is required, set up a channel to synchronize the completion
-		// 如果需要等待，设置通道来同步完成
-		c := make(chan struct{})
-		rootCtxCopy.onAllNodeCompleted = func() {
-			defer close(c)
-			// Execute the completion handling function
-			// 执行完成处理函数
-			e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
-		}
-		// Process the message through the rule chain
-		// 通过规则链处理消息
-		rootCtxCopy.TellNext(msg, rootCtxCopy.relationTypes...)
-		// Block until all nodes have completed
-		// 阻塞直到所有节点完成
-		<-c
-	} else {
-		// If not waiting, simply set the completion handling function
-		// 如果不等待，只需设置完成处理函数
-		rootCtxCopy.onAllNodeCompleted = func() {
-			e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
-		}
-		// Process the message through the rule chain
-		// 通过规则链处理消息
-		rootCtxCopy.TellNext(msg, rootCtxCopy.relationTypes...)
 	}
 }
 
