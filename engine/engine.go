@@ -1179,16 +1179,17 @@ func (e *RuleEngine) doOnAllNodeCompleted(rootCtxCopy *DefaultRuleContext, msg t
 	// 在所有节点完成后执行切面。
 	e.onAllNodeCompleted(rootCtxCopy, msg)
 
-	// Complete the run snapshot if it exists.
-	// 如果运行快照存在，则完成它。
-	if rootCtxCopy.runSnapshot != nil {
-		rootCtxCopy.runSnapshot.onRuleChainCompleted(rootCtxCopy)
-	}
 	// Trigger custom callback if provided.
 	// 如果提供了自定义回调，则触发它。
 	if customFunc != nil {
 		customFunc()
 	}
+	// Complete the run snapshot if it exists.
+	// 如果运行快照存在，则完成它。
+	if rootCtxCopy.runSnapshot != nil {
+		rootCtxCopy.runSnapshot.onRuleChainCompleted(rootCtxCopy)
+	}
+
 	// 减少活跃消息计数
 	e.decrementActiveMessages()
 }
@@ -1358,26 +1359,15 @@ func (e *RuleEngine) processMessage(rootCtxCopy *DefaultRuleContext, msg types.R
 	// 设置在所有节点完成时要调用的自定义函数
 	customFunc := rootCtxCopy.onAllNodeCompleted
 
-	// Wrap the custom function to ensure execution order: customFunc (cancel) -> doOnAllNodeCompleted logic
-	// This wrapper ensures that the cancel function registered in applyShutdownContext is executed
-	// regardless of whether we wait or not, and it's executed as part of the completion chain.
-	// 包装自定义函数以确保执行顺序：customFunc (cancel) -> doOnAllNodeCompleted 逻辑
-	// 此包装器确保 applyShutdownContext 中注册的取消函数无论是否等待都会执行，并且作为完成链的一部分执行。
-
 	if wait {
 		// If waiting is required, set up a channel to synchronize the completion
 		// 如果需要等待，设置通道来同步完成
 		c := make(chan struct{})
 		rootCtxCopy.onAllNodeCompleted = func() {
 			defer close(c)
-			// Execute the original custom function (which includes cancel) first if it exists
-			// 如果存在，首先执行原始自定义函数（包括取消）
-			if customFunc != nil {
-				customFunc()
-			}
 			// Execute the completion handling function
 			// 执行完成处理函数
-			e.doOnAllNodeCompleted(rootCtxCopy, msg, nil)
+			e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 		}
 		// Process the message through the rule chain
 		// 通过规则链处理消息
@@ -1389,12 +1379,7 @@ func (e *RuleEngine) processMessage(rootCtxCopy *DefaultRuleContext, msg types.R
 		// If not waiting, simply set the completion handling function
 		// 如果不等待，只需设置完成处理函数
 		rootCtxCopy.onAllNodeCompleted = func() {
-			// Execute the original custom function (which includes cancel) first if it exists
-			// 如果存在，首先执行原始自定义函数（包括取消）
-			if customFunc != nil {
-				customFunc()
-			}
-			e.doOnAllNodeCompleted(rootCtxCopy, msg, nil)
+			e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 		}
 		// Process the message through the rule chain
 		// 通过规则链处理消息
