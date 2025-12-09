@@ -377,16 +377,13 @@ func (r *RunSnapshot) collectRunSnapshot(ctx types.RuleContext, flowType string,
 	if !r.needCollectRunSnapshot() {
 		return
 	}
-	r.lock.RLock()
+	r.lock.Lock()
 	nodeLog, ok := r.logs[nodeId]
-	r.lock.RUnlock()
 	if !ok {
 		nodeLog = &types.RuleNodeRunLog{
 			Id: nodeId,
 		}
-		r.lock.Lock()
 		r.logs[nodeId] = nodeLog
-		r.lock.Unlock()
 	}
 	// If the flow type is 'In', update the log with the incoming message and timestamp.
 	if flowType == types.In {
@@ -394,6 +391,8 @@ func (r *RunSnapshot) collectRunSnapshot(ctx types.RuleContext, flowType string,
 		nodeLog.StartTs = time.Now().UnixMilli()
 	}
 	// If the flow type is 'Out', update the log with the outgoing message, relation type, and timestamp.
+	var logCopy types.RuleNodeRunLog
+	triggerCallback := false
 	if flowType == types.Out {
 		nodeLog.OutMsg = msg
 		nodeLog.RelationType = relationType
@@ -402,12 +401,18 @@ func (r *RunSnapshot) collectRunSnapshot(ctx types.RuleContext, flowType string,
 		}
 		nodeLog.EndTs = time.Now().UnixMilli()
 		if r.onNodeCompletedFunc != nil {
-			r.onNodeCompletedFunc(ctx, *nodeLog)
+			logCopy = *nodeLog
+			triggerCallback = true
 		}
 	}
 	// If the flow type is 'Log', append the log item to the node's log items.
 	if flowType == types.Log {
 		nodeLog.LogItems = append(nodeLog.LogItems, msg.GetData())
+	}
+	r.lock.Unlock()
+
+	if triggerCallback {
+		r.onNodeCompletedFunc(ctx, logCopy)
 	}
 }
 
