@@ -1,0 +1,114 @@
+{
+  "ruleChain": {
+    "id": "complex_restore_chain",
+    "name": "Complex Restore Chain",
+    "root": true
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "node_a",
+        "type": "fork",
+        "name": "Fork Node"
+      },
+      {
+        "id": "node_b1",
+        "type": "jsTransform",
+        "name": "B1",
+        "configuration": {
+          "jsScript": "msg.b1 = 'executed'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+        }
+      },
+      {
+        "id": "node_b2",
+        "type": "jsTransform",
+        "name": "B2",
+        "configuration": {
+          "jsScript": "msg.b2 = 'executed'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+        }
+      },
+      {
+        "id": "node_c1",
+        "type": "jsTransform",
+        "name": "C1",
+        "configuration": {
+          "jsScript": "msg.c1 = 'executed'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+        }
+      },
+      {
+        "id": "node_c2",
+        "type": "jsTransform",
+        "name": "C2",
+        "configuration": {
+          "jsScript": "msg.c2 = 'executed'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+        }
+      },
+      {
+        "id": "node_d",
+        "type": "join",
+        "name": "Join Node",
+        "configuration": {
+          "timeout": 5
+        }
+      },
+      {
+        "id": "node_e",
+        "type": "jsTransform",
+        "name": "After Join Node 1",
+        "configuration": {
+          "jsScript": "metadata.e = 'executed'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+        }
+      },
+      {
+        "id": "node_f",
+        "type": "jsTransform",
+        "name": "After Join Node 2",
+        "configuration": {
+          "jsScript": "metadata.f = 'executed'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "node_a",
+        "toId": "node_b1",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_a",
+        "toId": "node_b2",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_b1",
+        "toId": "node_c1",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_b2",
+        "toId": "node_c2",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_c1",
+        "toId": "node_d",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_c2",
+        "toId": "node_d",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_d",
+        "toId": "node_e",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_e",
+        "toId": "node_f",
+        "type": "Success"
+      }
+    ]
+  }
+}

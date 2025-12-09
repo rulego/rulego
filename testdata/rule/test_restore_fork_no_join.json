@@ -1,0 +1,70 @@
+{
+  "ruleChain": {
+    "id": "fork_no_join_chain",
+    "name": "Fork No Join Chain",
+    "root": true
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "node_a",
+        "type": "fork",
+        "name": "Fork Node"
+      },
+      {
+        "id": "node_b1",
+        "type": "jsTransform",
+        "name": "B1",
+        "configuration": {
+          "jsScript": "msg.b1 = 'executed'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+        }
+      },
+      {
+        "id": "node_b2",
+        "type": "jsTransform",
+        "name": "B2",
+        "configuration": {
+          "jsScript": "msg.b2 = 'executed'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+        }
+      },
+      {
+        "id": "node_c1",
+        "type": "jsTransform",
+        "name": "C1",
+        "configuration": {
+          "jsScript": "msg.c1 = 'executed'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+        }
+      },
+      {
+        "id": "node_c2",
+        "type": "jsTransform",
+        "name": "C2",
+        "configuration": {
+          "jsScript": "msg.c2 = 'executed'; return {'msg': msg, 'metadata': metadata, 'msgType': msgType};"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "node_a",
+        "toId": "node_b1",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_a",
+        "toId": "node_b2",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_b1",
+        "toId": "node_c1",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_b2",
+        "toId": "node_c2",
+        "type": "Success"
+      }
+    ]
+  }
+}

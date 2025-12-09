@@ -435,6 +435,11 @@ func (rc *RuleChainCtx) GetLCA(id types.RuleNodeId) (types.RuleNodeId, bool) {
 	return rc.lcaCalculator.GetLCA(id)
 }
 
+// GetLCAOfNodes finds the lowest common ancestor of multiple nodes.
+func (rc *RuleChainCtx) GetLCAOfNodes(nodeIds []types.RuleNodeId) (types.RuleNodeId, bool) {
+	return rc.lcaCalculator.GetLCAOfNodes(nodeIds)
+}
+
 // GetNextNodes retrieves the child nodes of the current node with the specified relationship
 // This method implements a two-level caching strategy: first checking the relationCache,
 // then building the cache if needed, providing high-performance routing for message flow.

@@ -277,9 +277,10 @@ func (ctx *NodeTestRuleContext) GetCallbackFunc(functionName string) interface{}
 func (ctx *NodeTestRuleContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 }
 
-func (ctx *NodeTestRuleContext) SetExecuteNode(nodeId string, relationTypes ...string) {
+func (ctx *NodeTestRuleContext) SetExecuteNodes(nodes ...types.NodeRequest) {
 
 }
+
 func (ctx *NodeTestRuleContext) TellCollect(msg types.RuleMsg, callback func(msgList []types.WrapperMsg)) bool {
 	callback(nil)
 	return true

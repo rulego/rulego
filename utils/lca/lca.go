@@ -2,6 +2,7 @@ package lca
 
 import (
 	"sync"
+
 	"github.com/rulego/rulego/api/types"
 )
 
@@ -72,16 +73,125 @@ func (lca *LCACalculator) GetLCA(nodeId types.RuleNodeId) (types.RuleNodeId, boo
 	return types.RuleNodeId{}, false
 }
 
+// GetLCAOfNodes finds the lowest common ancestor of multiple nodes.
+// GetLCAOfNodes 查找多个节点的最低共同祖先。
+func (lca *LCACalculator) GetLCAOfNodes(nodeIds []types.RuleNodeId) (types.RuleNodeId, bool) {
+	if len(nodeIds) == 0 {
+		return types.RuleNodeId{}, false
+	}
+	if len(nodeIds) == 1 {
+		// Use GetParentNodeIds to find parents.
+		// If multiple parents, it's ambiguous. But usually we look for a common fork node.
+		// Let's assume we need to find a common ancestor in the graph.
+		// But wait, GetLCA is designed for finding LCA of parents of a SINGLE node (Join node).
+		// Here we have multiple nodes (branches), we want to find THEIR common ancestor.
+
+		// We can reuse lcaCalculator logic if it supports finding LCA of a set of nodes.
+		// lcaCalculator usually builds parent pointers.
+		// Let's check lcaCalculator implementation. It's likely internal or not exposed fully.
+		// But we have GetParentNodeIds(id).
+
+		// Simple approach: Get parents of the first node.
+		parents, ok := lca.parentProvider.GetParentNodeIds(nodeIds[0])
+		if ok && len(parents) > 0 {
+			// 如果有多个父节点，返回其中一个（通常在树状结构中只有一个父节点，或者多个父节点最终汇聚）
+			// 这里简单返回第一个，作为上下文的父节点
+			return parents[0], true
+		} else {
+			// 如果没有父节点（即根节点），那么它自己就是自己的"父上下文"挂载点？
+			// 或者返回自己？
+			// 如果返回自己，那么 engine.processRestoreNodes 会使用它作为 parentCtx。
+			// 如果它是根节点，parentCtx.parentRuleCtx 应该是 rootCtxCopy。
+			// 如果它是根节点，它没有父节点。
+			return nodeIds[0], true
+		}
+	}
+
+	// Check if they share a direct parent
+	// Get all ancestors for each node
+	allAncestors := make([]map[types.RuleNodeId]bool, len(nodeIds))
+
+	for i, startNode := range nodeIds {
+		allAncestors[i] = make(map[types.RuleNodeId]bool)
+		// Add self as ancestor (LCA can be one of the nodes)
+		allAncestors[i][startNode] = true
+
+		queue := []types.RuleNodeId{startNode}
+		visited := make(map[types.RuleNodeId]bool)
+		visited[startNode] = true
+
+		for len(queue) > 0 {
+			curr := queue[0]
+			queue = queue[1:]
+
+			parents, ok := lca.parentProvider.GetParentNodeIds(curr)
+			if ok {
+				for _, p := range parents {
+					if !visited[p] {
+						visited[p] = true
+						allAncestors[i][p] = true
+						queue = append(queue, p)
+					}
+				}
+			}
+		}
+	}
+
+	// Find intersection
+	common := make([]types.RuleNodeId, 0)
+	// Iterate over ancestors of first node
+	for anc := range allAncestors[0] {
+		isCommon := true
+		for i := 1; i < len(nodeIds); i++ {
+			if !allAncestors[i][anc] {
+				isCommon = false
+				break
+			}
+		}
+		if isCommon {
+			common = append(common, anc)
+		}
+	}
+
+	if len(common) == 0 {
+		return types.RuleNodeId{}, false
+	}
+
+	// Find lowest (no other common ancestor is its descendant)
+	for _, candidate := range common {
+		// Check if candidate is ancestor of any OTHER candidate
+		isAncestorOfOther := false
+		for _, other := range common {
+			if candidate == other {
+				continue
+			}
+			// Is candidate an ancestor of other?
+			if lca.isAncestor(candidate, other) {
+				isAncestorOfOther = true
+				break
+			}
+		}
+		if !isAncestorOfOther {
+			return candidate, true
+		}
+	}
+	if len(common) > 0 {
+		return common[0], true
+	}
+
+	return types.RuleNodeId{}, false
+}
+
 // computeSingleParentLCA computes LCA for nodes with only one parent
 // computeSingleParentLCA 计算只有一个父节点的节点的LCA
 func (lca *LCACalculator) computeSingleParentLCA(parentId types.RuleNodeId) (types.RuleNodeId, bool) {
 	// For single parent case, find the topmost ancestor
 	// 对于单父节点情况，查找最顶层的祖先
-	
+
 	// Get all ancestors by level
 	// 获取所有层级的祖先
 	ancestors := lca.getAncestorsByLevel(parentId)
-	
+
 	// If parent has ancestors, return the topmost one
 	// 如果父节点有祖先，返回最顶层的祖先
 	if len(ancestors) > 0 {
@@ -92,7 +202,7 @@ func (lca *LCACalculator) computeSingleParentLCA(parentId types.RuleNodeId) (typ
 			return lastLevel[0], true
 		}
 	}
-	
+
 	// If parent has no ancestors, return parent itself as LCA
 	// 如果父节点没有祖先，返回父节点本身作为 LCA
 	return parentId, true
@@ -108,7 +218,7 @@ func (lca *LCACalculator) computeMultipleParentsLCA(parentIds []types.RuleNodeId
 			return candidateParent, true
 		}
 	}
-	
+
 	// If no parent is a common ancestor, use optimized cross-level algorithm
 	// 如果没有父节点是公共祖先，使用优化的跨层级算法
 	return lca.findOptimizedCrossLevelLCA(parentIds)
@@ -134,13 +244,13 @@ func (lca *LCACalculator) findOptimizedCrossLevelLCA(parentIds []types.RuleNodeI
 	// Build all ancestors for each parent using BFS
 	// 使用BFS为每个父节点构建所有祖先
 	allAncestors := make([]map[types.RuleNodeId]int, len(parentIds)) // map[nodeId]level
-	
+
 	for i, parentId := range parentIds {
 		allAncestors[i] = make(map[types.RuleNodeId]int)
 		// Add the parent itself as level 0 ancestor
 		// 将父节点本身作为第0层祖先添加
 		allAncestors[i][parentId] = 0
-		
+
 		// Add all ancestors of this parent with their levels
 		// 添加此父节点的所有祖先及其层级
 		ancestorsByLevel := lca.getAncestorsByLevel(parentId)
@@ -154,13 +264,13 @@ func (lca *LCACalculator) findOptimizedCrossLevelLCA(parentIds []types.RuleNodeI
 	// Find common ancestors with their minimum levels
 	// 查找共同祖先及其最小层级
 	commonAncestors := make(map[types.RuleNodeId]int)
-	
+
 	// Start with first parent's ancestors
 	// 从第一个父节点的祖先开始
 	for ancestor, level := range allAncestors[0] {
 		minLevel := level
 		isCommon := true
-		
+
 		// Check if this ancestor exists in all other parents' ancestors
 		// 检查此祖先是否存在于所有其他父节点的祖先中
 		for i := 1; i < len(allAncestors); i++ {
@@ -173,7 +283,7 @@ func (lca *LCACalculator) findOptimizedCrossLevelLCA(parentIds []types.RuleNodeI
 				break
 			}
 		}
-		
+
 		if isCommon {
 			commonAncestors[ancestor] = minLevel
 		}
@@ -189,7 +299,7 @@ func (lca *LCACalculator) findOptimizedCrossLevelLCA(parentIds []types.RuleNodeI
 	// 查找最低（层级数最高，最接近叶子节点）的共同祖先
 	var lowestAncestor types.RuleNodeId
 	maxLevel := -1
-	
+
 	for ancestor, level := range commonAncestors {
 		if level > maxLevel {
 			maxLevel = level
