@@ -717,11 +717,9 @@ func (ctx *DefaultRuleContext) HasEndNode() bool {
 
 // DoOnEnd  结束规则链分支执行，触发 OnEnd 回调函数
 func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationType string) {
-	// 在提交异步任务前捕获需要的值，避免并发访问
 	configOnEnd := ctx.config.OnEnd
 	contextOnEnd := ctx.onEnd
 
-	// 智能拷贝优化：只有在真正需要异步安全时才拷贝
 	needsCopy := configOnEnd != nil || contextOnEnd != nil
 
 	var msgToUse types.RuleMsg
@@ -736,21 +734,17 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 		msgToUse = msg
 	}
 
-	//全局回调
-	//通过`Config.OnEnd`设置
 	// 如果配置了结束节点，只有结束节点才能触发回调；如果没有配置结束节点，所有节点都可以触发
 	isEndNode := ctx.self != nil && ctx.self.Type() == types.NodeTypeEnd
-	if configOnEnd != nil && (ctx.ruleChainCtx == nil || !ctx.HasEndNode() || isEndNode) {
+	if configOnEnd != nil || contextOnEnd != nil {
 		ctx.SubmitTask(func() {
-			configOnEnd(ctx, msgToUse, err, relationType)
-		})
-	}
-	//单条消息的context回调
-	//通过OnMsgWithEndFunc(msg, endFunc)设置
-	if contextOnEnd != nil {
-		ctx.SubmitTask(func() {
-			// 如果配置了结束节点，只有结束节点才能触发回调；如果没有配置结束节点，所有节点都可以触发
-			if ctx.ruleChainCtx == nil || !ctx.HasEndNode() || isEndNode {
+			//全局回调
+			//通过`Config.OnEnd`设置
+			if configOnEnd != nil && (ctx.ruleChainCtx == nil || !ctx.HasEndNode() || isEndNode) {
+				configOnEnd(ctx, msgToUse, err, relationType)
+			}
+			// types.withOnEnd 设置的回调
+			if contextOnEnd != nil && (ctx.ruleChainCtx == nil || !ctx.HasEndNode() || isEndNode) {
 				contextOnEnd(ctx, msgToUse, err, relationType)
 			}
 			ctx.childDone()
@@ -758,8 +752,8 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 	} else {
 		ctx.childDone()
 	}
-	// fixed:结束节点执行完成后，没执行afterAop
 	if isEndNode {
+		// 执行AfterAop
 		msg = ctx.executeAfterAop(msg, err, relationType)
 	}
 }
