@@ -246,8 +246,8 @@ github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 h1:El6M4kTTCOh6aBiKaU
 github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510/go.mod h1:pupxD2MaaD3pAXIBCelhxNneeOaAeabZDe5s4K6zSpQ=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/gopcua/opcua v0.6.1 h1:kTotHu114p6OIZMds4GLxZjFtJ8Wv+GglrkKNGxkPkg=
-github.com/gopcua/opcua v0.6.1/go.mod h1:u6K7mFkgoR/UaEaCiIgncjh38Z1AQZ5ueO32WjyyJ6E=
+github.com/gopcua/opcua v0.8.0 h1:nB9vDewEmuXmSQf1C9inCHPblFwsH21FeB2Kk6o6Y7U=
+github.com/gopcua/opcua v0.8.0/go.mod h1:Z6aellk0gIzznZd2UX+Syd/hUMBt65gRlTakpGo6se8=
 github.com/gorilla/securecookie v1.1.1/go.mod h1:ra0sb63/xPlUeL+yeDciTfxMRAA+MP+HVt/4epWDjd4=
 github.com/gorilla/sessions v1.2.1/go.mod h1:dk2InVEVJ0sfLlnXv9EAgkf6ecYs/i80K/zI+bUmuGM=
 github.com/gorilla/websocket v1.5.0 h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWmnc=
@@ -387,8 +387,6 @@ github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.0 h1:8SG7/vwALn54lVB/0yZ/MMwhFrPYtpEHQb2IpWsCzug=
 github.com/opencontainers/image-spec v1.1.0/go.mod h1:W4s4sFTMaBeK1BQLXbG4AdM2szdn85PY75RI83NrTrM=
-github.com/pascaldekloe/goe v0.1.1 h1:Ah6WQ56rZONR3RW3qWa2NCZ6JAVvSpUcoLBaOmYFt9Q=
-github.com/pascaldekloe/goe v0.1.1/go.mod h1:KSyfaxQOh0HZPjDP1FL/kFtbqYqrALJTaMafFUIccqU=
 github.com/pierrec/lz4/v4 v4.1.22 h1:cKFw6uJDK+/gfw5BcDL0JL5aBsAFdsIT18eRtLj7VIU=
 github.com/pierrec/lz4/v4 v4.1.22/go.mod h1:gZWDp/Ze/IJXGXf23ltt2EXimqmTUXEy0GFuRQyBid4=
 github.com/pingcap/errors v0.11.0/go.mod h1:Oi8TUi2kEtXXLMJk9l1cGmz20kV3TaQ0usTwv5KuLY8=
@@ -446,8 +444,8 @@ github.com/robfig/cron/v3 v3.0.1/go.mod h1:eQICP3HwyT7UooqI/z+Ov+PtYAWygg1TEWWzG
 github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTEfhy4qGm1nDQc=
 github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
-github.com/rulego/rulego v0.34.3-0.20251127101136-50fd46c9c434 h1:5RTCCAm2cEvFhSSz3DP1+TMmQLAZZ+Gmjb/P0fzIplk=
-github.com/rulego/rulego v0.34.3-0.20251127101136-50fd46c9c434/go.mod h1:AmnMby85wUZjeF8OYCJ8vv/JPll5Kq4XKhr9AvJ2usw=
+github.com/rulego/rulego v0.34.5-0.20251209061601-2831329f9dd8 h1:71w1HWv+u+5N/34ogxL2HDt/eTKx1TzNSF6uA07TTiw=
+github.com/rulego/rulego v0.34.5-0.20251209061601-2831329f9dd8/go.mod h1:AmnMby85wUZjeF8OYCJ8vv/JPll5Kq4XKhr9AvJ2usw=
 github.com/rulego/rulego-components v0.34.0 h1:7i8O96e0wu7zwCOjVTE7ruCmVdGEgfnAf5DybsiV5i8=
 github.com/rulego/rulego-components v0.34.0/go.mod h1:rLPgVgLp3Rb4TF+VE5RhGB0ziZkmwkRrqyLlmKfwAME=
 github.com/rulego/rulego-components-ai v0.31.1 h1:XU608X0xL/y+sKG4G+Urm6wybE62K5QgfI+yhdsNlsc=
@@ -456,8 +454,8 @@ github.com/rulego/rulego-components-ci v0.31.1-0.20250602161121-89f21f4c54fe h1:
 github.com/rulego/rulego-components-ci v0.31.1-0.20250602161121-89f21f4c54fe/go.mod h1:2+PXpaIDxvozwUXO0QTn79mOTEHFi19WOWY6WDp4QQk=
 github.com/rulego/rulego-components-etl v0.29.1-0.20250602160310-2d30a072f03b h1:4OWOLHZQEI+cEN4NcIZ4OyOVdTOuTNsfSNjkr8taSvI=
 github.com/rulego/rulego-components-etl v0.29.1-0.20250602160310-2d30a072f03b/go.mod h1:Xap3jARAhldoGJaPX4izJlATPWVOantYDQx4H7WfSp8=
-github.com/rulego/rulego-components-iot v0.32.0 h1:UJo75CAy4ycZ/79l8uR5GJBHj1qXNwE0vN9oEZPel08=
-github.com/rulego/rulego-components-iot v0.32.0/go.mod h1:tlgkyGxHKZ6i4AV0OpE8pRT1E4ABl+lVw4exgf7h9RY=
+github.com/rulego/rulego-components-iot v0.32.1-0.20251209085127-0ca561dd54f2 h1:mLNLCplAtd//6N6AESyQwARml7e6890TtC0s8NPQCNo=
+github.com/rulego/rulego-components-iot v0.32.1-0.20251209085127-0ca561dd54f2/go.mod h1:3wZMOWEFt+uLZPejOpfrWmykCGVbfd3bbDrokSwawxg=
 github.com/rulego/streamsql v0.10.3 h1:80dVCHh/dqZdgVhIjtlc7dcfE4zEK35OOypAbvska64=
 github.com/rulego/streamsql v0.10.3/go.mod h1:LibML8rzKKHIZXu/ZewILUcWzV0oB/CRSI5vOkMZMA8=
 github.com/sashabaranov/go-openai v1.37.0 h1:hQQowgYm4OXJ1Z/wTrE+XZaO20BYsL0R3uRPSpfNZkY=
@@ -476,8 +474,8 @@ github.com/shopspring/decimal v1.2.0 h1:abSATXmQEYyShuxI4/vyW3tV1MrKAJzCZ/0zLUXY
 github.com/shopspring/decimal v1.2.0/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFRcu2hWCYk4o=
 github.com/siddontang/go-log v0.0.0-20180807004314-8d05993dda07 h1:oI+RNwuC9jF2g2lP0u0cVEEZrc/AYBCuFdvwrLWM/6Q=
 github.com/siddontang/go-log v0.0.0-20180807004314-8d05993dda07/go.mod h1:yFdBgwXP24JziuRl2NMUahT7nGLNOKi1SIiFxMttVD4=
-github.com/simonvetter/modbus v1.6.3 h1:kDzwVfIPczsM4Iz09il/Dij/bqlT4XiJVa0GYaOVA9w=
-github.com/simonvetter/modbus v1.6.3/go.mod h1:hh90ZaTaPLcK2REj6/fpTbiV0J6S7GWmd8q+GVRObPw=
+github.com/simonvetter/modbus v1.6.4 h1:E03lBz/JftDza/+Ue+vxwkNZ/WW1xiqyFCUQ4NhqHn0=
+github.com/simonvetter/modbus v1.6.4/go.mod h1:hh90ZaTaPLcK2REj6/fpTbiV0J6S7GWmd8q+GVRObPw=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/sirupsen/logrus v1.6.0/go.mod h1:7uNnSEd1DgxDLC74fIahvMZmmYsHGZGEOFrfsX/uA88=
