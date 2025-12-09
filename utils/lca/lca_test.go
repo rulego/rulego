@@ -358,3 +358,92 @@ func TestLCACalculator_Concurrency(t *testing.T) {
 		<-done
 	}
 }
+
+// TestLCACalculator_GetLCAOfNodes tests GetLCAOfNodes functionality
+func TestLCACalculator_GetLCAOfNodes(t *testing.T) {
+	provider := newMockParentProvider()
+	calculator := NewLCACalculator(provider)
+
+	// Create a tree structure:
+	//       root
+	//      /    \
+	//     A      B
+	//    / \    / \
+	//   A1 A2  B1 B2
+	//         /
+	//        C1
+	root := createNodeId("root")
+	nodeA := createNodeId("A")
+	nodeB := createNodeId("B")
+	nodeA1 := createNodeId("A1")
+	nodeA2 := createNodeId("A2")
+	nodeB1 := createNodeId("B1")
+	nodeB2 := createNodeId("B2")
+	nodeC1 := createNodeId("C1")
+
+	provider.addParent(nodeA, root)
+	provider.addParent(nodeB, root)
+	provider.addParent(nodeA1, nodeA)
+	provider.addParent(nodeA2, nodeA)
+	provider.addParent(nodeB1, nodeB)
+	provider.addParent(nodeB2, nodeB)
+	provider.addParent(nodeC1, nodeB1)
+
+	t.Run("SameParent", func(t *testing.T) {
+		// LCA of A1 and A2 should be A
+		lca, found := calculator.GetLCAOfNodes([]types.RuleNodeId{nodeA1, nodeA2})
+		if !found || lca.Id != nodeA.Id {
+			t.Errorf("Expected A, got %v", lca)
+		}
+	})
+
+	t.Run("DifferentBranches", func(t *testing.T) {
+		// LCA of A1 and B1 should be root
+		lca, found := calculator.GetLCAOfNodes([]types.RuleNodeId{nodeA1, nodeB1})
+		if !found || lca.Id != root.Id {
+			t.Errorf("Expected root, got %v", lca)
+		}
+	})
+
+	t.Run("DifferentLevels", func(t *testing.T) {
+		// LCA of A1 and C1 should be root
+		lca, found := calculator.GetLCAOfNodes([]types.RuleNodeId{nodeA1, nodeC1})
+		if !found || lca.Id != root.Id {
+			t.Errorf("Expected root, got %v", lca)
+		}
+	})
+
+	t.Run("OneIsAncestor", func(t *testing.T) {
+		// LCA of B and C1 should be B
+		lca, found := calculator.GetLCAOfNodes([]types.RuleNodeId{nodeB, nodeC1})
+		if !found || lca.Id != nodeB.Id {
+			t.Errorf("Expected B, got %v", lca)
+		}
+	})
+
+	t.Run("SingleNodeWithParent", func(t *testing.T) {
+		// LCA of single node A1 should be A (its parent)
+		lca, found := calculator.GetLCAOfNodes([]types.RuleNodeId{nodeA1})
+		if !found || lca.Id != nodeA.Id {
+			t.Errorf("Expected A, got %v", lca)
+		}
+	})
+
+	t.Run("SingleNodeNoParent", func(t *testing.T) {
+		// LCA of root should be root itself (special case handled in GetLCAOfNodes)
+		lca, found := calculator.GetLCAOfNodes([]types.RuleNodeId{root})
+		if !found || lca.Id != root.Id {
+			t.Errorf("Expected root, got %v", lca)
+		}
+	})
+
+	t.Run("DisjointNodes", func(t *testing.T) {
+		// Create disjoint node
+		nodeX := createNodeId("X")
+		// LCA of A and X should be not found
+		_, found := calculator.GetLCAOfNodes([]types.RuleNodeId{nodeA, nodeX})
+		if found {
+			t.Errorf("Expected not found for disjoint nodes")
+		}
+	})
+}

@@ -854,6 +854,59 @@ type ChainCtx interface {
 	AddNodeDependency(nodeId string, dependentNodeId string)
 }
 
+// NodeRequest request to restore node execution
+type NodeRequest struct {
+	NodeId string
+	// RelationTypes is the list of relation types to find child nodes.
+	// If nil, execute the NodeId node itself.
+	// If empty, find and execute the child nodes of the NodeId via the default relation.
+	// If not empty, find and execute the child nodes of the NodeId via the specified relations.
+	RelationTypes []string
+	// Msg is the message to be processed by the node.
+	// If nil, use the default message.
+	Msg *RuleMsg
+}
+
+// ExecuteNode creates a NodeRequest to execute the specified node itself.
+func ExecuteNode(nodeId string) NodeRequest {
+	return NodeRequest{
+		NodeId:        nodeId,
+		RelationTypes: nil,
+	}
+}
+
+// ExecuteNodeWithMsg creates a NodeRequest to execute the specified node itself with the specified message.
+func ExecuteNodeWithMsg(nodeId string, msg RuleMsg) NodeRequest {
+	return NodeRequest{
+		NodeId:        nodeId,
+		RelationTypes: nil,
+		Msg:           &msg,
+	}
+}
+
+// ExecuteNext creates a NodeRequest to find and execute the child nodes of the specified node.
+func ExecuteNext(nodeId string, relationTypes ...string) NodeRequest {
+	if relationTypes == nil {
+		relationTypes = []string{}
+	}
+	return NodeRequest{
+		NodeId:        nodeId,
+		RelationTypes: relationTypes,
+	}
+}
+
+// ExecuteNextWithMsg creates a NodeRequest to find and execute the child nodes of the specified node with the specified message.
+func ExecuteNextWithMsg(nodeId string, msg RuleMsg, relationTypes ...string) NodeRequest {
+	if relationTypes == nil {
+		relationTypes = []string{}
+	}
+	return NodeRequest{
+		NodeId:        nodeId,
+		RelationTypes: relationTypes,
+		Msg:           &msg,
+	}
+}
+
 // RuleContext is the interface for message processing context within the rule engine.
 // It handles the transfer of messages to the next or multiple nodes and triggers their business logic.
 // It also controls and orchestrates the node flow of the current execution instance.
@@ -915,10 +968,10 @@ type RuleContext interface {
 	GetCallbackFunc(functionName string) interface{}
 	// OnDebug calls the configured OnDebug callback function.
 	OnDebug(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)
-	// SetExecuteNode sets the current node.
-	// If relationTypes is empty, execute the current node; otherwise,
-	// find and execute the child nodes of the current node.
-	SetExecuteNode(nodeId string, relationTypes ...string)
+	// SetExecuteNodes sets the nodes to execute.
+	// If multiple nodes are provided, it behaves like restoring from a snapshot.
+	// If a single node is provided, it sets the current node execution.
+	SetExecuteNodes(nodes ...NodeRequest)
 	// TellCollect gathers the execution results from multiple nodes and registers a callback function to collect the result list.
 	// If it is the first time to register, it returns true; otherwise, it returns false.
 	TellCollect(msg RuleMsg, callback func(msgList []WrapperMsg)) bool
@@ -1015,14 +1068,17 @@ func WithOnNodeDebug(onDebug func(ruleChainId string, flowType string, nodeId st
 	}
 }
 
-// WithStartNode 设置第一个开始执行节点
 // WithStartNode sets the first node to start execution.
-func WithStartNode(nodeId string) RuleContextOption {
+func WithStartNode(nodeIds ...string) RuleContextOption {
 	return func(rc RuleContext) {
-		if nodeId == "" {
+		if len(nodeIds) == 0 {
 			return
 		}
-		rc.SetExecuteNode(nodeId)
+		requests := make([]NodeRequest, len(nodeIds))
+		for i, id := range nodeIds {
+			requests[i] = ExecuteNode(id)
+		}
+		rc.SetExecuteNodes(requests...)
 	}
 }
 
@@ -1034,7 +1090,15 @@ func WithTellNext(fromNodeId string, relationTypes ...string) RuleContextOption 
 		if fromNodeId == "" {
 			return
 		}
-		rc.SetExecuteNode(fromNodeId, relationTypes...)
+		rc.SetExecuteNodes(ExecuteNext(fromNodeId, relationTypes...))
+	}
+}
+
+// WithRestoreNodes sets the nodes to execute.
+// You can use types.ExecuteNode(id) or types.ExecuteNext(id, relationTypes...) to create the request.
+func WithRestoreNodes(nodes ...NodeRequest) RuleContextOption {
+	return func(rc RuleContext) {
+		rc.SetExecuteNodes(nodes...)
 	}
 }
 

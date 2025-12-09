@@ -155,7 +155,6 @@ func (c *ContextObserver) getInMsgList(joinNodeId string) []types.WrapperMsg {
 // registerNodeDoneEvent registers a callback for when a join node completes.
 func (c *ContextObserver) registerNodeDoneEvent(joinNodeId, lcaNodeId string, callback func([]types.WrapperMsg)) {
 	c.Lock()
-	defer c.Unlock()
 	if c.nodeDoneEvent == nil {
 		c.nodeDoneEvent = make(map[string]joinNodeCallback)
 	}
@@ -164,6 +163,8 @@ func (c *ContextObserver) registerNodeDoneEvent(joinNodeId, lcaNodeId string, ca
 		joinNodeId: joinNodeId,
 		callback:   callback,
 	}
+	c.Unlock()
+	c.checkAndTrigger()
 }
 
 // checkNodesDone checks if all specified nodes have completed execution.
@@ -263,6 +264,14 @@ type DefaultRuleContext struct {
 	nodeOutputCache *NodeOutputCache
 	//该链是否有结束节点
 	hasEndNode bool
+	// restoreNodeInfo 恢复执行节点信息
+	restoreNodeInfo *RestoreNodeInfo
+}
+
+// RestoreNodeInfo 恢复执行节点信息
+type RestoreNodeInfo struct {
+	// NodeRequests 恢复执行节点请求列表
+	NodeRequests []types.NodeRequest
 }
 
 func (ctx *DefaultRuleContext) GlobalCache() types.Cache {
@@ -828,17 +837,31 @@ func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, node
 
 }
 
-// SetExecuteNode 设置要执行的节点和关系类型
-// 如果relationTypes为空，则执行当前节点；否则通过relationTypes查找子节点执行
-func (ctx *DefaultRuleContext) SetExecuteNode(nodeId string, relationTypes ...string) {
-	//如果relationTypes为空，则执行当前节点
-	ctx.isFirst = len(relationTypes) == 0
-	//否则通过relationTypes查找子节点执行
-	ctx.relationTypes = relationTypes
-	if node, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
-		ctx.self = node
-	} else {
-		ctx.err = fmt.Errorf("SetExecuteNode node id=%s not found", nodeId)
+// SetExecuteNodes 设置执行节点
+// 可以设置单个或多个节点，用于恢复执行或指定起始节点
+func (ctx *DefaultRuleContext) SetExecuteNodes(nodes ...types.NodeRequest) {
+	if len(nodes) == 1 {
+		// 检查是否是搜索模式或者包含关系类型
+		// 如果 RelationTypes 不为 nil，则视为查找子节点模式
+		// If RelationTypes is not nil, it is considered as finding child nodes mode.
+		if nodes[0].RelationTypes == nil {
+			nodeId := nodes[0].NodeId
+			// 执行当前节点模式
+			ctx.isFirst = true
+			ctx.relationTypes = nil
+			if node, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
+				ctx.self = node
+			} else {
+				ctx.err = fmt.Errorf("SetExecuteNodes node id=%s not found", nodeId)
+			}
+			// 清空 restoreNodeInfo，确保使用 TellNext 路径
+			ctx.restoreNodeInfo = nil
+			return
+		}
+	}
+
+	ctx.restoreNodeInfo = &RestoreNodeInfo{
+		NodeRequests: nodes,
 	}
 }
 
@@ -912,7 +935,8 @@ func (ctx *DefaultRuleContext) childDone() {
 // - 配合 TellCollect 方法使用，查询该节点的父节点共同祖先是否所有分支到当前聚合节点都已经执行完成
 // - 用于多分支汇聚场景的状态跟踪，避免过早触发完成事件
 func (ctx *DefaultRuleContext) childDoneWithoutCallback() {
-	if atomic.AddInt32(&ctx.waitingCount, -1) <= 0 {
+	newCount := atomic.AddInt32(&ctx.waitingCount, -1)
+	if newCount <= 0 {
 		//if atomic.CompareAndSwapInt32(&ctx.onAllNodeCompletedDone, 0, 1) {
 
 		// 在进行任何异步操作前捕获需要的值，避免并发问题

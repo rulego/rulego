@@ -68,6 +68,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -1352,41 +1353,76 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 	e.processMessage(rootCtxCopy, processedMsg, wait)
 }
 
-// processMessage processes the message through the rule chain with optional waiting.
-// processMessage 通过规则链处理消息，可选择等待。
-func (e *RuleEngine) processMessage(rootCtxCopy *DefaultRuleContext, msg types.RuleMsg, wait bool) {
-	// Set up a custom function to be called upon completion of all nodes
-	// 设置在所有节点完成时要调用的自定义函数
-	customFunc := rootCtxCopy.onAllNodeCompleted
+// processRestoreNodes 处理多节点恢复执行
+// 1. 创建父节点上下文，设置waitingCount
+// 2. 遍历恢复节点，创建子上下文并执行
+func (e *RuleEngine) processRestoreNodes(rootCtxCopy *DefaultRuleContext, msg types.RuleMsg) {
+	restoreInfo := rootCtxCopy.restoreNodeInfo
+	// 获取父节点上下文
+	var parentNodeId string
 
-	if wait {
-		// If waiting is required, set up a channel to synchronize the completion
-		// 如果需要等待，设置通道来同步完成
-		c := make(chan struct{})
-		rootCtxCopy.onAllNodeCompleted = func() {
-			defer close(c)
-			// Execute the completion handling function
-			// 执行完成处理函数
-			e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
+	// 尝试自动查找共同祖先
+	if rootCtxCopy.ruleChainCtx != nil {
+		var ruleNodeIds []types.RuleNodeId
+		for _, req := range restoreInfo.NodeRequests {
+			ruleNodeIds = append(ruleNodeIds, types.RuleNodeId{Id: req.NodeId})
 		}
-		// Process the message through the rule chain
-		// 通过规则链处理消息
-		rootCtxCopy.TellNext(msg, rootCtxCopy.relationTypes...)
-		// Block until all nodes have completed
-		// 阻塞直到所有节点完成
-		<-c
-	} else {
-		// If not waiting, simply set the completion handling function
-		// 如果不等待，只需设置完成处理函数
-		rootCtxCopy.onAllNodeCompleted = func() {
-			e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
+		if lca, ok := rootCtxCopy.ruleChainCtx.GetLCAOfNodes(ruleNodeIds); ok {
+			parentNodeId = lca.Id
 		}
-		// Process the message through the rule chain
-		// 通过规则链处理消息
-		rootCtxCopy.TellNext(msg, rootCtxCopy.relationTypes...)
 	}
+
+	var parentNode types.NodeCtx
+	if node, ok := rootCtxCopy.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: parentNodeId}); ok {
+		parentNode = node
+	} else {
+		// 找不到父节点，报错
+		e.onErrHandler(msg, rootCtxCopy, fmt.Errorf("restore parent node id=%s not found", parentNodeId), true)
+		return
+	}
+
+	// 创建 parentCtx
+	parentCtx := rootCtxCopy.NewNextNodeRuleContext(parentNode)
+	// 手动设置 self 为 parentNode
+	parentCtx.self = parentNode
+	// 设置 waitingCount
+	parentCtx.waitingCount = int32(len(restoreInfo.NodeRequests))
+	// rootCtxCopy 是根，parentCtx 是 Fork 节点。
+	parentCtx.parentRuleCtx = rootCtxCopy
+
+	rootCtxCopy.childReady()
+
+	// 遍历恢复节点
+	for _, req := range restoreInfo.NodeRequests {
+		if node, ok := rootCtxCopy.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: req.NodeId}); ok {
+			// 创建 childCtx，parent 指向 parentCtx
+			childCtx := parentCtx.NewNextNodeRuleContext(node)
+			childCtx.parentRuleCtx = parentCtx
+			// 如果没有指定关系，则执行当前节点 (isFirst = true)
+			// 如果指定了关系，则不执行当前节点，而是查找并执行下一个节点 (isFirst = false)
+			childCtx.isFirst = len(req.RelationTypes) == 0
+			childCtx.relationTypes = req.RelationTypes
+
+			// Use the message from the request if available, otherwise use the default message
+			var msgCopy types.RuleMsg
+			if req.Msg != nil {
+				msgCopy = req.Msg.Copy()
+			} else {
+				msgCopy = msg.Copy()
+			}
+
+			childCtx.TellNext(msgCopy, childCtx.relationTypes...)
+		} else {
+			// 节点找不到，减少 waitingCount
+			parentCtx.childDone()
+			e.Config.Logger.Printf("Restore node id=%s not found", req.NodeId)
+		}
+	}
+
 }
 
+// onStart executes the list of start aspects before the rule chain begins processing a message.
+// onStart 在规则链开始处理消息前执行开始切面列表。
 // handleEngineNotInitializedError handles the case when the rule engine is not initialized.
 // handleEngineNotInitializedError 处理规则引擎未初始化的情况。
 func (e *RuleEngine) handleEngineNotInitializedError(msg types.RuleMsg, opts ...types.RuleContextOption) {
@@ -1465,6 +1501,49 @@ func (e *RuleEngine) setupEndCallback(rootCtxCopy *DefaultRuleContext) {
 		// 如果提供了自定义结束回调，则触发它
 		if customOnEndFunc != nil {
 			customOnEndFunc(ctx, msg, err, relationType)
+		}
+	}
+}
+
+// processMessage processes the message through the rule chain with optional waiting.
+// processMessage 通过规则链处理消息，可选择等待。
+func (e *RuleEngine) processMessage(rootCtxCopy *DefaultRuleContext, msg types.RuleMsg, wait bool) {
+	// Set up a custom function to be called upon completion of all nodes
+	// 设置在所有节点完成时要调用的自定义函数
+	customFunc := rootCtxCopy.onAllNodeCompleted
+
+	if wait {
+		// If waiting is required, set up a channel to synchronize the completion
+		// 如果需要等待，设置通道来同步完成
+		c := make(chan struct{})
+		rootCtxCopy.onAllNodeCompleted = func() {
+			defer close(c)
+			// Execute the completion handling function
+			// 执行完成处理函数
+			e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
+		}
+		// Process the message through the rule chain
+		// 通过规则链处理消息
+		if rootCtxCopy.restoreNodeInfo != nil {
+			e.processRestoreNodes(rootCtxCopy, msg)
+		} else {
+			rootCtxCopy.TellNext(msg, rootCtxCopy.relationTypes...)
+		}
+		// Block until all nodes have completed
+		// 阻塞直到所有节点完成
+		<-c
+	} else {
+		// If not waiting, simply set the completion handling function
+		// 如果不等待，只需设置完成处理函数
+		rootCtxCopy.onAllNodeCompleted = func() {
+			e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
+		}
+		// Process the message through the rule chain
+		// 通过规则链处理消息
+		if rootCtxCopy.restoreNodeInfo != nil {
+			e.processRestoreNodes(rootCtxCopy, msg)
+		} else {
+			rootCtxCopy.TellNext(msg, rootCtxCopy.relationTypes...)
 		}
 	}
 }
