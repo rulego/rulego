@@ -47,12 +47,12 @@ func TestRestoreFromMultipleBranches(t *testing.T) {
 			lock.Lock()
 			defer lock.Unlock()
 			executedNodes[nodeRunLog.Id] = true
-			if nodeRunLog.Id == "node_f" {
-				close(done)
-			}
 		}),
 		types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			lock.Lock()
+			defer lock.Unlock()
 			lastMsg = msg
+			close(done)
 		}),
 	)
 
@@ -60,7 +60,9 @@ func TestRestoreFromMultipleBranches(t *testing.T) {
 	case <-done:
 		lock.Lock()
 		defer lock.Unlock()
-		if lastMsg.GetMetadata().GetValue("f") != "executed" {
+		if lastMsg.GetMetadata() == nil {
+			t.Error("metadata is nil")
+		} else if lastMsg.GetMetadata().GetValue("f") != "executed" {
 			t.Error("node_f was not executed")
 		}
 		// Verify execution path
@@ -121,12 +123,12 @@ func TestRestoreFromMultipleBranchesAutoParent(t *testing.T) {
 			lock.Lock()
 			defer lock.Unlock()
 			executedNodes[nodeRunLog.Id] = true
-			if nodeRunLog.Id == "node_f" {
-				close(done)
-			}
 		}),
 		types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			lock.Lock()
+			defer lock.Unlock()
 			lastMsg = msg
+			close(done)
 		}),
 	)
 
@@ -134,7 +136,9 @@ func TestRestoreFromMultipleBranchesAutoParent(t *testing.T) {
 	case <-done:
 		lock.Lock()
 		defer lock.Unlock()
-		if lastMsg.GetMetadata().GetValue("f") != "executed" {
+		if lastMsg.GetMetadata() == nil {
+			t.Error("metadata is nil")
+		} else if lastMsg.GetMetadata().GetValue("f") != "executed" {
 			t.Error("node_f was not executed")
 		}
 		if !executedNodes["node_d"] {
@@ -166,24 +170,31 @@ func TestStartNode(t *testing.T) {
 	done := make(chan struct{})
 	var executedNodes = make(map[string]bool)
 	var lastMsg types.RuleMsg
+	var lock sync.Mutex
 	// Start from node_e (End Node).
 	// node_d should NOT be executed.
 	// node_f SHOULD be executed (it's after node_e).
 	ruleEngine.OnMsg(msg,
 		types.WithStartNode("node_e"),
 		types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
+			lock.Lock()
+			defer lock.Unlock()
 			for _, log := range snapshot.Logs {
 				executedNodes[log.Id] = true
 			}
 			close(done)
 		}),
 		types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			lock.Lock()
+			defer lock.Unlock()
 			lastMsg = msg
 		}),
 	)
 
 	select {
 	case <-done:
+		lock.Lock()
+		defer lock.Unlock()
 		if lastMsg.GetMetadata().GetValue("f") != "executed" {
 			t.Error("node_f was not executed")
 		}
