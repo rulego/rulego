@@ -595,7 +595,7 @@ func TestOnMsgAndWait(t *testing.T) {
 	wg.Add(10)
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	var count int32
-	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		atomic.AddInt32(&count, 1)
 	}))
 	time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
@@ -606,21 +606,23 @@ func TestOnMsgAndWait(t *testing.T) {
 	wg.Add(4)
 	count = 0
 	msg = types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":41}")
-	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		atomic.AddInt32(&count, 1)
 	}))
-	time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
+	//time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
 	assert.Equal(t, int32(1), count)
 	wg.Wait()
 
 	//TEST_MSG_TYPE3 找到0条chain,1个node
 	wg.Add(2)
 	count = 0
+	data := ""
 	msg = types.NewMsg(0, "TEST_MSG_TYPE3", types.JSON, metaData, "{\"temperature\":41}")
-	ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		atomic.AddInt32(&count, 1)
+		data = msg.GetData()
 	}))
-	time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
+	assert.Equal(t, "{\"temperature\":41}", data)
 	assert.Equal(t, int32(1), count)
 	wg.Wait()
 }
