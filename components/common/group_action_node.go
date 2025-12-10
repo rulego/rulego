@@ -59,6 +59,10 @@ type GroupActionNodeConfiguration struct {
 	// Timeout specifies the execution timeout in seconds.
 	// Default 0 means no time limit.
 	Timeout int
+
+	// MergeToMap 如果true，如果是json类型 则把所有节点的输出data合并到同一个map
+	// MergeToMap if true, and if the data type is JSON, merges the output data of all nodes into the same map.
+	MergeToMap bool
 }
 
 // GroupActionNode 将多个节点分组并异步执行的动作组件
@@ -167,9 +171,8 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	//执行节点列表逻辑
 	for i, nodeId := range x.NodeIdList {
-		//创建一个局部变量，避免闭包引用问题
 		index := i
-		ctx.TellNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
+		ctx.TellNode(chanCtx, nodeId, msg.Copy(), true, func(callbackCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
 			// 检查context是否已被取消，避免无意义的计算
 			select {
 			case <-chanCtx.Done():
@@ -223,7 +226,34 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				copy(msgsCopy, msgs)
 				msgsMutex.Unlock()
 
-				wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgsCopy)))
+				if x.Config.MergeToMap {
+					wrapperMsg.SetDataType(types.JSON)
+					mergedMap := make(map[string]interface{})
+					for _, val := range msgsCopy {
+						if val.NodeId != "" {
+							// 根据数据类型进行不同的处理
+							switch val.Msg.DataType {
+							case types.JSON:
+								if dataMap, err := val.Msg.GetJsonData(); err == nil {
+									if m, ok := dataMap.(map[string]interface{}); ok {
+										for k, v := range m {
+											mergedMap[k] = v
+										}
+									} else {
+										mergedMap[val.NodeId] = dataMap
+									}
+								} else {
+									mergedMap[val.NodeId] = val.Msg.GetData()
+								}
+							default:
+								mergedMap[val.NodeId] = val.Msg.GetData()
+							}
+						}
+					}
+					wrapperMsg.SetData(str.ToString(mergedMap))
+				} else {
+					wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgsCopy)))
+				}
 				_ = mergeMetadata(msgsCopy, &wrapperMsg)
 
 				// 使用非阻塞发送，防止在超时情况下channel阻塞

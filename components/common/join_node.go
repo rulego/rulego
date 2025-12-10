@@ -47,6 +47,9 @@ type JoinNodeConfiguration struct {
 	// Timeout specifies the execution timeout in seconds.
 	// Default value of 0 means no timeout limit.
 	Timeout int
+	// MergeToMap 如果true，如果是json类型 则把所有节点的输出data合并到同一个map
+	// MergeToMap if true, and if the data type is JSON, merges the output data of all nodes into the same map.
+	MergeToMap bool
 }
 
 // JoinNode 合并多个异步节点执行结果的动作组件
@@ -115,7 +118,32 @@ func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 
 		wrapperMsg.SetDataType(types.JSON)
-		wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgList)))
+		if x.Config.MergeToMap {
+			mergedMap := make(map[string]interface{})
+			for _, val := range msgList {
+				if val.NodeId != "" {
+					switch val.Msg.DataType {
+					case types.JSON:
+						if dataMap, err := val.Msg.GetJsonData(); err == nil {
+							if m, ok := dataMap.(map[string]interface{}); ok {
+								for k, v := range m {
+									mergedMap[k] = v
+								}
+							} else {
+								mergedMap[val.NodeId] = dataMap
+							}
+						} else {
+							mergedMap[val.NodeId] = val.Msg.GetData()
+						}
+					default:
+						mergedMap[val.NodeId] = val.Msg.GetData()
+					}
+				}
+			}
+			wrapperMsg.SetData(str.ToString(mergedMap))
+		} else {
+			wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgList)))
+		}
 		err = mergeMetadata(msgList, &wrapperMsg)
 		select {
 		case c <- struct{}{}:

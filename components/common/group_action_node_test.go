@@ -19,11 +19,12 @@ package common
 import (
 	"context"
 	"errors"
-	"github.com/rulego/rulego/components/action"
 	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/components/action"
 
 	"github.com/rulego/rulego/utils/str"
 
@@ -255,6 +256,134 @@ func TestGroupFilterNode(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond * 20)
 
+	})
+
+	t.Run("MergeToMap", func(t *testing.T) {
+		//测试函数
+		action.Functions.Register("groupActionTestJson1", func(ctx types.RuleContext, msg types.RuleMsg) {
+			msg.DataType = types.JSON
+			msg.SetData(`{"a": 1, "b": 2}`)
+			ctx.TellSuccess(msg)
+		})
+		action.Functions.Register("groupActionTestJson2", func(ctx types.RuleContext, msg types.RuleMsg) {
+			msg.DataType = types.JSON
+			msg.SetData(`{"c": 3}`)
+			ctx.TellSuccess(msg)
+		})
+		action.Functions.Register("groupActionTestText", func(ctx types.RuleContext, msg types.RuleMsg) {
+			msg.DataType = types.TEXT
+			msg.SetData(`not json`)
+			ctx.TellSuccess(msg)
+		})
+
+		node1, _ := test.CreateAndInitNode("functions", types.Configuration{
+			"functionName": "groupActionTestJson1",
+		}, action.Registry)
+		node2, _ := test.CreateAndInitNode("functions", types.Configuration{
+			"functionName": "groupActionTestJson2",
+		}, action.Registry)
+		node3, _ := test.CreateAndInitNode("functions", types.Configuration{
+			"functionName": "groupActionTestText",
+		}, action.Registry)
+
+		childrenNodes := map[string]types.Node{
+			"node1": node1,
+			"node2": node2,
+			"node3": node3,
+		}
+
+		// Case 1: MergeToMap = true
+		t.Run("True", func(t *testing.T) {
+			groupNode, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+				"matchNum":   3,
+				"nodeIds":    "node1,node2,node3",
+				"mergeToMap": true,
+			}, Registry)
+			assert.Nil(t, err)
+
+			msgList := []test.Msg{
+				{
+					MsgType:    "ACTIVITY_EVENT1",
+					Data:       "{}",
+					AfterSleep: time.Millisecond * 200,
+				},
+			}
+
+			nodeCallback := test.NodeAndCallback{
+				Node:          groupNode,
+				MsgList:       msgList,
+				ChildrenNodes: childrenNodes,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+					var result map[string]interface{}
+					json.Unmarshal([]byte(msg.GetData()), &result)
+					// Verify result content, allowing for flexible key order or type conversions if needed
+					// Since map iteration order is random, we check specific keys
+					// Note: JSON unmarshal numbers to float64 by default
+
+					// Check 'a'
+					if val, ok := result["a"]; ok {
+						assert.Equal(t, 1.0, val)
+					} else {
+						t.Errorf("Key 'a' not found in result: %v", result)
+					}
+
+					// Check 'b'
+					if val, ok := result["b"]; ok {
+						assert.Equal(t, 2.0, val)
+					} else {
+						t.Errorf("Key 'b' not found in result: %v", result)
+					}
+
+					// Check 'c'
+					if val, ok := result["c"]; ok {
+						assert.Equal(t, 3.0, val)
+					} else {
+						t.Errorf("Key 'c' not found in result: %v", result)
+					}
+
+					// Check 'node3' (from text node)
+					if val, ok := result["node3"]; ok {
+						assert.Equal(t, "not json", val)
+					} else {
+						t.Error("Key 'node3' not found in result")
+					}
+				},
+			}
+			test.NodeOnMsgWithChildren(t, nodeCallback.Node, nodeCallback.MsgList, nodeCallback.ChildrenNodes, nodeCallback.Callback)
+		})
+
+		// Case 2: MergeToMap = false
+		t.Run("False", func(t *testing.T) {
+			groupNode, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+				"matchNum":   2,
+				"nodeIds":    "node1,node2",
+				"mergeToMap": false,
+			}, Registry)
+			assert.Nil(t, err)
+
+			msgList := []test.Msg{
+				{
+					MsgType:    "ACTIVITY_EVENT1",
+					Data:       "{}",
+					AfterSleep: time.Millisecond * 200,
+				},
+			}
+
+			nodeCallback := test.NodeAndCallback{
+				Node:          groupNode,
+				MsgList:       msgList,
+				ChildrenNodes: childrenNodes,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Equal(t, types.Success, relationType)
+					var list []interface{}
+					err = json.Unmarshal([]byte(msg.GetData()), &list)
+					assert.Nil(t, err)
+					assert.Equal(t, 2, len(list))
+				},
+			}
+			test.NodeOnMsgWithChildren(t, nodeCallback.Node, nodeCallback.MsgList, nodeCallback.ChildrenNodes, nodeCallback.Callback)
+		})
 	})
 }
 
