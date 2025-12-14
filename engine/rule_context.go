@@ -743,13 +743,15 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 	isEndNode := ctx.self != nil && ctx.self.Type() == types.NodeTypeEnd
 	if configOnEnd != nil || contextOnEnd != nil {
 		ctx.SubmitTask(func() {
+			// 是否触发回调
+			shouldTrigger := ctx.ruleChainCtx == nil || !ctx.HasEndNode() || isEndNode || (ctx.config.OnEndWithFailure && relationType == types.Failure)
 			//全局回调
 			//通过`Config.OnEnd`设置
-			if configOnEnd != nil && (ctx.ruleChainCtx == nil || !ctx.HasEndNode() || isEndNode) {
+			if configOnEnd != nil && shouldTrigger {
 				configOnEnd(ctx, msgToUse, err, relationType)
 			}
 			// types.withOnEnd 设置的回调
-			if contextOnEnd != nil && (ctx.ruleChainCtx == nil || !ctx.HasEndNode() || isEndNode) {
+			if contextOnEnd != nil && shouldTrigger {
 				contextOnEnd(ctx, msgToUse, err, relationType)
 			}
 			ctx.childDone()
