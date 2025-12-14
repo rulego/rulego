@@ -243,6 +243,83 @@ func TestEndNodeBehavior(t *testing.T) {
 	})
 }
 
+func TestOnEndWithFailure(t *testing.T) {
+	// 包含结束节点的规则链
+	ruleChainWithEndNode := `{
+		"ruleChain": {
+			"id": "test_on_end_failure",
+			"name": "TestOnEndWithFailure",
+			"root": true
+		},
+		"metadata": {
+			"nodes": [
+				{
+					"id": "s1",
+					"type": "jsFilter",
+					"name": "Filter",
+					"configuration": {
+						"jsScript": "return msg.temperature > 50;"
+					}
+				},
+				{
+					"id": "end1",
+					"type": "end",
+					"name": "End Node"
+				}
+			],
+			"connections": [
+				{
+					"fromId": "s1",
+					"toId": "end1",
+					"type": "True"
+				}
+			]
+		}
+	}`
+
+	msg := types.NewMsg(0, "TELEMETRY", types.JSON, nil, `{"temperature":10}`) // < 50, so filter returns False. Connection is True. So it will be Failure/False?
+
+	// Case 1: OnEndWithFailure = true (Default)
+	t.Run("DefaultTrue", func(t *testing.T) {
+		config := NewConfig()
+		// Make script fail
+		ruleChainWithScriptError := strings.Replace(ruleChainWithEndNode, "return msg.temperature > 50;", "throw 'error';", 1)
+
+		ruleEngine, err := New("TestOnEndWithFailure_True", []byte(ruleChainWithScriptError), WithConfig(config))
+		assert.Nil(t, err)
+		defer Del(ruleEngine.Id())
+
+		var onEndCalled int32
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			atomic.StoreInt32(&onEndCalled, 1)
+			assert.Equal(t, types.Failure, relationType)
+		}))
+
+		time.Sleep(time.Millisecond * 200)
+		assert.Equal(t, int32(1), atomic.LoadInt32(&onEndCalled))
+	})
+
+	// Case 2: OnEndWithFailure = false
+	t.Run("SetFalse", func(t *testing.T) {
+		config := NewConfig(types.WithOnEndWithFailure(false))
+		// Make script fail
+		ruleChainWithScriptError := strings.Replace(ruleChainWithEndNode, "return msg.temperature > 50;", "throw 'error';", 1)
+
+		ruleEngine, err := New("TestOnEndWithFailure_False", []byte(ruleChainWithScriptError), WithConfig(config))
+		assert.Nil(t, err)
+		defer Del(ruleEngine.Id())
+
+		var onEndCalled int32
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			atomic.StoreInt32(&onEndCalled, 1)
+		}))
+
+		time.Sleep(time.Millisecond * 200)
+		// Should NOT be called because it's Failure, and we have an End node (so normally only End node triggers), and we disabled OnEndWithFailure.
+		assert.Equal(t, int32(0), atomic.LoadInt32(&onEndCalled))
+	})
+}
+
 func TestRuleContext(t *testing.T) {
 	config := NewConfig(types.WithDefaultPool())
 	metaData := types.NewMetadata()

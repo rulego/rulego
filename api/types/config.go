@@ -71,6 +71,9 @@ type Config struct {
 	OnDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)
 	// OnEnd 规则链子链执行完全局回调
 	OnEnd OnEndFunc
+	// OnEndWithFailure indicates whether to trigger the OnEnd callback when no connected node is found and the relation type is Failure.
+	// OnEndWithFailure 表示没有找到连接的节点，并且当关系类型为 Failure 时，是否触发 OnEnd 回调。
+	OnEndWithFailure bool
 	// ScriptMaxExecutionTime is the maximum execution time for scripts, defaulting to 2000 milliseconds.
 	// ScriptMaxExecutionTime 是脚本的最大执行时间，默认为 2000 毫秒。
 	//
@@ -325,6 +328,7 @@ func NewConfig(opts ...Option) Config {
 		Logger:                 DefaultLogger(),
 		Properties:             NewProperties(),
 		EndpointEnabled:        true,
+		OnEndWithFailure:       true,
 	}
 
 	for _, opt := range opts {

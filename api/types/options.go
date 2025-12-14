@@ -122,6 +122,18 @@ func WithOnEndGlobal(onEnd func(ctx RuleContext, msg RuleMsg, err error, relatio
 	}
 }
 
+// WithOnEndWithFailure is an option that sets the OnEndWithFailure of the Config.
+// WithOnEndWithFailure 是设置 Config 的 OnEndWithFailure 的选项。
+//
+// If true, the OnEnd callback will be triggered when no connected node is found and the relation type is Failure.
+// 如果为 true，当没有找到连接的节点，并且关系类型为 Failure 时，触发 OnEnd 回调。
+func WithOnEndWithFailure(onEndWithFailure bool) Option {
+	return func(c *Config) error {
+		c.OnEndWithFailure = onEndWithFailure
+		return nil
+	}
+}
+
 // WithPool is an option that sets the pool of the Config.
 // WithPool 是设置 Config 池的选项。
 //
