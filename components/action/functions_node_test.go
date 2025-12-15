@@ -110,4 +110,179 @@ func TestFunctionsNode(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("RegisterDef", func(t *testing.T) {
+		Functions.RegisterDef(FunctionDef{
+			Name:  "testDef",
+			Label: "测试函数",
+			Desc:  "这是一个测试函数",
+			F: func(ctx types.RuleContext, msg types.RuleMsg) {
+				ctx.TellSuccess(msg)
+			},
+		})
+
+		f, ok := Functions.Get("testDef")
+		assert.True(t, ok)
+		assert.NotNil(t, f)
+
+		defs := Functions.List()
+		var found bool
+		for _, def := range defs {
+			if def.Name == "testDef" {
+				assert.Equal(t, "测试函数", def.Label)
+				assert.Equal(t, "这是一个测试函数", def.Desc)
+				found = true
+				break
+			}
+		}
+		assert.True(t, found)
+	})
+
+	t.Run("RegisterWithParams", func(t *testing.T) {
+		Functions.Register("testParams", func(ctx types.RuleContext, msg types.RuleMsg) {
+			ctx.TellSuccess(msg)
+		}, "测试函数Params", "这是一个测试函数Params")
+
+		f, ok := Functions.Get("testParams")
+		assert.True(t, ok)
+		assert.NotNil(t, f)
+
+		defs := Functions.List()
+		var found bool
+		for _, def := range defs {
+			if def.Name == "testParams" {
+				assert.Equal(t, "测试函数Params", def.Label)
+				assert.Equal(t, "这是一个测试函数Params", def.Desc)
+				found = true
+				break
+			}
+		}
+		assert.True(t, found)
+	})
+
+	t.Run("RegisterOrder", func(t *testing.T) {
+		// Clean up previous registrations for this test
+		Functions.UnRegister("order1")
+		Functions.UnRegister("order2")
+		Functions.UnRegister("order3")
+
+		Functions.Register("order1", nil)
+		Functions.Register("order2", nil)
+		Functions.Register("order3", nil)
+
+		names := Functions.Names()
+		var foundOrder1, foundOrder2, foundOrder3 bool
+		var index1, index2, index3 int
+		for i, name := range names {
+			if name == "order1" {
+				foundOrder1 = true
+				index1 = i
+			}
+			if name == "order2" {
+				foundOrder2 = true
+				index2 = i
+			}
+			if name == "order3" {
+				foundOrder3 = true
+				index3 = i
+			}
+		}
+		assert.True(t, foundOrder1)
+		assert.True(t, foundOrder2)
+		assert.True(t, foundOrder3)
+		assert.True(t, index1 < index2)
+		assert.True(t, index2 < index3)
+
+		// Test UnRegister order
+		Functions.UnRegister("order2")
+		names = Functions.Names()
+		foundOrder2 = false
+		for _, name := range names {
+			if name == "order2" {
+				foundOrder2 = true
+			}
+		}
+		assert.False(t, foundOrder2)
+
+		// Re-register order2, it should be at the end
+		Functions.Register("order2", nil)
+		names = Functions.Names()
+		for i, name := range names {
+			if name == "order1" {
+				index1 = i
+			}
+			if name == "order2" {
+				index2 = i
+			}
+			if name == "order3" {
+				index3 = i
+			}
+		}
+		assert.True(t, index1 < index3)
+		assert.True(t, index3 < index2)
+	})
+
+	t.Run("Param", func(t *testing.T) {
+		// Register a function that returns the received data
+		Functions.Register("echo", func(ctx types.RuleContext, msg types.RuleMsg) {
+			ctx.TellSuccess(msg)
+		})
+
+		// Test with static param
+		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"functionName": "echo",
+			"param":        "static_param",
+		}, Registry)
+		assert.Nil(t, err)
+
+		// Test with dynamic param from metadata
+		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"functionName": "echo",
+			"param":        "${metadata.key}",
+		}, Registry)
+		assert.Nil(t, err)
+
+		// Test with default (empty param)
+		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"functionName": "echo",
+		}, Registry)
+		assert.Nil(t, err)
+
+		// Test with json param
+		node4, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"functionName": "echo",
+			"param":        "{\"name\":\"${metadata.key}\"}",
+		}, Registry)
+		assert.Nil(t, err)
+
+		var nodeList = []types.Node{node1, node2, node3, node4}
+
+		for i, node := range nodeList {
+			// fix data race
+			i := i
+			metaData := types.BuildMetadata(make(map[string]string))
+			metaData.PutValue("key", "dynamic_value")
+			var msgList = []test.Msg{
+				{
+					MetaData:   metaData,
+					MsgType:    "ACTIVITY_EVENT",
+					Data:       "original_data",
+					AfterSleep: time.Millisecond * 200,
+				},
+			}
+
+			test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
+				if i == 0 {
+					assert.Equal(t, "static_param", msg.GetData())
+				} else if i == 1 {
+					assert.Equal(t, "dynamic_value", msg.GetData())
+				} else if i == 2 {
+					assert.Equal(t, "original_data", msg.GetData())
+				} else if i == 3 {
+					assert.Equal(t, "{\"name\":\"dynamic_value\"}", msg.GetData())
+				}
+				assert.Equal(t, types.Success, relationType)
+			})
+		}
+	})
 }
