@@ -1,5 +1,27 @@
 # CHANGELOG
 
+# [v0.35.0] 2025/12/18
+### rulego-core
+- feat(components): join组件支持把错误传递到下一个节点
+- feat(components): end组件支持把上一个节点错误传递到回调函数
+- feat(components): 增加break组件
+- feat(components): for节点组件支持中断
+- feat(components): 延迟节点组件支持通过元数据获取时间偏移
+- feat(components): join/groupAction组件支持把执行结果合并到同一个map
+- feat(components): 函数组件支持参数配置
+- feat(components): 函数组件函数注册支持添加显示名称和描述
+- feat: 执行规则链支持执行实例取消
+- feat: 引擎支持多节点执行恢复 
+- feat: 增加Config.OnEndWithFailure 配置，出现错误时，是否调用结束回调函数
+- fix: 引擎onEnd回调某些情况无法触发
+- fix: 执行快照数据竞争问题
+- perf: 优化引擎执行超时上下文性能
+- perf: 优化引擎结束回调执行顺序
+- chore(ci):压缩编译后文件
+### rulego-components
+- feat: opcua write组件支持int、double、数组等类型
+- chore(ci):升级依赖
+
 # [v0.34.0] 2025/11/03
 ### rulego-core
 - feat(components): 延迟组件(delayNode),延迟时间支持毫秒
