@@ -51,16 +51,16 @@ func init() {
 type FunctionDef struct {
 	// Name 函数名称
 	// Name is the unique identifier for the function.
-	Name string
+	Name string `json:"name"`
 	// Label 函数显示名/标签
 	// Label is the display name or label for the function.
-	Label string
+	Label string `json:"label"`
 	// Desc 函数描述
 	// Desc provides a description of what the function does.
-	Desc string
+	Desc string `json:"desc"`
 	// F 函数实现
 	// F is the actual function implementation to be executed.
-	F func(ctx types.RuleContext, msg types.RuleMsg)
+	F func(ctx types.RuleContext, msg types.RuleMsg) `json:"-"`
 }
 
 // FunctionsRegistry 线程安全的自定义处理函数注册表
