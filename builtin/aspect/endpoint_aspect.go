@@ -24,6 +24,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/utils/dsl"
+	"github.com/rulego/rulego/utils/str"
 )
 
 var (
@@ -208,7 +209,7 @@ func NewRuleChainEndpoint(ruleEngineId string, config types.Config, endpointPool
 	}
 	for _, item := range defs {
 		if ruleChain != nil {
-			item.Configuration = dsl.ProcessVariables(ruleChainEndpoint.config, *ruleChain, item.Configuration)
+			processEndpointDsl(ruleChainEndpoint.config, ruleChain, item)
 		}
 		ruleChainEndpoint.bindTo(item, ruleEngineId)
 		if err := ruleChainEndpoint.AddEndpointAndStart(item, endpoint.DynamicEndpointOptions.WithConfig(config),
@@ -237,9 +238,15 @@ func (e *RuleChainEndpoint) Reload(ruleChain *types.RuleChain, newDefs []*types.
 	for _, ep := range endpoints {
 		tmp := ep.Definition()
 		if ruleChain != nil {
-			tmp.Configuration = dsl.ProcessVariables(e.config, *ruleChain, tmp.Configuration)
+			processEndpointDsl(e.config, ruleChain, &tmp)
 		}
 		oldDefs = append(oldDefs, &tmp)
+	}
+	// process newDefs variables
+	if ruleChain != nil {
+		for _, item := range newDefs {
+			processEndpointDsl(e.config, ruleChain, item)
+		}
 	}
 	added, removed, modified := e.checkEndpointChanges(oldDefs, newDefs)
 	for _, item := range removed {
@@ -368,4 +375,65 @@ func (e *RuleChainEndpoint) bindTo(def *types.EndpointDsl, ruleEngineId string) 
 			r.To.Path = ruleEngineId
 		}
 	}
+}
+
+func processEndpointDsl(config types.Config, ruleChain *types.RuleChain, item *types.EndpointDsl) {
+	if ruleChain == nil {
+		return
+	}
+	env := dsl.GetInitNodeEnv(config, *ruleChain)
+
+	// Configuration
+	item.Configuration = processConfiguration(env, item.Configuration)
+
+	// Processors
+	item.Processors = processSlice(env, item.Processors)
+
+	// Routers
+	for _, router := range item.Routers {
+		// Params
+		router.Params = processInterfaceSlice(env, router.Params)
+
+		// From
+		router.From.Path = str.ExecuteTemplate(router.From.Path, env)
+		router.From.Configuration = processConfiguration(env, router.From.Configuration)
+		router.From.Processors = processSlice(env, router.From.Processors)
+
+		// To
+		router.To.Path = str.ExecuteTemplate(router.To.Path, env)
+		router.To.Configuration = processConfiguration(env, router.To.Configuration)
+		router.To.Processors = processSlice(env, router.To.Processors)
+	}
+}
+
+func processConfiguration(env map[string]interface{}, config types.Configuration) types.Configuration {
+	newConfig := make(types.Configuration)
+	for k, v := range config {
+		if strV, ok := v.(string); ok {
+			newConfig[k] = str.ExecuteTemplate(strV, env)
+		} else {
+			newConfig[k] = v
+		}
+	}
+	return newConfig
+}
+
+func processSlice(env map[string]interface{}, slice []string) []string {
+	var newSlice []string
+	for _, s := range slice {
+		newSlice = append(newSlice, str.ExecuteTemplate(s, env))
+	}
+	return newSlice
+}
+
+func processInterfaceSlice(env map[string]interface{}, slice []interface{}) []interface{} {
+	var newSlice []interface{}
+	for _, v := range slice {
+		if s, ok := v.(string); ok {
+			newSlice = append(newSlice, str.ExecuteTemplate(s, env))
+		} else {
+			newSlice = append(newSlice, v)
+		}
+	}
+	return newSlice
 }
