@@ -118,6 +118,7 @@ func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 
 		wrapperMsg.SetDataType(types.JSON)
+		err = mergeMetadata(msgList, &wrapperMsg)
 		if x.Config.MergeToMap {
 			mergedMap := make(map[string]interface{})
 			for _, val := range msgList {
@@ -144,7 +145,6 @@ func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		} else {
 			wrapperMsg.SetData(str.ToString(filterEmptyAndRemoveMeta(msgList)))
 		}
-		err = mergeMetadata(msgList, &wrapperMsg)
 		select {
 		case c <- struct{}{}:
 		default: // 防止阻塞
