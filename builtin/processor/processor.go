@@ -289,8 +289,12 @@ func init() {
 		} else if exchange.Out.GetMsg() != nil {
 			msg := exchange.Out.GetMsg()
 			msg.Metadata.ForEach(func(k, v string) bool {
-				exchange.Out.Headers().Set(k, v)
-				return true // continue iteration  继续迭代
+				if t, ok := exchange.Out.(endpoint.HeaderModifier); ok {
+					t.SetHeader(k, v)
+				} else {
+					exchange.Out.Headers().Set(k, v)
+				}
+				return true
 			})
 		}
 		return true
