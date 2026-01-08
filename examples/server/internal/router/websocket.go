@@ -74,6 +74,12 @@ func NewWebsocketServe(c config.Config, httpEndpoint endpointApi.HttpEndpoint) (
 			}
 		}
 	})
+	httpEndpoint.SetOnEvent(func(eventName string, params ...interface{}) {
+		switch eventName {
+		case endpointApi.EventRestart:
+			_, _ = ep.AddRouter(controller.Log.WsNodeLogRouter(apiBasePath + "/" + moduleLogs + "/ws/:chainId/:clientId"))
+		}
+	})
 	_, _ = ep.AddRouter(controller.Log.WsNodeLogRouter(apiBasePath + "/" + moduleLogs + "/ws/:chainId/:clientId"))
 
 	return ep, nil
