@@ -908,6 +908,11 @@ func (rest *Rest) Restart() error {
 	if err := rest.Start(); err != nil {
 		return err
 	}
+
+	if rest.OnEvent != nil {
+		rest.OnEvent(endpoint.EventRestart, oldRouter)
+	}
+
 	for _, router := range oldRouter {
 		if len(router.GetParams()) == 0 {
 			router.SetParams("GET")

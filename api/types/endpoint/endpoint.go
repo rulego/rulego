@@ -113,6 +113,12 @@ const (
 	// EventCompletedServer 表示服务器完成事件。
 	// 当端点服务器完成其操作时触发。
 	EventCompletedServer = "completedServer"
+
+	// EventRestart represents a server restart event.
+	// Triggered when the endpoint server is being restarted.
+	// EventRestart 表示服务器重启事件。
+	// 当端点服务器正在重启时触发。
+	EventRestart = "Restart"
 )
 
 // OnEvent is a callback function type for handling endpoint events.
