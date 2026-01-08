@@ -5,6 +5,10 @@ import (
 	"examples/server/config/logger"
 	"examples/server/internal/constants"
 	"examples/server/internal/service"
+	"net/http"
+	"strconv"
+	"strings"
+
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/builtin/processor"
@@ -13,9 +17,6 @@ import (
 	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/str"
-	"net/http"
-	"strconv"
-	"strings"
 )
 
 var Node = &node{}
@@ -171,7 +172,8 @@ func (c *node) getCustomNodeList(getFromMarketplace bool, checkMy bool, exchange
 			return userNotFound(username, exchange)
 		}
 		//标记已安装、需要升级的组件
-		for _, item := range components {
+		for i := range components {
+			item := &components[i]
 			if item.RuleChain.AdditionalInfo == nil {
 				item.RuleChain.AdditionalInfo = map[string]interface{}{}
 			}
