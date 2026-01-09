@@ -1,5 +1,3 @@
-al.essio.dev/pkg/shellescape v1.5.1 h1:86HrALUujYS/h+GtqoB26SBEdkWfmMI6FubjXlsXyho=
-al.essio.dev/pkg/shellescape v1.5.1/go.mod h1:6sIqp7X2P6mThCQ7twERpZTuigpr6KbZWtls1U8I890=
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 dario.cat/mergo v1.0.0 h1:AGCNq9Evsj31mOgNPcLyXc+4PNABt905YmuqPYYpBWk=
 dario.cat/mergo v1.0.0/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
@@ -40,6 +38,8 @@ github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuy
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
+github.com/alessio/shellescape v1.4.1 h1:V7yhSDDn8LP4lc4jS8pFkt0zCnzVJlG5JXy9BVKJUX0=
+github.com/alessio/shellescape v1.4.1/go.mod h1:PZAiSCk0LJaZkiCSkPv8qIobYglO3FPpyFjDCtHLS30=
 github.com/andybalholm/brotli v1.2.0 h1:ukwgCxwYrmACq68yiUqwIWnGY0cTPox/M94sVwToPjQ=
 github.com/andybalholm/brotli v1.2.0/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFIImctFaOjnTIavg87rW78vTPkQqLI8=
@@ -298,6 +298,7 @@ github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
 github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
+github.com/lib/pq v1.7.0/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
 github.com/lib/pq v1.10.9 h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=
 github.com/lib/pq v1.10.9/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
 github.com/libgox/gocollections v0.1.1 h1:u102d/xMBF+8Cf/5UuFpcM/iP0NgvWlOR9tVo14Fs6s=
@@ -433,8 +434,8 @@ github.com/rogpeppe/go-internal v1.14.1 h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0t
 github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7so1lCWt35ZSgc=
 github.com/rulego/rulego v0.35.2-0.20260108104900-e63391e58338 h1:ecJpZnR1qwr7B3QCEJ3z2JHgIKwwoo4nbmxqiXxl9cQ=
 github.com/rulego/rulego v0.35.2-0.20260108104900-e63391e58338/go.mod h1:AmnMby85wUZjeF8OYCJ8vv/JPll5Kq4XKhr9AvJ2usw=
-github.com/rulego/rulego-components v0.35.2-0.20260108105513-8ba0726ad0a1 h1:H+z0XFpHOdrLwWraaNJ6KRuhS2/P3ScFSlRL7wTAAk4=
-github.com/rulego/rulego-components v0.35.2-0.20260108105513-8ba0726ad0a1/go.mod h1:zGBYBurTBnO5OyCs6vUw9FLzOjr2O9oBTWHtsXTsx1c=
+github.com/rulego/rulego-components v0.35.2-0.20260109041447-57d90e117e56 h1:JCFkEnZXULRApL8QnFZoSf+/anz8AH23vxJb/5btvnA=
+github.com/rulego/rulego-components v0.35.2-0.20260109041447-57d90e117e56/go.mod h1:wQzkpFJCWN1jTES+acp5DbU0VRr0stWHYSx0z7gk1EA=
 github.com/rulego/rulego-components-ai v0.31.1 h1:XU608X0xL/y+sKG4G+Urm6wybE62K5QgfI+yhdsNlsc=
 github.com/rulego/rulego-components-ai v0.31.1/go.mod h1:jVZ9bKhKAdYn2No5Q+EIUp2l31vBmDnhLwq/KM2IUu8=
 github.com/rulego/rulego-components-ci v0.31.1-0.20250602161121-89f21f4c54fe h1:+kLBmKIfBxTwWQrfbY0wrtZg6BrOBrrNV0vHe1iiJKI=
@@ -501,8 +502,8 @@ github.com/tklauser/go-sysconf v0.3.12 h1:0QaGUFOdQaIVdPgfITYzaTegZvdCjmYO52cSFA
 github.com/tklauser/go-sysconf v0.3.12/go.mod h1:Ho14jnntGE1fpdOqQEEaiKRpvIavV0hSfmBq8nJbHYI=
 github.com/tklauser/numcpus v0.6.1 h1:ng9scYS7az0Bk4OZLvrNXNSAO2Pxr1XXRAPyjhIx+Fk=
 github.com/tklauser/numcpus v0.6.1/go.mod h1:1XfjsgE2zo8GVw7POkMbHENHzVg3GzmoZ9fESEdAacY=
-github.com/vadv/gopher-lua-libs v0.8.0 h1:u2GVTj32Wnmu8RpSxeAdlTf9mYZrrm9ALKGYmvnvvZQ=
-github.com/vadv/gopher-lua-libs v0.8.0/go.mod h1:iNYvPoNV6ur7xJj4Uj3hEVebv8Z0/MoeM1igsXQbv8g=
+github.com/vadv/gopher-lua-libs v0.5.0 h1:m0hhWia1A1U3PIRmtdHWBj88ogzuIjm6HUBmtUa0Tz4=
+github.com/vadv/gopher-lua-libs v0.5.0/go.mod h1:mlSOxmrjug7DwisiH7xBFnBellHobPbvAIhVeI/4SYY=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasthttp v1.65.0 h1:j/u3uzFEGFfRxw79iYzJN+TteTJwbYkru9uDp3d0Yf8=

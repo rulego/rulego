@@ -9,7 +9,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/mark3labs/mcp-go v0.18.0
 	github.com/rulego/rulego v0.35.2-0.20260108104900-e63391e58338
-	github.com/rulego/rulego-components v0.35.2-0.20260108105513-8ba0726ad0a1
+	github.com/rulego/rulego-components v0.35.2-0.20260109041447-57d90e117e56
 	github.com/rulego/rulego-components-ai v0.31.1
 	github.com/rulego/rulego-components-ci v0.31.1-0.20250602161121-89f21f4c54fe
 	github.com/rulego/rulego-components-etl v0.29.1-0.20250602160310-2d30a072f03b
@@ -18,7 +18,6 @@ require (
 )
 
 require (
-	al.essio.dev/pkg/shellescape v1.5.1 // indirect
 	dario.cat/mergo v1.0.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
@@ -33,6 +32,7 @@ require (
 	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/WuKongIM/WuKongIMGoProto v1.2.3 // indirect
 	github.com/WuKongIM/WuKongIMGoSDK v1.0.0 // indirect
+	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/apache/pulsar-client-go v0.17.0 // indirect
 	github.com/ardielle/ardielle-go v1.5.2 // indirect
@@ -162,7 +162,7 @@ require (
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
-	github.com/vadv/gopher-lua-libs v0.8.0 // indirect
+	github.com/vadv/gopher-lua-libs v0.5.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.65.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
