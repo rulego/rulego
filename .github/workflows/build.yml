@@ -35,6 +35,8 @@ jobs:
           CGO_ENABLED=0 GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-linux-arm64
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-macos-arm64
           CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-windows-arm64.exe
+          CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_iot" -v -o rulego-server-all-linux-386
+          CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-linux-386
       - name: Create compressed archives
         run: |
           cd examples/server/cmd/server
@@ -46,6 +48,7 @@ jobs:
           tar -czf rulego-server-all-linux-arm64.tar.gz rulego-server-all-linux-arm64
           tar -czf rulego-server-all-macos-arm64.tar.gz rulego-server-all-macos-arm64
           zip rulego-server-all-windows-arm64.zip rulego-server-all-windows-arm64.exe
+          tar -czf rulego-server-all-linux-386.tar.gz rulego-server-all-linux-386
           
           # 基础版本
           tar -czf rulego-server-linux-amd64.tar.gz rulego-server-linux-amd64
@@ -54,6 +57,7 @@ jobs:
           tar -czf rulego-server-linux-arm64.tar.gz rulego-server-linux-arm64
           tar -czf rulego-server-macos-arm64.tar.gz rulego-server-macos-arm64
           zip rulego-server-windows-arm64.zip rulego-server-windows-arm64.exe
+          tar -czf rulego-server-linux-386.tar.gz rulego-server-linux-386
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
