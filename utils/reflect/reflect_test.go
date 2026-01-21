@@ -331,3 +331,61 @@ func TestGetFieldsWithJSONTags(t *testing.T) {
 	assert.Equal(t, "^[a-zA-Z]+$", patternRule["pattern"])
 	assert.Equal(t, "只能包含字母", patternRule["message"])
 }
+
+// SquashConfig 用于测试squash标签的配置结构
+type SquashConfig struct {
+	BaseConfig `mapstructure:",squash"`
+	OtherField string `json:"otherField" label:"其他字段"`
+}
+
+type BaseConfig struct {
+	BaseField string `json:"baseField" label:"基础字段"`
+}
+
+// SquashNode 测试squash标签的节点
+type SquashNode struct {
+	Config SquashConfig
+}
+
+func (x *SquashNode) Type() string {
+	return "squash"
+}
+
+func (x *SquashNode) New() types.Node {
+	return &SquashNode{
+		Config: SquashConfig{
+			BaseConfig: BaseConfig{
+				BaseField: "base",
+			},
+			OtherField: "other",
+		},
+	}
+}
+
+func (x *SquashNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	return nil
+}
+
+func (x *SquashNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {}
+
+func (x *SquashNode) Destroy() {}
+
+func TestGetFieldsWithSquash(t *testing.T) {
+	node := &SquashNode{}
+	form := GetComponentForm(node)
+
+	// 验证字段数量 - 应该是2个字段，BaseField和OtherField，BaseConfig被平铺了
+	assert.Equal(t, 2, len(form.Fields))
+
+	// 验证BaseField存在且在顶层
+	baseField, found := form.Fields.GetField("baseField")
+	assert.True(t, found)
+	assert.Equal(t, "baseField", baseField.Name)
+	assert.Equal(t, "基础字段", baseField.Label)
+
+	// 验证OtherField存在
+	otherField, found := form.Fields.GetField("otherField")
+	assert.True(t, found)
+	assert.Equal(t, "otherField", otherField.Name)
+	assert.Equal(t, "其他字段", otherField.Label)
+}

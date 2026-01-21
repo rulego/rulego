@@ -162,6 +162,19 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 				continue
 			}
 
+			// 检查是否需要平铺（squash）
+			// 如果是匿名结构体且有 mapstructure:",squash" 标签，则将其字段平铺到当前层级
+			mapStructureTag := field.Tag.Get("mapstructure")
+			if field.Anonymous && field.Type.Kind() == reflect.Struct && strings.Contains(mapStructureTag, "squash") {
+				var embeddedValue reflect.Value
+				if configValue.IsValid() {
+					embeddedValue = configValue.Field(i)
+				}
+				embeddedFields := GetFields(field, embeddedValue)
+				fields = append(fields, embeddedFields...)
+				continue
+			}
+
 			var defaultValue interface{}
 			if configValue.Field(i).CanInterface() {
 				defaultValue = configValue.Field(i).Interface()
