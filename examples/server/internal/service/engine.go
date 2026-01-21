@@ -438,7 +438,6 @@ func (s *RuleEngineService) SetMainChainId(chainId string) error {
 // saveRuleChain 持久化规则链
 func (s *RuleEngineService) saveRuleChain(ruleChain types.RuleChain, whenErr error) error {
 	if whenErr != nil {
-		ruleChain.RuleChain.Disabled = true
 		ruleChain.RuleChain.PutAdditionalInfo(constants.AddiKeyMessage, whenErr.Error())
 	}
 	if def, err := json.Marshal(ruleChain); err != nil {
