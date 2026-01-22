@@ -34,10 +34,11 @@
 package reflect
 
 import (
-	"github.com/rulego/rulego/api/types/endpoint"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/rulego/rulego/api/types/endpoint"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/json"
@@ -164,8 +165,12 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 
 			// 检查是否需要平铺（squash）
 			// 如果是匿名结构体且有 mapstructure:",squash" 标签，则将其字段平铺到当前层级
-			mapStructureTag := field.Tag.Get("mapstructure")
-			if field.Anonymous && field.Type.Kind() == reflect.Struct && strings.Contains(mapStructureTag, "squash") {
+			// 优先从json标签获取，如果json标签没有，再从mapstructure标签获取
+			tag := field.Tag.Get("json")
+			if !strings.Contains(tag, "squash") {
+				tag = field.Tag.Get("mapstructure")
+			}
+			if field.Anonymous && field.Type.Kind() == reflect.Struct && strings.Contains(tag, "squash") {
 				var embeddedValue reflect.Value
 				if configValue.IsValid() {
 					embeddedValue = configValue.Field(i)
@@ -201,7 +206,7 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 					"message":  "This field is required",
 				})
 			}
-			
+
 			// 从rules标签获取验证规则配置
 			rulesTag := field.Tag.Get("rules")
 			if rulesTag != "" {
@@ -230,7 +235,7 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 			if componentTag != "" {
 				// 解析JSON格式的component标签
 				// 例如: component:"{\"type\":\"select\",\"filterable\":true,\"options\":[{\"label\":\"mysql\",\"value\":\"mysql\"}]}"
-				_=json.Unmarshal([]byte(componentTag), &component)
+				_ = json.Unmarshal([]byte(componentTag), &component)
 			}
 
 			fields = append(fields,

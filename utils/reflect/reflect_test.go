@@ -17,8 +17,9 @@
 package reflect
 
 import (
-	"github.com/rulego/rulego/test/assert"
 	"testing"
+
+	"github.com/rulego/rulego/test/assert"
 
 	"github.com/rulego/rulego/api/types"
 )
@@ -151,11 +152,11 @@ func TestGetFieldsWithJSONTag(t *testing.T) {
 
 // TestPrivateFieldConfiguration 测试私有字段的配置结构
 type TestPrivateFieldConfiguration struct {
-	PublicField  string `label:"公有字段" desc:"这是一个公有字段"`
-	privateField string `label:"私有字段" desc:"这是一个私有字段"`
-	AnotherPublic int   `label:"另一个公有字段" desc:"这是另一个公有字段"`
-	anotherPrivate bool `label:"另一个私有字段" desc:"这是另一个私有字段"`
-	IgnoredField string `json:"-" label:"被忽略的字段" desc:"这个字段应该被忽略"`
+	PublicField    string `label:"公有字段" desc:"这是一个公有字段"`
+	privateField   string `label:"私有字段" desc:"这是一个私有字段"`
+	AnotherPublic  int    `label:"另一个公有字段" desc:"这是另一个公有字段"`
+	anotherPrivate bool   `label:"另一个私有字段" desc:"这是另一个私有字段"`
+	IgnoredField   string `json:"-" label:"被忽略的字段" desc:"这个字段应该被忽略"`
 }
 
 // TestPrivateFieldNode 测试私有字段的节点
@@ -215,13 +216,13 @@ func TestGetFieldsExcludePrivateFields(t *testing.T) {
 type TestJSONTagsConfiguration struct {
 	// 测试JSON格式的rules标签
 	RequiredField string `json:"required_field" label:"必填字段" desc:"测试JSON格式rules标签" rules:"[{\"required\":true,\"message\":\"此字段为必填项\"},{\"min\":3,\"message\":\"最少3个字符\"}]"`
-	
+
 	// 测试JSON格式的component标签
 	SelectField string `json:"select_field" label:"选择字段" desc:"测试JSON格式component标签" component:"{\"type\":\"select\",\"filterable\":true,\"options\":[{\"label\":\"选项1\",\"value\":\"option1\"},{\"label\":\"选项2\",\"value\":\"option2\"}]}"`
-	
+
 	// 测试同时使用JSON格式的rules和component标签
 	ComplexField int `json:"complex_field" label:"复杂字段" desc:"同时使用rules和component标签" rules:"[{\"required\":true,\"message\":\"必填\"},{\"min\":1,\"message\":\"最小值为1\"},{\"max\":100,\"message\":\"最大值为100\"}]" component:"{\"type\":\"number\",\"step\":1,\"placeholder\":\"请输入1-100的数字\"}"`
-	
+
 	// 测试required标签与JSON格式rules标签的组合
 	MixedField string `json:"mixed_field" label:"混合字段" desc:"required标签与JSON格式rules标签组合" required:"true" rules:"[{\"pattern\":\"^[a-zA-Z]+$\",\"message\":\"只能包含字母\"}]"`
 }
@@ -261,71 +262,72 @@ func (x *TestJSONTagsNode) Destroy() {}
 func TestGetFieldsWithJSONTags(t *testing.T) {
 	node := &TestJSONTagsNode{}
 	componentForm := GetComponentForm(node)
-	
+
 	// 验证字段数量
 	assert.Equal(t, 4, len(componentForm.Fields))
-	
+
 	// 测试RequiredField的JSON格式rules标签
 	requiredField := componentForm.Fields[0]
 	assert.Equal(t, "required_field", requiredField.Name)
 	assert.Equal(t, "必填字段", requiredField.Label)
 	assert.Equal(t, 2, len(requiredField.Rules))
-	
+
 	// 验证第一个规则
 	rule1 := requiredField.Rules[0]
 	assert.Equal(t, true, rule1["required"])
 	assert.Equal(t, "此字段为必填项", rule1["message"])
-	
+
 	// 验证第二个规则
 	rule2 := requiredField.Rules[1]
 	assert.Equal(t, float64(3), rule2["min"]) // JSON解析数字为float64
 	assert.Equal(t, "最少3个字符", rule2["message"])
-	
+
 	// 测试SelectField的JSON格式component标签
 	selectField := componentForm.Fields[1]
 	assert.Equal(t, "select_field", selectField.Name)
 	assert.Equal(t, "选择字段", selectField.Label)
 	assert.NotNil(t, selectField.Component)
-	
+
 	// 验证component配置
 	component := selectField.Component
 	assert.Equal(t, "select", component["type"])
 	assert.Equal(t, true, component["filterable"])
-	
+
 	// 验证options数组
 	options, ok := component["options"].([]interface{})
 	assert.True(t, ok)
 	assert.Equal(t, 2, len(options))
-	
+
+	// 验证options[0]
 	option1, ok := options[0].(map[string]interface{})
 	assert.True(t, ok)
 	assert.Equal(t, "选项1", option1["label"])
 	assert.Equal(t, "option1", option1["value"])
-	
+
 	// 测试ComplexField的复杂配置
 	complexField := componentForm.Fields[2]
 	assert.Equal(t, "complex_field", complexField.Name)
 	assert.Equal(t, "复杂字段", complexField.Label)
 	assert.Equal(t, 3, len(complexField.Rules))
 	assert.NotNil(t, complexField.Component)
-	
+
 	// 验证复杂字段的component配置
 	complexComponent := complexField.Component
 	assert.Equal(t, "number", complexComponent["type"])
 	assert.Equal(t, float64(1), complexComponent["step"])
 	assert.Equal(t, "请输入1-100的数字", complexComponent["placeholder"])
-	
+
 	// 测试MixedField的required标签与JSON格式rules标签组合
 	mixedField := componentForm.Fields[3]
 	assert.Equal(t, "mixed_field", mixedField.Name)
 	assert.Equal(t, "混合字段", mixedField.Label)
 	assert.Equal(t, 2, len(mixedField.Rules)) // required标签生成的规则 + JSON格式rules标签的规则
-	
+
 	// 验证required标签生成的规则
 	requiredRule := mixedField.Rules[0]
 	assert.Equal(t, true, requiredRule["required"])
 	assert.Equal(t, "This field is required", requiredRule["message"])
-	
+
 	// 验证JSON格式rules标签的规则
 	patternRule := mixedField.Rules[1]
 	assert.Equal(t, "^[a-zA-Z]+$", patternRule["pattern"])
@@ -372,6 +374,60 @@ func (x *SquashNode) Destroy() {}
 
 func TestGetFieldsWithSquash(t *testing.T) {
 	node := &SquashNode{}
+	form := GetComponentForm(node)
+
+	// 验证字段数量 - 应该是2个字段，BaseField和OtherField，BaseConfig被平铺了
+	assert.Equal(t, 2, len(form.Fields))
+
+	// 验证BaseField存在且在顶层
+	baseField, found := form.Fields.GetField("baseField")
+	assert.True(t, found)
+	assert.Equal(t, "baseField", baseField.Name)
+	assert.Equal(t, "基础字段", baseField.Label)
+
+	// 验证OtherField存在
+	otherField, found := form.Fields.GetField("otherField")
+	assert.True(t, found)
+	assert.Equal(t, "otherField", otherField.Name)
+	assert.Equal(t, "其他字段", otherField.Label)
+}
+
+// JsonSquashConfig 用于测试json squash标签的配置结构
+type JsonSquashConfig struct {
+	BaseConfig `json:",squash"`
+	OtherField string `json:"otherField" label:"其他字段"`
+}
+
+// JsonSquashNode 测试json squash标签的节点
+type JsonSquashNode struct {
+	Config JsonSquashConfig
+}
+
+func (x *JsonSquashNode) Type() string {
+	return "jsonSquash"
+}
+
+func (x *JsonSquashNode) New() types.Node {
+	return &JsonSquashNode{
+		Config: JsonSquashConfig{
+			BaseConfig: BaseConfig{
+				BaseField: "base",
+			},
+			OtherField: "other",
+		},
+	}
+}
+
+func (x *JsonSquashNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	return nil
+}
+
+func (x *JsonSquashNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {}
+
+func (x *JsonSquashNode) Destroy() {}
+
+func TestGetFieldsWithJsonSquash(t *testing.T) {
+	node := &JsonSquashNode{}
 	form := GetComponentForm(node)
 
 	// 验证字段数量 - 应该是2个字段，BaseField和OtherField，BaseConfig被平铺了
