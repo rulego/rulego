@@ -17,9 +17,10 @@
 package maps
 
 import (
-	"github.com/rulego/rulego/test/assert"
 	"testing"
 	"time"
+
+	"github.com/rulego/rulego/test/assert"
 )
 
 type User struct {
@@ -153,4 +154,71 @@ func TestGet(t *testing.T) {
 		1: "one",
 	}
 	assert.Nil(t, Get(mapWithIntKey, "1"))
+}
+
+func TestMap2StructWithJsonTag(t *testing.T) {
+	// Case 3: key matches json tag, but field name is completely different
+	// This is the real test case.
+	type ComplexJsonTagStruct struct {
+		MyField string `json:"completely_different_name"`
+	}
+	m3 := map[string]interface{}{
+		"completely_different_name": "value3",
+	}
+	var s3 ComplexJsonTagStruct
+	_ = Map2Struct(m3, &s3)
+
+	// 如果 Map2Struct 不支持 json tag，这里应该失败（为空）
+	// 如果支持，这里应该是 value3
+	assert.Equal(t, "value3", s3.MyField)
+}
+
+func TestMap2StructWithoutJsonTag(t *testing.T) {
+	type NoTagStruct struct {
+		SimpleField string
+		CamelCase   string
+	}
+
+	// Case 1: Exact match
+	m1 := map[string]interface{}{
+		"SimpleField": "value1",
+		"CamelCase":   "value2",
+	}
+	var s1 NoTagStruct
+	_ = Map2Struct(m1, &s1)
+	assert.Equal(t, "value1", s1.SimpleField)
+	assert.Equal(t, "value2", s1.CamelCase)
+
+	// Case 2: Case insensitive match
+	m2 := map[string]interface{}{
+		"simpleField": "value1",
+		"camelCase":   "value2",
+	}
+	var s2 NoTagStruct
+	_ = Map2Struct(m2, &s2)
+	assert.Equal(t, "value1", s2.SimpleField)
+	assert.Equal(t, "value2", s2.CamelCase)
+}
+
+func TestMap2StructSquash(t *testing.T) {
+	type Base struct {
+		BaseField string `json:"base_field"`
+	}
+
+	// Test json squash
+	type SquashedStructJson struct {
+		Base  `json:",squash"`
+		Other string `json:"other"`
+	}
+
+	input := map[string]interface{}{
+		"base_field": "base_value",
+		"other":      "other_value",
+	}
+
+	var s1 SquashedStructJson
+	err := Map2Struct(input, &s1)
+	assert.Nil(t, err)
+	assert.Equal(t, "base_value", s1.BaseField)
+	assert.Equal(t, "other_value", s1.Other)
 }
