@@ -72,6 +72,7 @@ func Map2Struct(input interface{}, output interface{}) error {
 		Metadata:         nil,
 		Result:           output,
 		ZeroFields:       true,
+		TagName:          "json",
 	}
 	if d, err := mapstructure.NewDecoder(cfg); err != nil {
 		return err
