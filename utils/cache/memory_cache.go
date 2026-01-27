@@ -111,25 +111,25 @@ func (c *MemoryCache) Set(key string, value interface{}, ttl string) error {
 //
 // Returns:
 //   - value: The stored value if found and not expired
-//   - bool: true if value exists and is valid, false otherwise
+//   - error: returns error if operation failed or cache miss (types.ErrCacheMiss)
 //
-// It returns the value and true if the key exists and has not expired, otherwise it returns nil and false.
-func (c *MemoryCache) Get(key string) interface{} {
+// It returns the value and nil error if the key exists and has not expired.
+func (c *MemoryCache) Get(key string) (interface{}, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	it, found := c.items[key]
 	if !found {
-		return nil
+		return nil, types.ErrCacheMiss
 	}
 
 	if it.expiration > 0 && time.Now().UnixNano() > it.expiration {
 		// Item has expired
 		// We can also delete it here, but the GC will take care of it
-		return nil
+		return nil, types.ErrCacheMiss
 	}
 
-	return it.value
+	return it.value, nil
 }
 
 // Has checks if a prefixed key exists in the cache
@@ -386,10 +386,10 @@ func (c *NamespaceCache) Set(key string, value interface{}, ttl string) error {
 //
 // Returns:
 //   - interface{}: Stored value
-//   - bool: Whether a valid value was found
-func (c *NamespaceCache) Get(key string) interface{} {
+//   - error: returns error if operation failed
+func (c *NamespaceCache) Get(key string) (interface{}, error) {
 	if c == nil || c.Cache == nil {
-		return nil
+		return nil, types.ErrCacheNotInitialized
 	}
 	return c.Cache.Get(c.Namespace + key)
 }

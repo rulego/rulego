@@ -50,20 +50,25 @@ func TestCache(t *testing.T) {
 		t.Run("SetAndGet", func(t *testing.T) {
 			err := globalCache.Set("key1", "value1", "1m")
 			assert.Nil(t, err)
-			assert.Equal(t, "value1", globalCache.Get("key1"))
+			val, err := globalCache.Get("key1")
+			assert.Nil(t, err)
+			assert.Equal(t, "value1", val)
 		})
 
 		t.Run("Delete", func(t *testing.T) {
 			globalCache.Set("key2", "value2", "1m")
 			assert.Nil(t, globalCache.Delete("key2"))
-			assert.Nil(t, globalCache.Get("key2"))
+			val, _ := globalCache.Get("key2")
+			assert.Nil(t, val)
 		})
 	})
 
 	t.Run("ChainCache", func(t *testing.T) {
 		t.Run("Isolation", func(t *testing.T) {
 			chainCache.Set("key1", "value1", "1m")
-			assert.Equal(t, "value1", chainCache.Get("key1"))
+			val, err := chainCache.Get("key1")
+			assert.Nil(t, err)
+			assert.Equal(t, "value1", val)
 		})
 
 		t.Run("Has", func(t *testing.T) {
@@ -79,13 +84,20 @@ func TestCache(t *testing.T) {
 		chainCache.Set("same_key", "chain_value", "1m")
 
 		// 验证两个缓存的值互不影响
-		assert.Equal(t, "global_value", globalCache.Get("same_key"))
-		assert.Equal(t, "chain_value", chainCache.Get("same_key"))
+		val, err := globalCache.Get("same_key")
+		assert.Nil(t, err)
+		assert.Equal(t, "global_value", val)
+		val, err = chainCache.Get("same_key")
+		assert.Nil(t, err)
+		assert.Equal(t, "chain_value", val)
 
 		// 删除一个缓存的值，另一个不受影响
 		globalCache.Delete("same_key")
-		assert.Nil(t, globalCache.Get("same_key"))
-		assert.Equal(t, "chain_value", chainCache.Get("same_key"))
+		val, _ = globalCache.Get("same_key")
+		assert.Nil(t, val)
+		val, err = chainCache.Get("same_key")
+		assert.Nil(t, err)
+		assert.Equal(t, "chain_value", val)
 	})
 }
 
