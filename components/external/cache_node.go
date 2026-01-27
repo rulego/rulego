@@ -209,7 +209,7 @@ func (x *CacheGetNode) handleGet(ctx types.RuleContext, msg types.RuleMsg, keys 
 				values[k] = v
 			}
 		} else {
-			value := c.Get(item.Key)
+			value,_ := c.Get(item.Key)
 			values[item.Key] = value
 		}
 	}
@@ -239,6 +239,18 @@ func (x *CacheGetNode) outputResult(ctx types.RuleContext, msg types.RuleMsg, va
 			ctx.TellFailure(msg, errors.New("data type must be JSON type"))
 		}
 	} else {
+		//如果找不到，则跳转到失败链
+		var notFound = true
+		for _, v := range values {
+			if v != nil {
+				notFound = false
+				break
+			}
+		}
+		if notFound {
+			ctx.TellFailure(msg, types.ErrCacheMiss)
+			return
+		}
 		msg.SetData(str.ToString(values))
 		ctx.TellSuccess(msg)
 	}

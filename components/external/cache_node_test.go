@@ -205,6 +205,61 @@ func TestCacheGetNode(t *testing.T) {
 		}
 		time.Sleep(time.Second * 1)
 	})
+
+	t.Run("CacheGetMissingKeyNewMsgMode", func(t *testing.T) {
+		node, err := test.CreateAndInitNode("cacheGet", types.Configuration{
+			"keys":       []LevelKey{{CacheLevelChain, "missingKey"}},
+			"outputMode": 2,
+		}, Registry)
+		assert.Nil(t, err)
+
+		msgList := []test.Msg{{
+			MsgType:    "TEST_MSG",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 200,
+		}}
+
+		test.NodeOnMsgWithChildren(t, node, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Failure, relationType)
+			assert.Equal(t, types.ErrCacheMiss.Error(), err.Error())
+		})
+	})
+
+	t.Run("CacheGetMissingKeyMergeModes", func(t *testing.T) {
+		// Mode 0: MergeToMetadata
+		node0, err := test.CreateAndInitNode("cacheGet", types.Configuration{
+			"keys":       []LevelKey{{CacheLevelChain, "missingKey0"}},
+			"outputMode": 0,
+		}, Registry)
+		assert.Nil(t, err)
+
+		// Mode 1: MergeToMsg
+		node1, err := test.CreateAndInitNode("cacheGet", types.Configuration{
+			"keys":       []LevelKey{{CacheLevelChain, "missingKey1"}},
+			"outputMode": 1,
+		}, Registry)
+		assert.Nil(t, err)
+
+		msgList := []test.Msg{{
+			MsgType:    "TEST_MSG",
+			Data:       "{\"original\":\"data\"}",
+			DataType:   types.JSON,
+			AfterSleep: time.Millisecond * 200,
+		}}
+
+		// Verify Mode 0
+		test.NodeOnMsgWithChildren(t, node0, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Success, relationType)
+			assert.Equal(t, "", msg.Metadata.GetValue("missingKey0"))
+		})
+
+		// Verify Mode 1
+		test.NodeOnMsgWithChildren(t, node1, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Success, relationType)
+			// Data should remain unchanged
+			assert.Equal(t, `{"original":"data"}`, msg.GetData())
+		})
+	})
 }
 
 func TestCacheSetNode(t *testing.T) {
