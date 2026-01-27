@@ -33,13 +33,20 @@ var _ types.RuleContext = (*DefaultRuleContext)(nil)
 // GetEnv 获取环境变量和元数据
 func (ctx *DefaultRuleContext) getEnv(msg types.RuleMsg, useMetadata bool, nodeIds ...string) map[string]interface{} {
 	// 预分配合适大小的map，减少扩容开销
-	capacity := 7 // 基础字段数量：id, ts, data, msgType, dataType, msg, metadata
+	capacity := 9 // 基础字段数量：id, ts, data, msgType, dataType, msg, metadata
 	if msg.Metadata != nil && useMetadata {
 		// 估算metadata的键值对数量
 		capacity += 8 // 常见metadata数量的估计值
 	}
 
 	evn := make(map[string]interface{}, capacity)
+
+	if ctx.Config().Properties != nil {
+		evn[types.Global] = ctx.Config().Properties.Values()
+	}
+	if ctx.ruleChainCtx != nil {
+		evn[types.Vars] = ctx.ruleChainCtx.vars
+	}
 
 	// 设置基础字段
 	evn[types.IdKey] = msg.Id
