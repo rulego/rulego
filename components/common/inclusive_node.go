@@ -17,7 +17,6 @@
 package common
 
 import (
-	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/filter"
@@ -69,7 +68,7 @@ func (x *InclusiveNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	matched := false
 	var relationTypes []string
 	for _, p := range x.Cases {
-		out, err := vm.Run(p.program, evn)
+		out, err := p.template.Execute(evn)
 		if err != nil {
 			ctx.TellFailure(msg, err)
 			return
