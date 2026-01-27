@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
 )
 
@@ -29,14 +30,17 @@ func TestMemoryCache(t *testing.T) {
 
 	t.Run("SetAndGet", func(t *testing.T) {
 		err := c.Set("key1", "value1", "1m")
-		assert.Equal(t, "value1", c.Get("key1"))
+		v, errGet := c.Get("key1")
+		assert.Nil(t, errGet)
+		assert.Equal(t, "value1", v)
 		assert.Nil(t, err)
 
 		// 测试过期时间
 		err = c.Set("key2", "value2", "1s")
 		assert.Nil(t, err)
 		time.Sleep(2 * time.Second)
-		assert.Nil(t, c.Get("key2"))
+		_, errGet = c.Get("key2")
+		assert.Equal(t, types.ErrCacheMiss, errGet)
 	})
 
 	t.Run("Has", func(t *testing.T) {
@@ -59,7 +63,8 @@ func TestMemoryCache(t *testing.T) {
 	t.Run("Delete", func(t *testing.T) {
 		c.Set("key1", "value1", "1m")
 		assert.Nil(t, c.Delete("key1"))
-		assert.Nil(t, c.Get("key1"))
+		_, err := c.Get("key1")
+		assert.Equal(t, types.ErrCacheMiss, err)
 		if c.Has("key1") {
 			t.Errorf("c.Has(\"key1\") should be false after deletion")
 		}
@@ -71,16 +76,22 @@ func TestMemoryCache(t *testing.T) {
 		c.Set("other_key", "value3", "1m")
 
 		assert.Nil(t, c.DeleteByPrefix("prefix_"))
-		assert.Nil(t, c.Get("prefix_key1"))
-		assert.Nil(t, c.Get("prefix_key2"))
-		assert.Equal(t, "value3", c.Get("other_key"))
+		_, err := c.Get("prefix_key1")
+		assert.Equal(t, types.ErrCacheMiss, err)
+		_, err = c.Get("prefix_key2")
+		assert.Equal(t, types.ErrCacheMiss, err)
+
+		v, err := c.Get("other_key")
+		assert.Nil(t, err)
+		assert.Equal(t, "value3", v)
 	})
 
 	t.Run("SetWithInvalidTTL", func(t *testing.T) {
 		c := NewMemoryCache(time.Minute)
 		err := c.Set("key_invalid_ttl", "value", "invalid-duration-string")
 		assert.NotNil(t, err)
-		assert.Nil(t, c.Get("key_invalid_ttl")) // Should not be set
+		_, err = c.Get("key_invalid_ttl")
+		assert.Equal(t, types.ErrCacheMiss, err) // Should not be set
 	})
 
 }
@@ -216,11 +227,13 @@ func TestNamespaceCache(t *testing.T) {
 		err := cache.Set("key1", "value1", "1m")
 		assert.Nil(t, err)
 
-		value := cache.Get("key1")
+		value, err := cache.Get("key1")
+		assert.Nil(t, err)
 		assert.Equal(t, "value1", value)
 
 		// 验证底层缓存key是否正确添加前缀
-		baseValue := baseCache.Get(namespace + "key1")
+		baseValue, err := baseCache.Get(namespace + "key1")
+		assert.Nil(t, err)
 		assert.Equal(t, "value1", baseValue)
 	})
 
@@ -238,7 +251,8 @@ func TestNamespaceCache(t *testing.T) {
 	t.Run("Delete", func(t *testing.T) {
 		err := cache.Delete("key1")
 		assert.Nil(t, err)
-		assert.Nil(t, cache.Get("key1"))
+		_, err = cache.Get("key1")
+		assert.Equal(t, types.ErrCacheMiss, err)
 		if cache.Has("key1") {
 			t.Errorf("cache.Has(\"key1\") should be false after deletion")
 		}
@@ -255,8 +269,10 @@ func TestNamespaceCache(t *testing.T) {
 		assert.Nil(t, err)
 
 		// 验证所有key已被删除
-		assert.Nil(t, cache.Get("key2"))
-		assert.Nil(t, cache.Get("key3"))
+		_, err = cache.Get("key2")
+		assert.Equal(t, types.ErrCacheMiss, err)
+		_, err = cache.Get("key3")
+		assert.Equal(t, types.ErrCacheMiss, err)
 		if cache.Has("key2") {
 			t.Errorf("cache.Has(\"key2\") should be false after DeleteByPrefix")
 		}
@@ -274,8 +290,10 @@ func TestNamespaceCache(t *testing.T) {
 		err := cache.DeleteByPrefix("sub:")
 		assert.Nil(t, err)
 
-		assert.Nil(t, cache.Get("sub:key4"))
-		assert.Nil(t, cache.Get("sub:key5"))
+		_, err = cache.Get("sub:key4")
+		assert.Equal(t, types.ErrCacheMiss, err)
+		_, err = cache.Get("sub:key5")
+		assert.Equal(t, types.ErrCacheMiss, err)
 	})
 
 	// 测试GetByPrefix返回的key是否已正确截取命名空间前缀

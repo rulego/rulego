@@ -1,5 +1,9 @@
 package types
 
+import "errors"
+
+var ErrCacheMiss = errors.New("cache: key is missing")
+
 // Cache defines the interface for cache storage
 // Provides key-value based storage and retrieval functionality with expiration support
 // Implementation classes must ensure thread safety
@@ -18,7 +22,8 @@ type Cache interface {
 	//   - key: cache key to lookup (string)
 	// Returns:
 	//   - interface{}: stored value, nil if not exists or expired
-	Get(key string) interface{}
+	//   - error: returns error if operation failed
+	Get(key string) (interface{}, error)
 	// Has checks if a key exists in cache
 	// Parameters:
 	//   - key: cache key to check (string)
