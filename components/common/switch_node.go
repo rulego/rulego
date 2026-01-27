@@ -29,11 +29,10 @@ package common
 //        }
 //      }
 import (
-	"github.com/expr-lang/expr"
-	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/components/filter"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
 )
 
@@ -131,9 +130,8 @@ type caseProgram struct {
 	// relationType is the target relation name for this case
 	relationType string
 
-	// program 用于高效评估的编译表达式
-	// program is the compiled expression for efficient evaluation
-	program *vm.Program
+	// template 用于评估的编译模板
+	template el.Template
 }
 
 // Type 返回组件类型
@@ -160,10 +158,12 @@ func (x *SwitchNode) Init(ruleConfig types.Config, configuration types.Configura
 	if err == nil {
 		x.Cases = nil
 		for _, item := range x.Config.Cases {
-			if program, err := expr.Compile(item.Case, expr.AllowUndefinedVariables(), expr.AsBool()); err == nil {
+			if template, err := el.NewExprTemplate(item.Case); err != nil {
+				return err
+			} else {
 				x.Cases = append(x.Cases, &caseProgram{
 					relationType: item.Then,
-					program:      program,
+					template:     template,
 				})
 			}
 		}
@@ -177,7 +177,7 @@ func (x *SwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	evn := base.NodeUtils.GetEvn(ctx, msg)
 
 	for _, p := range x.Cases {
-		if out, err := vm.Run(p.program, evn); err != nil {
+		if out, err := p.template.Execute(evn); err != nil {
 			ctx.TellFailure(msg, err)
 			return
 		} else {

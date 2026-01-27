@@ -108,23 +108,13 @@ func ExtractReferencedNodeIds(configuration types.Configuration) []string {
 func extractNodeIdsFromValue(value interface{}, uniqueNodeIds map[string]bool, nodeIds *[]string) {
 	switch v := value.(type) {
 	case string:
-		// 处理字符串类型，提取${...}表达式
-		// Process string type, extract ${...} expressions
-		expressionRegex := regexp.MustCompile(`\$\{([^}]+)\}`)
-		expressionMatches := expressionRegex.FindAllStringSubmatch(v, -1)
-
-		for _, exprMatch := range expressionMatches {
-			if len(exprMatch) > 1 {
-				expressionContent := exprMatch[1]
-				// 从表达式内容中提取节点引用
-				// Extract node references from expression content
-				extractedNodes := ExtractNodeReferencesFromExpression(expressionContent)
-				for _, nodeId := range extractedNodes {
-					if !uniqueNodeIds[nodeId] {
-						uniqueNodeIds[nodeId] = true
-						*nodeIds = append(*nodeIds, nodeId)
-					}
-				}
+		// 提取字符串中的节点引用，支持 ${nodeId.msg.xx} 和 nodeId.msg.xx 格式
+		// Extract node references from string, supports ${nodeId.msg.xx} and nodeId.msg.xx formats
+		extractedNodes := ExtractNodeReferencesFromExpression(v)
+		for _, nodeId := range extractedNodes {
+			if !uniqueNodeIds[nodeId] {
+				uniqueNodeIds[nodeId] = true
+				*nodeIds = append(*nodeIds, nodeId)
 			}
 		}
 	case map[string]interface{}:
@@ -178,9 +168,11 @@ func ExtractNodeReferencesFromExpression(expression string) []string {
 
 	// 使用正则表达式来匹配节点引用
 	// Use regex to match node references
-	// 匹配 nodeId.data, nodeId.msg, nodeId.metadata 的模式，确保前面不是点号
-	// Match nodeId.data, nodeId.msg, nodeId.metadata patterns, ensuring not preceded by a dot
-	nodeRefRegex := regexp.MustCompile(`(?:^|[^a-zA-Z0-9_.])([a-zA-Z][a-zA-Z0-9_]*)\.(data|msg|metadata)(?:[^a-zA-Z0-9_]|$)`)
+	// 匹配 nodeId.data, nodeId.msg, nodeId.metadata, nodeId.id, nodeId.ts, nodeId.dataType, nodeId.global, nodeId.vars 的模式，确保前面不是点号
+	// nodeId 支持字母、数字、下划线、中划线和斜杠
+	// Match nodeId.data, nodeId.msg, nodeId.metadata, etc. patterns, ensuring not preceded by a dot
+	// nodeId supports letters, numbers, underscores, hyphens and slashes
+	nodeRefRegex := regexp.MustCompile(`(?:^|[^a-zA-Z0-9_./-])([a-zA-Z0-9_\-/]+)\.(data|msg|metadata|id|ts|dataType|global|vars)(?:[^a-zA-Z0-9_]|$)`)
 	matches := nodeRefRegex.FindAllStringSubmatch(expression, -1)
 
 	for _, match := range matches {

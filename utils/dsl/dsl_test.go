@@ -236,8 +236,8 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	// Test case 11: Complex conditional and mathematical expressions
 	// 测试复杂的条件和数学表达式
 	config11 := types.Configuration{
-		"condition1": "${node1.data.value > 100 && node2.metadata.status == 'active'}",
-		"condition2": "${len(processor_node.msg.items) > 0 ? validator_node.data.result : 'default'}",
+		"condition1":  "${node1.data.value > 100 && node2.metadata.status == 'active'}",
+		"condition2":  "${len(processor_node.msg.items) > 0 ? validator_node.data.result : 'default'}",
 		"calculation": "${(node1.data.price * node2.data.quantity) + service_node.metadata.tax}",
 	}
 	referencedNodes11 := ExtractReferencedNodeIds(config11)
@@ -251,9 +251,9 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	// Test case 12: Array/slice operations and nested property access
 	// 测试数组/切片操作和嵌套属性访问
 	config12 := types.Configuration{
-		"nested": "${api_node.data.response.user.profile.name}",
+		"nested":   "${api_node.data.response.user.profile.name}",
 		"array_op": "${node1.data.items[0].name + node2.msg.values[node3.data.index]}",
-		"complex": "${transform_node.metadata.config.rules[0].condition && filter_node.data.results[1].status}",
+		"complex":  "${transform_node.metadata.config.rules[0].condition && filter_node.data.results[1].status}",
 	}
 	referencedNodes12 := ExtractReferencedNodeIds(config12)
 	assert.Equal(t, 6, len(referencedNodes12))
@@ -360,6 +360,65 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes18, "array_node"))
 	assert.True(t, contains(referencedNodes18, "format_node"))
 	assert.True(t, contains(referencedNodes18, "param_node"))
+
+	// Test case 19: Node references without ${}
+	// 测试不带 ${} 的节点引用
+	config19 := types.Configuration{
+		"script": "var value = node1.msg.xx + node2.data.yy;",
+		"param":  "node3.metadata.zz",
+	}
+	referencedNodes19 := ExtractReferencedNodeIds(config19)
+	assert.Equal(t, 3, len(referencedNodes19))
+	assert.True(t, contains(referencedNodes19, "node1"))
+	assert.True(t, contains(referencedNodes19, "node2"))
+	assert.True(t, contains(referencedNodes19, "node3"))
+
+	// Test case 20: Node references with special characters in ID
+	// 测试包含特殊字符的节点引用 ID
+	config20 := types.Configuration{
+		"script": "var value = test/node-1.msg.aa + group1/node_2.data.bb;",
+		"param":  "system-config/v1.metadata.cc",
+	}
+	referencedNodes20 := ExtractReferencedNodeIds(config20)
+	assert.Equal(t, 3, len(referencedNodes20))
+	assert.True(t, contains(referencedNodes20, "test/node-1"))
+	assert.True(t, contains(referencedNodes20, "group1/node_2"))
+	assert.True(t, contains(referencedNodes20, "system-config/v1"))
+
+	// Test case 21: Deeply nested structure (like inclusive node cases)
+	// 测试深层嵌套结构（如包容分支节点的 cases）
+	config21 := types.Configuration{
+		"cases": []interface{}{
+			map[string]interface{}{
+				"case": "node_4.msg.aa == 5",
+				"then": "Case1",
+			},
+			map[string]interface{}{
+				"case": "msg.temperature > 50",
+				"then": "Case2",
+			},
+		},
+	}
+	referencedNodes21 := ExtractReferencedNodeIds(config21)
+	assert.Equal(t, 1, len(referencedNodes21))
+	assert.True(t, contains(referencedNodes21, "node_4"))
+
+	// Test case 22: New reference types (id, ts, dataType, global, vars)
+	// 测试新增的引用类型
+	config22 := types.Configuration{
+		"f1": "node1.id",
+		"f2": "node2.ts",
+		"f3": "node3.dataType",
+		"f4": "node4.global",
+		"f5": "node5.vars",
+	}
+	referencedNodes22 := ExtractReferencedNodeIds(config22)
+	assert.Equal(t, 5, len(referencedNodes22))
+	assert.True(t, contains(referencedNodes22, "node1"))
+	assert.True(t, contains(referencedNodes22, "node2"))
+	assert.True(t, contains(referencedNodes22, "node3"))
+	assert.True(t, contains(referencedNodes22, "node4"))
+	assert.True(t, contains(referencedNodes22, "node5"))
 }
 
 // TestParseCrossNodeDependencies 测试解析规则链中的跨节点依赖关系
