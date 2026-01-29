@@ -11,7 +11,7 @@
 
 English| [简体中文](README_ZH.md)
 
-[Official Website](https://rulego.cc) | [Docs](https://rulego.cc/en/pages/0f6af2/) | [Contribution Guide](CONTRIBUTION.md)
+[Official Website](https://rulego.cc) | [Docs](https://rulego.cc/en/pages/introduction/) | [Contribution Guide](CONTRIBUTION.md)
 
 <img src="doc/imgs/logo.png" alt="logo" width="100"/>   
 
@@ -90,7 +90,7 @@ go get gitee.com/rulego/rulego
 `RuleGo` is extremely simple to use. Just follow these 3 steps:
 
 1. Define rule chains using JSON:
-   - [Rule Chain DSL Doc](https://rulego.cc/en/pages/10e1c0/) 
+   - [Rule Chain DSL Doc](https://rulego.cc/en/pages/rule-chain/) 
    - [example_chain.json](testdata/rule/chain_call_rest_api.json)
 
 2. Import the RuleGo package and use the rule chain definition to create a rule engine instance:
@@ -138,7 +138,7 @@ ruleEngine, ok := rulego.Get("rule01")
 rulego.Del("rule01")
 ```
 
-- Config:[Documentation](https://rulego.cc/en/pages/d59341/)
+- Config:[Documentation](https://rulego.cc/en/pages/config/)
 ```go
 // Create a default configuration
 config := rulego.NewConfig()
@@ -151,26 +151,26 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 ```
 
 ### Rule Chain Definition DSL
-[Rule Chain Definition DSL](https://rulego.cc/en/pages/10e1c0/)
+[Rule Chain Definition DSL](https://rulego.cc/en/pages/rule-chain/)
 
 ### Rule Chain Node Components
 The core feature of `RuleGo` is its component-based architecture, where all business logic is encapsulated in components that can be flexibly configured and reused. Currently, 
 `RuleGo` has built-in a vast array of commonly used components.
-- [Standard Components](https://rulego.cc/en/pages/88fc3c/)
-- [rulego-components](https://github.com/rulego/rulego-components)  :[Documentation](https://rulego.cc/en/pages/d7fc43/)
+- [Standard Components](https://rulego.cc/en/pages/standard-components/)
+- [rulego-components](https://github.com/rulego/rulego-components)  :[Documentation](https://rulego.cc/en/pages/extension-overview/)
 - [rulego-components-ai](https://github.com/rulego/rulego-components-ai)
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci)
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot)
 - [rulego-components-etl](https://github.com/rulego/rulego-components-etl)
 - [rulego-marketplace](https://github.com/rulego/rulego-marketplace) :Dynamic component and rule chain marketplace
-- [Custom Node Component Example](examples/custom_component) :[Documentation](https://rulego.cc/en/pages/caed1b/)
+- [Custom Node Component Example](examples/custom_component) :[Documentation](https://rulego.cc/en/pages/custom-components-overview/)
 
 ## Data Integration
 `RuleGo` provides the Endpoint module for unified data integration and processing of heterogeneous systems. For details, refer to: [Endpoint](endpoint/README.md)
 
 ### Input Endpoint Components
-- [Endpoint Components](https://rulego.cc/en/pages/691dd3/)
-- [Endpoint DSL](https://rulego.cc/en/pages/390ad7/)
+- [Endpoint Components](https://rulego.cc/en/pages/endpoint-extension/)
+- [Endpoint DSL](https://rulego.cc/en/pages/endpoint-dsl/)
 
 ### RuleGo-Server
 We have provided a ready-to-use automation workflow platform based on `RuleGo`: [RuleGo-Server](https://github.com/rulego/rulego-server) ,
@@ -188,7 +188,7 @@ Rule chain: JS script filtering->JS complex transformation->HTTP push
 Test results: 100 concurrent and 500 concurrent, memory consumption does not change much around 19M
 ```
 
-[More performance test cases](https://rulego.cc/en/pages/f60381/)
+[More performance test cases](https://rulego.cc/en/pages/performance/)
 
 ## Ecosystem
 - [RuleGo-Editor](https://editor.rulego.cc/) : Rule chain visual editor
