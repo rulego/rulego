@@ -1012,6 +1012,9 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 			//找不到子节点，则执行结束回调
 			ctx.DoOnEnd(msg, err, "")
 		} else {
+
+			relationTypeLen := len(relationTypes)
+
 			for _, relationType := range relationTypes {
 				//执行After aop
 				msg = ctx.executeAfterAop(msg, err, relationType)
@@ -1024,20 +1027,19 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 					nodes, ok = ctx.getNextNodes(defaultRelationType)
 				}
 				if ok && !ctx.skipTellNext {
-					// 内存优化：对于只读节点，避免不必要的消息拷贝
-					needsCopy := len(nodes) > 1 // 只有多个子节点时才需要拷贝
-
-					for i, item := range nodes {
+					// 只有多个子节点或者并行多个关系时才需要拷贝
+					needsCopy := len(nodes) > 1 || relationTypeLen > 0
+					for _, item := range nodes {
 						tmp := item
 						//增加一个待执行的子节点
 						ctx.childReady()
 
 						var msgToPass types.RuleMsg
-						if needsCopy && i < len(nodes)-1 {
-							//为除最后一个节点外的其他节点创建拷贝
+						if needsCopy {
+							//除1个节点和并行多个关系外的其他节点创建拷贝
 							msgToPass = msg.Copy()
 						} else {
-							//最后一个节点或唯一节点可以直接使用原消息
+							//唯一节点可以直接使用原消息
 							msgToPass = msg
 						}
 
