@@ -103,7 +103,7 @@ restEndpoint.AddInterceptors(func(exchange *endpoint.Exchange) bool {
 
 ## Router
 
-Refer to the [documentation](https://rulego.cc/pages/45008b/)
+Refer to the [documentation](https://rulego.cc/pages/endpoint-router/)
 
 ## Examples
 

@@ -508,8 +508,8 @@
 
 - feat:增加文档官网: [rulego.cc](https://rulego.cc/)
 - feat:增加可视化相关API。[文档](https://rulego.cc/pages/cf0193/)
-- feat:增加规则链全局配置Properties。[文档](https://rulego.cc/pages/d59341/#properties)
-- feat:增加规则链全局配置和自定义函数到js运行时，js脚本可以调用golang自定义函数。[文档](https://rulego.cc/pages/d59341/#udf)
+- feat:增加规则链全局配置Properties。[文档](https://rulego.cc/pages/config/#properties)
+- feat:增加规则链全局配置和自定义函数到js运行时，js脚本可以调用golang自定义函数。[文档](https://rulego.cc/pages/config/#udf)
 - feat:增加同步调用规则链方式:`OnMsgAndWait`。
 - feat:http Endpoint支持把规则链处理结果响应给前端。
 - feat:Endpoint模块，路由增加Wait()语义,表示同步等待规则链执行结果。

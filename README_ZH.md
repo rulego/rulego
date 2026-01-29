@@ -10,9 +10,7 @@
 
 [English](README.md)| 简体中文
 
-**[我正在参加 Gitee 2025 最受欢迎的开源软件投票活动，快来给我投票吧！🔥 🔥 🔥 ](https://gitee.com/activity/2025opensource?ident=IM6TAN)**
-
-[官网](https://rulego.cc) | [文档](https://rulego.cc/pages/0f6af2/) | [贡献指南](CONTRIBUTION_CN.md) 
+[官网](https://rulego.cc) | [文档](https://rulego.cc/pages/introduction/) | [贡献指南](CONTRIBUTION_CN.md) 
 
 <img src="doc/imgs/logo.png" alt="logo" width="100"/>  
 
@@ -97,7 +95,7 @@ go get gitcode.com/rulego/rulego
 `RuleGo` 使用很简单。只需以下3步：
 
 1. 使用JSON定义规则链：
-  - [规则链DSL文档](https://rulego.cc/pages/10e1c0/) 
+  - [规则链DSL文档](https://rulego.cc/pages/rule-chain/) 
   - [example_chain.json](testdata/rule/chain_call_rest_api.json)
 
 2. 导入`RuleGo`包，并使用规则链定义，创建一个规则引擎实例：
@@ -145,7 +143,7 @@ ruleEngine, ok := rulego.Get("rule01")
 rulego.Del("rule01")
 ```
 
-- 配置：[文档](https://rulego.cc/pages/d59341/)
+- 配置：[文档](https://rulego.cc/pages/config/)
 ```go
 //创建一个默认的配置
 config := rulego.NewConfig()
@@ -158,25 +156,25 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 ```
 
 ### 规则链定义
-[规则链定义DSL](https://rulego.cc/pages/10e1c0/)
+[规则链定义DSL](https://rulego.cc/pages/rule-chain/)
 
 ### 规则链节点组件
 `RuleGo` 的核心特性是组件化，所有业务逻辑都是组件，并能灵活配置和重用它们。目前RuleGo 已经内置了大量常用的组件。
-- [标准组件](https://rulego.cc/pages/88fc3c/) 
-- [rulego-components](https://github.com/rulego/rulego-components)  :[文档](https://rulego.cc/pages/d7fc43/) 
+- [标准组件](https://rulego.cc/pages/standard-components/) 
+- [rulego-components](https://github.com/rulego/rulego-components)  :[文档](https://rulego.cc/pages/extension-overview/) 
 - [rulego-components-ai](https://github.com/rulego/rulego-components-ai) 
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) 
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot) 
 - [rulego-components-etl](https://github.com/rulego/rulego-components-etl) 
 - [rulego-marketplace](https://github.com/rulego/rulego-marketplace) ：动态组件和规则链市场
-- [自定义节点组件示例](examples/custom_component) :[文档](https://rulego.cc/pages/caed1b/)
+- [自定义节点组件示例](examples/custom_component) :[文档](https://rulego.cc/pages/custom-components-overview/)
 
 ## 数据集成
 `RuleGo` 提供`Endpoint`规则引擎输入端模块，对异构系统进行统一的数据接入和集成。详细参考： [Endpoint](endpoint/README_ZH.md)
 
 ### Endpoint输入端组件
-- [Endpoint组件](https://rulego.cc/pages/691dd3/)
-- [Endpoint DSL](https://rulego.cc/pages/390ad7/)
+- [Endpoint组件](https://rulego.cc/pages/endpoint-extension/)
+- [Endpoint DSL](https://rulego.cc/pages/endpoint-dsl/)
 
 ### RuleGo-Server
 我们提供了一个基于`RuleGo`的开箱即用自动化工作流平台：[RuleGo-Server](https://github.com/rulego/rulego-server) ，
@@ -194,7 +192,7 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 测试结果：100并发和500并发，内存占用变化不大都在19M左右
 ```
 
-[更多性能测试用例](https://rulego.cc/pages/f60381/)
+[更多性能测试用例](https://rulego.cc/pages/performance/)
 
 ## 生态
 
