@@ -109,7 +109,7 @@ For more details, refer to: [server](examples/server/README_ZH.md)
 
 ### 4.3 Start the Service
 ```bash
-./server -c ./config.config
+./server -c ./config.conf
 ```
 
 ### 4.4 Test the Rule Engine
