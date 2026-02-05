@@ -12,7 +12,6 @@ import (
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/builtin/processor"
-	"github.com/rulego/rulego/components/action"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/utils/json"
@@ -31,6 +30,21 @@ func (c *node) Components(url string) endpointApi.Router {
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 			nodePool, _ := node_pool.DefaultNodePool.GetAllDef()
+			//组件配置内置选项
+			builtins := make(map[string]interface{})
+			for k, v := range service.Builtins() {
+				builtins[k] = v
+			}
+			// endpoints内置路由选项
+			builtins["endpoints"] = map[string]interface{}{
+				//in 处理器列表
+				"inProcessors": processor.InBuiltins.Names(),
+				//in 处理器列表
+				"outProcessors": processor.OutBuiltins.Names(),
+			}
+			//共享节点池
+			builtins["nodePool"] = nodePool
+
 			//响应endpoint和节点组件配置表单列表
 			list, err := json.Marshal(map[string]interface{}{
 				//endpoint组件
@@ -38,22 +52,7 @@ func (c *node) Components(url string) endpointApi.Router {
 				//节点组件
 				"nodes": s.GetRuleConfig().ComponentsRegistry.GetComponentForms().Values(),
 				//组件配置内置选项
-				"builtins": map[string]interface{}{
-					// functions节点组件
-					"functions": map[string]interface{}{
-						//函数名选项
-						"functionName": action.Functions.Names(),
-					},
-					//endpoints内置路由选项
-					"endpoints": map[string]interface{}{
-						//in 处理器列表
-						"inProcessors": processor.InBuiltins.Names(),
-						//in 处理器列表
-						"outProcessors": processor.OutBuiltins.Names(),
-					},
-					//共享节点池
-					"nodePool": nodePool,
-				},
+				"builtins": builtins,
 			})
 			if err != nil {
 				exchange.Out.SetStatusCode(http.StatusInternalServerError)
