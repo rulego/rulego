@@ -8,12 +8,12 @@ require (
 	github.com/dop251/goja v0.0.0-20251201205617-2bb4c724c0f9
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/mark3labs/mcp-go v0.18.0
-	github.com/rulego/rulego v0.35.2-0.20260122024852-410e6502fe2b
-	github.com/rulego/rulego-components v0.35.2-0.20260109041447-57d90e117e56
+	github.com/rulego/rulego v0.35.3-0.20260204081739-95e6242cc74a
+	github.com/rulego/rulego-components v0.35.3-0.20260204104619-2ada71ac7327
 	github.com/rulego/rulego-components-ai v0.31.1
 	github.com/rulego/rulego-components-ci v0.31.1-0.20250602161121-89f21f4c54fe
 	github.com/rulego/rulego-components-etl v0.29.1-0.20250602160310-2d30a072f03b
-	github.com/rulego/rulego-components-iot v0.32.1-0.20251209085127-0ca561dd54f2
+	github.com/rulego/rulego-components-iot v0.32.2-0.20260204103622-e3ad652df793
 	gopkg.in/ini.v1 v1.67.0
 )
 
@@ -46,6 +46,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.5 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cncf/xds/go v0.0.0-20250501225837-2ac532fd4443 // indirect
+	github.com/creack/goselect v0.1.2 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -178,6 +179,7 @@ require (
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/errs v1.4.0 // indirect
+	go.bug.st/serial v1.6.4 // indirect
 	go.mongodb.org/mongo-driver v1.17.6 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.38.0 // indirect
