@@ -107,7 +107,7 @@ go build -tags "with_extend,with_ai,with_ci,with_iot" .
 详细参考：[server](examples/server/README_ZH.md)
 ### 4.3 启动服务
 ```bash
-./server -c ./config.config
+./server -c ./config.conf
 ```
 
 ### 4.4 测试规则引擎
