@@ -37,6 +37,9 @@ const (
 	KeyHeadersToMetadata         = "headersToMetadata"
 	KeyInMessage                 = "inMessage"
 	KeyBody                      = "body"
+
+	// KeyFilePathWhitelist 文件路径白名单的配置键
+	KeyFilePathWhitelist = "filePathWhitelist"
 )
 
 const (

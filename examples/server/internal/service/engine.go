@@ -493,6 +493,9 @@ func (s *RuleEngineService) InitRuleGo(logger *log.Logger, workspacePath string,
 	ruleConfig.Properties.PutValue(constants.LoadLuaLibs, s.config.LoadLuaLibs)
 	ruleConfig.Properties.PutValue(action.KeyExecNodeWhitelist, s.config.CmdWhiteList)
 	ruleConfig.Properties.PutValue(action.KeyWorkDir, s.config.DataDir)
+	if s.config.FilePathWhiteList != "" {
+		ruleConfig.Properties.PutValue(constants.KeyFilePathWhitelist, s.config.FilePathWhiteList)
+	}
 	if s.config.ScriptMaxExecutionTime > 0 {
 		ruleConfig.ScriptMaxExecutionTime = time.Millisecond * time.Duration(s.config.ScriptMaxExecutionTime)
 	}

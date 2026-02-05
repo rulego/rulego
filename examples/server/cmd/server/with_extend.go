@@ -17,6 +17,7 @@ import (
 	_ "github.com/rulego/rulego-components/endpoint/redis"
 	_ "github.com/rulego/rulego-components/endpoint/redis_stream"
 	_ "github.com/rulego/rulego-components/endpoint/wukongim"
+	_ "github.com/rulego/rulego-components/external/file"
 	_ "github.com/rulego/rulego-components/external/grpc" //编译后文件大约增加7M
 	_ "github.com/rulego/rulego-components/external/kafka"
 	_ "github.com/rulego/rulego-components/external/mongodb"

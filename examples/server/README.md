@@ -162,6 +162,8 @@ Documentation: [rulego-server-mcp](https://rulego.cc/en/pages/rulego-server-mcp/
 data_dir = ./data
 # cmd component command whitelist
 cmd_white_list = cp,scp,mvn,npm,yarn,git,make,cmake,docker,kubectl,helm,ansible,puppet,pytest,python,python3,pip,go,java,dotnet,gcc,g++,ctest
+# Allowable file path whitelist for controlling file node permissions. Wildcards are supported, e.g.: /data/*/output. Multiple paths separated by commas.
+file_path_white_list = /tmp
 # Whether to load Lua third-party libraries
 load_lua_libs = true
 # http server

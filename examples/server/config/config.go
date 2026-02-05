@@ -25,8 +25,11 @@ type Config struct {
 	DataDir string `ini:"data_dir"`
 	// LogFile 日志文件
 	LogFile string `ini:"log_file"`
-	// CmdWhiteList shell命令白名单
+	// CmdWhiteList shell命令白名单，多个用逗号分隔
 	CmdWhiteList string `ini:"cmd_white_list"`
+	// FilePathWhiteList 允许操作的文件路径白名单，用于控制文件节点权限。支持通配符方式，例如：/data/*/output 多个路径用逗号分隔。
+	FilePathWhiteList string `ini:"file_path_white_list"`
+
 	// LoadLuaLibs 是否加载lua库
 	LoadLuaLibs string `ini:"load_lua_libs"`
 	// Server http服务器地址
@@ -147,6 +150,7 @@ var DefaultConfig = Config{
 	DataDir: "./data",
 	//LogFile:      "./rulego.log",
 	CmdWhiteList:       "cp,scp,mvn,npm,yarn,git,make,cmake,docker,kubectl,helm,ansible,puppet,pytest,python,python3,pip,go,java,dotnet,gcc,g++,ctest",
+	FilePathWhiteList:  "/tmp",
 	LoadLuaLibs:        "true",
 	Server:             ":9090",
 	DefaultUsername:    "admin",
