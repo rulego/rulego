@@ -159,6 +159,8 @@ RuleGo-Server 支持 MCP（Model Context Protocol，模型上下文协议），�
 data_dir = ./data
 # cmd组件命令白名单
 cmd_white_list = cp,scp,mvn,npm,yarn,git,make,cmake,docker,kubectl,helm,ansible,puppet,pytest,python,python3,pip,go,java,dotnet,gcc,g++,ctest
+# 允许操作的文件路径白名单，用于控制文件节点权限。支持通配符方式，例如：/data/*/output 多个路径用逗号分隔。
+file_path_white_list = /tmp
 # 是否加载lua第三方库
 load_lua_libs = true
 # http server
