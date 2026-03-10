@@ -19,6 +19,8 @@ package external
 import (
 	"database/sql"
 	"errors"
+	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -58,6 +60,9 @@ var (
 	// 保护全局 SQL 校验器的读写锁
 	// Read-write lock to protect global SQL validator
 	globalValidatorMutex sync.RWMutex
+	// 预编译的占位符匹配正则表达式
+	// Pre-compiled placeholder matching regex
+	placeholderRegex = regexp.MustCompile(`\?`)
 )
 
 // SetGlobalSqlValidator 设置全局 SQL 校验器
@@ -241,6 +246,16 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 		params = append(params, param)
 	}
+
+	// 展开 IN 子句中的切片参数
+	// Expand slice parameters in IN clause
+	sqlStr, params = expandInClause(sqlStr, params, x.Config.DriverName)
+	// PostgreSQL 需要转换占位符格式
+	// PostgreSQL requires placeholder format conversion
+	if x.Config.DriverName == "postgres" {
+		sqlStr = str.ConvertDollarPlaceholder(sqlStr, x.Config.DriverName)
+	}
+
 	client, err := x.SharedNode.GetSafely()
 	if err != nil {
 		ctx.TellFailure(msg, err)
@@ -457,4 +472,124 @@ func (x *DbClientNode) validateSQL(opType, sql string) error {
 		return x.sqlValidator.ValidateSQL(x.RuleConfig, opType, sql)
 	}
 	return nil
+}
+
+// expandInClause expands slice/array parameters in SQL IN clauses.
+// Example: "SELECT * FROM table WHERE id IN (?)" with params []int{1,2,3}
+// becomes "SELECT * FROM table WHERE id IN (?, ?, ?)" with params 1, 2, 3.
+func expandInClause(sqlStr string, params []interface{}, _ string) (string, []interface{}) {
+	if len(params) == 0 {
+		return sqlStr, params
+	}
+
+	placeholderMatches := placeholderRegex.FindAllStringIndex(sqlStr, -1)
+	if len(placeholderMatches) == 0 {
+		return sqlStr, params
+	}
+
+	// First pass: pre-calculate final parameter count
+	totalParams := 0
+	hasSlice := false
+	for i, param := range params {
+		if i >= len(placeholderMatches) {
+			break
+		}
+		if sliceLen := getSliceLen(param); sliceLen >= 0 {
+			hasSlice = true
+			if sliceLen > 0 {
+				totalParams += sliceLen
+			}
+		} else {
+			totalParams++
+		}
+	}
+
+	if !hasSlice {
+		return sqlStr, params
+	}
+
+	// Second pass: perform expansion
+	var builder strings.Builder
+	builder.Grow(len(sqlStr) + totalParams*3)
+
+	newParams := make([]interface{}, 0, totalParams)
+	lastEnd := 0
+
+	for i, param := range params {
+		if i >= len(placeholderMatches) {
+			break
+		}
+
+		pos := placeholderMatches[i]
+		builder.WriteString(sqlStr[lastEnd:pos[0]])
+		lastEnd = pos[1]
+
+		sliceLen := getSliceLen(param)
+		if sliceLen < 0 {
+			builder.WriteByte('?')
+			newParams = append(newParams, param)
+		} else if sliceLen == 0 {
+			builder.WriteString("NULL")
+		} else {
+			expandSliceToBuilder(&builder, param, sliceLen, &newParams)
+		}
+	}
+
+	builder.WriteString(sqlStr[lastEnd:])
+
+	return builder.String(), newParams
+}
+
+// getSliceLen returns the slice length, or -1 if not a slice/array.
+func getSliceLen(param interface{}) int {
+	if param == nil {
+		return -1
+	}
+
+	switch v := param.(type) {
+	case []int:
+		return len(v)
+	case []int64:
+		return len(v)
+	case []int32:
+		return len(v)
+	case []string:
+		return len(v)
+	case []float64:
+		return len(v)
+	case []float32:
+		return len(v)
+	case []bool:
+		return len(v)
+	case []interface{}:
+		return len(v)
+	}
+
+	v := reflect.ValueOf(param)
+	switch v.Kind() {
+	case reflect.Slice, reflect.Array:
+		return v.Len()
+	case reflect.Interface:
+		elem := v.Elem()
+		if elem.Kind() == reflect.Slice || elem.Kind() == reflect.Array {
+			return elem.Len()
+		}
+	}
+	return -1
+}
+
+// expandSliceToBuilder expands a slice into placeholders and appends elements to params.
+func expandSliceToBuilder(builder *strings.Builder, param interface{}, sliceLen int, params *[]interface{}) {
+	v := reflect.ValueOf(param)
+	if v.Kind() == reflect.Interface {
+		v = v.Elem()
+	}
+
+	for i := 0; i < sliceLen; i++ {
+		if i > 0 {
+			builder.WriteString(", ")
+		}
+		builder.WriteByte('?')
+		*params = append(*params, v.Index(i).Interface())
+	}
 }

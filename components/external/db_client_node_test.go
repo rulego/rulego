@@ -490,6 +490,104 @@ type testUser struct {
 	Age  int    `json:"age"`
 }
 
+// TestExpandInClause 测试 IN 子句参数展开功能
+func TestExpandInClause(t *testing.T) {
+	tests := []struct {
+		name       string
+		sql        string
+		params     []interface{}
+		driverName string
+		wantSQL    string
+		wantParams []interface{}
+	}{
+		{
+			name:       "展开 int 切片",
+			sql:        "SELECT * FROM users WHERE id IN (?)",
+			params:     []interface{}{[]int{1, 2, 3}},
+			driverName: "mysql",
+			wantSQL:    "SELECT * FROM users WHERE id IN (?, ?, ?)",
+			wantParams: []interface{}{1, 2, 3},
+		},
+		{
+			name:       "展开 string 切片",
+			sql:        "SELECT * FROM users WHERE name IN (?)",
+			params:     []interface{}{[]string{"alice", "bob", "charlie"}},
+			driverName: "mysql",
+			wantSQL:    "SELECT * FROM users WHERE name IN (?, ?, ?)",
+			wantParams: []interface{}{"alice", "bob", "charlie"},
+		},
+		{
+			name:       "展开 interface 切片",
+			sql:        "SELECT * FROM users WHERE id IN (?)",
+			params:     []interface{}{[]interface{}{1, "two", 3.0}},
+			driverName: "mysql",
+			wantSQL:    "SELECT * FROM users WHERE id IN (?, ?, ?)",
+			wantParams: []interface{}{1, "two", 3.0},
+		},
+		{
+			name:       "混合参数 - IN 在中间",
+			sql:        "SELECT * FROM users WHERE status = ? AND id IN (?) AND deleted = ?",
+			params:     []interface{}{"active", []int{1, 2, 3}, false},
+			driverName: "mysql",
+			wantSQL:    "SELECT * FROM users WHERE status = ? AND id IN (?, ?, ?) AND deleted = ?",
+			wantParams: []interface{}{"active", 1, 2, 3, false},
+		},
+		{
+			name:       "单个值不展开",
+			sql:        "SELECT * FROM users WHERE id IN (?)",
+			params:     []interface{}{42},
+			driverName: "mysql",
+			wantSQL:    "SELECT * FROM users WHERE id IN (?)",
+			wantParams: []interface{}{42},
+		},
+		{
+			name:       "空切片返回 NULL",
+			sql:        "SELECT * FROM users WHERE id IN (?)",
+			params:     []interface{}{[]int{}},
+			driverName: "mysql",
+			wantSQL:    "SELECT * FROM users WHERE id IN (NULL)",
+			wantParams: []interface{}{},
+		},
+		{
+			name:       "无参数直接返回",
+			sql:        "SELECT * FROM users WHERE id IN (1, 2, 3)",
+			params:     nil,
+			driverName: "mysql",
+			wantSQL:    "SELECT * FROM users WHERE id IN (1, 2, 3)",
+			wantParams: nil,
+		},
+		{
+			name:       "保留原始大小写",
+			sql:        "SELECT * FROM users WHERE id in (?)",
+			params:     []interface{}{[]int{1, 2}},
+			driverName: "mysql",
+			wantSQL:    "SELECT * FROM users WHERE id in (?, ?)",
+			wantParams: []interface{}{1, 2},
+		},
+		{
+			name:       "多个 IN 子句",
+			sql:        "SELECT * FROM users WHERE id IN (?) AND status IN (?)",
+			params:     []interface{}{[]int{1, 2}, []string{"active", "pending"}},
+			driverName: "mysql",
+			wantSQL:    "SELECT * FROM users WHERE id IN (?, ?) AND status IN (?, ?)",
+			wantParams: []interface{}{1, 2, "active", "pending"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotSQL, gotParams := expandInClause(tt.sql, tt.params, tt.driverName)
+			assert.Equal(t, tt.wantSQL, gotSQL)
+			assert.Equal(t, len(tt.wantParams), len(gotParams))
+			for i := range tt.wantParams {
+				if i < len(gotParams) {
+					assert.Equal(t, tt.wantParams[i], gotParams[i])
+				}
+			}
+		})
+	}
+}
+
 // testExecTypeDDL 测试DDL语句（CREATE、DROP、ALTER）的EXEC类型处理
 func testExecTypeDDL(t *testing.T, targetNodeType, driverName, dsn string) {
 	// 测试CREATE TABLE语句
@@ -833,5 +931,49 @@ func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn s
 	for _, item := range nodeList {
 		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		time.Sleep(time.Millisecond * 200)
+	}
+}
+
+// BenchmarkExpandInClause 基准测试
+func BenchmarkExpandInClause(b *testing.B) {
+	benchmarks := []struct {
+		name   string
+		sql    string
+		params []interface{}
+	}{
+		{
+			name:   "无切片参数",
+			sql:    "SELECT * FROM users WHERE id = ? AND status = ?",
+			params: []interface{}{1, "active"},
+		},
+		{
+			name:   "单个IN-3元素",
+			sql:    "SELECT * FROM users WHERE id IN (?)",
+			params: []interface{}{[]int{1, 2, 3}},
+		},
+		{
+			name:   "单个IN-100元素",
+			sql:    "SELECT * FROM users WHERE id IN (?)",
+			params: []interface{}{make([]int, 100)},
+		},
+		{
+			name:   "多个IN-各10元素",
+			sql:    "SELECT * FROM users WHERE id IN (?) AND status IN (?) AND dept IN (?)",
+			params: []interface{}{make([]int, 10), make([]string, 10), make([]int, 10)},
+		},
+		{
+			name:   "混合参数-大切片",
+			sql:    "SELECT * FROM users WHERE status = ? AND id IN (?) AND deleted = ?",
+			params: []interface{}{"active", make([]int, 50), false},
+		},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				expandInClause(bm.sql, bm.params, "mysql")
+			}
+		})
 	}
 }
