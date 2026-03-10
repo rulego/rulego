@@ -84,7 +84,7 @@ func TestRestApiCallNode(t *testing.T) {
 
 	t.Run("OnMsg", func(t *testing.T) {
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"restEndpointUrlPattern": "https://rulego.cc/notfound",
+			"restEndpointUrlPattern": "https://rulego.cc",
 			"requestMethod":          "POST",
 		}, Registry)
 		assert.Nil(t, err)
