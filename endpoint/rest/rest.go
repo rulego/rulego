@@ -586,7 +586,9 @@ func (r *ResponseMessage) SetBody(body []byte) {
 	defer r.mu.Unlock()
 	r.body = body
 	if r.response != nil {
-		_, _ = r.response.Write(body)
+		if len(body) > 0 {
+			_, _ = r.response.Write(body)
+		}
 	}
 }
 
@@ -624,6 +626,30 @@ func (r *ResponseMessage) Request() *http.Request {
 
 func (r *ResponseMessage) Response() http.ResponseWriter {
 	return r.response
+}
+
+// Flush sends any buffered data to the client by calling Flush on the underlying
+// http.ResponseWriter if it implements http.Flusher.
+// This is particularly important for streaming responses like SSE.
+//
+// Flush 通过调用底层 http.ResponseWriter 的 Flush 方法（如果实现了 http.Flusher)
+// 将缓冲数据发送到客户端。
+// 这对于 SSE 等流式响应特别重要。
+func (r *ResponseMessage) Flush() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.response == nil {
+		return
+	}
+	// 使用 recover 捕获 panic， 飲止在连接已关闭时发生崩溃
+	defer func() {
+        if err := recover(); err != nil {
+            // 记录错误但不中断执行
+        }
+    }()
+    if flusher, ok := r.response.(http.Flusher); ok {
+        flusher.Flush()
+    }
 }
 
 // Config defines the configuration structure for the REST endpoint server.
@@ -843,10 +869,10 @@ func (rest *Rest) shutdownServer() error {
 		return nil
 	}
 
-	// 增加关闭超时时间到5秒，确保有足够时间完成优雅关闭
-	// Increase shutdown timeout to 5 seconds to ensure graceful shutdown completion
-	// 增加关闭超时时间到5秒
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// 增加关闭超时时间到2秒，确保有足够时间完成优雅关闭
+	// Increase shutdown timeout to 2 seconds to ensure graceful shutdown completion
+	// 增加关闭超时时间到2秒
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	var shutdownErr error
@@ -947,6 +973,10 @@ func (rest *Rest) Close() error {
 			defer rest.RUnlock()
 			for key := range rest.RouterStorage {
 				shared.deleteRouter(key)
+			}
+			//如果共享服务已经停止，则不需要重启
+			if !shared.Started() {
+				return nil
 			}
 			//重启共享服务
 			return shared.Restart()

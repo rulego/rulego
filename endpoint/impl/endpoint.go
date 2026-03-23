@@ -52,6 +52,8 @@ package impl
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/textproto"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -107,6 +109,15 @@ type From struct {
 // 用于标识和日志记录目的。
 func (f *From) ToString() string {
 	return f.From
+}
+
+// GetConfiguration returns the configuration for this From source.
+// Processors can use this to access configuration values.
+//
+// GetConfiguration 返回此 From 源的配置。
+// 处理器可以使用此方法访问配置值。
+func (f *From) GetConfiguration() types.Configuration {
+	return f.Config
 }
 
 // Transform adds a transformation processor to the From processing pipeline.
@@ -977,14 +988,31 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router endpoint.Router, ex
 			opts := toFlow.GetOpts()
 			//监听结束回调函数
 			endFunc := types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-				if err != nil {
-					exchange.Out.SetError(err)
-				} else {
-					exchange.Out.SetMsg(&msg)
+				// 创建 ScopedMessage 代理，隔离每次回调的消息状态
+				// Create ScopedMessage proxy to isolate message state for each callback
+				scopedOut := &ScopedMessage{
+					Message: exchange.Out, // 保留对原始 ResponseMessage 的引用（用于IO操作）
+					msg:     &msg,         // 绑定当前回调的特定数据
 				}
 
+				// 创建 ScopedExchange，使用代理的 Out 消息
+				// Create ScopedExchange using the proxied Out message
+				// 注意：这里是浅拷贝，Context 和 In 保持不变，但 Out 被替换为 ScopedMessage
+				// RWMutex 被重置，因为它是值拷贝，但在新 Exchange 中我们不应使用旧锁
+				scopedExchange := &endpoint.Exchange{
+					In:      exchange.In,
+					Out:     scopedOut,
+					Context: exchange.Context,
+				}
+
+				if err != nil {
+					scopedExchange.Out.SetError(err)
+				}
+
+				// 使用 ScopedExchange 执行后续处理器
+				// Execute processors using ScopedExchange
 				for _, process := range toFlow.GetProcessList() {
-					if !process(router, exchange) {
+					if !process(router, scopedExchange) {
 						break
 					}
 				}
@@ -1082,13 +1110,26 @@ func (ce *ComponentExecutor) Execute(ctx context.Context, router endpoint.Router
 		if toFlow := fromFlow.GetTo(); toFlow != nil && inMsg != nil {
 			//初始化的空上下文
 			ruleCtx := engine.NewRuleContext(ctx, ce.config, nil, nil, nil, ce.config.Pool, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-				if err != nil {
-					exchange.Out.SetError(err)
-				} else {
-					exchange.Out.SetMsg(&msg)
+				// 创建 ScopedMessage 代理，隔离每次回调的消息状态
+				// Create ScopedMessage proxy to isolate message state for each callback
+				scopedOut := &ScopedMessage{
+					Message: exchange.Out, // 保留对原始 ResponseMessage 的引用（用于IO操作）
+					msg:     &msg,         // 绑定当前回调的特定数据
 				}
+
+				// 创建 ScopedExchange
+				scopedExchange := &endpoint.Exchange{
+					In:      exchange.In,
+					Out:     scopedOut,
+					Context: exchange.Context,
+				}
+
+				if err != nil {
+					scopedExchange.Out.SetError(err)
+				}
+
 				for _, process := range toFlow.GetProcessList() {
-					if !process(router, exchange) {
+					if !process(router, scopedExchange) {
 						break
 					}
 				}
@@ -1141,4 +1182,84 @@ var DefaultExecutorFactory = new(ExecutorFactory)
 func init() {
 	DefaultExecutorFactory.Register("chain", &ChainExecutor{})
 	DefaultExecutorFactory.Register("component", &ComponentExecutor{})
+}
+
+// ScopedMessage is a proxy wrapper for endpoint.Message that provides scope-specific RuleMsg.
+// It intercepts GetMsg/SetMsg calls to use a local RuleMsg, while passing through
+// other calls (like SetBody, Headers) to the underlying message.
+//
+// ScopedMessage 是 endpoint.Message 的代理包装器，提供作用域特定的 RuleMsg。
+// 它拦截 GetMsg/SetMsg 调用以使用本地 RuleMsg，同时将其他调用（如 SetBody、Headers）透传给底层消息。
+type ScopedMessage struct {
+	endpoint.Message                // Embed original interface
+	msg              *types.RuleMsg // Scope-specific RuleMsg
+	err              error          // Scope-specific error
+}
+
+// GetMsg returns the scope-specific RuleMsg.
+func (sm *ScopedMessage) GetMsg() *types.RuleMsg {
+	return sm.msg
+}
+
+// SetMsg sets the scope-specific RuleMsg.
+func (sm *ScopedMessage) SetMsg(msg *types.RuleMsg) {
+	sm.msg = msg
+}
+
+// Pass-through methods ensuring underlying IO operations work correctly
+
+func (sm *ScopedMessage) Body() []byte {
+	return sm.Message.Body()
+}
+
+func (sm *ScopedMessage) Headers() textproto.MIMEHeader {
+	return sm.Message.Headers()
+}
+
+func (sm *ScopedMessage) From() string {
+	return sm.Message.From()
+}
+
+func (sm *ScopedMessage) GetParam(key string) string {
+	return sm.Message.GetParam(key)
+}
+
+func (sm *ScopedMessage) SetStatusCode(statusCode int) {
+	sm.Message.SetStatusCode(statusCode)
+}
+
+func (sm *ScopedMessage) SetBody(body []byte) {
+	sm.Message.SetBody(body)
+}
+
+func (sm *ScopedMessage) SetError(err error) {
+	sm.err = err
+}
+
+func (sm *ScopedMessage) GetError() error {
+	return sm.err
+}
+
+// Response returns the underlying http.ResponseWriter if available.
+// This is used for HTTP-based endpoints to Returns nil if not available.
+//
+// Response 返回底层的 http.ResponseWriter（如果可用）。
+// 用于基于 HTTP 的端点。如果不可用则返回 nil。
+func (sm *ScopedMessage) Response() http.ResponseWriter {
+	// 尝试从底层 Message 获取 Response() 方法
+	if resp, ok := sm.Message.(interface{ Response() http.ResponseWriter }); ok {
+		return resp.Response()
+	}
+	return nil
+}
+
+// Flush sends any buffered data to the client.
+// It attempts to call Flush on the underlying Message if it implements Flusher interface.
+//
+// Flush 将缓冲数据发送到客户端。
+// 它尝试调用底层 Message 的 Flush 方法（如果实现了 Flusher 接口）。
+func (sm *ScopedMessage) Flush() {
+	if flusher, ok := sm.Message.(interface{ Flush() }); ok {
+		flusher.Flush()
+	}
 }
