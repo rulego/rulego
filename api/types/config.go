@@ -18,6 +18,7 @@ package types
 
 import (
 	"math"
+	"strings"
 	"time"
 
 	"github.com/rulego/rulego/utils/pool"
@@ -298,6 +299,63 @@ func (c *Config) RegisterUdf(name string, value interface{}) {
 		}
 	}
 	c.Udf[name] = value
+}
+
+// GetUdf returns the UDF by name and script type.
+// GetUdf 通过名称和脚本类型返回 UDF。
+//
+// If scriptType is empty, it returns the UDF with the name directly.
+// If scriptType is not empty, it returns the UDF with the name prefixed by scriptType.
+// 如果 scriptType 为空，则直接返回名称为 name 的 UDF。
+// 如果 scriptType 不为空，则返回名称为 scriptType 前缀的 UDF。
+func (c *Config) GetUdf(name string, scriptType string) interface{} {
+	if c.Udf == nil {
+		return nil
+	}
+	var udf interface{}
+	var ok bool
+	if scriptType == "" {
+		udf, ok = c.Udf[name]
+	} else {
+		key := scriptType + ScriptFuncSeparator + name
+		udf, ok = c.Udf[key]
+		// Try without prefix if not found with prefix (fallback mechanism if needed, though RegisterUdf ensures consistency)
+		// Or if the user registered it without prefix but specified type?
+		// RegisterUdf logic: if type != AllScript, it adds prefix.
+		// So strict matching is preferred.
+	}
+
+	if ok {
+		if script, ok := udf.(Script); ok {
+			return script.Content
+		}
+		return udf
+	}
+	return nil
+}
+
+// GetUdfs returns a map of UDFs that satisfy the provided script type.
+// GetUdfs 返回满足提供的脚本类型的 UDF 映射。
+//
+// If scriptType is empty, it returns all UDFs.
+// 如果 scriptType 为空，则返回所有 UDF。
+func (c *Config) GetUdfs(scriptType string) map[string]interface{} {
+	udfs := make(map[string]interface{})
+	for k, v := range c.Udf {
+		if scriptType == "" {
+			udfs[k] = v
+			continue
+		}
+		if script, ok := v.(Script); ok {
+			if script.Type == scriptType {
+				// Remove the prefix from the function name.
+				// 从函数名中删除前缀。
+				name := strings.TrimPrefix(k, script.Type+ScriptFuncSeparator)
+				udfs[name] = script.Content
+			}
+		}
+	}
+	return udfs
 }
 
 // NewConfig creates a new Config with default values and applies the provided options.

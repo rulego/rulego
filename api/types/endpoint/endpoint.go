@@ -770,6 +770,16 @@ type From interface {
 	// • To: Destination configuration interface  目标配置接口
 	ToComponent(node types.Node) To
 
+	// GetConfiguration returns the configuration for this source.
+	// Processors can use this method to access configuration values.
+	//
+	// GetConfiguration 返回此源的配置。
+	// 处理器可以使用此方法访问配置值。
+	//
+	// Returns / 返回：
+	// • Configuration: Source configuration map  源配置 map
+	GetConfiguration() types.Configuration
+
 	// End finalizes the source configuration and returns the complete router.
 	// This method completes the fluent configuration chain.
 	//
@@ -1709,6 +1719,21 @@ type HeaderModifier interface {
 	// • Cross-component data sharing  跨组件数据共享
 	// • Protocol-specific information  协议特定信息
 	GetMetadata() *types.Metadata
+}
+
+// Flusher defines the interface for flushing response streams.
+// This interface is used for streaming responses (like SSE) to immediately
+// send buffered data to the client.
+//
+// Flusher 定义刷新响应流的接口。
+// 此接口用于流式响应（如 SSE）以立即将缓冲数据发送到客户端。
+type Flusher interface {
+	// Flush sends any buffered data to the client.
+	// This is particularly important for streaming responses like SSE.
+	//
+	// Flush 将缓冲数据发送到客户端。
+	// 这对于 SSE 等流式响应特别重要。
+	Flush()
 }
 
 // HttpEndpoint defines the interface for HTTP-specific endpoint functionality.

@@ -30,6 +30,9 @@ const (
 	Vars = "vars"
 	// Secrets ruleChain dsl additionalInfo secrets key
 	Secrets = "secrets"
+	// RuleChainKey ruleChain dsl key for accessing rule chain properties
+	// RuleChainKey 规则链 DSL 键，用于访问规则链属性
+	RuleChainKey = "ruleChain"
 )
 
 const (
@@ -87,4 +90,13 @@ const (
 	// DefaultRelationTypeKey 用于自定义默认关系类型的配置属性键
 	// DefaultRelationTypeKey is the configuration property key for customizing the default relation type.
 	DefaultRelationTypeKey = "defaultRelationType"
+)
+
+const (
+	// KeyStreamCompleted 流式完成键
+	KeyStreamCompleted = "stream_completed"
+	// KeyStreamStart 流式开始键
+	KeyStreamStart = "stream_start"
+	// ValueTrue 真值字符串
+	ValueTrue = "true"
 )

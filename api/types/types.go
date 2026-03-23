@@ -175,6 +175,7 @@ const (
 	Js        = "Js"     // Represents JavaScript scripting language. 表示 JavaScript 脚本语言
 	Lua       = "Lua"    // Represents Lua scripting language. 表示 Lua 脚本语言
 	Python    = "Python" // Represents Python scripting language. 表示 Python 脚本语言
+	AiTool    = "AiTool" // Represents AI Tool. 表示 AI 工具
 )
 
 // OnEndFunc is a callback function type that is executed when a branch of the rule chain completes.
