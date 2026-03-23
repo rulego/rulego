@@ -1390,7 +1390,7 @@ func (e *RuleEngine) processRestoreNodes(rootCtxCopy *DefaultRuleContext, msg ty
 	// rootCtxCopy 是根，parentCtx 是 Fork 节点。
 	parentCtx.parentRuleCtx = rootCtxCopy
 
-	rootCtxCopy.childReady()
+	rootCtxCopy.childReady(msg, types.Success)
 
 	// 遍历恢复节点
 	for _, req := range restoreInfo.NodeRequests {
