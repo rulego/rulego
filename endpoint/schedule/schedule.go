@@ -171,6 +171,7 @@ package schedule
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/textproto"
@@ -183,6 +184,7 @@ import (
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/utils/runtime"
+	"github.com/rulego/rulego/utils/str"
 )
 
 // Type defines the component type identifier for the Schedule endpoint.
@@ -224,6 +226,10 @@ type RequestMessage struct {
 	msg *types.RuleMsg
 	//处理过程中的错误信息  Error information during processing  处理错误信息
 	err error
+	//消息类型
+	msgType types.DataType
+	//元数据，用于传递额外的上下文信息  Metadata for passing additional context information  元数据
+	metadata map[string]string
 }
 
 func (r *RequestMessage) Body() []byte {
@@ -253,7 +259,18 @@ func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
 
 func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	if r.msg == nil {
-		ruleMsg := types.NewMsg(0, r.From(), types.JSON, types.NewMetadata(), string(r.Body()))
+		dataType := types.JSON
+		if r.msgType != "" {
+			dataType = r.msgType
+		}
+		metadata := types.NewMetadata()
+		// 如果有传入的 metadata，设置到消息中
+		if r.metadata != nil {
+			for k, v := range r.metadata {
+				metadata.PutValue(k, v)
+			}
+		}
+		ruleMsg := types.NewMsg(0, r.From(), dataType, metadata, string(r.Body()))
 		r.msg = &ruleMsg
 	}
 	return r.msg
@@ -459,6 +476,9 @@ func (schedule *Schedule) AddRouter(router endpoint.Router, params ...interface{
 	if router.GetFrom() == nil {
 		return "", errors.New("from can not nil")
 	}
+	if len(params) > 0 {
+		router.SetParams(params...)
+	}
 	if schedule.cron == nil {
 		schedule.cron = cron.New(cron.WithSeconds())
 	}
@@ -507,8 +527,49 @@ func (schedule *Schedule) handler(router endpoint.Router) {
 			schedule.Printf("schedule endpoint handler err :\n%v", runtime.Stack())
 		}
 	}()
+	var body []byte
+	var msgType = types.JSON
+	var metadata map[string]string
+	params := router.GetParams()
+	if len(params) > 0 {
+		if params[0] != nil {
+			body = []byte(str.ToString(params[0]))
+		}
+	}
+	if len(params) > 1 {
+		if params[1] != nil {
+			switch v := params[1].(type) {
+			case types.DataType:
+				msgType = v
+			case string:
+				msgType = types.DataType(v)
+			default:
+				msgType = types.DataType(str.ToString(params[1]))
+			}
+		}
+	}
+	// 处理第三个参数作为 metadata
+	if len(params) > 2 && params[2] != nil {
+		switch v := params[2].(type) {
+		case map[string]string:
+			metadata = v
+		case map[string]interface{}:
+			metadata = make(map[string]string)
+			for key, val := range v {
+				metadata[key] = str.ToString(val)
+			}
+		case string:
+			if v != "" {
+				// 尝试解析为 JSON
+				var m map[string]string
+				if err := json.Unmarshal([]byte(v), &m); err == nil {
+					metadata = m
+				}
+			}
+		}
+	}
 	exchange := &endpoint.Exchange{
-		In:  &RequestMessage{},
+		In:  &RequestMessage{body: body, msgType: msgType, metadata: metadata},
 		Out: &ResponseMessage{}}
 
 	schedule.DoProcess(context.Background(), router, exchange)

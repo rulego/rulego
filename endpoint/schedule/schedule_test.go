@@ -154,3 +154,25 @@ func TestScheduleEndPoint(t *testing.T) {
 	assert.True(t, math.Abs(float64(atomic.LoadInt64(&router2Count))-float64(3)) <= float64(1))
 	assert.True(t, math.Abs(float64(atomic.LoadInt64(&router3Count))-float64(5)) <= float64(1))
 }
+
+func TestScheduleEndPointWithParams(t *testing.T) {
+	config := types.NewConfig()
+	var ep = &Endpoint{}
+	err := ep.Init(config, nil)
+	assert.Nil(t, err)
+
+	// Test with params
+	router := impl.NewRouter().From("*/1 * * * * *").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		// Verify message body and type
+		msg := exchange.In.GetMsg()
+		assert.Equal(t, "{\"id\":1}", msg.GetData())
+		assert.Equal(t, types.JSON, msg.DataType)
+		return true
+	}).To("chain:default").End()
+
+	_, err = ep.AddRouter(router, "{\"id\":1}", types.JSON)
+	assert.Nil(t, err)
+
+	// Simulate handler execution directly to avoid waiting for cron
+	ep.handler(router)
+}
