@@ -117,6 +117,7 @@ package processor
 
 import (
 	"encoding/hex"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -140,6 +141,17 @@ const (
 	HeaderValueApplicationJson        = "application/json"
 	HeaderValueTextPlain              = "text/plain"
 	HeaderValueApplicationOctetStream = "application/octet-stream"
+	HeaderValueEventStream            = "text/event-stream"
+	// HeaderKeyCacheControl is the standard HTTP Cache-Control header key.
+	HeaderKeyCacheControl = "Cache-Control"
+	// HeaderKeyConnection is the standard HTTP Connection header key.
+	HeaderKeyConnection = "Connection"
+
+	// HeaderValueNoCache is the Cache-Control header value for disabling caching.
+	HeaderValueNoCache = "no-cache"
+	// HeaderValueKeepAlive is the Connection header value for persistent connections.
+	HeaderValueKeepAlive = "keep-alive"
+
 	// KeyTopic is a metadata key used for storing message topic information.
 	// Commonly used in messaging scenarios to identify the source topic.
 	//
@@ -258,7 +270,7 @@ func init() {
 		if err := exchange.Out.GetError(); err != nil {
 			// Set error status and body in the response.
 			// 在响应中设置错误状态和正文。
-			exchange.Out.SetStatusCode(400)
+			exchange.Out.SetStatusCode(http.StatusBadRequest)
 			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 		} else if exchange.Out.GetMsg() != nil {
 			// Set the response body with the message data.
@@ -282,9 +294,9 @@ func init() {
 		exchange.Lock()
 		defer exchange.Unlock()
 		if err := exchange.Out.GetError(); err != nil {
-			// Set error status and body in the response.
+			// Set error status and body fvin the response.
 			// 在响应中设置错误状态和正文。
-			exchange.Out.SetStatusCode(400)
+			exchange.Out.SetStatusCode(http.StatusBadRequest)
 			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 		} else if exchange.Out.GetMsg() != nil {
 			msg := exchange.Out.GetMsg()
