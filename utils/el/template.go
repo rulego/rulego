@@ -1,6 +1,8 @@
 package el
 
 import (
+	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
@@ -21,13 +23,45 @@ type Template interface {
 	HasVar() bool
 }
 
+// TemplateConfig 模板配置选项
+type TemplateConfig struct {
+	IncludeFunc IncludeFunc // 自定义 include 函数
+}
+
+// Option 模板选项函数
+type Option func(*TemplateConfig)
+
+// WithIncludeFunc 设置自定义 include 函数
+func WithIncludeFunc(fn IncludeFunc) Option {
+	return func(cfg *TemplateConfig) {
+		cfg.IncludeFunc = fn
+	}
+}
+
+// IncludeFunc 文件包含函数类型
+type IncludeFunc func(path string) string
+
 // NewTemplate 根据模板内容创建相应的模板实例
 // 识别规则：
 // 1. 如果是完整的单个表达式 ${...}，创建 ExprTemplate
-// 2. 如果包含变量但不是单个表达式，创建 MixedTemplate  
+// 2. 如果包含变量但不是单个表达式，创建 MixedTemplate
 // 3. 如果不包含变量，创建 NotTemplate
 // 4. 如果不是字符串类型，创建 AnyTemplate
-func NewTemplate(tmpl any, params ...any) (Template, error) {
+//
+// 支持选项：
+//   - WithIncludeFunc(fn IncludeFunc): 设置自定义 include 函数
+//
+// include 函数使用示例：
+//   - ${include("/path/to/file.txt")}: 包含文件内容（使用绝对路径）
+//   - ${upper(include("/path/to/file.txt"))}: 包含文件内容并转为大写
+//   - ${include("/path/to/file.txt") + suffix}: 包含文件内容并拼接后缀
+func NewTemplate(tmpl any, opts ...Option) (Template, error) {
+	// 解析配置
+	cfg := &TemplateConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
 	if v, ok := tmpl.(string); ok {
 		trimV := strings.TrimSpace(v)
 		// 检查是否是完整的单个表达式：以 ${ 开头，以 } 结尾，且中间没有其他 ${ 或 }
@@ -35,31 +69,37 @@ func NewTemplate(tmpl any, params ...any) (Template, error) {
 			// 检查是否是单个完整表达式（中间不包含额外的 ${ 或 }）
 			middle := trimV[2 : len(trimV)-1] // 去掉开头的 ${ 和结尾的 }
 			if !strings.Contains(middle, "${") && !strings.Contains(middle, "}") {
-				return NewExprTemplate(v)
+				return NewExprTemplateWithConfig(v, cfg)
 			}
 		}
 		// 如果包含变量但不是单个表达式，使用 MixedTemplate
 		if str.CheckHasVar(v) {
-			return NewMixedTemplate(v)
+			return NewMixedTemplateWithConfig(v, cfg)
 		} else {
 			return &NotTemplate{Tmpl: v}, nil
 		}
 	} else {
 		return &AnyTemplate{Tmpl: tmpl}, nil
 	}
-
 }
 
 // ExprTemplate 模板变量支持 这种方式 ${xx},使用expr表达式计算
 type ExprTemplate struct {
 	Tmpl    string
 	Program *vm.Program
+	config  *TemplateConfig
 }
 
 // 定义正则表达式，用于匹配形如 ${...} 的占位符
 var re = regexp.MustCompile(`\$\{([^}]*)\}`)
 
+// NewExprTemplate 创建表达式模板（向后兼容）
 func NewExprTemplate(tmpl string) (*ExprTemplate, error) {
+	return NewExprTemplateWithConfig(tmpl, &TemplateConfig{})
+}
+
+// NewExprTemplateWithConfig 创建带配置的表达式模板
+func NewExprTemplateWithConfig(tmpl string, cfg *TemplateConfig) (*ExprTemplate, error) {
 	// 使用字符串构建器来处理模板字符串
 	var sb strings.Builder
 	inQuotes := false // 标记是否在双引号内
@@ -99,7 +139,7 @@ func NewExprTemplate(tmpl string) (*ExprTemplate, error) {
 	tmpl = sb.String()
 
 	// 创建 ExprTemplate 实例
-	t := &ExprTemplate{Tmpl: tmpl}
+	t := &ExprTemplate{Tmpl: tmpl, config: cfg}
 
 	// 调用 Parse 方法解析模板
 	if err := t.Parse(); err != nil {
@@ -117,10 +157,55 @@ func (t *ExprTemplate) Parse() error {
 	return nil
 }
 
+// buildEnv 构建包含 include 函数的环境
+func (t *ExprTemplate) buildEnv(data map[string]any) map[string]any {
+	env := make(map[string]any)
+
+	// 复制原始数据
+	for k, v := range data {
+		env[k] = v
+	}
+
+	// 添加 include 函数（只要 config 不为 nil 就添加，支持绝对路径）
+	if t.config != nil {
+		env["include"] = t.includeFunc()
+		env["fileExists"] = t.fileExistsFunc()
+	}
+
+	return env
+}
+
+// includeFunc 返回 include 函数实现
+func (t *ExprTemplate) includeFunc() func(string) string {
+	return func(path string) string {
+		// 使用自定义函数或默认实现
+		if t.config.IncludeFunc != nil {
+			return t.config.IncludeFunc(path)
+		}
+
+		// 默认实现：读取文件
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return ""
+		}
+		return string(content)
+	}
+}
+
+// fileExistsFunc 返回 fileExists 函数实现
+func (t *ExprTemplate) fileExistsFunc() func(string) bool {
+	return func(path string) bool {
+		_, err := os.Stat(path)
+		return err == nil
+	}
+}
+
 func (t *ExprTemplate) Execute(data map[string]any) (interface{}, error) {
 	if t.Program != nil {
+		// 构建包含 include 函数的环境
+		env := t.buildEnv(data)
 		var vm vm.VM
-		return vm.Run(t.Program, data)
+		return vm.Run(t.Program, env)
 	}
 	return nil, nil
 }
@@ -220,13 +305,20 @@ type MixedTemplate struct {
 	variables []struct {
 		start int
 		end   int
-		expr  *vm.Program
+		expr  string // 保存原始表达式字符串，用于动态编译
 	}
 	hasVars bool // 是否包含变量
+	config  *TemplateConfig
 }
 
+// NewMixedTemplate 创建混合模板（向后兼容）
 func NewMixedTemplate(tmpl string) (*MixedTemplate, error) {
-	t := &MixedTemplate{Tmpl: tmpl}
+	return NewMixedTemplateWithConfig(tmpl, &TemplateConfig{})
+}
+
+// NewMixedTemplateWithConfig 创建带配置的混合模板
+func NewMixedTemplateWithConfig(tmpl string, cfg *TemplateConfig) (*MixedTemplate, error) {
+	t := &MixedTemplate{Tmpl: tmpl, config: cfg}
 	if err := t.Parse(); err != nil {
 		return nil, err
 	}
@@ -259,19 +351,15 @@ func (t *MixedTemplate) Parse() error {
 		varEnd := varStart + 2 + endIdx
 		varName := tmpl[varStart+2 : varEnd]
 
-		program, err := expr.Compile(varName, expr.AllowUndefinedVariables())
-		if err != nil {
-			return err
-		}
-
+		// 保存原始表达式字符串，在执行时动态编译
 		t.variables = append(t.variables, struct {
 			start int
 			end   int
-			expr  *vm.Program
+			expr  string
 		}{
 			start: varStart,
 			end:   varEnd + 1,
-			expr:  program,
+			expr:  varName,
 		})
 
 		start = varEnd + 1
@@ -284,6 +372,31 @@ func (t *MixedTemplate) Execute(data map[string]any) (interface{}, error) {
 	return t.execute(data)
 }
 
+// buildEnv 构建包含 include 函数的环境
+func (t *MixedTemplate) buildEnv(data map[string]any) map[string]any {
+	env := make(map[string]any)
+	for k, v := range data {
+		env[k] = v
+	}
+
+	// 添加 include 函数（只要 config 不为 nil 就添加）
+	if t.config != nil {
+		env["include"] = func(path string) string {
+			if t.config.IncludeFunc != nil {
+				return t.config.IncludeFunc(path)
+			}
+			content, _ := os.ReadFile(path)
+			return string(content)
+		}
+		env["fileExists"] = func(path string) bool {
+			_, err := os.Stat(path)
+			return err == nil
+		}
+	}
+
+	return env
+}
+
 func (t *MixedTemplate) execute(data map[string]any) (string, error) {
 	// 如果没有变量，直接返回原始字符串
 	if !t.hasVars {
@@ -294,12 +407,23 @@ func (t *MixedTemplate) execute(data map[string]any) (string, error) {
 		return t.Tmpl, nil
 	}
 
+	// 构建包含 include 函数的环境
+	env := t.buildEnv(data)
+
 	var sb strings.Builder
 	lastPos := 0
-	vm := vm.VM{}
+	vmInstance := &vm.VM{}
+
 	for _, v := range t.variables {
 		sb.WriteString(t.Tmpl[lastPos:v.start])
-		val, err := vm.Run(v.expr, data)
+
+		// 动态编译表达式，使用环境变量
+		program, err := expr.Compile(v.expr, expr.Env(env), expr.AllowUndefinedVariables())
+		if err != nil {
+			return "", fmt.Errorf("failed to compile expression '%s': %v", v.expr, err)
+		}
+
+		val, err := vmInstance.Run(program, env)
 		if err != nil {
 			return "", err
 		}

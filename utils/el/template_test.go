@@ -18,6 +18,8 @@ package el
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -853,4 +855,367 @@ func BenchmarkMapExpression(b *testing.B) {
 		var vm vm.VM
 		_, _ = vm.Run(mapProgram, data)
 	}
+}
+
+// TestIncludeFunction 测试 include 函数
+func TestIncludeFunction(t *testing.T) {
+	// 创建临时测试文件
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.txt")
+	testContent := "Hello, World!"
+	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	t.Run("Include in ExprTemplate", func(t *testing.T) {
+		tmpl, err := NewTemplate(`${include(testFile)}`)
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(map[string]any{"testFile": testFile})
+		if result != testContent {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, testContent)
+		}
+	})
+
+	t.Run("Include in MixedTemplate", func(t *testing.T) {
+		tmpl, err := NewTemplate(`prefix/${include(testFile)}/suffix`)
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(map[string]any{"testFile": testFile})
+		expected := "prefix/" + testContent + "/suffix"
+		if result != expected {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, expected)
+		}
+	})
+
+	t.Run("Include with variable", func(t *testing.T) {
+		tmpl, err := NewTemplate(`${include(testFile)}: ${name}`)
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(map[string]any{"testFile": testFile, "name": "Alice"})
+		expected := testContent + ": Alice"
+		if result != expected {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, expected)
+		}
+	})
+
+	t.Run("Include with custom function", func(t *testing.T) {
+		customFunc := func(path string) string {
+			return "[CUSTOM:" + path + "]"
+		}
+		tmpl, err := NewTemplate(`${include("custom.txt")}`, WithIncludeFunc(customFunc))
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(nil)
+		expected := "[CUSTOM:custom.txt]"
+		if result != expected {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, expected)
+		}
+	})
+
+	t.Run("Include non-existent file", func(t *testing.T) {
+		tmpl, err := NewTemplate(`${include("nonexistent.txt")}`)
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		// 不存在的文件应该返回空字符串（静默失败）
+		result := tmpl.ExecuteAsString(nil)
+		if result != "" {
+			t.Errorf("ExecuteAsString() = %v, want empty string", result)
+		}
+	})
+}
+
+// TestNewTemplateWithOptions 测试带选项的 NewTemplate
+func TestNewTemplateWithOptions(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "header.txt")
+	testContent := "HEADER"
+	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	t.Run("Backward compatibility - no options", func(t *testing.T) {
+		tmpl, err := NewTemplate("Hello ${name}")
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(map[string]any{"name": "World"})
+		expected := "Hello World"
+		if result != expected {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, expected)
+		}
+	})
+
+	t.Run("WithIncludeFunc option", func(t *testing.T) {
+		customFunc := func(path string) string {
+			if path == "header.txt" {
+				return testContent
+			}
+			return "[" + path + "]"
+		}
+		tmpl, err := NewTemplate(`${include("header.txt")}: ${content}`, WithIncludeFunc(customFunc))
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(map[string]any{"content": "Body"})
+		expected := "HEADER: Body"
+		if result != expected {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, expected)
+		}
+	})
+
+	t.Run("Multiple options", func(t *testing.T) {
+		customFunc := func(path string) string {
+			return "[" + path + "]"
+		}
+		tmpl, err := NewTemplate(
+			`${include("file.txt")}-${name}`,
+			WithIncludeFunc(customFunc),
+		)
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(map[string]any{"name": "test"})
+		// 自定义函数优先于文件读取
+		expected := "[file.txt]-test"
+		if result != expected {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, expected)
+		}
+	})
+}
+
+// TestExprTemplateWithInclude 测试 ExprTemplate 中的 include 函数
+func TestExprTemplateWithInclude(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "data.txt")
+	testContent := "FileData"
+	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	t.Run("Include in expression", func(t *testing.T) {
+		tmpl, err := NewTemplate(`${include(testFile) + "-" + suffix}`)
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(map[string]any{"testFile": testFile, "suffix": "end"})
+		expected := testContent + "-end"
+		if result != expected {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, expected)
+		}
+	})
+
+	t.Run("Include with expr functions", func(t *testing.T) {
+		tmpl, err := NewTemplate(`${upper(include(filePath))}`)
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(map[string]any{"filePath": testFile})
+		expected := "FILEDATA"
+		if result != expected {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, expected)
+		}
+	})
+}
+
+// TestMixedTemplateWithInclude 测试 MixedTemplate 中的 include 函数
+func TestMixedTemplateWithInclude(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// 创建多个测试文件
+	headerFile := filepath.Join(tmpDir, "header.txt")
+	if err := os.WriteFile(headerFile, []byte("HEADER"), 0644); err != nil {
+		t.Fatalf("Failed to create header file: %v", err)
+	}
+
+	footerFile := filepath.Join(tmpDir, "footer.txt")
+	if err := os.WriteFile(footerFile, []byte("FOOTER"), 0644); err != nil {
+		t.Fatalf("Failed to create footer file: %v", err)
+	}
+
+	t.Run("Multiple includes", func(t *testing.T) {
+		tmpl, err := NewTemplate(
+			`${include(headerFile)}/${content}/${include(footerFile)}`,
+		)
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(map[string]any{"headerFile": headerFile, "content": "BODY", "footerFile": footerFile})
+		expected := "HEADER/BODY/FOOTER"
+		if result != expected {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, expected)
+		}
+	})
+
+	t.Run("Include with other variables", func(t *testing.T) {
+		tmpl, err := NewTemplate(
+			`Start: ${include(headerFile)}, Name: ${name}, End: ${include(footerFile)}`,
+		)
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(map[string]any{"headerFile": headerFile, "name": "Test", "footerFile": footerFile})
+		expected := "Start: HEADER, Name: Test, End: FOOTER"
+		if result != expected {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, expected)
+		}
+	})
+}
+
+// TestIncludeWithSubdirectory 测试子目录中的文件包含
+func TestIncludeWithSubdirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// 创建子目录
+	subDir := filepath.Join(tmpDir, "templates")
+	if err := os.Mkdir(subDir, 0755); err != nil {
+		t.Fatalf("Failed to create subdirectory: %v", err)
+	}
+
+	// 在子目录中创建文件
+	testFile := filepath.Join(subDir, "template.txt")
+	testContent := "Template Content"
+	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	t.Run("Include from subdirectory", func(t *testing.T) {
+		tmpl, err := NewTemplate(`${include(filePath)}`)
+		if err != nil {
+			t.Fatalf("NewTemplate failed: %v", err)
+		}
+
+		result := tmpl.ExecuteAsString(map[string]any{"filePath": testFile})
+		if result != testContent {
+			t.Errorf("ExecuteAsString() = %v, want %v", result, testContent)
+		}
+	})
+}
+
+// TestIncludeTemplate 测试 include 函数的综合功能
+func TestIncludeTemplate(t *testing.T) {
+	// 创建临时测试目录
+	tmpDir, err := os.MkdirTemp("", "include_test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// 创建测试文件
+	testContent := "# Test Identity\n\nThis is test content."
+	testFile := filepath.Join(tmpDir, "IDENTITY.md")
+	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 创建子目录和文件
+	subDir := filepath.Join(tmpDir, "memory")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	memoryContent := "# Memory\n\nUser likes Go."
+	memoryFile := filepath.Join(subDir, "MEMORY.md")
+	if err := os.WriteFile(memoryFile, []byte(memoryContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 测试模板 - 使用完整路径
+	tmpl := `Header
+${include(identityFile)}
+---
+${include(memoryFile)}
+---
+Date: ${date}`
+
+	template, err := NewTemplate(tmpl)
+	if err != nil {
+		t.Fatalf("Failed to create template: %v", err)
+	}
+
+	result := template.ExecuteAsString(map[string]any{
+		"identityFile": testFile,
+		"memoryFile":   memoryFile,
+		"date":         "2026-02-18",
+	})
+
+	// 验证结果
+	if !contains(result, testContent) {
+		t.Errorf("Expected result to contain %q, got %q", testContent, result)
+	}
+	if !contains(result, memoryContent) {
+		t.Errorf("Expected result to contain %q, got %q", memoryContent, result)
+	}
+	if !contains(result, "2026-02-18") {
+		t.Errorf("Expected result to contain date, got %q", result)
+	}
+
+	t.Logf("Result:\n%s", result)
+}
+
+// TestIncludeTemplateFileNotFound 测试文件不存在时的行为
+func TestIncludeTemplateFileNotFound(t *testing.T) {
+	tmpl := `Hello ${include("nonexistent.md")}`
+	template, err := NewTemplate(tmpl)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 文件不存在时应该返回空字符串，不报错
+	result := template.ExecuteAsString(map[string]any{})
+	expected := "Hello "
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+// TestIncludeWithCustomFunc 测试自定义 include 函数
+func TestIncludeWithCustomFunc(t *testing.T) {
+	// 使用自定义 include 函数
+	customFunc := func(path string) string {
+		return "[Content of " + path + "]"
+	}
+
+	tmpl := `${include("custom.txt")}`
+	template, err := NewTemplate(tmpl, WithIncludeFunc(customFunc))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result := template.ExecuteAsString(map[string]any{})
+	expected := "[Content of custom.txt]"
+	if result != expected {
+		t.Errorf("Expected %q, got %q", expected, result)
+	}
+}
+
+// contains 检查字符串 s 是否包含 substr
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+// containsHelper 辅助函数用于检查子字符串
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
