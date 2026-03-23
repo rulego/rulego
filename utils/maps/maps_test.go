@@ -34,6 +34,13 @@ type Address struct {
 	Detail string
 }
 
+// RuleChainBaseInfo 用于测试结构体字段访问，模拟 types.RuleChainBaseInfo
+type RuleChainBaseInfo struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	DebugMode bool   `json:"debugMode"`
+}
+
 func TestMap2Struct(t *testing.T) {
 	m := make(map[string]interface{})
 	m["userName"] = "lala"
@@ -154,6 +161,125 @@ func TestGet(t *testing.T) {
 		1: "one",
 	}
 	assert.Nil(t, Get(mapWithIntKey, "1"))
+}
+
+// TestGetWithFlatKey 测试Get函数对扁平存储的多级key的支持
+// 这种场景常见于 config.Properties 中使用 map[string]string 存储 ${global.llm.providers.default.base_url} 这种配置
+func TestGetWithFlatKey(t *testing.T) {
+	// 模拟 config.Properties.Values() 返回的扁平 map
+	globalEnv := map[string]string{
+		"root_dir":                       "/workspace",
+		"llm.providers.default.name":     "openai",
+		"llm.providers.default.base_url": "https://api.openai.com",
+		"llm.providers.default.api_key":  "sk-xxx",
+	}
+
+	// 模拟 env 结构
+	env := map[string]interface{}{
+		"global": globalEnv,
+	}
+
+	// 测试用例：使用多级 key 访问扁平存储的值
+	cases := []struct {
+		fieldName string
+		expected  interface{}
+	}{
+		// 简单 key 仍然正常工作
+		{"global.root_dir", "/workspace"},
+		// 多级 key 应该能找到扁平存储的值
+		{"global.llm.providers.default.name", "openai"},
+		{"global.llm.providers.default.base_url", "https://api.openai.com"},
+		{"global.llm.providers.default.api_key", "sk-xxx"},
+		// 不存在的 key 返回 nil
+		{"global.nonexistent", nil},
+		{"global.llm.providers.default.nonexistent", nil},
+	}
+
+	for _, c := range cases {
+		actual := Get(env, c.fieldName)
+		assert.Equal(t, c.expected, actual)
+	}
+
+	// 直接测试 map[string]string 的 fallback 行为
+	t.Run("direct_flat_key_access", func(t *testing.T) {
+		// 直接访问 map[string]string 中的扁平 key
+		assert.Equal(t, "openai", Get(globalEnv, "llm.providers.default.name"))
+		assert.Equal(t, "/workspace", Get(globalEnv, "root_dir"))
+		assert.Equal(t, nil, Get(globalEnv, "llm.providers.other.name"))
+	})
+}
+
+// TestGetWithStruct 测试Get函数对结构体的支持
+func TestGetWithStruct(t *testing.T) {
+	// 测试结构体直接访问
+	ruleChain := RuleChainBaseInfo{
+		ID:        "chain-001",
+		Name:      "Test Chain",
+		DebugMode: true,
+	}
+
+	// 测试通过 JSON tag 访问
+	cases := []struct {
+		fieldName string
+		expected  interface{}
+	}{
+		{"id", "chain-001"},
+		{"name", "Test Chain"},
+		{"debugMode", true},
+		{"ID", "chain-001"},         // 大写也能匹配
+		{"NAME", "Test Chain"},      // 全大写也能匹配
+		{"debugmode", true},         // 全小写也能匹配
+		{"nonexistent", nil},        // 不存在的字段返回 nil
+	}
+
+	for _, c := range cases {
+		actual := Get(ruleChain, c.fieldName)
+		assert.Equal(t, c.expected, actual)
+	}
+
+	// 测试结构体指针
+	casesPtr := []struct {
+		fieldName string
+		expected  interface{}
+	}{
+		{"id", "chain-001"},
+		{"name", "Test Chain"},
+		{"debugMode", true},
+	}
+
+	for _, c := range casesPtr {
+		actual := Get(&ruleChain, c.fieldName)
+		assert.Equal(t, c.expected, actual)
+	}
+
+	// 测试 nil 指针
+	var nilPtr *RuleChainBaseInfo
+	assert.Nil(t, Get(nilPtr, "id"))
+
+	// 测试嵌套结构体
+	user := User{
+		Username: "testuser",
+		Age:      30,
+		Address:  Address{Detail: "Beijing"},
+	}
+
+	assert.Equal(t, "testuser", Get(user, "Username"))
+	assert.Equal(t, 30, Get(user, "Age"))
+	assert.Equal(t, Address{Detail: "Beijing"}, Get(user, "Address"))
+
+	// 测试 map 中包含结构体，然后访问结构体字段
+	env := map[string]interface{}{
+		"ruleChain": &ruleChain,
+		"global": map[string]string{
+			"key": "value",
+		},
+	}
+
+	assert.Equal(t, "chain-001", Get(env, "ruleChain.id"))
+	assert.Equal(t, "Test Chain", Get(env, "ruleChain.name"))
+	assert.Equal(t, true, Get(env, "ruleChain.debugMode"))
+	assert.Equal(t, "value", Get(env, "global.key"))
+	assert.Nil(t, Get(env, "ruleChain.nonexistent"))
 }
 
 func TestMap2StructWithJsonTag(t *testing.T) {
