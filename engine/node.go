@@ -384,6 +384,7 @@ func (rn *RuleNodeCtx) Copy(newCtx *RuleNodeCtx) {
 }
 
 // processVariables replaces placeholders in the node configuration with global and chain-specific variables.
+// It now recursively processes nested maps and slices.
 func processVariables(config types.Config, chainCtx *RuleChainCtx, configuration types.Configuration) (types.Configuration, error) {
 	result := make(types.Configuration)
 	globalEnv := make(map[string]string)
@@ -393,23 +394,26 @@ func processVariables(config types.Config, chainCtx *RuleChainCtx, configuration
 	}
 
 	var varsEnv, decryptSecrets map[string]string
+	var ruleChainEnv *types.RuleChainBaseInfo
 
 	if chainCtx != nil {
 		varsEnv = copyMap(chainCtx.vars)
 		decryptSecrets = copyMap(chainCtx.decryptSecrets)
+		// 注入规则链定义，支持通过 ${ruleChain.id} 等方式访问规则链属性
+		if chainCtx.SelfDefinition != nil {
+			ruleChainEnv = &chainCtx.SelfDefinition.RuleChain
+		}
 	}
 
 	env := map[string]interface{}{
-		types.Global: globalEnv,
-		types.Vars:   varsEnv,
+		types.Global:       globalEnv,
+		types.Vars:         varsEnv,
+		types.RuleChainKey: ruleChainEnv,
 	}
 
+	// 递归处理所有配置值
 	for key, value := range configuration {
-		if strV, ok := value.(string); ok {
-			result[key] = str.ExecuteTemplate(strV, env)
-		} else {
-			result[key] = value
-		}
+		result[key] = processValueRecursive(env, value)
 	}
 
 	if varsEnv != nil {
@@ -420,6 +424,30 @@ func processVariables(config types.Config, chainCtx *RuleChainCtx, configuration
 	}
 
 	return result, nil
+}
+
+	// processValueRecursive 递归处理配置值，替换模板变量
+func processValueRecursive(env map[string]interface{}, value interface{}) interface{} {
+	switch v := value.(type) {
+	case string:
+		return str.ExecuteTemplate(v, env)
+	case map[string]interface{}:
+		// 递归处理 map
+		subResult := make(map[string]interface{})
+		for k, subV := range v {
+			subResult[k] = processValueRecursive(env, subV)
+        }
+        return subResult
+	case []interface{}:
+        // 递归处理 slice
+        resultList := make([]interface{}, len(v))
+        for i, item := range v {
+            resultList[i] = processValueRecursive(env, item)
+        }
+        return resultList
+    default:
+        return value
+    }
 }
 
 // copyMap creates a shallow copy of a string map.
