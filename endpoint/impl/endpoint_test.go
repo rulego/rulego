@@ -505,6 +505,7 @@ type testResponseMessage struct {
 	body    []byte
 	msg     *types.RuleMsg
 	headers textproto.MIMEHeader
+	meta    *types.Metadata
 	err     error
 }
 
@@ -548,6 +549,55 @@ func (r *testResponseMessage) SetError(err error) {
 
 func (r *testResponseMessage) GetError() error {
 	return r.err
+}
+
+// AddHeader adds a header value for testing header mutation pass-through.
+func (r *testResponseMessage) AddHeader(key, value string) {
+	r.Headers().Add(key, value)
+}
+
+// SetHeader sets a header value for testing header mutation pass-through.
+func (r *testResponseMessage) SetHeader(key, value string) {
+	r.Headers().Set(key, value)
+}
+
+// DelHeader removes a header value for testing header mutation pass-through.
+func (r *testResponseMessage) DelHeader(key string) {
+	r.Headers().Del(key)
+}
+
+// GetMetadata returns metadata for testing HeaderModifier pass-through.
+func (r *testResponseMessage) GetMetadata() *types.Metadata {
+	if r.meta == nil {
+		r.meta = types.NewMetadata()
+	}
+	return r.meta
+}
+
+// TestScopedMessageHeaderModifierPassThrough verifies ScopedMessage preserves HeaderModifier behavior.
+func TestScopedMessageHeaderModifierPassThrough(t *testing.T) {
+	out := &testResponseMessage{}
+	scoped := &ScopedMessage{
+		Message: out,
+	}
+
+	modifier, ok := any(scoped).(endpoint.HeaderModifier)
+	assert.True(t, ok)
+
+	modifier.SetHeader("Content-Type", "text/event-stream")
+	modifier.AddHeader("X-Test", "a")
+	modifier.AddHeader("X-Test", "b")
+
+	assert.Equal(t, "text/event-stream", out.Headers().Get("Content-Type"))
+	assert.Equal(t, "a", out.Headers().Values("X-Test")[0])
+	assert.Equal(t, "b", out.Headers().Values("X-Test")[1])
+
+	meta := modifier.GetMetadata()
+	meta.PutValue("stream", "true")
+	assert.Equal(t, "true", out.GetMetadata().GetValue("stream"))
+
+	modifier.DelHeader("Content-Type")
+	assert.Equal(t, "", out.Headers().Get("Content-Type"))
 }
 
 // 测试endpoint

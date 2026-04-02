@@ -1240,6 +1240,41 @@ func (sm *ScopedMessage) GetError() error {
 	return sm.err
 }
 
+// AddHeader delegates header append operations to the underlying message when supported.
+func (sm *ScopedMessage) AddHeader(key, value string) {
+	if modifier, ok := sm.Message.(endpoint.HeaderModifier); ok {
+		modifier.AddHeader(key, value)
+		return
+	}
+	sm.Message.Headers().Add(key, value)
+}
+
+// SetHeader delegates header replacement operations to the underlying message when supported.
+func (sm *ScopedMessage) SetHeader(key, value string) {
+	if modifier, ok := sm.Message.(endpoint.HeaderModifier); ok {
+		modifier.SetHeader(key, value)
+		return
+	}
+	sm.Message.Headers().Set(key, value)
+}
+
+// DelHeader delegates header deletion operations to the underlying message when supported.
+func (sm *ScopedMessage) DelHeader(key string) {
+	if modifier, ok := sm.Message.(endpoint.HeaderModifier); ok {
+		modifier.DelHeader(key)
+		return
+	}
+	sm.Message.Headers().Del(key)
+}
+
+// GetMetadata returns the underlying message metadata when header mutation is supported.
+func (sm *ScopedMessage) GetMetadata() *types.Metadata {
+	if modifier, ok := sm.Message.(endpoint.HeaderModifier); ok {
+		return modifier.GetMetadata()
+	}
+	return nil
+}
+
 // Response returns the underlying http.ResponseWriter if available.
 // This is used for HTTP-based endpoints to Returns nil if not available.
 //

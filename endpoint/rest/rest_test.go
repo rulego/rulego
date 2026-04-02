@@ -2,6 +2,13 @@ package rest
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"reflect"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/components/action"
@@ -10,17 +17,60 @@ import (
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
-	"net/http"
-	"os"
-	"reflect"
-	"sync"
-	"testing"
-	"time"
 )
 
 var testdataFolder = "../../testdata/rule"
 var testServer = ":9090"
 var testConfigServer = ":9091"
+
+type countingResponseWriter struct {
+	header           http.Header
+	writeHeaderCount int
+	statusCode       int
+	body             []byte
+}
+
+// Header returns the mutable header map used by the test response writer.
+func (w *countingResponseWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
+}
+
+// Write appends response bytes so tests can assert the final body content.
+func (w *countingResponseWriter) Write(body []byte) (int, error) {
+	w.body = append(w.body, body...)
+	return len(body), nil
+}
+
+// WriteHeader records status code writes for repeated-header assertions.
+func (w *countingResponseWriter) WriteHeader(statusCode int) {
+	w.writeHeaderCount++
+	w.statusCode = statusCode
+}
+
+type panicResponseWriter struct {
+	header http.Header
+}
+
+// Header returns the mutable header map used by the panic response writer.
+func (w *panicResponseWriter) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
+}
+
+// Write simulates a closed client connection by panicking on writes.
+func (w *panicResponseWriter) Write(body []byte) (int, error) {
+	panic("writer closed")
+}
+
+// WriteHeader simulates a closed client connection by panicking on header writes.
+func (w *panicResponseWriter) WriteHeader(statusCode int) {
+	panic("writer closed")
+}
 
 // 测试请求/响应消息
 func TestRestMessage(t *testing.T) {
@@ -32,6 +82,62 @@ func TestRestMessage(t *testing.T) {
 		var response = &ResponseMessage{}
 		test.EndpointMessage(t, response)
 	})
+}
+
+func TestResponseMessageSetStatusCodeWritesHeaderOnce(t *testing.T) {
+	writer := &countingResponseWriter{}
+	response := &ResponseMessage{
+		response: writer,
+	}
+
+	response.SetStatusCode(http.StatusBadRequest)
+	response.SetStatusCode(http.StatusBadRequest)
+	response.SetBody([]byte(`{"error":"bad request"}`))
+
+	assert.Equal(t, 1, writer.writeHeaderCount)
+	assert.Equal(t, http.StatusBadRequest, writer.statusCode)
+	assert.Equal(t, `{"error":"bad request"}`, string(writer.body))
+}
+
+// TestResponseMessageHeaderModifierMethods verifies REST responses implement header mutation APIs used by streaming processors.
+func TestResponseMessageHeaderModifierMethods(t *testing.T) {
+	writer := &countingResponseWriter{}
+	response := &ResponseMessage{
+		response: writer,
+	}
+
+	headerModifier, ok := interface{}(response).(endpoint.HeaderModifier)
+	assert.True(t, ok)
+
+	headerModifier.SetHeader("Content-Type", "text/event-stream")
+	headerModifier.AddHeader("X-Test", "value1")
+	headerModifier.AddHeader("X-Test", "value2")
+	headerModifier.DelHeader("X-Remove")
+
+	metadata := headerModifier.GetMetadata()
+	metadata.PutValue("stream", "true")
+
+	assert.Equal(t, "text/event-stream", writer.Header().Get("Content-Type"))
+	assert.Equal(t, 2, len(writer.Header().Values("X-Test")))
+	assert.Equal(t, "true", metadata.GetValue("stream"))
+}
+
+// TestResponseMessageSetBodyDoesNotPanicOnClosedWriter verifies closed client connections are converted into response errors instead of panics.
+func TestResponseMessageSetBodyDoesNotPanicOnClosedWriter(t *testing.T) {
+	response := &ResponseMessage{
+		response: &panicResponseWriter{},
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("SetBody should not panic, got: %v", r)
+		}
+	}()
+
+	response.SetBody([]byte("stream chunk"))
+
+	assert.Equal(t, "stream chunk", string(response.Body()))
+	assert.NotNil(t, response.GetError())
 }
 
 func TestRouterId(t *testing.T) {

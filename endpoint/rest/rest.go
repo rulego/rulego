@@ -437,6 +437,12 @@ type ResponseMessage struct {
 	request *http.Request
 	//HTTP 响应写入器  HTTP response writer  HTTP 响应写入器
 	response http.ResponseWriter
+	//响应元数据  Response metadata  响应元数据
+	metadata *types.Metadata
+	//HTTP 状态码  HTTP status code  HTTP 状态码
+	statusCode int
+	//响应头是否已写出  Whether response headers have been written  响应头是否已写出
+	headerWritten bool
 	//响应体数据  Response body data  响应体数据
 	body []byte
 	//目标路径或标识符  Target path or identifier  目标路径
@@ -478,6 +484,62 @@ func (r *ResponseMessage) Headers() textproto.MIMEHeader {
 		return nil
 	}
 	return textproto.MIMEHeader(r.response.Header())
+}
+
+// AddHeader appends a response header value in a thread-safe manner.
+// It is used by output processors that rely on the HeaderModifier interface.
+//
+// AddHeader 以线程安全方式追加响应头值。
+// 它用于依赖 HeaderModifier 接口的输出处理器。
+func (r *ResponseMessage) AddHeader(key, value string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.response == nil {
+		return
+	}
+	r.response.Header().Add(key, value)
+}
+
+// SetHeader sets a response header value in a thread-safe manner.
+// It is used by output processors that rely on the HeaderModifier interface.
+//
+// SetHeader 以线程安全方式设置响应头值。
+// 它用于依赖 HeaderModifier 接口的输出处理器。
+func (r *ResponseMessage) SetHeader(key, value string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.response == nil {
+		return
+	}
+	r.response.Header().Set(key, value)
+}
+
+// DelHeader removes a response header value in a thread-safe manner.
+// It is used by output processors that rely on the HeaderModifier interface.
+//
+// DelHeader 以线程安全方式删除响应头值。
+// 它用于依赖 HeaderModifier 接口的输出处理器。
+func (r *ResponseMessage) DelHeader(key string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.response == nil {
+		return
+	}
+	r.response.Header().Del(key)
+}
+
+// GetMetadata returns response-scoped metadata, initializing it lazily when needed.
+// This keeps rest.ResponseMessage compatible with the HeaderModifier interface.
+//
+// GetMetadata 返回响应作用域元数据，并在需要时延迟初始化。
+// 这使 rest.ResponseMessage 与 HeaderModifier 接口保持兼容。
+func (r *ResponseMessage) GetMetadata() *types.Metadata {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.metadata == nil {
+		r.metadata = types.NewMetadata()
+	}
+	return r.metadata
 }
 
 // From returns the original request URL for context.
@@ -559,8 +621,18 @@ func (r *ResponseMessage) GetMsg() *types.RuleMsg {
 func (r *ResponseMessage) SetStatusCode(statusCode int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.statusCode = statusCode
 	if r.response != nil {
+		if r.headerWritten {
+			return
+		}
+		defer func() {
+			if err := recover(); err != nil {
+				r.err = fmt.Errorf("write header panic: %v", err)
+			}
+		}()
 		r.response.WriteHeader(statusCode)
+		r.headerWritten = true
 	}
 }
 
@@ -587,7 +659,17 @@ func (r *ResponseMessage) SetBody(body []byte) {
 	r.body = body
 	if r.response != nil {
 		if len(body) > 0 {
-			_, _ = r.response.Write(body)
+			defer func() {
+				if err := recover(); err != nil {
+					r.err = fmt.Errorf("write body panic: %v", err)
+				}
+			}()
+			_, err := r.response.Write(body)
+			if err != nil {
+				r.err = err
+				return
+			}
+			r.headerWritten = true
 		}
 	}
 }
@@ -643,13 +725,13 @@ func (r *ResponseMessage) Flush() {
 	}
 	// 使用 recover 捕获 panic， 飲止在连接已关闭时发生崩溃
 	defer func() {
-        if err := recover(); err != nil {
-            // 记录错误但不中断执行
-        }
-    }()
-    if flusher, ok := r.response.(http.Flusher); ok {
-        flusher.Flush()
-    }
+		if err := recover(); err != nil {
+			// 记录错误但不中断执行
+		}
+	}()
+	if flusher, ok := r.response.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
 
 // Config defines the configuration structure for the REST endpoint server.
