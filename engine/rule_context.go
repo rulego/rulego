@@ -555,9 +555,10 @@ func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgL
 		ctx.observer.registerNodeDoneEvent(selfNodeId, lcaNodeId, func(inMsgList []types.WrapperMsg) {
 			callback(inMsgList)
 		})
-		if ctx.from != nil {
-			ctx.observer.executedNode(ctx.from.GetNodeId().Id)
-		}
+		// 注意：不再调用 executedNode(fromId)
+		// LCA节点应该通过 childDoneWithoutCallback 流程在 waitingCount 归零时被标记为完成
+		// 而不是在这里立即标记。否则当 fork 节点直接连接到 join 节点时，
+		// fork 会在所有子节点完成前就被标记为完成，导致 join 过早触发回调。
 		return true
 	}
 }

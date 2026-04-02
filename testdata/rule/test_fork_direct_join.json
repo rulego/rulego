@@ -1,0 +1,51 @@
+{
+  "ruleChain": {
+    "id": "test_fork_direct_join",
+    "name": "Test Fork Direct Join",
+    "root": true
+  },
+  "metadata": {
+    "nodes": [
+      {
+        "id": "node_fork",
+        "type": "fork",
+        "name": "Fork Node"
+      },
+      {
+        "id": "node_delay",
+        "type": "delay",
+        "name": "Delay Node",
+        "configuration": {
+          "period": 500,
+          "maxPendingMsg": 100
+        }
+      },
+      {
+        "id": "node_join",
+        "type": "join",
+        "name": "Join Node",
+        "configuration": {
+          "timeout": 5,
+          "mergeToMap": true
+        }
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "node_fork",
+        "toId": "node_join",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_fork",
+        "toId": "node_delay",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_delay",
+        "toId": "node_join",
+        "type": "Success"
+      }
+    ]
+  }
+}
