@@ -40,6 +40,30 @@ func (m *mockLogger) Printf(format string, v ...interface{}) {
 	m.messages = append(m.messages, fmt.Sprintf(format, v...))
 }
 
+func (m *mockLogger) Debugf(format string, v ...interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.messages = append(m.messages, "[DEBUG] "+fmt.Sprintf(format, v...))
+}
+
+func (m *mockLogger) Infof(format string, v ...interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.messages = append(m.messages, "[INFO] "+fmt.Sprintf(format, v...))
+}
+
+func (m *mockLogger) Warnf(format string, v ...interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.messages = append(m.messages, "[WARN] "+fmt.Sprintf(format, v...))
+}
+
+func (m *mockLogger) Errorf(format string, v ...interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.messages = append(m.messages, "[ERROR] "+fmt.Sprintf(format, v...))
+}
+
 func (m *mockLogger) Print(v ...interface{}) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
