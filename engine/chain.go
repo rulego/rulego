@@ -357,12 +357,12 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 	// Initialize the root rule context
 	if firstNode, ok := ruleChainCtx.GetFirstNode(); ok {
 		ruleChainCtx.rootRuleContext = NewRuleContext(context.Background(), ruleChainCtx.config, ruleChainCtx, nil,
-			firstNode, config.Pool, nil, nil)
+			firstNode, config.Pool, nil, ruleChainPool)
 	} else {
 		// If there are no nodes, initialize an empty node context
 		ruleNodeCtx, _ := InitRuleNodeCtx(config, ruleChainCtx, aspects, &types.RuleNode{})
 		ruleChainCtx.rootRuleContext = NewRuleContext(context.Background(), ruleChainCtx.config, ruleChainCtx, nil,
-			ruleNodeCtx, config.Pool, nil, nil)
+			ruleNodeCtx, config.Pool, nil, ruleChainPool)
 		ruleChainCtx.isEmpty = true
 	}
 
