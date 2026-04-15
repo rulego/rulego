@@ -7,6 +7,13 @@ import (
 	"examples/server/internal/constants"
 	"examples/server/internal/dao"
 	"fmt"
+	"log"
+	"os"
+	"path"
+	"path/filepath"
+	"sync"
+	"time"
+
 	"github.com/dop251/goja"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
@@ -16,12 +23,6 @@ import (
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
-	"log"
-	"os"
-	"path"
-	"path/filepath"
-	"sync"
-	"time"
 )
 
 var UserRuleEngineServiceImpl *UserRuleEngineService
@@ -133,7 +134,7 @@ func NewRuleEngineServiceAndInitRuleGo(c config.Config, username string) (*RuleE
 		return nil, err
 	}
 	//初始化规则链
-	service.InitRuleGo(logger.Logger, c.DataDir, username)
+	service.InitRuleGo(logger.Logger.Logger, c.DataDir, username)
 	if service.mcpService != nil {
 		service.mcpService.LoadTools()
 	}
@@ -169,7 +170,7 @@ func NewRuleEngineService(c config.Config, ruleConfig types.Config, username str
 	service := &RuleEngineService{
 		Pool:            pool,
 		username:        username,
-		logger:          logger.Logger,
+		logger:          logger.Logger.Logger,
 		config:          c,
 		onDebugObserver: make(map[string]*DebugObserver),
 		//基于内存的节点调试数据管理器
