@@ -212,12 +212,71 @@ func TestLCACalculator_IsAncestor(t *testing.T) {
 	}
 }
 
+func TestLCACalculator_ComplexLCA(t *testing.T) {
+	provider := newMockParentProvider()
+	calculator := NewLCACalculator(provider)
+
+	// Complex topology
+	//         A
+	//       /   \
+	//      B     C
+	//     / \   / \
+	//    D   E F   G
+	//     \ /   \ /
+	//      H     I
+	//       \   /
+	//         J
+	nodeA := createNodeId("A")
+	nodeB := createNodeId("B")
+	nodeC := createNodeId("C")
+	nodeD := createNodeId("D")
+	nodeE := createNodeId("E")
+	nodeF := createNodeId("F")
+	nodeG := createNodeId("G")
+	nodeH := createNodeId("H")
+	nodeI := createNodeId("I")
+	nodeJ := createNodeId("J")
+
+	provider.addParent(nodeB, nodeA)
+	provider.addParent(nodeC, nodeA)
+	provider.addParent(nodeD, nodeB)
+	provider.addParent(nodeE, nodeB)
+	provider.addParent(nodeF, nodeC)
+	provider.addParent(nodeG, nodeC)
+	provider.addParent(nodeH, nodeD)
+	provider.addParent(nodeH, nodeE)
+	provider.addParent(nodeI, nodeF)
+	provider.addParent(nodeI, nodeG)
+	provider.addParent(nodeJ, nodeH)
+	provider.addParent(nodeJ, nodeI)
+
+	// LCA for J's parents (H, I) should be A
+	lca, found := calculator.GetLCA(nodeJ)
+	if !found {
+		t.Error("Expected to find LCA for nodeJ")
+	}
+	if lca.Id != nodeA.Id {
+		t.Errorf("Expected LCA to be A, got %s", lca.Id)
+	}
+
+	// LCA for H's parents (D, E) should be B
+	lcaH, foundH := calculator.GetLCA(nodeH)
+	if !foundH {
+		t.Error("Expected to find LCA for nodeH")
+	}
+	if lcaH.Id != nodeB.Id {
+		t.Errorf("Expected LCA to be B, got %s", lcaH.Id)
+	}
+}
+
 func TestLCACalculator_CrossLevelAncestors(t *testing.T) {
 	provider := newMockParentProvider()
 	calculator := NewLCACalculator(provider)
 
 	// Create structure where common ancestor is at different levels
 	// 创建共同祖先在不同层级的结构
+	//        root
+	//         |
 	//       node1
 	//      /     \
 	//   node2    node3
@@ -226,6 +285,7 @@ func TestLCACalculator_CrossLevelAncestors(t *testing.T) {
 	//   \          /
 	//    \        /
 	//     node6
+	root := createNodeId("root")
 	node1 := createNodeId("node1")
 	node2 := createNodeId("node2")
 	node3 := createNodeId("node3")
@@ -233,6 +293,7 @@ func TestLCACalculator_CrossLevelAncestors(t *testing.T) {
 	node5 := createNodeId("node5")
 	node6 := createNodeId("node6")
 
+	provider.addParent(node1, root)
 	provider.addParent(node2, node1)
 	provider.addParent(node3, node1)
 	provider.addParent(node4, node2)
@@ -328,11 +389,17 @@ func TestLCACalculator_Concurrency(t *testing.T) {
 				// Verify result consistency
 				// 验证结果一致性
 				switch nodeId.Id {
-				case "node_3", "node_4", "node_5", "node_6":
+				case "node_3", "node_4", "node_5":
 					// All these nodes should have root as LCA since they all trace back to root
 					// 所有这些节点的LCA都应该是root，因为它们都可以追溯到root
 					if lca.Id != "root" {
 						t.Errorf("Goroutine %d: Expected root, got %s for %s", id, lca.Id, nodeId.Id)
+						return
+					}
+				case "node_6":
+					// node_6 parents are node_3 and node_4. Their lowest common ancestor is node_1.
+					if lca.Id != "node_1" {
+						t.Errorf("Goroutine %d: Expected node_1, got %s for %s", id, lca.Id, nodeId.Id)
 						return
 					}
 				}

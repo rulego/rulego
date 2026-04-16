@@ -296,13 +296,13 @@ func (lca *LCACalculator) findOptimizedCrossLevelLCA(parentIds []types.RuleNodeI
 	}
 
 	// Find the lowest (highest level number, closest to leaves) common ancestor
-	// 查找最低（层级数最高，最接近叶子节点）的共同祖先
+	// 查找最低（层级数最低，最接近叶子节点）的共同祖先
 	var lowestAncestor types.RuleNodeId
-	maxLevel := -1
+	minLevel := -1
 
 	for ancestor, level := range commonAncestors {
-		if level > maxLevel {
-			maxLevel = level
+		if minLevel == -1 || level < minLevel {
+			minLevel = level
 			lowestAncestor = ancestor
 		}
 	}

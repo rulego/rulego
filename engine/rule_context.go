@@ -925,7 +925,6 @@ func (ctx *DefaultRuleContext) childReady(msg types.RuleMsg, relationType string
 func (ctx *DefaultRuleContext) childDone() {
 	if atomic.AddInt32(&ctx.waitingCount, -1) <= 0 {
 		if atomic.CompareAndSwapInt32(&ctx.onAllNodeCompletedDone, 0, 1) {
-
 			// 在进行任何异步操作前捕获需要的值，避免并发问题
 			parentRuleCtx := ctx.parentRuleCtx
 			selfId := ctx.GetSelfId()
@@ -964,8 +963,7 @@ func (ctx *DefaultRuleContext) childDone() {
 // - 配合 TellCollect 方法使用，查询该节点的父节点共同祖先是否所有分支到当前聚合节点都已经执行完成
 // - 用于多分支汇聚场景的状态跟踪，避免过早触发完成事件
 func (ctx *DefaultRuleContext) childDoneWithoutCallback() {
-	newCount := atomic.AddInt32(&ctx.waitingCount, -1)
-	if newCount <= 0 {
+	if atomic.AddInt32(&ctx.waitingCount, -1) <= 0 {
 		//if atomic.CompareAndSwapInt32(&ctx.onAllNodeCompletedDone, 0, 1) {
 
 		// 在进行任何异步操作前捕获需要的值，避免并发问题

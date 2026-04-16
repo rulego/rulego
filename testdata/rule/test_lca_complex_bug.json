@@ -1,0 +1,92 @@
+{
+    "ruleChain": {
+        "id": "test_lca_complex_bug",
+        "name": "脱敏后的复杂LCA超时测试规则链",
+        "debugMode": true,
+        "root": true,
+        "disabled": false
+    },
+    "metadata": {
+        "endpoints": [],
+        "nodes": [
+            { "id": "node_32", "type": "fork", "name": "并行分支1", "configuration": null },
+            { "id": "node_16", "type": "jsTransform", "name": "分支1_1", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            { "id": "node_5", "type": "jsTransform", "name": "分支1_2", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            { "id": "node_7", "type": "jsTransform", "name": "分支1_3", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            { "id": "node_46", "type": "jsTransform", "name": "分支1_4", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            { "id": "node_48", "type": "jsTransform", "name": "分支1_5", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            
+            { "id": "node_34", "type": "jsTransform", "name": "分支2_1", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            { "id": "node_30", "type": "jsTransform", "name": "分支2_2", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            
+            { "id": "node_50", "type": "jsTransform", "name": "分支3_1", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            { "id": "node_52", "type": "jsTransform", "name": "分支3_2", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            
+            { "id": "node_36", "type": "join", "name": "合并1", "configuration": { "timeout": 0 } },
+            
+            { "id": "node_40", "type": "jsTransform", "name": "处理合并结果", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            
+            { "id": "node_28", "type": "switch", "name": "条件分支", "configuration": {
+                "cases": [
+                    { "case": "true", "then": "no_metas" }
+                ]
+            }},
+            
+            { "id": "node_74", "type": "fork", "name": "并行分支2", "configuration": null },
+            
+            { "id": "node_76", "type": "jsTransform", "name": "下半场分支1_1", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            { "id": "node_88", "type": "jsTransform", "name": "下半场分支1_2", "configuration": { "jsScript": "metadata.level_info = 'true'; return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            
+            { "id": "node_80", "type": "jsTransform", "name": "下半场分支2_1", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            { "id": "node_78", "type": "jsTransform", "name": "下半场分支2_2", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            { "id": "node_84", "type": "jsTransform", "name": "下半场分支2_3", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            
+            { "id": "node_92", "type": "jsTransform", "name": "下半场分支3_1", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            { "id": "node_94", "type": "jsTransform", "name": "下半场分支3_2", "configuration": { "jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            
+            { "id": "node_86", "type": "join", "name": "合并2", "configuration": { "timeout": 0 } },
+            
+            { "id": "node_90", "type": "jsTransform", "name": "制造错误", "configuration": { "jsScript": "throw new Error('mock error'); return {'msg':msg,'metadata':metadata,'msgType':msgType};" } },
+            
+            { "id": "node_122", "type": "log", "name": "结束", "configuration": { "jsScript": "return 'msg=' + msg;" } }
+        ],
+        "connections": [
+            { "fromId": "node_32", "toId": "node_16", "type": "Success" },
+            { "fromId": "node_16", "toId": "node_5", "type": "Success" },
+            { "fromId": "node_5", "toId": "node_7", "type": "Success" },
+            { "fromId": "node_7", "toId": "node_46", "type": "Success" },
+            { "fromId": "node_46", "toId": "node_48", "type": "Success" },
+            { "fromId": "node_48", "toId": "node_36", "type": "Success" },
+            
+            { "fromId": "node_32", "toId": "node_34", "type": "Success" },
+            { "fromId": "node_34", "toId": "node_30", "type": "Success" },
+            { "fromId": "node_30", "toId": "node_36", "type": "Success" },
+            
+            { "fromId": "node_32", "toId": "node_50", "type": "Success" },
+            { "fromId": "node_50", "toId": "node_52", "type": "Success" },
+            { "fromId": "node_52", "toId": "node_36", "type": "Success" },
+            
+            { "fromId": "node_36", "toId": "node_40", "type": "Success" },
+            { "fromId": "node_40", "toId": "node_28", "type": "Success" },
+            
+            { "fromId": "node_28", "toId": "node_74", "type": "no_metas" },
+            
+            { "fromId": "node_74", "toId": "node_76", "type": "Success" },
+            { "fromId": "node_76", "toId": "node_88", "type": "Success" },
+            { "fromId": "node_88", "toId": "node_86", "type": "Success" },
+            
+            { "fromId": "node_74", "toId": "node_80", "type": "Success" },
+            { "fromId": "node_80", "toId": "node_78", "type": "Success" },
+            { "fromId": "node_78", "toId": "node_84", "type": "Success" },
+            { "fromId": "node_84", "toId": "node_86", "type": "Success" },
+            
+            { "fromId": "node_74", "toId": "node_92", "type": "Success" },
+            { "fromId": "node_92", "toId": "node_94", "type": "Success" },
+            { "fromId": "node_94", "toId": "node_86", "type": "Success" },
+            
+            { "fromId": "node_86", "toId": "node_90", "type": "Success" },
+            { "fromId": "node_90", "toId": "node_122", "type": "Success" },
+            { "fromId": "node_90", "toId": "node_122", "type": "Failure" }
+        ]
+    }
+}
