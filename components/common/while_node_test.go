@@ -17,6 +17,7 @@
 package common
 
 import (
+	"errors"
 	"strconv"
 	"testing"
 	"time"
@@ -41,7 +42,28 @@ func TestWhileNode(t *testing.T) {
 		}, types.Configuration{
 			"condition": "${msg.count} < 5",
 			"do":        "s1",
+			"mode":      2, // Default mode from New() is preserved
 		}, Registry)
+
+		// Test empty condition
+		_, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"condition": "",
+			"do":        "s1",
+		}, Registry)
+		assert.NotNil(t, err)
+
+		// Test empty do
+		_, err = test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"condition": "true",
+		}, Registry)
+		assert.NotNil(t, err)
+
+		// Test invalid do format
+		_, err = test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"condition": "true",
+			"do":        "chain:s1:invalid",
+		}, Registry)
+		assert.NotNil(t, err)
 	})
 
 	t.Run("OnMsg", func(t *testing.T) {
@@ -65,11 +87,67 @@ func TestWhileNode(t *testing.T) {
 			"node1": doNode,
 		}
 
-		// Node 1: Normal loop with ReplaceValues (default)
+		// Node 1: Normal loop with ReplaceValues (2)
 		// Condition: count < 3. Starts at 0. Should run for 0, 1, 2. Ends at 3.
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"condition": "int(metadata.count) < 3",
 			"do":        "node1",
+			"mode":      2,
+		}, Registry)
+		assert.Nil(t, err)
+
+		// Node 2: Loop with DoNotProcess (0)
+		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"condition": "int(metadata.count) < 3",
+			"do":        "node1",
+			"mode":      0,
+		}, Registry)
+		assert.Nil(t, err)
+
+		// Node 3: Loop with MergeValues (1)
+		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"condition": "int(metadata.count) < 3",
+			"do":        "node1",
+			"mode":      1,
+		}, Registry)
+		assert.Nil(t, err)
+
+		// Node 4: Loop with default configuration (should be mode 2 because Map2Struct preserves New() defaults)
+		node4, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"condition": "int(metadata.count) < 3",
+			"do":        "node1",
+		}, Registry)
+		assert.Nil(t, err)
+
+		// Node 5: Loop condition evaluation error
+		_, err = test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"condition": "invalid syntax!!",
+			"do":        "node1",
+			"mode":      2,
+		}, Registry)
+		assert.NotNil(t, err)
+
+		// Node 6: Loop with node execution error
+		action.Functions.Register("errorLoopTest", func(ctx types.RuleContext, msg types.RuleMsg) {
+			ctx.TellFailure(msg, errors.New("test error"))
+		})
+		doNodeErr, _ := test.CreateAndInitNode("functions", types.Configuration{
+			"functionName": "errorLoopTest",
+		}, action.Registry)
+		childrenNodes["nodeErr"] = doNodeErr
+
+		node6, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"condition": "int(metadata.count) < 3",
+			"do":        "nodeErr",
+			"mode":      2,
+		}, Registry)
+		assert.Nil(t, err)
+
+		// Node 7: Loop condition evaluation error at runtime
+		node7, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
+			"condition": "int(metadata.not_exists) < 3",
+			"do":        "node1",
+			"mode":      2,
 		}, Registry)
 		assert.Nil(t, err)
 
@@ -93,6 +171,56 @@ func TestWhileNode(t *testing.T) {
 					// Should end when count is 3
 					assert.Equal(t, "3", msg.Metadata.GetValue("count"))
 					assert.Equal(t, "3", msg.GetData())
+				},
+			},
+			{
+				Node:    node2,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Nil(t, err)
+					// Should end when count is 3, but msg data should be the original "0"
+					assert.Equal(t, "0", msg.GetData())
+					// Original msg metadata is preserved
+					assert.Equal(t, "0", msg.Metadata.GetValue("count"))
+				},
+			},
+			{
+				Node:    node3,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Nil(t, err)
+					// Should end when count is 3, and data should be merged array
+					assert.Equal(t, "3", msg.Metadata.GetValue("count"))
+					assert.Equal(t, "[1,2,3]", msg.GetData()) // 1, 2, 3 were the outputs of each iteration
+				},
+			},
+			{
+				Node:    node4,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					assert.Nil(t, err)
+					// Mode 2 default fallback. Should be identical to Node 1
+					assert.Equal(t, "3", msg.Metadata.GetValue("count"))
+					assert.Equal(t, "3", msg.GetData())
+				},
+			},
+			{
+				Node:    node7,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					// Condition template execute error
+					assert.NotNil(t, err)
+					assert.Equal(t, types.Failure, relationType)
+				},
+			},
+			{
+				Node:    node6,
+				MsgList: msgList,
+				Callback: func(msg types.RuleMsg, relationType string, err error) {
+					// Inner loop node execution error
+					assert.NotNil(t, err)
+					assert.Equal(t, "test error", err.Error())
+					assert.Equal(t, types.Failure, relationType)
 				},
 			},
 		}
@@ -129,6 +257,7 @@ func TestWhileNode(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"condition": "int(metadata.count) < 5",
 			"do":        "node1",
+			"mode":      2,
 		}, Registry)
 		assert.Nil(t, err)
 

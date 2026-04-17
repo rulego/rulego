@@ -27,7 +27,9 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/el"
+	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/str"
 )
 
 func init() {
@@ -44,6 +46,8 @@ type WhileNodeConfiguration struct {
 	// Do specifies the node or sub-rule chain to process in each iteration,
 	// e.g., "s1" or "chain:rule01".
 	Do string
+	// Mode 0:不处理msg，1：合并遍历msg.Data，2：替换msg
+	Mode int
 }
 
 // WhileNode provides a while-loop structure.
@@ -58,6 +62,7 @@ type WhileNodeConfiguration struct {
 //	{
 //		"condition": "${msg.count} < 5", // Expression to check  检查表达式
 //		"do": "s3",                      // Target node ID or sub-chain  目标节点ID或子链
+//		"mode": 1                        // Processing mode: 0=DoNotProcess (default), 1=MergeValues, 2=ReplaceValues  处理模式
 //	}
 type WhileNode struct {
 	// Config contains the node configuration.
@@ -76,6 +81,7 @@ func (x *WhileNode) Type() string {
 func (x *WhileNode) New() types.Node {
 	return &WhileNode{Config: WhileNodeConfiguration{
 		Condition: "msg.count==nil || msg.count < 3",
+		Mode:      ReplaceValues,
 	}}
 }
 
@@ -102,6 +108,27 @@ func (x *WhileNode) Init(_ types.Config, configuration types.Configuration) erro
 	return x.formDoVar()
 }
 
+func (x *WhileNode) toMap(data string) interface{} {
+	var dataMap interface{}
+	if err := json.Unmarshal([]byte(data), &dataMap); err == nil {
+		return dataMap
+	} else {
+		return data
+	}
+}
+
+func (x *WhileNode) toList(dataType types.DataType, itemDataList []string) []interface{} {
+	var resultData []interface{}
+	for _, itemData := range itemDataList {
+		if dataType == types.JSON {
+			resultData = append(resultData, x.toMap(itemData))
+		} else {
+			resultData = append(resultData, itemData)
+		}
+	}
+	return resultData
+}
+
 // OnMsg processes the message.
 func (x *WhileNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var err error
@@ -110,8 +137,13 @@ func (x *WhileNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	ctxWithCancel, cancelFunc := context.WithCancel(ctx.GetContext())
 	defer cancelFunc()
 
+	var inData = msg.GetData()
+	var inMsg = msg.Copy()
 	var lastMsg = msg
 	var index = 0
+
+	var resultData []interface{}
+	var itemDataList []string
 
 	for {
 		// Update loop index in metadata
@@ -138,11 +170,15 @@ func (x *WhileNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 		// Execute the iteration
 		var loopErr error
-		if lastMsg, _, loopErr = x.executeItem(ctxWithCancel, ctx, msg); loopErr != nil {
+		if lastMsg, itemDataList, loopErr = x.executeItem(ctxWithCancel, ctx, msg); loopErr != nil {
 			err = loopErr
 			break
 		}
 
+		if x.Config.Mode == MergeValues {
+			resultData = append(resultData, x.toList(msg.DataType, itemDataList)...)
+		}
+		// Always pass the updated msg to the next iteration so the condition can evaluate it
 		msg = lastMsg
 
 		// Check for break signal
@@ -157,8 +193,16 @@ func (x *WhileNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
-		// msg is already lastMsg (final state).
-		ctx.TellSuccess(msg)
+		if x.Config.Mode == DoNotProcess {
+			inMsg.SetData(inData)
+			ctx.TellSuccess(inMsg)
+		} else if x.Config.Mode == MergeValues {
+			msg.SetData(str.ToString(resultData))
+			ctx.TellSuccess(msg)
+		} else {
+			// msg is already lastMsg (final state).
+			ctx.TellSuccess(msg)
+		}
 	}
 }
 
