@@ -22,7 +22,9 @@ type Cache interface {
 	//   - key: cache key to lookup (string)
 	// Returns:
 	//   - interface{}: stored value, nil if not exists or expired
-	//   - error: returns error if operation failed
+	//   - error: returns types.ErrCacheMiss if key not found, or other error if operation failed
+	// Note: All implementations MUST return types.ErrCacheMiss when the key does not exist or has expired,
+	// to allow callers to distinguish cache miss from real errors.
 	Get(key string) (interface{}, error)
 	// Has checks if a key exists in cache
 	// Parameters:

@@ -260,6 +260,106 @@ func TestCacheGetNode(t *testing.T) {
 			assert.Equal(t, `{"missingKey1":null,"original":"data"}`, msg.GetData())
 		})
 	})
+
+	t.Run("WhenKeyNotFoundFailure", func(t *testing.T) {
+		// whenKeyNotFound="failure"，Mode 0 全 miss 走失败链
+		node0, err := test.CreateAndInitNode("cacheGet", types.Configuration{
+			"keys":           []LevelKey{{CacheLevelChain, "missingKeyFailure0"}},
+			"outputMode":     0,
+			"whenKeyNotFound": WhenKeyNotFoundFailure,
+		}, Registry)
+		assert.Nil(t, err)
+
+		// whenKeyNotFound="failure"，Mode 1 全 miss 走失败链
+		node1, err := test.CreateAndInitNode("cacheGet", types.Configuration{
+			"keys":           []LevelKey{{CacheLevelChain, "missingKeyFailure1"}},
+			"outputMode":     1,
+			"whenKeyNotFound": WhenKeyNotFoundFailure,
+		}, Registry)
+		assert.Nil(t, err)
+
+		// whenKeyNotFound="failure"，Mode 2 全 miss 走失败链
+		node2, err := test.CreateAndInitNode("cacheGet", types.Configuration{
+			"keys":           []LevelKey{{CacheLevelChain, "missingKeyFailure2"}},
+			"outputMode":     2,
+			"whenKeyNotFound": WhenKeyNotFoundFailure,
+		}, Registry)
+		assert.Nil(t, err)
+
+		msgList := []test.Msg{{
+			MsgType:    "TEST_MSG",
+			Data:       "{\"original\":\"data\"}",
+			DataType:   types.JSON,
+			AfterSleep: time.Millisecond * 200,
+		}}
+
+		test.NodeOnMsgWithChildren(t, node0, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Failure, relationType)
+			assert.Equal(t, types.ErrCacheMiss.Error(), err.Error())
+		})
+
+		test.NodeOnMsgWithChildren(t, node1, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Failure, relationType)
+			assert.Equal(t, types.ErrCacheMiss.Error(), err.Error())
+		})
+
+		test.NodeOnMsgWithChildren(t, node2, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Failure, relationType)
+			assert.Equal(t, types.ErrCacheMiss.Error(), err.Error())
+		})
+	})
+
+	t.Run("WhenKeyNotFoundSuccess", func(t *testing.T) {
+		// whenKeyNotFound="success"，Mode 2 全 miss 走成功链
+		node2, err := test.CreateAndInitNode("cacheGet", types.Configuration{
+			"keys":           []LevelKey{{CacheLevelChain, "missingKeySuccess2"}},
+			"outputMode":     2,
+			"whenKeyNotFound": WhenKeyNotFoundSuccess,
+		}, Registry)
+		assert.Nil(t, err)
+
+		msgList := []test.Msg{{
+			MsgType:    "TEST_MSG",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 200,
+		}}
+
+		test.NodeOnMsgWithChildren(t, node2, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Success, relationType)
+		})
+	})
+
+	t.Run("WhenKeyNotFoundCaseInsensitive", func(t *testing.T) {
+		// 大小写不敏感："Failure" / "SUCCESS" 也能识别
+		nodeFailure, err := test.CreateAndInitNode("cacheGet", types.Configuration{
+			"keys":           []LevelKey{{CacheLevelChain, "missingKeyCiFailure"}},
+			"outputMode":     0,
+			"whenKeyNotFound": "Failure",
+		}, Registry)
+		assert.Nil(t, err)
+
+		nodeSuccess, err := test.CreateAndInitNode("cacheGet", types.Configuration{
+			"keys":           []LevelKey{{CacheLevelChain, "missingKeyCiSuccess"}},
+			"outputMode":     2,
+			"whenKeyNotFound": "SUCCESS",
+		}, Registry)
+		assert.Nil(t, err)
+
+		msgList := []test.Msg{{
+			MsgType:    "TEST_MSG",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 200,
+		}}
+
+		test.NodeOnMsgWithChildren(t, nodeFailure, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Failure, relationType)
+			assert.Equal(t, types.ErrCacheMiss.Error(), err.Error())
+		})
+
+		test.NodeOnMsgWithChildren(t, nodeSuccess, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Success, relationType)
+		})
+	})
 }
 
 func TestCacheSetNode(t *testing.T) {
