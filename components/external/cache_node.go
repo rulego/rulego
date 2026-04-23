@@ -63,6 +63,13 @@ type LevelKeyTemplate struct {
 	keyTemplate el.Template // 缓存key模板
 }
 
+const (
+	// WhenKeyNotFoundFailure 找不到key时走失败链
+	WhenKeyNotFoundFailure = "failure"
+	// WhenKeyNotFoundSuccess 找不到key时走成功链
+	WhenKeyNotFoundSuccess = "success"
+)
+
 // CacheGetNodeConfiguration 缓存获取节点配置
 type CacheGetNodeConfiguration struct {
 	// Keys 获取key列表
@@ -72,6 +79,11 @@ type CacheGetNodeConfiguration struct {
 	// 1:查询结果，合并到当前消息负荷。要求输入消息负荷`DataType`必须是JSON类型，并且消息负荷`Data`可以解析为map结构
 	// 2:查询结果，转成JSON，覆盖原消息负荷输出
 	OutputMode int `json:"outputMode"`
+	// WhenKeyNotFound 找不到key时的处理策略
+	// "": 保持原有行为（Mode 0/1 走成功链，Mode 2 全 miss 走失败链）
+	// "failure": 找不到key时走失败链
+	// "success": 找不到key时走成功链
+	WhenKeyNotFound string `json:"whenKeyNotFound"`
 }
 
 // CacheGetNode retrieves data from cache storage at different levels (chain or global).
@@ -209,14 +221,50 @@ func (x *CacheGetNode) handleGet(ctx types.RuleContext, msg types.RuleMsg, keys 
 				values[k] = v
 			}
 		} else {
-			value, _ := c.Get(item.Key)
-			values[item.Key] = value
+			value, err := c.Get(item.Key)
+			if err != nil {
+				if errors.Is(err, types.ErrCacheMiss) {
+					// cache miss，由 whenKeyNotFound 控制
+					values[item.Key] = nil
+				} else {
+					// 底层报错，始终走失败链
+					ctx.TellFailure(msg, err)
+					return
+				}
+			} else {
+				values[item.Key] = value
+			}
 		}
 	}
 	x.outputResult(ctx, msg, values)
 }
 
 func (x *CacheGetNode) outputResult(ctx types.RuleContext, msg types.RuleMsg, values map[string]interface{}) {
+	// 检查是否全部 miss
+	var notFound = true
+	for _, v := range values {
+		if v != nil {
+			notFound = false
+			break
+		}
+	}
+
+	if notFound {
+		whenKeyNotFound := strings.ToLower(x.Config.WhenKeyNotFound)
+		switch whenKeyNotFound {
+		case WhenKeyNotFoundFailure:
+			ctx.TellFailure(msg, types.ErrCacheMiss)
+			return
+		case WhenKeyNotFoundSuccess:
+			// 走成功链，继续下面的输出逻辑
+		default:
+			// 空值：保持原有行为，Mode 2 走失败链，其他模式走成功链
+			if x.Config.OutputMode == CacheOutputModeNewMsg {
+				ctx.TellFailure(msg, types.ErrCacheMiss)
+				return
+			}
+		}
+	}
 
 	if x.Config.OutputMode == CacheOutputModeMergeToMetadata {
 		for key, value := range values {
@@ -239,18 +287,6 @@ func (x *CacheGetNode) outputResult(ctx types.RuleContext, msg types.RuleMsg, va
 			ctx.TellFailure(msg, errors.New("data type must be JSON type"))
 		}
 	} else {
-		//如果找不到，则跳转到失败链
-		var notFound = true
-		for _, v := range values {
-			if v != nil {
-				notFound = false
-				break
-			}
-		}
-		if notFound {
-			ctx.TellFailure(msg, types.ErrCacheMiss)
-			return
-		}
 		msg.SetData(str.ToString(values))
 		ctx.TellSuccess(msg)
 	}
