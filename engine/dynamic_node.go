@@ -156,7 +156,7 @@ func (x *DynamicNode) Init(ruleConfig types.Config, configuration types.Configur
 	}
 
 	//动态初始化子规则链
-	x.ruleEngine, err = NewRuleEngine(newChainId, newComponentDsl)
+	x.ruleEngine, err = NewRuleEngine(newChainId, newComponentDsl, WithConfig(ruleConfig))
 	return err
 }
 
