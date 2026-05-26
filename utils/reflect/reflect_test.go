@@ -445,3 +445,94 @@ func TestGetFieldsWithJsonSquash(t *testing.T) {
 	assert.Equal(t, "otherField", otherField.Name)
 	assert.Equal(t, "其他字段", otherField.Label)
 }
+
+// TestRefTagConfiguration 测试 ref tag 的配置结构
+type TestRefTagConfiguration struct {
+	Server   string `json:"server" label:"Server" ref:"primary"`
+	Username string `json:"username" label:"Username" ref:"shared"`
+	Password string `json:"password" label:"Password" ref:"shared"`
+	Topic    string `json:"topic" label:"Topic"`
+}
+
+// TestRefTagNode 测试 ref tag 的节点
+type TestRefTagNode struct {
+	Config TestRefTagConfiguration
+}
+
+func (x *TestRefTagNode) Type() string {
+	return "testRefTag"
+}
+
+func (x *TestRefTagNode) New() types.Node {
+	return &TestRefTagNode{Config: TestRefTagConfiguration{
+		Server: "127.0.0.1:1883",
+		Topic:  "/device/msg",
+	}}
+}
+
+func (x *TestRefTagNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	return nil
+}
+
+func (x *TestRefTagNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {}
+
+func (x *TestRefTagNode) Destroy() {}
+
+func TestGetFieldsWithRefTag(t *testing.T) {
+	node := &TestRefTagNode{}
+	form := GetComponentForm(node)
+
+	assert.Equal(t, "testRefTag", form.Type)
+	assert.Equal(t, 4, len(form.Fields))
+
+	// server: ref=primary
+	serverField, found := form.Fields.GetField("server")
+	assert.True(t, found)
+	assert.Equal(t, "primary", serverField.Ref)
+
+	// username: ref=shared
+	usernameField, found := form.Fields.GetField("username")
+	assert.True(t, found)
+	assert.Equal(t, "shared", usernameField.Ref)
+
+	// password: ref=shared
+	passwordField, found := form.Fields.GetField("password")
+	assert.True(t, found)
+	assert.Equal(t, "shared", passwordField.Ref)
+
+	// topic: 无 ref 标记
+	topicField, found := form.Fields.GetField("topic")
+	assert.True(t, found)
+	assert.Equal(t, "", topicField.Ref)
+}
+
+// TestNoRefTagConfiguration 测试没有 ref tag 的配置
+type TestNoRefTagConfiguration struct {
+	Server string `json:"server" label:"Server"`
+}
+
+type TestNoRefTagNode struct {
+	Config TestNoRefTagConfiguration
+}
+
+func (x *TestNoRefTagNode) Type() string {
+	return "testNoRefTag"
+}
+
+func (x *TestNoRefTagNode) New() types.Node { return &TestNoRefTagNode{} }
+
+func (x *TestNoRefTagNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	return nil
+}
+
+func (x *TestNoRefTagNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {}
+
+func (x *TestNoRefTagNode) Destroy() {}
+
+func TestRefTagEmptyWhenNotSet(t *testing.T) {
+	node := &TestNoRefTagNode{}
+	form := GetComponentForm(node)
+
+	assert.Equal(t, 1, len(form.Fields))
+	assert.Equal(t, "", form.Fields[0].Ref)
+}
