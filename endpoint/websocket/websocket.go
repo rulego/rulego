@@ -236,6 +236,29 @@ func (ws *Websocket) Type() string {
 	return Type
 }
 
+// Category returns the component category
+func (ws *Websocket) Category() string {
+	return "endpoint"
+}
+
+// Def returns the component definition including description and router form metadata.
+func (ws *Websocket) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc: "WebSocket server endpoint for receiving and processing WebSocket messages",
+		RouterForm: &types.RouterForm{
+			From: &types.RouterFormField{
+				Path: types.ComponentFormField{
+					Name:     "path",
+					Type:     "string",
+					Label:    "Path",
+					Desc:     "WebSocket request path, e.g. /api/ws",
+					Required: true,
+				},
+			},
+		},
+	}
+}
+
 func (ws *Websocket) New() types.Node {
 	return &Websocket{
 		Config: Config{

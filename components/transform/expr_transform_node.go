@@ -47,10 +47,10 @@ func init() {
 
 // ExprTransformNodeConfiguration 节点配置
 type ExprTransformNodeConfiguration struct {
-	//转换表达式，转换结果替换到msg 转到下一个节点。
-	Expr string
-	//多个字段转换表达式，格式(字段:转换表达式)，多个转换结果转换成json字符串转到下一个节点。如果Mapping和Expr同时存在，优先使用Expr
-	Mapping map[string]string
+	// Expr is a single expression. Result replaces msg data. Takes priority over Mapping.
+	Expr string `json:"expr" label:"Expression" desc:"Single expression to transform msg. Result replaces msg data. Takes priority over mapping"`
+	// Mapping is a field-to-expression map. Results become JSON. Used when Expr is empty.
+	Mapping map[string]string `json:"mapping" label:"Mapping" desc:"Field-to-expression map, e.g. {\"name\":\"upper(msg.name)\"}. Used when expr is empty"`
 }
 
 // ExprTransformNode 使用expr表达式转换或者创建新的msg
@@ -154,6 +154,11 @@ func (x *ExprTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.TellFailure(msg, err)
 	}
 
+}
+
+// Desc returns the component description
+func (x *ExprTransformNode) Desc() string {
+	return "Transform messages using expr-lang. Single expr replaces msg, or mapping creates multi-field JSON. Variables: id, ts, data, msg, metadata, type, dataType. Routes to Success/Failure"
 }
 
 // Destroy 销毁

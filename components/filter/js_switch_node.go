@@ -48,18 +48,18 @@ func init() {
 
 // JsSwitchNodeConfiguration JsSwitchNode配置结构
 type JsSwitchNodeConfiguration struct {
-	// JsScript JavaScript脚本，用于确定消息路由路径
-	// 函数参数：msg, metadata, msgType, dataType
-	// 必须返回字符串数组，表示路由关系类型
+	// JsScript JavaScript script to determine message routing paths
+	// Function parameters: msg, metadata, msgType, dataType
+	// Must return a string array of routing relation types
 	//
-	// 内置变量：
-	//   - $ctx: 上下文对象，提供缓存操作
-	//   - global: 全局配置属性
-	//   - vars: 规则链变量
-	//   - UDF函数: 用户自定义函数
+	// Built-in variables:
+	//   - $ctx: context object for cache operations
+	//   - global: global configuration properties
+	//   - vars: rule chain variables
+	//   - UDF functions: user-defined functions
 	//
-	// 示例: "return ['route1', 'route2'];"
-	JsScript string
+	// Example: "return ['route1', 'route2'];"
+	JsScript string `json:"jsScript" label:"Switch Script" desc:"JavaScript script that returns an array of routing relation types. Example: return ['route1','route2'];" required:"true"`
 }
 
 // JsSwitchNode 使用JavaScript确定消息路由路径的开关节点
@@ -119,6 +119,11 @@ func (x *JsSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			ctx.TellFailure(msg, JsSwitchReturnFormatErr)
 		}
 	}
+}
+
+// Desc returns the component description
+func (x *JsSwitchNode) Desc() string {
+	return "Use JavaScript to determine message routing paths. The script must return an array of relation type strings. Available variables: msg, metadata, msgType, dataType"
 }
 
 // Destroy 清理资源

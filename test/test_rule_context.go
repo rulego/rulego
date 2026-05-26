@@ -356,6 +356,10 @@ func (ctx *NodeTestRuleContext) GetNodeRuleMsg(nodeId string) (types.RuleMsg, bo
 	return types.RuleMsg{}, false
 }
 
+func (ctx *NodeTestRuleContext) SetDebugMode(debugMode bool) {}
+
+func (ctx *NodeTestRuleContext) SetSkipTellNext(skip bool) {}
+
 // ExtendedTestRuleContext 扩展的测试上下文，支持结果收集和节点处理器设置
 // 可以替代 SimpleTestContext 和 MockRuleContext
 type ExtendedTestRuleContext struct {

@@ -173,19 +173,11 @@ func (x *FunctionsRegistry) Names() []string {
 // FunctionsNodeConfiguration FunctionsNode配置结构
 // FunctionsNodeConfiguration defines the configuration structure for the FunctionsNode component.
 type FunctionsNodeConfiguration struct {
-	// FunctionName 要调用的函数名称，支持变量替换
-	// FunctionName specifies the name of the function to call from the registry.
-	// Supports dynamic resolution using placeholder variables:
-	//   - ${metadata.key}: Retrieves function name from message metadata
-	//   - ${msg.key}: Retrieves function name from message payload
-	FunctionName string `json:"functionName"`
-	// Param 函数入参，支持变量替换。如果空，则使用消息负荷作为参数
-	// Param specifies the input parameter for the function.
-	// Supports dynamic resolution using placeholder variables:
-	//   - ${metadata.key}: Retrieves value from message metadata
-	//   - ${msg.key}: Retrieves value from message payload
-	// If empty, the message payload is used as the parameter.
-	Param string `json:"param"`
+	// FunctionName is the name of the registered function to call.
+	// Supports ${metadata.key} and ${msg.key} substitution.
+	FunctionName string `json:"functionName" label:"Function Name" desc:"Registered function name. Supports ${metadata.key} and ${msg.key} substitution" required:"true"`
+	// Param is the input parameter for the function. If empty, message payload is used.
+	Param string `json:"param" label:"Parameter" desc:"Function input parameter. Supports ${metadata.key} and ${msg.key}. If empty, uses message payload"`
 }
 
 // FunctionsNode 通过函数名调用已注册自定义函数的动作组件
@@ -285,4 +277,9 @@ func (x *FunctionsNode) getFunctionName(ctx types.RuleContext, msg types.RuleMsg
 		return x.functionNameTemplate.ExecuteAsString(base.NodeUtils.GetEvnAndMetadata(ctx, msg))
 	}
 	return x.Config.FunctionName
+}
+
+// Desc returns the component description
+func (x *FunctionsNode) Desc() string {
+	return "Invoke a registered custom function by name. functionName supports ${metadata.key} and ${msg.key} substitution. Routes to Success/Failure"
 }

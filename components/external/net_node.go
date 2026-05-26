@@ -39,14 +39,10 @@ func init() {
 
 // NetNodeConfiguration 组件的配置
 type NetNodeConfiguration struct {
-	// 通信协议，可以是tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。默认tcp协议
-	Protocol string
-	// 服务器的地址，格式为host:port
-	Server string
-	// 连接超时，单位为秒，如果<=0 则默认60
-	ConnectTimeout int
-	// 心跳间隔，用于定期发送心跳消息，单位为秒，如果=0，则不发心跳包。默认60
-	HeartbeatInterval int
+	Protocol          string `json:"protocol" label:"Protocol" desc:"Network protocol: tcp, udp, default is tcp"`
+	Server            string `json:"server" label:"Server" desc:"Server address, format: host:port" required:"true" ref:"primary"`
+	ConnectTimeout    int    `json:"connectTimeout" label:"Connect Timeout (s)" desc:"Connection timeout in seconds"`
+	HeartbeatInterval int    `json:"heartbeatInterval" label:"Heartbeat Interval (s)" desc:"Heartbeat interval in seconds"`
 }
 
 // NetNode provides network protocol communication capabilities for sending messages over various protocols.
@@ -354,4 +350,9 @@ func (x *NetNode) setDefaultConfig() {
 	if x.Config.HeartbeatInterval < 0 {
 		x.Config.HeartbeatInterval = 60
 	}
+}
+
+// Desc returns the component description
+func (x *NetNode) Desc() string {
+	return "Network protocol communication (TCP, UDP, Unix sockets etc.) with heartbeat and auto-reconnection. Binary data sent raw, text/JSON appends newline. Routes to Success/Failure"
 }

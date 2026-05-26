@@ -61,44 +61,35 @@ const (
 // RestApiCallNodeConfiguration rest配置
 type RestApiCallNodeConfiguration struct {
 	//RestEndpointUrlPattern HTTP URL地址,可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	RestEndpointUrlPattern string
+	RestEndpointUrlPattern string `json:"restEndpointUrlPattern" label:"Request URL" desc:"HTTP request URL, supports ${msg.xxx}, ${metadata.xxx}, ${global.xxx} variable substitution" required:"true"`
 	//RequestMethod 请求方法，默认POST
-	RequestMethod string
+	RequestMethod string `json:"requestMethod" label:"Request Method" desc:"HTTP method: GET/POST/PUT/DELETE/PATCH, default POST" component:"{\"type\":\"select\",\"options\":[{\"label\":\"GET\",\"value\":\"GET\"},{\"label\":\"POST\",\"value\":\"POST\"},{\"label\":\"PUT\",\"value\":\"PUT\"},{\"label\":\"DELETE\",\"value\":\"DELETE\"},{\"label\":\"PATCH\",\"value\":\"PATCH\"}]}"`
 	// Without request body
-	WithoutRequestBody bool
+	WithoutRequestBody bool `json:"withoutRequestBody" label:"No Request Body" desc:"Set to true to skip sending request body"`
 	//Headers 请求头,可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	Headers map[string]string
+	Headers map[string]string `json:"headers" label:"Headers" desc:"HTTP header key-value pairs, e.g. {\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer ${global.token}\"}"`
 	// Body 请求body,支持metadata、msg取值构建body。如果空，则把消息符合传输到目标地址
-	// 例如：
-	// 表达式取值：${msg.value}
-	// 或者构建JSON格式：
-	// {
-	//  "name":"${msg.name}",
-	//  "age":"${msg.age}",
-	//  "type":"admin"
-	// }
-	// 或者输入字符串：01010101
-	Body string
+	Body string `json:"body" label:"Body" desc:"Custom request body template, supports ${msg.xxx} variables. Defaults to msg JSON when empty"`
 	//ReadTimeoutMs 超时，单位毫秒，默认0:不限制
-	ReadTimeoutMs int
+	ReadTimeoutMs int `json:"readTimeoutMs" label:"Timeout (ms)" desc:"Request timeout in milliseconds, default 2000"`
 	//禁用证书验证
-	InsecureSkipVerify bool
+	InsecureSkipVerify bool `json:"insecureSkipVerify" label:"Skip TLS Verify" desc:"Set to true to skip HTTPS certificate verification"`
 	//MaxParallelRequestsCount 连接池大小，默认200。0代表不限制
-	MaxParallelRequestsCount int
+	MaxParallelRequestsCount int `json:"maxParallelRequestsCount" label:"Max Parallel Requests" desc:"Connection pool size, default 200, 0 for unlimited"`
 	//EnableProxy 是否开启代理
-	EnableProxy bool
+	EnableProxy bool `json:"enableProxy" label:"Enable Proxy" desc:"Whether to enable proxy"`
 	//UseSystemProxyProperties 使用系统配置代理
-	UseSystemProxyProperties bool
+	UseSystemProxyProperties bool `json:"useSystemProxyProperties" label:"Use System Proxy" desc:"Use system environment variable proxy settings"`
 	//ProxyScheme 代理协议
-	ProxyScheme string
+	ProxyScheme string `json:"proxyScheme" label:"Proxy Scheme" desc:"Proxy protocol: http/https/socks5"`
 	//ProxyHost 代理主机
-	ProxyHost string
+	ProxyHost string `json:"proxyHost" label:"Proxy Host" desc:"Proxy server address"`
 	//ProxyPort 代理端口
-	ProxyPort int
+	ProxyPort int `json:"proxyPort" label:"Proxy Port" desc:"Proxy server port"`
 	//ProxyUser 代理用户名
-	ProxyUser string
+	ProxyUser string `json:"proxyUser" label:"Proxy Username" desc:"Proxy authentication username"`
 	//ProxyPassword 代理密码
-	ProxyPassword string
+	ProxyPassword string `json:"proxyPassword" label:"Proxy Password" desc:"Proxy authentication password"`
 }
 
 // RestApiCallNode 用于进行外部API调用的HTTP/REST API客户端组件
@@ -325,6 +316,11 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			ctx.TellFailure(msg, errors.New(strB))
 		}
 	}
+}
+
+// Desc returns the component description
+func (x *RestApiCallNode) Desc() string {
+	return "Send HTTP requests to external APIs. Body defaults to msg JSON, response written back to msg. Supports ${msg.xxx}, ${metadata.xxx}, ${global.xxx} substitution. Routes to Success/Failure"
 }
 
 // Destroy 销毁

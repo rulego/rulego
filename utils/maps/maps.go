@@ -83,6 +83,7 @@ func Map2Struct(input interface{}, output interface{}) error {
 	return nil
 }
 
+
 // Get 获取map或struct中的字段，支持嵌套结构获取，例如fieldName.subFieldName.xx
 // 支持的类型：map[string]interface{}、map[string]string、结构体（通过反射访问字段）
 // 字段匹配优先级：JSON tag > 字段名（不区分大小写）

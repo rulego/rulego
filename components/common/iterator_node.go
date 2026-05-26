@@ -39,21 +39,11 @@ func init() {
 // IteratorNodeConfiguration IteratorNode配置结构
 // IteratorNodeConfiguration defines the configuration structure for the IteratorNode component.
 type IteratorNodeConfiguration struct {
-	// FieldName 要遍历的字段名称，支持点符号嵌套访问
-	// FieldName specifies the field name to iterate over.
+	// FieldName is the field to iterate over. Supports dot notation for nested access.
 	// If empty, iterates over the entire message.
-	// Supports nested field access using dot notation (e.g., "items.value", "items").
-	FieldName string
-
-	// JsScript 可选的JavaScript过滤脚本
-	// JsScript specifies optional JavaScript code for filtering items.
-	// If empty, all items pass the filter.
-	// The script should implement: function ItemFilter(item, index, metadata)
-	//   - item: Current item being iterated
-	//   - index: Array index (for arrays) or key (for objects)
-	//   - metadata: Message metadata for context
-	// Returns: boolean indicating whether item should be routed via True relation
-	JsScript string
+	FieldName string `json:"fieldName" label:"Field Name" desc:"Field to iterate over. Supports dot notation (e.g. items.value). Empty=iterate entire message"`
+	// JsScript is optional JavaScript filter. Function: ItemFilter(item, index, metadata) -> boolean.
+	JsScript string `json:"jsScript" label:"Filter Script" desc:"Optional JS filter: function ItemFilter(item, index, metadata). Returns boolean for True/False routing"`
 }
 
 // IteratorNode 遍历消息数据中数组或对象的动作组件
@@ -183,4 +173,12 @@ func (x *IteratorNode) executeItem(ctx types.RuleContext, msg types.RuleMsg, ite
 		ctx.TellNext(msg, types.True)
 	}
 	return nil
+}
+
+// Def returns the component form definition
+func (x *IteratorNode) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc:          "Deprecated: use for node. Iterate over arrays/objects with optional JS filter. Routes each item to True/False, completes via Success",
+		RelationTypes: &[]string{types.Success, types.Failure, types.True, types.False},
+	}
 }

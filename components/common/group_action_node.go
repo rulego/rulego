@@ -39,30 +39,16 @@ func init() {
 // GroupActionNodeConfiguration GroupActionNode配置结构
 // GroupActionNodeConfiguration defines the configuration structure for the GroupActionNode component.
 type GroupActionNodeConfiguration struct {
-	// MatchRelationType 指定组内要匹配的关系类型，支持Success、Failure、True、False和自定义关系
-	// MatchRelationType specifies the relation type to match within the group.
-	// Supports 'Success', 'Failure', 'True', 'False', and custom relations.
-	MatchRelationType string
-
-	// MatchNum 指定必须匹配MatchRelationType的节点数量
-	// MatchNum specifies the number of nodes that must match the MatchRelationType.
-	// Default 0: All nodes in the group must be of MatchRelationType to send to Success chain, otherwise to Failure chain.
-	// MatchNum > 0: Any MatchNum nodes must be of MatchRelationType to send to Success chain, otherwise to Failure chain.
-	MatchNum int
-
-	// NodeIds 指定组内节点ID列表，可以是逗号分隔的字符串或[]string格式
-	// NodeIds specifies the list of node IDs in the group.
-	// Can be a comma-separated string or a []string format to specify the node list.
-	NodeIds interface{}
-
-	// Timeout 指定执行超时时间（秒），默认0表示无时间限制
-	// Timeout specifies the execution timeout in seconds.
-	// Default 0 means no time limit.
-	Timeout int
-
-	// MergeToMap 如果true，如果是json类型 则把所有节点的输出data合并到同一个map
-	// MergeToMap if true, and if the data type is JSON, merges the output data of all nodes into the same map.
-	MergeToMap bool
+	// MatchRelationType is the relation type to match within the group.
+	MatchRelationType string `json:"matchRelationType" label:"Match Relation" desc:"Relation type to match: Success, Failure, True, False, or custom. Default: Success"`
+	// MatchNum is the number of nodes that must match. 0=all must match.
+	MatchNum int `json:"matchNum" label:"Match Count" desc:"Nodes that must match relation type. 0=all must match for Success"`
+	// NodeIds is the list of node IDs in the group.
+	NodeIds interface{} `json:"nodeIds" label:"Node IDs" desc:"Comma-separated node IDs or string array" required:"true"`
+	// Timeout is the execution timeout in seconds. 0=no limit.
+	Timeout int `json:"timeout" label:"Timeout" desc:"Execution timeout in seconds, 0=no limit"`
+	// MergeToMap merges all node outputs into a single JSON map if true.
+	MergeToMap bool `json:"mergeToMap" label:"Merge to Map" desc:"true=merge all outputs into {nodeId: result} map"`
 }
 
 // GroupActionNode 将多个节点分组并异步执行的动作组件
@@ -321,4 +307,9 @@ func mergeMetadata(msgs []types.WrapperMsg, wrapperMsg *types.RuleMsg) error {
 	} else {
 		return nil
 	}
+}
+
+// Desc returns the component description
+func (x *GroupActionNode) Desc() string {
+	return "Group multiple nodes and execute asynchronously. Route based on matchRelationType and matchNum conditions. Supports timeout and output merging. Routes to Success/Failure"
 }

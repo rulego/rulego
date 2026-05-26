@@ -63,7 +63,7 @@ type JsFilterNodeConfiguration struct {
 	//   - UDF函数: 用户自定义函数
 	//
 	// 示例: "return msg.temperature > 25.0;"
-	JsScript string `json:"jsScript"`
+	JsScript string `json:"jsScript" label:"Filter Script" desc:"JavaScript expression that returns true to pass, false to reject. Available variables: msg (message body), metadata, msgType (message type)" required:"true"`
 }
 
 // JsFilterNode 使用JavaScript评估布尔条件的过滤器节点
@@ -112,6 +112,11 @@ func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			ctx.TellNext(msg, types.False)
 		}
 	}
+}
+
+// Desc returns the component description
+func (x *JsFilterNode) Desc() string {
+	return "Filter messages using a JavaScript expression. Returns true routes to True, false routes to False. Available variables: msg (message body), metadata, msgType, dataType"
 }
 
 // Destroy 清理资源
