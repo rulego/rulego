@@ -1462,8 +1462,12 @@ func (e *RuleEngine) createRootContextCopy(msg types.RuleMsg, opts ...types.Rule
 	// Create a new nodeOutputCache instance for current message processing and set cross-node dependencies
 	rootCtxCopy.nodeOutputCache.SetCacheableNodes(rootCtx.ruleChainCtx.referencedNodes)
 
-	// Apply the provided options to the context copy
-	// 将提供的选项应用于上下文副本
+	// 预计算链级 debugMode 到 debugModeOverride
+	if rootCtxCopy.ruleChainCtx != nil && rootCtxCopy.ruleChainCtx.IsDebugMode() {
+		atomic.StoreInt32(&rootCtxCopy.debugModeOverride, 1)
+	}
+
+	// 应用选项，WithDebugMode 可覆盖上面的预计算值
 	for _, opt := range opts {
 		opt(rootCtxCopy)
 	}
