@@ -39,18 +39,12 @@ func init() {
 
 // Email 邮件消息体
 type Email struct {
-	//From 发件人邮箱
-	From string `json:"from"`
-	//To 收件人邮箱，多个与`,`隔开
-	To string `json:"to"`
-	//Cc 抄送人邮箱，多个与`,`隔开
-	Cc string `json:"cc"`
-	//Bcc 密送人邮箱，多个与`,`隔开
-	Bcc string `json:"bcc"`
-	//Subject 邮件主题，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	Subject string `json:"subject"`
-	//Body 邮件模板，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	Body string `json:"body"`
+	From    string `json:"from" label:"From" desc:"Sender email address" required:"true"`
+	To      string `json:"to" label:"To" desc:"Recipient email addresses, comma-separated for multiple" required:"true"`
+	Cc      string `json:"cc" label:"CC" desc:"CC email addresses, comma-separated for multiple"`
+	Bcc     string `json:"bcc" label:"BCC" desc:"BCC email addresses, comma-separated for multiple"`
+	Subject string `json:"subject" label:"Subject" desc:"Email subject, supports ${metadata.key} and ${msg.key} substitution" required:"true"`
+	Body    string `json:"body" label:"Body" desc:"Email body content, supports ${metadata.key} and ${msg.key} substitution" required:"true"`
 }
 
 // EmailTemplates 邮件模板结构体，统一管理所有邮件字段的模板
@@ -234,20 +228,13 @@ func (x *SendEmailNode) SendEmailWithTls(ctx types.RuleContext, ruleMsg types.Ru
 
 // SendEmailConfiguration 配置
 type SendEmailConfiguration struct {
-	//SmtpHost Smtp主机地址
-	SmtpHost string `json:"smtpHost"`
-	//SmtpPort Smtp端口
-	SmtpPort int `json:"smtpPort"`
-	//Username 用户名
-	Username string `json:"username"`
-	//Password 授权码
-	Password string `json:"password"`
-	//EnableTls 是否是使用tls方式
-	EnableTls bool `json:"enableTls"`
-	//Email 邮件内容配置
-	Email Email `json:"email"`
-	//ConnectTimeout 连接超时，单位秒
-	ConnectTimeout int
+	SmtpHost       string `json:"smtpHost" label:"SMTP Host" desc:"SMTP server address" required:"true"`
+	SmtpPort       int    `json:"smtpPort" label:"SMTP Port" desc:"SMTP server port, default 25"`
+	Username       string `json:"username" label:"Username" desc:"SMTP authentication username"`
+	Password       string `json:"password" label:"Password" desc:"SMTP authentication password"`
+	EnableTls      bool   `json:"enableTls" label:"Enable TLS" desc:"Enable TLS encryption"`
+	Email          Email  `json:"email" label:"Email" desc:"Email content configuration"`
+	ConnectTimeout int    `json:"connectTimeout" label:"Connect Timeout (s)" desc:"SMTP connection timeout in seconds"`
 }
 
 // SendEmailNode 通过SMTP服务器发送邮消息
@@ -316,4 +303,9 @@ func (x *SendEmailNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy 销毁
 func (x *SendEmailNode) Destroy() {
+}
+
+// Desc returns the component description
+func (x *SendEmailNode) Desc() string {
+	return "Send email via SMTP with TLS support. Subject and body support ${metadata.key} and ${msg.key} substitution. Multiple recipients via comma separation. Routes to Success/Failure"
 }

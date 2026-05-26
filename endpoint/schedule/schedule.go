@@ -440,6 +440,21 @@ func (schedule *Schedule) Type() string {
 	return Type
 }
 
+// Category returns the component category
+func (schedule *Schedule) Category() string {
+	return "endpoint"
+}
+
+// Def returns the component definition. Schedule uses a default router (hide=true).
+func (schedule *Schedule) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc: "Scheduled task endpoint for executing rule chains at specified times using cron expressions",
+		RouterForm: &types.RouterForm{
+			Hide: true,
+		},
+	}
+}
+
 func (schedule *Schedule) New() types.Node {
 	uuId, _ := uuid.NewV4()
 	return &Schedule{cron: cron.New(cron.WithSeconds()), id: uuId.String()}

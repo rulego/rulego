@@ -27,20 +27,50 @@ import (
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/str"
 )
 
 // ErrCmdNotAllowed 命令不在白名单中的错误
 // ErrCmdNotAllowed is returned when attempting to execute a command not in the whitelist.
 var ErrCmdNotAllowed = errors.New("cmd not allowed error")
 
+// ErrCmdDenied 命令在黑名单中的错误
+// ErrCmdDenied is returned when attempting to execute a denied command or with denied arguments.
+var ErrCmdDenied = errors.New("cmd is denied error")
+
 const (
 	// KeyExecNodeWhitelist 命令白名单的配置键
 	// KeyExecNodeWhitelist is the configuration key for the ExecCommandNode command whitelist.
 	KeyExecNodeWhitelist = "execNodeWhitelist"
 
+	// KeyExecNodeMode 安全模式的配置键
+	// KeyExecNodeMode is the configuration key for the security mode (allow or deny).
+	KeyExecNodeMode = "execNodeMode"
+
+	// KeyExecNodeDeny 命令黑名单的配置键
+	// KeyExecNodeDeny is the configuration key for the ExecCommandNode command deny list.
+	KeyExecNodeDeny = "execNodeDeny"
+
+	// KeyExecNodeDenyArgs 拒绝参数模式的配置键
+	// KeyExecNodeDenyArgs is the configuration key for denied argument patterns.
+	KeyExecNodeDenyArgs = "execNodeDenyArgs"
+
 	// KeyWorkDir 工作目录的元数据键
 	// KeyWorkDir is the metadata key for specifying the command working directory.
 	KeyWorkDir = "workDir"
+)
+
+// SecurityMode 安全模式类型
+// SecurityMode defines the security mode for command execution.
+type SecurityMode string
+
+const (
+	// ModeAllow 白名单模式：只允许列表中的命令（默认）
+	// ModeAllow allows only commands in the whitelist.
+	ModeAllow SecurityMode = "allow"
+	// ModeDeny 黑名单模式：允许所有非拒绝列表的命令
+	// ModeDeny allows all commands except those in the deny list.
+	ModeDeny SecurityMode = "deny"
 )
 
 // init 注册ExecCommandNode组件
@@ -52,23 +82,14 @@ func init() {
 // ExecCommandNodeConfiguration ExecCommandNode配置结构
 // ExecCommandNodeConfiguration defines the configuration structure for the ExecCommandNode component.
 type ExecCommandNodeConfiguration struct {
-	// Cmd 要执行的命令，支持${metadata.key}和${msg.key}变量替换
-	// Cmd specifies the command to execute.
-	// Supports variable substitution using ${metadata.key} and ${msg.key} syntax.
-	Cmd string
-
-	// Args 命令参数，每个参数支持变量替换
-	// Args specifies the command arguments.
-	// Each argument supports variable substitution using ${metadata.key} and ${msg.key} syntax.
-	Args []string
-
-	// Log 是否将命令标准输出到调试日志
+	// Cmd is the command to execute. Supports ${metadata.key} and ${msg.key} substitution.
+	Cmd string `json:"cmd" label:"Command" desc:"Command to execute. Supports ${metadata.key} and ${msg.key} substitution" required:"true"`
+	// Args are the command arguments. Each supports variable substitution.
+	Args []string `json:"args" label:"Arguments" desc:"Command arguments, each supports ${metadata.key} and ${msg.key} substitution"`
 	// Log controls whether to output command stdout to the debug log.
-	Log bool
-
-	// ReplaceData 是否用命令输出替换消息数据
+	Log bool `json:"log" label:"Log Output" desc:"true=redirect command stdout to debug log"`
 	// ReplaceData controls whether to replace the message data with command output.
-	ReplaceData bool
+	ReplaceData bool `json:"replaceData" label:"Replace Data" desc:"true=replace message data with command output"`
 }
 
 // ExecCommandTemplate 执行命令模板结构
@@ -93,14 +114,13 @@ type ExecCommandTemplate struct {
 // 核心算法：
 // Core Algorithm:
 // 1. 变量替换：解析命令和参数中的${metadata.key}和${msg.key} - Variable substitution in command and arguments
-// 2. 白名单验证：检查命令是否在允许列表中 - Whitelist validation for security
+// 2. 安全检查：根据安全模式验证命令 - Security check based on mode (allow/deny)
 // 3. 命令执行：设置工作目录并执行命令 - Command execution with working directory
 // 4. 输出处理：根据配置处理标准输出和错误输出 - Output handling based on configuration
 //
-// 安全特性 - Security features:
-//   - 命令白名单验证 - Command whitelist validation
-//   - 变量替换支持 - Variable substitution support
-//   - 工作目录控制 - Working directory control
+// 安全模式 - Security modes:
+//   - allow(白名单模式)：命令必须在白名单中 - Command must be in whitelist
+//   - deny(黑名单模式)：允许所有非拒绝列表的命令 - Allow all except denied commands
 //
 // 输出处理模式 - Output handling modes:
 //   - Log模式：输出发送到调试日志 - Log mode: output to debug logging
@@ -113,6 +133,18 @@ type ExecCommandNode struct {
 	// CommandWhitelist 允许的命令列表
 	// CommandWhitelist contains the list of allowed commands for security validation
 	CommandWhitelist []string
+
+	// Mode 安全模式：allow(白名单模式) 或 deny(黑名单模式)
+	// Mode specifies the security mode: allow (whitelist) or deny (blacklist).
+	Mode SecurityMode
+
+	// CommandDeny 拒绝的命令列表
+	// CommandDeny contains the list of denied commands.
+	CommandDeny []string
+
+	// DenyArgs 拒绝的参数模式列表
+	// DenyArgs contains the list of denied argument patterns.
+	DenyArgs []string
 
 	// template 命令模板
 	// template holds the compiled command and arguments templates
@@ -137,8 +169,14 @@ func (x *ExecCommandNode) Init(ruleConfig types.Config, configuration types.Conf
 	if err := maps.Map2Struct(configuration, &x.Config); err != nil {
 		return err
 	}
-	x.CommandWhitelist = strings.Split(ruleConfig.Properties.GetValue(KeyExecNodeWhitelist), ",")
-	
+	x.CommandWhitelist = splitAndFilter(ruleConfig.Properties.GetValue(KeyExecNodeWhitelist))
+	x.Mode = SecurityMode(ruleConfig.Properties.GetValue(KeyExecNodeMode))
+	if x.Mode == "" {
+		x.Mode = ModeAllow
+	}
+	x.CommandDeny = splitAndFilter(ruleConfig.Properties.GetValue(KeyExecNodeDeny))
+	x.DenyArgs = splitAndFilter(ruleConfig.Properties.GetValue(KeyExecNodeDenyArgs))
+
 	// 构建命令模板
 	if template, err := x.buildCommandTemplate(&x.Config); err != nil {
 		return err
@@ -152,7 +190,7 @@ func (x *ExecCommandNode) Init(ruleConfig types.Config, configuration types.Conf
 // buildCommandTemplate builds command templates for variable substitution.
 func (x *ExecCommandNode) buildCommandTemplate(config *ExecCommandNodeConfiguration) (*ExecCommandTemplate, error) {
 	template := &ExecCommandTemplate{}
-	
+
 	// 构建命令模板
 	cmdTemplate, err := el.NewTemplate(config.Cmd)
 	if err != nil {
@@ -160,7 +198,7 @@ func (x *ExecCommandNode) buildCommandTemplate(config *ExecCommandNodeConfigurat
 	}
 	template.CmdTemplate = cmdTemplate
 	template.HasVar = cmdTemplate.HasVar()
-	
+
 	// 构建参数模板 - 保持原有的分割逻辑
 	for _, arg := range config.Args {
 		// 如果参数不以引号开头，按空格分割
@@ -188,15 +226,27 @@ func (x *ExecCommandNode) buildCommandTemplate(config *ExecCommandNodeConfigurat
 			}
 		}
 	}
-	
+
 	return template, nil
 }
 
 // isCommandWhitelisted 检查命令是否在白名单中
 // isCommandWhitelisted checks if a command is allowed by the whitelist configuration.
 func (x *ExecCommandNode) isCommandWhitelisted(command string) bool {
-	for _, whitelistedCommand := range x.CommandWhitelist {
-		if command == whitelistedCommand {
+	return str.Contains(x.CommandWhitelist, command)
+}
+
+// isCommandDenied 检查命令是否在黑名单中
+// isCommandDenied checks if a command is in the deny list.
+func (x *ExecCommandNode) isCommandDenied(command string) bool {
+	return str.Contains(x.CommandDeny, command)
+}
+
+// hasDeniedArgs 检查完整命令是否包含拒绝的参数模式
+// hasDeniedArgs checks if the full command contains any denied argument patterns.
+func (x *ExecCommandNode) hasDeniedArgs(fullCommand string) bool {
+	for _, denied := range x.DenyArgs {
+		if strings.Contains(fullCommand, denied) {
 			return true
 		}
 	}
@@ -210,21 +260,39 @@ func (x *ExecCommandNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if x.template.HasVar {
 		evn = base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	}
-	
+
 	// 使用模板替换命令中的占位符
 	command := x.template.CmdTemplate.ExecuteAsString(evn)
-
-	// 检查命令是否在白名单中
-	if !x.isCommandWhitelisted(command) {
-		ctx.TellFailure(msg, ErrCmdNotAllowed)
-		return
-	}
 
 	// 使用模板替换参数中的占位符
 	var args []string
 	for _, argTemplate := range x.template.ArgsTemplate {
 		processedArg := argTemplate.ExecuteAsString(evn)
 		args = append(args, processedArg)
+	}
+
+	// 构建完整命令字符串用于参数模式检查
+	fullCommand := command
+	if len(args) > 0 {
+		fullCommand = command + " " + strings.Join(args, " ")
+	}
+
+	// 1. 黑名单检查（始终生效）
+	if x.isCommandDenied(command) {
+		ctx.TellFailure(msg, ErrCmdDenied)
+		return
+	}
+
+	// 2. 拒绝参数检查（始终生效）
+	if x.hasDeniedArgs(fullCommand) {
+		ctx.TellFailure(msg, ErrCmdDenied)
+		return
+	}
+
+	// 3. 模式检查
+	if x.Mode == ModeAllow && !x.isCommandWhitelisted(command) {
+		ctx.TellFailure(msg, ErrCmdNotAllowed)
+		return
 	}
 
 	// 执行命令
@@ -294,7 +362,30 @@ func (x *ExecCommandNode) printLog(ctx types.RuleContext, msg types.RuleMsg, cmd
 	cmd.Stderr = io.MultiWriter(bufErr, errWriter)
 }
 
+// splitAndFilter 按逗号分割字符串并过滤空项
+// splitAndFilter splits a string by comma and filters out empty items.
+func splitAndFilter(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
 
+// Desc returns the component description
+func (x *ExecCommandNode) Desc() string {
+	return "Execute local system commands with security controls (whitelist/deny). Supports ${metadata.key} and ${msg.key} substitution. Routes to Success/Failure"
+}
 
 // OnDebugWriter 将命令输出重定向到规则引擎调试系统的自定义写入器
 // OnDebugWriter is a custom writer that redirects command output to the rule engine's debug system.

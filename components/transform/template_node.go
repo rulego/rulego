@@ -46,8 +46,8 @@ func init() {
 
 // TemplateNodeConfiguration 节点配置
 type TemplateNodeConfiguration struct {
-	// Template 模板内容或文件路径
-	Template string
+	// Template is the Go template content or file path (prefix with 'file:' to load from file).
+	Template string `json:"template" label:"Template" desc:"Go text/template content or 'file:/path/to/template'. Variables: .id, .ts, .data, .msg, .metadata, .type, .dataType" required:"true"`
 }
 
 // TemplateNode 使用 text/template 解析模板
@@ -114,6 +114,11 @@ func (x *TemplateNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 	msg.SetData(buf.String())
 	ctx.TellSuccess(msg)
+}
+
+// Desc returns the component description
+func (x *TemplateNode) Desc() string {
+	return "Transform messages using Go text/template. Variables: .id, .ts, .data, .msg, .metadata, .type, .dataType. Supports 'file:' prefix for external templates. Routes to Success/Failure"
 }
 
 // Destroy 销毁

@@ -597,6 +597,29 @@ func (x *Mqtt) Type() string {
 	return Type
 }
 
+// Category returns the component category
+func (x *Mqtt) Category() string {
+	return "endpoint"
+}
+
+// Def returns the component definition including description and router form metadata.
+func (x *Mqtt) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc: "MQTT client endpoint for subscribing to topics and processing IoT messages",
+		RouterForm: &types.RouterForm{
+			From: &types.RouterFormField{
+				Path: types.ComponentFormField{
+					Name:     "path",
+					Type:     "string",
+					Label:    "Topic",
+					Desc:     "MQTT topic to subscribe, e.g. devices/msg",
+					Required: true,
+				},
+			},
+		},
+	}
+}
+
 func (x *Mqtt) New() types.Node {
 	return &Mqtt{Config: mqtt.Config{
 		Server: "127.0.0.1:1883",
@@ -605,6 +628,8 @@ func (x *Mqtt) New() types.Node {
 
 // Init 初始化
 func (x *Mqtt) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	// 兼容旧 key
+	mqtt.NormalizeConfigKeys(configuration)
 	var v, ok = configuration["maxReconnectInterval"]
 	if !ok {
 		v, ok = configuration["MaxReconnectInterval"]
@@ -702,7 +727,13 @@ func (x *Mqtt) Start() error {
 	if err != nil {
 		return err
 	}
-	for _, router := range x.RouterStorage {
+	x.RLock()
+	routers := make(map[string]endpoint.Router, len(x.RouterStorage))
+	for k, v := range x.RouterStorage {
+		routers[k] = v
+	}
+	x.RUnlock()
+	for _, router := range routers {
 		if form := router.GetFrom(); form != nil {
 			client.RegisterHandler(mqtt.Handler{
 				Topic:  form.ToString(),

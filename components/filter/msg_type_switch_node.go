@@ -94,7 +94,14 @@ func (x *MsgTypeSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	ctx.TellNextOrElse(msg, x.defaultRelationType, msg.Type)
 }
 
+// Def returns the component form definition
+func (x *MsgTypeSwitchNode) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc:          "Route messages to connections matching their msgType. No configuration needed. Unmatched goes to Default",
+		RelationTypes: &[]string{},
+	}
+}
+
 // Destroy 清理资源
-// Destroy cleans up resources.
 func (x *MsgTypeSwitchNode) Destroy() {
 }

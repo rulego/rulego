@@ -157,3 +157,208 @@ func TestTemplateNode(t *testing.T) {
 		data1Mutex.Unlock()
 	})
 }
+
+func TestExecNodeAllowMode(t *testing.T) {
+	var targetNodeType = "exec"
+
+	t.Run("AllowMode-WhitelistReject", func(t *testing.T) {
+		config := types.NewConfig()
+		config.Properties.PutValue(KeyExecNodeMode, string(ModeAllow))
+		config.Properties.PutValue(KeyExecNodeWhitelist, "echo,date")
+
+		msg := test.Msg{
+			MetaData:   types.BuildMetadata(make(map[string]string)),
+			MsgType:    "TEST",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		}
+
+		node := test.InitNodeByConfig(config, targetNodeType, types.Configuration{
+			"cmd": "rm",
+		}, Registry)
+
+		test.NodeOnMsgWithChildrenAndConfig(t, config, node, []test.Msg{msg}, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Failure, relationType)
+			assert.Equal(t, ErrCmdNotAllowed.Error(), err.Error())
+		})
+	})
+
+	t.Run("AllowMode-WhitelistPass", func(t *testing.T) {
+		config := types.NewConfig()
+		config.Properties.PutValue(KeyExecNodeMode, string(ModeAllow))
+		config.Properties.PutValue(KeyExecNodeWhitelist, "echo,date")
+
+		msg := test.Msg{
+			MetaData:   types.BuildMetadata(make(map[string]string)),
+			MsgType:    "TEST",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		}
+
+		node := test.InitNodeByConfig(config, targetNodeType, types.Configuration{
+			"cmd":         "echo",
+			"args":        []string{"hello"},
+			"replaceData": true,
+		}, Registry)
+
+		test.NodeOnMsgWithChildrenAndConfig(t, config, node, []test.Msg{msg}, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Success, relationType)
+		})
+	})
+}
+
+func TestExecNodeDenyMode(t *testing.T) {
+	var targetNodeType = "exec"
+
+	t.Run("DenyMode-AllowAll", func(t *testing.T) {
+		config := types.NewConfig()
+		config.Properties.PutValue(KeyExecNodeMode, string(ModeDeny))
+
+		msg := test.Msg{
+			MetaData:   types.BuildMetadata(make(map[string]string)),
+			MsgType:    "TEST",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		}
+
+		node := test.InitNodeByConfig(config, targetNodeType, types.Configuration{
+			"cmd":         "echo",
+			"args":        []string{"hello"},
+			"replaceData": true,
+		}, Registry)
+
+		test.NodeOnMsgWithChildrenAndConfig(t, config, node, []test.Msg{msg}, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Success, relationType)
+		})
+	})
+
+	t.Run("DenyMode-BlockDeniedCommand", func(t *testing.T) {
+		config := types.NewConfig()
+		config.Properties.PutValue(KeyExecNodeMode, string(ModeDeny))
+		config.Properties.PutValue(KeyExecNodeDeny, "rm,format")
+
+		msg := test.Msg{
+			MetaData:   types.BuildMetadata(make(map[string]string)),
+			MsgType:    "TEST",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		}
+
+		node := test.InitNodeByConfig(config, targetNodeType, types.Configuration{
+			"cmd": "rm",
+		}, Registry)
+
+		test.NodeOnMsgWithChildrenAndConfig(t, config, node, []test.Msg{msg}, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Failure, relationType)
+			assert.Equal(t, ErrCmdDenied.Error(), err.Error())
+		})
+	})
+
+	t.Run("DenyMode-AllowNonDeniedCommand", func(t *testing.T) {
+		config := types.NewConfig()
+		config.Properties.PutValue(KeyExecNodeMode, string(ModeDeny))
+		config.Properties.PutValue(KeyExecNodeDeny, "rm,format")
+
+		msg := test.Msg{
+			MetaData:   types.BuildMetadata(make(map[string]string)),
+			MsgType:    "TEST",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		}
+
+		node := test.InitNodeByConfig(config, targetNodeType, types.Configuration{
+			"cmd":         "echo",
+			"args":        []string{"hello"},
+			"replaceData": true,
+		}, Registry)
+
+		test.NodeOnMsgWithChildrenAndConfig(t, config, node, []test.Msg{msg}, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Success, relationType)
+		})
+	})
+}
+
+func TestExecNodeDenyArgs(t *testing.T) {
+	var targetNodeType = "exec"
+
+	t.Run("DenyArgs-BlockDangerousArg", func(t *testing.T) {
+		config := types.NewConfig()
+		config.Properties.PutValue(KeyExecNodeMode, string(ModeDeny))
+		config.Properties.PutValue(KeyExecNodeDenyArgs, "-rf /,--no-preserve-root")
+
+		msg := test.Msg{
+			MetaData:   types.BuildMetadata(make(map[string]string)),
+			MsgType:    "TEST",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		}
+
+		node := test.InitNodeByConfig(config, targetNodeType, types.Configuration{
+			"cmd":  "rm",
+			"args": []string{"-rf /"},
+		}, Registry)
+
+		test.NodeOnMsgWithChildrenAndConfig(t, config, node, []test.Msg{msg}, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Failure, relationType)
+			assert.Equal(t, ErrCmdDenied.Error(), err.Error())
+		})
+	})
+
+	t.Run("DenyArgs-AllowSafeArg", func(t *testing.T) {
+		config := types.NewConfig()
+		config.Properties.PutValue(KeyExecNodeMode, string(ModeDeny))
+		config.Properties.PutValue(KeyExecNodeDenyArgs, "-rf /,--no-preserve-root")
+
+		msg := test.Msg{
+			MetaData:   types.BuildMetadata(make(map[string]string)),
+			MsgType:    "TEST",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		}
+
+		node := test.InitNodeByConfig(config, targetNodeType, types.Configuration{
+			"cmd":         "echo",
+			"args":        []string{"hello"},
+			"replaceData": true,
+		}, Registry)
+
+		test.NodeOnMsgWithChildrenAndConfig(t, config, node, []test.Msg{msg}, nil, func(msg types.RuleMsg, relationType string, err error) {
+			assert.Equal(t, types.Success, relationType)
+		})
+	})
+}
+
+func TestExecNodeDenyOverridesAllow(t *testing.T) {
+	var targetNodeType = "exec"
+
+	t.Run("DenyAlwaysApplies-EvenInAllowMode", func(t *testing.T) {
+		config := types.NewConfig()
+		config.Properties.PutValue(KeyExecNodeMode, string(ModeAllow))
+		config.Properties.PutValue(KeyExecNodeWhitelist, "rm,echo")
+		config.Properties.PutValue(KeyExecNodeDeny, "rm")
+
+		msg := test.Msg{
+			MetaData:   types.BuildMetadata(make(map[string]string)),
+			MsgType:    "TEST",
+			Data:       "{}",
+			AfterSleep: time.Millisecond * 100,
+		}
+
+		node := test.InitNodeByConfig(config, targetNodeType, types.Configuration{
+			"cmd": "rm",
+		}, Registry)
+
+		test.NodeOnMsgWithChildrenAndConfig(t, config, node, []test.Msg{msg}, nil, func(msg types.RuleMsg, relationType string, err error) {
+			// rm is in both whitelist and deny list, deny takes priority
+			assert.Equal(t, types.Failure, relationType)
+			assert.Equal(t, ErrCmdDenied.Error(), err.Error())
+		})
+	})
+}
+
+func TestSplitAndFilter(t *testing.T) {
+	assert.Nil(t, splitAndFilter(""))
+	assert.Nil(t, splitAndFilter(",,,"))
+	assert.Equal(t, []string{"a", "b", "c"}, splitAndFilter("a,b,c"))
+	assert.Equal(t, []string{"a", "b", "c"}, splitAndFilter(" a , b , c "))
+}

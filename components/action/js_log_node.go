@@ -55,18 +55,9 @@ func init() {
 
 // LogNodeConfiguration LogNode配置结构
 type LogNodeConfiguration struct {
-	// JsScript JavaScript脚本，用于格式化日志消息
-	// 函数参数：msg, metadata, msgType, dataType
-	// 必须返回字符串用于日志记录
-	//
-	// 内置变量：
-	//   - $ctx: 上下文对象，提供缓存操作
-	//   - global: 全局配置属性
-	//   - vars: 规则链变量
-	//   - UDF函数: 用户自定义函数
-	//
-	// 示例: "return '[' + msgType + '] ' + JSON.stringify(msg);"
-	JsScript string `json:"jsScript"`
+	// JsScript is the JavaScript script for formatting log messages.
+	// Must return a string. Parameters: msg, metadata, msgType, dataType.
+	JsScript string `json:"jsScript" label:"Log Script" desc:"JavaScript script to format log message. Must return a string. Params: msg, metadata, msgType, dataType" required:"true"`
 }
 
 // LogNode 使用JavaScript格式化并记录消息的日志节点
@@ -133,4 +124,9 @@ func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 // Destroy 清理资源
 func (x *LogNode) Destroy() {
 	x.jsEngine.Stop()
+}
+
+// Desc returns the component description
+func (x *LogNode) Desc() string {
+	return "Format and log messages using JavaScript. Script must return a string. Params: msg, metadata, msgType, dataType. Routes to Success/Failure"
 }

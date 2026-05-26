@@ -92,19 +92,17 @@ func init() {
 }
 
 type MqttClientNodeConfiguration struct {
-	Server   string
-	Username string
-	Password string
-	// Topic 发布主题 可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	Topic string
-	//MaxReconnectInterval 重连间隔 单位秒
-	MaxReconnectInterval int
-	QOS                  uint8
-	CleanSession         bool
-	ClientID             string
-	CAFile               string
-	CertFile             string
-	CertKeyFile          string
+	Server               string `json:"server" label:"Server" desc:"MQTT server address, format: tcp://host:port" required:"true" ref:"primary"`
+	Username             string `json:"username" label:"Username" desc:"MQTT authentication username" ref:"shared"`
+	Password             string `json:"password" label:"Password" desc:"MQTT authentication password" ref:"shared"`
+	Topic                string `json:"topic" desc:"Publish topic, supports ${metadata.key} and ${msg.key} substitution" label:"Topic" required:"true"`
+	MaxReconnectInterval int    `json:"maxReconnectInterval" label:"Max Reconnect Interval (ms)" desc:"Max reconnection interval in milliseconds"`
+	QOS                  uint8  `json:"qos" label:"QoS" desc:"Quality of Service level: 0(at most once), 1(at least once), 2(exactly once)"`
+	CleanSession         bool   `json:"cleanSession" label:"Clean Session" desc:"Whether to clear previous session state"`
+	ClientID             string `json:"clientId" label:"Client ID" desc:"MQTT client unique identifier"`
+	CAFile               string `json:"caFile" label:"CA File" desc:"CA certificate file path" ref:"shared"`
+	CertFile             string `json:"certFile" label:"Cert File" desc:"TLS client certificate file path" ref:"shared"`
+	CertKeyFile          string `json:"certKeyFile" label:"Cert Key File" desc:"TLS client private key file path" ref:"shared"`
 }
 
 func (x *MqttClientNodeConfiguration) ToMqttConfig() mqtt.Config {
@@ -153,6 +151,8 @@ func (x *MqttClientNode) New() types.Node {
 
 // Init 初始化
 func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
+	// 兼容旧 key
+	mqtt.NormalizeConfigKeys(configuration)
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
 		_ = x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow, func() (*mqtt.Client, error) {
@@ -202,4 +202,9 @@ func (x *MqttClientNode) initClient() (*mqtt.Client, error) {
 
 	client, err := mqtt.NewClient(ctx, x.Config.ToMqttConfig())
 	return client, err
+}
+
+// Desc returns the component description
+func (x *MqttClientNode) Desc() string {
+	return "MQTT client for publishing messages to MQTT brokers. Topic supports ${metadata.key} and ${msg.key} substitution. QoS 0/1/2. Auto-reconnection. Routes to Success/Failure"
 }

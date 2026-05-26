@@ -58,3 +58,11 @@ func (x *BreakNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 func (x *BreakNode) Destroy() {
 }
+
+// Def returns the component form definition
+func (x *BreakNode) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc:          "Break out of a for loop. Sets _break flag in metadata to signal the for node to stop iterating",
+		RelationTypes: &[]string{types.Success},
+	}
+}

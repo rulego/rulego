@@ -43,47 +43,18 @@ func init() {
 }
 
 // SwitchNodeConfiguration SwitchNode配置结构
-// SwitchNodeConfiguration defines the configuration structure for the SwitchNode component.
 type SwitchNodeConfiguration struct {
 	// Cases 包含路由决策的条件表达式列表
-	// Cases contains the list of condition expressions for routing decisions.
-	// Each case is evaluated sequentially until the first match is found.
-	// If no case matches, the message is routed to the "Default" relation.
-	Cases []Case
+	// 按顺序评估，第一个匹配的 case 决定路由。无匹配走 Default。
+	Cases []Case `json:"cases" label:"Cases" desc:"Condition-expression pairs evaluated in order. First match determines route. then value is the connection type" required:"true"`
 }
 
 // Case 表示消息路由的单个条件-动作对
-// Case represents a single condition-action pair for message routing.
 type Case struct {
-	// Case 包含此路由条件要评估的表达式
-	// Case contains the expression to evaluate for this routing condition.
-	// The expression has access to the following variables:
-	//   - id: Message ID (string)
-	//   - ts: Message timestamp (int64)
-	//   - data: Original message data (string)
-	//   - msg: Parsed message body (object for JSON, string otherwise)
-	//   - metadata: Message metadata (object with key-value pairs)
-	//   - type: Message type (string)
-	//   - dataType: Message data type (string)
-	//
-	// The expression must evaluate to a boolean value.
-	//
-	// Example expressions:
-	// 表达式示例：
-	//   - "msg.temperature > 50"
-	//   - "metadata.deviceType == 'sensor'"
-	//   - "type == 'ALARM' && msg.severity == 'HIGH'"
-	Case string `json:"case"`
-
-	// Then 指定当此case匹配时消息路由的关系类型名称
-	// Then specifies the relation type name for message routing when this case matches.
-	//
-	// Example relation names:
-	// 关系名称示例：
-	//   - "HighTemperature"
-	//   - "AlarmCondition"
-	//   - "ProcessingRequired"
-	Then string `json:"then"`
+	// Case is the expression to evaluate. Available variables: msg, metadata, type
+	Case string `json:"case" label:"Condition" desc:"Boolean expression, e.g. msg.temperature > 50. Variables: msg, metadata, type" required:"true"`
+	// Then is the connection type name when this case matches
+	Then string `json:"then" label:"Then" desc:"Connection type name when matched, corresponds to connections type" required:"true"`
 }
 
 // SwitchNode 基于表达式评估提供条件消息路由的过滤组件
@@ -191,7 +162,11 @@ func (x *SwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	ctx.TellNext(msg, types.DefaultRelationType)
 }
 
+// Desc returns the component description
+func (x *SwitchNode) Desc() string {
+	return "Exclusive conditional routing. Evaluates cases in order, first match determines route. then value is the connection type. Unmatched goes to Default"
+}
+
 // Destroy 清理资源
-// Destroy cleans up resources.
 func (x *SwitchNode) Destroy() {
 }

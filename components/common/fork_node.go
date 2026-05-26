@@ -87,3 +87,11 @@ func (x *ForkNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 // Destroy cleans up resources.
 func (x *ForkNode) Destroy() {
 }
+
+// Def returns the component form definition
+func (x *ForkNode) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc:          "Parallel gateway that broadcasts message to all connected outbound relations. Use with join to collect results",
+		RelationTypes: &[]string{types.Success},
+	}
+}

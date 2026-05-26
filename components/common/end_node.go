@@ -70,3 +70,11 @@ func (x *EndNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 func (x *EndNode) Destroy() {
 }
+
+// Def returns the component form definition
+func (x *EndNode) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc:          "End node that triggers the rule chain end callback. Replaces default branch ending behavior",
+		RelationTypes: &[]string{},
+	}
+}

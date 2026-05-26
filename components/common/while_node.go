@@ -39,15 +39,12 @@ func init() {
 
 // WhileNodeConfiguration defines the configuration for the WhileNode.
 type WhileNodeConfiguration struct {
-	// Condition is the expression to check before each iteration.
-	// If the expression evaluates to true, the loop continues.
-	// Uses 'el' expression language (e.g., "${msg.count} < 10").
-	Condition string
-	// Do specifies the node or sub-rule chain to process in each iteration,
-	// e.g., "s1" or "chain:rule01".
-	Do string
-	// Mode 0:不处理msg，1：合并遍历msg.Data，2：替换msg
-	Mode int
+	// Condition is the expression to check before each iteration. Loop continues while true.
+	Condition string `json:"condition" label:"Condition" desc:"Expression checked each iteration. Loop continues while true. Example: ${msg.count} < 10" required:"true"`
+	// Do is the node ID or sub-chain to execute each iteration.
+	Do string `json:"do" label:"Do" desc:"Node ID or sub-chain per iteration. Format: {nodeId} or chain:{chainId}" required:"true"`
+	// Mode: 0=do not process, 1=merge results, 2=replace msg
+	Mode int `json:"mode" label:"Mode" desc:"0=ignore results, 1=merge into array, 2=replace msg"`
 }
 
 // WhileNode provides a while-loop structure.
@@ -289,4 +286,9 @@ func castToBool(val interface{}) bool {
 	default:
 		return false
 	}
+}
+
+// Desc returns the component description
+func (x *WhileNode) Desc() string {
+	return "While loop that repeatedly executes do node/chain while condition is true. condition uses el expression. Routes to Success/Failure"
 }

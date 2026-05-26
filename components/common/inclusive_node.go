@@ -89,3 +89,8 @@ func (x *InclusiveNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 // Destroy cleans up resources.
 func (x *InclusiveNode) Destroy() {
 }
+
+// Desc returns the component description
+func (x *InclusiveNode) Desc() string {
+	return "Inclusive gateway that evaluates all cases and routes to ALL matching branches simultaneously. Unmatched goes to Default. Same config as switch node"
+}

@@ -45,28 +45,9 @@ func init() {
 // ExprFilterNodeConfiguration ExprFilterNode配置结构
 // ExprFilterNodeConfiguration defines the configuration structure for the ExprFilterNode component.
 type ExprFilterNodeConfiguration struct {
-	// Expr 用于过滤评估的表达式，必须返回布尔值
-	// Expr contains the expression to evaluate for filtering.
-	// The expression has access to the following variables:
-	//   - id: Message ID (string)
-	//   - ts: Message timestamp (int64)
-	//   - data: Original message data (string)
-	//   - msg: Parsed message body (object for JSON, string otherwise)
-	//   - metadata: Message metadata (object with key-value pairs)
-	//   - type: Message type (string)
-	//   - dataType: Message data type (string)
-	//
-	// The expression must evaluate to a boolean value:
-	//   - true: Message passes the filter (routed to "True" relation)
-	//   - false: Message fails the filter (routed to "False" relation)
-	//
-	// Example expressions:
-	// 表达式示例：
-	//   - "msg.temperature > 50"
-	//   - "metadata.deviceType == 'sensor' && msg.value > 100"
-	//   - "type == 'TELEMETRY' && data contains 'alarm'"
-	//   - "ts > 1640995200 && msg.status == 'active'"
-	Expr string
+	// Expr is the expression to evaluate for filtering. Must return a boolean.
+	// Available variables: id, ts, data, msg, metadata, type, dataType
+	Expr string `json:"expr" label:"Expression" desc:"Boolean expression for filtering. Available: id, ts, data, msg, metadata, type, dataType. Example: msg.temperature > 50" required:"true"`
 }
 
 // ExprFilterNode 使用expr-lang表达式进行布尔评估来过滤消息的过滤组件
@@ -140,6 +121,11 @@ func (x *ExprFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			ctx.TellNext(msg, types.False)
 		}
 	}
+}
+
+// Desc returns the component description
+func (x *ExprFilterNode) Desc() string {
+	return "Filter messages using expr-lang expressions. Expression must return boolean. Routes to True/False. Variables: id, ts, data, msg, metadata, type, dataType"
 }
 
 // Destroy 清理资源
