@@ -992,6 +992,12 @@ type RuleContext interface {
 	// GetEnv gets environment variables and metadata from message
 	// useMetadata: whether to include metadata in the result
 	GetEnv(msg RuleMsg, useMetadata bool) map[string]interface{}
+	// SetDebugMode sets per-message debug mode override.
+	// When true, debug logging is enabled for this execution regardless of chain/node level settings.
+	SetDebugMode(debugMode bool)
+	// SetSkipTellNext prevents propagation to successor nodes.
+	// When true, only the current node executes and TellNext calls become no-ops.
+	SetSkipTellNext(skip bool)
 	// GetNodeRuleMsg retrieves the complete RuleMsg of a specific executed node by nodeId
 	// Returns the RuleMsg and a boolean indicating if the node was found
 	// This method provides access to message data, metadata, and other information
@@ -1066,6 +1072,22 @@ func WithOnNodeCompleted(onCallback func(ctx RuleContext, nodeRunLog RuleNodeRun
 func WithOnNodeDebug(onDebug func(ruleChainId string, flowType string, nodeId string, msg RuleMsg, relationType string, err error)) RuleContextOption {
 	return func(rc RuleContext) {
 		rc.SetCallbackFunc(CallbackFuncDebug, onDebug)
+	}
+}
+
+// WithDebugMode enables or disables debug mode for a single message execution.
+// When set to true, it forces debug logging for this execution regardless of the
+// persisted chain/node level debugMode setting.
+func WithDebugMode(debugMode bool) RuleContextOption {
+	return func(rc RuleContext) {
+		rc.SetDebugMode(debugMode)
+	}
+}
+
+// WithSkipTellNext creates an option that prevents propagation to successor nodes.
+func WithSkipTellNext() RuleContextOption {
+	return func(rc RuleContext) {
+		rc.SetSkipTellNext(true)
 	}
 }
 

@@ -677,6 +677,8 @@ type BaseEndpoint struct {
 	OnEvent endpoint.OnEvent
 	//全局拦截器 - 导出字段，允许直接访问以避免锁竞争  Global interceptors - exported field for direct access to avoid lock contention  全局拦截器
 	Interceptors []endpoint.Process
+	//日志器  Logger
+	Logger types.Logger
 	sync.RWMutex
 }
 
@@ -686,6 +688,36 @@ func (e *BaseEndpoint) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 func (e *BaseEndpoint) SetOnEvent(onEvent endpoint.OnEvent) {
 	e.OnEvent = onEvent
+}
+
+func (e *BaseEndpoint) Printf(format string, v ...interface{}) {
+	if e.Logger != nil {
+		e.Logger.Printf(format, v...)
+	}
+}
+
+func (e *BaseEndpoint) Debugf(format string, v ...interface{}) {
+	if e.Logger != nil {
+		e.Logger.Debugf(format, v...)
+	}
+}
+
+func (e *BaseEndpoint) Infof(format string, v ...interface{}) {
+	if e.Logger != nil {
+		e.Logger.Infof(format, v...)
+	}
+}
+
+func (e *BaseEndpoint) Warnf(format string, v ...interface{}) {
+	if e.Logger != nil {
+		e.Logger.Warnf(format, v...)
+	}
+}
+
+func (e *BaseEndpoint) Errorf(format string, v ...interface{}) {
+	if e.Logger != nil {
+		e.Logger.Errorf(format, v...)
+	}
 }
 
 // AddInterceptors adds global interceptors to the endpoint processing pipeline.
@@ -1022,6 +1054,14 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router endpoint.Router, ex
 				opts = append(opts, types.WithStartNode(tos[1]))
 			}
 			opts = append(opts, endFunc)
+			// 如果消息元数据中包含 _debugMode 参数，动态启用 per-message 调试模式
+			if debugModeVal := inMsg.Metadata.GetValue(types.KeyDebugMode); debugModeVal == types.ValueTrue {
+				opts = append(opts, types.WithDebugMode(true))
+			}
+			// 如果消息元数据中包含 _skipTellNext 参数，仅执行当前节点不向下传播
+			if skipVal := inMsg.Metadata.GetValue(types.KeySkipTellNext); skipVal == types.ValueTrue {
+				opts = append(opts, types.WithSkipTellNext())
+			}
 
 			if toFlow.IsWait() {
 				//同步
