@@ -273,6 +273,9 @@ type DefaultRuleContext struct {
 	hasEndNode bool
 	// restoreNodeInfo 恢复执行节点信息
 	restoreNodeInfo *RestoreNodeInfo
+	// debugModeOverride 运行时按消息覆盖调试模式，优先级高于链/节点 DSL 配置
+	// 0=继承链或节点配置, 1=强制开启, -1=强制关闭
+	debugModeOverride int32
 }
 
 // RestoreNodeInfo 恢复执行节点信息
@@ -496,6 +499,10 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 
 		relationTypes: make([]string, 1),
 		hasEndNode:    ctx.hasEndNode,
+	}
+	// 继承 debugModeOverride（1=强制开启, -1=强制关闭, 0=使用节点默认值）
+	if v := atomic.LoadInt32(&ctx.debugModeOverride); v != 0 {
+		atomic.StoreInt32(&nextCtx.debugModeOverride, v)
 	}
 
 	return nextCtx
@@ -905,12 +912,33 @@ func (ctx *DefaultRuleContext) GetErr() error {
 	return ctx.err
 }
 
-// IsDebugMode 是否调试模式，优先使用规则链指定的调试模式
+// IsDebugMode 检查是否调试模式。debugModeOverride: 1=开启, -1=关闭, 0=使用节点默认值
 func (ctx *DefaultRuleContext) IsDebugMode() bool {
-	if ctx.ruleChainCtx.IsDebugMode() {
+	v := atomic.LoadInt32(&ctx.debugModeOverride)
+	if v == 1 {
 		return true
 	}
+	if v == -1 {
+		return false
+	}
 	return ctx.Self() != nil && ctx.Self().IsDebugMode()
+}
+
+// SetDebugMode 设置 per-message 的调试模式覆盖
+func (ctx *DefaultRuleContext) SetDebugMode(debugMode bool) {
+	if debugMode {
+		atomic.StoreInt32(&ctx.debugModeOverride, 1)
+	} else {
+		atomic.StoreInt32(&ctx.debugModeOverride, -1)
+	}
+}
+
+// SetSkipTellNext sets whether to skip propagating to successor nodes.
+func (ctx *DefaultRuleContext) SetSkipTellNext(skip bool) {
+	ctx.skipTellNext = skip
+	if skip {
+		ctx.hasEndNode = false
+	}
 }
 
 // 增加一个待执行子节点

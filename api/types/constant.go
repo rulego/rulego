@@ -100,3 +100,12 @@ const (
 	// ValueTrue 真值字符串
 	ValueTrue = "true"
 )
+
+const (
+	// KeyDebugMode per-message debug mode metadata key
+	// KeyDebugMode per-message 调试模式元数据键
+	KeyDebugMode = "_debugMode"
+	// KeySkipTellNext per-message skip tell next metadata key
+	// KeySkipTellNext per-message 跳过通知下一节点元数据键
+	KeySkipTellNext = "_skipTellNext"
+)
