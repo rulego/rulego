@@ -111,6 +111,9 @@ func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.Com
 	if def.Icon != "" {
 		toComponentForm.Icon = def.Icon
 	}
+	if def.RouterForm != nil {
+		toComponentForm.RouterForm = def.RouterForm
+	}
 	toComponentForm.Disabled = def.Disabled
 
 	return toComponentForm
@@ -248,6 +251,7 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 					Validate:     validate,
 					Fields:       subFields,
 					Component:    component,
+					Ref:          field.Tag.Get("ref"),
 				})
 		}
 	}
