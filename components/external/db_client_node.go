@@ -85,21 +85,13 @@ func GetGlobalSqlValidator() SqlValidator {
 
 // DbClientNodeConfiguration 节点配置
 type DbClientNodeConfiguration struct {
-	// DriverName 数据库驱动名称，mysql或postgres
-	DriverName string `json:"driverName"`
-	// Dsn 数据库连接配置，参考sql.Open参数
-	Dsn string `json:"dsn"`
-	// PoolSize 连接池大小
-	PoolSize int `json:"poolSize"`
-	// OpType 操作类型配置，可选值：SELECT、INSERT、UPDATE、DELETE、EXEC
-	// 如果不配置，则自动根据SQL语句的第一个单词判断
-	OpType string `json:"opType"`
-	// Sql SQL语句，v0.23.0之后不再支持运行时变量进行替换
-	Sql string `json:"sql"`
-	// Params SQL语句参数列表，可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	Params []interface{} `json:"params"`
-	// GetOne 是否只返回一条记录，true:返回结构不是数组结构，false：返回数据是数组结构
-	GetOne bool `json:"getOne"`
+	DriverName string        `json:"driverName" label:"Driver" desc:"Database driver, e.g. mysql, postgres, sqlite3" required:"true" ref:"shared"`
+	Dsn        string        `json:"dsn" label:"DSN" desc:"Database connection string, e.g. user:password@tcp(host:port)/dbname" required:"true" ref:"primary"`
+	PoolSize   int           `json:"poolSize" label:"Pool Size" desc:"Database connection pool size" ref:"shared"`
+	OpType     string        `json:"opType" label:"Op Type" desc:"Operation type: SELECT, INSERT, UPDATE, DELETE" required:"true"`
+	Sql        string        `json:"sql" label:"SQL" desc:"SQL statement, supports ${metadata.key} and ${msg.key} substitution" required:"true"`
+	Params     []interface{} `json:"params" label:"Params" desc:"SQL parameter list, supports ${metadata.key} substitution"`
+	GetOne     bool          `json:"getOne" label:"Get One" desc:"true=return only first record, false=return all records"`
 }
 
 // DbClientNode 数据库客户端节点，提供通用数据库连接和SQL执行能力
@@ -592,4 +584,9 @@ func expandSliceToBuilder(builder *strings.Builder, param interface{}, sliceLen 
 		builder.WriteByte('?')
 		*params = append(*params, v.Index(i).Interface())
 	}
+}
+
+// Desc returns the component description
+func (x *DbClientNode) Desc() string {
+	return "Database client for SQL databases (MySQL, PostgreSQL, etc.). opType auto-detected or manual. params support ${metadata.key} and ${msg.key}. IN clause expands slices. Routes to Success/Failure"
 }

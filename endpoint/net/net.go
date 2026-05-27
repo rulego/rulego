@@ -377,50 +377,40 @@ func (r *ResponseMessage) GetError() error {
 //		Process("setJsonDataType").
 //		To("chain:jsonProcessor").End()
 type Config struct {
-	// 通信协议，可以是tcp、udp、ip4:1、ip6:ipv6-icmp、ip6:58、unix、unixgram，以及net包支持的协议类型。默认tcp协议
 	// Network protocol: tcp, udp, ip4:1, ip6:ipv6-icmp, ip6:58, unix, unixgram, and other protocol types supported by the net package. Default: tcp
-	Protocol string
+	Protocol string `json:"protocol" label:"Protocol" desc:"Network protocol: tcp, udp, ip4:1, ip6:ipv6-icmp, ip6:58, unix, unixgram. Default: tcp"`
 
-	// 服务器的地址，格式为host:port
 	// Server address in host:port format
-	Server string
+	Server string `json:"server" label:"Server Address" desc:"Server address in host:port format" required:"true"`
 
-	// 读取超时，用于设置读取数据的超时时间，单位为秒，可以为0表示不设置超时
 	// Read timeout for setting data read timeout in seconds, can be 0 for no timeout
-	ReadTimeout int
+	ReadTimeout int `json:"readTimeout" label:"Read Timeout" desc:"Read timeout in seconds, 0 for no timeout"`
 
-	// 编解码 转16进制字符串(hex)、转base64字符串(base64)、其他
-	// ⚠️  该字段计划在未来版本中弃用，建议在规则链中使用 jsTransform 等组件处理数据编码
-	// ⚠️  规则链（如 jsTransform、luaTransform）具备更强的二进制数据处理能力
-	// ⚠️  This field is planned for deprecation in future versions. Use jsTransform or other components in rule chains for data encoding
-	// ⚠️  Rule chains (like jsTransform, luaTransform) have stronger binary data processing capabilities
-	Encode string
+	// Encode: hex, base64, or other encoding
+	// Deprecated: Use jsTransform or other components in rule chains for data encoding
+	Encode string `json:"encode" label:"Encode" desc:"Data encoding: hex (hex string), base64 (base64 string)."`
 
-	// 数据包分割模式：
 	// Packet splitting mode:
-	// "line": 按行分割（默认模式，以\n或\r\n分割）/ Split by line (default mode, split by \n or \r\n)
-	// "fixed": 固定长度分割 / Fixed length splitting
-	// "delimiter": 自定义分隔符分割 / Custom delimiter splitting
-	// "length_prefix_le": 长度前缀小端序，长度不包含前缀 / Length prefix little endian, length excludes prefix
-	// "length_prefix_be": 长度前缀大端序，长度不包含前缀 / Length prefix big endian, length excludes prefix
-	// "length_prefix_le_inc": 长度前缀小端序，长度包含前缀 / Length prefix little endian, length includes prefix
-	// "length_prefix_be_inc": 长度前缀大端序，长度包含前缀 / Length prefix big endian, length includes prefix
-	PacketMode string `json:"packetMode"`
+	// "line": Split by line (default mode, split by \n or \r\n)
+	// "fixed": Fixed length splitting
+	// "delimiter": Custom delimiter splitting
+	// "length_prefix_le": Length prefix little endian, length excludes prefix
+	// "length_prefix_be": Length prefix big endian, length excludes prefix
+	// "length_prefix_le_inc": Length prefix little endian, length includes prefix
+	// "length_prefix_be_inc": Length prefix big endian, length includes prefix
+	PacketMode string `json:"packetMode" label:"Packet Mode" desc:"Packet splitting mode: line, fixed, delimiter, length_prefix_le, length_prefix_be, length_prefix_le_inc, length_prefix_be_inc"`
 
-	// PacketSize 数据包大小配置（根据PacketMode含义不同）
 	// PacketSize configuration (meaning varies by PacketMode)
-	// - fixed模式：固定数据包的字节数 / fixed mode: fixed packet byte count
-	// - length_prefix*模式：长度前缀的字节数（1-4字节）/ length_prefix* mode: length prefix byte count (1-4 bytes)
-	// - 其他模式：此字段无效 / other modes: this field is invalid
-	PacketSize int `json:"packetSize"`
+	// - fixed mode: fixed packet byte count
+	// - length_prefix* mode: length prefix byte count (1-4 bytes)
+	// - other modes: this field is invalid
+	PacketSize int `json:"packetSize" label:"Packet Size" desc:"Packet size configuration (meaning varies by PacketMode)"`
 
-	// 自定义分隔符模式：分隔符字节序列（支持十六进制格式如"0x0A"表示\n）
 	// Custom delimiter mode: delimiter byte sequence (supports hex format like "0x0A" for \n)
-	Delimiter string `json:"delimiter"`
+	Delimiter string `json:"delimiter" label:"Delimiter" desc:"Custom delimiter byte sequence (supports hex format like 0x0A for \\n)"`
 
-	// 最大数据包大小，防止恶意数据包，默认64KB
 	// Maximum packet size to prevent malicious packets, default 64KB
-	MaxPacketSize int `json:"maxPacketSize"`
+	MaxPacketSize int `json:"maxPacketSize" label:"Max Packet Size" desc:"Maximum packet size to prevent malicious packets, default 64KB"`
 }
 
 // RegexpRouter 正则表达式路由
@@ -445,6 +435,54 @@ type RouterMatchOptions struct {
 	MinDataLength int `json:"minDataLength"`
 	// 最大数据长度
 	MaxDataLength int `json:"maxDataLength"`
+}
+
+// Match 检查数据是否匹配路由规则
+func (r *RegexpRouter) Match(rawData, encodedData []byte, exchange *endpoint.Exchange) bool {
+	opts := r.matchOptions
+	if opts == nil {
+		return r.regexp == nil || r.regexp.Match(encodedData)
+	}
+
+	dataLen := len(rawData)
+	if opts.MinDataLength > 0 && dataLen < opts.MinDataLength {
+		return false
+	}
+	if opts.MaxDataLength > 0 && dataLen > opts.MaxDataLength {
+		return false
+	}
+
+	if opts.DataTypeFilter != "" {
+		msg := exchange.In.GetMsg()
+		if strings.ToUpper(opts.DataTypeFilter) != strings.ToUpper(string(msg.GetDataType())) {
+			return false
+		}
+	}
+
+	var dataToMatch []byte
+	if opts.MatchRawData {
+		dataToMatch = rawData
+	} else {
+		dataToMatch = encodedData
+	}
+
+	return r.regexp == nil || r.regexp.Match(dataToMatch)
+}
+
+// encodeData 对数据进行编码处理
+func encodeData(src []byte, encode string) ([]byte, types.DataType) {
+	switch strings.ToLower(encode) {
+	case EncodeHex:
+		encoded := make([]byte, hex.EncodedLen(len(src)))
+		hex.Encode(encoded, src)
+		return encoded, types.TEXT
+	case EncodeBase64:
+		encoded := make([]byte, base64.StdEncoding.EncodedLen(len(src)))
+		base64.StdEncoding.Encode(encoded, src)
+		return encoded, types.TEXT
+	default:
+		return src, types.BINARY
+	}
 }
 
 // Net net endpoint组件
@@ -478,13 +516,36 @@ type Net struct {
 	udpConn *net.UDPConn
 	// 路由映射表
 	routers map[string]*RegexpRouter
-	closed  int32 // 使用int32类型支持原子操作，0表示未关闭，1表示已关闭
+	closed  int32        // 使用int32类型支持原子操作，0表示未关闭，1表示已关闭
 	mu      sync.RWMutex // 保护listener和udpConn的并发访问
 }
 
 // Type 组件类型
 func (ep *Net) Type() string {
 	return Type
+}
+
+// Category returns the component category
+func (ep *Net) Category() string {
+	return "endpoint"
+}
+
+// Def returns the component definition including description and router form metadata.
+func (ep *Net) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc: "TCP/UDP network server endpoint for receiving and processing network data",
+		RouterForm: &types.RouterForm{
+			From: &types.RouterFormField{
+				Path: types.ComponentFormField{
+					Name:     "path",
+					Type:     "string",
+					Label:    "Route Pattern",
+					Desc:     "Regex pattern to match incoming data, use * to match all",
+					Required: true,
+				},
+			},
+		},
+	}
 }
 
 func (ep *Net) New() types.Node {
@@ -515,6 +576,7 @@ func (ep *Net) Init(ruleConfig types.Config, configuration types.Configuration) 
 		ep.Config.MaxPacketSize = DefaultMaxPacketSize
 	}
 	ep.RuleConfig = ruleConfig
+	ep.Logger = ruleConfig.Logger
 	return err
 }
 
@@ -526,10 +588,10 @@ func (ep *Net) Destroy() {
 // Close 关闭网络端点
 func (ep *Net) Close() error {
 	atomic.StoreInt32(&ep.closed, 1)
-	
+
 	ep.mu.Lock()
 	defer ep.mu.Unlock()
-	
+
 	var err error
 	if ep.listener != nil {
 		err = ep.listener.Close()
@@ -618,6 +680,7 @@ func (ep *Net) RemoveRouter(routerId string, params ...interface{}) error {
 	}
 	return nil
 }
+
 // Start 启动Net端点
 func (ep *Net) Start() error {
 	var err error
@@ -629,11 +692,11 @@ func (ep *Net) Start() error {
 		if err != nil {
 			return err
 		}
-		
+
 		ep.mu.Lock()
 		ep.listener = listener
 		ep.mu.Unlock()
-		
+
 		ep.Printf("started TCP server on %s", ep.Config.Server)
 		go ep.acceptTCPConnections()
 	case ProtocolUDP, ProtocolUDP4, ProtocolUDP6:
@@ -663,11 +726,11 @@ func (ep *Net) listenUDP() error {
 	if err != nil {
 		return err
 	}
-	
+
 	ep.mu.Lock()
 	ep.udpConn = udpConn
 	ep.mu.Unlock()
-	
+
 	return nil
 }
 
@@ -684,7 +747,7 @@ func (ep *Net) acceptTCPConnections() {
 		ep.mu.RLock()
 		listener := ep.listener
 		ep.mu.RUnlock()
-		
+
 		if listener == nil {
 			ep.Printf("net endpoint stop - listener is nil")
 			return
@@ -732,36 +795,6 @@ func (ep *Net) submitTask(fn func()) {
 	} else {
 		go fn()
 	}
-}
-
-func (ep *Net) Printf(format string, v ...interface{}) {
-	if ep.RuleConfig.Logger != nil {
-		ep.RuleConfig.Logger.Printf(format, v...)
-	}
-}
-
-// encode 对数据进行编码处理并返回编码后的数据和对应的数据类型
-// ⚠️  该方法计划在未来版本中弃用，建议在规则链中处理数据编码
-func (ep *Net) encode(src []byte) ([]byte, types.DataType) {
-	// 编码处理
-	var encodedMessage []byte
-	var dataType types.DataType
-
-	switch strings.ToLower(ep.Config.Encode) {
-	case EncodeHex:
-		encodedMessage = make([]byte, hex.EncodedLen(len(src)))
-		hex.Encode(encodedMessage, src)
-		dataType = types.TEXT // 十六进制编码后为文本
-	case EncodeBase64:
-		encodedMessage = make([]byte, base64.StdEncoding.EncodedLen(len(src)))
-		base64.StdEncoding.Encode(encodedMessage, src)
-		dataType = types.TEXT // Base64编码后为文本
-	default:
-		encodedMessage = src
-		// 网络数据默认为二进制类型
-		dataType = types.BINARY
-	}
-	return encodedMessage, dataType
 }
 
 func (ep *Net) handler(conn net.Conn) {
@@ -845,7 +878,7 @@ func (x *TcpHandler) handler() {
 			continue
 		}
 		// 编码处理
-		encodedMessage, dataType := x.endpoint.encode(data)
+		encodedMessage, dataType := encodeData(data, x.endpoint.Config.Encode)
 
 		from := ""
 		if x.conn.RemoteAddr() != nil {
@@ -872,8 +905,14 @@ func (x *TcpHandler) handler() {
 		msg.Metadata.PutValue(RemoteAddrKey, from)
 
 		// 匹配符合的路由，处理消息
+		x.endpoint.RLock()
+		snapshot := make([]*RegexpRouter, 0, len(x.endpoint.routers))
 		for _, v := range x.endpoint.routers {
-			if x.matchesRouter(v, data, encodedMessage, exchange) {
+			snapshot = append(snapshot, v)
+		}
+		x.endpoint.RUnlock()
+		for _, v := range snapshot {
+			if v.Match(data, encodedMessage, exchange) {
 				x.endpoint.DoProcess(context.Background(), v.router, exchange)
 			}
 		}
@@ -881,47 +920,6 @@ func (x *TcpHandler) handler() {
 
 }
 
-// matchesRouter 检查数据是否匹配指定的路由
-func (x *TcpHandler) matchesRouter(router *RegexpRouter, rawData, encodedData []byte, exchange *endpoint.Exchange) bool {
-	// 获取匹配选项
-	opts := router.matchOptions
-	if opts == nil {
-		// 如果没有正则表达式，表示匹配所有数据（特殊路由）
-		if router.regexp == nil {
-			return true
-		}
-		// 使用正则匹配逻辑
-		return router.regexp.Match(encodedData)
-	}
-
-	// 数据长度检查
-	dataLen := len(rawData)
-	if opts.MinDataLength > 0 && dataLen < opts.MinDataLength {
-		return false
-	}
-	if opts.MaxDataLength > 0 && dataLen > opts.MaxDataLength {
-		return false
-	}
-
-	// 数据类型过滤
-	if opts.DataTypeFilter != "" {
-		msg := exchange.In.GetMsg()
-		if strings.ToUpper(opts.DataTypeFilter) != strings.ToUpper(string(msg.GetDataType())) {
-			return false
-		}
-	}
-
-	// 选择匹配的数据：原始数据或编码数据
-	var dataToMatch []byte
-	if opts.MatchRawData {
-		dataToMatch = rawData
-	} else {
-		dataToMatch = encodedData
-	}
-
-	// 正则表达式匹配
-	return router.regexp == nil || router.regexp.Match(dataToMatch)
-}
 
 func (x *TcpHandler) onDisconnect() {
 	if x.conn != nil {
@@ -955,15 +953,15 @@ func (x *UDPHandler) handler() {
 		if atomic.LoadInt32(&x.endpoint.closed) == 1 {
 			break
 		}
-		
+
 		x.endpoint.mu.RLock()
 		udpConn := x.endpoint.udpConn
 		x.endpoint.mu.RUnlock()
-		
+
 		if udpConn == nil {
 			break
 		}
-		
+
 		n, addr, err := udpConn.ReadFromUDP(buffer)
 		if err != nil {
 			time.Sleep(time.Second)
@@ -994,7 +992,7 @@ func (x *UDPHandler) handler() {
 			from = addr.String()
 		}
 		// 编码处理
-		encodedMessage, dataType := x.endpoint.encode(msgBuffer)
+		encodedMessage, dataType := encodeData(msgBuffer, x.endpoint.Config.Encode)
 
 		// 创建一个交换对象，用于存储输入和输出的消息
 		exchange := &endpoint.Exchange{
@@ -1018,52 +1016,18 @@ func (x *UDPHandler) handler() {
 		msg.Metadata.PutValue(RemoteAddrKey, from)
 
 		// 匹配符合的路由，处理消息
+		x.endpoint.RLock()
+		snapshot := make([]*RegexpRouter, 0, len(x.endpoint.routers))
 		for _, v := range x.endpoint.routers {
-			if x.matchesRouter(v, msgBuffer, encodedMessage, exchange) {
+			snapshot = append(snapshot, v)
+		}
+		x.endpoint.RUnlock()
+		for _, v := range snapshot {
+			if v.Match(msgBuffer, encodedMessage, exchange) {
 				x.endpoint.DoProcess(context.Background(), v.router, exchange)
 			}
 		}
 	}
 }
 
-// matchesRouter 检查数据是否匹配指定的路由（UDP版本）
-func (x *UDPHandler) matchesRouter(router *RegexpRouter, rawData, encodedData []byte, exchange *endpoint.Exchange) bool {
-	// 获取匹配选项
-	opts := router.matchOptions
-	if opts == nil {
-		// 如果没有正则表达式，表示匹配所有数据（特殊路由）
-		if router.regexp == nil {
-			return true
-		}
-		// 使用正则匹配逻辑（向后兼容）
-		return router.regexp.Match(encodedData)
-	}
 
-	// 数据长度检查
-	dataLen := len(rawData)
-	if opts.MinDataLength > 0 && dataLen < opts.MinDataLength {
-		return false
-	}
-	if opts.MaxDataLength > 0 && dataLen > opts.MaxDataLength {
-		return false
-	}
-
-	// 数据类型过滤
-	if opts.DataTypeFilter != "" {
-		msg := exchange.In.GetMsg()
-		if strings.ToUpper(opts.DataTypeFilter) != strings.ToUpper(string(msg.GetDataType())) {
-			return false
-		}
-	}
-
-	// 选择匹配的数据：原始数据或编码数据
-	var dataToMatch []byte
-	if opts.MatchRawData {
-		dataToMatch = rawData
-	} else {
-		dataToMatch = encodedData
-	}
-
-	// 正则表达式匹配
-	return router.regexp == nil || router.regexp.Match(dataToMatch)
-}

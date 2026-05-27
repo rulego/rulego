@@ -45,11 +45,10 @@ func init() {
 
 // MetadataTransformNodeConfiguration 节点配置
 type MetadataTransformNodeConfiguration struct {
-	//多个字段转换表达式，格式(字段:转换表达式)
-	Mapping map[string]string
-	// 是否创建新的元数据列表
-	// true:创建新的元数据列表，false:更新对应的元数据key
-	IsNew bool
+	// Mapping is a field-to-expression map for metadata transformation.
+	Mapping map[string]string `json:"mapping" label:"Mapping" desc:"Field-to-expression map, e.g. {\"temperature\":\"msg.temperature\"}" required:"true"`
+	// IsNew: true creates new metadata, false updates existing keys.
+	IsNew bool `json:"isNew" label:"Is New" desc:"true=create new metadata structure, false=update existing keys"`
 }
 
 // MetadataTransformNode 使用expr表达式转换或者创建新的元数据
@@ -135,6 +134,11 @@ func (x *MetadataTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) 
 		}
 	}
 	ctx.TellSuccess(msg)
+}
+
+// Desc returns the component description
+func (x *MetadataTransformNode) Desc() string {
+	return "Transform message metadata using expr-lang mapping. isNew=true replaces all metadata, false updates existing keys. Variables: id, ts, data, msg, metadata, type, dataType"
 }
 
 // Destroy 销毁

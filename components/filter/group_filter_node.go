@@ -41,20 +41,14 @@ type GroupFilterNodeConfiguration struct {
 	// AllMatches determines the group evaluation logic:
 	//   - true: All nodes must return True for message to route to "True" chain
 	//   - false: Any node returning True will route message to "True" chain
-	AllMatches bool
+	AllMatches bool `json:"allMatches" label:"All Matches" desc:"true=AND logic (all must pass), false=OR logic (any passes)"`
 
-	// NodeIds 指定要包含在组中的过滤器节点列表
 	// NodeIds specifies the list of filter nodes to include in the group.
-	// Can be provided as:
-	//   - string: Comma-separated node IDs "node1,node2,node3"
-	//   - []string: Array of node ID strings
-	//   - []interface{}: Array of node ID values
-	NodeIds interface{}
+	// Can be provided as comma-separated string, []string, or []interface{}.
+	NodeIds interface{} `json:"nodeIds" label:"Node IDs" desc:"Comma-separated filter node IDs or string array" required:"true"`
 
-	// Timeout 指定执行超时时间（秒），默认值0表示无超时限制
-	// Timeout specifies the execution timeout in seconds.
-	// Default value 0 means no timeout limit.
-	Timeout int
+	// Timeout specifies the execution timeout in seconds. Default 0 means no timeout.
+	Timeout int `json:"timeout" label:"Timeout" desc:"Execution timeout in seconds, 0=no limit"`
 }
 
 // GroupFilterNode 将多个过滤器节点分组并集体评估的过滤组件
@@ -211,6 +205,11 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			ctx.TellNext(msg, types.False)
 		}
 	}
+}
+
+// Desc returns the component description
+func (x *GroupFilterNode) Desc() string {
+	return "Group multiple filter nodes and evaluate collectively. allMatches=true requires all to pass (AND), false requires any to pass (OR). Routes to True/False"
 }
 
 // Destroy 清理资源

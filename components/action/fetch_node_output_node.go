@@ -44,8 +44,8 @@ func init() {
 
 // NodeOutputNodeConfiguration 节点配置
 type NodeOutputNodeConfiguration struct {
-	// NodeId 目标节点ID，获取该节点的输出消息
-	NodeId string
+	// NodeId is the target node ID whose output message will be retrieved.
+	NodeId string `json:"nodeId" label:"Node ID" desc:"Target node ID whose output will be retrieved" required:"true"`
 }
 
 // FetchNodeOutputNode 获取指定节点输出的组件
@@ -118,4 +118,9 @@ func (x *FetchNodeOutputNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy 销毁节点
 func (x *FetchNodeOutputNode) Destroy() {
+}
+
+// Desc returns the component description
+func (x *FetchNodeOutputNode) Desc() string {
+	return "Retrieve cached output of a specified node by nodeId. Auto-establishes node dependency for output caching. Routes to Success/Failure"
 }

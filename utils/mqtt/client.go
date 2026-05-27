@@ -42,11 +42,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"os"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	string2 "github.com/rulego/rulego/utils/str"
 
-	"io/ioutil"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -64,21 +64,16 @@ type Handler struct {
 
 // Config 客户端配置
 type Config struct {
-	//mqtt broker 地址
-	Server string
-	//用户名
-	Username string
-	//密码
-	Password string
-	//重连重试间隔
-	MaxReconnectInterval time.Duration
-	QOS                  uint8
-	CleanSession         bool
-	//client Id
-	ClientID    string
-	CAFile      string
-	CertFile    string
-	CertKeyFile string
+	Server               string        `json:"server" label:"Server" desc:"MQTT broker address, format: host:port" required:"true" ref:"primary"`
+	Username             string        `json:"username" label:"Username" desc:"MQTT authentication username" ref:"shared"`
+	Password             string        `json:"password" label:"Password" desc:"MQTT authentication password" ref:"shared"`
+	MaxReconnectInterval time.Duration `json:"maxReconnectInterval" label:"Max Reconnect Interval" desc:"Max reconnection interval, e.g. 10s, 1m"`
+	QOS                  uint8         `json:"qos" label:"QoS" desc:"QoS level: 0(at most once), 1(at least once), 2(exactly once)"`
+	CleanSession         bool          `json:"cleanSession" label:"Clean Session" desc:"Whether to clear previous session state"`
+	ClientID             string        `json:"clientId" label:"Client ID" desc:"MQTT client unique identifier, default is random"`
+	CAFile               string        `json:"caFile" label:"CA File" desc:"CA certificate file path for TLS" ref:"shared"`
+	CertFile             string        `json:"certFile" label:"Cert File" desc:"TLS client certificate file path" ref:"shared"`
+	CertKeyFile          string        `json:"certKeyFile" label:"Cert Key File" desc:"TLS client private key file path" ref:"shared"`
 }
 
 // Client mqtt客户端
@@ -302,7 +297,7 @@ func newTLSConfig(CAFile, certFile, certKeyFile string) (*tls.Config, error) {
 
 	// Import trusted certificates from CAFile.pem.
 	if CAFile != "" {
-		caCert, err := ioutil.ReadFile(CAFile)
+		caCert, err := os.ReadFile(CAFile)
 		if err != nil {
 			return nil, err
 		}
@@ -321,4 +316,22 @@ func newTLSConfig(CAFile, certFile, certKeyFile string) (*tls.Config, error) {
 		tlsConfig.Certificates = []tls.Certificate{kp}
 	}
 	return tlsConfig, nil
+}
+
+// NormalizeConfigKeys 兼容旧版本配置 key 的大小写差异
+// 将旧版本的 key（如 qOS、clientID、cAFile）映射到新版本的 key（qos、clientId、caFile）
+func NormalizeConfigKeys(configuration map[string]interface{}) {
+	keyMappings := [][2]string{
+		{"qOS", "qos"},
+		{"clientID", "clientId"},
+		{"cAFile", "caFile"},
+	}
+	for _, mapping := range keyMappings {
+		oldKey, newKey := mapping[0], mapping[1]
+		if _, ok := configuration[newKey]; !ok {
+			if v, ok := configuration[oldKey]; ok {
+				configuration[newKey] = v
+			}
+		}
+	}
 }

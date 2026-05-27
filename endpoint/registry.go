@@ -50,7 +50,9 @@ func init() {
 	_ = Registry.Register(&mqtt.Endpoint{})
 	_ = Registry.Register(&rest.Endpoint{})
 	_ = Registry.Register(&net.Endpoint{})
+	_ = Registry.Register(&net.ClientEndpoint{})
 	_ = Registry.Register(&websocket.Endpoint{})
+	_ = Registry.Register(&websocket.ClientEndpoint{})
 	_ = Registry.Register(&schedule.Endpoint{})
 }
 

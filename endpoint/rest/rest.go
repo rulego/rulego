@@ -763,19 +763,19 @@ type Config struct {
 	// Server 指定要绑定的服务器地址和端口。
 	// 格式："host:port" 或 ":port" 用于所有接口。
 	// 示例：":8080"、"localhost:9090"、"0.0.0.0:3000"
-	Server string `json:"server"`
+	Server string `json:"server" label:"Server" desc:"HTTP server address and port to bind to, e.g. :8080, 0.0.0.0:9090" required:"true" ref:"primary"`
 
 	// CertFile specifies the path to the SSL/TLS certificate file for HTTPS.
 	// When both CertFile and CertKeyFile are provided, the server runs in HTTPS mode.
 	// CertFile 指定 HTTPS 的 SSL/TLS 证书文件路径。
 	// 当提供 CertFile 和 CertKeyFile 时，服务器以 HTTPS 模式运行。
-	CertFile string `json:"certFile"`
+	CertFile string `json:"certFile" label:"Cert File" desc:"SSL/TLS certificate file path for HTTPS" ref:"shared"`
 
 	// CertKeyFile specifies the path to the SSL/TLS private key file for HTTPS.
 	// This file must correspond to the certificate specified in CertFile.
 	// CertKeyFile 指定 HTTPS 的 SSL/TLS 私钥文件路径。
 	// 此文件必须与 CertFile 中指定的证书对应。
-	CertKeyFile string `json:"certKeyFile"`
+	CertKeyFile string `json:"certKeyFile" label:"Cert Key File" desc:"SSL/TLS private key file path for HTTPS" ref:"shared"`
 
 	// AllowCors enables Cross-Origin Resource Sharing (CORS) support.
 	// When true, the server allows cross-origin requests from web browsers.
@@ -783,7 +783,7 @@ type Config struct {
 	// AllowCors 启用跨域资源共享（CORS）支持。
 	// 当为 true 时，服务器允许来自 Web 浏览器的跨域请求。
 	// 这对于需要从 Web 应用程序访问的 API 服务器很有用。
-	AllowCors bool
+	AllowCors bool `json:"allowCors" label:"Allow CORS" desc:"Enable Cross-Origin Resource Sharing for browser access"`
 
 	// ReadTimeout sets the maximum duration for reading the entire request, including the body.
 	// Specified in seconds. A value of 0 uses the default timeout of 10 seconds.
@@ -791,7 +791,7 @@ type Config struct {
 	// ReadTimeout 设置读取整个请求（包括正文）的最大持续时间。
 	// 以秒为单位指定。值为 0 时使用默认超时 10 秒。
 	// 这防止缓慢或恶意客户端无限期保持连接。
-	ReadTimeout int `json:"readTimeout"`
+	ReadTimeout int `json:"readTimeout" label:"Read Timeout" desc:"Max duration in seconds for reading the entire request, default 10"`
 
 	// WriteTimeout sets the maximum duration before timing out writes of the response.
 	// Specified in seconds. A value of 0 uses the default timeout of 10 seconds.
@@ -799,14 +799,14 @@ type Config struct {
 	// WriteTimeout 设置响应写入超时前的最大持续时间。
 	// 以秒为单位指定。值为 0 时使用默认超时 10 秒。
 	// 这确保及时的响应传递并防止资源耗尽。
-	WriteTimeout int `json:"writeTimeout"`
+	WriteTimeout int `json:"writeTimeout" label:"Write Timeout" desc:"Max duration in seconds for writing the response, default 10"`
 
 	// IdleTimeout sets the maximum amount of time to wait for the next request
 	// when keep-alives are enabled. Specified in seconds.
 	// A value of 0 uses the default timeout of 60 seconds.
 	// IdleTimeout 设置启用 keep-alive 时等待下一个请求的最大时间。
 	// 以秒为单位指定。值为 0 时使用默认超时 60 秒。
-	IdleTimeout int `json:"idleTimeout"`
+	IdleTimeout int `json:"idleTimeout" label:"Idle Timeout" desc:"Max duration in seconds to wait for the next keep-alive request, default 60"`
 
 	// DisableKeepalive disables HTTP keep-alive connections.
 	// When true, each request uses a new connection, which may impact performance
@@ -814,7 +814,7 @@ type Config struct {
 	// DisableKeepalive 禁用 HTTP keep-alive 连接。
 	// 当为 true 时，每个请求使用新连接，这可能影响性能，
 	// 但对于某些部署场景或调试可能有用。
-	DisableKeepalive bool `json:"disableKeepalive"`
+	DisableKeepalive bool `json:"disableKeepalive" label:"Disable Keepalive" desc:"Disable HTTP keep-alive connections, each request uses a new connection"`
 }
 
 // Rest represents an HTTP/REST endpoint implementation for the RuleGo framework.
@@ -903,6 +903,29 @@ type Rest struct {
 // Type 组件类型
 func (rest *Rest) Type() string {
 	return Type
+}
+
+// Category returns the component category.
+func (rest *Rest) Category() string {
+	return "endpoint"
+}
+
+// Def returns the component definition including description and router form metadata.
+func (rest *Rest) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc: "HTTP/REST server endpoint for receiving and processing HTTP requests",
+		RouterForm: &types.RouterForm{
+			From: &types.RouterFormField{
+				Path: types.ComponentFormField{
+					Name:     "path",
+					Type:     "string",
+					Label:    "Path",
+					Desc:     "HTTP route path pattern, e.g. /api/device/{deviceId}",
+					Required: true,
+				},
+			},
+		},
+	}
 }
 
 func (rest *Rest) New() types.Node {

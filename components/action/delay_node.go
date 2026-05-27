@@ -54,19 +54,15 @@ func init() {
 
 // DelayNodeConfiguration 节点配置
 type DelayNodeConfiguration struct {
-	//最大允许挂起消息的数量
-	MaxPendingMsgs int `json:"maxPendingMsgs"`
-	//延迟时间，单位毫秒，支持数字和动态表达式，如：1000 或 ${metadata.delay}
-	DelayMs string `json:"delayMs"`
-	//是否覆盖周期内的消息
-	//true：周期内只保留一条消息，新的消息会覆盖之前的消息。直到队列里的消息被处理后，才会再次进入延迟队列。
-	//false：周期内保留所有消息，直到达到最大挂起消息限制后，才会进入失败链路。
-	Overwrite bool `json:"overwrite"`
+	// MaxPendingMsgs is the maximum number of pending messages allowed in the delay queue.
+	MaxPendingMsgs int `json:"maxPendingMsgs" label:"Max Pending Messages" desc:"Maximum pending messages in delay queue, default 1000"`
+	// DelayMs is the delay duration in milliseconds. Supports numbers or expressions like ${metadata.delay}.
+	DelayMs string `json:"delayMs" label:"Delay (ms)" desc:"Delay duration in ms. Supports numbers or ${metadata.key} expressions" required:"true"`
+	// Overwrite: true keeps only one message during the period, new messages overwrite previous ones.
+	Overwrite bool `json:"overwrite" label:"Overwrite" desc:"true=keep only one pending message (new overwrites old), false=queue all messages"`
 
-	//延迟时间，单位秒 (已弃用，请使用 DelayMs)
 	// Deprecated: Use DelayMs instead
 	PeriodInSeconds int `json:"periodInSeconds" deprecated:"true"`
-	//通过 ${metadata.key} 从元数据变量中获取或者通过 ${msg.key} 从消息负荷中获取，延迟时间，如果该值有值，优先取该值。(已弃用，请使用 DelayMs)
 	// Deprecated: Use DelayMs instead
 	PeriodInSecondsPattern string `json:"periodInSecondsPattern" deprecated:"true"`
 }
@@ -271,4 +267,9 @@ func (x *DelayNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Destroy 销毁
 func (x *DelayNode) Destroy() {
+}
+
+// Desc returns the component description
+func (x *DelayNode) Desc() string {
+	return "Delay message delivery. delayMs supports static values or ${metadata.key} expressions. overwrite=true keeps only one pending message. Routes to Success/Failure"
 }

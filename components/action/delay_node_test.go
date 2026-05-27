@@ -338,7 +338,7 @@ func TestDelayNode(t *testing.T) {
 	//覆盖模式
 	t.Run("Overlay", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"periodInSeconds": 5,
+			"periodInSeconds": 2,
 			"overwrite":       true,
 		}, Registry)
 		assert.Nil(t, err)
@@ -357,13 +357,13 @@ func TestDelayNode(t *testing.T) {
 				MetaData:   metaData,
 				MsgType:    "ACTIVITY_EVENT",
 				Data:       "BB",
-				AfterSleep: time.Second * 7,
+				AfterSleep: time.Millisecond * 2500,
 			},
 			{
 				MetaData:   metaData,
 				MsgType:    "ACTIVITY_EVENT",
 				Data:       "CC",
-				AfterSleep: time.Second * 7,
+				AfterSleep: time.Second * 3,
 			},
 		}
 		var count int64

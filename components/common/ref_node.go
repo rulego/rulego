@@ -42,15 +42,11 @@ func init() {
 // RefNodeConfiguration RefNode配置结构
 // RefNodeConfiguration defines the configuration structure for the RefNode component.
 type RefNodeConfiguration struct {
-	// TargetId 指定要引用的目标节点ID
-	// TargetId specifies the target node ID to reference.
-	// Format: [{chainId}]:{nodeId} for external chain nodes
-	// Format: {nodeId} for current chain nodes
-	TargetId string
-	// TellChain controls whether to execute the entire chain starting from TargetId.
-	// If false (default), only the TargetId node itself is executed.
-	// If true, the flow continues through the whole sub-chain rooted at TargetId.
-	TellChain bool
+	// TargetId is the target node ID to reference.
+	// Format: {nodeId} for local nodes, {chainId}:{nodeId} for external chain nodes.
+	TargetId string `json:"targetId" label:"Target ID" desc:"Target node ID. Format: {nodeId} or {chainId}:{nodeId}" required:"true"`
+	// TellChain: true executes the entire chain from TargetId, false executes only the target node.
+	TellChain bool `json:"tellChain" label:"Tell Chain" desc:"true=execute entire chain from target, false=execute target node only"`
 }
 
 // RefNode 引用并执行来自相同或不同规则链的节点的流控制组件
@@ -163,4 +159,12 @@ func (x *RefNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 // Destroy 清理资源
 // Destroy cleans up resources.
 func (x *RefNode) Destroy() {
+}
+
+// Def returns the component form definition
+func (x *RefNode) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc:          "Reference and execute a node from same or different rule chain. Format: {nodeId} or {chainId}:{nodeId}. tellChain=true executes entire sub-chain",
+		RelationTypes: &[]string{types.Success, types.Failure, types.True, types.False},
+	}
 }

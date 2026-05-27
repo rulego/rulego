@@ -242,6 +242,57 @@ type ComponentForm struct {
 	// ComponentKind indicates the type of component: dc (dynamic), nc (native), ec (endpoint)
 	// ComponentKind 表示组件类型：dc（动态）、nc（原生）、ec（端点）
 	ComponentKind string `json:"componentKind"`
+
+	// RouterForm contains router configuration metadata for endpoint components.
+	// Only endpoint components have this field. It describes how to configure
+	// the endpoint's router (from.path meaning, whether hide=true for default router, etc.).
+	// RouterForm 包含 endpoint 组件的路由配置元数据。
+	// 仅 endpoint 组件有此字段，描述如何配置 endpoint 的路由。
+	RouterForm *RouterForm `json:"router,omitempty"`
+}
+
+// RouterForm describes the router configuration for an endpoint component.
+// Compatible with the frontend endpoint.js router structure.
+//
+// RouterForm 描述 endpoint 组件的路由配置。
+type RouterForm struct {
+	// Hide indicates whether the endpoint uses a default router.
+	// When true, the agent should auto-generate router with from.path="*".
+	// Hide 表示 endpoint 是否使用默认路由。
+	// 为 true 时，智能体应自动生成 from.path="*" 的路由。
+	Hide bool `json:"hide,omitempty"`
+
+	// From provides metadata about the router source configuration.
+	// From 提供路由源配置的元数据。
+	From *RouterFormField `json:"from,omitempty"`
+
+	// To provides metadata about the router target configuration.
+	// To 提供路由目标配置的元数据。
+	To *RouterFormField `json:"to,omitempty"`
+
+	// DefaultValue provides default router entries.
+	// DefaultValue 提供默认路由条目。
+	DefaultValue []map[string]interface{} `json:"defaultValue,omitempty"`
+}
+
+// RouterFormField describes the fields in a router's from/to configuration.
+// RouterFormField 描述路由 from/to 配置中的字段。
+type RouterFormField struct {
+	// Path describes the path/topic/expression field metadata.
+	// Path 描述路径/主题/表达式字段的元数据。
+	Path ComponentFormField `json:"path"`
+
+	// Processors describes the processors field metadata.
+	// Processors 描述处理器字段的元数据。
+	Processors *RouterProcessorsField `json:"processors,omitempty"`
+}
+
+// RouterProcessorsField describes the processors selector configuration.
+// RouterProcessorsField 描述处理器选择器配置。
+type RouterProcessorsField struct {
+	// Hide indicates whether to hide the processors selector.
+	// Hide 表示是否隐藏处理器选择器。
+	Hide bool `json:"hide,omitempty"`
 }
 
 // ComponentFormField represents a single configuration field in a component form.
@@ -295,6 +346,16 @@ type ComponentFormField struct {
 	// Required indicates whether the field is mandatory, extracted from the 'required' tag
 	// Required 表示字段是否为必填项，从 'required' 标签中提取
 	Required bool `json:"required"`
+
+	// Ref indicates the field's relationship to shared node pool:
+	// "primary" = the ref:// field (e.g., server, dsn)
+	// "shared" = provided by shared node (hidden when ref:// is selected, shown when creating shared node)
+	// "" = component-specific field (always shown in editor, hidden in shared node form)
+	// Ref 表示字段与共享节点池的关系：
+	// "primary" = ref:// 字段（如 server、dsn）
+	// "shared" = 由共享节点提供（编辑器中选了 ref:// 后隐藏，创建共享节点时显示）
+	// "" = 组件业务字段（编辑器中始终显示，创建共享节点时隐藏）
+	Ref string `json:"ref,omitempty"`
 }
 
 // SafeComponentSlice provides a thread-safe slice for storing Node components.

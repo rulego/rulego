@@ -70,19 +70,15 @@ func init() {
 
 // ForNodeConfiguration defines the configuration for the ForNode.
 type ForNodeConfiguration struct {
-	// Range is the target expression to iterate over, supporting arrays, slices, and structs.
-	// Expr expressions are allowed, e.g., ${msg.items}, 1..5 to iterate over []int{1,2,3,4,5}.
-	// If empty, it iterates over the msg payload.
-	Range string
-	// Do specifies the node or sub-rule chain to process the iterated elements,
-	//e.g., "s1", where the item will start executing from the branch chain of s1 until the chain completes,
-	//then returns to the starting point of the iteration.
-	// The item can also be processed by a sub-rule chain, using the syntax: chain:chainId,
-	//e.g., chain:rule01, where the item will start executing from the sub-chain rule01 until the chain completes,
-	//then returns to the starting point of the iteration.
-	Do string
-	// Mode 0:不处理msg，1：合并遍历msg.Data，2：替换msg,3:异步处理每一项
-	Mode int
+	// Range is the target expression to iterate over.
+	// Supports msg fields, metadata, numeric ranges (1..5), and expressions.
+	// If empty, iterates over the msg payload.
+	Range string `json:"range" label:"Range" desc:"Target to iterate: msg.items, metadata.list, 1..5, or expression. Empty=msg payload" required:"true"`
+	// Do is the node ID or sub-rule chain to process each element.
+	// Format: {nodeId} or chain:{chainId}
+	Do string `json:"do" label:"Do" desc:"Node ID or sub-chain to process each item. Format: {nodeId} or chain:{chainId}" required:"true"`
+	// Mode: 0=do not process, 1=merge results, 2=replace msg, 3=async
+	Mode int `json:"mode" label:"Mode" desc:"0=ignore results, 1=merge into array, 2=replace msg each iteration, 3=async fire-and-forget"`
 }
 
 // ForNode provides iteration capabilities for processing collections, arrays, and data structures.
@@ -516,4 +512,9 @@ func (x *ForNode) formDoVar() error {
 		return fmt.Errorf("do variable should be nodeId or chain:chainId style")
 	}
 	return nil
+}
+
+// Desc returns the component description
+func (x *ForNode) Desc() string {
+	return "Iterate over collections with range expression. do specifies processing node/chain. mode: 0=ignore, 1=merge, 2=replace, 3=async. Routes to Success/Failure"
 }

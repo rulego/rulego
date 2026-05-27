@@ -990,8 +990,7 @@ func TestRouterMatchOptions(t *testing.T) {
 
 // 测试TCP处理器的路由匹配逻辑
 func TestTcpHandlerRouteMatching(t *testing.T) {
-	ep := &Net{}
-	handler := &TcpHandler{endpoint: ep}
+	_ = &Net{}
 
 	// 创建测试路由
 	router1 := &RegexpRouter{
@@ -1024,7 +1023,7 @@ func TestTcpHandlerRouteMatching(t *testing.T) {
 		}
 
 		// 测试默认匹配（无选项）
-		result := handler.matchesRouter(router1, rawData, encodedData, exchange)
+		result := router1.Match(rawData, encodedData, exchange)
 		assert.True(t, result) // 无正则表达式，应该匹配所有
 	})
 
@@ -1038,7 +1037,7 @@ func TestTcpHandlerRouteMatching(t *testing.T) {
 		}
 
 		// 测试原始数据匹配
-		result := handler.matchesRouter(router2, rawData, encodedData, exchange)
+		result := router2.Match(rawData, encodedData, exchange)
 		assert.True(t, result) // 原始数据包含"test"
 	})
 
@@ -1048,7 +1047,7 @@ func TestTcpHandlerRouteMatching(t *testing.T) {
 		exchange1 := &endpoint.Exchange{
 			In: &RequestMessage{body: shortData},
 		}
-		result1 := handler.matchesRouter(router3, shortData, shortData, exchange1)
+		result1 := router3.Match(shortData, shortData, exchange1)
 		assert.False(t, result1) // 长度5 < 最小长度10
 
 		// 数据长度合适
@@ -1056,7 +1055,7 @@ func TestTcpHandlerRouteMatching(t *testing.T) {
 		exchange2 := &endpoint.Exchange{
 			In: &RequestMessage{body: validData},
 		}
-		result2 := handler.matchesRouter(router3, validData, validData, exchange2)
+		result2 := router3.Match(validData, validData, exchange2)
 		assert.True(t, result2) // 长度在范围内
 
 		// 数据太长
@@ -1067,15 +1066,14 @@ func TestTcpHandlerRouteMatching(t *testing.T) {
 		exchange3 := &endpoint.Exchange{
 			In: &RequestMessage{body: longData},
 		}
-		result3 := handler.matchesRouter(router3, longData, longData, exchange3)
+		result3 := router3.Match(longData, longData, exchange3)
 		assert.False(t, result3) // 长度100 > 最大长度50
 	})
 }
 
 // 测试UDP处理器的路由匹配逻辑
 func TestUdpHandlerRouteMatching(t *testing.T) {
-	ep := &Net{}
-	handler := &UDPHandler{endpoint: ep}
+	_ = &Net{}
 
 	// 创建测试路由，测试数据类型过滤
 	router := &RegexpRouter{
@@ -1098,14 +1096,14 @@ func TestUdpHandlerRouteMatching(t *testing.T) {
 		msg := types.NewMsg(0, "", types.JSON, types.NewMetadata(), string(jsonData))
 		exchange.In.SetMsg(&msg)
 
-		result := handler.matchesRouter(router, jsonData, jsonData, exchange)
+		result := router.Match(jsonData, jsonData, exchange)
 		assert.True(t, result) // JSON类型匹配
 
 		// 测试不匹配的类型
 		textMsg := types.NewMsg(0, "", types.TEXT, types.NewMetadata(), "plain text")
 		exchange.In.SetMsg(&textMsg)
 
-		result2 := handler.matchesRouter(router, jsonData, jsonData, exchange)
+		result2 := router.Match(jsonData, jsonData, exchange)
 		assert.False(t, result2) // TEXT类型不匹配JSON过滤器
 	})
 }
@@ -1177,7 +1175,7 @@ func TestEncodeFeatures(t *testing.T) {
 		ep.Config = Config{Encode: "hex"}
 		input := []byte("Hello")
 		expected := []byte("48656c6c6f") // 修正为小写，与Go标准库hex.Encode输出一致
-		result, dataType := ep.encode(input)
+		result, dataType := encodeData(input, ep.Config.Encode)
 		assert.Equal(t, string(expected), string(result))
 		assert.Equal(t, types.TEXT, dataType)
 	})
@@ -1185,7 +1183,7 @@ func TestEncodeFeatures(t *testing.T) {
 	t.Run("Base64编码", func(t *testing.T) {
 		ep.Config = Config{Encode: "base64"}
 		input := []byte("Hello World")
-		result, dataType := ep.encode(input)
+		result, dataType := encodeData(input, ep.Config.Encode)
 		assert.Equal(t, types.TEXT, dataType)
 		// 验证结果是有效的Base64
 		assert.True(t, len(result) > 0)
@@ -1202,7 +1200,7 @@ func TestEncodeFeatures(t *testing.T) {
 	t.Run("无编码", func(t *testing.T) {
 		ep.Config = Config{Encode: ""}
 		input := []byte("Hello")
-		result, dataType := ep.encode(input)
+		result, dataType := encodeData(input, ep.Config.Encode)
 		assert.Equal(t, string(input), string(result))
 		assert.Equal(t, types.BINARY, dataType) // 默认为二进制
 	})
@@ -1210,7 +1208,7 @@ func TestEncodeFeatures(t *testing.T) {
 	t.Run("未知编码类型", func(t *testing.T) {
 		ep.Config = Config{Encode: "unknown"}
 		input := []byte("Hello")
-		result, dataType := ep.encode(input)
+		result, dataType := encodeData(input, ep.Config.Encode)
 		assert.Equal(t, string(input), string(result))
 		assert.Equal(t, types.BINARY, dataType) // 默认为二进制
 	})
@@ -1558,8 +1556,6 @@ func TestPacketModeRouting(t *testing.T) {
 
 // 测试编码数据的路由匹配
 func TestEncodedDataRouting(t *testing.T) {
-	ep := &Net{}
-	handler := &TcpHandler{endpoint: ep}
 
 	t.Run("十六进制编码路由", func(t *testing.T) {
 		// 测试十六进制编码数据的路由
@@ -1578,7 +1574,7 @@ func TestEncodedDataRouting(t *testing.T) {
 			In: &RequestMessage{body: encodedData},
 		}
 
-		result := handler.matchesRouter(router, rawData, encodedData, exchange)
+		result := router.Match(rawData, encodedData, exchange)
 		assert.True(t, result) // 编码后的数据是十六进制
 	})
 
@@ -1599,7 +1595,7 @@ func TestEncodedDataRouting(t *testing.T) {
 			In: &RequestMessage{body: encodedData},
 		}
 
-		result := handler.matchesRouter(router, rawData, encodedData, exchange)
+		result := router.Match(rawData, encodedData, exchange)
 		assert.True(t, result) // 编码后的数据是Base64
 	})
 
@@ -1619,7 +1615,7 @@ func TestEncodedDataRouting(t *testing.T) {
 			In: &RequestMessage{body: encodedData},
 		}
 
-		result := handler.matchesRouter(router, rawData, encodedData, exchange)
+		result := router.Match(rawData, encodedData, exchange)
 		assert.True(t, result) // 原始数据以"Hel"开头
 	})
 }

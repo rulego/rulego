@@ -60,15 +60,9 @@ func init() {
 // JsTransformNodeConfiguration JS转换节点配置
 // JsTransformNodeConfiguration defines the configuration for JsTransformNode.
 type JsTransformNodeConfiguration struct {
-	// JsScript JavaScript脚本，用于转换消息
-	// JsScript JavaScript script for message transformation.
-	// 函数参数：msg, metadata, msgType, dataType
-	// Function parameters: msg, metadata, msgType, dataType
-	// 必须返回：{'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType}
+	// JsScript is the JavaScript script for message transformation.
 	// Must return: {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType}
-	// 支持修改消息的任意字段，dataType字段可选
-	// Supports modifying any message fields, dataType field is optional
-	JsScript string
+	JsScript string `json:"jsScript" label:"Transform Script" desc:"JavaScript script, must return {'msg':msg,'metadata':metadata,'msgType':msgType}. Params: msg, metadata, msgType, dataType" required:"true"`
 }
 
 // JsTransformNode JavaScript消息转换节点，使用JavaScript脚本对消息进行转换处理
@@ -277,6 +271,11 @@ func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleM
 
 	// 发送到Success链
 	ctx.TellNext(msg, types.Success)
+}
+
+// Desc returns the component description
+func (x *JsTransformNode) Desc() string {
+	return "Transform messages using JavaScript. Must return {'msg':msg,'metadata':metadata,'msgType':msgType}. Params: msg, metadata, msgType, dataType."
 }
 
 // Destroy 清理资源

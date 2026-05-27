@@ -42,16 +42,10 @@ func init() {
 // ChainNodeConfiguration ChainNode配置结构
 // ChainNodeConfiguration defines the configuration structure for the ChainNode component.
 type ChainNodeConfiguration struct {
-	// TargetId 指定要执行的子规则链ID
-	// TargetId specifies the ID of the sub-rule chain to execute.
-	// This must be a valid rule chain ID that exists in the rule engine.
-	TargetId string
-
-	// Extend 控制如何处理子规则链输出
-	// Extend controls how sub-rule chain outputs are handled.
-	// true: Inherit sub-rule chain relations and outputs (no merging) 继承子规则链的关系和输出（不合并）
-	// false: Merge sub-rule chain relations and outputs 合并子规则链的关系和输出
-	Extend bool
+	// TargetId is the sub-rule chain ID to execute.
+	TargetId string `json:"targetId" label:"Target Chain ID" desc:"Sub-rule chain ID to execute" required:"true"`
+	// Extend: true=inherit sub-chain relations without merging, false=merge all outputs.
+	Extend bool `json:"extend" label:"Extend" desc:"true=forward each sub-chain output directly, false=merge all outputs into single result"`
 }
 
 // ChainNode 执行子规则链的流控制组件
@@ -186,4 +180,9 @@ func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg) {
 // Destroy 清理资源
 // Destroy cleans up resources.
 func (x *ChainNode) Destroy() {
+}
+
+// Desc returns the component description
+func (x *ChainNode) Desc() string {
+	return "Execute a sub-rule chain by targetId. extend=true forwards each output directly, false merges all outputs. Routes to Success/Failure"
 }

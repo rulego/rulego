@@ -41,15 +41,11 @@ func init() {
 }
 
 // JoinNodeConfiguration JoinNode配置结构
-// JoinNodeConfiguration defines the configuration structure for the JoinNode component.
 type JoinNodeConfiguration struct {
-	// Timeout 执行超时时间（秒），默认值0表示无超时限制
-	// Timeout specifies the execution timeout in seconds.
-	// Default value of 0 means no timeout limit.
-	Timeout int
-	// MergeToMap 如果true，如果是json类型 则把所有节点的输出data合并到同一个map
-	// MergeToMap if true, and if the data type is JSON, merges the output data of all nodes into the same map.
-	MergeToMap bool
+	// Timeout is the execution timeout in seconds. 0=no limit.
+	Timeout int `json:"timeout" label:"Timeout" desc:"Timeout waiting for all branches in seconds, 0=no limit"`
+	// MergeToMap merges all branch outputs into a {branchName: result} map if true.
+	MergeToMap bool `json:"mergeToMap" label:"Merge to Map" desc:"true=merge all branch outputs into {branchName: result} map, false=use last message"`
 }
 
 // JoinNode 合并多个异步节点执行结果的动作组件
@@ -162,6 +158,11 @@ func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			}
 		}
 	}
+}
+
+// Desc returns the component description
+func (x *JoinNode) Desc() string {
+	return "Wait for all fork branches to complete and merge results. mergeToMap=true creates {branchName: result} map. Routes to Success/Failure"
 }
 
 // Destroy 清理资源

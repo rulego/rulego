@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -121,40 +122,74 @@ func TestRestApiCallNode(t *testing.T) {
 			},
 		}
 
+		// 使用 channel 收集结果，避免并发访问 t
+		type result struct {
+			relationType string
+			statusCode   string
+			err          error
+		}
+		var mu sync.Mutex
+		results := make([]result, 0, 4)
+
 		var nodeList = []test.NodeAndCallback{
 			{
 				Node:    node1,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					code := msg.Metadata.GetValue(StatusCodeMetadataKey)
-					assert.Equal(t, "405", code)
+					mu.Lock()
+					results = append(results, result{relationType: relationType, statusCode: code, err: err})
+					mu.Unlock()
 				},
 			},
 			{
 				Node:    node2,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Success, relationType)
+					mu.Lock()
+					results = append(results, result{relationType: relationType, err: err})
+					mu.Unlock()
 				},
 			},
 			{
 				Node:    node3,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Failure, relationType)
+					mu.Lock()
+					results = append(results, result{relationType: relationType, err: err})
+					mu.Unlock()
 				},
 			},
 			{
 				Node:    node4,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Success, relationType)
+					mu.Lock()
+					results = append(results, result{relationType: relationType, err: err})
+					mu.Unlock()
 				},
 			},
 		}
 		for _, item := range nodeList {
 			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
+
+		// 等待所有回调完成
+		time.Sleep(time.Millisecond * 500)
+
+		// 在主线程中断言
+		mu.Lock()
+		assert.Equal(t, 4, len(results))
+		for _, r := range results {
+			if r.statusCode == "405" {
+				assert.Equal(t, "405", r.statusCode)
+			} else if r.err != nil {
+				assert.Equal(t, types.Failure, r.relationType)
+			} else {
+				assert.Equal(t, types.Success, r.relationType)
+			}
+		}
+		mu.Unlock()
 	})
 
 	//SSE(Server-Sent Events)流式请求

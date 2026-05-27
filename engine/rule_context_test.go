@@ -482,6 +482,73 @@ func TestRuleContext(t *testing.T) {
 		time.Sleep(time.Millisecond * 100)
 		assert.Equal(t, int32(0), atomic.LoadInt32(&count))
 	})
+	t.Run("WithDebugMode", func(t *testing.T) {
+		// ruleChainFile 已设置 debugMode=true，验证 WithDebugMode 的覆盖能力
+		ruleEngine, _ := New("TestRuleContext_WithDebugMode", []byte(ruleChainFile), WithConfig(config))
+		defer Del(ruleEngine.Id())
+
+		var debugCount = int32(0)
+		// 链级 debugMode=true，回调正常触发
+		ruleEngine.OnMsg(msg, types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			atomic.AddInt32(&debugCount, 1)
+		}))
+		time.Sleep(time.Millisecond * 100)
+		assert.Equal(t, int32(4), atomic.LoadInt32(&debugCount))
+		atomic.StoreInt32(&debugCount, 0)
+
+		// WithDebugMode(true) 显式启用
+		ruleEngine.OnMsg(msg, types.WithDebugMode(true), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			atomic.AddInt32(&debugCount, 1)
+		}))
+		time.Sleep(time.Millisecond * 100)
+		assert.Equal(t, int32(4), atomic.LoadInt32(&debugCount))
+		atomic.StoreInt32(&debugCount, 0)
+
+		// WithDebugMode(false) 强制关闭 per-message 调试，覆盖链级 debugMode=true
+		ruleEngine.OnMsg(msg, types.WithDebugMode(false), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			atomic.AddInt32(&debugCount, 1)
+		}))
+		time.Sleep(time.Millisecond * 100)
+		assert.Equal(t, int32(0), atomic.LoadInt32(&debugCount))
+	})
+	t.Run("WithSkipTellNext", func(t *testing.T) {
+		ruleEngine, _ := New("TestRuleContext_WithSkipTellNext", []byte(ruleChainFile), WithConfig(config))
+		defer Del(ruleEngine.Id())
+
+		var count = int32(0)
+		// WithStartNode("s1") 正常执行 s1 + s2
+		ruleEngine.OnMsg(msg, types.WithStartNode("s1"), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			atomic.AddInt32(&count, 1)
+		}))
+		time.Sleep(time.Millisecond * 100)
+		assert.Equal(t, int32(4), atomic.LoadInt32(&count))
+		atomic.StoreInt32(&count, 0)
+
+		// WithStartNode("s1") + WithSkipTellNext()：仅执行 s1，不传播到 s2
+		ruleEngine.OnMsg(msg, types.WithStartNode("s1"), types.WithSkipTellNext(), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			atomic.AddInt32(&count, 1)
+		}))
+		time.Sleep(time.Millisecond * 100)
+		// 仅 s1 的 IN+OUT = 2 次
+		assert.Equal(t, int32(2), atomic.LoadInt32(&count))
+		atomic.StoreInt32(&count, 0)
+
+		// WithStartNode("s2") + WithSkipTellNext()：仅执行 s2
+		ruleEngine.OnMsg(msg, types.WithStartNode("s2"), types.WithSkipTellNext(), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			atomic.AddInt32(&count, 1)
+		}))
+		time.Sleep(time.Millisecond * 100)
+		// 仅 s2 的 IN+OUT = 2 次
+		assert.Equal(t, int32(2), atomic.LoadInt32(&count))
+		atomic.StoreInt32(&count, 0)
+
+		// OnMsgAndWait 同样生效
+		ruleEngine.OnMsgAndWait(msg, types.WithStartNode("s2"), types.WithSkipTellNext(), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			atomic.AddInt32(&count, 1)
+		}))
+		time.Sleep(time.Millisecond * 100)
+		assert.Equal(t, int32(2), atomic.LoadInt32(&count))
+	})
 	t.Run("ContextCancellation", func(t *testing.T) {
 		// 测试 OnMsg context 取消
 		ruleChainWithFunctions := `{

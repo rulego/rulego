@@ -48,13 +48,8 @@ const (
 
 // LevelKey 缓存key
 type LevelKey struct {
-	// Level 缓存级别，chain或global
-	// chain: 规则链缓存，在当前规则链命名空间下操作，用于规则链实例内不同执行上下文之间的数据共享。如果规则链实例被销毁，会自动删除该规则链命名空间下所有缓存
-	// global: 全局缓存，在全局命名空间下操作，用于跨规则链间的数据共享
-	Level string `json:"level"`
-	// 可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	// 支持 * 通配符查找，例如：test:* 表示以test: 开头的所有key
-	Key string `json:"key"`
+	Level string `json:"level" label:"Level" desc:"Cache level"`
+	Key   string `json:"key" label:"Key" desc:"Cache key, supports ${metadata.key} and ${msg.key} substitution" required:"true"`
 }
 
 // LevelKeyTemplate 缓存key模板
@@ -72,18 +67,9 @@ const (
 
 // CacheGetNodeConfiguration 缓存获取节点配置
 type CacheGetNodeConfiguration struct {
-	// Keys 获取key列表
-	Keys []LevelKey `json:"keys"`
-	// OutputMode 输出模式
-	// 0:查询结果，合并到当前消息元数据
-	// 1:查询结果，合并到当前消息负荷。要求输入消息负荷`DataType`必须是JSON类型，并且消息负荷`Data`可以解析为map结构
-	// 2:查询结果，转成JSON，覆盖原消息负荷输出
-	OutputMode int `json:"outputMode"`
-	// WhenKeyNotFound 找不到key时的处理策略
-	// "": 保持原有行为（Mode 0/1 走成功链，Mode 2 全 miss 走失败链）
-	// "failure": 找不到key时走失败链
-	// "success": 找不到key时走成功链
-	WhenKeyNotFound string `json:"whenKeyNotFound"`
+	Keys            []LevelKey `json:"keys" label:"Keys" desc:"Cache keys to query" required:"true"`
+	OutputMode      int        `json:"outputMode" label:"Output Mode" desc:"0=merge to metadata, 1=replace msg"`
+	WhenKeyNotFound string     `json:"whenKeyNotFound" label:"When Not Found" desc:"Behavior when key not found: ignore, error, default(return empty)"`
 }
 
 // CacheGetNode retrieves data from cache storage at different levels (chain or global).
@@ -294,24 +280,14 @@ func (x *CacheGetNode) outputResult(ctx types.RuleContext, msg types.RuleMsg, va
 
 // CacheSetNodeConfiguration 缓存设置节点配置
 type CacheSetNodeConfiguration struct {
-	// Items 缓存项列表
-	Items []CacheItem `json:"items"`
+	Items []CacheItem `json:"items" label:"Items" desc:"Cache items to set" required:"true"`
 }
 
 type CacheItem struct {
-	// Level 缓存级别，chain或global
-	// chain: 规则链缓存，在当前规则链命名空间下操作，用于规则链实例内不同执行上下文之间的数据共享。如果规则链实例被销毁，会自动删除该规则链命名空间下所有缓存
-	// global: 全局缓存，在全局命名空间下操作，用于跨规则链间的数据共享
-	Level string `json:"level"`
-	//  key 键
-	// 可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	Key string `json:"key"`
-	// value 值
-	// 可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	Value interface{} `json:"value"`
-	// Ttl 过期时间
-	// 示例：1h(1小时) 1h30m(1小时30分钟) 10m(10分钟) 10s(10秒)，如果为空或者0，则表示永不过期
-	Ttl string `json:"ttl"`
+	Level string      `json:"level" label:"Level" desc:"Cache level"`
+	Key   string      `json:"key" label:"Key" desc:"Cache key, supports ${metadata.key} and ${msg.key} substitution" required:"true"`
+	Value interface{} `json:"value" label:"Value" desc:"Cache value, supports ${metadata.key} and ${msg.key} substitution" required:"true"`
+	Ttl   string      `json:"ttl" label:"TTL" desc:"Cache TTL, e.g. 10s, 5m, 1h"`
 }
 
 type CacheItemTemplate struct {
@@ -481,8 +457,7 @@ func (x *CacheSetNode) Destroy() {
 
 // CacheDeleteNodeConfiguration 缓存删除节点配置
 type CacheDeleteNodeConfiguration struct {
-	// Keys 删除的键列表
-	Keys []LevelKey `json:"keys"`
+	Keys []LevelKey `json:"keys" label:"Keys" desc:"Cache keys to delete" required:"true"`
 }
 
 // CacheDeleteNode removes data from cache storage at different levels.
@@ -605,4 +580,19 @@ func (x *CacheDeleteNode) handleDelete(ctx types.RuleContext, msg types.RuleMsg,
 
 // Destroy 销毁组件
 func (x *CacheDeleteNode) Destroy() {
+}
+
+// Desc returns the component description
+func (x *CacheGetNode) Desc() string {
+	return "Retrieve data from chain/global cache. Supports wildcard keys (*), variable substitution. outputMode: 0=metadata, 1=merge to msg, 2=replace msg. Routes to Success/Failure"
+}
+
+// Desc returns the component description
+func (x *CacheSetNode) Desc() string {
+	return "Store data in chain/global cache with TTL. Keys and values support ${metadata.key} and ${msg.key} substitution. TTL format: 1h, 30m, 10s. Routes to Success/Failure"
+}
+
+// Desc returns the component description
+func (x *CacheDeleteNode) Desc() string {
+	return "Delete data from chain/global cache. Supports exact keys and wildcard prefix deletion (*). Routes to Success/Failure"
 }

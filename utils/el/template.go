@@ -2,14 +2,79 @@ package el
 
 import (
 	"fmt"
+	"io"
+	"log"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
 	"github.com/rulego/rulego/utils/str"
 )
+
+// remoteHTTPClient 用于 include 函数的远程请求，复用连接
+var remoteHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
+// remoteCache 缓存远程 URL 内容，避免热路径重复请求
+var remoteCache struct {
+	sync.RWMutex
+	items map[string]cacheEntry
+}
+
+type cacheEntry struct {
+	content   string
+	expiresAt time.Time
+}
+
+const remoteCacheTTL = 30 * time.Second
+
+func init() {
+	remoteCache.items = make(map[string]cacheEntry)
+}
+
+// fetchRemoteContent 通过 HTTP GET 获取远程内容，带 TTL 缓存
+func fetchRemoteContent(url string) string {
+	// 检查缓存
+	remoteCache.RLock()
+	if entry, ok := remoteCache.items[url]; ok && time.Now().Before(entry.expiresAt) {
+		remoteCache.RUnlock()
+		return entry.content
+	}
+	remoteCache.RUnlock()
+
+	resp, err := remoteHTTPClient.Get(url)
+	if err != nil {
+		log.Printf("template include: fetch remote %s failed: %v", url, err)
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("template include: fetch remote %s returned status %d", url, resp.StatusCode)
+		return ""
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("template include: read remote %s body failed: %v", url, err)
+		return ""
+	}
+	content := string(body)
+
+	// 写入缓存
+	remoteCache.Lock()
+	remoteCache.items[url] = cacheEntry{content: content, expiresAt: time.Now().Add(remoteCacheTTL)}
+	remoteCache.Unlock()
+
+	return content
+}
+
+// isRemoteURL 判断路径是否为远程 URL
+func isRemoteURL(path string) bool {
+	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://")
+}
 
 type Template interface {
 	Parse() error
@@ -183,7 +248,12 @@ func (t *ExprTemplate) includeFunc() func(string) string {
 			return t.config.IncludeFunc(path)
 		}
 
-		// 默认实现：读取文件
+		// 远程 URL 支持
+		if isRemoteURL(path) {
+			return fetchRemoteContent(path)
+		}
+
+		// 默认实现：读取本地文件
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return ""
@@ -384,6 +454,10 @@ func (t *MixedTemplate) buildEnv(data map[string]any) map[string]any {
 		env["include"] = func(path string) string {
 			if t.config.IncludeFunc != nil {
 				return t.config.IncludeFunc(path)
+			}
+			// 远程 URL 支持
+			if isRemoteURL(path) {
+				return fetchRemoteContent(path)
 			}
 			content, _ := os.ReadFile(path)
 			return string(content)

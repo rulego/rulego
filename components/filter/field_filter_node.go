@@ -33,26 +33,15 @@ func init() {
 // FieldFilterNodeConfiguration FieldFilterNode配置结构
 // FieldFilterNodeConfiguration defines the configuration structure for the FieldFilterNode component.
 type FieldFilterNodeConfiguration struct {
-	// CheckAllKeys 决定字段检查逻辑
-	// CheckAllKeys determines the field checking logic:
-	//   - true: All specified fields must exist for message to pass filter
-	//   - false: Any specified field existing will pass the filter
-	CheckAllKeys bool
+	// CheckAllKeys determines field checking logic.
+	// true: all specified fields must exist; false: any field existing is sufficient.
+	CheckAllKeys bool `json:"checkAllKeys" label:"Check All Keys" desc:"true=ALL fields must exist, false=ANY field exists is sufficient"`
 
-	// DataNames 指定要在消息数据中检查的字段名称，多个字段名称用逗号分隔
-	// DataNames specifies the field names to check in message data.
-	// Multiple field names should be separated by commas.
-	// Only applicable when message data type is JSON.
-	//
-	// Example: "temperature,humidity,pressure"
-	DataNames string
+	// DataNames specifies comma-separated field names to check in message data (JSON only).
+	DataNames string `json:"dataNames" label:"Data Fields" desc:"Comma-separated field names to check in message data (JSON only)"`
 
-	// MetadataNames 指定要在消息元数据中检查的字段名称，多个字段名称用逗号分隔
-	// MetadataNames specifies the field names to check in message metadata.
-	// Multiple field names should be separated by commas.
-	//
-	// Example: "deviceId,location,timestamp"
-	MetadataNames string
+	// MetadataNames specifies comma-separated field names to check in message metadata.
+	MetadataNames string `json:"metadataNames" label:"Metadata Fields" desc:"Comma-separated field names to check in message metadata"`
 }
 
 // FieldFilterNode 根据消息数据和元数据中指定字段的存在来过滤消息的过滤组件
@@ -132,6 +121,11 @@ func (x *FieldFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			ctx.TellNext(msg, types.False)
 		}
 	}
+}
+
+// Desc returns the component description
+func (x *FieldFilterNode) Desc() string {
+	return "Filter messages by checking existence of specified fields in message data (JSON) and metadata. checkAllKeys controls AND/OR logic. Routes to True/False"
 }
 
 // Destroy 清理资源

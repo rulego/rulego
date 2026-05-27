@@ -52,16 +52,16 @@ func init() {
 // SshConfiguration SSH节点配置
 // SshConfiguration defines SSH node configuration.
 type SshConfiguration struct {
-	//Host ssh 主机地址
-	Host string
-	//Port ssh 主机端口
-	Port int
-	//Username ssh登录用户名
-	Username string
-	//Password ssh登录密码
-	Password string
-	//Cmd shell命令,可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
-	Cmd string
+	// Host is the SSH server address.
+	Host string `json:"host" label:"Host" desc:"SSH server host address" required:"true"`
+	// Port is the SSH server port.
+	Port int `json:"port" label:"Port" desc:"SSH server port, default 22" required:"true"`
+	// Username is the SSH login username.
+	Username string `json:"username" label:"Username" desc:"SSH login username" required:"true"`
+	// Password is the SSH login password.
+	Password string `json:"password" label:"Password" desc:"SSH login password" required:"true"`
+	// Cmd is the shell command. Supports ${metadata.key} and ${msg.key} substitution.
+	Cmd string `json:"cmd" label:"Command" desc:"Shell command to execute. Supports ${metadata.key} and ${msg.key} substitution" required:"true"`
 }
 
 // SshNode SSH远程命令执行组件，建立SSH连接到远程主机并执行shell命令
@@ -232,4 +232,9 @@ func (x *SshNode) Destroy() {
 		_ = x.client.Close()
 		x.client = nil
 	}
+}
+
+// Desc returns the component description
+func (x *SshNode) Desc() string {
+	return "SSH remote command execution. Connects to remote host and executes shell commands. cmd supports ${metadata.key} and ${msg.key} substitution. Routes to Success/Failure"
 }

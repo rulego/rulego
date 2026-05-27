@@ -79,3 +79,11 @@ func (x *CommentNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 // Destroy cleans up resources.
 func (x *CommentNode) Destroy() {
 }
+
+// Def returns the component form definition
+func (x *CommentNode) Def() types.ComponentForm {
+	return types.ComponentForm{
+		Desc:          "Comment node for visual editor annotations. Passes messages through unchanged",
+		RelationTypes: &[]string{types.Success},
+	}
+}
