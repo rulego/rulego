@@ -145,6 +145,7 @@ type WsClientResponseMessage struct {
 	msg         *types.RuleMsg
 	err         error
 	mu          sync.RWMutex
+	writeMu     *sync.Mutex
 }
 
 func (r *WsClientResponseMessage) Body() []byte {
@@ -190,14 +191,16 @@ func (r *WsClientResponseMessage) SetBody(body []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.body = body
-	if r.conn != nil {
+	if r.conn != nil && r.writeMu != nil {
 		mt := r.messageType
 		if mt == 0 {
 			mt = websocket.TextMessage
 		}
+		r.writeMu.Lock()
 		if err := r.conn.WriteMessage(mt, body); err != nil {
 			r.err = err
 		}
+		r.writeMu.Unlock()
 	}
 }
 
@@ -222,6 +225,7 @@ type WsClient struct {
 	routers    map[string]endpoint.Router
 	closed     int32
 	mu         sync.RWMutex
+	writeMu    sync.Mutex
 	OnEvent    func(event string, params ...interface{})
 	// OnDial 在每次建立连接前调用，可用于动态设置鉴权Header
 	// Called before each connection attempt, can be used to dynamically set auth headers
@@ -317,8 +321,10 @@ func (c *WsClient) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.conn != nil {
+		c.writeMu.Lock()
 		err := c.conn.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		c.writeMu.Unlock()
 		_ = c.conn.Close()
 		c.conn = nil
 		return err
@@ -458,6 +464,7 @@ func (c *WsClient) readLoop(conn *websocket.Conn) {
 				conn:        conn,
 				messageType: mt,
 				from:        from,
+				writeMu:     &c.writeMu,
 			},
 		}
 
@@ -491,6 +498,7 @@ func (c *WsClient) heartbeatLoop(conn *websocket.Conn) {
 
 		if currentConn != nil {
 			var err error
+			c.writeMu.Lock()
 			if c.OnHeartbeat != nil {
 				err = c.OnHeartbeat(currentConn)
 			} else if c.Config.HeartbeatData != "" {
@@ -498,6 +506,7 @@ func (c *WsClient) heartbeatLoop(conn *websocket.Conn) {
 			} else {
 				err = currentConn.WriteMessage(websocket.PingMessage, nil)
 			}
+			c.writeMu.Unlock()
 			if err != nil {
 				c.Printf("ws client heartbeat send failed: %v", err)
 				return
@@ -543,6 +552,8 @@ func (c *WsClient) Send(data []byte) error {
 	if conn == nil {
 		return errors.New("not connected")
 	}
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
 	return conn.WriteMessage(websocket.TextMessage, data)
 }
 
@@ -554,5 +565,7 @@ func (c *WsClient) SendBinary(data []byte) error {
 	if conn == nil {
 		return errors.New("not connected")
 	}
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
 	return conn.WriteMessage(websocket.BinaryMessage, data)
 }
