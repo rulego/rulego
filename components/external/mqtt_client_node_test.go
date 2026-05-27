@@ -31,7 +31,7 @@ func TestMqttClientNode(t *testing.T) {
 		test.NodeNew(t, targetNodeType, &MqttClientNode{}, types.Configuration{
 			"topic":                "/device/msg",
 			"server":               "127.0.0.1:1883",
-			"qOS":                  uint8(0),
+			"qos":                  uint8(0),
 			"maxReconnectInterval": 60,
 		}, Registry)
 	})
@@ -40,12 +40,12 @@ func TestMqttClientNode(t *testing.T) {
 		test.NodeInit(t, targetNodeType, types.Configuration{
 			"topic":                "/device/msg",
 			"server":               "127.0.0.1:1883",
-			"qOS":                  uint8(1),
+			"qos":                  uint8(1),
 			"MaxReconnectInterval": 60,
 		}, types.Configuration{
 			"topic":                "/device/msg",
 			"server":               "127.0.0.1:1883",
-			"qOS":                  uint8(1),
+			"qos":                  uint8(1),
 			"maxReconnectInterval": 60,
 		}, Registry)
 	})
@@ -54,12 +54,12 @@ func TestMqttClientNode(t *testing.T) {
 		test.NodeInit(t, targetNodeType, types.Configuration{
 			"topic":                "/device/msg",
 			"server":               "127.0.0.1:1883",
-			"qOS":                  uint8(1),
+			"qos":                  uint8(1),
 			"MaxReconnectInterval": 60,
 		}, types.Configuration{
 			"topic":                "/device/msg",
 			"server":               "127.0.0.1:1883",
-			"qOS":                  uint8(1),
+			"qos":                  uint8(1),
 			"maxReconnectInterval": 60,
 		}, Registry)
 	})

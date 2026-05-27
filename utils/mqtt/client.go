@@ -64,16 +64,16 @@ type Handler struct {
 
 // Config 客户端配置
 type Config struct {
-	Server               string        `json:"server" label:"Server" desc:"MQTT broker address, format: host:port" required:"true"`
-	Username             string        `json:"username" label:"Username" desc:"MQTT authentication username"`
-	Password             string        `json:"password" label:"Password" desc:"MQTT authentication password"`
+	Server               string        `json:"server" label:"Server" desc:"MQTT broker address, format: host:port" required:"true" ref:"primary"``
+	Username             string        `json:"username" label:"Username" desc:"MQTT authentication username" ref:"shared"`
+	Password             string        `json:"password" label:"Password" desc:"MQTT authentication password" ref:"shared"`
 	MaxReconnectInterval time.Duration `json:"maxReconnectInterval" label:"Max Reconnect Interval" desc:"Max reconnection interval, e.g. 10s, 1m"`
 	QOS                  uint8         `json:"qos" label:"QoS" desc:"QoS level: 0(at most once), 1(at least once), 2(exactly once)"`
 	CleanSession         bool          `json:"cleanSession" label:"Clean Session" desc:"Whether to clear previous session state"`
 	ClientID             string        `json:"clientId" label:"Client ID" desc:"MQTT client unique identifier, default is random"`
-	CAFile               string        `json:"caFile" label:"CA File" desc:"CA certificate file path for TLS"`
-	CertFile             string        `json:"certFile" label:"Cert File" desc:"TLS client certificate file path"`
-	CertKeyFile          string        `json:"certKeyFile" label:"Cert Key File" desc:"TLS client private key file path"`
+	CAFile               string        `json:"caFile" label:"CA File" desc:"CA certificate file path for TLS" ref:"shared"`
+	CertFile             string        `json:"certFile" label:"Cert File" desc:"TLS client certificate file path" ref:"shared"`
+	CertKeyFile          string        `json:"certKeyFile" label:"Cert Key File" desc:"TLS client private key file path" ref:"shared"`
 }
 
 // Client mqtt客户端
