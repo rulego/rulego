@@ -178,9 +178,8 @@ func TestRestApiCallNode(t *testing.T) {
 		time.Sleep(time.Millisecond * 500)
 
 		// 在主线程中断言
-		assert.Equal(t, 4, len(results))
 		mu.Lock()
-		defer mu.Unlock()
+		assert.Equal(t, 4, len(results))
 		for _, r := range results {
 			if r.statusCode == "405" {
 				assert.Equal(t, "405", r.statusCode)
@@ -190,6 +189,7 @@ func TestRestApiCallNode(t *testing.T) {
 				assert.Equal(t, types.Success, r.relationType)
 			}
 		}
+		mu.Unlock()
 	})
 
 	//SSE(Server-Sent Events)流式请求
