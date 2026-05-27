@@ -46,3 +46,4 @@ coverage.html
 examples/server/data/
 examples/server/editor/
 examples/server/cmd/server/rulego-server
+data/
