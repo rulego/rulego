@@ -763,19 +763,19 @@ type Config struct {
 	// Server 指定要绑定的服务器地址和端口。
 	// 格式："host:port" 或 ":port" 用于所有接口。
 	// 示例：":8080"、"localhost:9090"、"0.0.0.0:3000"
-	Server string `json:"server" label:"Server" desc:"HTTP server address and port to bind to, e.g. :8080, 0.0.0.0:9090" required:"true"`
+	Server string `json:"server" label:"Server" desc:"HTTP server address and port to bind to, e.g. :8080, 0.0.0.0:9090" required:"true" ref:"primary"`
 
 	// CertFile specifies the path to the SSL/TLS certificate file for HTTPS.
 	// When both CertFile and CertKeyFile are provided, the server runs in HTTPS mode.
 	// CertFile 指定 HTTPS 的 SSL/TLS 证书文件路径。
 	// 当提供 CertFile 和 CertKeyFile 时，服务器以 HTTPS 模式运行。
-	CertFile string `json:"certFile" label:"Cert File" desc:"SSL/TLS certificate file path for HTTPS"`
+	CertFile string `json:"certFile" label:"Cert File" desc:"SSL/TLS certificate file path for HTTPS" ref:"shared"`
 
 	// CertKeyFile specifies the path to the SSL/TLS private key file for HTTPS.
 	// This file must correspond to the certificate specified in CertFile.
 	// CertKeyFile 指定 HTTPS 的 SSL/TLS 私钥文件路径。
 	// 此文件必须与 CertFile 中指定的证书对应。
-	CertKeyFile string `json:"certKeyFile" label:"Cert Key File" desc:"SSL/TLS private key file path for HTTPS"`
+	CertKeyFile string `json:"certKeyFile" label:"Cert Key File" desc:"SSL/TLS private key file path for HTTPS" ref:"shared"`
 
 	// AllowCors enables Cross-Origin Resource Sharing (CORS) support.
 	// When true, the server allows cross-origin requests from web browsers.
