@@ -173,8 +173,8 @@ The core feature of `RuleGo` is its component-based architecture, where all busi
 - [Endpoint DSL](https://rulego.cc/en/pages/endpoint-dsl/)
 
 ### RuleGo-Server
-We have provided a ready-to-use automation workflow platform based on `RuleGo`: [RuleGo-Server](https://github.com/rulego/rulego-server) ,
-and a front-end visual editor: [RuleGo-Editor](https://editor.rulego.cc/) .
+We have provided a ready-to-use automation workflow platform based on `RuleGo`: [RuleGo-Server](server/) ,
+and a front-end visual editor: [RuleGo-Editor](https://editor.rulego.cc/) . See [server/README.md](server/README.md) for details.
 ## Performance
 
 `RuleGo` completes most of its work during initialization, so running the rule chain almost doesn't add extra overhead to the system, and the resource consumption is extremely low, making it particularly suitable for running on edge servers.
@@ -192,7 +192,7 @@ Test results: 100 concurrent and 500 concurrent, memory consumption does not cha
 
 ## Ecosystem
 - [RuleGo-Editor](https://editor.rulego.cc/) : Rule chain visual editor
-- [RuleGo-Server](https://github.com/rulego/rulego-server) : Automation workflow platform
+- [RuleGo-Server](server/) : Automation workflow platform
 - [rulego-components](https://gitee.com/rulego/rulego-components) : Extension component library
 - [rulego-components-ai](https://github.com/rulego/rulego-components-ai) : AI scenario component library
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) : CI/CD scenario component library
