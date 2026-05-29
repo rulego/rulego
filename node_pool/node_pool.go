@@ -276,6 +276,9 @@ func (n *NodePool) Load(dsl []byte) (types.NodePool, error) {
 func (n *NodePool) LoadFromRuleChain(def types.RuleChain) (types.NodePool, error) {
 	for _, item := range def.Metadata.Endpoints {
 		if item != nil {
+			if _, ok := n.entries.Load(item.Id); ok {
+				continue
+			}
 			if _, err := n.NewFromEndpoint(*item); err != nil {
 				return nil, err
 			}
@@ -283,6 +286,9 @@ func (n *NodePool) LoadFromRuleChain(def types.RuleChain) (types.NodePool, error
 	}
 	for _, item := range def.Metadata.Nodes {
 		if item != nil {
+			if _, ok := n.entries.Load(item.Id); ok {
+				continue
+			}
 			if _, err := n.NewFromRuleNode(*item); err != nil {
 				return nil, err
 			}
