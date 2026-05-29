@@ -1,5 +1,7 @@
 # server
 
+> **已弃用**：该文档已迁移至 [server/](../../server/) 目录，请参阅 [server/README_ZH.md](../../server/README_ZH.md)。
+
 [English](README.md)| 中文
 
 `RuleGo-Server`一个独立运行的开箱即用规则引擎服务，该工程也是一个开发RuleGo应用的脚手架。你可以基于该工程进行二次开发，也可以直接下载可执行[二进制文件](https://github.com/rulego/rulego/releases)。
