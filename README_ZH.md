@@ -17,9 +17,10 @@
 `RuleGo`是一个基于`Go`语言的轻量级、高性能、嵌入式、新一代组件编排规则引擎。它可以帮助你快速构建低耦合、灵活的系统，实时响应和调整业务需求变更。
 
 `RuleGo` 还提供大量可复用的组件，支持对数据进行聚合、过滤、分发、转换、丰富和执行各种动作，也能和各种协议、系统进行联动和集成。
+
 它在低代码、业务代码编排、数据集成、工作流、大模型智能体、边缘计算、自动化、IoT等多种场景具有广泛的应用潜力。
 
-<h3>您的鼓励是我们前进的动力。如果这个项目对您有帮助，请右上角点个Star吧。</h3>
+### 您的鼓励是我们前进的动力。如果这个项目对您有帮助，请右上角点个 Star 吧。
 
 ## 特性
 
@@ -32,11 +33,11 @@
 * **扩展简单：** 提供丰富灵活的扩展接口，可以很容易地实现自定义组件或者引入第三方组件。
 * **动态加载：** 支持通过`Go plugin` 动态加载组件和扩展组件。
 * **规则链嵌套：** 支持子规则链嵌套，实现流程复用。
-* **内置大量组件：** `消息路由`,`脚本转换`,`过滤器`,`gRPC`,`HTTP`,`MQTT`,`发送邮件`,`数据库操作`
-  等组件。可以自行扩展其他组件。
+* **内置大量组件：** `消息路由`、`脚本转换`、`过滤器`、`gRPC`、`HTTP`、`MQTT`、`发送邮件`、`数据库操作`
+  等组件，可以自行扩展其他组件。
 * **上下文隔离机制：** 可靠的上下文隔离机制，无需担心高并发情况下的数据串流。
 * **AOP机制：** 允许在不修改规则链或节点的原有逻辑的情况下，对规则链的执行添加额外的行为，或者直接替换原规则链或者节点逻辑。
-* **数据集成：** 允许动态配置Endpoint，例如：`HTTP Endpoint`，`MQTT Endpoint`，`TCP/UDP Endpoint`，`UDP Endpoint`，`Kafka Endpoint`，`Schedule Endpoint`等。
+* **数据集成：** 允许动态配置Endpoint，例如：`HTTP Endpoint`，`MQTT Endpoint`，`TCP/UDP Endpoint`，`Kafka Endpoint`，`Schedule Endpoint`等。
 
 ## 使用场景
 
@@ -90,6 +91,7 @@ go get gitee.com/rulego/rulego
 #or 
 go get gitcode.com/rulego/rulego
 ```
+
 ## 使用
 
 `RuleGo` 使用很简单。只需以下3步：
@@ -177,8 +179,8 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 - [Endpoint DSL](https://rulego.cc/pages/endpoint-dsl/)
 
 ### RuleGo-Server
-我们提供了一个基于`RuleGo`的开箱即用自动化工作流平台：[RuleGo-Server](https://github.com/rulego/rulego-server) ，
-以及配套的前端可视化编辑器：[RuleGo-Editor](https://editor.rulego.cc/) 。
+我们提供了一个基于`RuleGo`的开箱即用自动化工作流平台：[RuleGo-Server](server/) ，
+以及配套的前端可视化编辑器：[RuleGo-Editor](https://editor.rulego.cc/) 。详情参考：[server/README_ZH.md](server/README_ZH.md)
 
 ## 性能
 `RuleGo` 大部分工作都在初始化时完成，执行规则链时几乎不会额外增加系统开销，资源占用极低，特别适合在边缘服务器运行。
@@ -197,7 +199,7 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 ## 生态
 
 - [RuleGo-Editor](https://editor.rulego.cc/) ：规则链可视化编辑器
-- [RuleGo-Server](https://github.com/rulego/rulego-server) ：自动化工作流平台
+- [RuleGo-Server](server/) ：自动化工作流平台
 - [rulego-components](https://gitee.com/rulego/rulego-components) ：扩展组件库
 - [rulego-components-ai](https://github.com/rulego/rulego-components-ai) ：AI场景组件库
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) ：CI/CD场景组件库
@@ -211,11 +213,15 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 
 ## 交流群
 
-QQ群号：**720103251**     
+QQ群号：**720103251**
 <img src="doc/imgs/qq.png"  width="258">
 
-微信(加好友拉入群)：**rulegoteam**     
+微信(加好友拉入群)：**rulegoteam**
 <img src="doc/imgs/wechat.png" width="258">
+
+## 联系我们
+
+邮箱：rulego@outlook.com
 
 ## 许可
 
