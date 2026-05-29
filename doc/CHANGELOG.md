@@ -1,5 +1,69 @@
 # CHANGELOG
 
+# [v0.36.0] 2026/06/01
+### rulego-core
+- feat(engine): 增加 Stream 关系类型，支持同步执行流 (#63)
+- feat(endpoint): 增加 SSE 流式推送支持、ScopedMessage 代理和 NetClient/WsClient 端点组件
+- feat(endpoint): rest endpoint 增加 Restart 事件
+- feat(node): 支持递归变量替换和规则链环境变量注入
+- feat(schedule): 支持自定义消息体、类型和元数据参数
+- feat(template): 增加 include 和 fileExists 内置函数
+- feat(maps): 支持 struct 字段访问和回退键查找
+- feat(logger): 重构 Logger 接口，支持日志级别
+- feat: 增加 MCP 工具提供者接口，支持 AI 工具集成；增加 GetUdf/GetUdfs 方法和 AiTool 脚本类型
+- feat(dsl): 增强节点引用提取和字段支持
+- feat(components): 增加 while 节点组件，支持 mode 配置
+- feat(components): cacheGet 节点增加 whenKeyNotFound 配置；cachePut 组件在 outputMode=2 且缓存 key 不存在时路由到 Failure 链 (#104)
+- feat: 完善组件配置表单元数据（JSON 标签、label、ref 标签、RouterForm 和共享节点支持）
+- feat: 支持 per-message debugMode 和 skip-tell-next 控制；预计算链路级别 debugMode
+- feat: 默认字段名标签改为 'json'；支持嵌套结构体扁平化在组件表单配置中
+- feat: GetEnv 支持访问全局 vars 变量
+- feat(dbClient): 增加 IN 子句切片参数展开
+- feat: NodePool.LoadFromRuleChain 跳过已加载条目
+- fix: 修复 JoinNode 超时失败、LCA 算法导致死锁、回调提前触发和元数据未合并等问题
+- fix: 修复 endpoint 节点重复写入
+- fix: 修复全局变量在 endpoint 组件 router 字段不生效 (#93)
+- fix: 修复 metadataToHeaders 处理器在 fasthttp 下不生效 (#95)
+- fix: 修复 ${ } 占位符在 inclusive/switch 节点中的支持
+- fix: 确保 ruleChainPool 传递到 rootRuleContext；传播父 ruleConfig 到动态组件子规则引擎
+- fix: 修复并发分支数据竞争、websocket 并发写入和结果切片竞争问题
+- refactor(cache): 重构 Cache.Get 签名，返回 (interface{}, error)
+- refactor: 不序列化函数体
+- perf: 优化文件操作函数
+- chore: 升级 expr-lang/expr 到 v1.17.8
+### rulego-components
+- feat(nsq): 实现 NSQD 多节点轮询发布与容错机制
+- feat: 增加 python 节点组件
+- feat: 增加文件操作节点组件（读、写、删除、列表）
+- feat: fasthttp endpoint 增加 restart 事件
+- feat: 完善 SharedNode 组件配置的 ref 标签，支持共享连接
+- opt: mongodb 客户端组件支持 ObjectId 自动转换
+- refactor(lua): 重构 lua 组件到 transform/lua 目录，适配 Cache.Get 签名变更
+- fix: 修复流式模式下 ctx.Response 数据竞争
+- chore: 升级依赖
+### rulego-components-ai
+- feat: 转型为全功能 AI Agent 框架，增加 ReAct Agent 循环、Tool Agent 和 Agent 工厂
+- feat: 增加 10 个 AOP 切面（日志、会话、可视化等），支持 Agent 执行生命周期拦截
+- feat: 增加统一工具抽象层：bash、read、write、edit、browseruse、mcp、skill 等内置工具
+- feat: 增加 MCP 双向协议支持（客户端 + 服务端）
+- feat: 增加意图识别模块和多维度会话管理系统
+- feat: 增加 OpenAI 流式处理器、Embedding 客户端和相似度计算
+- feat: 增加动态模型选择、重试模型和多模态视觉支持
+- feat: 增加 Skill 技能系统，支持通过规则链编排 AI 工具调用
+### rulego-components-iot
+- feat: 增加串口通信组件
+- feat(modbus): 增加运行时配置持久化和分级日志；完善组件表单字段标签配置
+- fix(modbus): 修复重连失败、惊群问题、多寄存器地址步进错误和共享节点池模式下的连接管理问题
+- chore: 升级依赖
+### rulego-server
+- feat: server 从 examples/server 提升为架构级独立模块，作为 RuleGo 自动化工作流平台独立部署
+- feat: 增加文件操作和串口通信组件支持
+- feat(ci): 增加 32 位 Linux 构建目标和 server 模块 CI 工作流
+- fix: 启动失败后保持规则链启用状态 (#97 #98)
+- fix: 修复 32 位系统编译失败和空指针问题
+- fix: 修复组件市场列表 API 缺少 installed 字段
+- chore: 升级依赖；标记旧 examples/server 为废弃
+
 # [v0.35.0] 2025/12/18
 ### rulego-core
 - feat(components): join组件支持把错误传递到下一个节点
