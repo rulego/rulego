@@ -1,0 +1,99 @@
+{
+  "ruleChain": {
+    "id": "_assistant",
+    "name": "Assistant",
+    "debugMode": false,
+    "root": true,
+    "disabled": false,
+    "additionalInfo": {
+      "description": "规则链AI助手，通过自然语言创建和修改规则链",
+      "category": "agent"
+    }
+  },
+  "metadata": {
+    "firstNodeIndex": 0,
+    "nodes": [
+      {
+        "id": "node_agent",
+        "additionalInfo": {
+          "layoutX": 400,
+          "layoutY": 300
+        },
+        "type": "ai/agent",
+        "name": "Assistant",
+        "debugMode": false,
+        "configuration": {
+          "key": "${global.llm_api_key}",
+          "maxStep": 25,
+          "maxToolOutputLength": 50000,
+          "model": "${global.llm_model}",
+          "params": {
+            "frequencyPenalty": 0.5,
+            "maxTokens": 16384,
+            "presencePenalty": 0.5,
+            "temperature": 0.7,
+            "topP": 0.9
+          },
+          "systemPrompt": "${include(global.data_dir+'/system/agents/_assistant/AGENTS.md')}\n\n---\n\n## 全局变量列表\n\n${include(global.data_dir+'/system/global_vars.md')}\n\n---\n\n## 当前时间\n\n${now()}",
+          "tools": [
+            {
+              "config": {
+                "globalDirs": [
+                  "${global.skill_path}"
+                ],
+                "localDirs": [
+                  "${global.data_dir}/system/agents/_assistant/skills"
+                ],
+                "useChinese": true
+              },
+              "name": "skill",
+              "type": "builtin"
+            },
+            {
+              "config": {
+                "server": "self",
+                "tools": [
+                  "list_rule_chains",
+                  "get_rule_chain",
+                  "preview_rule_chain",
+                  "save_rule_chain",
+                  "delete_rule_chain",
+                  "operate_rule_chain",
+                  "execute_rule_chain",
+                  "list_components",
+                  "get_component_doc",
+                  "list_node_pool"
+                ]
+              },
+              "type": "mcp"
+            }
+          ],
+          "url": "${global.llm_url}"
+        }
+      },
+      {
+        "id": "node_end",
+        "additionalInfo": {
+          "layoutX": 600,
+          "layoutY": 300
+        },
+        "type": "end",
+        "name": "End",
+        "debugMode": false,
+        "configuration": {}
+      }
+    ],
+    "connections": [
+      {
+        "fromId": "node_agent",
+        "toId": "node_end",
+        "type": "Success"
+      },
+      {
+        "fromId": "node_agent",
+        "toId": "node_end",
+        "type": "Stream"
+      }
+    ]
+  }
+}
