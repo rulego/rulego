@@ -16,19 +16,19 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.23.x'
+          go-version: '1.24.x'
           cache-dependency-path: go.sum
       - name: Install dependencies
         run: go get .
       - name: Build for Linux and Windows and Macos
         run: |
-          cd examples/server/cmd/server
-          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-linux-amd64
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-windows-amd64.exe
-          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-macos-amd64
-          CGO_ENABLED=0 GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-linux-arm64
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-macos-arm64
-          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_extend,with_ai,with_ci,with_iot,with_etl" -v -o rulego-server-all-windows-arm64.exe
+          cd server/cmd/server
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_all" -v -o rulego-server-all-linux-amd64
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_all" -v -o rulego-server-all-windows-amd64.exe
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_all" -v -o rulego-server-all-macos-amd64
+          CGO_ENABLED=0 GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_all" -v -o rulego-server-all-linux-arm64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_all" -v -o rulego-server-all-macos-arm64
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -tags "with_all" -v -o rulego-server-all-windows-arm64.exe
           CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-linux-amd64
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-windows-amd64.exe
           CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-macos-amd64
@@ -39,32 +39,33 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -trimpath -ldflags "-s -w -extldflags '-static'" -v -o rulego-server-linux-386
       - name: Create compressed archives
         run: |
-          cd examples/server/cmd/server
-          # 为每个二进制文件创建单独的压缩包
-          # 带有所有扩展的版本
-          tar -czf rulego-server-all-linux-amd64.tar.gz rulego-server-all-linux-amd64
-          zip rulego-server-all-windows-amd64.zip rulego-server-all-windows-amd64.exe
-          tar -czf rulego-server-all-macos-amd64.tar.gz rulego-server-all-macos-amd64
-          tar -czf rulego-server-all-linux-arm64.tar.gz rulego-server-all-linux-arm64
-          tar -czf rulego-server-all-macos-arm64.tar.gz rulego-server-all-macos-arm64
-          zip rulego-server-all-windows-arm64.zip rulego-server-all-windows-arm64.exe
-          tar -czf rulego-server-all-linux-386.tar.gz rulego-server-all-linux-386
-          
-          # 基础版本
-          tar -czf rulego-server-linux-amd64.tar.gz rulego-server-linux-amd64
-          zip rulego-server-windows-amd64.zip rulego-server-windows-amd64.exe
-          tar -czf rulego-server-macos-amd64.tar.gz rulego-server-macos-amd64
-          tar -czf rulego-server-linux-arm64.tar.gz rulego-server-linux-arm64
-          tar -czf rulego-server-macos-arm64.tar.gz rulego-server-macos-arm64
-          zip rulego-server-windows-arm64.zip rulego-server-windows-arm64.exe
-          tar -czf rulego-server-linux-386.tar.gz rulego-server-linux-386
+          cp server/config.conf server/cmd/server/config.conf
+          cp server/node_pool.json server/cmd/server/node_pool.json
+          cd server/cmd/server
+          # All-in-one builds (with all extensions)
+          tar -czf rulego-server-all-linux-amd64.tar.gz rulego-server-all-linux-amd64 config.conf node_pool.json
+          zip rulego-server-all-windows-amd64.zip rulego-server-all-windows-amd64.exe config.conf node_pool.json
+          tar -czf rulego-server-all-macos-amd64.tar.gz rulego-server-all-macos-amd64 config.conf node_pool.json
+          tar -czf rulego-server-all-linux-arm64.tar.gz rulego-server-all-linux-arm64 config.conf node_pool.json
+          tar -czf rulego-server-all-macos-arm64.tar.gz rulego-server-all-macos-arm64 config.conf node_pool.json
+          zip rulego-server-all-windows-arm64.zip rulego-server-all-windows-arm64.exe config.conf node_pool.json
+          tar -czf rulego-server-all-linux-386.tar.gz rulego-server-all-linux-386 config.conf node_pool.json
+
+          # Standard builds (without optional extensions)
+          tar -czf rulego-server-linux-amd64.tar.gz rulego-server-linux-amd64 config.conf node_pool.json
+          zip rulego-server-windows-amd64.zip rulego-server-windows-amd64.exe config.conf node_pool.json
+          tar -czf rulego-server-macos-amd64.tar.gz rulego-server-macos-amd64 config.conf node_pool.json
+          tar -czf rulego-server-linux-arm64.tar.gz rulego-server-linux-arm64 config.conf node_pool.json
+          tar -czf rulego-server-macos-arm64.tar.gz rulego-server-macos-arm64 config.conf node_pool.json
+          zip rulego-server-windows-arm64.zip rulego-server-windows-arm64.exe config.conf node_pool.json
+          tar -czf rulego-server-linux-386.tar.gz rulego-server-linux-386 config.conf node_pool.json
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rulego-server-compressed
           path: |
-            examples/server/cmd/server/*.tar.gz
-            examples/server/cmd/server/*.zip
+            server/cmd/server/*.tar.gz
+            server/cmd/server/*.zip
 #      - name: Create Release
 #        uses: actions/create-release@v1
 #        env:
