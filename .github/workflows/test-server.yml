@@ -1,0 +1,47 @@
+# rulego server 测试工作流
+# server 是独立 Go 模块，要求 Go 1.24.0+
+name: test-server
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "server/**"
+      - ".github/workflows/test-server.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "server/**"
+      - ".github/workflows/test-server.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ["1.24"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: server/go.sum
+
+      - name: Install dependencies
+        run: |
+          cd server
+          go mod download
+
+      - name: Run tests
+        run: |
+          cd server
+          go test -v -race -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-coverage-${{ matrix.go-version }}
+          path: server/coverage.out
