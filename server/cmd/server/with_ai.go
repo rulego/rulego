@@ -4,9 +4,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 
 	einoTool "github.com/cloudwego/eino/components/tool"
-	"github.com/rulego/rulego-components-ai/tool"
+	aitool "github.com/rulego/rulego-components-ai/tool"
 
 	// 一键引入所有 AI 组件（节点、工具、Endpoint、Processor）
 	// 按需引入可直接导入对应子包，如: _ "github.com/rulego/rulego-components-ai/agent"
@@ -31,7 +32,7 @@ func init() {
 
 // registerAiGlobalUdfs 把 AI 工具注册到全局 UDF
 func registerAiGlobalUdfs(registerFunc func(name string, value interface{})) {
-	tool.Registry.Range(func(name string, t einoTool.BaseTool) bool {
+	aitool.Registry.Range(func(name string, t einoTool.BaseTool) bool {
 		registerFunc(name, types.Script{
 			Type:    types.AiTool,
 			Content: t,
@@ -42,7 +43,16 @@ func registerAiGlobalUdfs(registerFunc func(name string, value interface{})) {
 
 // getAiToolForms 获取所有工具的表单定义
 func getAiToolForms() interface{} {
-	return map[string]interface{}{"tools": registry.EnhanceAiToolForms(tool.Registry.GetToolForms())}
+	forms := aitool.Registry.GetToolForms()
+	enhanced := make([]interface{}, 0, len(forms))
+	for _, form := range forms {
+		data := toolFormToMap(form)
+		if form.Type == "skill" {
+			registry.ApplySkillToolDefaults(data, form.Fields, "./skills")
+		}
+		enhanced = append(enhanced, data)
+	}
+	return map[string]interface{}{"tools": enhanced}
 }
 
 // getAiToolInfos 获取所有工具的信息
@@ -59,4 +69,24 @@ func getAiToolInfos(c types.Config) []interface{} {
 		}
 	}
 	return infos
+}
+
+func toolFormToMap(form aitool.ToolForm) map[string]interface{} {
+	raw, err := json.Marshal(form)
+	if err != nil {
+		return formBasicMap(form)
+	}
+	data := map[string]interface{}{}
+	if err := json.Unmarshal(raw, &data); err != nil {
+		return formBasicMap(form)
+	}
+	return data
+}
+
+func formBasicMap(form aitool.ToolForm) map[string]interface{} {
+	return map[string]interface{}{
+		"type":  form.Type,
+		"label": form.Label,
+		"desc":  form.Desc,
+	}
 }
