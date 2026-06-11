@@ -11,7 +11,7 @@ require (
 	github.com/mark3labs/mcp-go v0.44.0
 	github.com/rulego/rulego v0.35.3-0.20260527090622-d8b29d722bac
 	github.com/rulego/rulego-components v0.36.0
-	github.com/rulego/rulego-components-ai v0.36.0
+	github.com/rulego/rulego-components-ai v0.36.1-0.20260611060431-38c0b608194e
 	github.com/rulego/rulego-components-ci v0.36.0
 	github.com/rulego/rulego-components-etl v0.36.0
 	github.com/rulego/rulego-components-iot v0.36.0
