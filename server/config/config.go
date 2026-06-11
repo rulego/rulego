@@ -94,6 +94,8 @@ type Config struct {
 	MaxBodySize int `ini:"max_body_size"`
 	// MCP MCP配置
 	MCP MCPConfig `ini:"mcp"`
+	// AISecurity AI 工具安全策略配置
+	AISecurity AISecurityConfig `ini:"ai_security"`
 	// SkillPath 技能存储路径
 	SkillPath string `ini:"skill_path"`
 	// UserNamePasswordMap 用户名和密码映射（运行期生成）
@@ -125,6 +127,28 @@ type MCPConfig struct {
 	// Groups MCP 端点分组配置，key 为组名，value 为工具列表（逗号分隔）
 	// 支持语法：* 表示全部，-prefix* 表示排除，rules/components/chains 表示工具类别
 	Groups map[string]string `ini:"-"`
+}
+
+// AISecurityConfig AI 工具安全策略配置
+type AISecurityConfig struct {
+	// Enable 是否启用工具安全拦截，默认 false
+	Enable bool `ini:"enable"`
+	// Mode 拦截模式：deny（黑名单，命中则拦截）或 allow（白名单，不在列表则拦截）
+	Mode string `ini:"mode"`
+	// DenyTools 黑名单模式下拦截的工具名称列表（逗号分隔，支持 * 通配符）
+	DenyTools string `ini:"deny_tools"`
+	// AllowTools 白名单模式下允许的工具名称列表（逗号分隔，支持 * 通配符）
+	AllowTools string `ini:"allow_tools"`
+	// DeniedTypes 拦截的工具类型（逗号分隔）：builtin, mcp, rulechain, subagent
+	DeniedTypes string `ini:"denied_types"`
+	// CmdDenyExtra bash 工具额外命令黑名单（逗号分隔，在工具自身安全检查之上追加）
+	CmdDenyExtra string `ini:"cmd_deny_extra"`
+	// AllowPaths 文件路径白名单（逗号分隔），read/write/edit 工具只能访问这些路径及其子路径
+	// 为空则不限制。优先级低于 DenyPaths
+	AllowPaths string `ini:"allow_paths"`
+	// DenyPaths 文件路径黑名单（逗号分隔），禁止访问这些路径及其子路径
+	// 优先级高于 AllowPaths。适合保护部署目录等敏感路径
+	DenyPaths string `ini:"deny_paths"`
 }
 
 // InitUserMap 根据 Users 配置生成用户名-密码映射和 API Key-用户名映射

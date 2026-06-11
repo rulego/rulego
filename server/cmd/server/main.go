@@ -28,6 +28,9 @@ func main() {
 
 	application := bootstrap.DefaultApp(*configFile)
 
+	// AI 工具安全拦截 hook（仅 with_ai/with_all 编译时生效）
+	registerAiSecurityHook(application)
+
 	if err := bootstrap.Run(application); err != nil {
 		fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
 		os.Exit(1)
