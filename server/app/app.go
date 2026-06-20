@@ -372,26 +372,36 @@ func (a *App) Run() error {
 //   2. 如果未指定 -c，自动查找当前目录的 config.conf → 找到则加载
 //   3. 以上都不满足 → 使用 DefaultConfig
 func (a *App) loadConfig() error {
-	configFile := a.opts.ConfigFile
-
-	// 自动查找：如果未显式指定配置文件，尝试在当前目录查找 config.conf
-	if configFile == "" {
-		if _, err := os.Stat("config.conf"); err == nil {
-			configFile = "config.conf"
+	// 编程式配置优先（嵌入模式宿主直接注入）
+	if a.opts.Config != nil {
+		a.config = a.opts.Config
+		if a.config.Users == nil {
+			a.config.Users = make(types.Properties)
 		}
-	}
-
-	if configFile == "" {
-		cfg := config.DefaultConfig()
-		a.config = &cfg
-		cfg.InitUserMap()
+		a.config.InitUserMap()
+		a.typesLog.Infof("[config] loaded from programmatic Config")
 	} else {
-		cfg := config.DefaultConfig()
-		if err := config.Load(configFile, &cfg); err != nil {
-			return err
+		configFile := a.opts.ConfigFile
+
+		// 自动查找：如果未显式指定配置文件，尝试在当前目录查找 config.conf
+		if configFile == "" {
+			if _, err := os.Stat("config.conf"); err == nil {
+				configFile = "config.conf"
+			}
 		}
-		a.config = &cfg
-		a.typesLog.Infof("[config] loaded from %s", configFile)
+
+		if configFile == "" {
+			cfg := config.DefaultConfig()
+			a.config = &cfg
+			cfg.InitUserMap()
+		} else {
+			cfg := config.DefaultConfig()
+			if err := config.Load(configFile, &cfg); err != nil {
+				return err
+			}
+			a.config = &cfg
+			a.typesLog.Infof("[config] loaded from %s", configFile)
+		}
 	}
 
 	// 合并注入的 Global 配置（注入值覆盖文件值）

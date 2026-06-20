@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/store"
 )
 
@@ -15,6 +16,10 @@ type Options struct {
 	// ConfigFile 配置文件路径
 	// ConfigFile is the path to the configuration file
 	ConfigFile string
+
+	// Config 编程式配置。非 nil 时优先于 ConfigFile 和默认配置使用。
+	// Config is a programmatic config. When non-nil, takes precedence over ConfigFile and defaults.
+	Config *config.Config
 
 	// TypesLogger 日志器，实现 types.Logger 接口
 	// 可用于注入应用层日志框架（如 Zap、Logrus 等）
@@ -58,6 +63,15 @@ type Options struct {
 func DefaultOptions() Options {
 	return Options{
 		AutoMkdir: true,
+	}
+}
+
+// WithConfig 设置编程式配置，优先于 ConfigFile 和默认配置。
+// 适合嵌入模式：宿主直接构造 config.Config 注入，无需写配置文件。
+// 注意：传入的 Config 会被 InitUserMap/Global 合并处理；Global 选项的值仍会覆盖 Config.Global。
+func WithConfig(cfg *config.Config) Option {
+	return func(o *Options) {
+		o.Config = cfg
 	}
 }
 
