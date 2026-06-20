@@ -324,6 +324,203 @@ func TestRuleModule_Delete_SystemAgent(t *testing.T) {
 	}
 }
 
+// capturingListener 记录收到的事件，用于断言 Save/Deploy/Undeploy/Delete 是否触发监听器
+type capturingListener struct {
+	savedEvents      []services.ChainLifecycleEvent
+	deployedEvents   []services.ChainLifecycleEvent
+	undeployedEvents []services.ChainLifecycleEvent
+	deletedEvents    []services.ChainLifecycleEvent
+}
+
+func (c *capturingListener) OnSaved(e services.ChainLifecycleEvent)      { c.savedEvents = append(c.savedEvents, e) }
+func (c *capturingListener) OnDeployed(e services.ChainLifecycleEvent)   { c.deployedEvents = append(c.deployedEvents, e) }
+func (c *capturingListener) OnUndeployed(e services.ChainLifecycleEvent) { c.undeployedEvents = append(c.undeployedEvents, e) }
+func (c *capturingListener) OnDeleted(e services.ChainLifecycleEvent)    { c.deletedEvents = append(c.deletedEvents, e) }
+
+// TestRuleModule_LifecycleListener_AllEvents 验证全部 4 个事件正确触发
+func TestRuleModule_LifecycleListener_AllEvents(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	listener := &capturingListener{}
+	m.AddLifecycleListener(listener)
+
+	chainDef := `{
+		"ruleChain": {"id": "lifecycle-test", "name": "Lifecycle Test"},
+		"metadata": {"nodes": [], "connections": []}
+	}`
+	// SaveAndLoad → OnSaved + OnDeployed
+	if err := m.SaveAndLoad("admin", "lifecycle-test", []byte(chainDef)); err != nil {
+		t.Fatal(err)
+	}
+	if len(listener.savedEvents) != 1 {
+		t.Errorf("after SaveAndLoad, expected 1 saved event, got %d", len(listener.savedEvents))
+	}
+	if len(listener.deployedEvents) != 1 {
+		t.Errorf("after SaveAndLoad, expected 1 deployed event, got %d", len(listener.deployedEvents))
+	} else {
+		e := listener.deployedEvents[0]
+		if e.ChainId != "lifecycle-test" || e.Username != "admin" {
+			t.Errorf("deployed event mismatch: %+v", e)
+		}
+	}
+
+	// Undeploy → OnUndeployed
+	if err := m.Undeploy("admin", "lifecycle-test"); err != nil {
+		t.Fatal(err)
+	}
+	if len(listener.undeployedEvents) != 1 {
+		t.Errorf("after Undeploy, expected 1 undeployed event, got %d", len(listener.undeployedEvents))
+	}
+
+	// 再次 Deploy → OnDeployed
+	if err := m.Deploy("admin", "lifecycle-test"); err != nil {
+		t.Fatal(err)
+	}
+	if len(listener.deployedEvents) != 2 {
+		t.Errorf("after second Deploy, expected 2 deployed events, got %d", len(listener.deployedEvents))
+	}
+
+	// Delete → OnDeleted
+	if err := m.Delete("admin", "lifecycle-test"); err != nil {
+		t.Fatal(err)
+	}
+	if len(listener.deletedEvents) != 1 {
+		t.Errorf("after Delete, expected 1 deleted event, got %d", len(listener.deletedEvents))
+	}
+}
+
+// TestRuleModule_LifecycleListener_BaseDefault 验证 BaseChainLifecycleListener 默认实现可用
+// （监听器只关心 OnDeleted，其他用 Base 的默认空实现）
+type deleteOnlyListener struct {
+	services.BaseChainLifecycleListener
+	deletedCount int
+}
+
+func (d *deleteOnlyListener) OnDeleted(services.ChainLifecycleEvent) { d.deletedCount++ }
+
+func TestRuleModule_LifecycleListener_BaseDefault(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	listener := &deleteOnlyListener{}
+	m.AddLifecycleListener(listener)
+
+	chainDef := `{
+		"ruleChain": {"id": "base-test", "name": "Base Test"},
+		"metadata": {"nodes": [], "connections": []}
+	}`
+	if err := m.SaveAndLoad("admin", "base-test", []byte(chainDef)); err != nil {
+		t.Fatal(err)
+	}
+	// SaveAndLoad 不该触发 OnDeleted
+	if listener.deletedCount != 0 {
+		t.Errorf("deleteOnlyListener should not fire on SaveAndLoad, got %d", listener.deletedCount)
+	}
+
+	if err := m.Delete("admin", "base-test"); err != nil {
+		t.Fatal(err)
+	}
+	if listener.deletedCount != 1 {
+		t.Errorf("deleteOnlyListener should fire on Delete, got %d", listener.deletedCount)
+	}
+}
+
+// TestRuleModule_LifecycleListener_PanicSafe 验证监听器 panic 不会中断 Deploy
+type panickingListener struct {
+	services.BaseChainLifecycleListener
+}
+
+func (p *panickingListener) OnDeployed(services.ChainLifecycleEvent) { panic("intentional") }
+func (p *panickingListener) OnSaved(services.ChainLifecycleEvent)   { panic("intentional") }
+
+func TestRuleModule_LifecycleListener_PanicSafe(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	m.AddLifecycleListener(&panickingListener{})
+
+	chainDef := `{
+		"ruleChain": {"id": "panic-test", "name": "Panic Test"},
+		"metadata": {"nodes": [], "connections": []}
+	}`
+	// SaveAndLoad 应该成功，尽管 OnSaved/OnDeployed 都 panic
+	if err := m.SaveAndLoad("admin", "panic-test", []byte(chainDef)); err != nil {
+		t.Fatalf("SaveAndLoad should succeed despite listener panic, got: %v", err)
+	}
+}
+
+// TestRuleModule_CategoryFilter 验证 category 过滤工作正常
+// （category 通过 AdditionalInfo["category"] 持久化，filestore 已支持过滤）
+func TestRuleModule_CategoryFilter(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	chains := []struct {
+		id       string
+		category string
+	}{
+		{"chain-timer-1", "timer"},
+		{"chain-timer-2", "timer"},
+		{"chain-api-1", "api"},
+		{"chain-mqtt-1", "mqtt"},
+	}
+	for _, c := range chains {
+		def := `{
+			"ruleChain": {
+				"id": "` + c.id + `",
+				"name": "` + c.id + `",
+				"additionalInfo": {"category": "` + c.category + `"}
+			},
+			"metadata": {"nodes": [], "connections": []}
+		}`
+		if err := m.SaveAndLoad("admin", c.id, []byte(def)); err != nil {
+			t.Fatalf("SaveAndLoad %s: %v", c.id, err)
+		}
+	}
+
+	// 过滤 timer 分类
+	timerChains, total, err := m.List("admin", "", nil, nil, "timer", 0, 0)
+	if err != nil {
+		t.Fatalf("List timer: %v", err)
+	}
+	if total != 2 {
+		t.Errorf("timer category total = %d, want 2", total)
+	}
+	for _, c := range timerChains {
+		cat, _ := c.RuleChain.GetAdditionalInfo(constants.KeyCategory)
+		if cat != "timer" {
+			t.Errorf("returned chain %s has category %v, want timer", c.RuleChain.ID, cat)
+		}
+	}
+
+	// 过滤 api 分类
+	_, apiTotal, err := m.List("admin", "", nil, nil, "api", 0, 0)
+	if err != nil {
+		t.Fatalf("List api: %v", err)
+	}
+	if apiTotal != 1 {
+		t.Errorf("api category total = %d, want 1", apiTotal)
+	}
+
+	// 不过滤
+	_, allTotal, err := m.List("admin", "", nil, nil, "", 0, 0)
+	if err != nil {
+		t.Fatalf("List all: %v", err)
+	}
+	if allTotal != 4 {
+		t.Errorf("all category total = %d, want 4", allTotal)
+	}
+}
+
 // 编译时接口检查
 var _ services.ChainCatalog = (*Module)(nil)
 var _ services.ChainExecutor = (*Module)(nil)

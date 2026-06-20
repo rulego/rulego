@@ -104,7 +104,8 @@ func (d *RuleStore) GetAsRuleChain(username, chainId string) (types.RuleChain, e
 	return ruleChain, nil
 }
 
-// List 列出规则链，支持关键字搜索、root/disabled 过滤、category 过滤、分页排序
+// List 列出规则链（面向 UI）：关键字搜索、root/disabled 过滤、category 过滤、分页排序。
+// 会过滤 SystemAgent 链；启动加载请用 AllChains。
 func (d *RuleStore) List(username string, keywords string, root *bool, disabled *bool, category string, size, page int) ([]types.RuleChain, int, error) {
 	var ruleChains []types.RuleChain
 	totalCount := 0
@@ -152,6 +153,27 @@ func (d *RuleStore) List(username string, keywords string, root *bool, disabled 
 		end = totalCount
 	}
 	return ruleChains[start:end], totalCount, nil
+}
+
+// AllChains 读取该用户所有规则链的 ID 和 DSL（含 SystemAgent）。
+// 单个文件读取失败跳过。顺序未定义。
+func (d *RuleStore) AllChains(username string) (map[string][]byte, error) {
+	d.RLock()
+	ids := make([]string, 0, len(d.index.Rules))
+	for id := range d.index.Rules {
+		ids = append(ids, id)
+	}
+	d.RUnlock()
+
+	result := make(map[string][]byte, len(ids))
+	for _, id := range ids {
+		def, err := d.Get(username, id)
+		if err != nil || len(def) == 0 {
+			continue
+		}
+		result[id] = def
+	}
+	return result, nil
 }
 
 // Delete 删除规则链文件并从索引中移除

@@ -16,8 +16,13 @@ type RuleStore interface {
 	Get(username, chainId string) ([]byte, error)
 	// GetAsRuleChain 获取规则链结构体
 	GetAsRuleChain(username, chainId string) (types.RuleChain, error)
-	// List 列出规则链，支持关键字搜索、root/disabled 过滤、category 过滤、分页排序
+	// List 列出规则链（面向前端 UI）：关键字搜索、root/disabled 过滤、category 过滤、分页排序。
+	// 会过滤 SystemAgent 链；启动加载请用 AllChains。
 	List(username, keywords string, root *bool, disabled *bool, category string, size, page int) ([]types.RuleChain, int, error)
+	// AllChains 一次性返回指定用户下所有规则链的 ID 和原始 DSL（含 SystemAgent）。
+	// 用于启动加载，避免逐条 Get 产生的 N+1 查询。
+	// 单条链读取失败会被跳过（不中断整体），顺序未定义。
+	AllChains(username string) (map[string][]byte, error)
 	// Delete 删除规则链
 	Delete(username, chainId string) error
 }
