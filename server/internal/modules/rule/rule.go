@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/rulego/rulego"
@@ -25,9 +26,11 @@ const (
 
 // Module rule 业务模块
 type Module struct {
-	cfg    *config.Config
-	logger types.Logger
-	engine *engine.Manager
+	cfg                *config.Config
+	logger             types.Logger
+	engine             *engine.Manager
+	lifecycleListeners []services.ChainLifecycleListener
+	listenersMu        sync.RWMutex
 }
 
 // New 创建 rule 模块
@@ -178,6 +181,7 @@ func (m *Module) SaveAndLoad(username, chainId string, def []byte) error {
 	if err = ue.RuleStore().Save(username, chainId, b); err != nil {
 		return err
 	}
+	m.fireSaved(username, chainId, b)
 	if ruleChain.RuleChain.Disabled {
 		return m.Undeploy(username, chainId)
 	}
@@ -209,6 +213,9 @@ func (m *Module) Deploy(username, chainId string) error {
 		_, err = ue.Pool().New(chainId, def, rulego.WithConfig(ue.RuleConfig()))
 	}
 	m.saveRuleChain(ue, ruleChain, err)
+	if err == nil {
+		m.fireDeployed(username, chainId, def)
+	}
 	return err
 }
 
@@ -231,7 +238,63 @@ func (m *Module) Undeploy(username, chainId string) error {
 	if err != nil {
 		return err
 	}
-	return ue.RuleStore().Save(username, chainId, b)
+	if err = ue.RuleStore().Save(username, chainId, b); err != nil {
+		return err
+	}
+	m.fireUndeployed(username, chainId, b)
+	return nil
+}
+
+// AddLifecycleListener 注册链生命周期监听器（线程安全），须在 App.Start() 之前调用。
+func (m *Module) AddLifecycleListener(listener services.ChainLifecycleListener) {
+	m.listenersMu.Lock()
+	defer m.listenersMu.Unlock()
+	m.lifecycleListeners = append(m.lifecycleListeners, listener)
+}
+
+func (m *Module) fireDeployed(username, chainId string, dsl []byte) {
+	m.broadcast(services.ChainLifecycleEvent{Username: username, ChainId: chainId, DSL: dsl},
+		func(l services.ChainLifecycleListener, e services.ChainLifecycleEvent) { l.OnDeployed(e) })
+}
+
+func (m *Module) fireUndeployed(username, chainId string, dsl []byte) {
+	m.broadcast(services.ChainLifecycleEvent{Username: username, ChainId: chainId, DSL: dsl},
+		func(l services.ChainLifecycleListener, e services.ChainLifecycleEvent) { l.OnUndeployed(e) })
+}
+
+func (m *Module) fireSaved(username, chainId string, dsl []byte) {
+	m.broadcast(services.ChainLifecycleEvent{Username: username, ChainId: chainId, DSL: dsl},
+		func(l services.ChainLifecycleListener, e services.ChainLifecycleEvent) { l.OnSaved(e) })
+}
+
+func (m *Module) fireDeleted(username, chainId string, dsl []byte) {
+	m.broadcast(services.ChainLifecycleEvent{Username: username, ChainId: chainId, DSL: dsl},
+		func(l services.ChainLifecycleListener, e services.ChainLifecycleEvent) { l.OnDeleted(e) })
+}
+
+// broadcast 向所有监听器派发事件，单个监听器 panic 不影响其他。
+func (m *Module) broadcast(event services.ChainLifecycleEvent, invoke func(services.ChainLifecycleListener, services.ChainLifecycleEvent)) {
+	for _, l := range m.snapshotListeners() {
+		m.safeNotify(l, func(l services.ChainLifecycleListener) { invoke(l, event) })
+	}
+}
+
+func (m *Module) snapshotListeners() []services.ChainLifecycleListener {
+	m.listenersMu.RLock()
+	defer m.listenersMu.RUnlock()
+	snapshot := make([]services.ChainLifecycleListener, len(m.lifecycleListeners))
+	copy(snapshot, m.lifecycleListeners)
+	return snapshot
+}
+
+// safeNotify 调用单个监听器，捕获 panic 避免影响其他监听器或主流程。
+func (m *Module) safeNotify(l services.ChainLifecycleListener, invoke func(services.ChainLifecycleListener)) {
+	defer func() {
+		if r := recover(); r != nil {
+			m.logger.Errorf("chain lifecycle listener panic: %v", r)
+		}
+	}()
+	invoke(l)
 }
 
 func (m *Module) Delete(username, chainId string) error {
@@ -249,7 +312,11 @@ func (m *Module) Delete(username, chainId string) error {
 		}
 	}
 	ue.Pool().Del(chainId)
-	return ue.RuleStore().Delete(username, chainId)
+	if err = ue.RuleStore().Delete(username, chainId); err != nil {
+		return err
+	}
+	m.fireDeleted(username, chainId, nil)
+	return nil
 }
 
 func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChainBaseInfo) error {

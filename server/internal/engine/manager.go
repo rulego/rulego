@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -234,10 +232,15 @@ func (ue *UserEngine) LoadRule(chainId string) error {
 	if err != nil {
 		return err
 	}
+	return ue.loadDef(chainId, def)
+}
+
+// loadDef 把 DSL 编译进引擎池（已存在则 reload）。
+func (ue *UserEngine) loadDef(chainId string, def []byte) error {
 	if ruleEngine, ok := ue.pool.Get(chainId); ok {
 		return ruleEngine.ReloadSelf(def)
 	}
-	_, err = ue.pool.New(chainId, def, rulego.WithConfig(ue.ruleConfig))
+	_, err := ue.pool.New(chainId, def, rulego.WithConfig(ue.ruleConfig))
 	return err
 }
 
@@ -348,38 +351,30 @@ func (ue *UserEngine) loadPlugins() {
 	}
 }
 
+// loadRules 通过 RuleStore.AllChains 一次取回该用户所有规则链并加载到引擎池。
 func (ue *UserEngine) loadRules() {
-	rulesPath := filepath.Join(ue.config.DataDir, constants.DirWorkflows, ue.username, constants.DirWorkflowsRule)
-	_ = fs.CreateDirs(rulesPath)
-	var count int
-	ue.loadRulesFromDir(rulesPath, &count)
-	ue.logger.Infof("%s number of rule chains loaded: %d", ue.username, count)
-	if mainChainId := ue.setStore.Get(constants.SettingKeyMainChainId); mainChainId != "" {
-		if err := ue.SetMainChainId(mainChainId); err != nil {
-			ue.logger.Errorf("load %s main rule chain error: %s", ue.username, err.Error())
-		}
-	}
-}
-
-func (ue *UserEngine) loadRulesFromDir(dirPath string, count *int) {
-	entries, err := os.ReadDir(dirPath)
+	chains, err := ue.ruleStore.AllChains(ue.username)
 	if err != nil {
+		ue.logger.Errorf("loadRules(%s): load chains failed: %s",
+			ue.username, err.Error())
 		return
 	}
-	for _, entry := range entries {
-		fullPath := filepath.Join(dirPath, entry.Name())
-		if entry.IsDir() {
-			ue.loadRulesFromDir(fullPath, count)
-			continue
+
+	var count int
+	for chainId, def := range chains {
+		if err := ue.loadDef(chainId, def); err != nil {
+			ue.logger.Errorf("load rule chain id:%s error: %s",
+				chainId, err.Error())
+		} else {
+			count++
 		}
-		if filepath.Ext(strings.ToLower(entry.Name())) == constants.RuleChainFileSuffix {
-			fileName := entry.Name()
-			chainId := fileName[:len(fileName)-len(filepath.Ext(fileName))]
-			if err := ue.LoadRule(chainId); err != nil {
-				ue.logger.Errorf("load rule chain id:%s error: %s", chainId, err.Error())
-			} else {
-				*count++
-			}
+	}
+	ue.logger.Infof("%s number of rule chains loaded: %d", ue.username, count)
+
+	if mainChainId := ue.setStore.Get(constants.SettingKeyMainChainId); mainChainId != "" {
+		if err := ue.SetMainChainId(mainChainId); err != nil {
+			ue.logger.Errorf("load %s main rule chain error: %s",
+				ue.username, err.Error())
 		}
 	}
 }
