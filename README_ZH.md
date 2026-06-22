@@ -200,6 +200,7 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 
 - [RuleGo-Editor](https://editor.rulego.cc/) ：规则链可视化编辑器
 - [RuleGo-Server](server/) ：自动化工作流平台
+- [Tpclaw](https://tpclaw.teambuf.com/) ：自主进化智能体平台
 - [rulego-components](https://gitee.com/rulego/rulego-components) ：扩展组件库
 - [rulego-components-ai](https://github.com/rulego/rulego-components-ai) ：AI场景组件库
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) ：CI/CD场景组件库
