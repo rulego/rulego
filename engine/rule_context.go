@@ -1067,12 +1067,14 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 			relationTypeLen := len(relationTypes)
 
 			for _, relationType := range relationTypes {
+				//创建局部副本，避免闭包捕获循环变量导致数据竞争
+				rt := relationType
 				//执行After aop
-				msg = ctx.executeAfterAop(msg, err, relationType)
+				msg = ctx.executeAfterAop(msg, err, rt)
 				var ok = false
 				var nodes []types.NodeCtx
 				//根据relationType查找子节点列表
-				nodes, ok = ctx.getNextNodes(relationType)
+				nodes, ok = ctx.getNextNodes(rt)
 				//根据默认关系查找节点
 				if defaultRelationType != "" && (!ok || len(nodes) == 0) && !ctx.skipTellNext {
 					nodes, ok = ctx.getNextNodes(defaultRelationType)
@@ -1083,7 +1085,7 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 					for _, item := range nodes {
 						tmp := item
 						//增加一个待执行的子节点
-						ctx.childReady(msg, relationType)
+						ctx.childReady(msg, rt)
 
 						var msgToPass types.RuleMsg
 						if needsCopy {
@@ -1095,12 +1097,12 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 						}
 
 						//通知执行子节点
-						if relationType == types.Stream {
+						if rt == types.Stream {
 							//为了保证流块的顺序
-							ctx.tellNext(msgToPass, tmp, relationType)
+							ctx.tellNext(msgToPass, tmp, rt)
 						} else {
 							ctx.SubmitTask(func() {
-								ctx.tellNext(msgToPass, tmp, relationType)
+								ctx.tellNext(msgToPass, tmp, rt)
 							})
 						}
 					}
