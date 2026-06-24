@@ -244,14 +244,14 @@ func (ws *Websocket) Category() string {
 // Def returns the component definition including description and router form metadata.
 func (ws *Websocket) Def() types.ComponentForm {
 	return types.ComponentForm{
-		Desc: "WebSocket server endpoint for receiving and processing WebSocket messages",
+		Desc: "WebSocket server endpoint: upgrades HTTP requests (GET) to WebSocket and processes incoming frames; shares HTTP server config (server/cert/cors/timeouts) with the rest endpoint",
 		RouterForm: &types.RouterForm{
 			From: &types.RouterFormField{
 				Path: types.ComponentFormField{
 					Name:     "path",
 					Type:     "string",
 					Label:    "Path",
-					Desc:     "WebSocket request path, e.g. /api/ws",
+					Desc:     "WebSocket upgrade path, e.g. /api/ws (method is fixed to GET)",
 					Required: true,
 				},
 			},

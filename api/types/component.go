@@ -270,6 +270,12 @@ type RouterForm struct {
 	// To 提供路由目标配置的元数据。
 	To *RouterFormField `json:"to,omitempty"`
 
+	// Params provides metadata about the router `params` field.
+	// nil means the router takes no params.
+	// Params 提供路由 `params` 字段的元数据。
+	// 为 nil 表示路由不接受 params。
+	Params *ComponentFormField `json:"params,omitempty"`
+
 	// DefaultValue provides default router entries.
 	// DefaultValue 提供默认路由条目。
 	DefaultValue []map[string]interface{} `json:"defaultValue,omitempty"`

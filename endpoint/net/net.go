@@ -381,7 +381,7 @@ type Config struct {
 	Protocol string `json:"protocol" label:"Protocol" desc:"Network protocol: tcp, udp, ip4:1, ip6:ipv6-icmp, ip6:58, unix, unixgram. Default: tcp"`
 
 	// Server address in host:port format
-	Server string `json:"server" label:"Server Address" desc:"Server address in host:port format" required:"true"`
+	Server string `json:"server" label:"Server Address" desc:"Listen address, format host:port or :port, e.g. 0.0.0.0:6335 or :6335" required:"true"`
 
 	// Read timeout for setting data read timeout in seconds, can be 0 for no timeout
 	ReadTimeout int `json:"readTimeout" label:"Read Timeout" desc:"Read timeout in seconds, 0 for no timeout"`
@@ -540,7 +540,7 @@ func (ep *Net) Def() types.ComponentForm {
 					Name:     "path",
 					Type:     "string",
 					Label:    "Route Pattern",
-					Desc:     "Regex pattern to match incoming data, use * to match all",
+					Desc:     "Regex applied to incoming data to select a router; empty / * / .* matches all (recommended: single default router)",
 					Required: true,
 				},
 			},

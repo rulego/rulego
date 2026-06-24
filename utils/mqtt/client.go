@@ -64,7 +64,7 @@ type Handler struct {
 
 // Config 客户端配置
 type Config struct {
-	Server               string        `json:"server" label:"Server" desc:"MQTT broker address, format: host:port" required:"true" ref:"primary"`
+	Server               string        `json:"server" label:"Server" desc:"MQTT broker address, format host:port, e.g. 127.0.0.1:1883" required:"true" ref:"primary"`
 	Username             string        `json:"username" label:"Username" desc:"MQTT authentication username" ref:"shared"`
 	Password             string        `json:"password" label:"Password" desc:"MQTT authentication password" ref:"shared"`
 	MaxReconnectInterval time.Duration `json:"maxReconnectInterval" label:"Max Reconnect Interval" desc:"Max reconnection interval, e.g. 10s, 1m"`
