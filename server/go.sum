@@ -197,6 +197,8 @@ github.com/evanphx/json-patch v0.5.2 h1:xVCHIVMUu1wtM/VkR9jVZ45N3FhZfYMMYGorLCR8
 github.com/evanphx/json-patch v0.5.2/go.mod h1:ZWS5hhDbVDyob71nXKNL0+PWn6ToqBHMikGIFbs31qQ=
 github.com/expr-lang/expr v1.17.8-0.20260205062502-2aaa9aa0612a h1:+6uYTqUqscNUiGb2NnSMhlz5WtQOo49Csf9U24WXfbg=
 github.com/expr-lang/expr v1.17.8-0.20260205062502-2aaa9aa0612a/go.mod h1:8/vRC7+7HBzESEqt5kKpYXxrxkr31SaO8r40VO/1IT4=
+github.com/expr-lang/expr v1.17.8 h1:W1loDTT+0PQf5YteHSTpju2qfUfNoBt4yw9+wOEU9VM=
+github.com/expr-lang/expr v1.17.8/go.mod h1:8/vRC7+7HBzESEqt5kKpYXxrxkr31SaO8r40VO/1IT4=
 github.com/fasthttp/router v1.5.4 h1:oxdThbBwQgsDIYZ3wR1IavsNl6ZS9WdjKukeMikOnC8=
 github.com/fasthttp/router v1.5.4/go.mod h1:3/hysWq6cky7dTfzaaEPZGdptwjwx0qzTgFCKEWRjgc=
 github.com/fasthttp/websocket v1.5.12 h1:e4RGPpWW2HTbL3zV0Y/t7g0ub294LkiuXXUuTOUInlE=
@@ -543,8 +545,12 @@ github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7
 github.com/rollbar/rollbar-go v1.0.2/go.mod h1:AcFs5f0I+c71bpHlXNNDbOWJiKwjFDtISeXco0L5PKQ=
 github.com/rulego/rulego v0.35.3-0.20260527090622-d8b29d722bac h1:zkSK2klI0fdySacD3+FdOgZ3mmZloylCuBS6vtnG97k=
 github.com/rulego/rulego v0.35.3-0.20260527090622-d8b29d722bac/go.mod h1:AmnMby85wUZjeF8OYCJ8vv/JPll5Kq4XKhr9AvJ2usw=
+github.com/rulego/rulego v0.36.1-0.20260624095700-318e8550a743 h1:jYnvbPSzmYxifmKT5FjBu3E37wT3SiFz9lKFFzJQS/o=
+github.com/rulego/rulego v0.36.1-0.20260624095700-318e8550a743/go.mod h1:C+5ohZtTIBNB4l1UY3aVLX+OKAXOHbryRn0I3+no8cs=
 github.com/rulego/rulego-components v0.36.0 h1:ron3wrvgkdJr3afQx2SHg4RcA6PqxnsFyZHb9yuJfd4=
 github.com/rulego/rulego-components v0.36.0/go.mod h1:mjzuAiPfIs0IXG+I+8dNWLmnPh3pT4F/tEaxH1IyQ+c=
+github.com/rulego/rulego-components v0.36.1-0.20260624103130-40b865665ed9 h1:hhfEacEBCMNszD/u4y4harG+GtWDfOCQCBEdbCBdzm4=
+github.com/rulego/rulego-components v0.36.1-0.20260624103130-40b865665ed9/go.mod h1:mjzuAiPfIs0IXG+I+8dNWLmnPh3pT4F/tEaxH1IyQ+c=
 github.com/rulego/rulego-components-ai v0.36.1-0.20260611080916-168eadeb5efa h1:A5dcneinpOpRQjuZj/2asBkyntxQsiWC9VVYucC/IP4=
 github.com/rulego/rulego-components-ai v0.36.1-0.20260611080916-168eadeb5efa/go.mod h1:Tk91HSeAtci99V4icthflXu8p3Q+t5O3peMA2aN5pGU=
 github.com/rulego/rulego-components-ci v0.36.0 h1:jNBrm/fRKIRSVM26pCszH+qxjJ+yRRXcwmJnfxhTzcw=

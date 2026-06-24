@@ -9,8 +9,8 @@ require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/mark3labs/mcp-go v0.44.0
-	github.com/rulego/rulego v0.35.3-0.20260527090622-d8b29d722bac
-	github.com/rulego/rulego-components v0.36.0
+	github.com/rulego/rulego v0.36.1-0.20260624095700-318e8550a743
+	github.com/rulego/rulego-components v0.36.1-0.20260624103130-40b865665ed9
 	github.com/rulego/rulego-components-ai v0.36.1-0.20260611080916-168eadeb5efa
 	github.com/rulego/rulego-components-ci v0.36.0
 	github.com/rulego/rulego-components-etl v0.36.0
@@ -84,7 +84,7 @@ require (
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/evanphx/json-patch v0.5.2 // indirect
-	github.com/expr-lang/expr v1.17.8-0.20260205062502-2aaa9aa0612a // indirect
+	github.com/expr-lang/expr v1.17.8 // indirect
 	github.com/fasthttp/router v1.5.4 // indirect
 	github.com/fasthttp/websocket v1.5.12 // indirect
 	github.com/fatih/color v1.7.0 // indirect

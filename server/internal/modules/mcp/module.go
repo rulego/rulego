@@ -1142,6 +1142,14 @@ func (m *Module) addGetComponentDocTool(mcpServer *mcpserver.MCPServer, username
 					}
 					sb.WriteString("- from.path: " + p.Desc + req + "\n")
 				}
+				if comp.RouterForm.Params != nil {
+					p := comp.RouterForm.Params
+					req := ""
+					if p.Required {
+						req = " (required)"
+					}
+					sb.WriteString("- params: " + p.Desc + req + "\n")
+				}
 				sb.WriteString("\n")
 			}
 		}
