@@ -63,6 +63,10 @@ type Pool struct {
 	// 使用字符串键（规则引擎 ID）和 *RuleEngine 值。
 	entries sync.Map
 
+	// aliases 存储别名→引擎的映射，Pool.Get(alias) 可解析到引擎。
+	// 别名来源见 RuleEngine.Aliases：id 与 def.ruleChain.id 不同时，后者记为别名。
+	aliases sync.Map
+
 	// Callbacks provides hooks for rule engine lifecycle events,
 	// enabling custom handling of creation, updates, and deletion.
 	// Callbacks 为规则引擎生命周期事件提供钩子，
@@ -172,6 +176,12 @@ func (g *Pool) New(id string, rootRuleChainSrc []byte, opts ...types.RuleEngineO
 			if ruleEngine.Id() != "" {
 				g.entries.Store(ruleEngine.Id(), ruleEngine)
 			}
+			// 注册别名，使别名也能寻址到该引擎。
+			for _, alias := range ruleEngine.Aliases() {
+				if alias != "" && alias != ruleEngine.Id() {
+					g.aliases.Store(alias, ruleEngine)
+				}
+			}
 			if g.Callbacks.OnUpdated != nil {
 				ruleEngine.OnUpdated = g.Callbacks.OnUpdated
 			}
@@ -184,25 +194,40 @@ func (g *Pool) New(id string, rootRuleChainSrc []byte, opts ...types.RuleEngineO
 	}
 }
 
-// Get retrieves a rule engine instance by its ID.
+// Get retrieves a rule engine instance by its ID or any registered alias.
+// 解析顺序：先按主 id（entries）查，未命中再按别名（aliases）查。
 func (g *Pool) Get(id string) (types.RuleEngine, bool) {
-	v, ok := g.entries.Load(id)
-	if ok {
+	if v, ok := g.entries.Load(id); ok {
 		return v.(*RuleEngine), ok
-	} else {
-		return nil, false
 	}
+	if v, ok := g.aliases.Load(id); ok {
+		return v.(*RuleEngine), true
+	}
+	return nil, false
 }
 
-// Del deletes a rule engine instance by its ID.
+// Del deletes a rule engine instance by its ID (or any of its aliases).
+// 解析到引擎后，同时清理其主键与别名。
 func (g *Pool) Del(id string) {
-	v, ok := g.entries.Load(id)
-	if ok {
-		v.(*RuleEngine).Stop(context.Background())
-		g.entries.Delete(id)
-		if g.Callbacks.OnDeleted != nil {
-			g.Callbacks.OnDeleted(id)
+	var engine *RuleEngine
+	if v, ok := g.entries.Load(id); ok {
+		engine = v.(*RuleEngine)
+	} else if v, ok := g.aliases.Load(id); ok {
+		engine = v.(*RuleEngine)
+	}
+	if engine == nil {
+		return
+	}
+	engine.Stop(context.Background())
+	g.entries.Delete(engine.Id())
+	for _, alias := range engine.Aliases() {
+		// 仅当别名仍指向本引擎才删除，避免误删已被其他引擎覆盖的同名别名。
+		if v, ok := g.aliases.Load(alias); ok && v.(*RuleEngine) == engine {
+			g.aliases.Delete(alias)
 		}
+	}
+	if g.Callbacks.OnDeleted != nil {
+		g.Callbacks.OnDeleted(engine.Id())
 	}
 }
 
@@ -211,6 +236,10 @@ func (g *Pool) Stop() {
 	g.entries.Range(func(key, value any) bool {
 		if item, ok := value.(*RuleEngine); ok {
 			item.Stop(context.Background())
+			// 同步清理该引擎的别名，避免别名残留指向已停止的引擎。
+			for _, alias := range item.Aliases() {
+				g.aliases.Delete(alias)
+			}
 		}
 		g.entries.Delete(key)
 		if g.Callbacks.OnDeleted != nil {

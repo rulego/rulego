@@ -228,6 +228,10 @@ type RuleEngine struct {
 	// id 是规则引擎实例的唯一标识符
 	id string
 
+	// aliases 是引擎除主 id 外的附加查找键，Pool.Get(alias) 可解析到本引擎。
+	// 当 NewRuleEngine 的 id 与 def.ruleChain.id 不同时，ruleChain.id 会被记为别名。
+	aliases []string
+
 	// rootRuleChainCtx is the context of the root rule chain containing
 	// all nodes and their relationships
 	// rootRuleChainCtx 是根规则链的上下文，包含所有节点及其关系
@@ -325,17 +329,28 @@ func NewRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*Rule
 
 	err := ruleEngine.ReloadSelf(def, opts...)
 	if err == nil && ruleEngine.rootRuleChainCtx != nil {
+		// def 中的 ruleChain.id（ReloadSelf 解析得到）。
+		ruleChainId := ruleEngine.rootRuleChainCtx.Id.Id
 		if id != "" {
 			ruleEngine.rootRuleChainCtx.Id = types.RuleNodeId{Id: id, Type: types.CHAIN}
+			// id 覆盖了 ruleChain.id 时，把 ruleChain.id 记为别名。
+			if ruleChainId != "" && ruleChainId != id {
+				ruleEngine.aliases = append(ruleEngine.aliases, ruleChainId)
+			}
 		} else {
 			// Use the rule chain ID if no ID is provided.
 			// 如果没有提供 ID，则使用规则链 ID。
-			ruleEngine.id = ruleEngine.rootRuleChainCtx.Id.Id
+			ruleEngine.id = ruleChainId
 		}
 
 	}
 
 	return ruleEngine, err
+}
+
+// Aliases 返回引擎的别名（除主 id 外可用于 Pool.Get 的查找键）。
+func (e *RuleEngine) Aliases() []string {
+	return e.aliases
 }
 
 // Id returns the unique identifier of the rule engine instance.
