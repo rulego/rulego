@@ -445,12 +445,26 @@ func (schedule *Schedule) Category() string {
 	return "endpoint"
 }
 
-// Def returns the component definition. Schedule uses a default router (hide=true).
+// Def returns the component definition. Schedule requires a 6-field cron expression in from.path.
 func (schedule *Schedule) Def() types.ComponentForm {
 	return types.ComponentForm{
-		Desc: "Scheduled task endpoint for executing rule chains at specified times using cron expressions",
+		Desc: "Scheduled task endpoint that triggers rule chains at specified times. from.path must be a full 6-field cron expression (Seconds Minutes Hours Day-of-month Month Day-of-week), e.g. `*/5 * * * * *` runs every 5 seconds. A bare `*` is NOT a valid cron expression.",
 		RouterForm: &types.RouterForm{
-			Hide: true,
+			From: &types.RouterFormField{
+				Path: types.ComponentFormField{
+					Name:     "path",
+					Type:     "string",
+					Label:    "Cron",
+					Desc:     "6-field cron expression, e.g. */5 * * * * *",
+					Required: true,
+				},
+			},
+			Params: &types.ComponentFormField{
+				Name:     "params",
+				Type:     "array",
+				Desc:     "message body + data type emitted on each scheduled tick (no external input), e.g. [\"{}\",\"JSON\"]; do not leave null",
+				Required: true,
+			},
 		},
 	}
 }

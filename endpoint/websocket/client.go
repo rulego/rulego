@@ -263,7 +263,7 @@ func (c *WsClient) Def() types.ComponentForm {
 					Name:     "path",
 					Type:     "string",
 					Label:    "Path",
-					Desc:     "Route identifier for data routing",
+					Desc:     "Route key only; no matching is performed — every received frame is delivered to all routers, e.g. default",
 					Required: true,
 				},
 			},

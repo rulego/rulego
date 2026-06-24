@@ -605,14 +605,14 @@ func (x *Mqtt) Category() string {
 // Def returns the component definition including description and router form metadata.
 func (x *Mqtt) Def() types.ComponentForm {
 	return types.ComponentForm{
-		Desc: "MQTT client endpoint for subscribing to topics and processing IoT messages",
+		Desc: "MQTT client endpoint: connects to an MQTT broker, subscribes to topics (supports + / # wildcards), and processes each incoming message",
 		RouterForm: &types.RouterForm{
 			From: &types.RouterFormField{
 				Path: types.ComponentFormField{
 					Name:     "path",
 					Type:     "string",
 					Label:    "Topic",
-					Desc:     "MQTT topic to subscribe, e.g. devices/msg",
+					Desc:     "MQTT topic filter to subscribe; supports wildcards + (single level, e.g. sensors/+/temp) and # (multi level, e.g. sensors/#), e.g. devices/msg",
 					Required: true,
 				},
 			},

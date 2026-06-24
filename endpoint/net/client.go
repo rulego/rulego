@@ -342,7 +342,7 @@ func (c *NetClient) Def() types.ComponentForm {
 					Name:     "path",
 					Type:     "string",
 					Label:    "Route Pattern",
-					Desc:     "Regex pattern to match incoming data, use * to match all",
+					Desc:     "Regex applied to incoming data to select a router; empty / * / .* matches all (recommended: single default router)",
 					Required: true,
 				},
 			},

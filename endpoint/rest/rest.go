@@ -769,13 +769,13 @@ type Config struct {
 	// When both CertFile and CertKeyFile are provided, the server runs in HTTPS mode.
 	// CertFile 指定 HTTPS 的 SSL/TLS 证书文件路径。
 	// 当提供 CertFile 和 CertKeyFile 时，服务器以 HTTPS 模式运行。
-	CertFile string `json:"certFile" label:"Cert File" desc:"SSL/TLS certificate file path for HTTPS" ref:"shared"`
+	CertFile string `json:"certFile" label:"Cert File" desc:"SSL/TLS certificate file path; provide together with certKeyFile to enable HTTPS" ref:"shared"`
 
 	// CertKeyFile specifies the path to the SSL/TLS private key file for HTTPS.
 	// This file must correspond to the certificate specified in CertFile.
 	// CertKeyFile 指定 HTTPS 的 SSL/TLS 私钥文件路径。
 	// 此文件必须与 CertFile 中指定的证书对应。
-	CertKeyFile string `json:"certKeyFile" label:"Cert Key File" desc:"SSL/TLS private key file path for HTTPS" ref:"shared"`
+	CertKeyFile string `json:"certKeyFile" label:"Cert Key File" desc:"SSL/TLS private key file path; provide together with certFile to enable HTTPS" ref:"shared"`
 
 	// AllowCors enables Cross-Origin Resource Sharing (CORS) support.
 	// When true, the server allows cross-origin requests from web browsers.
@@ -920,7 +920,7 @@ func (rest *Rest) Def() types.ComponentForm {
 					Name:     "path",
 					Type:     "string",
 					Label:    "Path",
-					Desc:     "HTTP route path pattern, e.g. /api/device/{deviceId}",
+					Desc:     "HTTP route path pattern; supports {param} (e.g. /api/device/{deviceId}) and *filepath catch-all. HTTP method is set via router params, not here",
 					Required: true,
 				},
 			},
