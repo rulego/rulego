@@ -641,6 +641,10 @@ func (ctx *DefaultRuleContext) SubmitTask(task func()) {
 // 如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
 func (ctx *DefaultRuleContext) TellFlow(ruleChainId string, msg types.RuleMsg, opts ...types.RuleContextOption) {
 	if e, ok := ctx.GetRuleChainPool().Get(ruleChainId); ok {
+		// 继承父链调试模式：父链调试时子链自动进入调试，使子链节点也产生调试日志
+		if ctx.IsDebugMode() {
+			opts = append([]types.RuleContextOption{types.WithDebugMode(true)}, opts...)
+		}
 		e.OnMsg(msg, opts...)
 	} else {
 		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found", ruleChainId))
