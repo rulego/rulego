@@ -44,6 +44,7 @@ const (
 	ParamOnlyNodeId        = "_onlyNodeId"
 	ParamFromNodeId        = "_fromNodeId"
 	ParamTargetNodePath    = "_targetNodePath"
+	ParamRootChainId       = "_rootChainId"
 )
 
 // 元数据键
