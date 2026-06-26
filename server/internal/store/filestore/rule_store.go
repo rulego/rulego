@@ -81,6 +81,9 @@ func (d *RuleStore) Save(username, chainId string, def []byte) error {
 // Get 获取规则链原始 JSON 数据
 func (d *RuleStore) Get(username, chainId string) ([]byte, error) {
 	category := d.getCategory(chainId)
+	if !isSafeCategory(category) {
+		return nil, errors.New("invalid category")
+	}
 	var paths = []string{d.config.DataDir, constants.DirWorkflows}
 	paths = append(paths, username, constants.DirWorkflowsRule)
 	if d.isCategoryFolderEnabled() && category != "" {
@@ -179,6 +182,9 @@ func (d *RuleStore) AllChains(username string) (map[string][]byte, error) {
 // Delete 删除规则链文件并从索引中移除
 func (d *RuleStore) Delete(username, chainId string) error {
 	category := d.getCategory(chainId)
+	if !isSafeCategory(category) {
+		return errors.New("invalid category")
+	}
 	var paths = []string{d.config.DataDir, constants.DirWorkflows}
 	paths = append(paths, username, constants.DirWorkflowsRule)
 	if d.isCategoryFolderEnabled() && category != "" {
@@ -201,6 +207,20 @@ func (d *RuleStore) getCategory(chainId string) string {
 	return ""
 }
 
+// isSafeCategory 校验 category 不会逃逸出存储根目录，防止路径穿越。
+// category 来自客户端可控的 additionalInfo，会被直接拼入存储路径，必须校验。
+// 允许 "a/b" 这类多级分类，但禁止 ".." 段和绝对路径。
+func isSafeCategory(category string) bool {
+	if category == "" {
+		return true
+	}
+	cleaned := filepath.Clean(filepath.ToSlash(category))
+	if cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/") {
+		return false
+	}
+	return true
+}
+
 func (d *RuleStore) saveRuleChain(username, chainId string, def []byte) error {
 	var ruleChain types.RuleChain
 	category := ""
@@ -208,6 +228,9 @@ func (d *RuleStore) saveRuleChain(username, chainId string, def []byte) error {
 		if cat, ok := ruleChain.RuleChain.GetAdditionalInfo(constants.KeyCategory); ok {
 			category = strings.TrimSpace(str.ToString(cat))
 		}
+	}
+	if !isSafeCategory(category) {
+		return errors.New("invalid category")
 	}
 	var paths = []string{d.config.DataDir, constants.DirWorkflows}
 	paths = append(paths, username, constants.DirWorkflowsRule)

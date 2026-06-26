@@ -188,6 +188,11 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 
 	// POST /rules/:id/base - 保存规则链基础信息
 	ep.POST(endpoint.NewRouter().From(base + "/rules/:id/base").Process(s.authWithPermission("rule", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		id := metadataValue(exchange, constants.KeyId)
+		if !validateId(id) {
+			writeBadRequest(exchange, fmt.Errorf("invalid rule chain id"))
+			return false
+		}
 		admin, ok := getService[services.RuleAdminService](s, exchange, services.KeyRuleManager)
 		if !ok {
 			return false
@@ -205,6 +210,11 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 
 	// POST /rules/:id/config/:varType - 保存规则链配置
 	ep.POST(endpoint.NewRouter().From(base + "/rules/:id/config/:varType").Process(s.authWithPermission("rule", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		id := metadataValue(exchange, constants.KeyId)
+		if !validateId(id) {
+			writeBadRequest(exchange, fmt.Errorf("invalid rule chain id"))
+			return false
+		}
 		admin, ok := getService[services.RuleAdminService](s, exchange, services.KeyRuleManager)
 		if !ok {
 			return false

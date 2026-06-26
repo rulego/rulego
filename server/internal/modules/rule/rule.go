@@ -121,15 +121,18 @@ func (m *Module) Execute(username, chainId string, msg types.RuleMsg, opts ...ty
 		e.OnMsg(msg, opts...)
 		return nil
 	}
-	// 当前用户 pool 未找到时，回退到 DefaultUsername 的 pool（支持系统智能体等共享链）
+	// 当前用户 pool 未找到时，仅系统智能体允许回退到 DefaultUsername 的 pool 执行（避免访问他人私有链）
+	// 注：纯匿名免登陆请求 username 已是 DefaultUsername，不会进入此分支
 	if username != m.cfg.DefaultUsername {
 		defaultUe, err := m.getUserEngine(m.cfg.DefaultUsername)
 		if err != nil {
 			return err
 		}
 		if e, ok := defaultUe.GetEngine(chainId); ok {
-			e.OnMsg(msg, opts...)
-			return nil
+			if m.isSystemAgentEngine(e) {
+				e.OnMsg(msg, opts...)
+				return nil
+			}
 		}
 	}
 	return fmt.Errorf("chain not found: %s", chainId)
@@ -144,15 +147,18 @@ func (m *Module) ExecuteAndWait(username, chainId string, msg types.RuleMsg, opt
 		e.OnMsgAndWait(msg, opts...)
 		return nil
 	}
-	// 当前用户 pool 未找到时，回退到 DefaultUsername 的 pool（支持系统智能体等共享链）
+	// 当前用户 pool 未找到时，仅系统智能体允许回退到 DefaultUsername 的 pool 执行（避免访问他人私有链）
+	// 注：纯匿名免登陆请求 username 已是 DefaultUsername，不会进入此分支
 	if username != m.cfg.DefaultUsername {
 		defaultUe, err := m.getUserEngine(m.cfg.DefaultUsername)
 		if err != nil {
 			return err
 		}
 		if e, ok := defaultUe.GetEngine(chainId); ok {
-			e.OnMsgAndWait(msg, opts...)
-			return nil
+			if m.isSystemAgentEngine(e) {
+				e.OnMsgAndWait(msg, opts...)
+				return nil
+			}
 		}
 	}
 	return fmt.Errorf("chain not found: %s", chainId)
@@ -323,6 +329,10 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 	if chainId == "" {
 		return errors.New("chainId is empty")
 	}
+	// 保护服务端字段：禁止通过基础信息注入 systemAgent 标记（否则任意链可伪装为不可删除的系统智能体）
+	if baseInfo.AdditionalInfo != nil {
+		delete(baseInfo.AdditionalInfo, constants.KeySystemAgent)
+	}
 	ue, err := m.getUserEngine(username)
 	if err != nil {
 		return err
@@ -331,7 +341,15 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 	ruleEngine, ok := ue.GetEngine(chainId)
 	if ok {
 		def := ruleEngine.RootRuleChainCtx().Definition()
+		// 保留原有 systemAgent 标记（系统智能体编辑后仍保持受保护），其余以提交的 additionalInfo 为准
+		sysAgent, _ := def.RuleChain.GetAdditionalInfo(constants.KeySystemAgent)
 		def.RuleChain.AdditionalInfo = baseInfo.AdditionalInfo
+		if def.RuleChain.AdditionalInfo == nil {
+			def.RuleChain.AdditionalInfo = make(map[string]interface{})
+		}
+		if sysAgent != nil {
+			def.RuleChain.AdditionalInfo[constants.KeySystemAgent] = sysAgent
+		}
 		def.RuleChain.Name = baseInfo.Name
 		def.RuleChain.Root = baseInfo.Root
 		def.RuleChain.DebugMode = baseInfo.DebugMode
@@ -455,6 +473,24 @@ func (m *Module) isSystemAgent(ruleChain types.RuleChain) bool {
 	if v, ok := ruleChain.RuleChain.GetAdditionalInfo(constants.KeySystemAgent); ok {
 		if b, ok := v.(bool); ok && b {
 			return true
+		}
+	}
+	return false
+}
+
+// isSystemAgentEngine 判断引擎对应的规则链是否为系统智能体。
+// 用于跨用户执行回退的鉴权：仅系统智能体（部署在 DefaultUsername 名下的共享链）
+// 允许被其他用户执行，避免访问 admin 的私有链。
+// 注：纯匿名免登陆请求 username 已是 DefaultUsername，不会进入调用此方法的回退分支。
+func (m *Module) isSystemAgentEngine(e types.RuleEngine) bool {
+	if e == nil {
+		return false
+	}
+	if def := e.RootRuleChainCtx().Definition(); def != nil {
+		if v, ok := def.RuleChain.GetAdditionalInfo(constants.KeySystemAgent); ok {
+			if b, ok := v.(bool); ok {
+				return b
+			}
 		}
 	}
 	return false
