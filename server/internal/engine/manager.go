@@ -313,6 +313,10 @@ func (ue *UserEngine) initRuleConfig() {
 		runlog.DefaultDebugDataStore.Add(chainId, nodeId, logData)
 		// 推送到 WebSocket 客户端
 		runlog.SendDebugDataToClients(chainId, logData)
+		// 子规则链调试日志同步推送到调试发起的根链路，使主链路控制台可见
+		if root := msg.Metadata.GetValue(constants.ParamRootChainId); root != "" && root != chainId {
+			runlog.SendDebugDataToClients(root, logData)
+		}
 	}
 }
 
