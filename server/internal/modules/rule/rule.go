@@ -175,6 +175,13 @@ func (m *Module) SaveAndLoad(username, chainId string, def []byte) error {
 	if err := json.Unmarshal(def, &ruleChain); err != nil {
 		return err
 	}
+	// 保护服务端字段：禁止通过 SaveAndLoad 注入 systemAgent 标记
+	// （否则任意链可伪装为不可删除的系统智能体）。系统智能体仅由服务端
+	// 在 DefaultUsername 命名空间下部署（system_agents.go 经 markSystemAgent 标记）；
+	// 普通用户命名空间一律剥离该标记，杜绝越权伪装。
+	if ue.Username() != m.cfg.DefaultUsername && ruleChain.RuleChain.AdditionalInfo != nil {
+		delete(ruleChain.RuleChain.AdditionalInfo, constants.KeySystemAgent)
+	}
 	// 系统智能体不更新最后操作规则链ID
 	if !m.isSystemAgent(ruleChain) {
 		_ = ue.SaveSetting(constants.SettingKeyLatestChainId, chainId)
