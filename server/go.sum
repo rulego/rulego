@@ -547,6 +547,8 @@ github.com/rulego/rulego v0.35.3-0.20260527090622-d8b29d722bac h1:zkSK2klI0fdySa
 github.com/rulego/rulego v0.35.3-0.20260527090622-d8b29d722bac/go.mod h1:AmnMby85wUZjeF8OYCJ8vv/JPll5Kq4XKhr9AvJ2usw=
 github.com/rulego/rulego v0.36.1-0.20260624095700-318e8550a743 h1:jYnvbPSzmYxifmKT5FjBu3E37wT3SiFz9lKFFzJQS/o=
 github.com/rulego/rulego v0.36.1-0.20260624095700-318e8550a743/go.mod h1:C+5ohZtTIBNB4l1UY3aVLX+OKAXOHbryRn0I3+no8cs=
+github.com/rulego/rulego v0.36.1-0.20260626063008-9a93a405f7c3 h1:lR0d1WdnEBMUYyfD4E6ppAixMhboqRXx/TVanrd247g=
+github.com/rulego/rulego v0.36.1-0.20260626063008-9a93a405f7c3/go.mod h1:C+5ohZtTIBNB4l1UY3aVLX+OKAXOHbryRn0I3+no8cs=
 github.com/rulego/rulego-components v0.36.0 h1:ron3wrvgkdJr3afQx2SHg4RcA6PqxnsFyZHb9yuJfd4=
 github.com/rulego/rulego-components v0.36.0/go.mod h1:mjzuAiPfIs0IXG+I+8dNWLmnPh3pT4F/tEaxH1IyQ+c=
 github.com/rulego/rulego-components v0.36.1-0.20260624103130-40b865665ed9 h1:hhfEacEBCMNszD/u4y4harG+GtWDfOCQCBEdbCBdzm4=

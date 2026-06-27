@@ -2,6 +2,7 @@ package rule
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/rulego/rulego/api/types"
@@ -321,6 +322,46 @@ func TestRuleModule_Delete_SystemAgent(t *testing.T) {
 	err := m.Delete("admin", "system-agent-1")
 	if err == nil {
 		t.Error("Delete system agent should return error")
+	}
+}
+
+// TestRuleModule_SaveAndLoad_StripsSystemAgentFromUserNamespace 验证非 DefaultUsername
+// 命名空间的调用者无法通过 SaveAndLoad 注入 systemAgent 标记（防止伪装不可删除链）。
+func TestRuleModule_SaveAndLoad_StripsSystemAgentFromUserNamespace(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	// 模拟普通用户命名空间（DefaultUsername="admin"，使用 "tenant-1" 区分）
+	chainDef := `{
+		"ruleChain": {
+			"id": "poison-chain",
+			"name": "Poison",
+			"additionalInfo": {"systemAgent": true}
+		},
+		"metadata": {"nodes": [], "connections": []}
+	}`
+	if err := m.SaveAndLoad("tenant-1", "poison-chain", []byte(chainDef)); err != nil {
+		t.Fatalf("SaveAndLoad: %v", err)
+	}
+
+	// 保存后读取定义：systemAgent 标记应已被剥离
+	raw, err := m.Get("tenant-1", "poison-chain")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	var def types.RuleChain
+	if err := json.Unmarshal(raw, &def); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if _, ok := def.RuleChain.GetAdditionalInfo(constants.KeySystemAgent); ok {
+		t.Error("systemAgent marker should be stripped for non-default namespace")
+	}
+
+	// 剥离后该链应可被删除（非系统智能体）
+	if err := m.Delete("tenant-1", "poison-chain"); err != nil {
+		t.Errorf("Delete should succeed after stripping systemAgent, got: %v", err)
 	}
 }
 
