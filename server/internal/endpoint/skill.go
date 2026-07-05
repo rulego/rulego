@@ -1,9 +1,12 @@
 package endpoint
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
+	"mime/multipart"
 	"strings"
 
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
@@ -212,15 +215,33 @@ func readUploadedSkillArchive(exchange *endpointApi.Exchange) ([]byte, error) {
 	if !ok || req.Request() == nil {
 		return nil, errors.New("unsupported request")
 	}
-	if err := req.Request().ParseMultipartForm(64 << 20); err != nil {
-		return nil, errors.New("invalid multipart form data")
+	// 注意：rest.RequestMessage.Body() 会 io.ReadAll 后 Close 掉 request.Body 流，
+	// 请求管线在到达本 handler 前已缓存过 Body()，导致 request.Body 已耗尽。
+	// 因此不能用 req.Request().ParseMultipartForm（它读原始流，必失败）；
+	// 改从已缓存的 Body() 字节，借助 multipart.Reader 解析。
+	body := req.Body()
+	mediaType, params, err := mime.ParseMediaType(req.Request().Header.Get("Content-Type"))
+	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
+		return nil, errors.New("invalid multipart content-type")
 	}
-	file, _, err := req.Request().FormFile("file")
-	if err != nil {
-		return nil, errors.New("uploaded file is required")
+	boundary := params["boundary"]
+	if boundary == "" {
+		return nil, errors.New("multipart boundary not found")
 	}
-	defer file.Close()
-	return io.ReadAll(file)
+	mr := multipart.NewReader(bytes.NewReader(body), boundary)
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, errors.New("invalid multipart form data")
+		}
+		if part.FormName() == "file" {
+			return io.ReadAll(part)
+		}
+	}
+	return nil, errors.New("uploaded file is required")
 }
 
 // skillScopeFromExchange normalizes the scope query parameter.
