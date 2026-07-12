@@ -121,10 +121,11 @@ func TestSwitchNode(t *testing.T) {
 				},
 			},
 			{
+				// case 引用缺失字段 msg.temperature2，求值失败应跳过而非报错，走 Default 兜底
 				Node:    node2,
 				MsgList: []test.Msg{msg1},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Failure, relationType)
+					assert.Equal(t, types.DefaultRelationType, relationType)
 				},
 			},
 		}
