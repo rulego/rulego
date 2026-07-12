@@ -149,8 +149,9 @@ func (x *SwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	for _, p := range x.Cases {
 		if out, err := p.template.Execute(evn); err != nil {
-			ctx.TellFailure(msg, err)
-			return
+			// 求值失败视为不匹配，跳过该 case 继续评估；最终由 Default 兜底。
+			ctx.Config().Logger.Debugf("switch node [%s] case [%s] evaluation skipped: %v", ctx.GetSelfId(), p.relationType, err)
+			continue
 		} else {
 			if result, ok := out.(bool); ok && result {
 				ctx.TellNext(msg, p.relationType)
