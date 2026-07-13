@@ -227,3 +227,119 @@ func (n *DefaultValueNode) Def() types.ComponentForm {
 		RelationTypes: relationTypes,
 	}
 }
+
+func TestRegisterAlias(t *testing.T) {
+	reg := new(RuleComponentRegistry)
+
+	// 注册一个测试组件
+	node := &NoConfigNode{}
+	err := reg.Register(node)
+	assert.Nil(t, err)
+
+	t.Run("Register Single Alias", func(t *testing.T) {
+		err := reg.RegisterAlias("test/noConfig", "test/alias1")
+		assert.Nil(t, err)
+
+		// 通过别名应该能创建节点
+		newNode, err := reg.NewNode("test/alias1")
+		assert.Nil(t, err)
+		assert.Equal(t, "test/noConfig", newNode.Type())
+	})
+
+	t.Run("Register Multiple Aliases", func(t *testing.T) {
+		err := reg.RegisterAlias("test/noConfig", "test/alias2", "test/alias3")
+		assert.Nil(t, err)
+
+		// 通过所有别名都应该能创建节点
+		for _, alias := range []string{"test/alias2", "test/alias3"} {
+			newNode, err := reg.NewNode(alias)
+			assert.Nil(t, err)
+			assert.Equal(t, "test/noConfig", newNode.Type())
+		}
+	})
+
+	t.Run("Alias For Non-existent Component", func(t *testing.T) {
+		err := reg.RegisterAlias("test/nonexistent", "test/badalias")
+		assert.NotNil(t, err)
+		assert.Equal(t, "component not found: test/nonexistent", err.Error())
+	})
+
+	t.Run("Alias Conflicts With Existing", func(t *testing.T) {
+		// 注册另一个组件
+		otherNode := &ConfigHasPtrNode{}
+		err := reg.Register(otherNode)
+		assert.Nil(t, err)
+
+		// 尝试用已存在的组件名作为别名
+		err = reg.RegisterAlias("test/noConfig", "test/configHasPtr")
+		assert.NotNil(t, err)
+		assert.Equal(t, "alias conflicts with existing component: test/configHasPtr", err.Error())
+	})
+
+	t.Run("Unregister Alias Only Removes Alias", func(t *testing.T) {
+		// 注册别名
+		err := reg.RegisterAlias("test/noConfig", "test/tempalias")
+		assert.Nil(t, err)
+
+		// 确认别名存在
+		_, err = reg.NewNode("test/tempalias")
+		assert.Nil(t, err)
+
+		// 删除别名
+		err = reg.Unregister("test/tempalias")
+		assert.Nil(t, err)
+
+		// 别名应该不存在了
+		_, err = reg.NewNode("test/tempalias")
+		assert.NotNil(t, err)
+
+		// 主组件应该还在
+		_, err = reg.NewNode("test/noConfig")
+		assert.Nil(t, err)
+
+		// 其他别名应该还在
+		_, err = reg.NewNode("test/alias1")
+		assert.Nil(t, err)
+	})
+
+	t.Run("Unregister Primary Removes All Aliases", func(t *testing.T) {
+		// 创建一个新的注册表测试
+		reg2 := new(RuleComponentRegistry)
+		node2 := &NoConfigNode{}
+		err := reg2.Register(node2)
+		assert.Nil(t, err)
+
+		// 注册多个别名
+		err = reg2.RegisterAlias("test/noConfig", "test/a1", "test/a2", "test/a3")
+		assert.Nil(t, err)
+
+		// 删除主组件
+		err = reg2.Unregister("test/noConfig")
+		assert.Nil(t, err)
+
+		// 主组件应该不存在了
+		_, err = reg2.NewNode("test/noConfig")
+		assert.NotNil(t, err)
+
+		// 所有别名都应该不存在了
+		for _, alias := range []string{"test/a1", "test/a2", "test/a3"} {
+			_, err = reg2.NewNode(alias)
+			assert.NotNil(t, err)
+		}
+	})
+
+	t.Run("GetComponents Includes Aliases", func(t *testing.T) {
+		components := reg.GetComponents()
+		// 别名应该出现在 components map 中
+		_, ok := components["test/alias1"]
+		assert.True(t, ok)
+		_, ok = components["test/alias2"]
+		assert.True(t, ok)
+	})
+
+	// 清理
+	defer func() {
+		reg.Unregister("test/noConfig")
+		reg.Unregister("test/configHasPtr")
+	}()
+}

@@ -18,7 +18,6 @@ package endpoint
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
@@ -54,6 +53,15 @@ func init() {
 	_ = Registry.Register(&websocket.Endpoint{})
 	_ = Registry.Register(&websocket.ClientEndpoint{})
 	_ = Registry.Register(&schedule.Endpoint{})
+
+	// Register aliases for backward compatibility
+	// 注册别名以保持向后兼容性
+	// 注意：rest.Type = "endpoint/http", websocket.Type = "endpoint/ws"
+	_ = Registry.RegisterAlias(rest.Type, "rest", "http")
+	_ = Registry.RegisterAlias(websocket.Type, "websocket", "ws")
+	_ = Registry.RegisterAlias(mqtt.Type, "mqtt")
+	_ = Registry.RegisterAlias(net.Type, "net", "tcp")
+	_ = Registry.RegisterAlias(schedule.Type, "schedule", "timer")
 }
 
 // Registry is the default global registry for endpoint components.
@@ -139,14 +147,8 @@ func (r *ComponentRegistry) Register(component endpoint.Endpoint) error {
 //	    "server": ":9090",
 //	})
 func (r *ComponentRegistry) New(componentType string, ruleConfig types.Config, configuration interface{}) (endpoint.Endpoint, error) {
-	// Handle backward compatibility for legacy type names
-	// 处理旧类型名称的向后兼容性
-	if strings.Contains("http,ws,mqtt,net,schedule,kafka,nats", componentType) {
-		//Compatible with older versions  兼容旧版本
-		componentType = types.EndpointTypePrefix + componentType
-	}
-
-	// Create new node instance from registry  从注册表创建新节点实例
+	// Create new node instance from registry
+	// Alias resolution is handled by the underlying RuleComponentRegistry
 	newNode, err := r.RuleComponentRegistry.NewNode(componentType)
 	if err != nil {
 		return nil, err
