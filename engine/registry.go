@@ -58,7 +58,11 @@ func init() {
 // RuleComponentRegistry is a registry for rule engine components.
 type RuleComponentRegistry struct {
 	// components is a map of rule engine node components.
+	// Keys can be primary type names or aliases, both pointing to the same Node instance.
 	components map[string]types.Node
+	// aliases is a reverse mapping from alias to primary type name.
+	// Only alias entries exist in this map.
+	aliases map[string]string
 	// plugins is a map of plugin components.
 	plugins map[string][]types.Node
 	// endpointComponents is a map of endpoint components.
@@ -78,6 +82,47 @@ func (r *RuleComponentRegistry) Register(node types.Node) error {
 		return errors.New("the component already exists. componentType=" + node.Type())
 	}
 	r.components[node.Type()] = node
+
+	return nil
+}
+
+// RegisterAlias registers one or more aliases for an existing component.
+// This allows components to be referenced by alternative names, useful for
+// backward compatibility or providing shorter/more intuitive names.
+//
+// Parameters:
+//   - primaryType: The registered component type name
+//   - aliases: One or more alternative names for the component
+//
+// Returns error if the primary component is not found or any alias conflicts with existing components.
+func (r *RuleComponentRegistry) RegisterAlias(primaryType string, aliases ...string) error {
+	r.Lock()
+	defer r.Unlock()
+
+	if r.components == nil {
+		return fmt.Errorf("component not found: %s", primaryType)
+	}
+
+	node, ok := r.components[primaryType]
+	if !ok {
+		return fmt.Errorf("component not found: %s", primaryType)
+	}
+
+	if r.aliases == nil {
+		r.aliases = make(map[string]string)
+	}
+
+	for _, alias := range aliases {
+		// Allow alias to be the same as primaryType (no-op)
+		if alias == primaryType {
+			continue
+		}
+		if _, exists := r.components[alias]; exists {
+			return fmt.Errorf("alias conflicts with existing component: %s", alias)
+		}
+		r.components[alias] = node
+		r.aliases[alias] = primaryType
+	}
 
 	return nil
 }
@@ -117,12 +162,33 @@ func (r *RuleComponentRegistry) RegisterPlugin(name string, file string) error {
 }
 
 // Unregister removes a component from the registry by its type or plugin name.
+// When removing a primary component, all its aliases are also removed.
+// When removing an alias, only that alias is removed, the primary and other aliases remain.
 func (r *RuleComponentRegistry) Unregister(componentType string) error {
 	r.Lock()
 	defer r.Unlock()
 	var removed = false
 
-	// Check if it's a plugin name
+	// 1. If removing an alias, only remove that alias entry
+	if r.aliases != nil {
+		if _, ok := r.aliases[componentType]; ok {
+			delete(r.components, componentType)
+			delete(r.aliases, componentType)
+			return nil
+		}
+	}
+
+	// 2. If removing a primary type, also remove all its aliases
+	if r.aliases != nil {
+		for alias, primary := range r.aliases {
+			if primary == componentType {
+				delete(r.components, alias)
+				delete(r.aliases, alias)
+			}
+		}
+	}
+
+	// 3. Check if it's a plugin name
 	if nodes, ok := r.plugins[componentType]; ok {
 		for _, node := range nodes {
 			// Delete all components of this plugin
@@ -132,7 +198,7 @@ func (r *RuleComponentRegistry) Unregister(componentType string) error {
 		removed = true
 	}
 
-	// Check if it's a component type
+	// 4. Check if it's a component type
 	if _, ok := r.components[componentType]; ok {
 		// Delete the component
 		delete(r.components, componentType)

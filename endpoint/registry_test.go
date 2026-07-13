@@ -131,3 +131,48 @@ func (test *testEndpoint) RemoveRouter(routeId string, params ...interface{}) er
 func (test *testEndpoint) Start() error {
 	return nil
 }
+
+func TestEndpointAliases(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	configuration := types.Configuration{
+		"server": ":9090",
+	}
+
+	t.Run("Legacy Type Names", func(t *testing.T) {
+		// 测试旧的类型名称是否能通过别名解析
+		legacyTypes := map[string]string{
+			"http":      "endpoint/http",
+			"rest":      "endpoint/http",
+			"ws":        "endpoint/ws",
+			"websocket": "endpoint/ws",
+			"mqtt":      "endpoint/mqtt",
+			"net":       "endpoint/net",
+			"tcp":       "endpoint/net",
+			"schedule":  "endpoint/schedule",
+			"timer":     "endpoint/schedule",
+		}
+
+		for legacy, expectedType := range legacyTypes {
+			ep, err := Registry.New(legacy, config, configuration)
+			assert.Nil(t, err)
+			assert.NotNil(t, ep)
+			assert.Equal(t, expectedType, ep.Type())
+		}
+	})
+
+	t.Run("Primary Type Names Still Work", func(t *testing.T) {
+		// 主类型名称应该继续工作
+		ep, err := Registry.New("endpoint/http", config, configuration)
+		assert.Nil(t, err)
+		assert.NotNil(t, ep)
+
+		ep, err = Registry.New("endpoint/ws", config, configuration)
+		assert.Nil(t, err)
+		assert.NotNil(t, ep)
+	})
+
+	t.Run("Unknown Type Returns Error", func(t *testing.T) {
+		_, err := Registry.New("unknown_type", config, configuration)
+		assert.NotNil(t, err)
+	})
+}
