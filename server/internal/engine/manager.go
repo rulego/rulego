@@ -43,6 +43,7 @@ type Manager struct {
 	cfg           *config.Config
 	logger        types.Logger
 	storeProvider store.StoreProvider
+	systemEp      types.Node // 共享给用户池的系统端点（如主 HTTP server），由 SetSystemEndpoint 注入；nil 表示不注入
 }
 
 // NewManager 创建引擎管理器
@@ -53,6 +54,12 @@ func NewManager(cfg *config.Config, logger types.Logger, storeProvider store.Sto
 		logger:        logger,
 		storeProvider: storeProvider,
 	}
+}
+
+// SetSystemEndpoint 设置要注入到每个用户池的系统端点（如开启 share_http_server 时的主 HTTP server）。
+// 设置后新建用户引擎时会把该端点加入用户节点池，供用户规则链通过 ref:// 引用。
+func (m *Manager) SetSystemEndpoint(ep types.Node) {
+	m.systemEp = ep
 }
 
 // GetOrCreate 获取或创建用户引擎，使用 double-check locking 防止竞态
@@ -150,6 +157,12 @@ func (m *Manager) newUserEngine(username string) (*UserEngine, error) {
 	componentRegistry := rulegoEngine.NewCustomComponentRegistry(rulegoEngine.Registry, new(rulegoEngine.RuleComponentRegistry))
 	poolConfig := rulego.NewConfig(types.WithComponentsRegistry(componentRegistry), types.WithLogger(logger))
 	pool := node_pool.NewNodePool(poolConfig)
+	// 将系统端点（如主 HTTP server）注入用户池，供用户规则链通过 ref:// 引用。
+	if m.systemEp != nil {
+		if _, err := pool.AddNode(m.systemEp); err != nil {
+			m.logger.Errorf("inject system endpoint into user=%s pool error: %s", username, err)
+		}
+	}
 
 	ruleConfig := rulego.NewConfig(types.WithDefaultPool(),
 		types.WithLogger(logger),

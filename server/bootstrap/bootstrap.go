@@ -20,6 +20,8 @@ import (
 	"github.com/rulego/rulego/server/internal/modules/system"
 	"github.com/rulego/rulego/server/internal/modules/user"
 	srvEndpoint "github.com/rulego/rulego/server/internal/endpoint"
+	"github.com/rulego/rulego/server/internal/engine"
+	"github.com/rulego/rulego/server/services"
 )
 
 // DefaultModules 返回默认业务模块列表。
@@ -71,6 +73,16 @@ func Run(application *app.App) error {
 	wsEp, err := srv.NewWebsocketEndpoint(restEp)
 	if err != nil {
 		return err
+	}
+
+	// 开启 share_http_server 时，把主 HTTP 端点注入引擎管理器，
+	// 使每个用户池可通过 ref://<config.Server> 复用主 HTTP server。
+	if cfg.ShareHttpServer {
+		if mgr, err := app.GetAs[services.EngineManager](application.Container(), services.KeyEngineManager); err == nil {
+			if concrete, ok := mgr.(*engine.Manager); ok {
+				concrete.SetSystemEndpoint(restEp)
+			}
+		}
 	}
 
 	if err := application.Start(); err != nil {

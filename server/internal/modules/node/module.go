@@ -4,6 +4,7 @@ package node
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path"
 	"sort"
@@ -237,6 +238,11 @@ func (m *Module) ForUser(username string, ruleConfig types.Config, pool *node_po
 	if err != nil {
 		return nil, err
 	}
+	// 开启 share_http_server 时，主 HTTP server 会被注入用户池；其 id（=config.Server）标记为系统只读节点。
+	systemNodeId := ""
+	if m.cfg.ShareHttpServer {
+		systemNodeId = m.cfg.Server
+	}
 	return &UserNodeService{
 		UserComponentService: &UserComponentService{
 			username:   username,
@@ -246,8 +252,9 @@ func (m *Module) ForUser(username string, ruleConfig types.Config, pool *node_po
 			mcpSvc:     mcpSvc,
 		},
 		UserNodePoolService: &UserNodePoolService{
-			store:    nodePoolStore,
-			nodePool: pool,
+			store:        nodePoolStore,
+			nodePool:     pool,
+			systemNodeId: systemNodeId,
 		},
 	}, nil
 }
@@ -349,10 +356,19 @@ func (s *UserComponentService) Uninstall(nodeType string) error {
 	return s.store.Delete(s.username, nodeType)
 }
 
-// UserNodePoolService 用户级节点池服务（从原 nodepool 模块合并）
+// UserNodePoolService 用户级共享节点池服务（从原 nodepool 模块合并）。
+// 注意：开启 share_http_server 后，主 HTTP server 端点会被注入用户池作为「系统只读节点」
+//（id = config.Server）。该节点禁止改/删/持久化，相关写操作（SaveNode/SaveEndpoint/Delete/saveState）
+// 均通过 isSystemNode 拦截。未来新增任何 node_pool 写操作必须同步加此保护，否则会拉垮共享 server。
 type UserNodePoolService struct {
-	store    store.NodePoolStore
-	nodePool *node_pool.NodePool
+	store        store.NodePoolStore
+	nodePool     *node_pool.NodePool
+	systemNodeId string // 系统注入的只读节点 id（如主 HTTP server 的 :9090）；非空时该 id 不可改/删/持久化
+}
+
+// isSystemNode 判断给定 id 是否为系统注入的只读节点。
+func (s *UserNodePoolService) isSystemNode(id string) bool {
+	return s.systemNodeId != "" && id == s.systemNodeId
 }
 
 func (s *UserNodePoolService) Load() error {
@@ -440,6 +456,9 @@ func (s *UserNodePoolService) List(page, size int, keywords, category string) ([
 }
 
 func (s *UserNodePoolService) SaveNode(node types.RuleNode) error {
+	if s.isSystemNode(node.Id) {
+		return errors.New("system node cannot be modified")
+	}
 	s.nodePool.Del(node.Id)
 	if _, err := s.nodePool.NewFromRuleNode(node); err != nil {
 		return err
@@ -448,6 +467,9 @@ func (s *UserNodePoolService) SaveNode(node types.RuleNode) error {
 }
 
 func (s *UserNodePoolService) SaveEndpoint(endpoint types.EndpointDsl) error {
+	if s.isSystemNode(endpoint.Id) {
+		return errors.New("system node cannot be modified")
+	}
 	s.nodePool.Del(endpoint.Id)
 	if _, err := s.nodePool.NewFromEndpoint(endpoint); err != nil {
 		return err
@@ -456,6 +478,9 @@ func (s *UserNodePoolService) SaveEndpoint(endpoint types.EndpointDsl) error {
 }
 
 func (s *UserNodePoolService) Delete(id, nodeType string) error {
+	if s.isSystemNode(id) {
+		return errors.New("system node cannot be deleted")
+	}
 	s.nodePool.Del(id)
 	return s.saveState()
 }
@@ -490,6 +515,9 @@ func (s *UserNodePoolService) saveState() error {
 	}
 
 	for _, ctx := range all {
+		if s.isSystemNode(ctx.GetNodeId().Id) {
+			continue // 系统节点不持久化（避免重启重建实例与主 server 抢端口）
+		}
 		raw := ctx.DSL()
 		if _, ok := ctx.GetNode().(endpointApi.Endpoint); ok {
 			var ep types.EndpointDsl
