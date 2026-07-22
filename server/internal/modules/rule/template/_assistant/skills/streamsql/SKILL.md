@@ -1,6 +1,6 @@
 ---
 name: streamsql
-description: 当需要创建实时数据聚合、窗口统计、流式计算、设备数据分组聚合等规则链时使用，或当使用 x/streamAggregator 和 x/streamTransform 组件时使用。包含完整的 SQL 语法、窗口类型和配置示例
+description: 当需要创建实时数据聚合/窗口统计、流式过滤转换、变化检测（CDC）、生命周期累计、元数据富化（流-表 JOIN）、CEP 模式识别（MATCH_RECOGNIZE）等规则链时使用，或当使用 x/streamAggregator 和 x/streamTransform 组件时使用。包含 SQL 语法、窗口、分析函数、JOIN、CEP 和配置示例
 ---
 
 # StreamSQL 流式计算组件
@@ -9,81 +9,103 @@ RuleGo 通过 `x/streamAggregator` 和 `x/streamTransform` 两个组件提供流
 
 ## 组件选择
 
-| 需求 | 组件 | 说明 |
-|------|------|------|
-| 聚合统计（AVG/COUNT/SUM/MAX/MIN） | `x/streamAggregator` | 必须包含 GROUP BY + 窗口函数 |
-| 过滤、字段选择、计算转换 | `x/streamTransform` | 不能包含聚合函数 |
-| 窗口聚合 + 实时统计 | `x/streamAggregator` | 时间窗口/计数窗口触发聚合 |
+| 需求                                | 组件                   | 说明                                  |
+| --------------------------------- | -------------------- | ----------------------------------- |
+| 过滤、字段选择、计算转换、变化检测、累计              | `x/streamTransform`  | 逐条同步处理，不能含聚合函数/GROUP BY             |
+| 聚合统计（AVG/COUNT/SUM/MAX/MIN）+ 窗口   | `x/streamAggregator` | 必须含 GROUP BY + 窗口函数                 |
+| CEP 模式识别（事件序列匹配 MATCH\_RECOGNIZE） | `x/streamAggregator` | 见下文 [CEP](#cep-模式识别match_recognize) |
+| 窗口内做变化检测/回溯/累计                    | `x/streamAggregator` | 分析函数对窗口输出求值                         |
 
-**用错组件会初始化失败**：aggregator 的 SQL 不能缺少聚合函数，transform 的 SQL 不能包含聚合函数。
+**用错组件会初始化失败**：aggregator 的 SQL 必须是聚合或 CEP（MATCH\_RECOGNIZE），transform 不能含聚合函数/MATCH\_RECOGNIZE。分析函数（`lag`/`changed_col`/`acc_*` 等）不是聚合函数，两边都可用——不带窗口时进 transform，带窗口时进 aggregator。
 
 ## x/streamAggregator 流聚合器
 
-### 数据流
-
-```
-输入数据 → 添加到聚合流 → 原始数据通过 Success 链继续传递
-聚合触发（窗口到期） → 聚合结果通过 window_event 链传递
-```
-
-### 配置
+数据流：输入 → 加入聚合流（原始数据走 `Success` 继续）→ 窗口触发 → 聚合结果走 `stream_event`。
 
 ```json
 {
   "type": "x/streamAggregator",
-  "name": "流聚合器",
   "configuration": {
     "sql": "SELECT deviceId, AVG(temperature) as avg_temp, COUNT(*) as count FROM stream GROUP BY deviceId, TumblingWindow('30s')"
   }
 }
 ```
 
-### 连接类型
+连接类型：`Success`（原始数据）、`Failure`（非 JSON/SQL 错误）、`stream_event`（**聚合结果，关键**）。
 
-| 连接 | 说明 |
-|------|------|
-| Success | 原始数据成功加入聚合流，继续传递原始消息 |
-| Failure | 处理失败（非JSON数据、SQL错误等） |
-| **window_event** | 窗口触发后的聚合结果（这是关键！） |
-
-### 聚合结果消息
-
-聚合结果通过 `window_event` 链输出，消息格式：
-
-- `msgType`: `window_event`
-- `metadata`: 包含 `queryType=aggregation`、`resultType=window_triggered`
-- `msg.data`: 聚合结果 JSON 数组，如 `[{"deviceId":"sensor001","avg_temp":25.5,"count":10}]`
+结果消息：`msgType=stream_event`，`metadata.queryType`=`aggregation`(聚合)或 `cep`(MATCH\_RECOGNIZE)、`resultType`=`window_triggered`/`pattern_matched`，`msg.data` 是结果 JSON 数组，如 `[{"deviceId":"d1","avg_temp":25.5,"count":10}]`。可同时从 `Success`（原始）和 `stream_event`（结果）双路输出分别处理。
 
 ## x/streamTransform 流转换器
-
-### 配置
 
 ```json
 {
   "type": "x/streamTransform",
-  "name": "数据转换",
   "configuration": {
     "sql": "SELECT deviceId, temperature * 1.8 + 32 as fahrenheit FROM stream WHERE temperature > 20"
   }
 }
 ```
 
-### 连接类型
+连接类型：`Success`（转换成功且符合 WHERE，结果替换 `msg.data`，`match=true`）、`False`（WHERE 不命中 / `changed_cols` 无变化，**携带原始数据**，`match=false`）、`Failure`（错误）。
 
-| 连接 | 说明 |
-|------|------|
-| Success | 转换成功且符合 WHERE 条件 |
-| Failure | 转换失败或不符合 WHERE 条件 |
+数组输入逐条转换后合并输出，metadata 额外含 `originalCount`/`transformedCount`/`failedCount`。
 
-转换后的数据直接替换原始消息的 data，通过 Success 链传递。不符合 WHERE 条件的数据走 Failure 链。
+## 分析函数（跨事件状态）
 
-### 元数据标记
+逐条事件求值、状态跨事件保留，走 transform 的同步路径；窗口内则对窗口输出求值、状态跨窗口保留。
 
-Success 时 metadata 设置 `match=true`，Failure 时设置 `match=false`，可用于下游节点判断。
+| 函数                                                     | 用途                            |
+| ------------------------------------------------------ | ----------------------------- |
+| `lag(f [,offset [,default [,ignoreNull]]])`            | 前 N 行的值（CDC 回溯）               |
+| `latest(f [,default])`                                 | 最新非空值                         |
+| `had_changed(ignoreNull, f...)`                        | 与上次比是否变化（首次视为变化）              |
+| `changed_col(ignoreNull, f)`                           | 变化的列值（未变返回 nil）               |
+| `changed_cols(prefix, ignoreNull, f...)`               | 多列变化值，输出 `prefix+列名`，仅 SELECT |
+| `acc_sum`/`acc_max`/`acc_min`/`acc_count`/`acc_avg(f)` | 生命周期累计（不随窗口重置）                |
 
-## SQL 语法参考
+```sql
+-- CDC：电流从低跨过 300A
+SELECT current, deviceId FROM stream
+WHERE current > 300 AND lag(current) OVER (PARTITION BY deviceId) < 300
+-- 仅发送变化字段
+SELECT changed_cols("c_", true, temperature, humidity) FROM stream
+-- 窗口均值变化才输出（进 aggregator）
+SELECT changed_cols("t", true, avg(temperature)) FROM stream GROUP BY CountingWindow(2)
+```
 
-### 完整语法结构
+- `OVER (PARTITION BY ... WHEN ...)`：分区 / 条件更新；不支持 `ORDER BY`/`ROWS` frame。
+- `acc_count(v, startExpr, resetExpr)`：条件累计（开始点 / 重置点）。
+- 条件表达式用比较运算符 `>`/`<`/`==`；分析函数参数里 `=` 不作相等判断，字符串相等用 `==`。
+- `changed_cols`/`changed_col` 唯一输出且无变化时返回 nil → 走 transform 的 **False** 链（预期的事件压缩，接丢弃/忽略即可）。
+
+## CEP 模式识别（MATCH\_RECOGNIZE）
+
+`x/streamAggregator` 支持 `MATCH_RECOGNIZE`，语法对齐 **Flink / SQL 标准**的行模式识别（标准语法详见 [Flink MATCH\_RECOGNIZE 文档](https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/table/sql/queries/match_recognize/)）。匹配命中后结果走 `stream_event`（与聚合同出口，`metadata.queryType=cep`、`resultType=pattern_matched`）。
+
+```sql
+SELECT * FROM stream
+MATCH_RECOGNIZE (
+  PARTITION BY deviceId                         -- 可选：分区键
+  ORDER BY ts                                   -- 必填：排序字段
+  MEASURES MATCH_NUMBER() AS mn, A.v AS peak    -- 输出列；可含聚合 COUNT(*)/SUM(A.v)/AVG(v)/MAX(v)，及 FIRST(v)/LAST(v)/CLASSIFIER()
+  ONE ROW PER MATCH                             -- 默认；或 ALL ROWS PER MATCH
+  AFTER MATCH SKIP PAST LAST ROW                -- 可选：PAST LAST ROW(默认)/TO NEXT ROW/TO FIRST x/TO LAST x
+  PATTERN (A{3} B?)                             -- 拼接 AB、交替 A|B、量词 {n}/{n,m}/{n,}/*/+/?、分组 ()、PERMUTE(A,B)
+  WITHIN '1h'                                   -- 可选：时间窗（默认 1h）
+  DEFINE A AS v > 50, B AS v < 10               -- 符号条件；未在 DEFINE 出现的符号恒为真
+)
+```
+
+**已支持**：`PARTITION BY`、`ORDER BY`（必填）、`MEASURES`（含聚合 + `MATCH_NUMBER()`）、`ONE`/`ALL ROWS PER MATCH`、`AFTER MATCH SKIP` 全部策略、`PATTERN`（拼接 / 交替 / 量词 / 分组 / `PERMUTE`）、`SUBSET`、`WITHIN`、`DEFINE`。
+
+**不支持 / 注意**：
+
+- `{- ... -}` 排除（absence）不支持，会报错。
+- 仅单流（`FROM stream`）；不支持多流 MATCH\_RECOGNIZE。
+- 量词默认贪婪；懒惰量词（`*?`/`+?`）亦支持，但同一模式内勿混用贪婪与懒惰。
+- ⚠️ MATCH\_RECOGNIZE 子句本身的语法错误会被外层 Parse 容错吞掉，导致查询**静默降级为非 CEP**（不报错）。`DEFINE`/`MEASURES` 里的表达式语法错会在 Execute 期暴露。写完建议实跑验证或用 `IsCEPQuery()` 确认走了 CEP 路径。
+
+## SQL 语法
 
 ```sql
 SELECT [DISTINCT] select_list
@@ -96,424 +118,98 @@ FROM stream
 [WITH (option = value [, ...])]
 ```
 
-### SELECT 字段
+- **SELECT**：字段 / `*` / 计算字段 / 别名（AS 可省）/ `DISTINCT` / 聚合函数。
+- **嵌套字段**：点号、`[index]`（支持负数）、`['key']`，如 `device.info.name`、`items[0].name`、`config['host']`。可用于 WHERE/GROUP BY/HAVING。
+- **CASE**：`CASE WHEN cond THEN v ... ELSE d END`，可在聚合内部做条件计数 `SUM(CASE WHEN ... THEN 1 ELSE 0 END)`。
+- **WHERE**：比较 / `AND OR NOT` / `BETWEEN` / `IN` / `IS [NOT] NULL` / `LIKE`（`%`/`_`），均可用嵌套字段。
+- **HAVING**：过滤聚合结果。**引用 SELECT 别名**（`HAVING avg_temp > 25`），不能复述聚合函数。
+
+### 窗口函数（aggregator 必含一个）
 
 ```sql
--- 直接引用字段
-SELECT deviceId, temperature FROM stream
-
--- 选择所有字段
-SELECT * FROM stream
-
--- 计算字段
-SELECT temperature * 1.8 + 32 as fahrenheit FROM stream
-
--- 别名（AS 可省略）
-SELECT temperature temp, humidity hum FROM stream
-
--- 去重
-SELECT DISTINCT deviceType FROM stream
-
--- 聚合函数
-SELECT AVG(temperature) as avg_temp, COUNT(*) as count FROM stream
-
--- 多字段聚合
-SELECT deviceId, AVG(temperature) as avg_temp, SUM(humidity) as total_humidity
-FROM stream GROUP BY deviceId, TumblingWindow('1m')
+GROUP BY TumblingWindow('30s')                                        -- 滚动：固定大小、无重叠
+GROUP BY SlidingWindow('5m', '1m')                                    -- 滑动：大小 + 滑动间隔
+GROUP BY CountingWindow(100)                                          -- 计数：按条数触发
+GROUP BY user_id, SessionWindow('5m')                                 -- 会话：超时关闭
+GROUP BY deviceId, GLOBAL WINDOW TRIGGER WHEN COUNT(*) >= 3           -- 全局：谓词触发后清空
 ```
 
-### 嵌套字段访问
+窗口元数据函数：`window_start()`、`window_end()`。
 
-支持点号、数组索引、Map 键访问：
+### 事件时间（WITH 子句）
+
+默认处理时间。指定事件时间字段与乱序/延迟容忍：
 
 ```sql
--- 点号语法
-SELECT device.info.name, device.location.building FROM stream
-
--- 深层嵌套
-SELECT sensor.data.temperature.value FROM stream
-
--- 数组索引（支持负数索引）
-SELECT items[0].name, readings[-1] FROM stream
-
--- Map 键访问
-SELECT config['host'], metadata.building_info['architect'] FROM stream
-
--- 混合访问
-SELECT floors[0].rooms[2]['name'] FROM stream
+WITH (TIMESTAMP='event_time', TIMEUNIT='ms', MAXOUTOFORDERNESS='5s', ALLOWEDLATENESS='2s', IDLETIMEOUT='5s')
 ```
 
-嵌套字段可在 WHERE、GROUP BY、HAVING 中使用：
+`TIMEUNIT`：`ns`/`ms`(默认)/`ss`/`mi`/`hh`/`dd`。
+
+### 聚合与内置函数
+
+聚合：`COUNT(*)` `SUM` `AVG` `MAX` `MIN` `STDDEV` `STDDEVS` `VAR` `VARS` `MEDIAN` `PERCENTILE(f,p)` `COLLECT` `FIRST_VALUE` `LAST_VALUE` `MERGE_AGG` `DEDUPLICATE(f,bool)`。
+
+内置：数学 `ABS/ROUND/FLOOR/CEIL/SQRT/POWER`、字符串 `CONCAT/UPPER/LOWER/LENGTH/SUBSTRING/TRIM`、`CAST(expr AS STRING)`。
+
+## 元数据表与流-表 JOIN
+
+节点配置 `tables` 注册元数据表，SQL 里 `JOIN` 富化流行（transform 逐行富化、aggregator 富化后聚合）。**streamsql 1.0.0+**。
+
+```json
+"tables": [
+  {"name": "meta", "source": "file", "path": "/etc/rulego/device_meta.json", "format": "json", "refresh": "30s"}
+]
+```
+
+| 字段                  | 说明                                                               |
+| ------------------- | ---------------------------------------------------------------- |
+| `name`              | 表名；**必须出现在 SQL 的 JOIN 里**（`JOIN meta m` → `name:"meta"`），否则初始化失败 |
+| `source`            | `file`/`http`（UI）；后端另支持 `inline`（行内 `rows`，不刷新）                  |
+| `path`              | 文件路径（file）或 GET URL（http）                                        |
+| `format`            | `json`/`csv`（默认 json）                                            |
+| `refresh`           | 刷新间隔；空 = file/http 默认 1 小时；inline 不刷新                            |
+| `headers`/`timeout` | 仅 http                                                           |
+
+JOIN 仅支持等值 ON（复合键用 `AND`），表侧列按别名命名空间返回（`m.location`）。刷新失败保留旧快照。
 
 ```sql
-SELECT device.type, AVG(sensor.temperature)
-FROM stream
-WHERE device.info.status = 'active'
-GROUP BY device.type, TumblingWindow('1m')
+SELECT deviceId, m.location FROM stream s LEFT JOIN meta m ON s.deviceId = m.deviceId WHERE temperature > 30
 ```
-
-### CASE 条件表达式
-
-```sql
--- 搜索 CASE
-SELECT deviceId,
-       CASE
-           WHEN temperature > 30 THEN '高温'
-           WHEN temperature > 20 THEN '正常'
-           ELSE '低温'
-       END as temp_level
-FROM stream
-
--- 简单 CASE
-SELECT deviceId,
-       CASE status
-           WHEN 'active' THEN 1
-           WHEN 'inactive' THEN 0
-           ELSE -1
-       END as status_code
-FROM stream
-
--- CASE 在聚合函数内部（条件计数）
-SELECT deviceId,
-       SUM(CASE WHEN temperature > 30 THEN 1 ELSE 0 END) as hot_count
-FROM stream
-GROUP BY deviceId, TumblingWindow('1m')
-```
-
-### WHERE 条件（可选）
-
-```sql
--- 比较操作
-WHERE temperature > 25
-WHERE deviceId != 'test001'
-
--- 逻辑组合
-WHERE temperature > 20 AND humidity < 80
-WHERE (temperature > 30 OR humidity > 90) AND deviceId LIKE 'sensor%'
-
--- 范围
-WHERE temperature BETWEEN 20 AND 30
-WHERE deviceType IN ('temperature', 'humidity')
-
--- NULL 检查
-WHERE temperature IS NOT NULL
-WHERE error_msg IS NULL
-
--- 模式匹配
-WHERE deviceId LIKE 'sensor%'       -- 以sensor开头
-WHERE location LIKE '%room%'        -- 包含room
-WHERE deviceId LIKE 'dev___'        -- dev后跟3个字符
-
--- 嵌套字段条件
-WHERE device.info.status = 'active'
-WHERE sensor.data.temperature > 25
-
--- NOT
-WHERE deviceId NOT IN ('test001', 'test002')
-WHERE NOT (temperature < 0)
-```
-
-### HAVING 子句
-
-过滤聚合结果（WHERE 过滤原始数据，HAVING 过滤聚合结果）：
-
-```sql
-SELECT deviceId, AVG(temperature) as avg_temp, COUNT(*) as count
-FROM stream
-WHERE temperature > 0
-GROUP BY deviceId, TumblingWindow('30s')
-HAVING AVG(temperature) > 25 AND COUNT(*) >= 5
-```
-
-### 窗口函数（streamAggregator 必须包含）
-
-#### TumblingWindow 滚动窗口
-
-固定大小、无重叠，适合周期性统计。
-
-```sql
-SELECT AVG(temperature) as avg_temp FROM stream GROUP BY TumblingWindow('30s')
-SELECT COUNT(*) as event_count FROM stream GROUP BY TumblingWindow('5m')
-```
-
-#### SlidingWindow 滑动窗口
-
-固定大小、有重叠，适合平滑趋势分析。
-
-```sql
--- 窗口大小5分钟，每1分钟滑动一次
-SELECT AVG(temperature) as avg_temp FROM stream GROUP BY SlidingWindow('5m', '1m')
-```
-
-#### CountingWindow 计数窗口
-
-基于数据条数触发。
-
-```sql
-SELECT AVG(temperature) as avg_temp FROM stream GROUP BY CountingWindow(100)
-```
-
-#### SessionWindow 会话窗口
-
-基于数据活跃度，超时关闭。
-
-```sql
-SELECT user_id, COUNT(*) as actions FROM stream GROUP BY user_id, SessionWindow('5m')
-```
-
-### GROUP BY 分组
-
-```sql
--- 按设备分组 + 时间窗口
-SELECT deviceId, AVG(temperature) as avg_temp FROM stream GROUP BY deviceId, TumblingWindow('1m')
-
--- 多字段分组
-SELECT deviceId, location, AVG(temperature) FROM stream GROUP BY deviceId, location, TumblingWindow('1m')
-
--- 纯窗口（不分组）
-SELECT AVG(temperature) as avg_temp FROM stream GROUP BY TumblingWindow('1m')
-```
-
-### 窗口元数据函数
-
-在聚合查询中可获取窗口时间信息：
-
-```sql
-SELECT deviceId,
-       AVG(temperature) as avg_temp,
-       window_start() as start_time,
-       window_end() as end_time
-FROM stream
-GROUP BY deviceId, TumblingWindow('5s')
-```
-
-### 事件时间配置（WITH 子句）
-
-默认使用处理时间（数据到达时间）。指定事件时间字段：
-
-```sql
-SELECT AVG(temperature) as avg_temp
-FROM stream
-GROUP BY TumblingWindow('5m')
-WITH (TIMESTAMP='event_time')
-
--- 毫秒时间戳（默认）
-WITH (TIMESTAMP='ts', TIMEUNIT='ms')
-
--- 秒级时间戳
-WITH (TIMESTAMP='ts', TIMEUNIT='ss')
-
--- 容忍乱序 + 允许延迟 + 空闲超时
-WITH (TIMESTAMP='event_time', MAXOUTOFORDERNESS='5s', ALLOWEDLATENESS='2s', IDLETIMEOUT='5s')
-```
-
-### 聚合函数列表
-
-| 函数 | 说明 | 示例 |
-|------|------|------|
-| COUNT(*) | 计数 | `COUNT(*) as count` |
-| SUM(field) | 求和 | `SUM(amount) as total` |
-| AVG(field) | 平均值 | `AVG(temperature) as avg_temp` |
-| MAX(field) | 最大值 | `MAX(temperature) as max_temp` |
-| MIN(field) | 最小值 | `MIN(temperature) as min_temp` |
-| STDDEV(field) | 总体标准差 | `STDDEV(temperature) as std` |
-| STDDEVS(field) | 样本标准差 | `STDDEVS(temperature) as s_std` |
-| VAR(field) | 总体方差 | `VAR(temperature) as variance` |
-| VARS(field) | 样本方差 | `VARS(temperature) as s_variance` |
-| MEDIAN(field) | 中位数 | `MEDIAN(temperature) as med` |
-| PERCENTILE(field, p) | 百分位数 | `PERCENTILE(temperature, 0.95) as p95` |
-| COLLECT(field) | 收集为数组 | `COLLECT(temperature) as temps` |
-| FIRST_VALUE(field) | 首个值 | `FIRST_VALUE(status) as first` |
-| LAST_VALUE(field) | 最后值 | `LAST_VALUE(status) as last` |
-| MERGE_AGG(field) | 合并聚合 | `MERGE_AGG(status) as all_status` |
-| DEDUPLICATE(field, bool) | 去重 | `DEDUPLICATE(temperature, true) as unique` |
-
-### 常用内置函数
-
-**数学**: `ABS(x)`, `ROUND(x, d)`, `FLOOR(x)`, `CEIL(x)`, `SQRT(x)`, `POWER(x, y)`
-
-**字符串**: `CONCAT(s1, s2)`, `UPPER(s)`, `LOWER(s)`, `LENGTH(s)`, `SUBSTRING(s, start, len)`, `TRIM(s)`
-
-**类型转换**: `CAST(expr AS STRING)`
-
-### 时间单位
-
-| 单位 | 值 | 说明 |
-|------|-----|------|
-| 纳秒 | `ns` | |
-| 毫秒 | `ms` | 默认 |
-| 秒 | `ss` | |
-| 分钟 | `mi` | |
-| 小时 | `hh` | |
-| 天 | `dd` | |
-
-### 不支持的特性
-
-- JOIN、UNION、子查询
-- INSERT/UPDATE/DELETE
-- CREATE TABLE
 
 ## 规则链示例
 
-### 示例1：设备温度实时聚合
-
-每30秒按设备分组计算平均温度，超过阈值告警。
+每 30 秒按设备分组计算平均温度，超阈值告警：
 
 ```json
 {
-  "ruleChain": {
-    "id": "temp_aggregation",
-    "name": "温度聚合监控",
-    "root": true
-  },
+  "ruleChain": {"id": "temp_aggregation", "name": "温度聚合监控", "root": true},
   "metadata": {
     "nodes": [
-      {
-        "id": "node_1",
-        "type": "x/streamAggregator",
-        "name": "温度聚合",
-        "configuration": {
-          "sql": "SELECT deviceId, AVG(temperature) as avg_temp, MAX(temperature) as max_temp, COUNT(*) as count FROM stream GROUP BY deviceId, TumblingWindow('30s')"
-        },
-        "additionalInfo": {"layoutX": 400, "layoutY": 300}
-      },
-      {
-        "id": "node_2",
-        "type": "jsTransform",
-        "name": "告警判断",
-        "configuration": {
-          "jsScript": "var results = JSON.parse(msg.data || msg);\nif (Array.isArray(results)) {\n  results.forEach(function(r) {\n    r.alert = r.max_temp > 35;\n  });\n  msg = results;\n}\nreturn {'msg':msg,'metadata':metadata,'msgType':msgType};"
-        },
-        "additionalInfo": {"layoutX": 600, "layoutY": 300}
-      },
-      {
-        "id": "node_3",
-        "type": "log",
-        "name": "记录日志",
-        "configuration": {
-          "jsScript": "return '聚合结果: ' + JSON.stringify(msg);"
-        },
-        "additionalInfo": {"layoutX": 800, "layoutY": 300}
-      }
+      {"id": "node_1", "type": "x/streamAggregator", "name": "温度聚合",
+       "configuration": {"sql": "SELECT deviceId, AVG(temperature) as avg_temp, MAX(temperature) as max_temp, COUNT(*) as count FROM stream GROUP BY deviceId, TumblingWindow('30s')"}},
+      {"id": "node_2", "type": "jsTransform", "name": "告警判断",
+       "configuration": {"jsScript": "var r = JSON.parse(msg.data || msg); if (Array.isArray(r)) { r.forEach(function(x){ x.alert = x.max_temp > 35; }); msg = r; } return {'msg':msg,'metadata':metadata,'msgType':msgType};"}},
+      {"id": "node_3", "type": "log", "name": "记录", "configuration": {"jsScript": "return JSON.stringify(msg);"}}
     ],
     "connections": [
-      {"fromId": "node_1", "toId": "node_2", "type": "window_event"},
+      {"fromId": "node_1", "toId": "node_2", "type": "stream_event"},
       {"fromId": "node_2", "toId": "node_3", "type": "Success"}
     ]
   }
 }
 ```
 
-### 示例2：数据过滤转换
+## 注意事项（高频踩坑）
 
-用 streamTransform 过滤无效数据并转换格式。
+- **输入必须是 JSON 类型**（`msg.DataType == JSON`）。非 JSON **静默走 Failure、无日志、整条链无输出**——极易踩坑。
+  - jsTransform 造数据喂 stream 节点时，返回**必须带** **`dataType:'JSON'`**（否则继承上游 DataType，上游若是 TEXT 就静默失败）：
+    ```js
+    return {'msg': data, 'metadata': metadata, 'msgType': msgType, 'dataType': 'JSON'};
+    ```
+- **SQL 字段直接用字段名**（`temperature`），**不要** **`msg.`** **前缀**（与 jsFilter/jsTransform 的 `msg.temperature` 不同）。
+- 字段名区分大小写，与 JSON key 精确匹配。
+- FROM 后的名称是逻辑概念（通常用 `stream`）。
+- 时间窗口参数：`'30s'`/`'5m'`/`'1h'`/`'1d'`。
+- 不支持：流-流 JOIN（WITHIN 区间）、UNION、子查询、INSERT/UPDATE/DELETE、CREATE TABLE。
 
-```json
-{
-  "ruleChain": {
-    "id": "data_filter",
-    "name": "数据过滤",
-    "root": false
-  },
-  "metadata": {
-    "nodes": [
-      {
-        "id": "node_1",
-        "type": "x/streamTransform",
-        "name": "字段选择",
-        "configuration": {
-          "sql": "SELECT deviceId, temperature, humidity, temperature * 1.8 + 32 as fahrenheit FROM stream WHERE temperature IS NOT NULL AND temperature > -50 AND temperature < 100"
-        },
-        "additionalInfo": {"layoutX": 400, "layoutY": 300}
-      }
-    ],
-    "connections": []
-  }
-}
-```
-
-### 示例3：聚合 + 原始数据双路处理
-
-```json
-{
-  "ruleChain": {
-    "id": "dual_output",
-    "name": "双路处理",
-    "root": true
-  },
-  "metadata": {
-    "nodes": [
-      {
-        "id": "node_1",
-        "type": "x/streamAggregator",
-        "name": "流聚合器",
-        "configuration": {
-          "sql": "SELECT deviceId, AVG(value) as avg_value FROM stream GROUP BY deviceId, TumblingWindow('1m')"
-        },
-        "additionalInfo": {"layoutX": 400, "layoutY": 300}
-      },
-      {
-        "id": "node_2",
-        "type": "restApiCall",
-        "name": "发送聚合结果",
-        "configuration": {
-          "restEndpointUrlPattern": "http://api.example.com/analytics",
-          "requestMethod": "POST"
-        },
-        "additionalInfo": {"layoutX": 600, "layoutY": 200}
-      },
-      {
-        "id": "node_3",
-        "type": "log",
-        "name": "记录原始数据",
-        "configuration": {
-          "jsScript": "return '原始数据: ' + JSON.stringify(msg);"
-        },
-        "additionalInfo": {"layoutX": 600, "layoutY": 400}
-      }
-    ],
-    "connections": [
-      {"fromId": "node_1", "toId": "node_2", "type": "window_event"},
-      {"fromId": "node_1", "toId": "node_3", "type": "Success"}
-    ]
-  }
-}
-```
-
-### 示例4：嵌套字段聚合
-
-```json
-{
-  "ruleChain": {
-    "id": "nested_agg",
-    "name": "嵌套字段聚合",
-    "root": false
-  },
-  "metadata": {
-    "nodes": [
-      {
-        "id": "node_1",
-        "type": "x/streamAggregator",
-        "name": "设备数据聚合",
-        "configuration": {
-          "sql": "SELECT device.info.type as device_type, AVG(sensor.data.temperature) as avg_temp, COUNT(*) as count FROM stream WHERE device.info.status = 'active' GROUP BY device.info.type, TumblingWindow('1m')"
-        },
-        "additionalInfo": {"layoutX": 400, "layoutY": 300}
-      }
-    ],
-    "connections": []
-  }
-}
-```
-
-## 注意事项
-
-- 输入数据必须是 JSON 类型，非 JSON 数据走 Failure 链
-- streamAggregator 支持单条和数组输入，数组会被逐条添加到聚合流
-- streamTransform 支持单条和数组输入，数组逐条转换后合并输出
-- 聚合计算是异步的，不会阻塞原始数据流转
-- 窗口触发时机由 StreamSQL 引擎自动决定
-- FROM 子句中的名称是逻辑概念（通常用 `stream`），也可以自定义
-- 时间窗口参数格式：`'30s'`(秒)、`'5m'`(分钟)、`'1h'`(小时)、`'1d'`(天)
-- **SQL 字段直接使用字段名（如 `temperature`），不需要 `msg.` 前缀**（与 jsFilter/jsTransform 的 `msg.temperature` 不同！）
-- 字段名区分大小写，与 JSON 数据中的 key 精确匹配

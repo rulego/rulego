@@ -213,7 +213,7 @@ func DefaultConfig() Config {
 		JwtSecretKey:      "r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1",
 		JwtExpireTime:     43200000,
 		JwtIssuer:         "rulego.cc",
-		ShareHttpServer:   true,
+		ShareHttpServer:   false,
 		AllowCors:         true,
 		ReadTimeout:       30,
 		WriteTimeout:      300,

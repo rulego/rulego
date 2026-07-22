@@ -3,6 +3,7 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 
@@ -473,4 +474,91 @@ func TestGet_NonExistent(t *testing.T) {
 	found, err := svc.Get("not_exist", "node")
 	assert.Nil(t, err)
 	assert.Nil(t, found, "获取不存在的节点应返回 nil")
+}
+
+// newTestPoolServiceWithSystem 创建带系统节点 id 的测试 service（模拟 share_http_server 开启）。
+func newTestPoolServiceWithSystem(systemNodeId string) *UserNodePoolService {
+	config := engine.NewConfig()
+	pool := node_pool.NewNodePool(config)
+	config.NodePool = pool
+	return &UserNodePoolService{
+		store:        &memoryNodePoolStore{},
+		nodePool:     pool,
+		systemNodeId: systemNodeId,
+	}
+}
+
+// ====== 测试：系统节点保护（share_http_server 开启时，主 HTTP server 端点不可改/删/持久化）======
+
+func TestSystemNodeProtection_RejectModifyDelete(t *testing.T) {
+	svc := newTestPoolServiceWithSystem(":9090")
+	defer svc.nodePool.Stop()
+
+	// SaveNode 系统 id 应被拒绝
+	err := svc.SaveNode(types.RuleNode{Id: ":9090", Type: "mqttClient"})
+	assert.True(t, err != nil && strings.Contains(err.Error(), "system node"), "SaveNode 系统 id 应被拒绝")
+
+	// SaveEndpoint 系统 id 应被拒绝
+	err = svc.SaveEndpoint(types.EndpointDsl{RuleNode: types.RuleNode{Id: ":9090", Type: "endpoint/http"}})
+	assert.True(t, err != nil && strings.Contains(err.Error(), "system node"), "SaveEndpoint 系统 id 应被拒绝")
+
+	// Delete 系统 id 应被拒绝
+	err = svc.Delete(":9090", "endpoint")
+	assert.True(t, err != nil && strings.Contains(err.Error(), "system node"), "Delete 系统 id 应被拒绝")
+}
+
+func TestSaveState_SkipsSystemNode(t *testing.T) {
+	svc := newTestPoolServiceWithSystem(":9090")
+	defer svc.nodePool.Stop()
+
+	// 模拟 Manager 注入的系统节点（直接 NewFromRuleNode，绕过 SaveNode 拦截）
+	var sysNode types.RuleNode
+	err := json.Unmarshal(mqttNodeJSON(":9090", "系统节点"), &sysNode)
+	assert.Nil(t, err)
+	_, err = svc.nodePool.NewFromRuleNode(sysNode)
+	assert.Nil(t, err)
+
+	// 普通节点
+	var normalNode types.RuleNode
+	err = json.Unmarshal(mqttNodeJSON("normal_mqtt", "普通节点"), &normalNode)
+	assert.Nil(t, err)
+	_, err = svc.nodePool.NewFromRuleNode(normalNode)
+	assert.Nil(t, err)
+
+	// saveState 应跳过系统节点
+	err = svc.saveState()
+	assert.Nil(t, err)
+
+	saved, err := svc.store.Get()
+	assert.Nil(t, err)
+	var poolDef types.RuleChain
+	err = json.Unmarshal(saved, &poolDef)
+	assert.Nil(t, err)
+
+	hasSystem, hasNormal := false, false
+	for _, n := range poolDef.Metadata.Nodes {
+		if n.Id == ":9090" {
+			hasSystem = true
+		}
+		if n.Id == "normal_mqtt" {
+			hasNormal = true
+		}
+	}
+	assert.True(t, !hasSystem, "系统节点 :9090 不应被持久化")
+	assert.True(t, hasNormal, "普通节点应被持久化")
+}
+
+func TestSystemNodeProtection_NormalNodeUnaffected(t *testing.T) {
+	svc := newTestPoolServiceWithSystem(":9090")
+	defer svc.nodePool.Stop()
+
+	// 普通节点（id != :9090）应正常保存
+	var node types.RuleNode
+	err := json.Unmarshal(mqttNodeJSON("normal_mqtt", "普通节点"), &node)
+	assert.Nil(t, err)
+	err = svc.SaveNode(node)
+	assert.Nil(t, err)
+
+	_, ok := svc.nodePool.Get("normal_mqtt")
+	assert.True(t, ok, "普通节点应正常保存")
 }

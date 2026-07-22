@@ -5,13 +5,13 @@ go 1.24.0
 toolchain go1.24.3
 
 require (
-	github.com/cloudwego/eino v0.7.31
+	github.com/cloudwego/eino v0.9.10
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/mark3labs/mcp-go v0.44.0
-	github.com/rulego/rulego v0.36.1-0.20260626063008-9a93a405f7c3
+	github.com/rulego/rulego v0.36.1-0.20260722081429-d9f2b097ce06
 	github.com/rulego/rulego-components v0.36.1-0.20260624103130-40b865665ed9
-	github.com/rulego/rulego-components-ai v0.36.1-0.20260611080916-168eadeb5efa
+	github.com/rulego/rulego-components-ai v0.36.1-0.20260710095835-67f244c3b41d
 	github.com/rulego/rulego-components-ci v0.36.0
 	github.com/rulego/rulego-components-etl v0.36.0
 	github.com/rulego/rulego-components-iot v0.36.0
@@ -45,11 +45,12 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.4.0 // indirect
+	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
 	github.com/bufbuild/protocompile v0.14.1 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
-	github.com/bytedance/sonic v1.14.1 // indirect
-	github.com/bytedance/sonic/loader v0.3.0 // indirect
+	github.com/bytedance/sonic v1.15.0 // indirect
+	github.com/bytedance/sonic/loader v0.5.0 // indirect
 	github.com/cbroglie/mustache v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -179,7 +180,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
 	github.com/redis/go-redis/v9 v9.17.2 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/rulego/streamsql v0.10.6-0.20251216094023-16778f2ac3bb // indirect
+	github.com/rulego/streamsql v1.1.1-0.20260721085023-017c636b45ad // indirect
 	github.com/sashabaranov/go-openai v1.41.1 // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
@@ -262,7 +263,10 @@ require (
 // 本地开发时使用组件包的本地版本
 
 // replace github.com/rulego/rulego => ../../rulego
+
 // replace github.com/rulego/rulego-components => ../../rulego-components
+
 // replace github.com/rulego/rulego-components-ai => ../../rulego-components-ai
 
 // replace github.com/rulego/rulego-components-iot => ../../rulego-components-iot
+// replace github.com/rulego/streamsql => ../../../streamsql

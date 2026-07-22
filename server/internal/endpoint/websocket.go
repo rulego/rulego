@@ -14,13 +14,13 @@ import (
 
 // NewWebsocketEndpoint 创建 WebSocket 端点，用于实时推送调试日志。
 func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint.Endpoint, error) {
+	wsCfg := websocketEndpoint.Config{}
+	wsCfg.Server = "ref://" + restEp.Id()
+	wsCfg.AllowCors = s.config.AllowCors
 	wsEp, err := endpoint.Registry.New(
 		websocketEndpoint.Type,
 		s.systemRulegoCfg,
-		websocketEndpoint.Config{
-			Server:    "ref://" + restEp.Id(),
-			AllowCors: s.config.AllowCors,
-		},
+		wsCfg,
 	)
 	if err != nil {
 		return nil, err
