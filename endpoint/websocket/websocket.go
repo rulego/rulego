@@ -39,11 +39,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/endpoint/rest"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/runtime"
@@ -140,7 +142,7 @@ type ResponseMessage struct {
 	messageType int
 	log         func(format string, v ...interface{})
 	request     *http.Request
-	conn        *websocket.Conn
+	sender      *wsSender // 共享 wsSender（与 session 寻址推送同一把锁），替代裸 conn
 	body        []byte
 	to          string
 	msg         *types.RuleMsg
@@ -192,18 +194,17 @@ func (r *ResponseMessage) SetStatusCode(statusCode int) {
 }
 
 func (r *ResponseMessage) SetBody(body []byte) {
-	// 在设置body和写入WebSocket之前加锁
 	r.locker.Lock()
 	defer r.locker.Unlock()
 
 	r.body = body
-	if r.conn != nil {
+	if r.sender != nil {
 		if r.messageType == 0 {
 			r.messageType = websocket.TextMessage
 		}
-
-		if err := r.conn.WriteMessage(r.messageType, body); err != nil {
-			r.SetError(err)
+		// 经 wsSender 加锁写（与寻址推送共享锁）；直接设 r.err 而非 SetError（后者重复加 locker 死锁）
+		if err := r.sender.SendWithType(body, r.messageType); err != nil {
+			r.err = err
 		}
 	}
 }
@@ -221,7 +222,13 @@ func (r *ResponseMessage) GetError() error {
 }
 
 // Config Websocket 服务配置
-type Config = rest.Config
+// Config 是 ws endpoint 的配置，嵌入 rest.Config（HTTP server）+ ws 专属的会话字段。
+// 嵌入 rest.Config（squash 平铺）让 reflect 表单和 Map2Struct 同时覆盖 HTTP 字段和会话字段。
+type Config struct {
+	rest.Config `json:",squash" mapstructure:",squash"`
+	SessionKey  interface{} `json:"sessionKey" label:"Session Key" desc:"会话寻址键，留空用 RemoteAddr。支持 ${} 表达式"`
+	SessionTTL  int         `json:"sessionTTL" label:"Session TTL" desc:"会话空闲超时(秒)，<=0 用默认 1800"`
+}
 
 // Websocket 接收端端点
 type Websocket struct {
@@ -229,6 +236,11 @@ type Websocket struct {
 	//配置
 	Config   Config
 	Upgrader websocket.Upgrader
+
+	// 会话寻址：嵌入 registry 支持 wsSend 按 Key 向已连接 WS 客户端主动推送
+	impl.DefaultSessionRegistry
+	// sessionKey 提取规则（rest.Config 无此字段，独立存储）。如 ${msg.deviceId} / ${metadata.device}
+	keyResolver *impl.SessionKeyResolver
 }
 
 // Type 组件类型
@@ -260,12 +272,7 @@ func (ws *Websocket) Def() types.ComponentForm {
 }
 
 func (ws *Websocket) New() types.Node {
-	return &Websocket{
-		Config: Config{
-			Server:    ":6334",
-			AllowCors: true,
-		},
-	}
+	return &Websocket{Config: Config{Config: rest.Config{Server: ":6334", AllowCors: true}, SessionTTL: 1800}}
 }
 
 // Init 初始化
@@ -277,6 +284,10 @@ func (ws *Websocket) Init(ruleConfig types.Config, configuration types.Configura
 	ws.Upgrader.CheckOrigin = func(r *http.Request) bool {
 		return ws.Config.AllowCors // 允许所有跨域请求
 	}
+	if ws.Config.SessionTTL <= 0 {
+		ws.Config.SessionTTL = 1800 // <=0 默认 30 分钟
+	}
+	ws.keyResolver = impl.NewSessionKeyResolver(ws.Config.SessionKey)
 	ws.Rest = &rest.Rest{}
 	if err = ws.Rest.Init(ruleConfig, configuration); err != nil {
 		return err
@@ -286,6 +297,39 @@ func (ws *Websocket) Init(ruleConfig types.Config, configuration types.Configura
 
 func (ws *Websocket) Id() string {
 	return ws.Config.Server
+}
+
+// GetInstance 返回自身 *Websocket，覆盖 *rest.Rest.GetInstance（后者返回 *Rest），供 ref:// 取实例做会话寻址。
+func (ws *Websocket) GetInstance() (interface{}, error) { return ws, nil }
+
+// SendToTarget 实现 types.TargetSender：按 target 寻址向已连接 WS 客户端推送。
+// target：userId/deviceId/*（广播）/空（广播）。
+// 让 net 等节点的 ref:// 能跨协议寻址 ws endpoint（与 *net.Net.SendToTarget 同语义）。
+func (ws *Websocket) SendToTarget(target string, data []byte) (sent, failed int, err error) {
+	sessions := ws.Lookup(target)
+	if len(sessions) == 0 {
+		return 0, 0, fmt.Errorf("no session matched target=%q", target)
+	}
+	var firstErr error
+	for _, s := range sessions {
+		if e := s.Sender.Send(data); e != nil {
+			failed++
+			if firstErr == nil {
+				firstErr = e
+			}
+		} else {
+			sent++
+			s.Touch()
+		}
+	}
+	return sent, failed, firstErr
+}
+
+// Destroy 销毁：清理 session registry（兜底，正常各连接断开已 Remove）+ 关闭 HTTP server。
+func (ws *Websocket) Destroy() {
+	ws.StopSweeping()
+	ws.Clear()
+	ws.Rest.Destroy()
 }
 
 func (ws *Websocket) AddRouter(router endpoint.Router, params ...interface{}) (id string, err error) {
@@ -335,6 +379,9 @@ func (ws *Websocket) Start() error {
 	if err := ws.Rest.Start(); err != nil {
 		return err
 	}
+	// Init 已保证 SessionTTL>0（<=0 归一为默认 1800），此处无需再判
+	ttl := time.Duration(ws.Config.SessionTTL) * time.Second
+	ws.StartSweeping(ttl, ttl/2)
 	return nil
 }
 
@@ -369,6 +416,8 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 			ws.Printf("Websocket handler upgrade:", err)
 			return
 		}
+		// 共享 wsSender：回写与寻址推送共用锁，避免并发 WriteMessage 帧交错
+		sender := &wsSender{conn: c}
 		connectExchange := &endpoint.Exchange{
 			In: &RequestMessage{
 				request: r,
@@ -380,12 +429,18 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 					ws.Printf(format, v...)
 				},
 				request: r,
-				conn:    c,
+				sender:  sender,
 			}}
 		if ws.OnEvent != nil {
 			ws.OnEvent(endpoint.EventConnect, connectExchange)
 		}
+
+		// 连接建立：创建并注册 session（默认 Key=RemoteAddr）
+		session := endpoint.NewSession(r.RemoteAddr, sender)
+		ws.Add(session)
+
 		defer func() {
+			ws.Remove(session.Key()) // 连接断开：注销 session（在 c.Close 前）
 			_ = c.Close()
 			//捕捉异常
 			if e := recover(); e != nil {
@@ -398,6 +453,7 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 
 		for {
 			mt, message, err := c.ReadMessage()
+			session.Touch()
 			if err != nil {
 				if ws.OnEvent != nil {
 					ws.OnEvent(endpoint.EventDisconnect, connectExchange, w, r, params)
@@ -428,7 +484,7 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 						ws.Printf(format, v...)
 					},
 					request:     r,
-					conn:        c,
+					sender:      sender,
 					messageType: mt,
 				}}
 
@@ -449,6 +505,14 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 				}
 
 			}
+
+			// sessionKey 提取：仅未确定时执行（keyResolved 后跳过），用 SessionKeyResolver（${} 表达式）
+			if !session.IsResolved() && ws.keyResolver != nil {
+				if key := ws.keyResolver.Resolve(*msg, message); key != "" {
+					ws.Rekey(session, key)
+				}
+			}
+
 			ws.DoProcess(r.Context(), router, exchange)
 		}
 	}

@@ -248,6 +248,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 			PacketSize:    2,      // 实际默认值
 			Encode:        "none", // 实际默认值
 			MaxPacketSize: 65536,
+			SessionTTL:    DefaultSessionTTL,
 		},
 	}, ep.New()))
 

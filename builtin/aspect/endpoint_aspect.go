@@ -140,9 +140,40 @@ func (aspect *EndpointAspect) OnCreated(ctx types.NodeCtx) error {
 			return err
 		} else {
 			aspect.ruleChainEndpoint = ruleChainEndpoint
+			// 注册同链 endpoint 供 ref:// 同链寻址（注册底层实例，稳定实现 TargetSender）
+			aspect.syncResources(chainCtx, nil, ruleChainEndpoint.GetEndpoints())
 		}
 	}
 	return nil
+}
+
+// syncResources 同步链资源目录：注销 oldEps，注册 newEps 的底层实例。
+// 用于 OnCreated（oldEps=nil 全量注册）与 OnReload（先注销旧再注册新）。
+// 注册底层 endpoint.Endpoint（而非 DynamicEndpoint 包装），因其稳定实现 TargetSender。
+func (aspect *EndpointAspect) syncResources(chainCtx types.ChainCtx, oldEps, newEps []endpoint.DynamicEndpoint) {
+	reg := chainCtx.EndpointRegistry()
+	// 先 Register 新（Store 覆盖），保证窗口期 resources 总有最新值，避免并发 Lookup 落空。
+	newIds := make(map[string]bool, len(newEps))
+	for _, ep := range newEps {
+		if ep == nil {
+			continue
+		}
+		if inner := ep.Target(); inner != nil {
+			reg.Register(ep.Id(), inner)
+			newIds[ep.Id()] = true
+		} else {
+			// Target()==nil：底层 endpoint 未初始化，记录日志便于排查（否则静默不注册，ref:// 仅报 not found）
+			if l := chainCtx.Config().Logger; l != nil {
+				l.Printf("endpoint %s Target() is nil, skip register to chain resources", ep.Id())
+			}
+		}
+	}
+	// 再 Unregister 仅移除的（不在 newEps），消除「先删全部再加」的中间空窗。
+	for _, ep := range oldEps {
+		if ep != nil && !newIds[ep.Id()] {
+			reg.Unregister(ep.Id())
+		}
+	}
 }
 
 // OnReload is called when a rule chain is reloaded. It updates the endpoint
@@ -170,12 +201,16 @@ func (aspect *EndpointAspect) OnCreated(ctx types.NodeCtx) error {
 func (aspect *EndpointAspect) OnReload(_ types.NodeCtx, ctx types.NodeCtx) error {
 	if chainCtx, ok := ctx.(types.ChainCtx); ok && aspect.ruleChainEndpoint != nil {
 		if !ctx.Config().EndpointEnabled {
+			aspect.syncResources(chainCtx, aspect.ruleChainEndpoint.GetEndpoints(), nil)
 			aspect.ruleChainEndpoint.Destroy()
 			return nil
 		}
 		aspect.ruleChainEndpoint.config = ctx.Config()
 		aspect.ruleChainEndpoint.ruleGoPool = chainCtx.GetRuleEnginePool()
-		return aspect.ruleChainEndpoint.Reload(chainCtx.Definition(), chainCtx.Definition().Metadata.Endpoints)
+		// Reload 后按最终存活状态同步资源目录（含 Reload 部分成功的情况）。
+		err := aspect.ruleChainEndpoint.Reload(chainCtx.Definition(), chainCtx.Definition().Metadata.Endpoints)
+		aspect.syncResources(chainCtx, nil, aspect.ruleChainEndpoint.GetEndpoints())
+		return err
 	}
 	return nil
 }
@@ -186,6 +221,10 @@ func (aspect *EndpointAspect) OnReload(_ types.NodeCtx, ctx types.NodeCtx) error
 // OnDestroy 在规则链销毁时调用。它执行所有关联端点的清理以防止资源泄漏。
 func (aspect *EndpointAspect) OnDestroy(ctx types.NodeCtx) {
 	if aspect.ruleChainEndpoint != nil {
+		// Destroy 前取 oldEps 并注销（Destroy 会清空 endpoints map）。
+		if chainCtx, ok := ctx.(types.ChainCtx); ok {
+			aspect.syncResources(chainCtx, aspect.ruleChainEndpoint.GetEndpoints(), nil)
+		}
 		aspect.ruleChainEndpoint.Destroy()
 	}
 }

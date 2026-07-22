@@ -392,6 +392,16 @@ func (n *NodePool) GetInstance(id string) (interface{}, error) {
 	}
 }
 
+// Lookup 实现 types.ResourceLookup：转发 GetInstance，供 ref:// 统一解析。
+// 读路径走底层 entries sync.Map，无锁。
+func (n *NodePool) Lookup(id string) (any, bool) {
+	v, err := n.GetInstance(id)
+	if err != nil {
+		return nil, false
+	}
+	return v, true
+}
+
 // Del deletes a SharedNode instance by its ID.
 func (n *NodePool) Del(id string) {
 	if v, ok := n.entries.Load(id); ok {
