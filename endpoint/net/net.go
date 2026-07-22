@@ -71,6 +71,9 @@ const (
 	// DefaultMaxPacketSize 默认最大数据包大小(64KB)
 	DefaultMaxPacketSize = 65536
 
+	// DefaultSessionTTL 默认 session 空闲 TTL（秒，30 分钟）。0=禁用。
+	DefaultSessionTTL = 1800
+
 	// 协议常量
 	ProtocolTCP        = "tcp"
 	ProtocolTCP4       = "tcp4"
@@ -84,6 +87,9 @@ const (
 	// 编码模式常量
 	EncodeHex    = "hex"
 	EncodeBase64 = "base64"
+	// 数据类型解释（非编码：不改字节，只设 dataType 让下游按文本/JSON 处理）
+	EncodeText = "text"
+	EncodeJson = "json"
 
 	// 十六进制前缀常量
 	HexPrefix   = "0x"
@@ -386,9 +392,8 @@ type Config struct {
 	// Read timeout for setting data read timeout in seconds, can be 0 for no timeout
 	ReadTimeout int `json:"readTimeout" label:"Read Timeout" desc:"Read timeout in seconds, 0 for no timeout"`
 
-	// Encode: hex, base64, or other encoding
-	// Deprecated: Use jsTransform or other components in rule chains for data encoding
-	Encode string `json:"encode" label:"Encode" desc:"Data encoding: hex (hex string), base64 (base64 string)."`
+	// Encode 数据编码/类型：hex/base64 编码字节为字符串；text/string 设 dataType=TEXT、json 设 dataType=JSON（不编码字节，便于 editor/下游可读）
+	Encode string `json:"encode" label:"Encode" desc:"hex/base64 encode bytes to string; text/string set dataType=TEXT, json set dataType=JSON (keep bytes, readable)."`
 
 	// Packet splitting mode:
 	// "line": Split by line (default mode, split by \n or \r\n)
@@ -411,6 +416,15 @@ type Config struct {
 
 	// Maximum packet size to prevent malicious packets, default 64KB
 	MaxPacketSize int `json:"maxPacketSize" label:"Max Packet Size" desc:"Maximum packet size to prevent malicious packets, default 64KB"`
+
+	// SessionKey 声明 sessionKey 提取规则（rulego ${} 表达式，支持数组多候选）。留空 = 用 RemoteAddr。
+	// 例如：${msg.deviceId} / ${msg.header.sn} / ${hex(data[4:14])} / ${reFind("ID:([a-zA-Z0-9_]+)", data)}
+	// 注意：reFind 等含字符串参数的表达式必须用双引号（el 引擎不认单引号）；
+	//       正则避免用 \w（expr 字符串里是非法转义），改用 [a-zA-Z0-9_]
+	SessionKey interface{} `json:"sessionKey"`
+
+	// SessionTTL 会话空闲 TTL（秒）。idle 超时则关连接促客户端重连重新提取 sessionKey。<=0 使用默认 1800（30 分钟）。
+	SessionTTL int `json:"sessionTTL" label:"Session TTL" desc:"Session idle timeout in seconds, <=0 uses default 1800 (30min)"`
 }
 
 // RegexpRouter 正则表达式路由
@@ -480,6 +494,12 @@ func encodeData(src []byte, encode string) ([]byte, types.DataType) {
 		encoded := make([]byte, base64.StdEncoding.EncodedLen(len(src)))
 		base64.StdEncoding.Encode(encoded, src)
 		return encoded, types.TEXT
+	case EncodeText, "string":
+		// 不编码字节，仅设 dataType=TEXT：data 按文本字符串解释（editor 调试 IN 可读 ASCII）
+		return src, types.TEXT
+	case EncodeJson:
+		// 不编码字节，仅设 dataType=JSON：data 按 JSON 解释（下游 jsTransform 可直接 parse）
+		return src, types.JSON
 	default:
 		return src, types.BINARY
 	}
@@ -518,6 +538,11 @@ type Net struct {
 	routers map[string]*RegexpRouter
 	closed  int32        // 使用int32类型支持原子操作，0表示未关闭，1表示已关闭
 	mu      sync.RWMutex // 保护listener和udpConn的并发访问
+
+	// 嵌入会话注册表，支持按 Key 向已连接客户端主动推送
+	impl.DefaultSessionRegistry
+	// sessionKey 提取器（Init 时构造），nil 时用 RemoteAddr
+	keyResolver *impl.SessionKeyResolver
 }
 
 // Type 组件类型
@@ -554,10 +579,11 @@ func (ep *Net) New() types.Node {
 			Protocol:      ProtocolTCP,
 			ReadTimeout:   60,
 			Server:        ":6335",
-			PacketMode:    PacketModeLine.String(), // 默认按行分割保持向后兼容
+			PacketMode:    PacketModeLine.String(), // 默认按行分割
 			PacketSize:    2,
 			Encode:        "none",
 			MaxPacketSize: DefaultMaxPacketSize, // 默认64KB最大包大小
+			SessionTTL:    DefaultSessionTTL,
 		},
 	}
 }
@@ -577,12 +603,57 @@ func (ep *Net) Init(ruleConfig types.Config, configuration types.Configuration) 
 	}
 	ep.RuleConfig = ruleConfig
 	ep.Logger = ruleConfig.Logger
+	ep.keyResolver = impl.NewSessionKeyResolver(ep.Config.SessionKey)
 	return err
+}
+
+// GetInstance 返回自身，满足 types.SharedNode，供 ref:// 从 NodePool 取 *Net 做会话寻址。
+func (ep *Net) GetInstance() (interface{}, error) { return ep, nil }
+
+// Addr 返回实际监听地址（如 server=":0" 随机端口绑定后的真实地址）。未监听返回空串。
+func (ep *Net) Addr() string {
+	ep.mu.RLock()
+	defer ep.mu.RUnlock()
+	if ep.listener != nil {
+		return ep.listener.Addr().String()
+	}
+	if ep.udpConn != nil {
+		return ep.udpConn.LocalAddr().String()
+	}
+	return ""
 }
 
 // Destroy 销毁
 func (ep *Net) Destroy() {
+	ep.StopSweeping() // 先停 TTL 扫描，防与 Clear 竞态
 	_ = ep.Close()
+	ep.Clear() // 兜底清理 session registry
+}
+
+// SendToTarget 实现 types.TargetSender：按 target 寻址发送 data。
+// target：IP / deviceId / *（广播）/ 空（广播）。
+// 返回 (成功数, 失败数, 首个错误)；未命中任何 session 返回 err。
+//
+// 寻址走嵌入的 DefaultSessionRegistry.Lookup（sync.Map Range，无锁），
+// 零分配（复用入参 data）。供 net 节点 ref:// 同链/共享池寻址推送复用。
+func (ep *Net) SendToTarget(target string, data []byte) (sent, failed int, err error) {
+	sessions := ep.Lookup(target)
+	if len(sessions) == 0 {
+		return 0, 0, fmt.Errorf("no session matched target=%q", target)
+	}
+	var firstErr error
+	for _, s := range sessions {
+		if e := s.Sender.Send(data); e != nil {
+			failed++
+			if firstErr == nil {
+				firstErr = e
+			}
+		} else {
+			sent++
+			s.Touch()
+		}
+	}
+	return sent, failed, firstErr
 }
 
 // Close 关闭网络端点
@@ -699,6 +770,11 @@ func (ep *Net) Start() error {
 
 		ep.Printf("started TCP server on %s", ep.Config.Server)
 		go ep.acceptTCPConnections()
+		ttl := time.Duration(ep.Config.SessionTTL) * time.Second
+		if ttl <= 0 {
+			ttl = time.Duration(DefaultSessionTTL) * time.Second
+		}
+		ep.StartSweeping(ttl, ttl/2)
 	case ProtocolUDP, ProtocolUDP4, ProtocolUDP6:
 		err = ep.listenUDP()
 		if err != nil {
@@ -709,7 +785,9 @@ func (ep *Net) Start() error {
 			endpoint: ep,
 			config:   ep.Config,
 		}
-		ep.submitTask(h.handler)
+		if err := ep.submitTask(h.handler); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("unsupported protocol: %s", ep.Config.Protocol)
 	}
@@ -780,21 +858,23 @@ func (ep *Net) acceptTCPConnections() {
 			conn:     conn,
 			config:   ep.Config,
 		}
-		// 启动一个协端处理客户端连接
-		ep.submitTask(h.handler)
-		//go ep.handler(conn)
+		// 启动一个协程处理客户端连接；submit 失败须关闭 conn 避免 fd 泄漏
+		if err := ep.submitTask(h.handler); err != nil {
+			_ = conn.Close()
+		}
 	}
 }
 
-func (ep *Net) submitTask(fn func()) {
+func (ep *Net) submitTask(fn func()) error {
 	if ep.RuleConfig.Pool != nil {
-		err := ep.RuleConfig.Pool.Submit(fn)
-		if err != nil {
-			ep.Printf("redis consumer handler err :%v", err)
+		if err := ep.RuleConfig.Pool.Submit(fn); err != nil {
+			ep.Printf("submit task err: %v", err)
+			return err
 		}
 	} else {
 		go fn()
 	}
+	return nil
 }
 
 func (ep *Net) handler(conn net.Conn) {
@@ -815,16 +895,30 @@ type TcpHandler struct {
 	config Config
 	// 数据包分割器
 	splitter PacketSplitter
+	// 当前连接的 session（连接建立时创建并注册到 registry）
+	session *endpoint.Session
 }
 
 func (x *TcpHandler) handler() {
 	defer func() {
+		// 连接断开：注销 session（在 conn.Close 前，保证 registry 不残留已关闭连接）
+		if x.session != nil {
+			x.endpoint.Remove(x.session.Key())
+		}
 		_ = x.conn.Close()
 		//捕捉异常
 		if e := recover(); e != nil {
 			x.endpoint.Printf("net endpoint handler err :\n%v", runtime.Stack())
 		}
 	}()
+
+	// 连接建立：创建并注册 session（默认 Key=RemoteAddr）
+	from0 := ""
+	if x.conn.RemoteAddr() != nil {
+		from0 = x.conn.RemoteAddr().String()
+	}
+	x.session = endpoint.NewSession(from0, &connSender{conn: x.conn})
+	x.endpoint.Add(x.session)
 
 	// 创建数据包分割器
 	splitter, err := CreatePacketSplitter(x.endpoint.Config)
@@ -874,6 +968,9 @@ func (x *TcpHandler) handler() {
 		if x.endpoint.Config.ReadTimeout > 0 {
 			x.readTimeoutTimer.Reset(readTimeoutDuration)
 		}
+		if x.session != nil {
+			x.session.Touch() // 每帧刷新 lastSeen（含心跳帧），TTL 保活
+		}
 		if string(data) == PingData {
 			continue
 		}
@@ -904,6 +1001,13 @@ func (x *TcpHandler) handler() {
 		// 把客户端连接的地址放到msg元数据中
 		msg.Metadata.PutValue(RemoteAddrKey, from)
 
+		// sessionKey 提取：仅在未确定时执行（keyResolved 后跳过），用 SessionKeyResolver（rulego ${} 表达式）
+		if x.session != nil && !x.session.IsResolved() && x.endpoint.keyResolver != nil {
+			if key := x.endpoint.keyResolver.Resolve(*msg, data); key != "" {
+				x.endpoint.Rekey(x.session, key) // 原子改键：注销旧 Key + SetKey + 注册新 Key
+			}
+		}
+
 		// 匹配符合的路由，处理消息
 		x.endpoint.RLock()
 		snapshot := make([]*RegexpRouter, 0, len(x.endpoint.routers))
@@ -919,7 +1023,6 @@ func (x *TcpHandler) handler() {
 	}
 
 }
-
 
 func (x *TcpHandler) onDisconnect() {
 	if x.conn != nil {
@@ -1029,5 +1132,3 @@ func (x *UDPHandler) handler() {
 		}
 	}
 }
-
-

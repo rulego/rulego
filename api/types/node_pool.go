@@ -173,6 +173,10 @@ type SharedNodeCtx interface {
 // multiple rule chains and components.
 // 所有方法都应该是线程安全的，以支持来自多个规则链和组件的并发访问。
 type NodePool interface {
+	// NodePool 是资源池，亦即 ResourceLookup：ref:// 解析按 id 取实例时，
+	// NodePool.Lookup 作为共享池回退源（与 ChainCtx.Resources() 同链目录并列）。
+	ResourceLookup
+
 	// Load loads sharedNode list from a ruleChain DSL definition.
 	// Load 从规则链 DSL 定义加载共享节点列表。
 	//

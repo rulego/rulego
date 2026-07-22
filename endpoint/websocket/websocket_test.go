@@ -39,9 +39,7 @@ func TestWebSocketMessage(t *testing.T) {
 func TestRouterId(t *testing.T) {
 	config := types.NewConfig()
 	var nodeConfig = make(types.Configuration)
-	_ = maps.Map2Struct(&Config{
-		Server: testServer,
-	}, &nodeConfig)
+	_ = maps.Map2Struct(&Config{Config: rest.Config{Server: testServer}}, &nodeConfig)
 	var ep = &Endpoint{}
 	err := ep.Init(config, nodeConfig)
 	assert.Nil(t, err)
@@ -66,9 +64,7 @@ func TestWsEndpointConfig(t *testing.T) {
 	config := engine.NewConfig(types.WithDefaultPool())
 	//创建endpoint服务
 	var nodeConfig = make(types.Configuration)
-	_ = maps.Map2Struct(&Config{
-		Server: testConfigServer,
-	}, &nodeConfig)
+	_ = maps.Map2Struct(&Config{Config: rest.Config{Server: testConfigServer}}, &nodeConfig)
 	var wsStarted = &Endpoint{}
 	err := wsStarted.Init(config, nodeConfig)
 	assert.Nil(t, err)
@@ -213,10 +209,7 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 	//wsEndpoint, err := endpoint.New(Type, config, Config{Server: testServer})
 
 	var nodeConfig = make(types.Configuration)
-	_ = maps.Map2Struct(&Config{
-		Server:    testServer,
-		AllowCors: true,
-	}, &nodeConfig)
+	_ = maps.Map2Struct(&Config{Config: rest.Config{Server: testServer, AllowCors: true}}, &nodeConfig)
 	var wsEndpoint = &Endpoint{}
 	err := wsEndpoint.Init(config, nodeConfig)
 	if err != nil {
@@ -225,16 +218,11 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 
 	assert.Equal(t, Type, wsEndpoint.Type())
 	assert.True(t, reflect.DeepEqual(&Websocket{
-		Config: Config{
-			Server:    ":6334",
-			AllowCors: true,
-		},
+		Config: Config{Config: rest.Config{Server: ":6334", AllowCors: true}, SessionTTL: 1800},
 	}, wsEndpoint.New()))
 
 	if restEndpoint != nil {
-		wsEndpoint = &Websocket{Rest: restEndpoint, Config: Config{
-			AllowCors: true,
-		}}
+		wsEndpoint = &Websocket{Rest: restEndpoint, Config: Config{Config: rest.Config{AllowCors: true}}}
 	}
 	//添加全局拦截器
 	wsEndpoint.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {

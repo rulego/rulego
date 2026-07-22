@@ -59,6 +59,10 @@ const (
 	NodeConfigurationKeySelfDefinition = "$selfDefinition"
 	//NodeConfigurationKeyRuleChainDefinition 获取规则链定义，应用于动态endpoint的初始化。value类型: *RuleChain
 	NodeConfigurationKeyRuleChainDefinition = "$ruleChainDefinition"
+	//NodeConfigurationKeySessionKey 服务端型 endpoint 会话寻址的 sessionKey 配置键（值支持 ${} 表达式或数组多候选）
+	NodeConfigurationKeySessionKey = "sessionKey"
+	//NodeConfigurationKeySessionTTL 服务端型 endpoint 会话空闲 TTL（秒，<=0 使用默认 1800）
+	NodeConfigurationKeySessionTTL = "sessionTTL"
 )
 
 var (

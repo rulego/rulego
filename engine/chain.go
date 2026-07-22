@@ -192,6 +192,9 @@ type RuleChainCtx struct {
 	// nodeDependencies 存储每个节点的依赖关系映射
 	nodeDependencies map[string][]string
 
+	// resources 本链资源目录（ref:// 同链解析用），lazy 初始化。指针以便 reload 时整体替换。
+	resources *resourceRegistry
+
 	// RWMutex provides thread-safe access to the rule chain context,
 	// allowing concurrent reads while ensuring exclusive writes
 	// RWMutex 为规则链上下文提供线程安全访问，允许并发读取同时确保独占写入
@@ -744,6 +747,8 @@ func (rc *RuleChainCtx) copyUnsafe(newCtx *RuleChainCtx) {
 	rc.decryptSecrets = newCtx.decryptSecrets
 	// Clear cache
 	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
+	// 接管 newCtx 的资源目录，使 reload 后 ref:// 解析到新 endpoint。
+	rc.resources = newCtx.resources
 }
 
 // ReloadChild reloads a child node
@@ -811,6 +816,32 @@ func (rc *RuleChainCtx) GetRuleEnginePool() types.RuleEnginePool {
 	} else {
 		return rc.ruleChainPool
 	}
+}
+
+// Resources 返回本链资源目录的只读视图（ref:// 同链解析用，消费方只读 Lookup）。
+func (rc *RuleChainCtx) Resources() types.ResourceLookup {
+	return rc.ensureResources()
+}
+
+// EndpointRegistry 返回可写资源目录（仅 EndpointAspect 等生产方 Register/Unregister 用）。
+func (rc *RuleChainCtx) EndpointRegistry() types.ResourceRegistry {
+	return rc.ensureResources()
+}
+
+// ensureResources lazy 初始化资源目录（双重检查锁）。
+func (rc *RuleChainCtx) ensureResources() *resourceRegistry {
+	rc.RLock()
+	r := rc.resources
+	rc.RUnlock()
+	if r != nil {
+		return r
+	}
+	rc.Lock()
+	defer rc.Unlock()
+	if rc.resources == nil {
+		rc.resources = &resourceRegistry{}
+	}
+	return rc.resources
 }
 
 // SetAspects sets the aspects for the rule chain

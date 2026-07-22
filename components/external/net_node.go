@@ -17,6 +17,7 @@
 package external
 
 import (
+	"fmt"
 	"net"
 	"sync/atomic"
 	"time"
@@ -43,6 +44,9 @@ type NetNodeConfiguration struct {
 	Server            string `json:"server" label:"Server" desc:"Server address, format: host:port" required:"true" ref:"primary"`
 	ConnectTimeout    int    `json:"connectTimeout" label:"Connect Timeout (s)" desc:"Connection timeout in seconds"`
 	HeartbeatInterval int    `json:"heartbeatInterval" label:"Heartbeat Interval (s)" desc:"Heartbeat interval in seconds"`
+	// Target 寻址目标。仅 server 为 ref://（指向服务端 endpoint）时生效。
+	// 支持 rulego ${} 表达式，如 ${metadata.deviceId}；值为 IP / deviceId / *（广播）/ 空。
+	Target string `json:"target" label:"Target" desc:"Addressing target when server is ref://. Supports ${metadata.xxx}; IP/deviceId/* (broadcast)"`
 }
 
 // NetNode provides network protocol communication capabilities for sending messages over various protocols.
@@ -175,6 +179,8 @@ type NetNode struct {
 	Config NetNodeConfiguration
 	// ruleGo配置
 	ruleConfig types.Config
+	// target 解析器（Init 时预编译模板），ref:// 模式使用
+	targetResolver *base.TargetResolver
 	// 创建一个心跳定时器，用于定期发送心跳消息，可以为0表示不发心跳
 	heartbeatTimer *time.Timer
 	//心跳间隔
@@ -206,6 +212,7 @@ func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	}
 	// 设置默认值
 	x.setDefaultConfig()
+	x.targetResolver = base.NewTargetResolver(x.Config.Target)
 	x.heartbeatDuration = time.Duration(x.Config.HeartbeatInterval) * time.Second
 	return x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow, x.initConnect, func(conn net.Conn) error {
 		// 清理回调函数：关闭连接并清理相关状态
@@ -214,7 +221,7 @@ func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	})
 }
 
-// OnMsg 处理消息
+// OnMsg：server 为 ref:// 时走寻址推送，否则出站 dial。
 func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var data []byte
 
@@ -229,7 +236,51 @@ func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		data = append(data, EndSign)
 	}
 
+	// 模式判定：ref:// 指向服务端 endpoint → 寻址推送；否则出站 dial
+	if x.IsFromPool() {
+		x.onSendToEndpoint(ctx, msg, data)
+		return
+	}
 	x.onWrite(ctx, msg, data)
+}
+
+// onSendToEndpoint ref:// 模式：解析目标实例，按 target 寻址推送。
+// 解析顺序：同链 Resources 优先 → NodePool 回退（均走 sync.Map，无锁读）。
+// TargetSender → SendToTarget 寻址；net.Conn → 直接 Write（共享出站连接兼容）。
+func (x *NetNode) onSendToEndpoint(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
+	target := x.targetResolver.Resolve(ctx, msg)
+	if target == "" && !x.targetResolver.IsEmpty() && x.targetResolver.Literal() != "*" {
+		ctx.TellFailure(msg, fmt.Errorf("target %q resolved to empty", x.targetResolver.Literal()))
+		return
+	}
+	inst, found := base.ResolveRefEndpoint(ctx, x.ruleConfig.NodePool, x.InstanceId)
+	if !found {
+		ctx.TellFailure(msg, fmt.Errorf("ref://%s not found in chain or node pool", x.InstanceId))
+		return
+	}
+	switch v := inst.(type) {
+	case types.TargetSender:
+		sent, failed, err := v.SendToTarget(target, data)
+		if err != nil && sent == 0 {
+			ctx.TellFailure(msg, err)
+			return
+		}
+		if failed > 0 {
+			x.Printf("partial delivery: %d/%d failed for target=%q", failed, sent+failed, target)
+		}
+		ctx.TellSuccess(msg)
+	case net.Conn:
+		// ref:// 借用另一个出站 NetNode 的共享连接（非本节点本地连接）。
+		// 借用方只负责单次 Write，失败即 TellFailure；连接的健康/重连由持有方
+		// （原 NetNode 的心跳/tryReconnect）管理，本节点不接管其生命周期。
+		if _, err := v.Write(data); err != nil {
+			ctx.TellFailure(msg, err)
+			return
+		}
+		ctx.TellSuccess(msg)
+	default:
+		ctx.TellFailure(msg, fmt.Errorf("ref://%s type %T does not support addressing", x.InstanceId, inst))
+	}
 }
 
 // Destroy 销毁
@@ -264,6 +315,10 @@ func (x *NetNode) initConnect() (net.Conn, error) {
 
 // 重连
 func (x *NetNode) tryReconnect() {
+	// ref:// endpoint 模式不重连（非出站连接）
+	if x.IsFromPool() {
+		return
+	}
 	// 尝试通过SharedNode获取新连接（会触发重新初始化）
 	if conn, err := x.SharedNode.GetSafely(); err != nil {
 		// 5秒后重试
@@ -277,6 +332,10 @@ func (x *NetNode) tryReconnect() {
 }
 
 func (x *NetNode) onPing() {
+	// ref:// endpoint 模式无心跳（服务端寻址，非出站连接；且 SharedNode.GetSafely 会类型断言失败）
+	if x.IsFromPool() {
+		return
+	}
 	// 如果连接已经断开，尝试重连
 	if x.isDisconnected() {
 		x.tryReconnect()
