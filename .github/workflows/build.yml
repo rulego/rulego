@@ -40,9 +40,8 @@ jobs:
           cd rulego-editor
           npm ci
           rm -rf dist
-          # 强制 base=/editor/，不依赖 editor 仓库 vite.config.js 的分支差异
-          # （dev/rulego-ci 等分支 base 被注释会回退到 '/'，导致 assets 路径与 server 的 /editor/* 映射不匹配）
-          npm run build -- --base=/editor/
+          # 嵌入 rulego server（base=/editor/）
+          npm run build:editor
           mkdir -p ../server/cmd/server/editor
           cp -r dist/. ../server/cmd/server/editor/
       - name: Build for Linux and Windows and Macos
