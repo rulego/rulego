@@ -20,6 +20,31 @@ jobs:
           cache-dependency-path: go.sum
       - name: Install dependencies
         run: go get .
+      # 前端 editor 不开源（私有仓 whki/rulego-editor），CI 拉取并构建 SPA 产物，
+      # 产物不进 rulego 仓库（server/.gitignore 排除 editor/），仅打入 release 包随二进制分发。
+      - name: Checkout editor (private)
+        uses: actions/checkout@v4
+        with:
+          repository: whki/rulego-editor
+          ref: ${{ vars.EDITOR_REF || 'main' }} # 如需锁版本：在 rulego 仓库 Variables 设 EDITOR_REF 为 tag/commit
+          token: ${{ secrets.EDITOR_REPO_TOKEN }} # fine-grained PAT，仅 whki/rulego-editor 的 contents:read
+          path: rulego-editor
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: rulego-editor/package-lock.json
+      - name: Build editor UI
+        run: |
+          cd rulego-editor
+          npm ci
+          rm -rf dist
+          # 强制 base=/editor/，不依赖 editor 仓库 vite.config.js 的分支差异
+          # （dev/rulego-ci 等分支 base 被注释会回退到 '/'，导致 assets 路径与 server 的 /editor/* 映射不匹配）
+          npm run build -- --base=/editor/
+          mkdir -p ../server/cmd/server/editor
+          cp -r dist/. ../server/cmd/server/editor/
       - name: Build for Linux and Windows and Macos
         run: |
           cd server/cmd/server
@@ -43,22 +68,22 @@ jobs:
           cp server/node_pool.json server/cmd/server/node_pool.json
           cd server/cmd/server
           # All-in-one builds (with all extensions)
-          tar -czf rulego-server-all-linux-amd64.tar.gz rulego-server-all-linux-amd64 config.conf node_pool.json
-          zip rulego-server-all-windows-amd64.zip rulego-server-all-windows-amd64.exe config.conf node_pool.json
-          tar -czf rulego-server-all-macos-amd64.tar.gz rulego-server-all-macos-amd64 config.conf node_pool.json
-          tar -czf rulego-server-all-linux-arm64.tar.gz rulego-server-all-linux-arm64 config.conf node_pool.json
-          tar -czf rulego-server-all-macos-arm64.tar.gz rulego-server-all-macos-arm64 config.conf node_pool.json
-          zip rulego-server-all-windows-arm64.zip rulego-server-all-windows-arm64.exe config.conf node_pool.json
-          tar -czf rulego-server-all-linux-386.tar.gz rulego-server-all-linux-386 config.conf node_pool.json
+          tar -czf rulego-server-all-linux-amd64.tar.gz rulego-server-all-linux-amd64 config.conf node_pool.json editor
+          zip rulego-server-all-windows-amd64.zip rulego-server-all-windows-amd64.exe config.conf node_pool.json editor
+          tar -czf rulego-server-all-macos-amd64.tar.gz rulego-server-all-macos-amd64 config.conf node_pool.json editor
+          tar -czf rulego-server-all-linux-arm64.tar.gz rulego-server-all-linux-arm64 config.conf node_pool.json editor
+          tar -czf rulego-server-all-macos-arm64.tar.gz rulego-server-all-macos-arm64 config.conf node_pool.json editor
+          zip rulego-server-all-windows-arm64.zip rulego-server-all-windows-arm64.exe config.conf node_pool.json editor
+          tar -czf rulego-server-all-linux-386.tar.gz rulego-server-all-linux-386 config.conf node_pool.json editor
 
           # Standard builds (without optional extensions)
-          tar -czf rulego-server-linux-amd64.tar.gz rulego-server-linux-amd64 config.conf node_pool.json
-          zip rulego-server-windows-amd64.zip rulego-server-windows-amd64.exe config.conf node_pool.json
-          tar -czf rulego-server-macos-amd64.tar.gz rulego-server-macos-amd64 config.conf node_pool.json
-          tar -czf rulego-server-linux-arm64.tar.gz rulego-server-linux-arm64 config.conf node_pool.json
-          tar -czf rulego-server-macos-arm64.tar.gz rulego-server-macos-arm64 config.conf node_pool.json
-          zip rulego-server-windows-arm64.zip rulego-server-windows-arm64.exe config.conf node_pool.json
-          tar -czf rulego-server-linux-386.tar.gz rulego-server-linux-386 config.conf node_pool.json
+          tar -czf rulego-server-linux-amd64.tar.gz rulego-server-linux-amd64 config.conf node_pool.json editor
+          zip rulego-server-windows-amd64.zip rulego-server-windows-amd64.exe config.conf node_pool.json editor
+          tar -czf rulego-server-macos-amd64.tar.gz rulego-server-macos-amd64 config.conf node_pool.json editor
+          tar -czf rulego-server-linux-arm64.tar.gz rulego-server-linux-arm64 config.conf node_pool.json editor
+          tar -czf rulego-server-macos-arm64.tar.gz rulego-server-macos-arm64 config.conf node_pool.json editor
+          zip rulego-server-windows-arm64.zip rulego-server-windows-arm64.exe config.conf node_pool.json editor
+          tar -czf rulego-server-linux-386.tar.gz rulego-server-linux-386 config.conf node_pool.json editor
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
