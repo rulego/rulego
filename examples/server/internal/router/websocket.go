@@ -14,10 +14,10 @@ import (
 	"github.com/rulego/rulego/utils/json"
 )
 
-// NewWebsocketServe Websocket服务 接收端点
+// NewWebsocketServe: Websocket service receives endpoints
 func NewWebsocketServe(c config.Config, httpEndpoint endpointApi.HttpEndpoint) (endpoint.Endpoint, error) {
 
-	// 使用Registry创建websocket端点，使用HTTP端点作为底层端点
+	// Use the Registry to create websocket endpoints, and use HTTP endpoints as the underlying endpoints
 	ep, err := endpoint.Registry.New(
 		websocketEndpoint.Type,
 		SystemRulegoConfig,
@@ -57,7 +57,7 @@ func NewWebsocketServe(c config.Config, httpEndpoint endpointApi.HttpEndpoint) (
 					}
 					jsonStr, _ := json.Marshal(log)
 					exchange.Out.SetBody(jsonStr)
-					//写入报错
+					//Write to error report
 					if exchange.Out.GetError() != nil {
 						s.RemoveOnDebugObserver(clientId)
 					}

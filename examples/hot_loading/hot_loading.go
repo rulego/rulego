@@ -24,52 +24,52 @@ import (
 	"time"
 )
 
-// 热更新规则链，不需要启动服务，立刻生效
-// 热更新规则链某个节点，不需要启动服务，立刻生效
+// Hot-update rule chains do not require starting the service, taking effect immediately
+// Hot update to a node in the rule chain does not require starting the service; it takes effect immediately
 func main() {
 
 	config := rulego.NewConfig()
 
-	//创建msg元数据
+	//Create MSG metadata
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 
-	//创建规则引擎实例
+	//Create a rule engine instance
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile1), rulego.WithConfig(config))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	//创建msg
+	//Create MSG
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		fmt.Println("处理结果=====")
-		//得到规则链处理结果
+		//Obtain the result of the rule chain processing
 		fmt.Println(msg, err)
 	}))
 
 	time.Sleep(time.Second)
 
-	//更新s1节点
+	//Update the s1 node
 	_ = ruleEngine.ReloadChild("s1", []byte(s1Node))
 
-	//重新执行
+	//Re-executed
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		fmt.Println("更新s1节点后，处理结果=====")
-		//得到规则链处理结果
+		//Obtain the result of the rule chain processing
 		fmt.Println(msg, err)
 	}))
 
 	time.Sleep(time.Second)
 
-	//更新规则链
+	//Update the rule chain
 	_ = ruleEngine.ReloadSelf([]byte(chainJsonFile2), rulego.WithConfig(config))
-	//重新执行
+	//Re-executed
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		fmt.Println("更新规则链后，处理结果=====")
-		//得到规则链处理结果
-		//因为推送的url:http://192.168.136.26:9099/api/msg 是无效url，所以会返回超时错误
+		//Obtain the result of the rule chain processing
+		//Because the pushed url:http://192.168.136.26:9099/api/msg is an invalid URL, it will return a timeout error
 		fmt.Println(msg, err)
 	}))
 

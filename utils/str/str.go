@@ -41,36 +41,36 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
-// VarPrefix 模板变量前缀
+// VarPrefix template variable prefix
 const VarPrefix = "${"
 
-// VarSuffix 模板变量后缀
+// VarSuffix template variable suffix
 const VarSuffix = "}"
 
 func init() {
-	//设置随机种子
+	//Set random seeds
 	rand.Seed(time.Now().UnixNano())
 }
 
-// 正则表达式匹配 ${aa} 或 ${aa.bb}
-// 预编译的模板变量正则表达式，提高性能
+// Regular expressions match ${aa} or ${aa.bb}
+// Precompiled template variable regular expressions improve performance
 var tplVarRegex = regexp.MustCompile(`\$\{ *([^}]+) *\}`)
 
-// ExecuteTemplate 替换字符串模板中的${}变量
-// original是一个字符串，包含${key}形式的变量占位符。支持多级变量如：${key.subKey}
+// ExecuteTemplate replaces the ${} variable in the string template
+// original is a string containing a placeholder for a variable in the form ${key}. Supports multi-level variables such as: ${key.subKey}
 // Example: ExecuteTemplate("Hello,${name}",map[string]string{"name":"Alice"}). return "Hello,Alice!".
-// 如果没匹配到变量，则保留原样
+// If the variable is not matched, it is kept as is
 // Deprecated: Use github.com/rulego/rulego/utils/el.NewTemplate instead.
 // This function will be removed in a future version.
 func ExecuteTemplate(original string, dict map[string]interface{}) string {
-	// 快速检查：如果字符串中没有模板变量，直接返回
+	// Quick check: If there are no template variables in the string, return it directly
 	if !strings.Contains(original, "${") {
 		return original
 	}
 
-	// 使用预编译的正则表达式进行替换
+	// Replace with precompiled regular expressions
 	return tplVarRegex.ReplaceAllStringFunc(original, func(s string) string {
-		// 提取键名（优化：减少重复的正则匹配）
+		// Key Extraction (Optimization: Reduces Duplicate Regular Matching)
 		start := strings.Index(s, "{") + 1
 		end := strings.LastIndex(s, "}")
 		if start <= 0 || end <= start {
@@ -86,18 +86,18 @@ func ExecuteTemplate(original string, dict map[string]interface{}) string {
 	})
 }
 
-// SprintfDict 根据pattern和dict格式化字符串。
-// SprintfDict 替换字符串模板中的${}变量
-// original是一个字符串，包含${key}形式的变量占位符。不支持多级变量。
+// SprintfDict formats strings based on pattern and dict.
+// SprintfDict replaces the ${} variable in the string template
+// original is a string containing a placeholder for a variable in the form ${key}. Multi-level variables are not supported.
 // Example: SprintfDict("Hello,${name}",map[string]string{"name":"Alice"}). return "Hello,Alice!".
-// 如果没匹配到变量，则保留原样
+// If the variable is not matched, it is kept as is
 func SprintfDict(original string, dict map[string]string) string {
-	// 使用正则表达式进行替换
+	// Replace with regular expressions
 	replaced := tplVarRegex.ReplaceAllStringFunc(original, func(s string) string {
-		// 提取键名
+		// Extract key names
 		matches := tplVarRegex.FindStringSubmatch(s)
 		if len(matches) < 2 {
-			return s // 如果没有匹配到，返回原字符串
+			return s // If no match is found, the original string is returned
 		}
 		result, ok := dict[strings.TrimSpace(matches[1])]
 		if !ok {
@@ -112,7 +112,7 @@ func SprintfDict(original string, dict map[string]string) string {
 const randomStrOptions = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const randomStrOptionsLen = len(randomStrOptions)
 
-// RandomStr 创建指定长度的随机字符
+// RandomStr creates random characters of specified length
 func RandomStr(num int) string {
 	var builder strings.Builder
 	for i := 0; i < num; i++ {
@@ -121,19 +121,19 @@ func RandomStr(num int) string {
 	return builder.String()
 }
 
-// ToString input的值转成字符串,忽略错误
+// The value of ToString input is converted to a string, ignoring the error
 func ToString(input interface{}) string {
 	v, _ := ToStringMaybeErr(input)
 	return v
 }
 
-// ToStringMaybeErr input的值转成字符串
+// ToStringMaybeErr Input value is converted to a string
 func ToStringMaybeErr(input interface{}) (string, error) {
 	if input == nil {
 		return "", nil
 	}
 
-	// 优化的类型转换，减少反射和内存分配
+	// Optimized type conversion reduces reflection and memory allocation
 	switch v := input.(type) {
 	case string:
 		return v, nil
@@ -170,7 +170,7 @@ func ToStringMaybeErr(input interface{}) (string, error) {
 	case error:
 		return v.Error(), nil
 	case map[interface{}]interface{}:
-		// 直接创建临时map进行类型转换
+		// Directly create temporary maps for type conversion
 		stringMap := make(map[string]interface{})
 		for key, value := range v {
 			stringMap[ToString(key)] = value
@@ -181,7 +181,7 @@ func ToStringMaybeErr(input interface{}) (string, error) {
 			return "", err
 		}
 	default:
-		// 对于其他类型，直接使用JSON序列化
+		// For other types, use JSON serialization directly
 		if data, err := json.Marshal(input); err == nil {
 			return string(data), nil
 		} else {
@@ -190,7 +190,7 @@ func ToStringMaybeErr(input interface{}) (string, error) {
 	}
 }
 
-// ToStringMapString 把interface类型 转 map[string]string类型
+// ToStringMapString converts interface type to map[string]string type
 func ToStringMapString(input interface{}) map[string]string {
 	var output = map[string]string{}
 
@@ -220,12 +220,12 @@ func ToStringMapString(input interface{}) map[string]string {
 	}
 }
 
-// CheckHasVar 检查字符串是否有占位符
+// CheckHasVar checks whether a string has placeholders
 func CheckHasVar(str string) bool {
 	return strings.Contains(str, VarPrefix) && strings.Contains(str, VarSuffix)
 }
 
-// ConvertDollarPlaceholder 转postgres风格占位符
+// ConvertDollarPlaceholder converts to postgres-style placeholder
 func ConvertDollarPlaceholder(sql, dbType string) string {
 	if dbType == "postgres" {
 		n := 1
@@ -268,7 +268,7 @@ func RemoveBraces(s string) string {
 	return result
 }
 
-// ToLowerFirst 首字母转小写
+// ToLowerFirst: Convert the initial letter to lowercase
 func ToLowerFirst(s string) string {
 	if s == "" {
 		return ""
@@ -276,27 +276,27 @@ func ToLowerFirst(s string) string {
 	return strings.ToLower(s[:1]) + s[1:]
 }
 
-// ParseVarsWithBraces 解析字符串中的变量，返回变量名切片，例如：${vars.name} -> [name]
+// ParseVarsWithBraces parses variables in the string and returns the variable name slices, for example: ${vars.name} -> [name]
 func ParseVarsWithBraces(varPrefix, str string) []string {
 	var regexpCompile = regexp.MustCompile(`\$\{` + varPrefix + `\.([^\}]+)\}`)
-	// 找到所有匹配的变量
+	// Find all matching variables
 	return parseVars(regexpCompile.FindAllStringSubmatch(str, -1))
 }
 
-// ParseVars 解析字符串中的变量，返回变量名切片，例如：vars.name -> [name]
+// ParseVars parses variables in a string and returns a variable name slice, for example: vars.name -> [name]
 func ParseVars(varPrefix, str string) []string {
 	var regexpCompile = regexp.MustCompile(varPrefix + `\.(\w+)`)
-	// 找到所有匹配的变量
+	// Find all matching variables
 	return parseVars(regexpCompile.FindAllStringSubmatch(str, -1))
 }
 
 func parseVars(matches [][]string) []string {
 	var vars = make(map[string]struct{})
 	for _, match := range matches {
-		// match[1] 是去掉 ${vars.} 后的变量名
+		// match[1] is the variable name after removing ${vars.}
 		vars[match[1]] = struct{}{}
 	}
-	// 将 map 中的变量名转换为切片
+	// Convert variable names in map to slices
 	var result []string
 	for varName := range vars {
 		result = append(result, varName)
@@ -304,7 +304,7 @@ func parseVars(matches [][]string) []string {
 	return result
 }
 
-// Contains 检查切片中是否包含元素
+// Contains checks whether the slice contains elements
 func Contains(list []string, target string) bool {
 	for _, item := range list {
 		if item == target {

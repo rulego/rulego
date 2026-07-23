@@ -1,24 +1,24 @@
 package str
 
-// UnsafeStringFromBytes 零拷贝转换[]byte到string
-// 使用构建标签自动选择最优实现，支持Go 1.18+所有版本
+// UnsafeStringFromBytes Zero copy conversion[] byte to string
+// Automatically selects optimal implementation using build tags, supporting all Go 1.18+ versions
 //
-// WARNING: 返回的字符串与底层[]byte共享内存
-// 在使用字符串期间不要修改原始数据
+// WARNING: The returned string shares memory with the underlying []byte
+// Do not modify the original data while using the string
 func UnsafeStringFromBytes(b []byte) string {
 	return unsafeStringFromBytes_impl(b)
 }
 
-// UnsafeBytesFromString 零拷贝转换string到[]byte
-// 使用构建标签自动选择最优实现，支持Go 1.18+所有版本
+// UnsafeBytesFromString Zero-copy converts string to []byte
+// Automatically selects optimal implementation using build tags, supporting all Go 1.18+ versions
 //
-// WARNING: 返回的[]byte与底层字符串共享内存
-// 不要修改返回的[]byte
+// WARNING: The returned []byte shares memory with the underlying string
+// Do not modify the returned []byte
 func UnsafeBytesFromString(s string) []byte {
 	return unsafeBytesFromString_impl(s)
 }
 
-// SafeStringFromBytes 安全转换[]byte到string（带内存拷贝）
+// SafeStringFromBytes Safe Conversion[] Byte to string (with memory copy)
 func SafeStringFromBytes(b []byte) string {
 	if len(b) == 0 {
 		return ""
@@ -26,7 +26,7 @@ func SafeStringFromBytes(b []byte) string {
 	return string(b)
 }
 
-// SafeBytesFromString 安全转换string到[]byte（带内存拷贝）
+// SafeBytesFromString Safely converts string to []byte (with memory copy)
 func SafeBytesFromString(s string) []byte {
 	if len(s) == 0 {
 		return nil
@@ -34,7 +34,7 @@ func SafeBytesFromString(s string) []byte {
 	return []byte(s)
 }
 
-// GetConverterInfo 返回当前使用的转换器信息
+// GetConverterInfo returns information about the converter currently in use
 func GetConverterInfo() string {
 	return implementationInfo
 }

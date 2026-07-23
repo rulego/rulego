@@ -55,7 +55,7 @@ func Unmarshal(b []byte, m interface{}) error {
 	return json.Unmarshal(b, m)
 }
 
-// Format json格式化
+// Format: JSON formatting
 func Format(jsonStr []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	err := json.Indent(&buf, jsonStr, "", "  ")

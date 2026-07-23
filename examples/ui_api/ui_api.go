@@ -28,30 +28,30 @@ import (
 	"syscall"
 )
 
-//演示获取所有组件配置表单列表接口
+//Demonstration of obtaining all component configuration form list interfaces
 //GET http:{ip}:9090/api/v1/components
 
 func main() {
 
 	config := rulego.NewConfig(types.WithDefaultPool())
-	//启动http接收服务
+	//Start the HTTP reception service
 	restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}, RuleConfig: config}
-	//添加全局拦截器
+	//Added a global interceptor
 	restEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.Headers().Set("Access-Control-Allow-Origin", "*")
 		userId := exchange.In.Headers().Get("userId")
 		if userId == "blacklist" {
-			//不允许访问
+			//Access is not permitted
 			return false
 		}
-		//权限校验逻辑
+		//Permission validation logic
 		return true
 	})
-	//路由1
+	//Route 1
 	router1 := endpoint.NewRouter().From("/api/v1/components").Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 
-		//响应组件配置表单列表
+		//The response component configures the list of forms
 		list, err := json.Marshal(rulego.Registry.GetComponentForms().Values())
 		if err != nil {
 			exchange.Out.SetStatusCode(400)
@@ -62,13 +62,13 @@ func main() {
 		return true
 	}).End()
 
-	//注册路由，POST方式
+	//Register routing and POST methods
 	restEndpoint.GET(router1)
-	//并启动服务
+	//And launch the service
 	_ = restEndpoint.Start()
 
 	sigs := make(chan os.Signal, 1)
-	// 监听系统信号，包括中断信号和终止信号
+	// Monitor system signals, including interrupt and termination signals
 	signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	select {

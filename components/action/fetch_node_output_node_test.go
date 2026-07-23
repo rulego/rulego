@@ -26,7 +26,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// MockRuleContext 模拟规则上下文，支持节点输出缓存
+// MockRuleContext Simulates the rule context and supports node output cache
 type MockRuleContext struct {
 	*test.NodeTestRuleContext
 	nodeOutputs map[string]types.RuleMsg
@@ -34,7 +34,7 @@ type MockRuleContext struct {
 	callback    func(msg types.RuleMsg, relationType string, err error)
 }
 
-// NewMockRuleContext 创建模拟规则上下文
+// NewMockRuleContext creates a mock rule context
 func NewMockRuleContext(config types.Config, callback func(msg types.RuleMsg, relationType string, err error)) *MockRuleContext {
 	baseCtx := test.NewRuleContext(config, nil).(*test.NodeTestRuleContext)
 	return &MockRuleContext{
@@ -44,14 +44,14 @@ func NewMockRuleContext(config types.Config, callback func(msg types.RuleMsg, re
 	}
 }
 
-// SetNodeOutput 设置节点输出
+// SetNodeOutput sets the node output
 func (ctx *MockRuleContext) SetNodeOutput(nodeId string, msg types.RuleMsg) {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 	ctx.nodeOutputs[nodeId] = msg
 }
 
-// GetNodeRuleMsg 获取节点输出
+// GetNodeRuleMsg gets the node output
 func (ctx *MockRuleContext) GetNodeRuleMsg(nodeId string) (types.RuleMsg, bool) {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
@@ -59,7 +59,7 @@ func (ctx *MockRuleContext) GetNodeRuleMsg(nodeId string) (types.RuleMsg, bool) 
 	return msg, exists
 }
 
-// 实现其他必要的接口方法
+// Implement other necessary interface methods
 func (ctx *MockRuleContext) TellSuccess(msg types.RuleMsg) {
 	if ctx.callback != nil {
 		ctx.callback(msg, types.Success, nil)
@@ -83,20 +83,20 @@ func (ctx *MockRuleContext) GetContext() context.Context {
 	return context.TODO()
 }
 
-// TestFetchNodeOutputNodeType 测试节点类型
+// TestFetchNodeOutputNodeType Test node type
 func TestFetchNodeOutputNodeType(t *testing.T) {
 	var node FetchNodeOutputNode
 	assert.Equal(t, "fetchNodeOutput", node.Type())
 }
 
-// TestFetchNodeOutputNodeNew 测试创建新实例
+// TestFetchNodeOutputNodeNew tests to create a new instance
 func TestFetchNodeOutputNodeNew(t *testing.T) {
 	var node FetchNodeOutputNode
 	newNode := node.New().(*FetchNodeOutputNode)
 	assert.Equal(t, "", newNode.Config.NodeId)
 }
 
-// TestFetchNodeOutputNodeOnMsg 测试消息处理
+// TestFetchNodeOutputNodeOnMsg tests message processing
 func TestFetchNodeOutputNodeOnMsg(t *testing.T) {
 	t.Run("target node exists", func(t *testing.T) {
 		var node FetchNodeOutputNode
@@ -106,25 +106,25 @@ func TestFetchNodeOutputNodeOnMsg(t *testing.T) {
 
 		node.Init(config, configuration)
 
-		// 创建模拟测试上下文
+		// Create a mock test context
 		mockCtx := NewMockRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
 			assert.Equal(t, types.Success, relationType)
 			assert.Equal(t, "target data", msg.GetData())
 			assert.Equal(t, "target value", msg.Metadata.GetValue("key"))
 		})
 
-		// 模拟目标节点输出
+		// Simulates the output of the target node
 		targetMetadata := types.NewMetadata()
 		targetMetadata.PutValue("key", "target value")
 		targetMsg := types.NewMsg(0, "TELEMETRY", types.JSON, targetMetadata, "target data")
 		mockCtx.SetNodeOutput("targetNode", targetMsg)
 
-		// 创建输入消息
+		// Create an input message
 		currentMetadata := types.NewMetadata()
 		currentMetadata.PutValue("key", "current value")
 		msg := types.NewMsg(0, "TELEMETRY", types.JSON, currentMetadata, "current data")
 
-		// 处理消息
+		// Process the message
 		node.OnMsg(mockCtx, msg)
 	})
 
@@ -136,32 +136,32 @@ func TestFetchNodeOutputNodeOnMsg(t *testing.T) {
 
 		node.Init(config, configuration)
 
-		// 创建模拟测试上下文
+		// Create a mock test context
 		mockCtx := NewMockRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
 			assert.Equal(t, types.Failure, relationType)
 			assert.Equal(t, "current data", msg.GetData())
 			assert.NotNil(t, err)
 		})
 
-		// 创建输入消息
+		// Create an input message
 		currentMetadata := types.NewMetadata()
 		currentMetadata.PutValue("key", "current value")
 		msg := types.NewMsg(0, "TELEMETRY", types.JSON, currentMetadata, "current data")
 
-		// 处理消息
+		// Process the message
 		node.OnMsg(mockCtx, msg)
 	})
 
 }
 
-// TestFetchNodeOutputNodeDestroy 测试销毁
+// TestFetchNodeOutputNodeDestroy test destroyed
 func TestFetchNodeOutputNodeDestroy(t *testing.T) {
 	var node FetchNodeOutputNode
-	// 销毁不应该引发panic
+	// Destruction should not trigger panic
 	node.Destroy()
 }
 
-// BenchmarkFetchNodeOutputNode 性能测试
+// BenchmarkFetchNodeOutputNode performance test
 func BenchmarkFetchNodeOutputNode(b *testing.B) {
 	var node FetchNodeOutputNode
 	config := types.NewConfig()
@@ -170,17 +170,17 @@ func BenchmarkFetchNodeOutputNode(b *testing.B) {
 
 	node.Init(config, configuration)
 
-	// 创建模拟测试上下文
+	// Create a mock test context
 	mockCtx := NewMockRuleContext(config, func(msg types.RuleMsg, relationType string, err error) {
-		// 空回调
+		// Air Callback
 	})
 
-	// 模拟目标节点输出
+	// Simulates the output of the target node
 	targetMetadata := types.NewMetadata()
 	targetMsg := types.NewMsg(0, "TELEMETRY", types.JSON, targetMetadata, "target data")
 	mockCtx.SetNodeOutput("targetNode", targetMsg)
 
-	// 创建输入消息
+	// Create an input message
 	currentMetadata := types.NewMetadata()
 	msg := types.NewMsg(0, "TELEMETRY", types.JSON, currentMetadata, "current data")
 

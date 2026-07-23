@@ -1,11 +1,11 @@
 package router
 
-//// MqttServe mqtt 订阅服务
+//MqttServe mqtt subscription service
 //func MqttServe(c config.Config, logger *log.Logger) (endpoint.Endpoint, error) {
 //	if !c.Mqtt.Enabled {
 //		return nil, nil
 //	}
-//	//mqtt 订阅服务 接收端点
+//	MQTT subscription service receiving endpoint
 //	mqttEndpoint, err := endpoint.Registry.New(endpointMqtt.Type, rulego.NewConfig(), c.Mqtt)
 //	if err != nil {
 //		logger.Fatal(err)

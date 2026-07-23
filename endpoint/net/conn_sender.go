@@ -25,13 +25,13 @@ import (
 	"github.com/rulego/rulego/api/types/endpoint"
 )
 
-// connSender 封装 net.Conn，实现 endpoint.Sender。互斥锁保护 Write，避免并发写交错。
+// connSender encapsulation net.Conn, implementing the endpoint.Sender. Mutex locks protect write and prevent concurrent write interlacing.
 type connSender struct {
 	conn net.Conn
 	mu   sync.Mutex
 }
 
-// Send 加锁写入一帧。
+// Send: Lock and write one frame.
 func (s *connSender) Send(data []byte) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -42,7 +42,7 @@ func (s *connSender) Send(data []byte) error {
 	return err
 }
 
-// Close 关闭连接，满足 io.Closer（TTL 扫描用）。
+// close to close the connection and satisfy io.Closer (for TTL scanning).
 func (s *connSender) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

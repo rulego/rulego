@@ -30,8 +30,8 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// NewMockRuleContext 创建模拟的 RuleContext，现在使用 ExtendedTestRuleContext
-// 保持向后兼容性
+// NewMockRuleContext creates a simulated RuleContext and now uses ExtendedTestRuleContext
+// Maintain backward compatibility
 func NewMockRuleContext() *test.ExtendedTestRuleContext {
 	return test.NewExtendedTestRuleContextWithChannel()
 }
@@ -203,9 +203,9 @@ func TestGroupFilterNode(t *testing.T) {
 	})
 }
 
-// TestGroupFilterConcurrencySafety 测试 GroupFilter 的并发安全性
+// TestGroupFilterConcurrencySafety Tests the concurrency security of GroupFilter
 func TestGroupFilterConcurrencySafety(t *testing.T) {
-	// 测试 AllMatches=true 的场景
+	// Test the scenario with AllMatches=true
 	t.Run("AllMatches=true Concurrency Safety", func(t *testing.T) {
 		node := &GroupFilterNode{}
 		err := node.Init(types.NewConfig(), map[string]interface{}{
@@ -214,30 +214,30 @@ func TestGroupFilterConcurrencySafety(t *testing.T) {
 		})
 		assert.Nil(t, err)
 
-		// 进行多次测试以捕获竞态条件
+		// Multiple tests were conducted to capture race conditions
 		for i := 0; i < 100; i++ {
 			mockCtx := NewMockRuleContext()
 
-			// 设置节点处理器：node1 返回 False，node2 和 node3 返回 True
+			// Set the node processor: node1 returns False, node2 and node3 return True
 			mockCtx.SetNodeHandler("node1", func(msg types.RuleMsg) (string, error) {
-				time.Sleep(time.Millisecond * 1) // 模拟处理时间
+				time.Sleep(time.Millisecond * 1) // Simulated processing time
 				return types.False, nil
 			})
 			mockCtx.SetNodeHandler("node2", func(msg types.RuleMsg) (string, error) {
-				time.Sleep(time.Millisecond * 2) // 模拟处理时间
+				time.Sleep(time.Millisecond * 2) // Simulated processing time
 				return types.True, nil
 			})
 			mockCtx.SetNodeHandler("node3", func(msg types.RuleMsg) (string, error) {
-				time.Sleep(time.Millisecond * 3) // 模拟处理时间
+				time.Sleep(time.Millisecond * 3) // Simulated processing time
 				return types.True, nil
 			})
 
 			msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{}`)
 
-			// 执行 GroupFilter
+			// Run GroupFilter
 			node.OnMsg(mockCtx, msg)
 
-			// 等待处理完成
+			// Wait for processing to complete
 			time.Sleep(time.Millisecond * 50)
 
 			results := mockCtx.GetResults()
@@ -246,7 +246,7 @@ func TestGroupFilterConcurrencySafety(t *testing.T) {
 		}
 	})
 
-	// 测试 AllMatches=true 且所有节点都返回 True 的场景
+	// Test a scenario where AllMatches=true and all nodes return true
 	t.Run("AllMatches=true All True", func(t *testing.T) {
 		node := &GroupFilterNode{}
 		err := node.Init(types.NewConfig(), map[string]interface{}{
@@ -257,7 +257,7 @@ func TestGroupFilterConcurrencySafety(t *testing.T) {
 
 		mockCtx := NewMockRuleContext()
 
-		// 设置所有节点都返回 True
+		// Set all nodes to return True
 		for _, nodeId := range []string{"node1", "node2", "node3"} {
 			nodeId := nodeId // capture loop variable
 			mockCtx.SetNodeHandler(nodeId, func(msg types.RuleMsg) (string, error) {
@@ -276,7 +276,7 @@ func TestGroupFilterConcurrencySafety(t *testing.T) {
 		assert.Equal(t, types.True, results[0], "AllMatches=true with all True should return True")
 	})
 
-	// 测试 AllMatches=false 的场景
+	// Test the scenario where AllMatches=false is used
 	t.Run("AllMatches=false Concurrency Safety", func(t *testing.T) {
 		node := &GroupFilterNode{}
 		err := node.Init(types.NewConfig(), map[string]interface{}{
@@ -288,7 +288,7 @@ func TestGroupFilterConcurrencySafety(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			mockCtx := NewMockRuleContext()
 
-			// 设置节点处理器：node1 返回 True，其他返回 False
+			// Set the node processor: node1 returns True, others return False
 			mockCtx.SetNodeHandler("node1", func(msg types.RuleMsg) (string, error) {
 				time.Sleep(time.Millisecond * 1)
 				return types.True, nil
@@ -314,7 +314,7 @@ func TestGroupFilterConcurrencySafety(t *testing.T) {
 	})
 }
 
-// TestGroupFilterRaceCondition 专门测试竞态条件
+// TestGroupFilterRaceCondition is specifically used to test race condition conditions
 func TestGroupFilterRaceCondition(t *testing.T) {
 	node := &GroupFilterNode{}
 	err := node.Init(types.NewConfig(), map[string]interface{}{
@@ -329,12 +329,12 @@ func TestGroupFilterRaceCondition(t *testing.T) {
 	for i := 0; i < iterations; i++ {
 		mockCtx := NewMockRuleContext()
 
-		// 设置快速并发的节点处理器
+		// Configure fast-concurrency node processors
 		for j, nodeId := range []string{"node1", "node2", "node3", "node4", "node5"} {
 			nodeId := nodeId
 			j := j
 			mockCtx.SetNodeHandler(nodeId, func(msg types.RuleMsg) (string, error) {
-				// 第一个节点返回 False，其他返回 True
+				// The first node returns False, while the others return True
 				if j == 0 {
 					return types.False, nil
 				}
@@ -357,73 +357,73 @@ func TestGroupFilterRaceCondition(t *testing.T) {
 	//t.Logf("Race condition test: %d errors out of %d iterations (%.2f%% error rate)",
 	//	atomic.LoadInt32(&errorCount), iterations, errorRate*100)
 
-	// 修复后的代码应该没有竞态条件错误
+	// The fixed code should have no race condition errors
 	assert.Equal(t, int32(0), atomic.LoadInt32(&errorCount), "Should have no race condition errors")
 }
 
-// TestGroupFilterNodeTimeoutRaceCondition 测试超时竞态条件修复
+// TestGroupFilterNodeTimeoutRaceCondition Fixes timeout race condition for testing
 func TestGroupFilterNodeTimeoutRaceCondition(t *testing.T) {
-	// 获取初始goroutine数量
+	// Get the initial goroutine quantity
 	initialGoroutines := runtime.NumGoroutine()
 
-	// 创建GroupFilterNode，设置很短的超时时间
+	// Create a GroupFilterNode and set a very short timeout timeout
 	node := &GroupFilterNode{}
 	err := node.Init(types.NewConfig(), map[string]interface{}{
 		"allMatches": false,
 		"nodeIds":    []string{"node1", "node2"},
-		"timeout":    1, // 1秒超时
+		"timeout":    1, // Timeout of 1 second
 	})
 	assert.Nil(t, err)
 
-	// 使用现有的MockRuleContext进行测试
+	// Testing is conducted using the existing MockRuleContext
 	mockCtx := NewMockRuleContext()
 
-	// 设置慢响应的节点处理器（比超时时间长）
+	// Set a slow-response node processor (longer than timeout)
 	mockCtx.SetNodeHandler("node1", func(msg types.RuleMsg) (string, error) {
-		time.Sleep(2 * time.Second) // 比超时时间长
+		time.Sleep(2 * time.Second) // Longer than the overtime period
 		return types.True, nil
 	})
 	mockCtx.SetNodeHandler("node2", func(msg types.RuleMsg) (string, error) {
-		time.Sleep(2 * time.Second) // 比超时时间长
+		time.Sleep(2 * time.Second) // Longer than the overtime period
 		return types.True, nil
 	})
 
 	msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{}`)
 
-	// 执行测试
+	// Perform the test
 	start := time.Now()
 	node.OnMsg(mockCtx, msg)
 	duration := time.Since(start)
 
-	// 验证超时按预期工作（应该在1秒左右返回，而不是2秒）
+	// Verification timeout works as expected (should return in about 1 second, not 2 seconds)
 	assert.True(t, duration >= 1*time.Second && duration < 1500*time.Millisecond,
 		"Expected timeout around 1 second, got %v", duration)
 
-	// 等待一段时间确保所有goroutine完成
+	// Wait a while to ensure all goroutines are completed
 	time.Sleep(3 * time.Second)
 
-	// 验证收到失败结果
+	// Verification received a failed result
 	results := mockCtx.GetResults()
 	assert.Equal(t, 1, len(results), "Should have exactly one result")
 	assert.Equal(t, "Failure", results[0], "Should receive Failure on timeout")
 
-	// 强制GC，清理资源
+	// Forced GC and resource clearance
 	runtime.GC()
 	time.Sleep(100 * time.Millisecond)
 
-	// 检查goroutine泄露（允许少量增长）
+	// Check for goroutine leaks (allow for small growth)
 	finalGoroutines := runtime.NumGoroutine()
 	goroutineIncrease := finalGoroutines - initialGoroutines
 
-	// 允许少量增长（测试框架本身可能创建）
+	// Allow for small growth (the testing framework itself may be created)
 	assert.True(t, goroutineIncrease <= 3,
 		"Expected goroutine increase <= 3, got %d (from %d to %d)",
 		goroutineIncrease, initialGoroutines, finalGoroutines)
 }
 
-// TestGroupFilterNodeConcurrentTimeout 测试并发超时场景，确保没有goroutine泄露
+// TestGroupFilterNodeConcurrentTimeout tests concurrent timeout scenarios to ensure no goroutine leaks
 func TestGroupFilterNodeConcurrentTimeout(t *testing.T) {
-	concurrency := 5 // 减少并发数，避免测试环境负载过高
+	concurrency := 5 // Reduce concurrency and avoid excessive load in the test environment
 
 	var wg sync.WaitGroup
 	for i := 0; i < concurrency; i++ {
@@ -435,13 +435,13 @@ func TestGroupFilterNodeConcurrentTimeout(t *testing.T) {
 			err := node.Init(types.NewConfig(), map[string]interface{}{
 				"allMatches": false,
 				"nodeIds":    []string{"node1", "node2"},
-				"timeout":    1, // 1秒超时
+				"timeout":    1, // Timeout of 1 second
 			})
 			assert.Nil(t, err)
 
 			mockCtx := NewMockRuleContext()
 
-			// 设置慢响应节点
+			// Set slow response nodes
 			mockCtx.SetNodeHandler("node1", func(msg types.RuleMsg) (string, error) {
 				time.Sleep(2 * time.Second)
 				return types.True, nil
@@ -457,10 +457,10 @@ func TestGroupFilterNodeConcurrentTimeout(t *testing.T) {
 			node.OnMsg(mockCtx, msg)
 			duration := time.Since(start)
 
-			// 验证超时
+			// Verification timeout
 			assert.True(t, duration >= 1*time.Second && duration < 1500*time.Millisecond)
 
-			// 验证收到结果
+			// Verify the results received
 			results := mockCtx.GetResults()
 			assert.Equal(t, 1, len(results), "Concurrent test %d should have exactly one result", index)
 			assert.Equal(t, "Failure", results[0], "Concurrent test %d should receive Failure on timeout", index)
@@ -469,35 +469,35 @@ func TestGroupFilterNodeConcurrentTimeout(t *testing.T) {
 
 	wg.Wait()
 
-	// 等待所有慢节点完成
+	// Wait for all slow nodes to complete
 	time.Sleep(3 * time.Second)
 
-	// 强制GC，确保所有资源被回收
+	// Forced GC to ensure all resources are recycled
 	runtime.GC()
 	time.Sleep(100 * time.Millisecond)
 }
 
-// TestGroupFilterNodeContextCancellation 测试context取消的正确处理
+// TestGroupFilterNodeContextCancellation Tests the correct handling of context cancellation
 func TestGroupFilterNodeContextCancellation(t *testing.T) {
 	node := &GroupFilterNode{}
 	err := node.Init(types.NewConfig(), map[string]interface{}{
 		"allMatches": false,
 		"nodeIds":    []string{"node1"},
-		"timeout":    2, // 设置2秒超时
+		"timeout":    2, // Set a 2-second timeout
 	})
 	assert.Nil(t, err)
 
 	mockCtx := NewMockRuleContext()
 
-	// 设置一个会检查context取消的节点处理器
+	// Set up a node processor that checks for context cancellation
 	mockCtx.SetNodeHandler("node1", func(msg types.RuleMsg) (string, error) {
-		// 模拟分阶段处理，检查context状态
+		// Simulate phased processing and check context status
 		for i := 0; i < 10; i++ {
 			select {
 			case <-mockCtx.GetContext().Done():
 				return "", context.Canceled
 			default:
-				time.Sleep(300 * time.Millisecond) // 总共3秒，会超时
+				time.Sleep(300 * time.Millisecond) // A total of 3 seconds, and time will run out
 			}
 		}
 		return types.True, nil
@@ -509,13 +509,13 @@ func TestGroupFilterNodeContextCancellation(t *testing.T) {
 	node.OnMsg(mockCtx, msg)
 	duration := time.Since(start)
 
-	// 验证超时发生（2秒左右）
+	// Verification timeout occurs (about 2 seconds)
 	assert.True(t, duration >= 2*time.Second && duration < 2500*time.Millisecond)
 
-	// 等待context传播
+	// Waiting for the context to spread
 	time.Sleep(500 * time.Millisecond)
 
-	// 验证收到失败结果
+	// Verification received a failed result
 	results := mockCtx.GetResults()
 	assert.Equal(t, 1, len(results))
 	assert.Equal(t, "Failure", results[0])

@@ -24,16 +24,16 @@ import (
 	"github.com/rulego/rulego/api/types/endpoint"
 )
 
-// DefaultSessionRegistry 基于 sync.Map 的通用 SessionRegistry 实现，供服务端型 endpoint 嵌入复用。
+// DefaultSessionRegistry is based on sync.Map's universal SessionRegistry implementation, reusable by server-based endpoints for embedding.
 type DefaultSessionRegistry struct {
 	sessions sync.Map // key: Session.Key() -> *endpoint.Session
 
 	sweepMu   sync.Mutex
-	sweepStop chan struct{} // nil = 未扫描
-	sweepDone chan struct{} // goroutine 退出信号
+	sweepStop chan struct{} // nil = Not scanned
+	sweepDone chan struct{} // goroutine exit signal
 }
 
-// Add 注册一个 session，nil 入参忽略。
+// Add registers a session, ignoring nil entries.
 func (r *DefaultSessionRegistry) Add(s *endpoint.Session) {
 	if s == nil {
 		return
@@ -41,12 +41,12 @@ func (r *DefaultSessionRegistry) Add(s *endpoint.Session) {
 	r.sessions.Store(s.Key(), s)
 }
 
-// Remove 按 Key 注销 session。
+// Remove to log out the session with Key.
 func (r *DefaultSessionRegistry) Remove(key string) {
 	r.sessions.Delete(key)
 }
 
-// Clear 清空所有 session（endpoint 销毁时兜底，此时不应有并发写入）。
+// Clear clears all sessions (endpoints are destroyed as a safety net, so concurrent writes should not occur at this time).
 func (r *DefaultSessionRegistry) Clear() {
 	r.sessions.Range(func(k, _ any) bool {
 		r.sessions.Delete(k)
@@ -54,9 +54,9 @@ func (r *DefaultSessionRegistry) Clear() {
 	})
 }
 
-// Rekey 改写 session 的 Key：注销旧 Key、SetKey、注册新 Key。封装三步避免调用方遗漏 Remove。
-// 并发约束：Delete(oldKey) 与 Store(newKey) 之间存在短暂窗口，期间并发 Lookup 可能找不到该 session。
-// 调用方应保证同一 session 的 Rekey 串行调用（当前各 endpoint handler 每连接单 goroutine，满足此约束）。
+// Rekey rewrites session Keys: delete the old Key, SetKey, and register the new Key. Three steps of encapsulation to prevent the caller from missing Remove.
+// Concurrency constraint: There is a brief window between Delete(oldKey) and Store(newKey), during which the concurrent Lookup may not find the session.
+// The caller should ensure that the same session is a Rekey serial call (currently, each endpoint handler satisfies this constraint per single goroutine).
 func (r *DefaultSessionRegistry) Rekey(s *endpoint.Session, newKey string) {
 	if s == nil || newKey == "" {
 		return
@@ -69,7 +69,7 @@ func (r *DefaultSessionRegistry) Rekey(s *endpoint.Session, newKey string) {
 	r.sessions.Store(newKey, s)
 }
 
-// Lookup 按 target 寻址：空或 "*" 广播；其他精确匹配 Key（target 应为 sessionKey 值，如 deviceId）。
+// Lookup addresses by target: empty or "*" broadcast; Other exact match keys (the target should be the sessionKey value, such as deviceId).
 func (r *DefaultSessionRegistry) Lookup(target string) []*endpoint.Session {
 	if target == "" || target == "*" {
 		var all []*endpoint.Session
@@ -89,8 +89,8 @@ func (r *DefaultSessionRegistry) Lookup(target string) []*endpoint.Session {
 	return out
 }
 
-// StartSweeping 启动后台扫描，按 interval 淘汰 idle 超过 ttl 的 session（关连接促其重连）。
-// ttl/interval<=0 或重复调用为 no-op。
+// StartSweeping starts background scanning, eliminating sessions with idle exceeding TTL by interval (close the connection to encourage reconnection).
+// ttl/interval<=0 or repeated calls as no-op.
 func (r *DefaultSessionRegistry) StartSweeping(ttl, interval time.Duration) {
 	if ttl <= 0 || interval <= 0 {
 		return
@@ -98,7 +98,7 @@ func (r *DefaultSessionRegistry) StartSweeping(ttl, interval time.Duration) {
 	r.sweepMu.Lock()
 	defer r.sweepMu.Unlock()
 	if r.sweepStop != nil {
-		return // 已在扫描
+		return // Scanning is already underway
 	}
 	r.sweepStop = make(chan struct{})
 	r.sweepDone = make(chan struct{})
@@ -118,7 +118,7 @@ func (r *DefaultSessionRegistry) StartSweeping(ttl, interval time.Duration) {
 	}()
 }
 
-// StopSweeping 停止扫描并等待退出，幂等。
+// StopSweeping: Stop scanning and wait for exit, power, etc.
 func (r *DefaultSessionRegistry) StopSweeping() {
 	r.sweepMu.Lock()
 	if r.sweepStop == nil {
@@ -129,10 +129,10 @@ func (r *DefaultSessionRegistry) StopSweeping() {
 	done := r.sweepDone
 	r.sweepStop, r.sweepDone = nil, nil
 	r.sweepMu.Unlock()
-	<-done // 等 goroutine 退出，防泄漏
+	<-done // Wait for the goroutine to exit and prevent leaks
 }
 
-// sweep 扫描淘汰 idle 超时的 session，返回淘汰数。now 供测试注入。
+// sweep scans out idle timed sessions, returns the number of eliminations. Now for test injection.
 func (r *DefaultSessionRegistry) sweep(now time.Time, ttl time.Duration) int {
 	deadline := now.UnixNano() - int64(ttl)
 	var evicted int
@@ -141,18 +141,18 @@ func (r *DefaultSessionRegistry) sweep(now time.Time, ttl time.Duration) int {
 		if s.LastSeen() > deadline {
 			return true
 		}
-		// 原子认领，避免与 disconnect defer 双删
+		// Atomic claims, avoiding double deletion with disconnect defers
 		actual, loaded := r.sessions.LoadAndDelete(k)
 		if !loaded {
 			return true
 		}
 		ss := actual.(*endpoint.Session)
-		// 认领窗口内若刚收到帧，回填
+		// If you have just received a frame in the claim window, fill it in
 		if ss.LastSeen() > deadline {
 			r.sessions.Store(k, ss)
 			return true
 		}
-		// 已 Rekey 到新键，不回填旧键
+		// Rekey to a new key without backfilling the old key
 		if ss.Key() != k.(string) {
 			return true
 		}

@@ -27,12 +27,12 @@ import (
 	"log"
 )
 
-// 使用相同路由逻辑处理http和mqtt数据
+// Use the same routing logic to process HTTP and MQTT data
 // HTTP POST http://127.0.0.1:9090/api/v1/msg
 // MQTT pub topic /api/v1/msg
 func main() {
 	config := rulego.NewConfig(types.WithDefaultPool())
-	//定义路由 采用配置方式调用node组件
+	//Define the route: Call node components using the configuration method
 	router := endpoint.NewRouter().From("/api/v1/msg").Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		return true
 	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
@@ -41,44 +41,44 @@ func main() {
 		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata)+'\n msgType='+msgType;
         `}).End()
 
-	//创建mqtt endpoint服务
+	//Create the MQTT Endpoint service
 	_mqttEndpoint, err := endpoint.Registry.New(mqttEndpoint.Type, config, mqtt.Config{
 		Server: "127.0.0.1:1883",
 	})
 	if err != nil {
-		//退出程序
+		//Exit the program
 		log.Fatal(err)
 	}
-	//添加全局拦截器
+	//Added a global interceptor
 	_mqttEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		//权限校验逻辑
+		//Permission validation logic
 		return true
 	})
-	//注册路由并启动服务
+	//Register the route and start the service
 	_, _ = _mqttEndpoint.AddRouter(router)
 
 	err = _mqttEndpoint.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
-	//创建http接收服务
+	//Create an HTTP reception service
 	_restEndpoint, err := endpoint.Registry.New(rest.Type, config, mqtt.Config{
 		Server: ":9090",
 	})
-	//添加全局拦截器
+	//Added a global interceptor
 	_restEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		userId := exchange.In.Headers().Get("userId")
 		if userId == "blacklist" {
-			//不允许访问
+			//Access is not permitted
 			return false
 		}
-		//权限校验逻辑
+		//Permission validation logic
 		return true
 	})
 
-	//注册路由，POST方式
+	//Register routing and POST methods
 	_, _ = _restEndpoint.AddRouter(router, "POST")
-	//启动http服务
+	//Start the HTTP service
 	err = _restEndpoint.Start()
 	if err != nil {
 		log.Fatal(err)

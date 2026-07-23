@@ -1,4 +1,4 @@
-// Package app 提供应用生命周期管理、模块系统和轻量级服务容器。
+// Package app provides application lifecycle management, modular systems, and lightweight service containers.
 package app
 
 import (
@@ -14,11 +14,11 @@ import (
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/config"
-	"github.com/rulego/rulego/server/internal/store/filestore"
 	srvLogger "github.com/rulego/rulego/server/internal/logger"
+	"github.com/rulego/rulego/server/internal/store/filestore"
 )
 
-// App 核心应用结构体，管理完整生命周期
+// The core application structure of the app manages the entire lifecycle
 // App is the core application struct managing the full lifecycle
 type App struct {
 	container *Container
@@ -31,7 +31,7 @@ type App struct {
 	mu        sync.Mutex
 }
 
-// New 创建应用实例，只构造对象和应用选项，不做 I/O
+// New creates an application instance, only constructing objects and application options, without doing I/O
 // New creates an application instance, only sets up options without any I/O
 func New(opts ...Option) *App {
 	o := DefaultOptions()
@@ -46,34 +46,34 @@ func New(opts ...Option) *App {
 	}
 }
 
-// AddHook 注册生命周期钩子，必须在 Init 之前调用
+// AddHook registers lifecycle hooks and must be called before Init
 // AddHook registers a lifecycle hook, must be called before Init
 func (a *App) AddHook(hook Hook) {
 	a.hooks.Add(hook)
 }
 
-// Container 返回应用的服务容器
+// Container: Returns the application's service container
 // Container returns the application service container
 func (a *App) Container() *Container {
 	return a.container
 }
 
-// Config 返回应用配置
+// Config returns the application configuration
 // Config returns the application config
 func (a *App) Config() *config.Config {
 	return a.config
 }
 
-// Logger 返回应用日志器
+// Logger returns the application logger
 // Logger returns the application logger
 func (a *App) Logger() types.Logger {
 	return a.typesLog
 }
 
-// Init 初始化应用：加载配置、注册核心服务、初始化 runtime、按优先级初始化模块
+// Init initialization application: load configuration, register core services, initialize runtime, and initialize modules by priority
 // Init initializes the application: loads config, registers core services, initializes runtime, then initializes modules by priority
 func (a *App) Init() error {
-	// 优先使用注入的 logger；加载配置前需要一个临时 logger
+	// Prioritize using the injected logger; A temporary logger is required before loading the configuration
 	if a.opts.TypesLogger != nil {
 		a.typesLog = a.opts.TypesLogger
 	} else {
@@ -84,7 +84,7 @@ func (a *App) Init() error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// 如果未注入自定义 logger，则根据配置创建（支持文件输出和日志轮转）
+	// If a custom logger is not injected, it is created according to the configuration (supports file output and log rotation).
 	if a.opts.TypesLogger == nil && a.config != nil {
 		a.typesLog = srvLogger.NewFromConfig(a.config)
 	}
@@ -93,12 +93,12 @@ func (a *App) Init() error {
 
 	a.registerCoreServices()
 
-	// 自动创建数据目录（可在嵌入模式下通过 WithoutAutoMkdir() 禁用）
+	// Automatically creates data directories (can be disabled in embedded mode via WithoutAutoMkdir())
 	if a.opts.AutoMkdir && a.config != nil {
 		a.ensureDataDirs()
 	}
 
-	// 如果用户通过 WithStoreProvider 注入了自定义 Provider，提前注册到容器
+	// If a user injects a custom Provider via WithStoreProvider, they can pre-register to the container
 	if a.opts.StoreProvider != nil {
 		if err := a.container.Register("store.provider", a.opts.StoreProvider); err != nil {
 			return fmt.Errorf("register store provider: %w", err)
@@ -122,7 +122,7 @@ func (a *App) Init() error {
 		return err
 	}
 
-	// 应用模块覆盖：按 Name() 匹配替换
+	// Application module coverage: Replace by name().
 	if err := a.applyModuleOverrides(); err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (a *App) Init() error {
 	return nil
 }
 
-// Start 启动应用：启动传输层和后台任务，再启动模块
+// Start the application: Start the transport layer and background tasks, then start the module
 // Start starts the application: launches transport and background tasks, then starts modules
 func (a *App) Start() error {
 	ctx := context.Background()
@@ -176,7 +176,7 @@ func (a *App) Start() error {
 	return nil
 }
 
-// Stop 按逆序关闭模块和传输层，带有 15 秒超时保护
+// Stop closes modules and transport layers in reverse order, with 15-second timeout protection
 // Stop shuts down modules in reverse order and transport layer, with 15s timeout
 func (a *App) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -206,17 +206,17 @@ func (a *App) Stop() error {
 			a.typesLog.Errorf("[stop] error stopping module %s: %v", m.Name(), err)
 		}
 	}
-		// 关闭存储提供者（释放 BBolt 等资源）
-		if provider, err := GetAs[*filestore.FileStoreProvider](a.container, "store.provider"); err == nil {
-			provider.Close()
-		}
+	// Shutting down storage providers (releasing resources like BBolt)
+	if provider, err := GetAs[*filestore.FileStoreProvider](a.container, "store.provider"); err == nil {
+		provider.Close()
+	}
 
 	a.started = false
 	return firstErr
 }
 
-// Reload 动态重载应用：停止模块、重新加载配置、重新初始化并启动所有模块。
-// 用于嵌入模式下修改配置或规则链后热更新，无需重启进程。
+// Reload Dynamic Reload of Applications: Stop modules, reload configurations, reinitialize, and start all modules.
+// Used for hot updates after modifying configurations or rule chains in embedded mode, without restarting the process.
 // Reload dynamically reloads the application: stops modules, reloads config, re-initializes and starts all modules.
 // Used for hot-reloading config or rule chains in embedded mode without restarting the process.
 func (a *App) Reload() error {
@@ -225,7 +225,7 @@ func (a *App) Reload() error {
 
 	a.typesLog.Infof("[reload] starting application reload...")
 
-	// 1. 停止模块（如果正在运行）
+	// 1. Stop the module (if running)
 	if a.started {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
@@ -243,29 +243,29 @@ func (a *App) Reload() error {
 		a.started = false
 	}
 
-	// 2. 重置容器和模块列表
+	// 2. Reset the container and module list
 	a.container = NewContainer()
 	a.hooks = newHookManager()
 	a.modules = append([]Module{}, a.opts.Modules...)
 
-	// 3. 重新加载配置
+	// 3. Reload the configuration
 	if err := a.loadConfig(); err != nil {
 		return fmt.Errorf("reload: %w", err)
 	}
 
-	// 4. 根据新配置更新 logger
+	// 4. Update the logger according to the new configuration
 	if a.opts.TypesLogger == nil && a.config != nil {
 		a.typesLog = srvLogger.NewFromConfig(a.config)
 	}
 
-	// 5. 重新注册核心服务
+	// 5. Re-register core services
 	a.registerCoreServices()
-	// 5.5 重新注册钩子
+	// 5.5 Re-registering the hook
 	for _, h := range a.opts.Hooks {
 		a.hooks.Add(h)
 	}
 
-	// 6. 重新初始化模块
+	// 6. Reinitialize the module
 	appCtx := a.newModuleContext()
 
 	if err := a.hooks.executePhase(context.Background(), BeforeInit, appCtx, a.typesLog); err != nil {
@@ -284,7 +284,7 @@ func (a *App) Reload() error {
 		return err
 	}
 
-	// 7. 启动模块
+	// 7. Startup module
 	ctx := context.Background()
 	if err := a.hooks.executePhase(ctx, BeforeStart, appCtx, a.typesLog); err != nil {
 		return err
@@ -306,8 +306,8 @@ func (a *App) Reload() error {
 	return nil
 }
 
-// applyModuleOverrides 按 Name() 匹配，用 ModuleOverrides 中的模块替换 Modules 中的同名模块。
-// 如果 ModuleOverrides 中的模块没有匹配到任何已注册模块，返回错误。
+// applyModuleOverrides matches by Name(), replacing modules with the same name in Modules with modules in ModuleOverrides.
+// If a module in ModuleOverrides does not match any registered module, an error is returned.
 func (a *App) applyModuleOverrides() error {
 	if len(a.opts.ModuleOverrides) == 0 {
 		return nil
@@ -330,7 +330,7 @@ func (a *App) applyModuleOverrides() error {
 	return nil
 }
 
-// newModuleContext 构造当前应用状态的模块上下文
+// newModuleContext constructs the module context for the current application state
 func (a *App) newModuleContext() *ModuleContext {
 	appCtx := &ModuleContext{
 		Container: a.container,
@@ -343,9 +343,9 @@ func (a *App) newModuleContext() *ModuleContext {
 	return appCtx
 }
 
-// Run 独立服务器模式：等价于 Init() + Start() + 等待系统信号 + Stop()。
-// 会阻塞当前 goroutine 直到收到 SIGINT/SIGTERM，仅用于独立服务器 main 函数。
-// 嵌入模式请使用 Init() + Start()，自行管理生命周期。
+// Run Independent Server Mode: Equivalent to Init() + Start() + Wait for System Signal + Stop().
+// It blocks the current goroutine until SIGINT/SIGTERM is received, and is only used for the main function of the standalone server.
+// For embedding mode, use Init() + Start() to manage the lifecycle yourself.
 // Run is standalone server mode: Init() + Start() + wait for system signal + Stop().
 // Blocks the current goroutine until SIGINT/SIGTERM. Only use in standalone server main.
 // For embedded mode, use Init() + Start() and manage the lifecycle yourself.
@@ -366,13 +366,13 @@ func (a *App) Run() error {
 	return a.Stop()
 }
 
-// loadConfig 加载配置文件。
-// 查找策略：
-//   1. 如果指定了 -c 且文件存在 → 从文件加载
-//   2. 如果未指定 -c，自动查找当前目录的 config.conf → 找到则加载
-//   3. 以上都不满足 → 使用 DefaultConfig
+// loadConfig loads the configuration file.
+// Find Strategies:
+//  1. If -c is specified and the file contains → load from the file
+//  2. If -c is not specified, it will automatically search for config.conf in the current directory → load when found
+//  3. If none of the above are met, use DefaultConfig →
 func (a *App) loadConfig() error {
-	// 编程式配置优先（嵌入模式宿主直接注入）
+	// Programmatic configuration priority (direct injection by embedding mode host)
 	if a.opts.Config != nil {
 		a.config = a.opts.Config
 		if a.config.Users == nil {
@@ -383,7 +383,7 @@ func (a *App) loadConfig() error {
 	} else {
 		configFile := a.opts.ConfigFile
 
-		// 自动查找：如果未显式指定配置文件，尝试在当前目录查找 config.conf
+		// Auto Search: If the configuration file is not explicitly specified, try searching config.conf in the current directory
 		if configFile == "" {
 			if _, err := os.Stat("config.conf"); err == nil {
 				configFile = "config.conf"
@@ -404,7 +404,7 @@ func (a *App) loadConfig() error {
 		}
 	}
 
-	// 合并注入的 Global 配置（注入值覆盖文件值）
+	// Merge the global configuration of the injection (the injection value overwrites the file value)
 	if len(a.opts.Global) > 0 {
 		if a.config.Global == nil {
 			a.config.Global = make(types.Properties, len(a.opts.Global))
@@ -417,7 +417,7 @@ func (a *App) loadConfig() error {
 	return nil
 }
 
-// registerCoreServices 注册核心服务到容器
+// registerCoreServices Register core services into containers
 // registerCoreServices registers core services into the container
 func (a *App) registerCoreServices() {
 	a.container.Replace("core.container", a.container)
@@ -427,7 +427,7 @@ func (a *App) registerCoreServices() {
 	a.container.Replace("core.logger", a.typesLog)
 }
 
-// ensureDataDirs 创建数据目录结构
+// ensureDataDirs creates a data directory structure
 func (a *App) ensureDataDirs() {
 	dataDir := a.config.DataDir
 	dirs := []string{
@@ -444,13 +444,13 @@ func (a *App) ensureDataDirs() {
 	}
 }
 
-// defaultJwtSecretKey 默认 JWT 密钥，用于安全检查
+// defaultJwtSecretKey is the default JWT key used for security checks
 const defaultJwtSecretKey = "r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1"
 
-// defaultAdminPassword 默认管理员密码
+// defaultAdminPassword: The default administrator password
 const defaultAdminPassword = "admin"
 
-// checkSecurity 检查安全相关配置，对不安全的默认值打印告警
+// checkSecurity: Checks security-related configurations and prints alerts for default values that are not secure
 func (a *App) checkSecurity() {
 	if a.config != nil && a.config.JwtSecretKey == defaultJwtSecretKey {
 		a.typesLog.Warnf("[security] WARNING: using default JWT secret key, please change it in config for production use")
@@ -465,7 +465,7 @@ func (a *App) checkSecurity() {
 	}
 }
 
-// splitPasswordAndApiKey 分割 "password,apiKey" 格式
+// splitPasswordAndApiKey splits the "password,apiKey" format
 func splitPasswordAndApiKey(s string) []string {
 	parts := make([]string, 2)
 	for i, c := range s {

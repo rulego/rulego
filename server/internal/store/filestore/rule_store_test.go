@@ -9,7 +9,7 @@ import (
 	"github.com/rulego/rulego/server/internal/constants"
 )
 
-// newTestRuleStore 创建 RuleStore 并预先建好用户目录（NewRuleStore 写 index 需要）。
+// newTestRuleStore creates a RuleStore and pre-creates the user directory (NewRuleStore requires indexes).
 func newTestRuleStore(t *testing.T, username string) *RuleStore {
 	t.Helper()
 	cfg := newTestConfig(t)
@@ -24,7 +24,7 @@ func newTestRuleStore(t *testing.T, username string) *RuleStore {
 	return store
 }
 
-// TestRuleStore_AllChains 验证 AllChains 返回所有链（含 SystemAgent）的 ID+DSL。
+// TestRuleStore_AllChains Verify that AllChains returns ID+DSL for all chains (including SystemAgent).
 func TestRuleStore_AllChains(t *testing.T) {
 	store := newTestRuleStore(t, "alice")
 
@@ -55,13 +55,13 @@ func TestRuleStore_AllChains(t *testing.T) {
 			t.Errorf("AllChains missing %s", c.id)
 			continue
 		}
-		// DSL 内容应与存入一致（JSON 经 Save 重新格式化，比较解析后结构）
+		// The DSL content should be consistent with the stored content (JSON reformatted via Save to compare the parsed structure)
 		if extractID(t, dsl) != c.id {
 			t.Errorf("AllChains(%s) DSL mismatch", c.id)
 		}
 	}
 
-	// 对比：List 过滤 SystemAgent，应只剩 2 条
+	// Comparison: List filters SystemAgent, leaving only 2 items
 	_, total, err := store.List("alice", "", nil, nil, "", 0, 0)
 	if err != nil {
 		t.Fatalf("List: %v", err)
@@ -71,7 +71,7 @@ func TestRuleStore_AllChains(t *testing.T) {
 	}
 }
 
-// TestRuleStore_AllChains_Empty 空用户场景
+// TestRuleStore_AllChains_Empty Empty user scenarios
 func TestRuleStore_AllChains_Empty(t *testing.T) {
 	store := newTestRuleStore(t, "empty-user")
 	got, err := store.AllChains("empty-user")

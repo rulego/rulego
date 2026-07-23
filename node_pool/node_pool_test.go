@@ -310,7 +310,7 @@ func TestEngineFromNetPool(t *testing.T) {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, "{\"temperature\":35}")
-	//通过连接池启动规则引擎
+	//Start the rule engine through the connection pool
 	ruleEngine1, err := engine.New("netSourcePoolRule01", []byte(ruleChainFile), engine.WithConfig(config))
 	ruleEngine2, err := engine.New("netSourcePoolRule02", []byte(ruleChainFile), engine.WithConfig(config))
 
@@ -320,7 +320,7 @@ func TestEngineFromNetPool(t *testing.T) {
 	ruleEngine1.Stop(context.Background())
 	time.Sleep(time.Millisecond * 500)
 
-	//ruleEngine1停止，不相影响ruleEngine2
+	//ruleEngine1 stops, but it doesn't affect ruleEngine2
 	ruleEngine2.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, types.Success, relationType)
 	}))
@@ -334,7 +334,7 @@ func TestEngineFromNetPool(t *testing.T) {
 	time.Sleep(time.Millisecond * 500)
 
 	netResourceCtx, _ := pool.Get("my_mqtt_client01")
-	//错误的连接池
+	//Incorrect connection pool
 	dsl1 = []byte(strings.Replace(string(dsl1), `127.0.0.1:1883`, `127.0.0.1:1884`, -1))
 	err = netResourceCtx.ReloadSelf(dsl1)
 	assert.Nil(t, err)
@@ -343,7 +343,7 @@ func TestEngineFromNetPool(t *testing.T) {
 	}))
 	time.Sleep(time.Millisecond * 500)
 
-	//修改正常的连接池
+	//Modify the normal connection pool
 	dsl1 = []byte(strings.Replace(string(dsl1), `127.0.0.1:1884`, `127.0.0.1:1883`, -1))
 	err = netResourceCtx.ReloadSelf(dsl1)
 	assert.Nil(t, err)
@@ -352,23 +352,23 @@ func TestEngineFromNetPool(t *testing.T) {
 	}))
 	time.Sleep(time.Millisecond * 500)
 
-	//注销池
+	//The pond was canceled and canceled
 	pool.Stop()
 	assert.Equal(t, 0, len(pool.GetAll()))
-	//连接池已经删除，无法发送数据
+	//The connection pool has been deleted and data cannot be sent
 	ruleEngine3.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, types.Failure, relationType)
 	}))
 	time.Sleep(time.Millisecond * 500)
 }
 
-// TestSharedNodeLifecycleManagement 测试共享节点生命周期管理
+// TestSharedNodeLifecycleManagement TestSharedNodeLifecycle Management
 func TestSharedNodeLifecycleManagement(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
-	// 创建共享MQTT节点
+	// Create a shared MQTT node
 	var mqttNodeDsl = []byte(`{
 		"id": "shared_mqtt_lifecycle",
 		"type": "mqttClient",
@@ -381,7 +381,7 @@ func TestSharedNodeLifecycleManagement(t *testing.T) {
 	}`)
 
 	t.Run("SharedNodeCreation", func(t *testing.T) {
-		// 测试共享节点创建
+		// Test the creation of shared nodes
 		nodeDef, err := config.Parser.DecodeRuleNode(mqttNodeDsl)
 		assert.Nil(t, err)
 
@@ -390,7 +390,7 @@ func TestSharedNodeLifecycleManagement(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(pool.GetAll()))
 
-		// 验证可以获取实例
+		// Verification can obtain instances
 		client, err := pool.GetInstance("shared_mqtt_lifecycle")
 		assert.NotNil(t, client)
 		assert.Nil(t, err)
@@ -399,40 +399,40 @@ func TestSharedNodeLifecycleManagement(t *testing.T) {
 	})
 
 	t.Run("SharedNodeRestart", func(t *testing.T) {
-		// 测试共享节点重启
+		// Test shared nodes restart
 		sharedCtx, ok := pool.Get("shared_mqtt_lifecycle")
 		assert.True(t, ok)
 
-		// 修改配置并重启
+		// Modify the configuration and restart
 		modifiedDsl := []byte(strings.Replace(string(mqttNodeDsl), "/test/lifecycle", "/test/restarted", -1))
 		err := sharedCtx.ReloadSelf(modifiedDsl)
 		assert.Nil(t, err)
 
-		// 验证重启后仍然可用
+		// Verification is still available after reboot
 		client, err := pool.GetInstance("shared_mqtt_lifecycle")
 		assert.NotNil(t, client)
 		assert.Nil(t, err)
 	})
 
 	t.Run("SharedNodeDestroy", func(t *testing.T) {
-		// 测试共享节点销毁
+		// Test shared node destruction
 		pool.Del("shared_mqtt_lifecycle")
 		assert.Equal(t, 0, len(pool.GetAll()))
 
-		// 验证销毁后无法获取实例
+		// After verifying destruction, the instance cannot be obtained
 		client, err := pool.GetInstance("shared_mqtt_lifecycle")
 		assert.Nil(t, client)
 		assert.NotNil(t, err)
 	})
 }
 
-// TestMultipleReferenceIndependence 测试多引用节点的独立性
+// TestMultipleReferenceIndependence Tests the independence of multi-reference nodes
 func TestMultipleReferenceIndependence(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
-	// 创建共享MQTT节点
+	// Create a shared MQTT node
 	var mqttNodeDsl = []byte(`{
 		"id": "shared_mqtt_multi_ref",
 		"type": "mqttClient",
@@ -450,7 +450,7 @@ func TestMultipleReferenceIndependence(t *testing.T) {
 	assert.NotNil(t, ctx)
 	assert.Nil(t, err)
 
-	// 创建多个规则引擎引用同一个共享资源
+	// Create multiple rule engines to reference the same shared resource
 	ruleChainTemplate := `{
 		"ruleChain": {
 			"id": "%s",
@@ -483,9 +483,9 @@ func TestMultipleReferenceIndependence(t *testing.T) {
 	msg := types.NewMsg(0, "TEST_MSG", types.JSON, metaData, "{\"data\":\"test\"}")
 
 	t.Run("AllEnginesCanAccessSharedResource", func(t *testing.T) {
-		// 测试所有引擎都能正常访问共享资源
+		// Test that all engines can access shared resources normally
 		for i, ruleEngine := range engines {
-			engineIndex := i // 创建局部变量避免闭包捕获循环变量
+			engineIndex := i // Create local variables to avoid looping variables that catch loops in closures
 			ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 				assert.Equal(t, types.Success, relationType, fmt.Sprintf("Engine %d should succeed", engineIndex+1))
 			}))
@@ -494,13 +494,13 @@ func TestMultipleReferenceIndependence(t *testing.T) {
 	})
 
 	t.Run("EngineStopIndependence", func(t *testing.T) {
-		// 测试停止一个引擎不影响其他引擎
+		// Testing stops one engine without affecting the others
 		engines[0].Stop(context.Background())
 		time.Sleep(time.Millisecond * 100)
 
-		// 其他引擎仍然可以正常工作
+		// Other engines can still function normally
 		for i := 1; i < 3; i++ {
-			engineIndex := i // 创建局部变量避免闭包捕获循环变量
+			engineIndex := i // Create local variables to avoid looping variables that catch loops in closures
 			engines[i].OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 				assert.Equal(t, types.Success, relationType, fmt.Sprintf("Engine %d should still work", engineIndex+1))
 			}))
@@ -508,20 +508,20 @@ func TestMultipleReferenceIndependence(t *testing.T) {
 		time.Sleep(time.Millisecond * 200)
 	})
 
-	// 清理资源
+	// Release resources
 	for i := 1; i < 3; i++ {
 		engines[i].Stop(context.Background())
 	}
 	pool.Del("shared_mqtt_multi_ref")
 }
 
-// TestSharedResourceRestartImpact 测试共享资源重启对现有引用的影响
+// TestSharedResourceRestartImpact tests the impact of shared resource restarts on existing references
 func TestSharedResourceRestartImpact(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
-	// 创建共享MQTT节点
+	// Create a shared MQTT node
 	var mqttNodeDsl = []byte(`{
 		"id": "shared_mqtt_restart_test",
 		"type": "mqttClient",
@@ -539,7 +539,7 @@ func TestSharedResourceRestartImpact(t *testing.T) {
 	assert.NotNil(t, ctx)
 	assert.Nil(t, err)
 
-	// 创建引用共享资源的规则引擎
+	// Create a rule engine that references shared resources
 	ruleChainFile := `{
 		"ruleChain": {
 			"id": "restartImpactRule",
@@ -566,7 +566,7 @@ func TestSharedResourceRestartImpact(t *testing.T) {
 	msg := types.NewMsg(0, "TEST_MSG", types.JSON, metaData, "{\"data\":\"test\"}")
 
 	t.Run("BeforeRestart", func(t *testing.T) {
-		// 重启前正常工作
+		// Normal operation before reboot
 		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, types.Success, relationType)
 		}))
@@ -574,16 +574,16 @@ func TestSharedResourceRestartImpact(t *testing.T) {
 	})
 
 	t.Run("DuringRestart", func(t *testing.T) {
-		// 获取共享资源上下文并重启
+		// Obtain the context of the shared resource and restart
 		sharedCtx, ok := pool.Get("shared_mqtt_restart_test")
 		assert.True(t, ok)
 
-		// 修改配置并重启（使用错误的端口模拟重启失败）
+		// Modify configuration and restart (simulate restart failure using the wrong port)
 		modifiedDsl := []byte(strings.Replace(string(mqttNodeDsl), "127.0.0.1:1883", "127.0.0.1:1884", -1))
 		err := sharedCtx.ReloadSelf(modifiedDsl)
 		assert.Nil(t, err)
 
-		// 重启后应该失败
+		// It should fail after rebooting
 		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, types.Failure, relationType)
 		}))
@@ -591,7 +591,7 @@ func TestSharedResourceRestartImpact(t *testing.T) {
 	})
 
 	t.Run("AfterRestartFixed", func(t *testing.T) {
-		// 修复配置
+		// Repair the configuration
 		sharedCtx, ok := pool.Get("shared_mqtt_restart_test")
 		assert.True(t, ok)
 
@@ -599,25 +599,25 @@ func TestSharedResourceRestartImpact(t *testing.T) {
 		err := sharedCtx.ReloadSelf(fixedDsl)
 		assert.Nil(t, err)
 
-		// 修复后应该恢复正常
+		// After repair, it should return to normal
 		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, types.Success, relationType)
 		}))
 		time.Sleep(time.Millisecond * 100)
 	})
 
-	// 清理资源
+	// Release resources
 	ruleEngine.Stop(context.Background())
 	pool.Del("shared_mqtt_restart_test")
 }
 
-// TestConcurrentSharedResourceAccess 测试并发访问共享资源的安全性
+// TestConcurrentSharedResourceAccess tests the security of concurrent access to shared resources
 func TestConcurrentSharedResourceAccess(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
-	// 创建共享MQTT节点
+	// Create a shared MQTT node
 	var mqttNodeDsl = []byte(`{
 		"id": "shared_mqtt_concurrent",
 		"type": "mqttClient",
@@ -635,7 +635,7 @@ func TestConcurrentSharedResourceAccess(t *testing.T) {
 	assert.NotNil(t, ctx)
 	assert.Nil(t, err)
 
-	// 创建多个规则引擎
+	// Create multiple rule engines
 	engines := make([]types.RuleEngine, 5)
 	ruleChainTemplate := `{
 		"ruleChain": {
@@ -664,7 +664,7 @@ func TestConcurrentSharedResourceAccess(t *testing.T) {
 	}
 
 	t.Run("ConcurrentMessageProcessing", func(t *testing.T) {
-		// 并发发送消息
+		// Send messages concurrently
 		var wg sync.WaitGroup
 		successCount := int32(0)
 		failureCount := int32(0)
@@ -691,34 +691,34 @@ func TestConcurrentSharedResourceAccess(t *testing.T) {
 		}
 
 		wg.Wait()
-		time.Sleep(time.Millisecond * 500) // 等待所有消息处理完成
+		time.Sleep(time.Millisecond * 500) // Wait for all messages to be processed
 
-		// 验证并发访问的安全性
-		totalExpected := int32(10 * 5) // 10条消息 * 5个引擎
+		// Verify the security of concurrent access
+		totalExpected := int32(10 * 5) // 10 messages * 5 engines
 		totalActual := atomic.LoadInt32(&successCount) + atomic.LoadInt32(&failureCount)
 		assert.Equal(t, totalExpected, totalActual)
 
-		t.Logf("并发测试结果 - 成功: %d, 失败: %d, 总计: %d",
+		t.Logf("Concurrent test results - Success: %d, Failure: %d, Total: %d",
 			atomic.LoadInt32(&successCount),
 			atomic.LoadInt32(&failureCount),
 			totalActual)
 	})
 
-	// 清理资源
+	// Release resources
 	for _, ruleEngine := range engines {
 		ruleEngine.Stop(context.Background())
 	}
 	pool.Del("shared_mqtt_concurrent")
 }
 
-// TestGracefulShutdownBehavior 测试优雅关闭行为
+// TestGracefulShutdownBehavior Tests graceful shutdownBehavior
 func TestGracefulShutdownBehavior(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
 	t.Run("SharedResourceGracefulShutdown", func(t *testing.T) {
-		// 创建共享节点
+		// Create a shared node
 		var mqttNodeDsl = []byte(`{
 			"id": "shared_mqtt_graceful",
 			"type": "mqttClient",
@@ -736,7 +736,7 @@ func TestGracefulShutdownBehavior(t *testing.T) {
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 创建两个引用共享资源的引擎
+		// Create two engines that share references to shared resources
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "gracefulRule%s",
@@ -763,7 +763,7 @@ func TestGracefulShutdownBehavior(t *testing.T) {
 		metaData := types.NewMetadata()
 		msg := types.NewMsg(0, "GRACEFUL_TEST", types.JSON, metaData, "{\"test\":\"graceful\"}")
 
-		// 验证两个引擎都能正常工作
+		// Verify that both engines work properly
 		engine1.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, types.Success, relationType)
 		}))
@@ -772,23 +772,23 @@ func TestGracefulShutdownBehavior(t *testing.T) {
 		}))
 		time.Sleep(time.Millisecond * 100)
 
-		// 停止第一个引擎（优雅关闭）
+		// Stop the first engine (gracefully shut down)
 		engine1.Stop(context.Background())
 		time.Sleep(time.Millisecond * 100)
 
-		// 第二个引擎应该仍然能正常工作（共享资源不应该被关闭）
+		// The second engine should still be functioning properly (shared resources should not be shut down).
 		engine2.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, types.Success, relationType, "第二个引擎在第一个引擎停止后应该仍然正常工作")
 		}))
 		time.Sleep(time.Millisecond * 100)
 
-		// 清理资源
+		// Release resources
 		engine2.Stop(context.Background())
 		pool.Del("shared_mqtt_graceful")
 	})
 
 	t.Run("PoolShutdownBehavior", func(t *testing.T) {
-		// 创建共享节点
+		// Create a shared node
 		var mqttNodeDsl = []byte(`{
 			"id": "shared_mqtt_pool_shutdown",
 			"type": "mqttClient",
@@ -806,7 +806,7 @@ func TestGracefulShutdownBehavior(t *testing.T) {
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 创建引用共享资源的引擎
+		// Create an engine that references shared resources
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "poolShutdownRule",
@@ -831,35 +831,35 @@ func TestGracefulShutdownBehavior(t *testing.T) {
 		metaData := types.NewMetadata()
 		msg := types.NewMsg(0, "POOL_SHUTDOWN_TEST", types.JSON, metaData, "{\"test\":\"pool_shutdown\"}")
 
-		// 验证引擎能正常工作
+		// The verification engine works properly
 		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, types.Success, relationType)
 		}))
 		time.Sleep(time.Millisecond * 100)
 
-		// 关闭整个池
+		// Shut down the entire pool
 		pool.Stop()
 		assert.Equal(t, 0, len(pool.GetAll()))
 
-		// 池关闭后，引擎应该无法访问共享资源
+		// After the pool is closed, the engine should be unable to access shared resources
 		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, types.Failure, relationType, "池关闭后应该无法访问共享资源")
 		}))
 		time.Sleep(time.Millisecond * 100)
 
-		// 清理资源
+		// Release resources
 		ruleEngine.Stop(context.Background())
 	})
 }
 
-// TestSharedNodeGetSafelyAPI 测试新的GetSafely API
+// TestSharedNodeGetSafelyAPI tests the new GetSafely API
 func TestSharedNodeGetSafelyAPI(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
 	t.Run("GetSafelyConcurrentAccess", func(t *testing.T) {
-		// 创建共享MQTT节点
+		// Create a shared MQTT node
 		var mqttNodeDsl = []byte(`{
 			"id": "shared_mqtt_getsafely",
 			"type": "mqttClient",
@@ -879,7 +879,7 @@ func TestSharedNodeGetSafelyAPI(t *testing.T) {
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 创建使用GetSafely的规则引擎
+		// Create a rule engine using GetSafely
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "getSafelyRule",
@@ -901,13 +901,13 @@ func TestSharedNodeGetSafelyAPI(t *testing.T) {
 		ruleEngine, err := engine.New("getSafelyRule", []byte(ruleChainFile), engine.WithConfig(config))
 		assert.Nil(t, err)
 
-		// 等待客户端初始化
+		// Wait for client initialization
 		time.Sleep(time.Millisecond * 500)
 
-		// 并发测试GetSafely方法的线程安全性
+		// Concurrent testing of thread safety for GetSafely methods
 		var wg sync.WaitGroup
 		successCount := int32(0)
-		concurrentNum := 30 // 进一步减少并发数
+		concurrentNum := 30 // Further reduce the number of concurrency
 
 		for i := 0; i < concurrentNum; i++ {
 			wg.Add(1)
@@ -926,22 +926,22 @@ func TestSharedNodeGetSafelyAPI(t *testing.T) {
 		}
 
 		wg.Wait()
-		time.Sleep(time.Millisecond * 1000) // 增加等待时间
+		time.Sleep(time.Millisecond * 1000) // Increased waiting times
 
-		// 验证大部分并发操作成功
+		// Verify that most concurrent operations are successful
 		actualSuccess := atomic.LoadInt32(&successCount)
 		assert.True(t, actualSuccess > int32(concurrentNum*6/10), fmt.Sprintf("至少60%%的GetSafely调用应该成功，实际成功：%d/%d", actualSuccess, concurrentNum))
 
-		// 清理资源
+		// Release resources
 		ruleEngine.Stop(context.Background())
 		pool.Del("shared_mqtt_getsafely")
 	})
 
 	t.Run("InitWithCloseCallback", func(t *testing.T) {
-		// 测试InitWithClose的清理回调功能
+		// Test the cleanup callback function of InitWithClose
 		callbackExecuted := int32(0)
 
-		// 创建一个会失败的MQTT节点配置（使用错误的端口）
+		// Create a failed MQTT node configuration (using the wrong port)
 		var mqttNodeDsl = []byte(`{
 			"id": "shared_mqtt_callback_test",
 			"type": "mqttClient", 
@@ -956,12 +956,12 @@ func TestSharedNodeGetSafelyAPI(t *testing.T) {
 		nodeDef, err := config.Parser.DecodeRuleNode(mqttNodeDsl)
 		assert.Nil(t, err)
 
-		// 创建节点（可能会失败，但应该触发清理回调）
+		// Create a node (may fail, but should trigger a cleanup callback)
 		ctx, err := pool.NewFromRuleNode(nodeDef)
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 创建规则引擎
+		// Create a rule engine
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "callbackTestRule",
@@ -986,30 +986,30 @@ func TestSharedNodeGetSafelyAPI(t *testing.T) {
 		metaData := types.NewMetadata()
 		msg := types.NewMsg(0, "CALLBACK_TEST", types.JSON, metaData, "{\"test\":\"callback\"}")
 
-		// 发送消息应该失败（因为MQTT端口错误）
+		// Sending messages should fail (due to an MQTT port error)
 		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-			// 可能成功也可能失败，取决于MQTT客户端的行为
-			t.Logf("回调测试结果: %s, error: %v", relationType, err)
+			// It may succeed or fail, depending on the behavior of the MQTT client
+			t.Logf("Callback test results: %s, error: %v", relationType, err)
 		}))
 		time.Sleep(time.Millisecond * 200)
 
-		// 清理资源应该触发Close回调
+		// Cleaning up resources should trigger a Close callback
 		ruleEngine.Stop(context.Background())
 		pool.Del("shared_mqtt_callback_test")
 		time.Sleep(time.Millisecond * 100)
 
-		t.Logf("清理回调执行次数: %d", atomic.LoadInt32(&callbackExecuted))
+		t.Logf("Number of cleanup callback executions: %d", atomic.LoadInt32(&callbackExecuted))
 	})
 }
 
-// TestSharedNodeResourceManagement 测试共享节点资源管理
+// TestSharedNodeResourceManagement Tests shared node resource management
 func TestSharedNodeResourceManagement(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
 	t.Run("ResourceCleanupOnError", func(t *testing.T) {
-		// 测试初始化错误时的资源清理
+		// Resource cleanup during test initialization errors
 		var errorNodeDsl = []byte(`{
 			"id": "shared_mqtt_error_test",
 			"type": "mqttClient",
@@ -1027,7 +1027,7 @@ func TestSharedNodeResourceManagement(t *testing.T) {
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 创建规则引擎
+		// Create a rule engine
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "errorTestRule",
@@ -1052,19 +1052,19 @@ func TestSharedNodeResourceManagement(t *testing.T) {
 		metaData := types.NewMetadata()
 		msg := types.NewMsg(0, "ERROR_TEST", types.JSON, metaData, "{\"test\":\"error\"}")
 
-		// 发送消息应该失败
+		// Sending messages should fail
 		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.Equal(t, types.Failure, relationType, "无效主机应该导致失败")
 		}))
 		time.Sleep(time.Millisecond * 200)
 
-		// 清理资源
+		// Release resources
 		ruleEngine.Stop(context.Background())
 		pool.Del("shared_mqtt_error_test")
 	})
 
 	t.Run("PerformanceComparisonGetVsGetSafely", func(t *testing.T) {
-		// 性能对比测试（GetSafely应该在高并发读取时表现更好）
+		// Performance comparison test (GetSafely should perform better during high-concurrency reads)
 		var mqttNodeDsl = []byte(`{
 			"id": "shared_mqtt_performance",
 			"type": "mqttClient",
@@ -1085,8 +1085,8 @@ func TestSharedNodeResourceManagement(t *testing.T) {
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 创建多个规则引擎进行压力测试
-		engines := make([]types.RuleEngine, 5) // 减少引擎数量避免过度并发
+		// Create multiple rule engines for stress testing
+		engines := make([]types.RuleEngine, 5) // Reduce the number of engines to avoid excessive concurrency
 		ruleChainTemplate := `{
 			"ruleChain": {
 				"id": "performanceRule%d",
@@ -1113,13 +1113,13 @@ func TestSharedNodeResourceManagement(t *testing.T) {
 			engines[i] = ruleEngine
 		}
 
-		// 等待客户端初始化完成
+		// Wait for the client to complete initialization
 		time.Sleep(time.Millisecond * 500)
 
-		// 高并发消息发送测试
+		// High-concurrency messages send tests
 		start := time.Now()
 		var wg sync.WaitGroup
-		messageCount := 50 // 减少消息数量
+		messageCount := 50 // Reduce the number of messages
 		successCount := int32(0)
 
 		for i := 0; i < messageCount; i++ {
@@ -1142,18 +1142,18 @@ func TestSharedNodeResourceManagement(t *testing.T) {
 
 		wg.Wait()
 		duration := time.Since(start)
-		time.Sleep(time.Millisecond * 1000) // 增加等待时间确保所有消息处理完成
+		time.Sleep(time.Millisecond * 1000) // Increase waiting time to ensure all message processing is complete
 
-		expectedTotal := int32(messageCount * 5) // 50条消息 * 5个引擎
+		expectedTotal := int32(messageCount * 5) // 50 messages * 5 engines
 		actualSuccess := atomic.LoadInt32(&successCount)
 
-		t.Logf("性能测试结果 - 总消息数: %d, 成功数: %d, 耗时: %v, 平均QPS: %.2f",
+		t.Logf("Performance test results - Total messages: %d, Number of successes: %d, Time taken: %v, Average QPS: %.2f",
 			expectedTotal, actualSuccess, duration, float64(actualSuccess)/duration.Seconds())
 
-		// 验证大部分消息处理成功
+		// Verify that most messages are processed successfully
 		assert.True(t, actualSuccess > expectedTotal*5/10, "至少50%的消息应该处理成功")
 
-		// 清理资源
+		// Release resources
 		for _, ruleEngine := range engines {
 			ruleEngine.Stop(context.Background())
 		}
@@ -1161,14 +1161,14 @@ func TestSharedNodeResourceManagement(t *testing.T) {
 	})
 }
 
-// TestSharedNodeLockOptimization 测试读写锁优化
+// TestSharedNodeLockOptimization: Tests read/write lock optimization
 func TestSharedNodeLockOptimization(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
 	t.Run("ReadWriteLockBehavior", func(t *testing.T) {
-		// 创建共享节点
+		// Create a shared node
 		var mqttNodeDsl = []byte(`{
 			"id": "shared_mqtt_rwlock",
 			"type": "mqttClient",
@@ -1188,7 +1188,7 @@ func TestSharedNodeLockOptimization(t *testing.T) {
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 创建规则引擎
+		// Create a rule engine
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "rwlockRule",
@@ -1211,12 +1211,12 @@ func TestSharedNodeLockOptimization(t *testing.T) {
 		ruleEngine, err := engine.New("rwlockRule", []byte(ruleChainFile), engine.WithConfig(config))
 		assert.Nil(t, err)
 
-		// 等待客户端初始化
+		// Wait for client initialization
 		time.Sleep(time.Millisecond * 500)
 
-		// 大量并发读取测试（模拟GetSafely的读锁优势）
+		// Large-scale concurrent read tests (simulating GetSafely's lock reading advantages)
 		var wg sync.WaitGroup
-		readCount := 100 // 减少并发数
+		readCount := 100 // Reduce the number of concurrency
 		successCount := int32(0)
 
 		start := time.Now()
@@ -1242,13 +1242,13 @@ func TestSharedNodeLockOptimization(t *testing.T) {
 		time.Sleep(time.Millisecond * 500)
 
 		actualSuccess := atomic.LoadInt32(&successCount)
-		t.Logf("读写锁测试 - 并发读取数: %d, 成功数: %d, 耗时: %v",
+		t.Logf("Read/Write Lock Test - Concurrent Reads: %d, Successes: %d, Time: %v",
 			readCount, actualSuccess, readDuration)
 
-		// 验证大部分读取操作成功
+		// Verify that most read operations are successful
 		assert.True(t, actualSuccess > int32(readCount*7/10), "至少70%的读取操作应该成功")
 
-		// 清理资源
+		// Release resources
 		ruleEngine.Stop(context.Background())
 		pool.Del("shared_mqtt_rwlock")
 	})

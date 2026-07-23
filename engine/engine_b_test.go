@@ -60,7 +60,7 @@ func BenchmarkChainChangeMetadataAndMsg(b *testing.B) {
 }
 
 func BenchmarkCallRestApiNodeGo(b *testing.B) {
-	//不使用协程池
+	//No coroutine pools are used
 	config := NewConfig()
 	ruleEngine, _ := New(str.RandomStr(10), loadFile("./chain_call_rest_api.json"), WithConfig(config))
 	b.ResetTimer()
@@ -70,7 +70,7 @@ func BenchmarkCallRestApiNodeGo(b *testing.B) {
 }
 
 func BenchmarkCallRestApiNodeWorkerPool(b *testing.B) {
-	//使用协程池
+	//Use coroutine pools
 	config := NewConfig(types.WithDefaultPool())
 	ruleEngine, _ := New(str.RandomStr(10), loadFile("./chain_call_rest_api.json"), WithConfig(config))
 	b.ResetTimer()
@@ -81,7 +81,7 @@ func BenchmarkCallRestApiNodeWorkerPool(b *testing.B) {
 
 //	func BenchmarkCallRestApiNodeAnts(b *testing.B) {
 //		defaultAntsPool, _ := ants.NewPool(200000)
-//		//使用协程池
+//		Use coroutine pools
 //		config := NewConfig(types.WithPool(defaultAntsPool))
 //		ruleEngine, _ := New(str.RandomStr(10), loadFile("./chain_call_rest_api.json"), WithConfig(config))
 //		b.ResetTimer()
@@ -96,9 +96,9 @@ func callRestApiNode(ruleEngine types.RuleEngine) {
 	ruleEngine.OnMsg(msg)
 }
 
-// BenchmarkRuleMsgDataCOW 基准测试：RuleMsg Data字段的写时复制性能
+// BenchmarkRuleMsgDataCOW benchmarking: write-time replication performance of the RuleMsgData field
 func BenchmarkRuleMsgDataCOW(b *testing.B) {
-	// 测试不同大小的数据
+	// Test data of different sizes
 	testCases := []struct {
 		name string
 		data string
@@ -143,7 +143,7 @@ func BenchmarkRuleMsgDataCOW(b *testing.B) {
 	}
 }
 
-// BenchmarkRuleMsgDataCOWMultipleCopies 基准测试：多副本创建和修改性能
+// BenchmarkRuleMsgDataCOWMultipleCopies benchmarking: multi-copy creation and modification performance
 func BenchmarkRuleMsgDataCOWMultipleCopies(b *testing.B) {
 	largeData := strings.Repeat("benchmark data for multiple copies ", 1000)
 	metaData := types.NewMetadata()
@@ -156,7 +156,7 @@ func BenchmarkRuleMsgDataCOWMultipleCopies(b *testing.B) {
 			for j := 0; j < 100; j++ {
 				copies[j] = original.Copy()
 			}
-			// 防止编译器优化
+			// Prevents compiler optimization
 			_ = copies
 		}
 	})
@@ -167,9 +167,9 @@ func BenchmarkRuleMsgDataCOWMultipleCopies(b *testing.B) {
 			for j := 0; j < 100; j++ {
 				copies[j] = original.Copy()
 			}
-			// 修改第一个副本
+			// Modify the first copy
 			copies[0].SetData("modified")
-			// 防止编译器优化
+			// Prevents compiler optimization
 			_ = copies
 		}
 	})
@@ -180,19 +180,19 @@ func BenchmarkRuleMsgDataCOWMultipleCopies(b *testing.B) {
 			for j := 0; j < 100; j++ {
 				copies[j] = original.Copy()
 			}
-			// 修改所有副本
+			// Modify all copies
 			for j := 0; j < 100; j++ {
 				copies[j].SetData("modified")
 			}
-			// 防止编译器优化
+			// Prevents compiler optimization
 			_ = copies
 		}
 	})
 }
 
-// BenchmarkRuleMsgDataCOWInRuleChain 基准测试：规则链中的Data COW性能
+// BenchmarkRuleMsgDataCOWInRuleChain benchmarking: Data COW performance in the rule chain
 func BenchmarkRuleMsgDataCOWInRuleChain(b *testing.B) {
-	// 创建一个会修改Data的规则链
+	// Create a rule chain that modifies Data
 	dataModifyRuleChain := `{
 		"ruleChain": {
 			"id": "test_data_cow",
@@ -246,7 +246,7 @@ func BenchmarkRuleMsgDataCOWInRuleChain(b *testing.B) {
 	})
 }
 
-// BenchmarkRuleMsgDataCOWConcurrent 基准测试：并发场景下的Data COW性能
+// BenchmarkRuleMsgDataCOWConcurrent benchmarking: Data COW performance in concurrent scenarios
 func BenchmarkRuleMsgDataCOWConcurrent(b *testing.B) {
 	largeData := strings.Repeat("concurrent test data ", 1000)
 	metaData := types.NewMetadata()

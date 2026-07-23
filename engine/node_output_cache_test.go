@@ -30,7 +30,7 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// TestCrossNodeAccess 测试跨节点取值功能
+// TestCrossNodeAccess tests the value retrieval function across nodes
 func TestCrossNodeAccess(t *testing.T) {
 	t.Run("NodeOutputCacheConfig", testNodeOutputCacheConfig)
 	t.Run("CrossNodeAccessDetection", testCrossNodeAccessDetection)
@@ -42,49 +42,49 @@ func TestCrossNodeAccess(t *testing.T) {
 	// t.Run("RestApiCrossNodeAccess", testRestApiCrossNodeAccess)
 }
 
-// testNodeOutputCacheConfig 测试节点输出缓存配置功能
+// testNodeOutputCacheConfig Tests node output cache configuration function
 func testNodeOutputCacheConfig(t *testing.T) {
-	// 测试默认情况下缓存禁用
+	// Testing with cache disabled by default
 	t.Run("DisabledByDefault", func(t *testing.T) {
 		config := NewConfig()
 		ruleCtx := NewRuleContext(context.Background(), config, nil, nil, nil, nil, nil, nil)
 		cache := ruleCtx.GetNodeOutputCache()
 
-		// 验证缓存为空
+		// Verify that the cache is empty
 		assert.False(t, cache.HasOutputs(), "节点输出缓存应该是空的")
 
-		// 尝试存储但不会存储
+		// Trying to store but not working
 		msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{"temperature":35}`)
 		ruleCtx.StoreNodeOutput("node1", msg)
 		assert.False(t, cache.HasOutputs(), "节点输出缓存应该仍然是空的")
 	})
 
-	// 测试通过跨节点访问启用缓存
+	// Testing enabled caching through cross-node access
 	t.Run("EnabledByCrossNodeAccess", func(t *testing.T) {
 		config := NewConfig()
 		ruleCtx := NewRuleContext(context.Background(), config, nil, nil, nil, nil, nil, nil)
 		cache := ruleCtx.GetNodeOutputCache()
 
-		// 启用跨节点访问
+		// Enable cross-node access
 		cache.EnableCrossNodeAccess()
 
-		// 存储节点输出
+		// Storage node output
 		msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{"temperature":35}`)
 		ruleCtx.StoreNodeOutput("node1", msg)
 
-		// 验证缓存有数据
+		// Verify that cache data is present
 		assert.True(t, cache.HasOutputs(), "启用跨节点访问后，缓存应该有数据")
 	})
 }
 
-// DetectCrossNodeAccess 检测模板中是否包含跨节点访问
+// DetectCrossNodeAccess detects whether the template includes cross-node access
 // DetectCrossNodeAccess detects if template contains cross-node access patterns
 func DetectCrossNodeAccess(template string) bool {
-	// 检测 ${nodeId.msg.xxx} 或 ${nodeId.metadata.xxx} 模式
+	// Detects ${nodeId.msg.xxx} or ${nodeId.metadata.xxx} patterns
 	return strings.Contains(template, ".msg.") || strings.Contains(template, ".metadata.")
 }
 
-// testCrossNodeAccessDetection 测试跨节点取值检测
+// testCrossNodeAccessDetection tests cross-node value detection
 func testCrossNodeAccessDetection(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -106,14 +106,14 @@ func testCrossNodeAccessDetection(t *testing.T) {
 	}
 }
 
-// testRuleChainCrossNodeAccess 测试完整规则链中使用functions节点进行跨节点取值
+// testRuleChainCrossNodeAccess tests using functions nodes in the complete rule chain to fetch values across nodes
 // testRuleChainCrossNodeAccess tests cross-node access in complete rule chain using functions node
 func testRuleChainCrossNodeAccess(t *testing.T) {
-	// 注册测试函数
+	// Register the test function
 	registerCrossNodeTestFunctions()
 	defer unregisterCrossNodeTestFunctions()
 
-	// 定义规则链，使用functions节点并在配置中使用跨节点变量引用
+	// Define the rule chain, use functions nodes, and configure cross-node variable references
 	ruleChainFile := `{
 		"ruleChain": {
 			"id": "cross_node_test",
@@ -166,7 +166,7 @@ func testRuleChainCrossNodeAccess(t *testing.T) {
 		}
 	}`
 
-	// 创建配置，启用节点输出缓存
+	// Create a configuration and enable node output cache
 	config := NewConfig()
 	var aggregatorResult types.RuleMsg
 	var wg sync.WaitGroup
@@ -179,42 +179,42 @@ func testRuleChainCrossNodeAccess(t *testing.T) {
 		}
 	}
 
-	// 创建规则引擎
+	// Create a rule engine
 	chainId := str.RandomStr(10)
 	ruleEngine, err := New(chainId, []byte(ruleChainFile), WithConfig(config))
 	assert.Nil(t, err)
 	defer Del(chainId)
 
-	// 发送消息
+	// Send the message
 	metaData := types.NewMetadata()
 	metaData.PutValue("deviceId", "sensor001")
 	msg := types.NewMsg(0, "TELEMETRY_MSG", types.JSON, metaData, `{"temperature":25.5,"humidity":60}`)
 
 	ruleEngine.OnMsg(msg)
 
-	// 等待处理完成
+	// Wait for processing to complete
 	wg.Wait()
 	time.Sleep(time.Millisecond * 100)
 
-	// 验证结果
+	// Verify the results
 	assert.Equal(t, "AGGREGATED", aggregatorResult.Type)
 	assert.Equal(t, "sensor", aggregatorResult.Metadata.GetValue("nodeType"))
 
-	// 验证跨节点取值成功
+	// Verify successful cross-node values
 	data := aggregatorResult.GetData()
 	assert.True(t, strings.Contains(data, "sensor"), "Expected data to contain 'sensor'")
 	assert.True(t, strings.Contains(data, "temperature"), "Expected data to contain 'temperature'")
 }
 
-// testFunctionsCrossNodeAccess 测试使用 ${nodeId.msg.xx} 方式取值并通过 functions 节点动态调用函数
-// testFunctionsCrossNodeAccess 测试 functions 节点的 functionName 配置是否支持跨节点变量引用
+// testFunctionsCrossNodeAccess tests using ${nodeId.msg.xx} to take values and dynamically call functions through the Functions node
+// testFunctionsCrossNodeAccess tests whether the functionName configuration of a functions node supports cross-node variable references
 // testFunctionsCrossNodeAccess tests if functions node's functionName configuration supports cross-node variable references
 func testFunctionsCrossNodeAccess(t *testing.T) {
-	// 注册测试函数
+	// Register the test function
 	registerTestFunctions()
 	defer unregisterTestFunctions()
 
-	// 定义规则链，测试 functionName 通过 ${nodeId.x.xx} 方式动态获取函数名
+	// Define the rule chain and test the functionName. Dynamically obtain the function name using ${nodeId.x.xx}
 	ruleChainFile := `{
 		"ruleChain": {
 			"id": "functions_dynamic_name_test",
@@ -253,7 +253,7 @@ func testFunctionsCrossNodeAccess(t *testing.T) {
 		}
 	}`
 
-	// 创建配置，启用节点输出缓存以支持跨节点变量引用
+	// Create a configuration to enable node output caching to support cross-node variable references
 	config := NewConfig()
 	var functionResult types.RuleMsg
 	var wg sync.WaitGroup
@@ -267,43 +267,43 @@ func testFunctionsCrossNodeAccess(t *testing.T) {
 
 	}
 
-	// 创建规则引擎
+	// Create a rule engine
 	chainId := str.RandomStr(10)
 	ruleEngine, err := New(chainId, []byte(ruleChainFile), WithConfig(config))
 	assert.Nil(t, err)
 	defer Del(chainId)
 
-	// 发送测试消息
+	// Send test messages
 	metaData := types.NewMetadata()
 	metaData.PutValue("testCase", "dynamicFunctionName")
 	msg := types.NewMsg(0, "TEST_MSG", types.JSON, metaData, `{"input":"test data","operation":"process"}`)
 
 	ruleEngine.OnMsg(msg)
 
-	// 等待处理完成
+	// Wait for processing to complete
 	wg.Wait()
 	time.Sleep(time.Millisecond * 50)
 
-	// 验证函数名动态解析成功
+	// Verify that the function name is successfully resolved dynamically
 	assert.Equal(t, "PROCESSED", functionResult.Type, "Message type should be PROCESSED after function execution")
 	assert.Equal(t, "processed", functionResult.Metadata.GetValue("status"), "Status should be 'processed'")
 
-	// 验证数据被正确处理
+	// Verify that data is processed correctly
 	data := functionResult.GetData()
 	assert.True(t, strings.Contains(data, "processed"), "Data should contain 'processed' indicating function was called")
 	assert.True(t, strings.Contains(data, "input"), "Data should contain original 'input' field")
 }
 
-// registerTestFunctions 注册测试用的自定义函数
+// registerTestFunctions: A custom function used for registering tests
 // registerTestFunctions registers custom functions for testing purposes.
 func registerTestFunctions() {
-	// 注册 processData 函数
+	// Register the processData function
 	action.Functions.Register("processData", func(ctx types.RuleContext, msg types.RuleMsg) {
-		// 处理数据并修改消息
+		// Processing data and modifying messages
 		msg.Type = "PROCESSED"
 		msg.Metadata.PutValue("status", "processed")
 
-		// 修改消息数据
+		// Modify message data
 		data := msg.GetData()
 		processedData := `{"processed":true,"original":` + data + `}`
 		msg.Data = types.NewSharedData(processedData)
@@ -311,39 +311,39 @@ func registerTestFunctions() {
 		ctx.TellSuccess(msg)
 	})
 
-	// 注册 validateData 函数
+	// Register the validateData function
 	action.Functions.Register("validateData", func(ctx types.RuleContext, msg types.RuleMsg) {
-		// 验证数据
+		// Verify data
 		msg.Type = "VALIDATED"
 		msg.Metadata.PutValue("validation", "passed")
 		ctx.TellSuccess(msg)
 	})
 }
 
-// unregisterTestFunctions 注销测试用的自定义函数
+// unregisterTestFunctions: A custom function used to log out of testing
 // unregisterTestFunctions unregisters custom functions used for testing.
 func unregisterTestFunctions() {
 	action.Functions.UnRegister("processData")
 	action.Functions.UnRegister("validateData")
 }
 
-// registerCrossNodeTestFunctions 注册跨节点取值测试用的自定义函数
+// registerCrossNodeTestFunctions Custom functions for registering cross-node value testing
 // registerCrossNodeTestFunctions registers custom functions for cross-node access testing.
 func registerCrossNodeTestFunctions() {
-	// 注册 processNode1Data 函数
+	// Register the processNode1Data function
 	action.Functions.Register("processNode1Data", func(ctx types.RuleContext, msg types.RuleMsg) {
-		// 处理node1数据并添加标识
+		// Process node1 data and add identifiers
 		msg.Metadata.PutValue("nodeType", "node1")
 		msg.Metadata.PutValue("status", "processed")
 		ctx.TellSuccess(msg)
 	})
 
-	// 注册 aggregateWithNode1 函数
+	// Register the aggregateWithNode1 function
 	action.Functions.Register("aggregateWithNode1", func(ctx types.RuleContext, msg types.RuleMsg) {
-		// 获取node1的输出数据
+		// Obtain the output data of node1
 		node1Msg, found := ctx.GetNodeRuleMsg("node1")
 		if found {
-			// 聚合当前消息和node1的数据
+			// Aggregate current messages and node1 data
 			result := map[string]interface{}{
 				"current":       msg.GetData(),
 				"node1Data":     node1Msg.GetData(),
@@ -357,11 +357,11 @@ func registerCrossNodeTestFunctions() {
 		ctx.TellSuccess(msg)
 	})
 
-	// 注册 processSensorData 函数
+	// Register the processSensorData function
 	action.Functions.Register("processSensorData", func(ctx types.RuleContext, msg types.RuleMsg) {
-		// 处理传感器数据
+		// Processing sensor data
 		msg.Metadata.PutValue("nodeType", "sensor")
-		// 在数据中添加传感器信息
+		// Add sensor information to the data
 		result := map[string]interface{}{
 			"sensor":   "temperature",
 			"value":    25.5,
@@ -372,12 +372,12 @@ func registerCrossNodeTestFunctions() {
 		ctx.TellSuccess(msg)
 	})
 
-	// 注册 aggregateWithSensor 函数
+	// Register the aggregateWithSensor function
 	action.Functions.Register("aggregateWithSensor", func(ctx types.RuleContext, msg types.RuleMsg) {
-		// 获取sensor_node的输出数据
+		// Obtain the output data of the sensor_node
 		sensorMsg, found := ctx.GetNodeRuleMsg("sensor_node")
 		if found {
-			// 聚合当前消息和传感器数据
+			// Aggregate current news and sensor data
 			result := map[string]interface{}{
 				"current": msg.GetData(),
 				"sensor":  sensorMsg.GetData(),
@@ -390,7 +390,7 @@ func registerCrossNodeTestFunctions() {
 	})
 }
 
-// unregisterCrossNodeTestFunctions 注销跨节点取值测试用的自定义函数
+// unregisterCrossNodeTestFunctions Delete a custom function used for cross-node value testing
 // unregisterCrossNodeTestFunctions unregisters custom functions used for cross-node access testing.
 func unregisterCrossNodeTestFunctions() {
 	action.Functions.UnRegister("processNode1Data")
@@ -399,14 +399,14 @@ func unregisterCrossNodeTestFunctions() {
 	action.Functions.UnRegister("aggregateWithSensor")
 }
 
-// testTemplateCrossNodeAccess 测试模板系统的跨节点取值功能
+// testTemplateCrossNodeAccess is a cross-node value retrieval function for test template systems
 // testTemplateCrossNodeAccess tests cross-node access functionality in template system
 func testTemplateCrossNodeAccess(t *testing.T) {
-	// 创建配置，启用节点输出缓存
+	// Create a configuration and enable node output cache
 	config := NewConfig()
 	ctx := NewRuleContext(context.Background(), config, nil, nil, nil, nil, nil, nil)
 
-	// 模拟节点输出数据
+	// Simulated node outputs data
 	node1Msg := types.NewMsg(0, "DATA", types.JSON, types.NewMetadata(), `{"temperature":25.5,"deviceId":"sensor001"}`)
 	node1Msg.Metadata.PutValue("location", "room1")
 	node1Msg.Metadata.PutValue("status", "active")
@@ -415,24 +415,24 @@ func testTemplateCrossNodeAccess(t *testing.T) {
 	node2Msg.Metadata.PutValue("endpoint", "api.example.com")
 	node2Msg.Metadata.PutValue("apiKey", "key123")
 
-	// 添加节点为可缓存节点
+	// Add nodes as cacheable nodes
 	cache := ctx.GetNodeOutputCache()
 	cache.AddCacheableNode("node1")
 	cache.AddCacheableNode("node2")
 
-	// 存储节点输出
+	// Storage node output
 	ctx.StoreNodeOutput("node1", node1Msg)
 	ctx.StoreNodeOutput("node2", node2Msg)
 
-	// 创建当前消息
+	// Create the current message
 	currentMsg := types.NewMsg(0, "PROCESS", types.JSON, types.NewMetadata(), `{"action":"validate"}`)
 	currentMsg.Metadata.PutValue("requestId", "req001")
 
-	// 测试GetEnv方法获取基础环境变量
+	// Test the GetEnv method to obtain the base environment variables
 	env := ctx.GetEnv(currentMsg, true)
 
-	// 验证基础环境变量
-	// 由于JSON字段处理被注释，验证msg字段包含解析后的JSON对象
+	// Verify the underlying environment variables
+	// Since JSON field processing is commented, verify that the msg field contains the parsed JSON object
 	if msgMap, ok := env["msg"].(map[string]interface{}); ok {
 		assert.Equal(t, "validate", msgMap["action"])
 	} else {
@@ -440,7 +440,7 @@ func testTemplateCrossNodeAccess(t *testing.T) {
 	}
 	assert.Equal(t, "req001", env["requestId"])
 
-	// 验证节点输出缓存功能
+	// Verify node output cache functionality
 	node1Output, found := ctx.GetNodeRuleMsg("node1")
 	assert.True(t, found, "Node1 output should be cached")
 	if node1Output.Metadata != nil {
@@ -455,10 +455,10 @@ func testTemplateCrossNodeAccess(t *testing.T) {
 
 }
 
-// testNodeOutputAccess 测试 nodeOutput 节点的跨节点取值功能
+// testNodeOutputAccess tests the cross-node value retrieval function of nodeOutput
 // testNodeOutputAccess tests nodeOutput node's cross-node access functionality
 func testNodeOutputAccess(t *testing.T) {
-	// 定义规则链，测试 nodeOutput 节点获取指定节点的输出
+	// Define the rule chain and test nodeOutput. The nodeOutput node gets the output of the specified node
 	ruleChainFile := `{
 		"ruleChain": {
 			"id": "hSyEEAxjvpdq",
@@ -527,43 +527,43 @@ func testNodeOutputAccess(t *testing.T) {
 		}
 	}`
 
-	// 创建配置，启用节点输出缓存以支持 nodeOutput 节点
+	// Create a configuration to enable node output caching to support nodeOutput nodes
 	config := NewConfig()
 	var nodeOutputResult types.RuleMsg
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	// 创建规则引擎
+	// Create a rule engine
 	chainId := str.RandomStr(10)
 	ruleEngine, err := New(chainId, []byte(ruleChainFile), WithConfig(config))
 	assert.Nil(t, err)
 	defer Del(chainId)
 
-	// 发送测试消息
+	// Send test messages
 	metaData := types.NewMetadata()
 	metaData.PutValue("testCase", "nodeOutputAccess")
 	msg := types.NewMsg(0, "TEST_MSG", types.JSON, metaData, `{"input":"test data","operation":"process"}`)
 
-	// 使用WithEndFunc回调验证结果
+	// Use WithEndFunc callbacks to verify results
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		nodeOutputResult = msg
 		wg.Done()
 		assert.Equal(t, types.Success, relationType)
 	}))
 
-	// 等待处理完成
+	// Wait for processing to complete
 	wg.Wait()
 	time.Sleep(time.Millisecond * 50)
 
-	// 验证 nodeOutput 节点成功获取了 node_4 的输出
+	// Verify nodeOutput: The node has successfully obtained the output of node_4
 	assert.Equal(t, "TEST_MSG", nodeOutputResult.Type, "Message type should be preserved from node_4")
 
-	// 验证数据包含 node_4 的处理结果
+	// Verify that the data contains the processing results of node_4
 	data := nodeOutputResult.GetData()
 	assert.True(t, strings.Contains(data, "aa"), "Data should contain 'aa' from node_4")
 	assert.True(t, strings.Contains(data, "from"), "Data should contain 'from' field from node_4")
 
-	// 验证 nodeOutput 节点能够正确获取指定节点的输出数据
+	// Verify that nodeOutput node correctly retrieves the output data of the specified node
 	assert.True(t, strings.Contains(data, "input"), "Data should contain original 'input' field")
 	assert.True(t, strings.Contains(data, "test data"), "Data should contain original test data")
 }

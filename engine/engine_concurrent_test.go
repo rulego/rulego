@@ -31,10 +31,10 @@ import (
 	"github.com/rulego/rulego/api/types"
 )
 
-// TestForNodeConcurrentMetadataAccess 测试for节点在并发场景下的元数据读写安全性
-// 这个测试专门检查for节点处理元数据时是否存在并发读写问题
+// TestForNodeConcurrentMetadataAccess tests the security of metadata read/write for nodes in concurrent scenarios
+// This test specifically checks whether for nodes have concurrent read/write issues when processing metadata
 func TestForNodeConcurrentMetadataAccess(t *testing.T) {
-	// 创建包含for节点的规则链
+	// Create a rule chain containing the for node
 	forNodeRuleChain := `{
 		"ruleChain": {
 			"id": "test_for_concurrent",
@@ -78,22 +78,22 @@ func TestForNodeConcurrentMetadataAccess(t *testing.T) {
 	config := NewConfig()
 	ruleEngine, err := New("test_for_concurrent", []byte(forNodeRuleChain), WithConfig(config))
 	if err != nil {
-		t.Fatalf("创建规则引擎失败: %v", err)
+		t.Fatalf("Rule engine creation failed: %v", err)
 	}
 
-	// 并发测试参数
+	// Concurrent test parameters
 	concurrentCount := 50
 	itemsPerMessage := 10
 	var successCount int64
 	var errorCount int64
 
-	// 用于同步等待所有消息处理完成
+	// Used to synchronize and wait for all messages to be processed
 	done := make(chan bool, 1)
 
-	// 启动多个goroutine并发发送消息
+	// Start multiple goroutines to send messages concurrently
 	for i := 0; i < concurrentCount; i++ {
 		go func(index int) {
-			// 创建包含数组的消息
+			// Create a message containing an array
 			items := make([]interface{}, itemsPerMessage)
 			for j := 0; j < itemsPerMessage; j++ {
 				items[j] = fmt.Sprintf("item_%d_%d", index, j)
@@ -106,7 +106,7 @@ func TestForNodeConcurrentMetadataAccess(t *testing.T) {
 			itemsJSON, _ := json.Marshal(items)
 			msg := types.NewMsg(0, "TEST_FOR_CONCURRENT", types.JSON, metaData, fmt.Sprintf(`{"items": %s, "batch_id": %d}`, itemsJSON, index))
 
-			// 发送消息并等待处理完成
+			// Send a message and wait for processing to complete
 			ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 				if err != nil {
 					atomic.AddInt64(&errorCount, 1)
@@ -120,28 +120,28 @@ func TestForNodeConcurrentMetadataAccess(t *testing.T) {
 		}(i)
 	}
 
-	// 等待所有消息处理完成
+	// Wait for all messages to be processed
 	select {
 	case <-done:
-		// 所有消息处理完成
+		// All messages are processed completely
 	case <-time.After(10 * time.Second):
-		t.Fatal("测试超时")
+		t.Fatal("Test timeout")
 	}
 
-	// 验证结果
+	// Verify the results
 	if successCount != int64(concurrentCount) {
-		t.Errorf("期望处理 %d 条消息，实际处理 %d 条", concurrentCount, successCount)
+		t.Errorf("Expect to process %d messages, but actually process %d", concurrentCount, successCount)
 	}
 	if errorCount != 0 {
-		t.Errorf("期望0个错误，实际有 %d 个错误", errorCount)
+		t.Errorf("Expect 0 errors, but actually have %d errors", errorCount)
 	}
 
 }
 
-// TestForNodeMetadataRaceCondition 测试for节点元数据的竞态条件
-// 这个测试专门检查在高并发情况下是否会出现数据竞争
+// TestForNodeMetadataRaceCondition tests the race conditions for node metadata
+// This test specifically checks whether data contention occurs under high concurrency conditions
 func TestForNodeMetadataRaceCondition(t *testing.T) {
-	// 创建一个更复杂的规则链，包含多个节点来增加竞态条件的可能性
+	// Create a more complex chain of rules with multiple nodes to increase the likelihood of race conditions
 	raceTestRuleChain := `{
 		"ruleChain": {
 			"id": "test_race_condition",
@@ -185,10 +185,10 @@ func TestForNodeMetadataRaceCondition(t *testing.T) {
 	config := NewConfig()
 	ruleEngine, err := New("test_race_condition", []byte(raceTestRuleChain), WithConfig(config))
 	if err != nil {
-		t.Fatalf("创建规则引擎失败: %v", err)
+		t.Fatalf("Rule engine creation failed: %v", err)
 	}
 
-	// 高并发测试
+	// High concurrency testing
 	concurrentCount := 100
 	var wg sync.WaitGroup
 	var processedCount int64
@@ -196,7 +196,7 @@ func TestForNodeMetadataRaceCondition(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// 启动多个goroutine同时发送消息
+	// Launch multiple goroutines to send messages simultaneously
 	for i := 0; i < concurrentCount; i++ {
 		wg.Add(1)
 		go func(index int) {
@@ -216,7 +216,7 @@ func TestForNodeMetadataRaceCondition(t *testing.T) {
 
 			ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 				if err != nil {
-					t.Errorf("处理消息时出错: %v", err)
+					t.Errorf("Error when handling messages: %v", err)
 				} else {
 					atomic.AddInt64(&processedCount, 1)
 				}
@@ -224,7 +224,7 @@ func TestForNodeMetadataRaceCondition(t *testing.T) {
 		}(i)
 	}
 
-	// 等待所有goroutine完成或超时
+	// Wait for all goroutines to finish or time out
 	done := make(chan struct{})
 	go func() {
 		wg.Wait()
@@ -236,20 +236,20 @@ func TestForNodeMetadataRaceCondition(t *testing.T) {
 
 	case <-ctx.Done():
 		currentProcessed := atomic.LoadInt64(&processedCount)
-		t.Errorf("测试超时: 只处理了 %d 条消息", currentProcessed)
+		t.Errorf("Test timeout: Only %d messages were processed", currentProcessed)
 	}
 
-	// 验证至少处理了一些消息
+	// Verification at least handled some messages
 	finalProcessedCount := atomic.LoadInt64(&processedCount)
 	if finalProcessedCount <= 0 {
-		t.Errorf("应该至少处理一些消息，实际处理: %d", finalProcessedCount)
+		t.Errorf("At least some messages should be handled, and actual processing is: %d", finalProcessedCount)
 	}
 }
 
-// TestForNodeConcurrentWithFork 测试使用fork节点并发执行，同时验证SharedData和Metadata的并发安全性
-// 这个测试验证fork节点能够正确地将消息分发到多个节点并行处理，并测试数据和元数据的并发修改
+// TestForNodeConcurrentWithFork tests are executed concurrently using fork nodes, while verifying the concurrency security of SharedData and Metadata
+// This test verifies that fork nodes can correctly distribute messages to multiple nodes for parallel processing and test concurrent modifications of data and metadata
 func TestForNodeConcurrentWithFork(t *testing.T) {
-	// 创建包含fork节点和多个并发处理节点的规则链
+	// Create a rule chain containing fork nodes and multiple concurrent processing nodes
 	forkRuleChain := `{
 		"ruleChain": {
 			"id": "test_fork_concurrent_data_safety",
@@ -342,48 +342,48 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 	var outDataValidations int64
 	var nodeProcessingErrors int64
 
-	// 配置调试回调以检测并发问题和验证每个节点的IN/OUT数据准确性
+	// Configure debug callbacks to detect concurrency issues and verify the accuracy of IN/OUT data for each node
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-		// 处理错误情况
+		// Handling errors
 		if err != nil {
 			atomic.AddInt64(&nodeProcessingErrors, 1)
 			return
 		}
 
-		// 直接验证数据完整性
+		// Directly verify data integrity
 		data := msg.GetData()
 		if data == "" {
 			atomic.AddInt64(&dataCorruptions, 1)
 			return
 		}
 
-		// 验证JSON格式
+		// Verify JSON format
 		var jsonData map[string]interface{}
 		if jsonErr := json.Unmarshal([]byte(data), &jsonData); jsonErr != nil {
 			atomic.AddInt64(&dataCorruptions, 1)
 			return
 		}
 
-		// 验证引用计数
+		// Verify citation counts
 		if sharedData := msg.Data; sharedData != nil {
 			if refCount := sharedData.GetRefCount(); refCount <= 0 {
 				atomic.AddInt64(&refCountAnomalies, 1)
 			}
 		}
 
-		// 验证元数据完整性
+		// Verify metadata integrity
 		if msg.Metadata.Len() == 0 {
 			atomic.AddInt64(&metadataCorruptions, 1)
 			return
 		}
 
-		// 验证每个节点的IN/OUT数据准确性
+		// Verify the accuracy of IN/OUT data at each node
 		if flowType == types.In {
 			atomic.AddInt64(&inDataValidations, 1)
-			// 验证输入数据的完整性
+			// Verify the integrity of input data
 			switch nodeId {
 			case "fork_start":
-				// fork节点输入：应该包含原始数据
+				// fork node input: should include the original data
 				if messageId, exists := jsonData["message_id"]; !exists {
 					atomic.AddInt64(&dataCorruptions, 1)
 				} else if _, ok := messageId.(float64); !ok {
@@ -396,21 +396,21 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 					atomic.AddInt64(&dataCorruptions, 1)
 				}
 
-				// 验证原始元数据
+				// Verify the original metadata
 				batchId := msg.Metadata.GetValue("batch_id")
 				if batchId == "" {
 					atomic.AddInt64(&metadataCorruptions, 1)
 				}
 
 			case "concurrent_processor_1", "concurrent_processor_2", "concurrent_processor_3":
-				// 并发处理器输入：应该包含原始数据和fork传递的数据
+				// Concurrency processor input: should include the original data and data passed by the fork
 				if messageId, exists := jsonData["message_id"]; !exists {
 					atomic.AddInt64(&dataCorruptions, 1)
 				} else if _, ok := messageId.(float64); !ok {
 					atomic.AddInt64(&dataCorruptions, 1)
 				}
 
-				// 验证并发修改字段的初始状态
+				// Verify the initial state of the concurrent modified field
 				if modifications, exists := jsonData["concurrent_modifications"]; exists {
 					if modCount, ok := modifications.(float64); ok && modCount < 0 {
 						atomic.AddInt64(&dataCorruptions, 1)
@@ -418,14 +418,14 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 				}
 
 			case "final_validator":
-				// 最终验证器输入：应该包含被处理器修改过的数据
+				// Final validator input: should contain data modified by the processor
 				if modifications, exists := jsonData["concurrent_modifications"]; !exists {
 					atomic.AddInt64(&dataCorruptions, 1)
 				} else if modCount, ok := modifications.(float64); !ok || modCount < 1 {
 					atomic.AddInt64(&dataCorruptions, 1)
 				}
 
-				// 验证处理器特定字段
+				// Validate processor-specific fields
 				processorFound := false
 				for _, field := range []string{"processor1_timestamp", "processor2_timestamp", "processor3_timestamp"} {
 					if _, exists := jsonData[field]; exists {
@@ -440,10 +440,10 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 
 		} else if flowType == types.Out {
 			atomic.AddInt64(&outDataValidations, 1)
-			// 验证输出数据的完整性
+			// Verify the integrity of output data
 			switch nodeId {
 			case "fork_start":
-				// fork节点输出：数据应该保持不变
+				// fork node output: data should remain unchanged
 				if messageId, exists := jsonData["message_id"]; !exists {
 					atomic.AddInt64(&dataCorruptions, 1)
 				} else if _, ok := messageId.(float64); !ok {
@@ -457,7 +457,7 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 				}
 
 			case "concurrent_processor_1":
-				// 并发处理器1输出：应该包含processor1特定的字段
+				// Concurrent processor 1 output: should include the specific fields of processor1
 				if timestamp, exists := jsonData["processor1_timestamp"]; !exists {
 					atomic.AddInt64(&dataCorruptions, 1)
 				} else if _, ok := timestamp.(float64); !ok {
@@ -470,20 +470,20 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 					atomic.AddInt64(&dataCorruptions, 1)
 				}
 
-				// 验证并发修改计数增加
+				// Validation concurrent modification count increases
 				if modifications, exists := jsonData["concurrent_modifications"]; !exists {
 					atomic.AddInt64(&dataCorruptions, 1)
 				} else if modCount, ok := modifications.(float64); !ok || modCount < 1 {
 					atomic.AddInt64(&dataCorruptions, 1)
 				}
 
-				// 验证元数据中的processor1字段
+				// Validate the processor1 field in the metadata
 				if processor1 := msg.Metadata.GetValue("processor1"); processor1 == "" {
 					atomic.AddInt64(&metadataCorruptions, 1)
 				}
 
 			case "concurrent_processor_2":
-				// 并发处理器2输出验证
+				// Concurrent processor 2 outputs verification
 				if timestamp, exists := jsonData["processor2_timestamp"]; !exists {
 					atomic.AddInt64(&dataCorruptions, 1)
 				} else if _, ok := timestamp.(float64); !ok {
@@ -495,7 +495,7 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 				}
 
 			case "concurrent_processor_3":
-				// 并发处理器3输出验证
+				// Concurrent processor 3 outputs verification
 				if timestamp, exists := jsonData["processor3_timestamp"]; !exists {
 					atomic.AddInt64(&dataCorruptions, 1)
 				} else if _, ok := timestamp.(float64); !ok {
@@ -507,7 +507,7 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 				}
 
 			case "final_validator":
-				// 最终验证器输出：应该包含所有验证标记
+				// Final validator output: should include all validation marks
 				if finalProcessed := msg.Metadata.GetValue("final_processed"); finalProcessed != "true" {
 					atomic.AddInt64(&metadataCorruptions, 1)
 				}
@@ -520,7 +520,7 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 					atomic.AddInt64(&metadataCorruptions, 1)
 				}
 
-				// 验证原始数据仍然存在
+				// The original data is still validated
 				if messageId, exists := jsonData["message_id"]; !exists {
 					atomic.AddInt64(&dataCorruptions, 1)
 				} else if _, ok := messageId.(float64); !ok {
@@ -528,13 +528,13 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 				}
 			}
 
-			// 通用验证：所有输出都应该保持原始batch_id
+			// Universal verification: All outputs should retain their original batch_id
 			originalBatchId := msg.Metadata.GetValue("batch_id")
 			if originalBatchId == "" {
 				atomic.AddInt64(&metadataCorruptions, 1)
 			}
 
-			// 通用验证：所有输出都应该保持原始test_type
+			// Universal verification: All outputs should maintain their original test_type
 			testType := msg.Metadata.GetValue("test_type")
 			if testType != "fork_concurrent_data_safety" {
 				atomic.AddInt64(&metadataCorruptions, 1)
@@ -544,29 +544,29 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 
 	ruleEngine, err := New("test_fork_concurrent_data_safety", []byte(forkRuleChain), WithConfig(config))
 	if err != nil {
-		t.Fatalf("创建规则引擎失败: %v", err)
+		t.Fatalf("Rule engine creation failed: %v", err)
 	}
 
-	// 并发测试参数
-	concurrentCount := 30 // 增加并发数量以增强测试强度
+	// Concurrent test parameters
+	concurrentCount := 30 // Increase concurrency counts to enhance test intensity
 	var successCount int64
 	var errorCount int64
 	var finalProcessorCount int64
 
-	// 用于同步等待所有消息处理完成
+	// Used to synchronize and wait for all messages to be processed
 	done := make(chan bool, 1)
 
-	// 启动多个goroutine并发发送消息
+	// Start multiple goroutines to send messages concurrently
 	for i := 0; i < concurrentCount; i++ {
 		go func(index int) {
-			// 创建包含复杂数据的消息以增加并发修改的复杂性
+			// Create messages containing complex data to increase the complexity of concurrent modifications
 			metaData := types.NewMetadata()
 			metaData.PutValue("batch_id", strconv.Itoa(index))
 			metaData.PutValue("start_time", strconv.FormatInt(time.Now().UnixNano(), 10))
 			metaData.PutValue("test_type", "fork_concurrent_data_safety")
 			metaData.PutValue("initial_processor_count", "0")
 
-			// 创建包含多个字段的JSON数据，这些将被并发修改
+			// Create JSON data containing multiple fields, which will be modified concurrently
 			originalData := fmt.Sprintf(`{
 				"message_id": %d, 
 				"initial_value": "test_%d",
@@ -577,57 +577,57 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 
 			msg := types.NewMsg(0, "TEST_FORK_CONCURRENT_SAFETY", types.JSON, metaData, originalData)
 
-			// 发送消息并等待处理完成
+			// Send a message and wait for processing to complete
 			ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 				if err != nil {
 					atomic.AddInt64(&errorCount, 1)
 				} else {
 					atomic.AddInt64(&successCount, 1)
 
-					// 检查是否是最终处理器的结果
+					// Check if it is the final processor result
 					if msg.Metadata.GetValue("final_processed") == "true" {
 						atomic.AddInt64(&finalProcessorCount, 1)
 
-						// 验证数据完整性
+						// Verify data integrity
 						data := msg.GetData()
 						var jsonData map[string]interface{}
 						if jsonErr := json.Unmarshal([]byte(data), &jsonData); jsonErr != nil {
 							atomic.AddInt64(&dataCorruptions, 1)
-							t.Errorf("最终数据JSON解析失败: %v, 数据: %s", jsonErr, data)
+							t.Errorf("Final data JSON parsing failed: %v, Data: %s", jsonErr, data)
 						} else {
-							// 验证原始数据是否还存在
+							// Verify whether the original data still exists
 							if messageId, exists := jsonData["message_id"]; !exists {
 								atomic.AddInt64(&dataCorruptions, 1)
-								t.Errorf("原始message_id丢失，数据: %s", data)
+								t.Errorf("Original message_id lost, data: %s", data)
 							} else if float64(index) != messageId {
 								atomic.AddInt64(&dataCorruptions, 1)
-								t.Errorf("message_id不匹配: 期望 %d, 实际 %v", index, messageId)
+								t.Errorf("message_id mismatch: expectations %d, actual %v", index, messageId)
 							}
 
-							// 验证并发修改计数
+							// Validate concurrent count modifications
 							if modifications, exists := jsonData["concurrent_modifications"]; exists {
 								if modCount, ok := modifications.(float64); ok && modCount < 1 {
-									t.Errorf("并发修改计数异常: %v", modCount)
+									t.Errorf("Concurrent modification of count anomaly: %v", modCount)
 								}
 							}
 						}
 
-						// 验证元数据完整性
+						// Verify metadata integrity
 						originalBatchId := msg.Metadata.GetValue("batch_id")
 						if originalBatchId != strconv.Itoa(index) {
 							atomic.AddInt64(&metadataCorruptions, 1)
-							t.Errorf("batch_id不匹配: 期望 %d, 实际 %s", index, originalBatchId)
+							t.Errorf("batch_id mismatch: expectations %d, actual %s", index, originalBatchId)
 						}
 
-						// 验证数据完整性检查结果
+						// Verify data integrity check results
 						if integrityCheck := msg.Metadata.GetValue("data_integrity_check"); integrityCheck == "failed" {
 							atomic.AddInt64(&dataCorruptions, 1)
-							t.Errorf("数据完整性检查失败")
+							t.Errorf("Data integrity check failed")
 						}
 					}
 				}
 
-				// 当所有最终处理器完成时发送完成信号
+				// When all final processors are finished, a completion signal is sent
 				if msg.Metadata.GetValue("final_processed") == "true" {
 					if atomic.LoadInt64(&finalProcessorCount) >= int64(concurrentCount*3) {
 						select {
@@ -640,18 +640,18 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 		}(i)
 	}
 
-	// 等待所有消息处理完成
+	// Wait for all messages to be processed
 	select {
 	case <-done:
-		// 所有消息处理完成
-	case <-time.After(20 * time.Second): // 增加超时时间
-		t.Fatal("测试超时")
+		// All messages are processed completely
+	case <-time.After(20 * time.Second): // Increased timeout
+		t.Fatal("Test timeout")
 	}
 
-	// 等待额外时间确保所有异步操作完成
+	// Wait extra time to ensure all asynchronous operations are completed
 	time.Sleep(time.Second)
 
-	// 验证结果
+	// Verify the results
 	finalErrorCount := atomic.LoadInt64(&errorCount)
 	finalDataCorruptions := atomic.LoadInt64(&dataCorruptions)
 	finalMetadataCorruptions := atomic.LoadInt64(&metadataCorruptions)
@@ -661,47 +661,47 @@ func TestForNodeConcurrentWithFork(t *testing.T) {
 	finalOutDataValidations := atomic.LoadInt64(&outDataValidations)
 	finalNodeProcessingErrors := atomic.LoadInt64(&nodeProcessingErrors)
 
-	// 验证错误
+	// Verify errors
 	if finalNodeProcessingErrors > 0 {
-		t.Errorf("期望0个节点处理错误，实际有 %d 个错误", finalNodeProcessingErrors)
+		t.Errorf("Expecting 0 nodes to handle errors, but actually having %d errors", finalNodeProcessingErrors)
 	}
 
 	if finalErrorCount > 0 {
-		t.Errorf("期望0个处理错误，实际有 %d 个错误", finalErrorCount)
+		t.Errorf("Expect zero processing errors, but actually have %d errors", finalErrorCount)
 	}
 
 	if finalDataCorruptions > 0 {
-		t.Errorf("检测到 %d 次数据损坏", finalDataCorruptions)
+		t.Errorf("%d data corruption detected", finalDataCorruptions)
 	}
 
 	if finalMetadataCorruptions > 0 {
-		t.Errorf("检测到 %d 次元数据损坏", finalMetadataCorruptions)
+		t.Errorf("%d dimensional data corruption detected", finalMetadataCorruptions)
 	}
 
 	if finalRefCountAnomalies > 0 {
-		t.Errorf("检测到 %d 次引用计数异常", finalRefCountAnomalies)
+		t.Errorf("%d citation count anomalies detected", finalRefCountAnomalies)
 	}
 
-	// 验证数据验证次数的合理性（每个消息会产生多次IN/OUT事件）
-	expectedMinValidations := int64(concurrentCount * 4) // 每个消息至少经过4个节点
+	// Validate the validation count of data validation (each message generates multiple IN/OUT events)
+	expectedMinValidations := int64(concurrentCount * 4) // Each message passes through at least 4 nodes
 	if finalInDataValidations < expectedMinValidations {
-		t.Errorf("IN数据验证次数过少: 期望至少 %d 次，实际 %d 次", expectedMinValidations, finalInDataValidations)
+		t.Errorf("IN Data validation is too few: Expect at least %d times, but actually %d times", expectedMinValidations, finalInDataValidations)
 	}
 
 	if finalOutDataValidations < expectedMinValidations {
-		t.Errorf("OUT数据验证次数过少: 期望至少 %d 次，实际 %d 次", expectedMinValidations, finalOutDataValidations)
+		t.Errorf("OUT Data validation is too few: Expect at least %d times, but actually %d times", expectedMinValidations, finalOutDataValidations)
 	}
 
-	// 验证最终处理器被调用的次数（应该等于并发数量的3倍，因为每个消息会触发3个处理器）
+	// Verify the number of calls made by the final processor (which should be three times the number of concurrent times, since each message triggers three processors)
 	expectedFinalCount := int64(concurrentCount * 3)
 	if finalProcessorCountResult != expectedFinalCount {
-		t.Errorf("期望最终处理器被调用 %d 次，实际调用 %d 次", expectedFinalCount, finalProcessorCountResult)
+		t.Errorf("The final processor is expected to be called %d times, and the actual call is %d times", expectedFinalCount, finalProcessorCountResult)
 	}
 }
 
-// TestForNodeAsyncModeMetadataSafety 测试for节点异步模式下的元数据安全性
+// TestForNodeAsyncModeMetadataSafety Tests metadata security under asynchronous mode for nodes
 func TestForNodeAsyncModeMetadataSafety(t *testing.T) {
-	// 创建异步模式的for节点规则链
+	// Create an asynchronous for node rule chain
 	asyncRuleChain := `{
 		"ruleChain": {
 			"id": "test_async_safety",
@@ -745,10 +745,10 @@ func TestForNodeAsyncModeMetadataSafety(t *testing.T) {
 	config := NewConfig()
 	ruleEngine, err := New("test_async_safety", []byte(asyncRuleChain), WithConfig(config))
 	if err != nil {
-		t.Fatalf("创建规则引擎失败: %v", err)
+		t.Fatalf("Rule engine creation failed: %v", err)
 	}
 
-	// 创建包含大量项目的消息
+	// Create messages containing a large number of items
 	itemsCount := 50
 	items := make([]interface{}, itemsCount)
 	for i := 0; i < itemsCount; i++ {
@@ -763,7 +763,7 @@ func TestForNodeAsyncModeMetadataSafety(t *testing.T) {
 
 	msg := types.NewMsg(0, "ASYNC_TEST", types.JSON, metaData, msgData)
 
-	// 发送消息并验证异步处理不会导致数据竞争
+	// Sending messages and verifying asynchronous processing does not lead to data contention
 	var processedCount int64
 	var errorCount int64
 
@@ -777,24 +777,24 @@ func TestForNodeAsyncModeMetadataSafety(t *testing.T) {
 		}
 	}))
 
-	// 等待一段时间让异步处理完成
+	// Wait a while for the asynchronous processing to complete
 	time.Sleep(2 * time.Second)
 
-	// 验证结果
+	// Verify the results
 	finalProcessedCount := atomic.LoadInt64(&processedCount)
 	finalErrorCount := atomic.LoadInt64(&errorCount)
 	if finalProcessedCount != 1 {
-		t.Errorf("期望处理1条消息，实际处理 %d 条", finalProcessedCount)
+		t.Errorf("Expected to process 1 message, actually processed %d", finalProcessedCount)
 	}
 	if finalErrorCount != 0 {
-		t.Errorf("期望0个错误，实际有 %d 个错误", finalErrorCount)
+		t.Errorf("Expect 0 errors, but actually have %d errors", finalErrorCount)
 	}
 
 }
 
-// TestConcurrentRaceCondition 测试getEnv并发竞态条件
+// TestConcurrentRaceCondition tests getEnv concurrent race condition
 func TestConcurrentGetEnv(t *testing.T) {
-	// 规则链DSL - 一个节点分叉到两个并发节点
+	// Rule Chain DSL - One node forks into two concurrent nodes
 	ruleChainDSL := `{
 		"ruleChain": {
 			"id": "kOPFwceGDK9p",
@@ -903,44 +903,44 @@ func TestConcurrentGetEnv(t *testing.T) {
 		}
 	}`
 
-	// 创建规则引擎
+	// Create a rule engine
 	config := NewConfig(types.WithDefaultPool())
 	ruleEngine, err := New("test", []byte(ruleChainDSL), WithConfig(config))
 	assert.Nil(t, err)
 
-	// 并发测试参数
-	concurrentCount := 50 // 并发数量
-	messageCount := 1     // 每个协程发送的消息数量
+	// Concurrent test parameters
+	concurrentCount := 50 // Concurrent quantity
+	messageCount := 1     // The number of messages sent per coroutine
 
 	var wg sync.WaitGroup
 	wg.Add(concurrentCount * messageCount * 2)
-	// 启动多个协程并发执行规则链
+	// Initiate multiple coroutines to concurrently execute the rule chain
 	for i := 0; i < concurrentCount; i++ {
 		go func(routineID int) {
 
-			// 每个协程发送多条消息
+			// Each coroutine sends multiple messages
 			for j := 0; j < messageCount; j++ {
 				metadata := types.NewMetadata()
-				// 创建消息
+				// Create a message
 				msg := types.NewMsg(0, "TEST", types.JSON, metadata, fmt.Sprintf(`{"id":%d,"count":%d}`, routineID, j))
 
-				// 设置metadata，包含token用于模板替换
+				// Set up metadata, including tokens for template replacement
 				msg.Metadata.PutValue("token", fmt.Sprintf("token_%d_%d", routineID, j))
 				msg.Metadata.PutValue("routineID", fmt.Sprintf("%d", routineID))
 				msg.Metadata.PutValue("messageID", fmt.Sprintf("%d", j))
 
-				// 执行规则链
+				// Execute the rule chain
 				ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 					wg.Done()
 				}))
 
-				// 添加小延迟，增加并发竞争的可能性
+				// Adding small latency increases the likelihood of concurrent competition
 				time.Sleep(time.Millisecond * 10)
 			}
 		}(i)
 	}
 
-	// 等待所有协程完成
+	// Wait for all coroutines to complete
 	wg.Wait()
 
 }

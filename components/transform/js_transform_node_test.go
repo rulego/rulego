@@ -71,7 +71,7 @@ func TestJsTransformNode(t *testing.T) {
 		var nodeList = []types.Node{node1, node2, node3, node4}
 
 		for _, node := range nodeList {
-			// 在测试循环开始前捕获配置，避免在回调中并发访问
+			// Capture configurations before the test loop starts to avoid concurrent access during callbacks
 			jsScript := node.(*JsTransformNode).Config.JsScript
 
 			metaData := types.BuildMetadata(make(map[string]string))
@@ -127,16 +127,16 @@ func TestJsTransformNode(t *testing.T) {
 	})
 }
 
-// TestJsTransformNodeJSONArraySupport 测试JavaScript转换器对JSON数组的支持
+// TestJsTransformNodeJSONArraySupport tests JavaScript converter's support for JSON arrays
 func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 	config := types.NewConfig()
 
-	// 测试1: JSON数组处理
+	// Test 1: JSON array processing
 	t.Run("JSONArrayTransform", func(t *testing.T) {
 		node := &JsTransformNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 对JSON数组进行处理：添加索引和处理标志
+				// Process the JSON array by adding indexes and processed flags
 				if (Array.isArray(msg)) {
 					var result = [];
 					for (var i = 0; i < msg.length; i++) {
@@ -156,7 +156,7 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 创建JSON数组消息
+		// Create a JSON array message
 		metadata := types.BuildMetadata(make(map[string]string))
 		arrayData := `["apple", "banana", "cherry"]`
 		testMsg := types.NewMsg(0, "ARRAY_TEST", types.JSON, metadata, arrayData)
@@ -173,19 +173,19 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(ctx, testMsg)
 
-		// 验证结果
+		// Verify the results
 		assert.Nil(t, resultErr)
 		assert.Equal(t, types.Success, resultRelationType)
 		assert.Equal(t, "3", resultMsg.Metadata.GetValue("arrayLength"))
 		assert.Equal(t, "array_transformed", resultMsg.Metadata.GetValue("processed"))
 	})
 
-	// 测试2: JSON对象处理
+	// Test 2: JSON object processing
 	t.Run("JSONObjectTransform", func(t *testing.T) {
 		node := &JsTransformNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 对JSON对象进行处理
+				// Process the JSON object
 				if (typeof msg === 'object' && !Array.isArray(msg)) {
 					msg.processed = true;
 					msg.timestamp = new Date().getTime();
@@ -197,7 +197,7 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 创建JSON对象消息
+		// Create a JSON object message
 		metadata := types.BuildMetadata(make(map[string]string))
 		objectData := `{"name": "test", "value": 123}`
 		testMsg := types.NewMsg(0, "OBJECT_TEST", types.JSON, metadata, objectData)
@@ -214,25 +214,25 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(ctx, testMsg)
 
-		// 验证结果
+		// Verify the results
 		assert.Nil(t, resultErr)
 		assert.Equal(t, types.Success, resultRelationType)
 		assert.Equal(t, "object_transformed", resultMsg.Metadata.GetValue("processed"))
 
 	})
 
-	// 测试3: 嵌套JSON数组处理
+	// Test 3: Nested JSON array processing
 	t.Run("NestedJSONArrayTransform", func(t *testing.T) {
 		node := &JsTransformNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 处理嵌套数组：计算每个子数组的和
+				// Process the nested array by calculating the sum of each child array
 				if (Array.isArray(msg)) {
 					var result = [];
 					for (var i = 0; i < msg.length; i++) {
 						var item = msg[i];
 						if (Array.isArray(item)) {
-							// 计算子数组的和
+							// Calculate the child array's sum
 							var sum = 0;
 							for (var j = 0; j < item.length; j++) {
 								sum += item[j];
@@ -255,7 +255,7 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 创建嵌套JSON数组消息
+		// Create nested JSON array messages
 		metadata := types.BuildMetadata(make(map[string]string))
 		nestedArrayData := `[[1, 2, 3], [4, 5, 6], [7, 8, 9]]`
 		testMsg := types.NewMsg(0, "NESTED_ARRAY_TEST", types.JSON, metadata, nestedArrayData)
@@ -272,27 +272,27 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(ctx, testMsg)
 
-		// 验证结果
+		// Verify the results
 		assert.Nil(t, resultErr)
 		assert.Equal(t, types.Success, resultRelationType)
 		assert.Equal(t, "true", resultMsg.Metadata.GetValue("nestedArrayProcessed"))
 
 	})
 
-	// 测试4: 混合数据类型处理
+	// Test 4: Handling mixed data types
 	t.Run("MixedDataTypeTransform", func(t *testing.T) {
 		node := &JsTransformNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 根据数据类型进行不同处理
+				// Process the value according to its data type
 				metadata['originalType'] = dataType;
 				
 				if (String(dataType) === 'JSON') {
 					if (Array.isArray(msg)) {
 						metadata['jsonType'] = 'array';
 						metadata['length'] = msg.length.toString();
-						// 为数组添加处理标记
-						var newArray = msg.slice(); // 复制数组
+						// Add a processed marker to the array
+						var newArray = msg.slice(); // Copy the array
 						newArray.push('processed_by_js');
 						return {'msg': newArray, 'metadata': metadata, 'msgType': msgType};
 					} else if (typeof msg === 'object') {
@@ -302,14 +302,14 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 					}
 				}
 				
-				// 其他类型直接返回
+				// Return other types unchanged
 				return {'msg': msg, 'metadata': metadata, 'msgType': msgType};
 			`,
 		})
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 测试JSON数组
+		// Test the JSON array
 		arrayMetadata := types.BuildMetadata(make(map[string]string))
 		arrayData := `["item1", "item2", "item3"]`
 		arrayMsg := types.NewMsg(0, "MIXED_TEST", types.JSON, arrayMetadata, arrayData)
@@ -324,13 +324,13 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(arrayCtx, arrayMsg)
 
-		// 验证数组处理结果
+		// Verify array processing results
 		assert.Nil(t, arrayErr)
 		assert.Equal(t, "JSON", arrayResult.Metadata.GetValue("originalType"))
 		assert.Equal(t, "array", arrayResult.Metadata.GetValue("jsonType"))
 		assert.Equal(t, "3", arrayResult.Metadata.GetValue("length"))
 
-		// 测试JSON对象
+		// Test the JSON object
 		objectMetadata := types.BuildMetadata(make(map[string]string))
 		objectData := `{"name": "test", "id": 456}`
 		objectMsg := types.NewMsg(0, "MIXED_TEST", types.JSON, objectMetadata, objectData)
@@ -345,42 +345,42 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(objectCtx, objectMsg)
 
-		// 验证对象处理结果
+		// Verify object processing results
 		assert.Nil(t, objectErr)
 		assert.Equal(t, "JSON", objectResult.Metadata.GetValue("originalType"))
 		assert.Equal(t, "object", objectResult.Metadata.GetValue("jsonType"))
 	})
 
-	// 测试5: 验证DataType作为字符串处理时的JSON序列化问题
+	// Test 5: Verify JSON serialization issues when processing DataType as strings
 	t.Run("DataTypeStringProcessingIssue", func(t *testing.T) {
-		// 直接测试ToStringMaybeErr对DataType的处理
+		// Directly test ToStringMaybeErr's handling of DataType
 		dataTypeValue := types.TEXT
 		result, err := str.ToStringMaybeErr(dataTypeValue)
 
-		// 修正期望值：ToStringMaybeErr会对DataType进行JSON序列化，所以结果会是带引号的字符串
+		// Correction of expected value: ToStringMaybeErr will serialize DataType in JSON, so the result will be a string with quotes
 		assert.Nil(t, err)
-		assert.Equal(t, `"TEXT"`, result) // DataType被JSON序列化后会带引号
+		assert.Equal(t, `"TEXT"`, result) // When DataType is serialized in JSON, it will be in quotes
 
 		stringResult, err2 := str.ToStringMaybeErr(string(dataTypeValue))
 		assert.Nil(t, err2)
-		assert.Equal(t, "TEXT", stringResult) // 字符串不会被JSON序列化
+		assert.Equal(t, "TEXT", stringResult) // Strings are not serialized by JSON
 	})
 
-	// 测试6: 重现JS脚本返回dataType参数导致的JSON序列化问题
+	// Test 6: Reproduce JSON serialization issues caused by JS scripts returning dataType parameters
 	t.Run("JSReturnDataTypeIssue", func(t *testing.T) {
 		node := &JsTransformNode{}
 		err := node.Init(config, types.Configuration{
-			// JS脚本直接返回原始dataType参数，这会暴露问题
+			// JS scripts directly return the original dataType parameter, which exposes the problem
 			"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};",
 		})
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 创建测试消息
+		// Create test messages
 		metadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.TEXT, metadata, "Hello World")
 
-		// 使用回调收集结果
+		// Collect results using callbacks
 		var resultMsg types.RuleMsg
 		var resultRelationType string
 		var resultErr error
@@ -391,7 +391,7 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 			resultErr = err
 		})
 
-		// 处理消息
+		// Process the message
 		node.OnMsg(ctx, testMsg)
 		assert.Nil(t, resultErr)
 		assert.Equal(t, types.Success, resultRelationType)
@@ -399,25 +399,25 @@ func TestJsTransformNodeJSONArraySupport(t *testing.T) {
 	})
 }
 
-// TestJsTransformNodeDataTypeFix 测试DataType修复
+// TestJsTransformNodeDataTypeFix: Test DataType repair
 func TestJsTransformNodeDataTypeFix(t *testing.T) {
 	config := types.NewConfig()
 
-	// 测试: 确保JS脚本接收到字符串形式的dataType参数
+	// Test: Ensure the JS script receives the dataType parameter in string form
 	t.Run("DataTypeAsStringParameter", func(t *testing.T) {
 		node := &JsTransformNode{}
 		err := node.Init(config, types.Configuration{
-			// JS脚本直接返回dataType参数，应该是字符串而不是DataType类型
+			// The JS script returns the dataType parameter directly, which should be a string rather than a DataType type
 			"jsScript": "metadata['receivedDataType'] = dataType; metadata['dataTypeType'] = typeof dataType; return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};",
 		})
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 创建测试消息
+		// Create test messages
 		metadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.TEXT, metadata, "Hello World")
 
-		// 使用回调收集结果
+		// Collect results using callbacks
 		var resultMsg types.RuleMsg
 		var resultRelationType string
 		var resultErr error
@@ -428,27 +428,27 @@ func TestJsTransformNodeDataTypeFix(t *testing.T) {
 			resultErr = err
 		})
 
-		// 处理消息
+		// Process the message
 		node.OnMsg(ctx, testMsg)
 
-		// 验证结果
+		// Verify the results
 		assert.Nil(t, resultErr)
 		assert.Equal(t, types.Success, resultRelationType)
 
-		// 验证JS接收到的dataType是字符串类型
+		// Verify that the dataType received by JS is of the string type
 		assert.Equal(t, "TEXT", resultMsg.Metadata.GetValue("receivedDataType"))
 		assert.Equal(t, "string", resultMsg.Metadata.GetValue("dataTypeType"))
 
-		// 验证返回的DataType正确设置
+		// Verify that the returned DataType is correctly set
 		assert.Equal(t, types.TEXT, resultMsg.DataType)
 	})
 }
 
-// TestJsTransformNodeDataTypeFixComprehensive 综合测试DataType修复
+// TestJsTransformNodeDataTypeFixComprehensive Comprehensive Test DataType Fix
 func TestJsTransformNodeDataTypeFixComprehensive(t *testing.T) {
 	config := types.NewConfig()
 
-	// 测试1: 验证JS脚本接收到的dataType参数是字符串
+	// Test 1: Verify that the dataType parameter received by the JS script is a string
 	t.Run("DataTypeParameterIsString", func(t *testing.T) {
 		node := &JsTransformNode{}
 		err := node.Init(config, types.Configuration{
@@ -481,7 +481,7 @@ func TestJsTransformNodeDataTypeFixComprehensive(t *testing.T) {
 		assert.Equal(t, types.TEXT, resultMsg.DataType)
 	})
 
-	// 测试2: 验证不同DataType值的处理
+	// Test 2: Verify the handling of different DataType values
 	t.Run("DifferentDataTypes", func(t *testing.T) {
 		testCases := []struct {
 			name     string
@@ -521,11 +521,11 @@ func TestJsTransformNodeDataTypeFixComprehensive(t *testing.T) {
 		}
 	})
 
-	// 测试3: 验证dataType返回值的正确处理
+	// Test 3: Verify the correct handling of dataType return values
 	t.Run("DataTypeReturnHandling", func(t *testing.T) {
 		node := &JsTransformNode{}
 		err := node.Init(config, types.Configuration{
-			// JS脚本修改dataType并返回
+			// The JS script modifies the dataType and returns it
 			"jsScript": "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':'BINARY'};",
 		})
 		assert.Nil(t, err)
@@ -544,7 +544,7 @@ func TestJsTransformNodeDataTypeFixComprehensive(t *testing.T) {
 		node.OnMsg(ctx, testMsg)
 
 		assert.Nil(t, resultErr)
-		// 验证DataType被正确修改为BINARY
+		// Verify that DataType has been correctly changed to BINARY
 		assert.Equal(t, types.BINARY, resultMsg.DataType)
 	})
 }

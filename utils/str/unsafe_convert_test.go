@@ -100,19 +100,19 @@ func TestSafeConversions(t *testing.T) {
 func TestZeroCopyProperty(t *testing.T) {
 	original := "test string for zero copy"
 
-	// 测试string -> []byte零拷贝
+	// Test string -> []byte with zero copy
 	converted := UnsafeBytesFromString(original)
 	if len(converted) > 0 {
-		// 验证数据内容相同
+		// Verify that the data content is the same
 		if string(converted) != original {
 			t.Errorf("Zero copy conversion failed: got %q, want %q", string(converted), original)
 		}
 
-		// 注意：不能直接比较内存地址，因为string和[]byte的内存布局不同
-		// 但我们可以验证转换是否保持数据一致性
+		// Note: You cannot directly compare memory addresses because string and []byte have different memory layouts
+		// But we can verify whether the transformation maintains data consistency
 	}
 
-	// 测试[]byte -> string零拷贝
+	// Testing[] byte -> string zero copy
 	originalBytes := []byte("test bytes for zero copy")
 	convertedStr := UnsafeStringFromBytes(originalBytes)
 	if convertedStr != string(originalBytes) {
@@ -149,11 +149,11 @@ func TestBuildTagSelection(t *testing.T) {
 	t.Logf("Go version: %s", runtime.Version())
 	t.Logf("Selected implementation: %s", GetConverterInfo())
 
-	// 基本功能测试确保构建标签选择的实现正常工作
+	// Basic functional testing ensures that the implementation of build label selection works properly
 	testStr := "build tag test"
 	testBytes := []byte(testStr)
 
-	// 往返转换测试
+	// Round-trip conversion testing
 	convertedBytes := UnsafeBytesFromString(testStr)
 	backToString := UnsafeStringFromBytes(convertedBytes)
 	if backToString != testStr {
@@ -167,7 +167,7 @@ func TestBuildTagSelection(t *testing.T) {
 	}
 }
 
-// === 性能基准测试 ===
+// === Performance Benchmark ===
 
 func BenchmarkUnsafeStringFromBytes(b *testing.B) {
 	data := []byte("This is a test string for benchmarking unsafe conversion performance")
@@ -225,7 +225,7 @@ func BenchmarkRoundTrip_Safe(b *testing.B) {
 	}
 }
 
-// 比较不同大小字符串的性能
+// Compare the performance of strings of different sizes
 func BenchmarkConversionSizes(b *testing.B) {
 	sizes := []int{16, 64, 256, 1024, 4096}
 

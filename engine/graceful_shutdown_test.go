@@ -33,59 +33,59 @@ import (
 	str "github.com/rulego/rulego/utils/str"
 )
 
-// 注册测试用的自定义函数
+// Custom functions for registering tests
 func init() {
-	// 快速处理函数
+	// Quick-processing functions
 	action.Functions.Register("fastProcess", func(ctx types.RuleContext, msg types.RuleMsg) {
 		time.Sleep(10 * time.Millisecond)
 		ctx.TellSuccess(msg)
 	})
 
-	// 慢处理函数
+	// Slow processing function
 	action.Functions.Register("slowProcess", func(ctx types.RuleContext, msg types.RuleMsg) {
 		time.Sleep(2 * time.Second)
 		ctx.TellSuccess(msg)
 	})
 
-	// 超慢处理函数 - 支持上下文取消
+	// Ultra-slow processing function - supports context cancellation
 	action.Functions.Register("verySlowProcess", func(ctx types.RuleContext, msg types.RuleMsg) {
-		// 模拟一个真正的慢处理过程，不立即响应上下文取消
-		// 这样可以测试Stop方法的超时行为
+		// Simulating a truly slow processing process that does not immediately respond to context cancellation
+		// This allows testing the timeout behavior of the Stop method
 		startTime := time.Now()
 		for {
-			// 检查上下文是否被取消（优雅停机）
+			// Check if the context has been canceled (graceful shutdown)
 			select {
 			case <-ctx.GetContext().Done():
-				// 上下文被取消，进行清理并标记为失败
-				// 这模拟了真实世界中的情况，即使收到停机信号，操作也需要时间来安全退出
-				time.Sleep(350 * time.Millisecond) // 模拟清理时间，确保总时间超过400ms
+				// The context is canceled, cleaned up, and marked as failed
+				// This simulates real-world situations: even when a shutdown signal is received, operation still takes time to exit safely
+				time.Sleep(350 * time.Millisecond) // Simulated cleaning time ensures a total time of over 400ms
 				ctx.DoOnEnd(msg, ctx.GetContext().Err(), types.Failure)
 				return
 			default:
-				// 每100ms检查一次是否应该退出
+				// Check every 100ms to see if you should exit
 				time.Sleep(100 * time.Millisecond)
 
-				// 如果已经运行了5秒，正常完成
+				// If it has run for 5 seconds, it completes normally
 				if time.Since(startTime) >= 5*time.Second {
 					ctx.TellSuccess(msg)
 					return
 				}
-				// 继续处理
+				// Keep working on it
 			}
 		}
 	})
 
-	// 计数器测试函数
+	// Counter test function
 	action.Functions.Register("counterTest", func(ctx types.RuleContext, msg types.RuleMsg) {
-		// 模拟一些处理逻辑
+		// Simulate some processing logic
 		time.Sleep(100 * time.Millisecond)
 		ctx.TellSuccess(msg)
 	})
 }
 
-// TestEngineGracefulShutdownBehavior 测试引擎优雅停机行为（合并多个相关测试）
+// TestEngineGracefulShutdownBehavior (Combines multiple related tests)
 func TestEngineGracefulShutdownBehavior(t *testing.T) {
-	// 通用的规则链配置
+	// A general rule chain configuration
 	createRuleChain := func(functionName, chainId string) string {
 		return fmt.Sprintf(`{
 			"ruleChain": {
@@ -108,7 +108,7 @@ func TestEngineGracefulShutdownBehavior(t *testing.T) {
 		}`, chainId, functionName)
 	}
 
-	// 测试场景1：计数器边界情况
+	// Test Scenario 1: Counter boundary conditions
 	t.Run("CounterEdgeCases", func(t *testing.T) {
 		config := NewConfig()
 		chainId := str.RandomStr(10)
@@ -116,7 +116,7 @@ func TestEngineGracefulShutdownBehavior(t *testing.T) {
 		assert.Nil(t, err)
 		defer Del(chainId)
 
-		// 发送消息并验证计数器
+		// Send messages and verify the counter
 		var wg sync.WaitGroup
 		for i := 0; i < 10; i++ {
 			wg.Add(1)
@@ -129,20 +129,20 @@ func TestEngineGracefulShutdownBehavior(t *testing.T) {
 		wg.Wait()
 		time.Sleep(200 * time.Millisecond)
 
-		// 验证活跃操作计数
+		// Verify the active operation count
 		if engine, ok := ruleEngine.(*RuleEngine); ok {
 			activeOps := engine.GetActiveOperations()
 			assert.True(t, activeOps <= 0, "Active operations should be <= 0, got: %d", activeOps)
 		}
 
-		// 测试停机期间的计数器行为
+		// Test counter behavior during downtime
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		ruleEngine.Stop(ctx)
 		assert.True(t, ruleEngine.IsShuttingDown())
 	})
 
-	// 测试场景2：停机超时处理
+	// Test Scenario 2: Handling downtime timeout
 	t.Run("StopTimeout", func(t *testing.T) {
 		config := NewConfig()
 		chainId := str.RandomStr(10)
@@ -150,25 +150,25 @@ func TestEngineGracefulShutdownBehavior(t *testing.T) {
 		assert.Nil(t, err)
 		defer Del(chainId)
 
-		// 启动长时间运行的消息
+		// Launch messages that run for a long time
 		msg := types.NewMsg(0, "TIMEOUT_TEST", types.JSON, types.NewMetadata(), `{"test": "timeout"}`)
 		go ruleEngine.OnMsg(msg)
 		time.Sleep(200 * time.Millisecond)
 
-		// 使用短超时停机
+		// Use short overtime shutdown
 		startTime := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 		defer cancel()
 		ruleEngine.Stop(ctx)
 		elapsed := time.Since(startTime)
 
-		// 验证超时行为
+		// Verify timeout behavior
 		assert.True(t, elapsed >= 400*time.Millisecond && elapsed <= 2*time.Second,
 			"Stop should respect timeout, elapsed: %v", elapsed)
 		assert.True(t, ruleEngine.IsShuttingDown())
 	})
 
-	// 测试场景3：并发停机和重载
+	// Test Scenario 3: Concurrent shutdown and heavy loading
 	t.Run("ConcurrentStopAndReload", func(t *testing.T) {
 		config := NewConfig()
 		chainId := str.RandomStr(10)
@@ -177,7 +177,7 @@ func TestEngineGracefulShutdownBehavior(t *testing.T) {
 		assert.Nil(t, err)
 		defer Del(chainId)
 
-		// 启动消息处理
+		// Start message processing
 		for i := 0; i < 3; i++ {
 			go func(index int) {
 				msg := types.NewMsg(0, "CONCURRENT_TEST", types.JSON, types.NewMetadata(), fmt.Sprintf(`{"index": %d}`, index))
@@ -186,7 +186,7 @@ func TestEngineGracefulShutdownBehavior(t *testing.T) {
 		}
 		time.Sleep(300 * time.Millisecond)
 
-		// 并发执行停机和重载
+		// Concurrent execution of shutdown and reload
 		var wg sync.WaitGroup
 		var stopCompleted, reloadErrors int32
 
@@ -210,16 +210,16 @@ func TestEngineGracefulShutdownBehavior(t *testing.T) {
 
 		wg.Wait()
 
-		// 验证结果
+		// Verify the results
 		assert.Equal(t, int32(1), atomic.LoadInt32(&stopCompleted))
 		assert.True(t, ruleEngine.IsShuttingDown())
-		assert.True(t, atomic.LoadInt32(&reloadErrors) >= 0) // 重载可能失败或成功
+		assert.True(t, atomic.LoadInt32(&reloadErrors) >= 0) // Overloading can fail or succeed
 	})
 }
 
-// TestEngineGracefulShutdownAdvanced 测试引擎高级优雅停机场景（合并活跃消息处理和消息拒绝测试）
+// TestEngineGracefulShutdownAdvanced Advanced Elegant Downtime Scenario Test Engine (Merging Active Message Processing and Message Denial Testing)
 func TestEngineGracefulShutdownAdvanced(t *testing.T) {
-	// 通用的规则链配置
+	// A general rule chain configuration
 	createRuleChain := func(functionName, chainId string) string {
 		return fmt.Sprintf(`{
 			"ruleChain": {
@@ -242,7 +242,7 @@ func TestEngineGracefulShutdownAdvanced(t *testing.T) {
 		}`, chainId, functionName)
 	}
 
-	// 测试场景1：有活跃消息时的优雅停机
+	// Test Scenario 1: Graceful downtime when active messages appear
 	t.Run("ActiveMessagesShutdown", func(t *testing.T) {
 		config := NewConfig()
 		chainId := str.RandomStr(10)
@@ -250,7 +250,7 @@ func TestEngineGracefulShutdownAdvanced(t *testing.T) {
 		assert.Nil(t, err)
 		defer Del(chainId)
 
-		// 启动多个慢处理消息
+		// Initiate multiple slow-processing messages
 		var processedCount int64
 		var wg sync.WaitGroup
 		messageCount := 3
@@ -266,16 +266,16 @@ func TestEngineGracefulShutdownAdvanced(t *testing.T) {
 			}(i)
 		}
 
-		// 等待消息开始处理
+		// Waiting for the message to start processing
 		time.Sleep(500 * time.Millisecond)
 
-		// 检查活跃操作数
+		// Check the number of active operations
 		if engine, ok := ruleEngine.(*RuleEngine); ok {
 			activeOps := engine.GetActiveOperations()
 			assert.True(t, activeOps > 0, "Should have active operations")
 		}
 
-		// 启动优雅停机
+		// Launch with elegant stop
 		shutdownStart := time.Now()
 		shutdownDone := make(chan bool, 1)
 
@@ -286,10 +286,10 @@ func TestEngineGracefulShutdownAdvanced(t *testing.T) {
 			shutdownDone <- true
 		}()
 
-		// 等待所有消息处理完成
+		// Wait for all messages to be processed
 		wg.Wait()
 
-		// 等待停机完成
+		// Wait for the shutdown to complete
 		select {
 		case <-shutdownDone:
 			elapsed := time.Since(shutdownStart)
@@ -299,13 +299,13 @@ func TestEngineGracefulShutdownAdvanced(t *testing.T) {
 			t.Fatal("Graceful shutdown timeout")
 		}
 
-		// 验证最终状态
+		// Verify the final state
 		finalCount := atomic.LoadInt64(&processedCount)
 		assert.True(t, finalCount >= 0, "Should process some messages")
 		assert.True(t, ruleEngine.IsShuttingDown())
 	})
 
-	// 测试场景2：停机后拒绝新消息
+	// Test Scenario 2: Rejecting new messages after a shutdown
 	t.Run("MessageRejectionAfterShutdown", func(t *testing.T) {
 		config := NewConfig()
 		chainId := str.RandomStr(10)
@@ -313,7 +313,7 @@ func TestEngineGracefulShutdownAdvanced(t *testing.T) {
 		assert.Nil(t, err)
 		defer Del(chainId)
 
-		// 先处理一条消息确保引擎正常工作
+		// First, handle a message to ensure the engine is working properly
 		msg := types.NewMsg(0, "PRE_SHUTDOWN", types.JSON, types.NewMetadata(), `{"test": "pre"}`)
 		processed := make(chan bool, 1)
 		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
@@ -321,13 +321,13 @@ func TestEngineGracefulShutdownAdvanced(t *testing.T) {
 		}))
 		<-processed
 
-		// 停机
+		// Shutdown
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 		ruleEngine.Stop(ctx)
 		assert.True(t, ruleEngine.IsShuttingDown())
 
-		// 尝试发送新消息，应该被拒绝
+		// Trying to send a new message should be rejected
 		var rejectedCount, processedCount int64
 		for i := 0; i < 5; i++ {
 			newMsg := types.NewMsg(0, "POST_SHUTDOWN", types.JSON, types.NewMetadata(), fmt.Sprintf(`{"index": %d}`, i))
@@ -341,36 +341,36 @@ func TestEngineGracefulShutdownAdvanced(t *testing.T) {
 			time.Sleep(10 * time.Millisecond)
 		}
 
-		// 等待回调完成
+		// Waiting for the pullback to complete
 		time.Sleep(200 * time.Millisecond)
 
-		// 停机后应该拒绝所有新消息
+		// After the shutdown, all new news should be rejected
 		assert.Equal(t, int64(0), atomic.LoadInt64(&processedCount), "Should not process new messages after shutdown")
 		assert.True(t, atomic.LoadInt64(&rejectedCount) >= 0, "Should track rejection attempts")
 	})
 }
 
-// TestEngineGracefulShutdownShouldWaitForRuleChain 测试优雅停机是否等待规则链执行完成
-// 验证当有消息正在处理时，Stop方法应该等待规则链执行完成而不是立即取消
-// TestEngineTwoPhaseGracefulShutdown 测试两阶段优雅停机逻辑
-// 验证：1. 正在执行的规则链能继续处理完成 2. 超时后能强制中断
+// TestEngineGracefulShutdownShouldWaitForRuleChain Test whether the elegant shutdown is waiting for the rule chain to complete
+// Verify that when a message is being processed, the Stop method should wait for the rule chain to complete execution rather than cancel immediately
+// TestEngineTwoPhaseGracefulShutdown tests the logic of the two-phase graceful shutdown
+// Verification: 1. The executing rule chain can continue processing and completing 2. After timeout, you can forcibly interrupt the event
 func TestEngineTwoPhaseGracefulShutdown(t *testing.T) {
-	// 注册一个支持上下文检查的处理函数
+	// Register a handler that supports context checking
 	action.Functions.Register("contextAwareProcess", func(ctx types.RuleContext, msg types.RuleMsg) {
-		// 模拟处理过程，每100ms检查一次上下文
-		for i := 0; i < 30; i++ { // 总共3秒
+		// Simulates the processing process, checking context every 100ms
+		for i := 0; i < 30; i++ { // A total of 3 seconds
 			time.Sleep(100 * time.Millisecond)
-			// 检查上下文是否被取消
+			// Check if the context is canceled
 			select {
 			case <-ctx.GetContext().Done():
-				// 上下文被取消，标记为失败并退出
+				// The context is canceled, marked as failed, and exited
 				ctx.DoOnEnd(msg, ctx.GetContext().Err(), types.Failure)
 				return
 			default:
-				// 继续处理
+				// Keep working on it
 			}
 		}
-		// 正常完成
+		// Completed normally
 		ctx.TellSuccess(msg)
 	})
 
@@ -400,15 +400,15 @@ func TestEngineTwoPhaseGracefulShutdown(t *testing.T) {
 	assert.Nil(t, err)
 	defer Del(chainId)
 
-	// 测试场景1：短时间内完成的消息应该正常完成
+	// Test Scenario 1: Messages completed within a short time should be completed normally
 	t.Run("ShortProcessShouldComplete", func(t *testing.T) {
 		var messageCompleted bool
 		var messageCompletedMutex sync.Mutex
 		var messageRelationType string
 
-		// 注册一个快速处理函数
+		// Register a quick processing function
 		action.Functions.Register("quickProcess", func(ctx types.RuleContext, msg types.RuleMsg) {
-			time.Sleep(500 * time.Millisecond) // 0.5秒
+			time.Sleep(500 * time.Millisecond) // 0.5 seconds
 			ctx.TellSuccess(msg)
 		})
 
@@ -437,7 +437,7 @@ func TestEngineTwoPhaseGracefulShutdown(t *testing.T) {
 		assert.Nil(t, err)
 		defer Del(quickChainId)
 
-		// 发送消息
+		// Send the message
 		msg := types.NewMsg(0, "QUICK_TEST", types.JSON, types.NewMetadata(), `{"test": "quick"}`)
 		quickEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			messageCompletedMutex.Lock()
@@ -446,17 +446,17 @@ func TestEngineTwoPhaseGracefulShutdown(t *testing.T) {
 			messageCompletedMutex.Unlock()
 		}))
 
-		// 等待消息开始处理
+		// Waiting for the message to start processing
 		time.Sleep(100 * time.Millisecond)
 
-		// 启动优雅停机，给予2秒超时
+		// Graceful start-up stop, with a 2-second timeout
 		shutdownStart := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		quickEngine.Stop(ctx)
 		elapsed := time.Since(shutdownStart)
 
-		// 检查结果
+		// Inspection results
 		messageCompletedMutex.Lock()
 		completed := messageCompleted
 		relationType := messageRelationType
@@ -464,22 +464,22 @@ func TestEngineTwoPhaseGracefulShutdown(t *testing.T) {
 
 		t.Logf("Quick process - Completed: %v, RelationType: %s, Elapsed: %v", completed, relationType, elapsed)
 
-		// 快速处理应该正常完成
+		// Quick processing should be completed normally
 		assert.True(t, completed, "Quick process should complete")
 		assert.Equal(t, types.Success, relationType, "Quick process should succeed")
-		// 由于并发处理，实际时间可能略少于500ms，所以放宽要求
+		// Due to concurrent processing, the actual time may be slightly less than 500ms, so the requirements are relaxed
 		assert.True(t, elapsed >= 300*time.Millisecond, "Should wait for process to complete, got: %v", elapsed)
 		assert.True(t, elapsed < 1500*time.Millisecond, "Should not take too long")
 	})
 
-	// 测试场景2：超时的消息应该被强制中断
+	// Test Scenario 2: Timed messages should be forcibly interrupted
 	t.Run("TimeoutProcessShouldBeInterrupted", func(t *testing.T) {
 		var messageCompleted bool
 		var messageCompletedMutex sync.Mutex
 		var messageRelationType string
 		var messageError error
 
-		// 发送一个长时间处理的消息
+		// Send a message that has been processed for a long time
 		msg := types.NewMsg(0, "TIMEOUT_TEST", types.JSON, types.NewMetadata(), `{"test": "timeout"}`)
 		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			messageCompletedMutex.Lock()
@@ -490,20 +490,20 @@ func TestEngineTwoPhaseGracefulShutdown(t *testing.T) {
 			t.Logf("Long process completed with relation: %s, error: %v", relationType, err)
 		}))
 
-		// 等待消息开始处理
+		// Waiting for the message to start processing
 		time.Sleep(200 * time.Millisecond)
 
-		// 启动优雅停机，给予1秒超时（小于3秒的处理时间）
+		// Start-up graceful shutdown, with a 1-second timeout (less than 3 seconds of processing time)
 		shutdownStart := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 		ruleEngine.Stop(ctx)
 		elapsed := time.Since(shutdownStart)
 
-		// 等待一段时间确保回调被调用
+		// Wait a while to ensure the pullback is called
 		time.Sleep(500 * time.Millisecond)
 
-		// 检查结果
+		// Inspection results
 		messageCompletedMutex.Lock()
 		completed := messageCompleted
 		relationType := messageRelationType
@@ -512,11 +512,11 @@ func TestEngineTwoPhaseGracefulShutdown(t *testing.T) {
 
 		t.Logf("Long process - Completed: %v, RelationType: %s, Error: %v, Elapsed: %v", completed, relationType, err, elapsed)
 
-		// 应该在超时后被中断
+		// It should be interrupted after the timeout
 		assert.True(t, elapsed >= 1*time.Second, "Should wait for timeout")
 		assert.True(t, elapsed < 4*time.Second, "Should not wait for full process completion")
 
-		// 如果消息完成了，应该是失败状态
+		// If the message is complete, it should be a failure state
 		if completed {
 			assert.Equal(t, types.Failure, relationType, "Interrupted process should be marked as failure")
 			assert.NotNil(t, err, "Should have cancellation error")
@@ -551,13 +551,13 @@ func TestEngineGracefulShutdownShouldWaitForRuleChain(t *testing.T) {
 	assert.Nil(t, err)
 	defer Del(chainId)
 
-	// 启动一个慢处理消息
+	// Start a slow message processing
 	var messageCompleted bool
 	var messageCompletedMutex sync.Mutex
 	var messageStarted bool
 	var messageStartedMutex sync.Mutex
 
-	// 发送消息
+	// Send the message
 	msg := types.NewMsg(0, "GRACEFUL_TEST", types.JSON, types.NewMetadata(), `{"test": "graceful"}`)
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		messageCompletedMutex.Lock()
@@ -566,20 +566,20 @@ func TestEngineGracefulShutdownShouldWaitForRuleChain(t *testing.T) {
 		t.Logf("Message completed with relation: %s, error: %v", relationType, err)
 	}))
 
-	// 等待消息开始处理
+	// Waiting for the message to start processing
 	//time.Sleep(100 * time.Millisecond)
 	messageStartedMutex.Lock()
 	messageStarted = true
 	messageStartedMutex.Unlock()
 
-	// 检查活跃操作数
+	// Check the number of active operations
 	if engine, ok := ruleEngine.(*RuleEngine); ok {
 		activeOps := engine.GetActiveOperations()
 		t.Logf("Active operations before shutdown: %d", activeOps)
 		assert.True(t, activeOps > 0, "Should have active operations")
 	}
 
-	// 启动优雅停机
+	// Launch with elegant stop
 	shutdownStart := time.Now()
 	shutdownDone := make(chan bool, 1)
 
@@ -590,13 +590,13 @@ func TestEngineGracefulShutdownShouldWaitForRuleChain(t *testing.T) {
 		shutdownDone <- true
 	}()
 
-	// 等待停机完成
+	// Wait for the shutdown to complete
 	select {
 	case <-shutdownDone:
 		elapsed := time.Since(shutdownStart)
 		t.Logf("Shutdown completed in %v", elapsed)
 
-		// 检查消息是否完成
+		// Check if the message is complete
 		messageCompletedMutex.Lock()
 		completed := messageCompleted
 		messageCompletedMutex.Unlock()
@@ -607,7 +607,7 @@ func TestEngineGracefulShutdownShouldWaitForRuleChain(t *testing.T) {
 
 		t.Logf("Message started: %v, Message completed: %v", started, completed)
 
-		// 如果消息已经开始处理，优雅停机应该等待其完成
+		// If the message has already started to be processed, graceful shutdown should wait for it to be completed
 		if started {
 			assert.True(t, completed, "Graceful shutdown should wait for message to complete")
 			assert.True(t, elapsed >= 1*time.Second, "Should wait for slow process to complete")
@@ -617,18 +617,18 @@ func TestEngineGracefulShutdownShouldWaitForRuleChain(t *testing.T) {
 		t.Fatal("Graceful shutdown timeout")
 	}
 
-	// 验证最终状态
+	// Verify the final state
 	assert.True(t, ruleEngine.IsShuttingDown())
 
-	// 检查最终的活跃操作计数
+	// Check the final active operation count
 	if engine, ok := ruleEngine.(*RuleEngine); ok {
 		finalActiveOps := engine.GetActiveOperations()
 		assert.True(t, finalActiveOps <= 0, "Final active operations should be <= 0, got: %d", finalActiveOps)
 	}
 }
 
-// TestEngineGracefulShutdownWithContextCancellation 测试上下文取消时的处理
-// 验证当上下文被取消时，正在处理的消息应该被标记为失败而不是成功
+// TestEngineGracefulShutdownWithContextCancellation Tests the handling of context cancellation
+// Validation: When context is canceled, the message being processed should be marked as a failure rather than a success
 func TestEngineGracefulShutdownWithContextCancellation(t *testing.T) {
 	ruleChainFile := `{
 		"ruleChain": {
@@ -656,13 +656,13 @@ func TestEngineGracefulShutdownWithContextCancellation(t *testing.T) {
 	assert.Nil(t, err)
 	defer Del(chainId)
 
-	// 启动一个超慢处理消息
+	// Start an ultra-slow message processing
 	var messageCompleted bool
 	var messageCompletedMutex sync.Mutex
 	var messageRelationType string
 	var messageError error
 
-	// 发送消息
+	// Send the message
 	msg := types.NewMsg(0, "CANCEL_TEST", types.JSON, types.NewMetadata(), `{"test": "cancel"}`)
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		messageCompletedMutex.Lock()
@@ -673,35 +673,35 @@ func TestEngineGracefulShutdownWithContextCancellation(t *testing.T) {
 		t.Logf("Message completed with relation: %s, error: %v", relationType, err)
 	}))
 
-	// 等待消息开始处理
+	// Waiting for the message to start processing
 	time.Sleep(100 * time.Millisecond)
 
-	// 检查活跃操作数
+	// Check the number of active operations
 	if engine, ok := ruleEngine.(*RuleEngine); ok {
 		activeOps := engine.GetActiveOperations()
 		t.Logf("Active operations before shutdown: %d", activeOps)
 		assert.True(t, activeOps > 0, "Should have active operations")
 	}
 
-	// 启动优雅停机，但使用较短的超时时间强制取消
+	// Start-up gracefully stops but uses a shorter timeout to force cancellation
 	shutdownStart := time.Now()
 	shutdownDone := make(chan bool, 1)
 
 	go func() {
-		// 使用2秒超时，但verySlowProcess需要5秒，所以会被取消
+		// Uses a 2-second timeout, but verySlowProcess takes 5 seconds, so it will be canceled
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		ruleEngine.Stop(ctx)
 		shutdownDone <- true
 	}()
 
-	// 等待停机完成
+	// Wait for the shutdown to complete
 	select {
 	case <-shutdownDone:
 		elapsed := time.Since(shutdownStart)
 		t.Logf("Shutdown completed in %v", elapsed)
 
-		// 检查消息处理结果
+		// Check the message processing results
 		messageCompletedMutex.Lock()
 		completed := messageCompleted
 		relationType := messageRelationType
@@ -710,15 +710,15 @@ func TestEngineGracefulShutdownWithContextCancellation(t *testing.T) {
 
 		t.Logf("Message completed: %v, Relation: %s, Error: %v", completed, relationType, err)
 
-		// 应该在合理时间内完成，考虑到verySlowProcess需要清理时间
-		// 2秒超时 + 350ms清理时间，应该在2.6秒内完成
+		// It should be completed within a reasonable time, considering that verySlowProcess requires cleaning time
+		// 2-second timeout + 350ms cleaning time should be completed within 2.6 seconds
 		assert.True(t, elapsed <= 2600*time.Millisecond, "Should complete within timeout + cleanup time, elapsed: %v", elapsed)
-		// 但应该比原本的5秒快很多
+		// But it should be much faster than the original 5 seconds
 		assert.True(t, elapsed >= 2*time.Second, "Should wait for timeout before cancellation, elapsed: %v", elapsed)
 
-		// 消息应该被标记为失败或被取消
+		// Messages should be marked as failed or canceled
 		if completed {
-			// 如果消息完成了，应该是失败状态或包含取消错误
+			// If the message is complete, it should be in a failed state or contain a cancel error
 			assert.True(t, relationType == types.Failure || (err != nil && strings.Contains(err.Error(), "cancel")),
 				"Message should be marked as failure or cancelled, got relation: %s, error: %v", relationType, err)
 		}
@@ -727,25 +727,25 @@ func TestEngineGracefulShutdownWithContextCancellation(t *testing.T) {
 		t.Fatal("Graceful shutdown timeout")
 	}
 
-	// 验证最终状态
+	// Verify the final state
 	assert.True(t, ruleEngine.IsShuttingDown())
 
-	// 检查最终的活跃操作计数
+	// Check the final active operation count
 	if engine, ok := ruleEngine.(*RuleEngine); ok {
 		finalActiveOps := engine.GetActiveOperations()
 		assert.True(t, finalActiveOps <= 0, "Final active operations should be <= 0, got: %d", finalActiveOps)
 	}
 }
 
-// TestEngineGracefulShutdownWithConcurrentStop 测试消息执行期间并发Stop的行为
-// 验证当有消息正在执行时并发调用Stop，消息应该继续执行完成
+// TestEngineGracefulShutdownWithConcurrentStop The behavior of concurrent Stop during test message execution
+// Verify that when a message is running, a concurrent call called Stop should continue execution to complete
 func TestEngineGracefulShutdownWithConcurrentStop(t *testing.T) {
-	// 注册带同步信号的慢处理函数
+	// Register slow processing functions with synchronization signals
 	processingStarted := make(chan bool, 1)
 	action.Functions.Register("syncSlowProcess", func(ctx types.RuleContext, msg types.RuleMsg) {
-		// 发送处理开始信号
+		// Send a signal to start processing
 		processingStarted <- true
-		// 执行慢处理逻辑
+		// Execute slow processing logic
 		time.Sleep(2 * time.Second)
 		ctx.TellSuccess(msg)
 	})
@@ -776,14 +776,14 @@ func TestEngineGracefulShutdownWithConcurrentStop(t *testing.T) {
 	assert.Nil(t, err)
 	defer Del(chainId)
 
-	// 测试场景：消息执行期间并发Stop，消息应该继续执行完成
+	// Test scenario: During message execution, concurrent Stop occurs, and the message should continue to be executed
 	t.Run("MessageShouldContinueExecution", func(t *testing.T) {
 		var messageCompleted bool
 		var messageCompletedMutex sync.Mutex
 		var messageRelationType string
 		var messageError error
 
-		// 启动一个慢处理消息
+		// Start a slow message processing
 		msg := types.NewMsg(0, "CONCURRENT_STOP_TEST", types.JSON, types.NewMetadata(), `{"test": "concurrent_stop"}`)
 		go ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			messageCompletedMutex.Lock()
@@ -794,7 +794,7 @@ func TestEngineGracefulShutdownWithConcurrentStop(t *testing.T) {
 			t.Logf("Message completed with relation: %s, error: %v", relationType, err)
 		}))
 
-		// 等待消息确实开始处理（使用同步信号而非固定延迟）
+		// Wait for the message to actually start processing (using synchronization signals instead of fixed delay)
 		select {
 		case <-processingStarted:
 			t.Logf("Message processing started")
@@ -802,32 +802,32 @@ func TestEngineGracefulShutdownWithConcurrentStop(t *testing.T) {
 			t.Fatal("Message processing did not start within timeout")
 		}
 
-		// 检查活跃操作数
+		// Check the number of active operations
 		if engine, ok := ruleEngine.(*RuleEngine); ok {
 			activeOps := engine.GetActiveOperations()
 			t.Logf("Active operations before shutdown: %d", activeOps)
 			assert.True(t, activeOps > 0, "Should have active operations")
 		}
 
-		// 在消息执行期间启动优雅停机
+		// Graceful shutdown is initiated during message execution
 		shutdownStart := time.Now()
 		shutdownDone := make(chan bool, 1)
 
 		go func() {
-			// 使用足够长的超时时间，确保消息能够完成
+			// Use a sufficiently long timeout to ensure messages can be completed
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			ruleEngine.Stop(ctx)
 			shutdownDone <- true
 		}()
 
-		// 等待停机完成
+		// Wait for the shutdown to complete
 		select {
 		case <-shutdownDone:
 			elapsed := time.Since(shutdownStart)
 			t.Logf("Shutdown completed in %v", elapsed)
 
-			// 检查消息处理结果
+			// Check the message processing results
 			messageCompletedMutex.Lock()
 			completed := messageCompleted
 			relationType := messageRelationType
@@ -836,10 +836,10 @@ func TestEngineGracefulShutdownWithConcurrentStop(t *testing.T) {
 
 			t.Logf("Message completed: %v, Relation: %s, Error: %v", completed, relationType, err)
 
-			// 应该等待消息完成，所以至少需要接近2秒（syncSlowProcess的执行时间）
+			// You should wait for the message to complete, so it takes at least nearly 2 seconds (the execution time of syncSlowProcess)
 			assert.True(t, elapsed >= 1800*time.Millisecond, "Should wait for message to complete, elapsed: %v", elapsed)
 
-			// 消息应该成功完成（已开始执行的消息不应被中断）
+			// Messages should be completed successfully (messages that have started execution should not be interrupted)
 			assert.True(t, completed, "Message should be completed")
 			assert.Equal(t, types.Success, relationType, "Message should complete successfully")
 			assert.Nil(t, err, "Message should not have error")
@@ -848,10 +848,10 @@ func TestEngineGracefulShutdownWithConcurrentStop(t *testing.T) {
 			t.Fatal("Graceful shutdown timeout")
 		}
 
-		// 验证最终状态
+		// Verify the final state
 		assert.True(t, ruleEngine.IsShuttingDown())
 
-		// 检查最终的活跃操作计数
+		// Check the final active operation count
 		if engine, ok := ruleEngine.(*RuleEngine); ok {
 			finalActiveOps := engine.GetActiveOperations()
 			assert.True(t, finalActiveOps <= 0, "Final active operations should be <= 0, got: %d", finalActiveOps)
@@ -859,10 +859,10 @@ func TestEngineGracefulShutdownWithConcurrentStop(t *testing.T) {
 	})
 }
 
-// TestEngineConcurrentOnMsgAndStop 测试并发执行OnMsg和Stop时的计数器问题
-// 这个测试用例验证了当OnMsg和Stop并发执行时，活跃操作计数器可能阻塞减1导致Stop超时的问题
+// TestEngineConcurrentOnMsgAndStop tests counter issues when OnMsg and Stop are executed concurrently
+// This test case verifies that when OnMsg and Stop execute concurrently, the active operation counter may block minus 1, causing Stop to time out
 // TestEngineContextPreservation tests that user-provided context is not overridden by shutdown context
-// TestEngineContextPreservation 测试用户提供的上下文不会被停机上下文覆盖
+// TestEngineContextPreservation tests that the context provided by the user will not be overwritten by the downtime context
 func TestEngineContextPreservation(t *testing.T) {
 	ruleChainFile := `{
 		"ruleChain": {
@@ -931,8 +931,8 @@ func TestEngineContextPreservation(t *testing.T) {
 
 // TestEngineGracefulShutdownWithUserContext tests that user-provided context
 // is properly combined with shutdown context to ensure graceful shutdown timeout works
-// TestEngineGracefulShutdownWithUserContext 测试用户提供的上下文与停机上下文正确组合，
-// 确保优雅停机超时机制正常工作
+// TestEngineGracefulShutdownWithUserContext tests the correct combination of the user-provided context and the downtime context,
+// Ensure the elegant shutdown timeout mechanism works properly
 func TestEngineGracefulShutdownWithUserContext(t *testing.T) {
 	ruleChainFile := `{
 		"ruleChain": {
@@ -1070,28 +1070,28 @@ func TestEngineConcurrentOnMsgAndStop(t *testing.T) {
 	}`
 
 	config := NewConfig()
-	// 注册测试节点
+	// Register test nodes
 	_ = Registry.Register(&test.UpperNode{})
 	_ = Registry.Register(&test.TimeNode{})
 
-	// 测试场景1: 模拟竞态条件
+	// Test Scenario 1: Simulating race conditions
 	t.Run("ConcurrentRaceCondition", func(t *testing.T) {
-		// 重复多次以增加触发竞态条件的概率
+		// Repeat multiple times to increase the chance of triggering a contest condition
 		for attempt := 0; attempt < 10; attempt++ {
 			t.Logf("Attempt %d", attempt+1)
 
-			// 创建新的引擎实例
+			// Create a new engine instance
 			testChainId := fmt.Sprintf("test_concurrent_%d", attempt)
 			testEngine, err := New(testChainId, []byte(ruleChainFile), WithConfig(config))
 			assert.Nil(t, err)
 			defer Del(testChainId)
 
-			// 并发执行OnMsg和Stop
+			// Concurrent execution of OnMsg and Stop
 			var wg sync.WaitGroup
 			var stopTimeout bool
 			var stopCompleted int32
 
-			// 启动OnMsg
+			// Launch OnMsg
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -1099,11 +1099,11 @@ func TestEngineConcurrentOnMsgAndStop(t *testing.T) {
 				testEngine.OnMsg(msg)
 			}()
 
-			// 立即启动Stop（不等待）
+			// Stop (no waiting) immediately started
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				// 短暂延迟以确保OnMsg先开始
+				// A brief delay to ensure OnMsg starts first
 				time.Sleep(1 * time.Millisecond)
 
 				startTime := time.Now()
@@ -1113,8 +1113,8 @@ func TestEngineConcurrentOnMsgAndStop(t *testing.T) {
 				testEngine.Stop(ctx)
 				elapsed := time.Since(startTime)
 
-				// 检查是否超时
-				if elapsed >= 1800*time.Millisecond { // 接近2秒超时
+				// Check if it's timed out
+				if elapsed >= 1800*time.Millisecond { // Nearly 2 seconds over
 					stopTimeout = true
 					t.Logf("Stop timeout detected in attempt %d, elapsed: %v", attempt+1, elapsed)
 				}
@@ -1123,53 +1123,53 @@ func TestEngineConcurrentOnMsgAndStop(t *testing.T) {
 
 			wg.Wait()
 
-			// 验证Stop是否完成
+			// Verify whether the Stop has been completed
 			assert.Equal(t, int32(1), atomic.LoadInt32(&stopCompleted), "Stop should complete")
 
-			// 检查最终的活跃操作计数
+			// Check the final active operation count
 			if engine, ok := testEngine.(*RuleEngine); ok {
 				finalActiveOps := engine.GetActiveOperations()
 				t.Logf("Final active operations: %d", finalActiveOps)
-				// 注意：这里可能仍然是正数，这就是问题所在
+				// Note: This may still be positive, and that's the problem
 			}
 
-			// 如果发现超时，记录问题
+			// If timeouts are found, record the issues
 			if stopTimeout {
 				t.Logf("Race condition detected: Stop timeout due to active operations counter not decremented")
-				// 这里不使用assert.Fail，因为我们期望在某些情况下会出现这个问题
-				break // 找到问题就退出循环
+				// assert.Fail is not used here, because we expect this issue to arise in certain situations
+				break // Once you find a problem, exit the loop
 			}
 		}
 	})
 
-	// 测试场景2：验证修复后的行为（添加适当的延迟）
+	// Test Scenario 2: Verify the behavior after fixing (add appropriate delay)
 	t.Run("WithProperDelay", func(t *testing.T) {
 		testChainId := "test_concurrent_fixed"
 		testEngine, err := New(testChainId, []byte(ruleChainFile), WithConfig(config))
 		assert.Nil(t, err)
 		// Note: Don't use defer Del() to avoid double Stop() call issue
 
-		// 发送消息
+		// Send the message
 		msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{"test": "data"}`)
 		testEngine.OnMsg(msg)
 
-		// 添加适当的延迟，让消息处理完成
+		// Add appropriate delay to allow message processing to complete
 		time.Sleep(200 * time.Millisecond)
 
-		// 检查活跃操作计数应该为0
+		// Check that the active operation count should be zero
 		if engine, ok := testEngine.(*RuleEngine); ok {
 			activeOps := engine.GetActiveOperations()
 			assert.Equal(t, int64(0), activeOps, "Active operations should be 0 after message processing")
 		}
 
-		// 现在Stop应该不会超时
+		// Stop should not be timed out now
 		startTime := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		testEngine.Stop(ctx)
 		elapsed := time.Since(startTime)
 
-		// Stop应该很快完成，不会超时
+		// The stop should be completed quickly and will not be timed out
 		assert.True(t, elapsed < 500*time.Millisecond, "Stop should complete quickly when no active operations, elapsed: %v", elapsed)
 		assert.True(t, testEngine.IsShuttingDown(), "Engine should be in shutdown state")
 
@@ -1178,17 +1178,17 @@ func TestEngineConcurrentOnMsgAndStop(t *testing.T) {
 	})
 }
 
-// TestEngineReloadBehavior 测试引擎重载行为
+// TestEngineReloadBehavior
 func TestEngineReloadBehavior(t *testing.T) {
-	// 注册重载测试用的处理函数
+	// Register handler functions for overloading tests
 	action.Functions.Register("reloadTestProcess", func(ctx types.RuleContext, msg types.RuleMsg) {
-		time.Sleep(100 * time.Millisecond) // 0.1秒处理时间
+		time.Sleep(100 * time.Millisecond) // 0.1 seconds processing time
 		ctx.TellSuccess(msg)
 	})
 
-	// 注册一个慢速重载测试函数，用于模拟重载期间的长时间处理
+	// Register a slow reload test function to simulate long-term handling during overload
 	action.Functions.Register("slowReloadTestProcess", func(ctx types.RuleContext, msg types.RuleMsg) {
-		time.Sleep(2 * time.Second) // 2秒处理时间，确保重载期间有足够时间
+		time.Sleep(2 * time.Second) // 2-second processing time ensures sufficient time during heavy loading
 		ctx.TellSuccess(msg)
 	})
 
@@ -1225,18 +1225,18 @@ func TestEngineReloadBehavior(t *testing.T) {
 	assert.Nil(t, err)
 	defer Del(chainId)
 
-	// 测试场景1：重载期间消息应该被阻塞直到重载完成
+	// Test Scenario 1: During reload, messages should be blocked until the overload is complete
 	t.Run("MessagesBlockedDuringReload", func(t *testing.T) {
-		// 确保引擎使用快速处理的规则链
+		// Ensure the engine uses fast-processing rule chains
 		reloadErr := ruleEngine.ReloadSelf([]byte(ruleChainFile))
 		assert.Nil(t, reloadErr)
-		time.Sleep(100 * time.Millisecond) // 等待重载完成
+		time.Sleep(100 * time.Millisecond) // Wait for the reload to complete
 		var processedCount int64
 		var blockedCount int64
 		var wg sync.WaitGroup
 		var callbackWg sync.WaitGroup
 
-		// 创建一个使用慢速处理函数的规则链，用于模拟重载期间的长时间操作
+		// Create a rule chain using slow processing functions to simulate long operations during overload
 		slowRuleChainFile := `{
 			"ruleChain": {
 				"id": "test_reload_behavior_slow",
@@ -1264,17 +1264,17 @@ func TestEngineReloadBehavior(t *testing.T) {
 			}
 		}`
 
-		// 启动重载操作（先启动重载）
+		// Start the reload operation (start the reload first)
 		reloadDone := make(chan error, 1)
 		go func() {
 			err := ruleEngine.ReloadSelf([]byte(slowRuleChainFile))
 			reloadDone <- err
 		}()
 
-		// 稍微延迟后发送消息，确保消息在重载期间到达
+		// Send messages with a slight delay to ensure messages arrive during reload
 		time.Sleep(50 * time.Millisecond)
 
-		// 发送消息，这些消息应该等待重载完成
+		// Send messages, which should wait for the reload to complete
 		for i := 0; i < 3; i++ {
 			wg.Add(1)
 			callbackWg.Add(1)
@@ -1287,7 +1287,7 @@ func TestEngineReloadBehavior(t *testing.T) {
 					elapsed := time.Since(startTime)
 					t.Logf("Message %d processed in %v with relation: %s, error: %v", index, elapsed, relationType, err)
 					if elapsed > 200*time.Millisecond {
-						// 如果处理时间超过200毫秒，说明等待了重载完成
+						// If the processing time exceeds 200 milliseconds, it means the overload is waiting for completion
 						newBlocked := atomic.AddInt64(&blockedCount, 1)
 						t.Logf("Message %d marked as blocked, blockedCount now: %d", index, newBlocked)
 					}
@@ -1297,21 +1297,21 @@ func TestEngineReloadBehavior(t *testing.T) {
 					}
 				}))
 			}(i)
-			time.Sleep(10 * time.Millisecond) // 短间隔发送
+			time.Sleep(10 * time.Millisecond) // Short intervals for transmission
 		}
 
-		// 等待所有消息处理完成
+		// Wait for all messages to be processed
 		wg.Wait()
 
-		// 等待重载完成
+		// Wait for the reload to complete
 		reloadResult := <-reloadDone
 		t.Logf("Reload completed with error: %v", reloadResult)
 		assert.Nil(t, reloadResult, "Reload should succeed")
 
-		// 等待所有回调函数完成
+		// Wait for all callback functions to complete
 		callbackWg.Wait()
 
-		// 验证结果
+		// Verify the results
 		processed := atomic.LoadInt64(&processedCount)
 		blocked := atomic.LoadInt64(&blockedCount)
 		t.Logf("Final - Processed: %d, Blocked: %d", processed, blocked)
@@ -1319,27 +1319,27 @@ func TestEngineReloadBehavior(t *testing.T) {
 		assert.Equal(t, int64(3), processed, "All messages should be processed")
 		assert.True(t, blocked > 0, "Some messages should wait for reload to complete")
 
-		// 测试结束后重置为快速处理规则链，避免影响后续测试
+		// After testing, the chain resets to fast processing of the rule chain to avoid affecting subsequent tests
 		resetErr := ruleEngine.ReloadSelf([]byte(ruleChainFile))
 		assert.Nil(t, resetErr)
-		time.Sleep(100 * time.Millisecond) // 等待重载完成
+		time.Sleep(100 * time.Millisecond) // Wait for the reload to complete
 	})
 
-	// 测试场景2：重载完成后新消息应该正常处理
+	// Test Scenario 2: After reloading is complete, new messages should be processed normally
 	t.Run("MessagesProcessedAfterReload", func(t *testing.T) {
-		// 先执行一次重载，确保使用快速处理的规则链
+		// First, perform a reload to ensure the use of fast-processing rule chains
 		reloadErr := ruleEngine.ReloadSelf([]byte(ruleChainFile))
 		assert.Nil(t, reloadErr)
 
-		// 等待重载完成
+		// Wait for the reload to complete
 		time.Sleep(100 * time.Millisecond)
 
-		// 验证引擎不再处于重载状态
+		// The verification engine is no longer overloaded
 		if engine, ok := ruleEngine.(*RuleEngine); ok {
 			assert.False(t, engine.IsReloading(), "Engine should not be reloading after reload completes")
 		}
 
-		// 发送新消息，应该正常处理
+		// Sending new messages should be handled normally
 		var processedCount int64
 		var wg sync.WaitGroup
 		var callbackWg sync.WaitGroup
@@ -1365,22 +1365,22 @@ func TestEngineReloadBehavior(t *testing.T) {
 
 		wg.Wait()
 
-		// 等待所有回调函数完成
+		// Wait for all callback functions to complete
 		callbackWg.Wait()
 
-		// 验证所有消息都正常处理
+		// Verify that all messages are processed correctly
 		processed := atomic.LoadInt64(&processedCount)
 		t.Logf("Final processedCount: %d", processed)
 		assert.Equal(t, int64(3), processed, "All messages should be processed successfully after reload")
 	})
 
-	// 测试场景3：重载期间活跃消息应该等待完成
+	// Test Scenario 3: Active messages during reload should wait for completion
 	t.Run("ActiveMessagesWaitDuringReload", func(t *testing.T) {
-		// 确保引擎使用快速处理的规则链
+		// Ensure the engine uses fast-processing rule chains
 		reloadErr := ruleEngine.ReloadSelf([]byte(ruleChainFile))
 		assert.Nil(t, reloadErr)
-		time.Sleep(100 * time.Millisecond) // 等待重载完成
-		// 发送一个长时间处理的消息
+		time.Sleep(100 * time.Millisecond) // Wait for the reload to complete
+		// Send a message that has been processed for a long time
 		var longProcessCompleted bool
 		var longProcessMutex sync.Mutex
 
@@ -1392,19 +1392,19 @@ func TestEngineReloadBehavior(t *testing.T) {
 			t.Logf("Long process completed with relation: %s", relationType)
 		}))
 
-		// 等待消息开始处理
+		// Waiting for the message to start processing
 		time.Sleep(100 * time.Millisecond)
 
-		// 启动重载
+		// Start the heavy load
 		reloadStart := time.Now()
 		err := ruleEngine.ReloadSelf([]byte(ruleChainFile))
 		reloadElapsed := time.Since(reloadStart)
 
 		assert.Nil(t, err)
-		// 重载应该等待活跃消息完成，所以至少需要0.1秒
+		// Reloading should wait for the active message to complete, so it takes at least 0.1 seconds
 		assert.True(t, reloadElapsed >= 100*time.Millisecond, "Reload should wait for active messages, elapsed: %v", reloadElapsed)
 
-		// 验证长时间处理的消息最终完成
+		// Verify that the long-processed message is finally complete
 		time.Sleep(200 * time.Millisecond)
 		longProcessMutex.Lock()
 		completed := longProcessCompleted
@@ -1413,13 +1413,13 @@ func TestEngineReloadBehavior(t *testing.T) {
 		assert.True(t, completed, "Long process should complete before reload finishes")
 	})
 
-	// 测试场景4：并发重载应该安全处理
+	// Test Scenario 4: Concurrent overload should be handled safely
 	t.Run("ConcurrentReloadSafety", func(t *testing.T) {
 		var reloadSuccessCount int64
 		var reloadErrorCount int64
 		var wg sync.WaitGroup
 
-		// 启动多个并发重载
+		// Starts multiple concurrent overloads
 		for i := 0; i < 3; i++ {
 			wg.Add(1)
 			go func(index int) {
@@ -1433,27 +1433,27 @@ func TestEngineReloadBehavior(t *testing.T) {
 					t.Logf("Reload %d succeeded", index)
 				}
 			}(i)
-			time.Sleep(10 * time.Millisecond) // 稍微错开启动时间
+			time.Sleep(10 * time.Millisecond) // Slightly stagger the startup time
 		}
 
 		wg.Wait()
 
-		// 验证结果
+		// Verify the results
 		successCount := atomic.LoadInt64(&reloadSuccessCount)
 		errorCount := atomic.LoadInt64(&reloadErrorCount)
 		t.Logf("Concurrent reload - Success: %d, Error: %d", successCount, errorCount)
 
-		// 至少应该有一个重载成功
+		// At the very least, there should be a successful reload
 		assert.True(t, successCount >= 1, "At least one reload should succeed")
-		// 总数应该等于尝试次数
+		// The total should equal the number of attempts
 		assert.Equal(t, int64(3), successCount+errorCount, "All reload attempts should be accounted for")
 	})
 
-	// 测试场景5：重载超时处理
+	// Test Scenario 5: Heavy load timeout handling
 	t.Run("ReloadTimeoutHandling", func(t *testing.T) {
-		// 注册一个超长时间处理函数
+		// Register an ultra-long processing function
 		action.Functions.Register("superSlowProcess", func(ctx types.RuleContext, msg types.RuleMsg) {
-			time.Sleep(15 * time.Second) // 15秒处理时间
+			time.Sleep(15 * time.Second) // 15-second processing time
 			ctx.TellSuccess(msg)
 		})
 
@@ -1482,28 +1482,28 @@ func TestEngineReloadBehavior(t *testing.T) {
 		assert.Nil(t, err)
 		defer Del(superSlowChainId)
 
-		// 发送一个超长时间处理的消息
+		// Send a message that takes a very long time to process
 		msg := types.NewMsg(0, "SUPER_SLOW_TEST", types.JSON, types.NewMetadata(), `{"test": "super_slow"}`)
 		go superSlowEngine.OnMsg(msg)
 
-		// 等待消息开始处理
+		// Waiting for the message to start processing
 		time.Sleep(200 * time.Millisecond)
 
-		// 尝试重载，应该在等待超时后继续
+		// Try reloading and should continue after waiting for the timeout
 		reloadStart := time.Now()
 		err = superSlowEngine.ReloadSelf([]byte(superSlowRuleChain))
 		reloadElapsed := time.Since(reloadStart)
 
-		// 重载应该在等待超时（10秒）后继续，不会等待15秒
+		// Reloading should continue after waiting for timeout (10 seconds), not wait 15 seconds
 		assert.Nil(t, err)
 		assert.True(t, reloadElapsed >= 9*time.Second, "Reload should wait for timeout")
 		assert.True(t, reloadElapsed < 12*time.Second, "Reload should not wait beyond timeout")
 	})
 }
 
-// TestReloadBackpressureControl 测试重载期间的背压控制功能
+// TestReloadBackpressureControl tests the backpressure control function during reload
 func TestReloadBackpressureControl(t *testing.T) {
-	// 创建规则链定义
+	// Create a rule chain definition
 	ruleChainFile := `{
 		"ruleChain": {
 			"id": "test_backpressure",
@@ -1524,26 +1524,26 @@ func TestReloadBackpressureControl(t *testing.T) {
 		}
 	}`
 
-	// 注册测试函数
+	// Register the test function
 	action.Functions.Register("testBackpressureFunc", func(ctx types.RuleContext, msg types.RuleMsg) {
-		time.Sleep(10 * time.Millisecond) // 模拟短暂处理时间
+		time.Sleep(10 * time.Millisecond) // Simulates short processing times
 		ctx.TellSuccess(msg)
 	})
 
 	t.Run("BackpressureControlPreventsMemoryOverflow", func(t *testing.T) {
-		// 创建具有低背压限制的规则引擎
+		// Create a rule engine with low backpressure limits
 		ruleEngine, err := NewRuleEngine("test_backpressure", []byte(ruleChainFile),
-			types.WithMaxReloadWaiters(5)) // 只允许5个并发等待者
+			types.WithMaxReloadWaiters(5)) // Only 5 concurrent waiting parties are allowed
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 验证背压配置
+		// Verify the backpressure configuration
 		maxWaiters, currentWaiters, isReloading := ruleEngine.GetReloadWaitersStats()
 		assert.Equal(t, int64(5), maxWaiters)
 		assert.Equal(t, int64(0), currentWaiters)
 		assert.False(t, isReloading)
 
-		// 创建慢速重载函数
+		// Create slow overload functions
 		slowReloadChainFile := `{
 			"ruleChain": {
 				"id": "test_backpressure_slow",
@@ -1565,11 +1565,11 @@ func TestReloadBackpressureControl(t *testing.T) {
 		}`
 
 		action.Functions.Register("slowBackpressureFunc", func(ctx types.RuleContext, msg types.RuleMsg) {
-			time.Sleep(2 * time.Second) // 模拟慢速处理以延长重载时间
+			time.Sleep(2 * time.Second) // Simulates slow processing to extend heavy load time
 			ctx.TellSuccess(msg)
 		})
 
-		// 启动重载操作（在后台异步执行）
+		// Start the overload operation (asynchronously in the background)
 		var reloadWg sync.WaitGroup
 		reloadWg.Add(1)
 		go func() {
@@ -1578,8 +1578,8 @@ func TestReloadBackpressureControl(t *testing.T) {
 			assert.Nil(t, reloadErr)
 		}()
 
-		// 等待重载真正开始
-		for i := 0; i < 50; i++ { // 最多等待500ms
+		// Waiting for the reload to truly begin
+		for i := 0; i < 50; i++ { // Wait up to 500ms
 			time.Sleep(10 * time.Millisecond)
 			_, _, isReloading := ruleEngine.GetReloadWaitersStats()
 			if isReloading {
@@ -1587,16 +1587,16 @@ func TestReloadBackpressureControl(t *testing.T) {
 			}
 		}
 
-		// 验证重载状态
+		// Verify the overload status
 		_, _, isReloading = ruleEngine.GetReloadWaitersStats()
 		assert.True(t, isReloading, "重载应该已经开始")
 
-		// 发送大量消息来测试背压控制
+		// Send a large number of messages to test back pressure control
 		var processedCount int64
 		var rejectedCount int64
 		var callbackWg sync.WaitGroup
 
-		// 发送10个消息（超过5个限制）
+		// Send 10 messages (exceed the 5 limit)
 		for i := 0; i < 10; i++ {
 			callbackWg.Add(1)
 			go func(index int) {
@@ -1612,51 +1612,51 @@ func TestReloadBackpressureControl(t *testing.T) {
 						t.Logf("Message %d processed successfully", index)
 					} else {
 						t.Logf("Message %d failed with error: %v, relationType: %s", index, err, relationType)
-						// 其他错误也计入拒绝数，因为消息没有成功处理
+						// Other errors are also counted in the rejection count because messages were not successfully processed
 						atomic.AddInt64(&rejectedCount, 1)
 					}
 				}))
 			}(i)
 		}
 
-		// 等待所有回调完成
+		// Wait for all pullbacks to complete
 		callbackWg.Wait()
 
-		// 验证背压控制生效
+		// Verify that backpressure control is effective
 		totalMessages := atomic.LoadInt64(&processedCount) + atomic.LoadInt64(&rejectedCount)
 		assert.True(t, totalMessages >= 5, "至少应该有5个消息有回调，实际: %d", totalMessages)
 		assert.True(t, atomic.LoadInt64(&rejectedCount) > 0, "应该有消息因为背压控制被拒绝")
 
-		t.Logf("处理的消息: %d, 拒绝的消息: %d",
+		t.Logf("Messages processed: %d, rejected messages: %d",
 			atomic.LoadInt64(&processedCount),
 			atomic.LoadInt64(&rejectedCount))
 
-		// 等待重载完成
+		// Wait for the reload to complete
 		reloadWg.Wait()
 
-		// 验证重载完成后状态正常
+		// Verify that the state is normal after reloading is complete
 		_, currentWaiters, isReloading = ruleEngine.GetReloadWaitersStats()
 		assert.False(t, isReloading)
 		assert.Equal(t, int64(0), currentWaiters, "重载完成后等待者计数应该为0")
 	})
 
 	t.Run("BackpressureCanBeDisabled", func(t *testing.T) {
-		// 创建禁用背压控制的规则引擎
+		// Create a rule engine that disables back pressure control
 		ruleEngine, err := NewRuleEngine("test_no_backpressure", []byte(ruleChainFile),
 			types.WithMaxReloadWaiters(0))
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 验证背压控制被禁用
+		// Verify that backpressure control is disabled
 		maxWaiters, _, _ := ruleEngine.GetReloadWaitersStats()
 		assert.Equal(t, int64(0), maxWaiters, "背压控制应该被禁用")
 
-		// 测试不进行重载，只验证背压控制不生效
+		// The test does not perform overloading, only verifying that backpressure control is not effective
 		var processedCount int64
 		var backpressureRejectedCount int64
 		var callbackWg sync.WaitGroup
 
-		// 发送消息测试（不进行重载）
+		// Send message test (no overloading)
 		for i := 0; i < 5; i++ {
 			callbackWg.Add(1)
 			go func(index int) {
@@ -1679,36 +1679,36 @@ func TestReloadBackpressureControl(t *testing.T) {
 
 		callbackWg.Wait()
 
-		// 验证没有消息因为背压控制被拒绝
+		// No news from verification because back pressure control was denied
 		assert.Equal(t, int64(0), atomic.LoadInt64(&backpressureRejectedCount), "禁用背压控制时不应该有消息因背压被拒绝")
 		assert.Equal(t, int64(5), atomic.LoadInt64(&processedCount), "所有消息都应该被处理")
 
-		t.Logf("禁用背压控制测试 - 处理的消息: %d, 背压拒绝的消息: %d",
+		t.Logf("Disable backpressure control test - processed messages: %d, backpressure rejected messages: %d",
 			atomic.LoadInt64(&processedCount),
 			atomic.LoadInt64(&backpressureRejectedCount))
 	})
 
 	t.Run("BackpressureConfigCanBeChangedAtRuntime", func(t *testing.T) {
-		// 创建规则引擎
+		// Create a rule engine
 		ruleEngine, err := NewRuleEngine("test_runtime_config", []byte(ruleChainFile))
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 初始配置
+		// Initial configuration
 		maxWaiters, _, _ := ruleEngine.GetReloadWaitersStats()
-		assert.Equal(t, int64(1000), maxWaiters, "默认值应该是1000") // 默认值
+		assert.Equal(t, int64(1000), maxWaiters, "默认值应该是1000") // Default values
 
-		// 运行时修改配置
+		// Configure settings at runtime
 		ruleEngine.SetMaxReloadWaiters(100)
 
-		// 验证配置已更改
+		// Verification configuration has changed
 		maxWaiters, _, _ = ruleEngine.GetReloadWaitersStats()
 		assert.Equal(t, int64(100), maxWaiters)
 
-		// 禁用背压控制
+		// Disable back pressure control
 		ruleEngine.SetMaxReloadWaiters(0)
 
-		// 验证配置已更改
+		// Verification configuration has changed
 		maxWaiters, _, _ = ruleEngine.GetReloadWaitersStats()
 		assert.Equal(t, int64(0), maxWaiters, "应该禁用背压控制")
 	})

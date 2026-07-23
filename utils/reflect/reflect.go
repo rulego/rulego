@@ -45,7 +45,7 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// GetComponentForm 获取组件的表单结构
+// GetComponentForm to get the form structure of the component
 func GetComponentForm(component types.Node) types.ComponentForm {
 	var componentForm types.ComponentForm
 
@@ -68,7 +68,7 @@ func GetComponentForm(component types.Node) types.ComponentForm {
 		componentForm.ComponentKind = types.ComponentKindEndpoint
 	}
 	componentForm.RelationTypes = &relationTypes
-	//如果实现ComponentDefGetter接口，使用接口定义的代替
+	//If implementing the ComponentDefGetter interface, use the interface definition instead
 	if componentDefGetter, ok := component.(types.ComponentDefGetter); ok {
 		componentForm = coverComponentForm(componentDefGetter, componentForm)
 	}
@@ -81,7 +81,7 @@ func GetComponentForm(component types.Node) types.ComponentForm {
 	return componentForm
 }
 
-// 使用ComponentDefGetter接口定义的覆盖
+// Overrides defined using the ComponentDefGetter interface
 func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.ComponentForm) types.ComponentForm {
 	def := from.Def()
 	if def.Type != "" {
@@ -119,12 +119,12 @@ func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.Com
 	return toComponentForm
 }
 
-// GetComponentConfig 获取组件配置字段和默认值
+// GetComponentConfig retrieves the component configuration field and default values
 func GetComponentConfig(component types.Node) (reflect.Type, reflect.StructField, reflect.Value) {
 	//component = component.New()
 	t := reflect.TypeOf(component)
 	if t.Kind() == reflect.Ptr {
-		t = t.Elem() // 解引用指针，获取指向的值
+		t = t.Elem() // Dereference pointers to retrieve the value pointed
 	}
 
 	var configField reflect.StructField
@@ -134,40 +134,40 @@ func GetComponentConfig(component types.Node) (reflect.Type, reflect.StructField
 		if configField, ok = t.FieldByName("Config"); ok {
 			v := reflect.ValueOf(component)
 			if v.Kind() == reflect.Ptr {
-				v = v.Elem() // 解引用指针，获取指向的值
+				v = v.Elem() // Dereference pointers to retrieve the value pointed
 			}
 			configValue = v.FieldByName("Config")
 		}
 	} else {
 		v := reflect.ValueOf(component)
 		if v.Kind() == reflect.Ptr {
-			v = v.Elem() // 解引用指针，获取指向的值
+			v = v.Elem() // Dereference pointers to retrieve the value pointed
 		}
 		configValue = v.FieldByName("config")
 	}
 	return t, configField, configValue
 }
 
-// GetFields 获取组件config字段
+// GetFields to get the component config field
 func GetFields(configField reflect.StructField, configValue reflect.Value) []types.ComponentFormField {
 	var fields []types.ComponentFormField
 	if configField.Type != nil {
 		for i := 0; i < configField.Type.NumField(); i++ {
 			field := configField.Type.Field(i)
 
-			// 跳过私有字段（首字母小写）
+			// Skip private fields (lowercase)
 			if !field.IsExported() {
 				continue
 			}
 
-			// 检查json标签，如果是"-"则跳过
+			// Check the JSON tag; skip it if it is "-"
 			jsonTag := field.Tag.Get("json")
 			if jsonTag == "-" {
 				continue
 			}
 
-			// 检查是否需要平铺（squash）
-			// 优先从json标签获取，如果json标签没有，再从mapstructure标签获取
+			// Check if squash is needed
+			// Prioritize obtaining it from the JSON tag; if the JSON tag is not available, then get it from the MapStructure tag
 			tag := field.Tag.Get("json")
 			if !strings.Contains(tag, "squash") {
 				tag = field.Tag.Get("mapstructure")
@@ -198,7 +198,7 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 				typeName = "array"
 			} else if field.Type.Kind() == reflect.Struct {
 				typeName = "struct"
-				//如果字段类型是结构体，那么递归调用 GetFields 函数，传入字段的类型对象和值对象，获取子字段的信息
+				//If the field type is a structure, then recursively call the GetFields function, passing in the field's type and value objects to obtain information about the subfields
 				subFields = GetFields(field, configValue.Field(i))
 			}
 			var rules []map[string]interface{}
@@ -209,34 +209,34 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 				})
 			}
 
-			// 从rules标签获取验证规则配置
+			// Obtain the validation rule configuration from the rules tab
 			rulesTag := field.Tag.Get("rules")
 			if rulesTag != "" {
-				// 解析JSON格式的rules标签
-				// 例如: rules:"[{\"required\":true,\"message\":\"必填字段\"},{\"min\":1,\"message\":\"最小值为1\"}]"
+				// Parse the rules tag in JSON format
+				// For example: rules:"[{\"required\":true,\"message\":\"Required field\"},{\"min\":1,\"message\":\"Minimum value is 1\"}]"
 				var tagRules []map[string]interface{}
 				if err := json.Unmarshal([]byte(rulesTag), &tagRules); err == nil {
-					// 如果解析成功，将标签中的规则添加到现有规则中
+					// If parsing successfully, add the rules from the tags to the existing rules
 					rules = append(rules, tagRules...)
 				}
 			}
-			// 优先从json标签获取字段名
+			// Prioritize getting field names from the JSON tag
 			fieldName := jsonTag
 			if fieldName == "" {
 				fieldName = str.ToLowerFirst(field.Name)
 			} else {
-				// 处理json标签中的选项，如 "name,omitempty"
+				// Handling options in JSON tags, such as "name,omitempty"
 				if commaIndex := strings.Index(fieldName, ","); commaIndex != -1 {
 					fieldName = fieldName[:commaIndex]
 				}
 			}
 
-			// 从component标签获取UI组件配置
+			// Retrieves UI component configuration from the component tag
 			var component map[string]interface{}
 			componentTag := field.Tag.Get("component")
 			if componentTag != "" {
-				// 解析JSON格式的component标签
-				// 例如: component:"{\"type\":\"select\",\"filterable\":true,\"options\":[{\"label\":\"mysql\",\"value\":\"mysql\"}]}"
+				// Parsing component tags in JSON format
+				// For example: component:"{\"type\":\"select\",\"filterable\":true,\"options\":[{\"label\":\"mysql\",\"value\":\"mysql\"}]}"
 				_ = json.Unmarshal([]byte(componentTag), &component)
 			}
 

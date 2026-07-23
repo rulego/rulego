@@ -384,7 +384,7 @@ func TestNewTemplate(t *testing.T) {
 	}
 }
 
-// TestMixedTemplateExecution 测试混合模板的执行功能
+// TestMixedTemplateExecution tests the execution functionality of the mixed template
 func TestMixedTemplateExecution(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -439,12 +439,12 @@ func TestMixedTemplateExecution(t *testing.T) {
 				t.Fatalf("NewTemplate() error = %v", err)
 			}
 
-			// 验证模板类型
+			// Verify template types
 			if _, ok := tmpl.(*MixedTemplate); !ok {
 				t.Errorf("Expected MixedTemplate, got %T", tmpl)
 			}
 
-			// 测试执行结果
+			// Test the execution results
 			result := tmpl.ExecuteAsString(tt.data)
 			if result != tt.expected {
 				t.Errorf("ExecuteAsString() = %v, want %v", result, tt.expected)
@@ -648,7 +648,7 @@ func TestExprTemplate2(t *testing.T) {
 
 }
 
-// 性能对比测试：单个表达式 vs 合并表达式
+// Performance comparison test: Single expression vs. merged expression
 func TestExprPerformanceComparison(t *testing.T) {
 	var params = []string{
 		"${msg.customer_id}",
@@ -673,7 +673,7 @@ func TestExprPerformanceComparison(t *testing.T) {
 		"${msg.AGridAppPower}",
 	}
 
-	// 测试数据
+	// Test data
 	var msgStr = `{
 		"customer_id": 66,
 		"station_id": 169,
@@ -703,7 +703,7 @@ func TestExprPerformanceComparison(t *testing.T) {
 		"msg": msg,
 	}
 
-	// 方法1：单个表达式分别执行
+	// Method 1: Execute individual expressions separately
 	var individualPrograms []*vm.Program
 	for _, param := range params {
 		cleanParam := strings.Replace(strings.Replace(param, "${", "", -1), "}", "", -1)
@@ -712,7 +712,7 @@ func TestExprPerformanceComparison(t *testing.T) {
 		}
 	}
 
-	// 方法2：合并为数组表达式
+	// Method 2: Merge into an array expression
 	var arrayExprParts []string
 	for _, param := range params {
 		cleanParam := strings.Replace(strings.Replace(param, "${", "", -1), "}", "", -1)
@@ -721,7 +721,7 @@ func TestExprPerformanceComparison(t *testing.T) {
 	arrayExpr := "[" + strings.Join(arrayExprParts, ", ") + "]"
 	arrayProgram, _ := expr.Compile(arrayExpr, expr.AllowUndefinedVariables())
 
-	// 方法3：合并为map表达式
+	// Method 3: Merge into a map expression
 	var mapExprParts []string
 	for i, param := range params {
 		cleanParam := strings.Replace(strings.Replace(param, "${", "", -1), "}", "", -1)
@@ -730,10 +730,10 @@ func TestExprPerformanceComparison(t *testing.T) {
 	mapExpr := "{" + strings.Join(mapExprParts, ", ") + "}"
 	mapProgram, _ := expr.Compile(mapExpr, expr.AllowUndefinedVariables())
 
-	// 性能测试参数
+	// Performance test parameters
 	const iterations = 10000
 
-	// 测试1：单个表达式分别执行
+	// Test 1: Each expression is executed separately
 	t.Run("Individual Expressions", func(t *testing.T) {
 		start := time.Now()
 		for i := 0; i < iterations; i++ {
@@ -746,7 +746,7 @@ func TestExprPerformanceComparison(t *testing.T) {
 		t.Logf("Individual expressions: %v (avg: %v per iteration)", duration, duration/iterations)
 	})
 
-	// 测试2：数组表达式
+	// Test 2: Array expressions
 	t.Run("Array Expression", func(t *testing.T) {
 		start := time.Now()
 		for i := 0; i < iterations; i++ {
@@ -757,7 +757,7 @@ func TestExprPerformanceComparison(t *testing.T) {
 		t.Logf("Array expression: %v (avg: %v per iteration)", duration, duration/iterations)
 	})
 
-	// 测试3：map表达式
+	// Test 3: map expression
 	t.Run("Map Expression", func(t *testing.T) {
 		start := time.Now()
 		for i := 0; i < iterations; i++ {
@@ -770,7 +770,7 @@ func TestExprPerformanceComparison(t *testing.T) {
 
 }
 
-// Benchmark测试
+// Benchmark test
 func BenchmarkIndividualExpressions(b *testing.B) {
 	params := []string{
 		"${msg.customer_id}", "${msg.station_id}", "${msg.cabinet_id}",
@@ -857,9 +857,9 @@ func BenchmarkMapExpression(b *testing.B) {
 	}
 }
 
-// TestIncludeFunction 测试 include 函数
+// TestIncludeFunction Test include function
 func TestIncludeFunction(t *testing.T) {
-	// 创建临时测试文件
+	// Create a temporary test file
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.txt")
 	testContent := "Hello, World!"
@@ -927,7 +927,7 @@ func TestIncludeFunction(t *testing.T) {
 			t.Fatalf("NewTemplate failed: %v", err)
 		}
 
-		// 不存在的文件应该返回空字符串（静默失败）
+		// Files that don't exist should return empty strings (silence failed)
 		result := tmpl.ExecuteAsString(nil)
 		if result != "" {
 			t.Errorf("ExecuteAsString() = %v, want empty string", result)
@@ -935,7 +935,7 @@ func TestIncludeFunction(t *testing.T) {
 	})
 }
 
-// TestNewTemplateWithOptions 测试带选项的 NewTemplate
+// TestNewTemplateWithOptions Tests NewTemplates with options
 func TestNewTemplateWithOptions(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "header.txt")
@@ -989,7 +989,7 @@ func TestNewTemplateWithOptions(t *testing.T) {
 		}
 
 		result := tmpl.ExecuteAsString(map[string]any{"name": "test"})
-		// 自定义函数优先于文件读取
+		// Custom functions take precedence over file reading
 		expected := "[file.txt]-test"
 		if result != expected {
 			t.Errorf("ExecuteAsString() = %v, want %v", result, expected)
@@ -997,7 +997,7 @@ func TestNewTemplateWithOptions(t *testing.T) {
 	})
 }
 
-// TestExprTemplateWithInclude 测试 ExprTemplate 中的 include 函数
+// TestExprTemplateWithInclude tests the include function in ExprTemplate
 func TestExprTemplateWithInclude(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "data.txt")
@@ -1033,11 +1033,11 @@ func TestExprTemplateWithInclude(t *testing.T) {
 	})
 }
 
-// TestMixedTemplateWithInclude 测试 MixedTemplate 中的 include 函数
+// TestMixedTemplateWithInclude Test the include function in MixedTemplate
 func TestMixedTemplateWithInclude(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// 创建多个测试文件
+	// Create multiple test files
 	headerFile := filepath.Join(tmpDir, "header.txt")
 	if err := os.WriteFile(headerFile, []byte("HEADER"), 0644); err != nil {
 		t.Fatalf("Failed to create header file: %v", err)
@@ -1079,17 +1079,17 @@ func TestMixedTemplateWithInclude(t *testing.T) {
 	})
 }
 
-// TestIncludeWithSubdirectory 测试子目录中的文件包含
+// TestIncludeWithSubdirectory tests the inclusion of files in the subdirectory
 func TestIncludeWithSubdirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// 创建子目录
+	// Create a subdirectory
 	subDir := filepath.Join(tmpDir, "templates")
 	if err := os.Mkdir(subDir, 0755); err != nil {
 		t.Fatalf("Failed to create subdirectory: %v", err)
 	}
 
-	// 在子目录中创建文件
+	// Create files in subdirectories
 	testFile := filepath.Join(subDir, "template.txt")
 	testContent := "Template Content"
 	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
@@ -1109,23 +1109,23 @@ func TestIncludeWithSubdirectory(t *testing.T) {
 	})
 }
 
-// TestIncludeTemplate 测试 include 函数的综合功能
+// TestIncludeTemplate tests the comprehensive functionality of the include function
 func TestIncludeTemplate(t *testing.T) {
-	// 创建临时测试目录
+	// Create a temporary test directory
 	tmpDir, err := os.MkdirTemp("", "include_test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// 创建测试文件
+	// Create test files
 	testContent := "# Test Identity\n\nThis is test content."
 	testFile := filepath.Join(tmpDir, "IDENTITY.md")
 	if err := os.WriteFile(testFile, []byte(testContent), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// 创建子目录和文件
+	// Create subdirectories and files
 	subDir := filepath.Join(tmpDir, "memory")
 	if err := os.MkdirAll(subDir, 0755); err != nil {
 		t.Fatal(err)
@@ -1136,7 +1136,7 @@ func TestIncludeTemplate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 测试模板 - 使用完整路径
+	// Test template – using the full path
 	tmpl := `Header
 ${include(identityFile)}
 ---
@@ -1155,7 +1155,7 @@ Date: ${date}`
 		"date":         "2026-02-18",
 	})
 
-	// 验证结果
+	// Verify the results
 	if !contains(result, testContent) {
 		t.Errorf("Expected result to contain %q, got %q", testContent, result)
 	}
@@ -1169,7 +1169,7 @@ Date: ${date}`
 	t.Logf("Result:\n%s", result)
 }
 
-// TestIncludeTemplateFileNotFound 测试文件不存在时的行为
+// TestIncludeTemplateFileNotFound behavior when the test file does not exist
 func TestIncludeTemplateFileNotFound(t *testing.T) {
 	tmpl := `Hello ${include("nonexistent.md")}`
 	template, err := NewTemplate(tmpl)
@@ -1177,7 +1177,7 @@ func TestIncludeTemplateFileNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 文件不存在时应该返回空字符串，不报错
+	// If the file does not exist, it should return an empty string without errors
 	result := template.ExecuteAsString(map[string]any{})
 	expected := "Hello "
 	if result != expected {
@@ -1185,9 +1185,9 @@ func TestIncludeTemplateFileNotFound(t *testing.T) {
 	}
 }
 
-// TestIncludeWithCustomFunc 测试自定义 include 函数
+// TestIncludeWithCustomFunc tests the custom include function
 func TestIncludeWithCustomFunc(t *testing.T) {
-	// 使用自定义 include 函数
+	// Use the custom include function
 	customFunc := func(path string) string {
 		return "[Content of " + path + "]"
 	}
@@ -1205,12 +1205,12 @@ func TestIncludeWithCustomFunc(t *testing.T) {
 	}
 }
 
-// contains 检查字符串 s 是否包含 substr
+// contains checks whether the string s contains substr
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
 }
 
-// containsHelper 辅助函数用于检查子字符串
+// containsHelper auxiliary function is used to check substrings
 func containsHelper(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {

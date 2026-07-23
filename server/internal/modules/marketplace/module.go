@@ -1,4 +1,4 @@
-// Package marketplace 实现远程组件市场和规则链市场的查询。
+// Package marketplace enables queries for remote component markets and rule chain markets.
 package marketplace
 
 import (
@@ -20,7 +20,7 @@ const (
 	Priority   = 70
 )
 
-// MarketplaceResult 远程市场查询结果
+// MarketplaceResult: Remote market query results
 type MarketplaceResult struct {
 	Items []interface{} `json:"items"`
 	Total int           `json:"total"`
@@ -28,13 +28,13 @@ type MarketplaceResult struct {
 	Size  int           `json:"size"`
 }
 
-// Module marketplace 业务模块，负责远程组件和规则链市场查询
+// Module marketplace business module, responsible for remote component and rule chain market queries
 type Module struct {
-	cfg      *config.Config
-	nodeSvc  services.NodeService
+	cfg     *config.Config
+	nodeSvc services.NodeService
 }
 
-// New 创建 marketplace 模块
+// New to create the marketplace module
 func New() *Module {
 	return &Module{}
 }
@@ -53,12 +53,12 @@ func (m *Module) Init(ctx *app.ModuleContext) error {
 func (m *Module) Start(_ context.Context) error { return nil }
 func (m *Module) Stop(_ context.Context) error  { return nil }
 
-// SetNodeService 设置节点服务（由 endpoint 层调用）
+// SetNodeService Sets up node services (called by the endpoint layer)
 func (m *Module) SetNodeService(svc services.NodeService) {
 	m.nodeSvc = svc
 }
 
-// GetComponents 获取组件列表，优先从远程市场获取，如果未配置则从本地获取
+// GetComponents retrieves the list of components, prioritizing remote markets; if not configured, it is obtained locally
 func (m *Module) GetComponents(keywords string, page, size int) (*MarketplaceResult, error) {
 	baseUrl := m.cfg.MarketplaceBaseUrl
 	if baseUrl == "" {
@@ -69,7 +69,7 @@ func (m *Module) GetComponents(keywords string, page, size int) (*MarketplaceRes
 	return m.fetchList(u, page, size)
 }
 
-// GetChains 获取规则链列表，优先从远程市场获取，如果未配置则从本地获取
+// GetChains obtains a list of rule chains, prioritizing remote markets; if not configured, they obtain locally
 func (m *Module) GetChains(root *bool, keywords string, page, size int) (*MarketplaceResult, error) {
 	baseUrl := m.cfg.MarketplaceBaseUrl
 	if baseUrl == "" {
@@ -80,12 +80,12 @@ func (m *Module) GetChains(root *bool, keywords string, page, size int) (*Market
 	return m.fetchList(u, page, size)
 }
 
-// getLocalComponents 从本地获取组件列表
+// getLocalComponents retrieves a list of components from the local area
 func (m *Module) getLocalComponents(keywords string, page, size int) (*MarketplaceResult, error) {
 	if m.nodeSvc == nil {
 		return &MarketplaceResult{Items: []interface{}{}, Total: 0, Page: page, Size: size}, nil
 	}
-	// 使用默认用户 admin 获取组件
+	// Use the default user admin to get the component
 	ruleChains, total, err := m.nodeSvc.ListComponents("admin", keywords, size, page)
 	if err != nil {
 		return nil, err
@@ -97,9 +97,9 @@ func (m *Module) getLocalComponents(keywords string, page, size int) (*Marketpla
 	return &MarketplaceResult{Items: items, Total: total, Page: page, Size: size}, nil
 }
 
-// getLocalChains 从本地获取规则链列表
+// getLocalChains Retrieves the list of rule chains from the local area
 func (m *Module) getLocalChains(keywords string, page, size int) (*MarketplaceResult, error) {
-	// 本地规则链由 rules 模块管理，这里返回空列表
+	// The local rule chain is managed by the rules module, which returns an empty list
 	return &MarketplaceResult{Items: []interface{}{}, Total: 0, Page: page, Size: size}, nil
 }
 
@@ -133,7 +133,7 @@ func (m *Module) fetchList(rawURL string, defaultPage, defaultSize int) (*Market
 		return nil, &url.Error{Op: "Get", URL: rawURL, Err: httpError(resp.StatusCode, body)}
 	}
 
-	// 尝试解析为带分页的 map 格式 {"total":..., "items":[...]}
+	// Try parsing it as a page map format {"total":..., "items":[...]}
 	var mapResult map[string]interface{}
 	if err := json.Unmarshal(body, &mapResult); err == nil {
 		result := &MarketplaceResult{
@@ -155,7 +155,7 @@ func (m *Module) fetchList(rawURL string, defaultPage, defaultSize int) (*Market
 		return result, nil
 	}
 
-	// 回退：解析为纯数组
+	// Fallback: Parses as a pure array
 	var list []interface{}
 	if err := json.Unmarshal(body, &list); err != nil {
 		return nil, err

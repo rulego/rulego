@@ -18,72 +18,72 @@
 // These components enable rule chains to communicate with databases, message brokers, APIs, networks,
 // and remote systems, expanding the rule engine's integration capabilities.
 //
-// Package external 为 RuleGo 规则引擎提供与外部系统和服务交互的组件。
-// 这些组件使规则链能够与数据库、消息代理、API、网络和远程系统通信，
-// 扩展规则引擎的集成能力。
+// Package external provides components for the RuleGo rule engine that interact with external systems and services.
+// These components enable the rule chain to communicate with databases, message proxies, APIs, networks, and remote systems,
+// Expand the integration capabilities of the rule engine.
 //
 // Available Components:
-// 可用组件：
+// Available components:
 //
 // Database Components:
-// 数据库组件：
+// Database components:
 //   - DbClientNode: Connect to database via Go standard database/sql interface
 //
 // Message Broker Components:
-// 消息代理组件：
+// Message Proxy Components:
 //   - MqttClientNode: MQTT broker connectivity for IoT and messaging
-//     MQTT 代理连接，用于物联网和消息传递
+//     MQTT proxy connection for IoT and messaging
 //
 // Network Components:
-// 网络组件：
+// Network Components:
 //   - NetNode: TCP/UDP/Unix socket communication with various protocols
-//     TCP/UDP/Unix 套接字通信，支持各种协议
+//     TCP/UDP/Unix socket communication, supporting various protocols
 //   - RestApiCallNode: HTTP/REST API client for web service integration
-//     HTTP/REST API 客户端，用于 Web 服务集成
+//     HTTP/REST API client for web service integration
 //
 // Remote Execution Components:
-// 远程执行组件：
+// Remote execution components:
 //   - SshNode: SSH-based remote command execution
-//     基于 SSH 的远程命令执行
+//     Remote command execution based on SSH
 //
 // Cache Management Components:
-// 缓存管理组件：
+// Cache management components:
 //   - CacheGetNode: Retrieve data from chain-level or global cache
-//     从链级或全局缓存中检索数据
+//     Data is retrieved from chain-level or global caches
 //   - CacheSetNode: Store data in cache with TTL support
-//     在缓存中存储数据，支持 TTL
+//     Data is stored in cache and supports TTL
 //   - CacheDeleteNode: Remove data from cache with pattern matching
-//     从缓存中删除数据，支持模式匹配
+//     Data is deleted from the cache, supporting pattern matching
 //
 // Component Categories:
-// 组件分类：
+// Component classification:
 //
 // Data Integration:
-// 数据集成：
+// Data Integration:
 //   - Database operations with SQL support
-//     支持 SQL 的数据库操作
+//     Supports SQL database operations
 //   - Cache management for data persistence
-//     数据持久化的缓存管理
+//     Data persistence and cache management
 //
 // Communication:
-// 通信：
+// Communication:
 //   - MQTT messaging for IoT scenarios
-//     物联网场景的 MQTT 消息传递
+//     MQTT messaging in IoT scenarios
 //   - HTTP/REST API calls for web integration
-//     Web 集成的 HTTP/REST API 调用
+//     Web integration HTTP/REST API calls
 //   - Raw network protocols for custom communication
-//     自定义通信的原始网络协议
+//     Custom communication with the original network protocol
 //
 // Remote Operations:
-// 远程操作：
+// Remote operation:
 //   - SSH command execution for system administration
-//     系统管理的 SSH 命令执行
+//     SSH command execution for system administration
 //
 // Registration:
-// 注册：
+// Registration:
 //
 // All components are automatically registered during package initialization:
-// 所有组件在包初始化期间自动注册：
+// All components are automatically registered during package initialization:
 //
 //	func init() {
 //		Registry.Add(&DbClientNode{})
@@ -92,10 +92,10 @@
 //	}
 //
 // Example Usage:
-// 使用示例：
+// Example:
 //
 //	// Database query in rule chain
-//	// 规则链中的数据库查询
+//	Database queries in the rule chain
 //	{
 //		"id": "queryUser",
 //		"type": "dbClient",
@@ -108,7 +108,7 @@
 //	}
 //
 //	// MQTT message publishing
-//	// MQTT 消息发布
+//	MQTT message release
 //	{
 //		"id": "publishData",
 //		"type": "mqttClient",
@@ -120,5 +120,5 @@
 //	}
 //
 // For detailed documentation on individual components, see their respective source files.
-// 有关各个组件的详细文档，请参见其各自的源文件。
+// For detailed documentation of each component, please refer to their respective source files.
 package external

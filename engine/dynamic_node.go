@@ -36,17 +36,17 @@ var ErrRuleEnginePoolNil = errors.New("rule engine pool is nil")
 // ErrDSLEmpty dsl is empty
 var ErrDSLEmpty = errors.New("dsl is empty")
 
-// DynamicNode 通过子规则链动态定义节点组件
-// ruleChain.id: 定义组件类型
-// ruleChain.name: 定义组件label
-// ruleChain.additionalInfo.category: 定义组件分类
-// ruleChain.additionalInfo.icon: 定义组件图标
-// ruleChain.additionalInfo.description: 定义组件描述
-// ruleChain.additionalInfo.inputSchema: 使用JSON Schema 定义组件的输入参数(组件参数配置)
-// ruleChain.additionalInfo.relationTypes: 定义和下一个节点允许连接关系类型
-// 组件通过 ${vars.xx} 方式获取组件配置参数
-// 使用示例：
-// 通过dsl定义组件：
+// DynamicNode dynamically defines node components through a chain of subrule
+// ruleChain.id: Define the component type
+// ruleChain.name: Define the component label
+// ruleChain.additionalInfo.category: Defines component classification
+// ruleChain.additionalInfo.icon: Defines the component icon
+// ruleChain.additionalInfo.description: Defines the component description
+// ruleChain.additionalInfo.inputSchema: Uses JSON Schema to define input parameters for components (component parameter configuration)
+// ruleChain.additionalInfo.relationTypes: Defines the type of relationship that allows the next node to connect
+// Components obtain configuration parameters via ${vars.xx}
+// Example:
+// Define components via DSL:
 // dynamicNode := NewDynamicNode("fahrenheit", `
 //
 //			 {
@@ -95,16 +95,16 @@ var ErrDSLEmpty = errors.New("dsl is empty")
 //			}
 //
 //		`)
-//		注册组件
+//		Register the component
 //		Registry.Register(dynamicNode)
 type DynamicNode struct {
-	//ComponentType 组件类型
+	//ComponentType
 	ComponentType string
-	//Dsl 子规则链 DSL
+	//DSL sub-rule chain DSL
 	Dsl string
-	//实例化的节点配置
+	//Instantiated node configuration
 	instantiatedConfig types.Configuration
-	//实例化规则引擎
+	//Instantiate the rule engine
 	ruleEngine types.RuleEngine
 }
 
@@ -115,7 +115,7 @@ func NewDynamicNode(componentType, componentDsl string) *DynamicNode {
 	}
 }
 
-// Type 组件类型
+// Type returns the component type
 func (x *DynamicNode) Type() string {
 	return x.ComponentType
 }
@@ -127,7 +127,7 @@ func (x *DynamicNode) New() types.Node {
 	}
 }
 
-// Init 初始化
+// Init initializes the component
 func (x *DynamicNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	chainCtx := base.NodeUtils.GetChainCtx(configuration)
 	if chainCtx == nil {
@@ -148,19 +148,19 @@ func (x *DynamicNode) Init(ruleConfig types.Config, configuration types.Configur
 		return err
 	}
 
-	//把组件配置和跟规则链vars复制到当前组件定义的vars
+	//Copy component configuration and rule chain vars to the current component's defined vars
 	newComponentDef := x.copyVars(componentDef, chainCtx.Definition(), configuration)
 	newComponentDsl, err := ruleConfig.Parser.EncodeRuleChain(newComponentDef)
 	if err != nil {
 		return err
 	}
 
-	//动态初始化子规则链
+	//Dynamically initialize the sub-rule chain
 	x.ruleEngine, err = NewRuleEngine(newChainId, newComponentDsl, WithConfig(ruleConfig))
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg processes a message
 func (x *DynamicNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if x.ruleEngine == nil {
 		ctx.TellFailure(msg, errors.New("rule engine is nil"))
@@ -176,14 +176,14 @@ func (x *DynamicNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}))
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (x *DynamicNode) Destroy() {
 	if x.ruleEngine != nil {
 		x.ruleEngine.Stop(context.Background())
 	}
 }
 
-// Def 组件定义
+// Def component definition
 func (x *DynamicNode) Def() types.ComponentForm {
 	var componentForm types.ComponentForm
 	var ruleChain types.RuleChain
@@ -206,7 +206,7 @@ func (x *DynamicNode) Def() types.ComponentForm {
 		if v := str.ToString(ruleChain.RuleChain.AdditionalInfo["version"]); v != "" {
 			version = v
 		}
-		// 获取关系类型
+		// Obtain relationship types
 		relationTypesValue := ruleChain.RuleChain.AdditionalInfo["relationTypes"]
 		if relationTypesValue != nil {
 			if v, ok := relationTypesValue.([]string); ok && len(v) > 0 {
@@ -219,14 +219,14 @@ func (x *DynamicNode) Def() types.ComponentForm {
 		}
 	}
 
-	// 获取输入参数定义
+	// Obtain the input parameter definition
 	inputSchemaMap := ruleChain.RuleChain.AdditionalInfo["inputSchema"]
 	var fields types.ComponentFormFieldList
 	if inputSchemaMap != nil {
 		var inputSchema schema.JSONSchema
 		_ = maps.Map2Struct(inputSchemaMap, &inputSchema)
 
-		// 获取字段列表并排序
+		// Get a list of fields and sort them
 		var fieldNames []string
 		for name := range inputSchema.Properties {
 			fieldNames = append(fieldNames, name)
@@ -255,10 +255,10 @@ func (x *DynamicNode) Def() types.ComponentForm {
 	return componentForm
 }
 
-// processFieldAuto 处理自动生成字段 生成规则：提取 ${vars.xx}变量
+// processFieldAuto processes automatically generated fields. Generation rule: extract the ${vars.xx} variable
 func (x *DynamicNode) processFieldAuto(def types.RuleChain) types.ComponentFormFieldList {
 	var fields types.ComponentFormFieldList
-	// 找到所有匹配的变量
+	// Find all matching variables
 	var vars = dsl.ParseVars(types.Vars, def)
 	for _, item := range vars {
 		var rules []map[string]interface{}
@@ -284,7 +284,7 @@ func (x *DynamicNode) processFieldAuto(def types.RuleChain) types.ComponentFormF
 	return fields
 }
 
-// processField 处理单个字段，支持嵌套字段
+// processField handles individual fields and supports nested fields
 func (x *DynamicNode) processField(name string, fieldMap schema.FieldSchema, parentSchema schema.JSONSchema) types.ComponentFormField {
 	var rules []map[string]interface{}
 	var required = false
@@ -310,7 +310,7 @@ func (x *DynamicNode) processField(name string, fieldMap schema.FieldSchema, par
 	}
 
 	if fieldMap.Type == "object" && fieldMap.Properties != nil {
-		// 获取子字段列表并排序
+		// Get a list of subfields and sort them
 		var nestedFieldNames []string
 		for nestedName := range fieldMap.Properties {
 			nestedFieldNames = append(nestedFieldNames, nestedName)

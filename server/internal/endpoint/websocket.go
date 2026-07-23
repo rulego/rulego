@@ -6,13 +6,13 @@ import (
 
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
+	websocketEndpoint "github.com/rulego/rulego/endpoint/websocket"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/internal/modules/runlog"
 	"github.com/rulego/rulego/utils/json"
-	websocketEndpoint "github.com/rulego/rulego/endpoint/websocket"
 )
 
-// NewWebsocketEndpoint 创建 WebSocket 端点，用于实时推送调试日志。
+// NewWebsocketEndpoint creates WebSocket endpoints to push debug logs in real time.
 func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint.Endpoint, error) {
 	wsCfg := websocketEndpoint.Config{}
 	wsCfg.Server = "ref://" + restEp.Id()
@@ -26,7 +26,7 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 		return nil, err
 	}
 
-	// 按 clientId 跟踪已注册的客户端，用于断开时清理
+	// Track registered clients by clientId for cleanup when disconnected
 	var clientMu sync.Mutex
 	clientMap := make(map[string]*runlog.DebugDataClient)
 
@@ -84,9 +84,9 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 		}
 	})
 
-	// 注册 WebSocket 路由：/api/v1/logs/ws/:chainId/:clientId
+	// Register WebSocket routes: /api/v1/logs/ws/:chainId/:clientId
 	base := s.apiBasePath()
-	_, _ = wsEp.AddRouter(endpoint.NewRouter().From(base+"/logs/ws/:chainId/:clientId").
+	_, _ = wsEp.AddRouter(endpoint.NewRouter().From(base + "/logs/ws/:chainId/:clientId").
 		Process(s.authProcess()).
 		Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			return true
@@ -95,7 +95,7 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 	return wsEp, nil
 }
 
-// sendWsDebugLog 构造调试日志数据并推送给 WebSocket 客户端。
+// sendWsDebugLog constructs debug log data and pushes it to the WebSocket client.
 func sendWsDebugLog(chainId, flowType, nodeId string, relationType string, errStr string, msg interface{}) {
 	logData := map[string]interface{}{
 		"chainId":      chainId,

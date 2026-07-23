@@ -36,7 +36,7 @@ func TestNetNode(t *testing.T) {
 		Server:   "127.0.0.1:9999",
 	}
 	stop := make(chan struct{})
-	//启动服务
+	//Start the server
 	go createNetServer(config, stop)
 	time.Sleep(time.Millisecond * 200)
 
@@ -77,7 +77,7 @@ func TestNetNode(t *testing.T) {
 	t.Run("OnMsg", func(t *testing.T) {
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"server":            "127.0.0.1:9999",
-			"heartbeatInterval": 5, // 增加心跳间隔以减少日志输出
+			"heartbeatInterval": 5, // Increase heartbeat intervals to reduce log output
 		}, Registry)
 		assert.Nil(t, err)
 
@@ -85,7 +85,7 @@ func TestNetNode(t *testing.T) {
 			"protocol":          "tcp",
 			"server":            "127.0.0.1:6666",
 			"connectTimeout":    60,
-			"heartbeatInterval": 0, // 禁用心跳以避免无限重连
+			"heartbeatInterval": 0, // Disable heartbeats to avoid infinite reconnection
 		}, Registry)
 		assert.Nil(t, err)
 
@@ -104,12 +104,12 @@ func TestNetNode(t *testing.T) {
 				Data:       "{\"temperature\":60}",
 				AfterSleep: time.Second * 3,
 			},
-			// 测试二进制数据处理
+			// Test binary data processing
 			{
 				MetaData:   metaData,
 				MsgType:    "BINARY_EVENT1",
 				DataType:   types.BINARY,
-				Data:       string([]byte{0x01, 0x02, 0x03, 0x04}), // 二进制数据
+				Data:       string([]byte{0x01, 0x02, 0x03, 0x04}), // Binary data
 				AfterSleep: time.Millisecond * 200,
 			},
 			{
@@ -147,10 +147,10 @@ func TestNetNode(t *testing.T) {
 	})
 }
 
-// 创建net服务
+// Create NET services
 func createNetServer(config NetNodeConfiguration, stop chan struct{}) {
 	//var err error
-	// 根据配置的协议和地址，创建一个服务器监听器
+	// Create a server listener based on the configured protocol and address
 	listener, err := net.Listen(config.Protocol, config.Server)
 	if err != nil {
 		return
@@ -159,16 +159,16 @@ func createNetServer(config NetNodeConfiguration, stop chan struct{}) {
 		for {
 			select {
 			case <-stop:
-				// 接收到中断信号，退出循环
+				// Receive an interrupt signal and exit the loop
 				listener.Close()
 				return
 			default:
 			}
 		}
 	}()
-	// 循环接受客户端的连接请求
+	// Loop to accept connection requests from clients
 	for {
-		// 从监听器中获取一个客户端连接，返回连接对象和错误信息
+		// Obtain a client connection from the listener, returning the connection object and error information
 		_, err := listener.Accept()
 		if err != nil {
 			if opError, ok := err.(*net.OpError); ok && opError.Err == net.ErrClosed {
@@ -180,12 +180,12 @@ func createNetServer(config NetNodeConfiguration, stop chan struct{}) {
 	}
 }
 
-// 说明：external 包被 engine import，其测试不能 import endpoint/net/node_pool/engine
-// （会触发 external→...→engine→external 循环）。因此用 fake SessionRegistry 测 NetNode
-// 寻址逻辑（IsFromPool→NodePool.GetInstance→类型断言→Lookup→Send）。
-// 真 endpoint/net 的 session 维护由 endpoint/net/session_test.go 覆盖。
+// Note: External packages are imported by engine, and their tests cannot import endpoint/net/node_pool/engine
+// (This will trigger external→... →engine→external loop). Therefore, we used fake SessionRegistry to test NetNode
+// Addressing logic (IsFromPool→NodePool.GetInstance→type asserts →Lookup→Send).
+// Session maintenance for true endpoint/net is covered by endpoint/net/session_test.go.
 
-// miniPool 测试用 NodePool，只实现 GetInstance。
+// miniPool tests use NodePool, which only implements GetInstance.
 type miniPool struct {
 	instances map[string]interface{}
 }
@@ -203,19 +203,19 @@ func (p *miniPool) Lookup(id string) (any, bool) {
 	}
 	return v, true
 }
-func (p *miniPool) Get(string) (types.SharedNodeCtx, bool)                          { return nil, false }
-func (p *miniPool) AddNode(types.Node) (types.SharedNodeCtx, error)                 { return nil, nil }
-func (p *miniPool) Load([]byte) (types.NodePool, error)                             { return nil, nil }
-func (p *miniPool) LoadFromRuleChain(types.RuleChain) (types.NodePool, error)       { return nil, nil }
-func (p *miniPool) NewFromEndpoint(types.EndpointDsl) (types.SharedNodeCtx, error)  { return nil, nil }
-func (p *miniPool) NewFromRuleNode(types.RuleNode) (types.SharedNodeCtx, error)     { return nil, nil }
-func (p *miniPool) Del(string)                                                      {}
-func (p *miniPool) Stop()                                                           {}
-func (p *miniPool) GetAll() []types.SharedNodeCtx                                   { return nil }
-func (p *miniPool) GetAllDef() (map[string][]*types.RuleNode, error)                { return nil, nil }
-func (p *miniPool) Range(func(key, value interface{}) bool)                         {}
+func (p *miniPool) Get(string) (types.SharedNodeCtx, bool)                         { return nil, false }
+func (p *miniPool) AddNode(types.Node) (types.SharedNodeCtx, error)                { return nil, nil }
+func (p *miniPool) Load([]byte) (types.NodePool, error)                            { return nil, nil }
+func (p *miniPool) LoadFromRuleChain(types.RuleChain) (types.NodePool, error)      { return nil, nil }
+func (p *miniPool) NewFromEndpoint(types.EndpointDsl) (types.SharedNodeCtx, error) { return nil, nil }
+func (p *miniPool) NewFromRuleNode(types.RuleNode) (types.SharedNodeCtx, error)    { return nil, nil }
+func (p *miniPool) Del(string)                                                     {}
+func (p *miniPool) Stop()                                                          {}
+func (p *miniPool) GetAll() []types.SharedNodeCtx                                  { return nil }
+func (p *miniPool) GetAllDef() (map[string][]*types.RuleNode, error)               { return nil, nil }
+func (p *miniPool) Range(func(key, value interface{}) bool)                        {}
 
-// fakeRegistry 测试用 SessionRegistry
+// fakeRegistry tests SessionRegistry
 type fakeRegistry struct {
 	mu       sync.Mutex
 	sessions map[string]*endpoint.Session
@@ -255,8 +255,8 @@ func (f *fakeRegistry) Lookup(target string) []*endpoint.Session {
 	return out
 }
 
-// SendToTarget 实现 types.TargetSender（供 NetNode ref:// 寻址推送测试复用，
-// 与 Lookup 共享同一份 session 寻址语义）。
+// SendToTarget implements types.TargetSender (for NetNode ref:// addressing push test reuse,
+// Shares the same session addressing semantics with Lookup).
 func (f *fakeRegistry) SendToTarget(target string, data []byte) (sent, failed int, err error) {
 	sessions := f.Lookup(target)
 	if len(sessions) == 0 {
@@ -275,7 +275,7 @@ func (f *fakeRegistry) SendToTarget(target string, data []byte) (sent, failed in
 	return sent, failed, err
 }
 
-// fakeSender 记录收到的数据
+// fakeSender records the data received
 type fakeSender struct {
 	mu       sync.Mutex
 	received [][]byte
@@ -304,7 +304,7 @@ func newAddrNode(t *testing.T, poolTarget string, target string) (*NetNode, *min
 	return node, pool
 }
 
-// TestNetNodeAddressingPush 按 deviceId 寻址推送：NetNode → Lookup(DEV_001) → Send
+// TestNetNodeAddressingPush Address Push by deviceId: NetNode → Lookup(DEV_001) → Send
 func TestNetNodeAddressingPush(t *testing.T) {
 	sender := &fakeSender{}
 	reg := &fakeRegistry{sessions: map[string]*endpoint.Session{}}
@@ -334,7 +334,7 @@ func TestNetNodeAddressingPush(t *testing.T) {
 	}
 }
 
-// TestNetNodeAddressingBroadcast target=* 广播所有 session
+// TestNetNodeAddressingBroadcast target=* Broadcast all sessions
 func TestNetNodeAddressingBroadcast(t *testing.T) {
 	s1, s2 := &fakeSender{}, &fakeSender{}
 	reg := &fakeRegistry{sessions: map[string]*endpoint.Session{}}
@@ -362,7 +362,7 @@ func TestNetNodeAddressingBroadcast(t *testing.T) {
 	}
 }
 
-// TestNetNodeAddressingNoMatch target 未命中 → TellFailure（不伪装成功）
+// TestNetNodeAddressingNoMatch target missed → TellFailure (not disguised successfully)
 func TestNetNodeAddressingNoMatch(t *testing.T) {
 	reg := &fakeRegistry{sessions: map[string]*endpoint.Session{}}
 	reg.Add(endpoint.NewSession("DEV_001", &fakeSender{}))

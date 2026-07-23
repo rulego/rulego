@@ -11,16 +11,16 @@ import (
 	"github.com/rulego/rulego/engine"
 )
 
-// TestForkJoinWithForkNode 测试使用正确的 fork 节点设计
-// 规则链结构:
+// TestForkJoinWithForkNode tests the correct fork node design
+// Rule chain structure:
 //
-//   node_20 (fork)
-//       │
-//       ├──→ node_2 (js转换a) → node_12 (js转换c) → node_5 (join)
-//       │
-//       └──→ node_3 (js转换b) → node_5 (join)
+//	node_20 (fork)
+//	    │
+//	    ├──→ node_2 (JS to A) → node_12 (JS to C) → node_5 (join)
+//	    │
+//	    └──→ node_3 (JS to B) → node_5 (join)
 //
-// 预期: join 后 metadata 应该同时包含 a, b, c
+// Expectation: After joining, the metadata should include a, b, and c simultaneously
 func TestForkJoinWithForkNode(t *testing.T) {
 	ruleChainDef := `{
 		"ruleChain": {
@@ -145,7 +145,7 @@ func TestForkJoinWithForkNode(t *testing.T) {
 
 		t.Logf("Metadata after join: a=%s, b=%s, c=%s", valueA, valueB, valueC)
 
-		// 验证所有元数据都被正确合并
+		// Verify that all metadata is correctly merged
 		if valueA != "a" {
 			t.Errorf("Expected metadata.a='a', got '%s'", valueA)
 		}
@@ -156,7 +156,7 @@ func TestForkJoinWithForkNode(t *testing.T) {
 			t.Errorf("Expected metadata.c='c', got '%s'", valueC)
 		}
 
-		// 如果所有值都正确，测试通过
+		// If all values are correct, the test passes
 		if valueA == "a" && valueB == "b" && valueC == "c" {
 			t.Log("SUCCESS: All metadata correctly merged!")
 		}
@@ -166,14 +166,14 @@ func TestForkJoinWithForkNode(t *testing.T) {
 	}
 }
 
-// TestForkNodeDirectToJoin 测试 fork 节点直接连接到 join 节点的场景
-// 规则链结构:
+// TestForkNodeDirectToJoin tests the scenario where a fork node connects directly to a join node
+// Rule chain structure:
 //
-//   fork ────────→ join (直接连接)
-//       │
-//       └──→ js转换 → join
+//	fork ────────→ join (direct connection)
+//	    │
+//	    └──→ JS conversion → join
 //
-// 预期: 这种设计也有问题，因为 fork 直接连接到 join 会创建"零长度"分支
+// Expectation: This design also has issues, because forks directly connecting to join create "zero-length" branches
 func TestForkNodeDirectToJoin(t *testing.T) {
 	ruleChainDef := `{
 		"ruleChain": {
@@ -270,7 +270,7 @@ func TestForkNodeDirectToJoin(t *testing.T) {
 
 		t.Logf("Metadata after join: a=%s", valueA)
 
-		// 关键验证: fork 直接连接到 join 会导致问题
+		// Key verification: Fork directly connecting to join causes problems
 		if valueA != "a" {
 			t.Logf("BUG CONFIRMED: Fork node directly connected to join causes early callback trigger!")
 			t.Logf("  metadata.a = '%s' (expected: 'a') - LOST", valueA)
@@ -283,12 +283,13 @@ func TestForkNodeDirectToJoin(t *testing.T) {
 	}
 }
 
-// TestForkDirectToJoinWithMetadataMerge 测试有问题的规则链设计（无 fork 节点）
-// 模拟用户提供的规则链结构:
-//   node_3 (js转换b) → node_2 (js转换a) → node_12 (js转换c) → node_5 (join)
-//   node_3 (js转换b) → node_5 (join)  [直接连接]
+// TestForkDirectToJoinWithMetadataMerge Test problematic rule chain design (no fork nodes)
+// Simulating the user-provided rule chain structure:
 //
-// 预期: join 后 metadata 应该同时包含 a, b, c
+//	node_3 (JS to B) → node_2 (JS to A) → node_12 (JS to C) → node_5 (join)
+//	node_3 (JS conversion b) → node_5 (join) [Direct Link]
+//
+// Expectation: After joining, the metadata should include a, b, and c simultaneously
 func TestForkDirectToJoinWithMetadataMerge(t *testing.T) {
 	ruleChainDef := `{
 		"ruleChain": {
@@ -390,7 +391,7 @@ func TestForkDirectToJoinWithMetadataMerge(t *testing.T) {
 		lock.Lock()
 		defer lock.Unlock()
 
-		// 打印所有节点的日志
+		// Print logs from all nodes
 		for id := range allNodeLogs {
 			t.Logf("Node %s: executed", id)
 		}
@@ -399,7 +400,7 @@ func TestForkDirectToJoinWithMetadataMerge(t *testing.T) {
 			t.Fatal("join node log is nil")
 		}
 
-		// 验证元数据是否被正确合并
+		// Verify that metadata has been properly merged
 		metadata := joinNodeLog.OutMsg.Metadata
 		if metadata == nil {
 			t.Fatal("metadata is nil")
@@ -411,14 +412,14 @@ func TestForkDirectToJoinWithMetadataMerge(t *testing.T) {
 
 		t.Logf("Metadata after join: a=%s, b=%s, c=%s", valueA, valueB, valueC)
 
-		// 关键验证: 所有分支的元数据都应该存在
-		// 注意: 由于 node_3 直接连接到 node_5 (join), 这是一个已知的 bug 场景
-		// 在当前实现中,join 可能不会等待 node_12 分支完成
+		// Key verification: Metadata for all branches should exist
+		// Note: Since node_3 is directly connected to node_5 (join), this is a known bug scenario
+		// In the current implementation, join may not wait for the node_12 branch to complete
 
-		// 风险: 这是已知 bug,		// 当 node_3 同时连接到 node_2 和 node_5 时:
-		// - node_3 → node_5 (直接连接) 会先到达 join
-		// - node_3 → node_2 → node_12 → node_5 (长路径) 后到达
-		// join 节点可能在收到第一条消息后就触发回调, 导致第二条消息的数据丢失
+		// Risk: This is a known bug, // When node_3 connects to both node_2 and node_5 at the same time:
+		// - node_3 → node_5 (direct connection) will arrive at join first
+		// - Arrive after node_3 → node_2 → node_12 → node_5 (long path).
+		// The join node may trigger a callback after receiving the first message, causing data loss for the second message
 
 		t.Logf("BUG VERIFICATION:")
 		t.Logf("  metadata.a = '%s' (expected: 'a') - %s", valueA,
@@ -428,7 +429,7 @@ func TestForkDirectToJoinWithMetadataMerge(t *testing.T) {
 		t.Logf("  metadata.c = '%s' (expected: 'c') - %s", valueC,
 			map[bool]string{true: "LOST", false: "OK"}[valueC == "c"])
 
-		// 记录 bug 现象
+		// Record bug phenomena
 		if valueA != "a" || valueC != "c" {
 			t.Logf("BUG CONFIRMED: Join node triggered callback before all branches completed!")
 			t.Logf("  This causes metadata from node_2->node_12 path to be lost")

@@ -36,13 +36,13 @@ import (
 
 const (
 	// MQTT broker configuration
-	// MQTT代理配置
+	// MQTT proxy configuration
 	mqttServer = "127.0.0.1:1883"
 	clientID   = "rulego_mqtt_client_example"
 )
 
 // SensorData represents a sample JSON message structure
-// SensorData 表示示例JSON消息结构
+// SensorData represents an example JSON message structure
 type SensorData struct {
 	SensorID     string  `json:"sensorId"`
 	Temperature  float64 `json:"temperature"`
@@ -53,7 +53,7 @@ type SensorData struct {
 }
 
 // SystemMessage represents system-level messages
-// SystemMessage 表示系统级消息
+// SystemMessage represents system-level messages
 type SystemMessage struct {
 	MessageID string `json:"messageId"`
 	Level     string `json:"level"`
@@ -63,7 +63,7 @@ type SystemMessage struct {
 }
 
 // DeviceCommand represents a binary command structure
-// DeviceCommand 表示二进制命令结构
+// DeviceCommand represents the binary command structure
 type DeviceCommand struct {
 	DeviceID uint16 `json:"deviceId"`
 	Command  uint8  `json:"command"`
@@ -75,7 +75,7 @@ func main() {
 	fmt.Println("Connecting to MQTT broker at", mqttServer)
 
 	// Create MQTT client configuration
-	// 创建MQTT客户端配置
+	// Create MQTT client configuration
 	config := mqtt.Config{
 		Server:   mqttServer,
 		Username: "",
@@ -85,7 +85,7 @@ func main() {
 	}
 
 	// Create MQTT client
-	// 创建MQTT客户端
+	// Create an MQTT client
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -98,27 +98,27 @@ func main() {
 	fmt.Println("Connected to MQTT broker successfully")
 
 	// Send JSON sensor data
-	// 发送JSON传感器数据
+	// Send JSON sensor data
 	sendJSONData(client)
 
 	// Send binary device commands
-	// 发送二进制设备命令
+	// Send binary device commands
 	sendBinaryData(client)
 
 	// Send system messages
-	// 发送系统消息
+	// Send system messages
 	sendSystemMessages(client)
 
 	fmt.Println("Client finished sending data")
 }
 
 // sendJSONData sends sample JSON sensor data to MQTT topics
-// sendJSONData 向MQTT主题发送示例JSON传感器数据
+// sendJSONData sends sample JSON sensor data to the MQTT subject
 func sendJSONData(client *mqtt.Client) {
 	fmt.Println("\n=== Sending JSON Sensor Data ===")
 
 	// Sample sensor data
-	// 示例传感器数据
+	// Example sensor data
 	sensorData := []SensorData{
 		{
 			SensorID:     "TEMP_001",
@@ -148,7 +148,7 @@ func sendJSONData(client *mqtt.Client) {
 
 	for i, data := range sensorData {
 		// Convert to JSON
-		// 转换为JSON
+		// Convert to JSON
 		jsonData, err := json.Marshal(data)
 		if err != nil {
 			log.Printf("Failed to marshal JSON data: %v", err)
@@ -156,7 +156,7 @@ func sendJSONData(client *mqtt.Client) {
 		}
 
 		// Publish to sensor-specific topic
-		// 发布到传感器特定主题
+		// Published on sensor-specific topics
 		topic := fmt.Sprintf("sensors/%s/data", data.SensorID)
 		fmt.Printf("Publishing JSON data %d to topic '%s': %s\n", i+1, topic, string(jsonData))
 
@@ -167,18 +167,18 @@ func sendJSONData(client *mqtt.Client) {
 		}
 
 		// Wait a bit between messages
-		// 消息之间等待一点时间
+		// Wait a little between messages
 		time.Sleep(time.Second)
 	}
 }
 
 // sendBinaryData sends sample binary device commands to MQTT topics
-// sendBinaryData 向MQTT主题发送示例二进制设备命令
+// sendBinaryData sends a sample binary device command to the MQTT subject
 func sendBinaryData(client *mqtt.Client) {
 	fmt.Println("\n=== Sending Binary Device Commands ===")
 
 	// Sample binary commands
-	// 示例二进制命令
+	// Example binary command
 	commands := []DeviceCommand{
 		{DeviceID: 1001, Command: 0x01, Value: 100}, // SET_PARAMETER
 		{DeviceID: 1002, Command: 0x02, Value: 255}, // GET_STATUS
@@ -188,27 +188,27 @@ func sendBinaryData(client *mqtt.Client) {
 
 	for i, cmd := range commands {
 		// Create binary data (protocol: deviceId(2) + command(1) + value(4))
-		// 创建二进制数据（协议：deviceId(2) + command(1) + value(4)）
+		// Create binary data (protocol: deviceId(2) + command(1) + value(4))
 		binaryData := make([]byte, 7)
 
 		// Device ID (2 bytes, big endian)
-		// 设备ID（2字节，大端序）
+		// Device ID (2 bytes, large-end-sequence)
 		binaryData[0] = byte(cmd.DeviceID >> 8)
 		binaryData[1] = byte(cmd.DeviceID & 0xFF)
 
 		// Command (1 byte)
-		// 命令（1字节）
+		// Command (1 byte)
 		binaryData[2] = cmd.Command
 
 		// Value (4 bytes, big endian)
-		// 值（4字节，大端序）
+		// Value (4 bytes, large-end)
 		binaryData[3] = byte(cmd.Value >> 24)
 		binaryData[4] = byte(cmd.Value >> 16)
 		binaryData[5] = byte(cmd.Value >> 8)
 		binaryData[6] = byte(cmd.Value & 0xFF)
 
 		// Publish to device-specific topic
-		// 发布到设备特定主题
+		// Publish to device-specific topics
 		topic := fmt.Sprintf("devices/%d/command", cmd.DeviceID)
 		fmt.Printf("Publishing binary data %d to topic '%s': Device=%d, Command=0x%02X, Value=%d\n",
 			i+1, topic, cmd.DeviceID, cmd.Command, cmd.Value)
@@ -220,18 +220,18 @@ func sendBinaryData(client *mqtt.Client) {
 		}
 
 		// Wait a bit between messages
-		// 消息之间等待一点时间
+		// Wait a little between messages
 		time.Sleep(time.Second)
 	}
 }
 
 // sendSystemMessages sends sample system messages
-// sendSystemMessages 发送示例系统消息
+// sendSystemMessages sends an example system message
 func sendSystemMessages(client *mqtt.Client) {
 	fmt.Println("\n=== Sending System Messages ===")
 
 	// Sample system messages
-	// 示例系统消息
+	// Example system message
 	systemMessages := []SystemMessage{
 		{
 			MessageID: "SYS_001",
@@ -258,7 +258,7 @@ func sendSystemMessages(client *mqtt.Client) {
 
 	for i, msg := range systemMessages {
 		// Convert to JSON
-		// 转换为JSON
+		// Convert to JSON
 		jsonData, err := json.Marshal(msg)
 		if err != nil {
 			log.Printf("Failed to marshal system message: %v", err)
@@ -266,7 +266,7 @@ func sendSystemMessages(client *mqtt.Client) {
 		}
 
 		// Publish to system topic based on level
-		// 根据级别发布到系统主题
+		// Publish according to the level to the system theme
 		topic := fmt.Sprintf("system/%s", msg.Level)
 		fmt.Printf("Publishing system message %d to topic '%s': %s\n", i+1, topic, string(jsonData))
 
@@ -277,7 +277,7 @@ func sendSystemMessages(client *mqtt.Client) {
 		}
 
 		// Wait a bit between messages
-		// 消息之间等待一点时间
+		// Wait a little between messages
 		time.Sleep(time.Second)
 	}
 }

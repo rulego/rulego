@@ -23,28 +23,28 @@ import (
 	"time"
 )
 
-// 处理规则链，如果温度大于50，则温度异常调用api推送告警，否则记录日志
+// Handle the regular chain; if the temperature exceeds 50, the abnormal temperature will trigger an API push alert; otherwise, log entry
 func main() {
-	//创建rule config
+	//Create a rule config
 	config := rulego.NewConfig()
-	//初始化规则引擎实例
+	//Initialize the rule engine instance
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile), rulego.WithConfig(config))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	//消息1 温度正常，没大于50度
-	//消息元数据
+	//News 1: Temperature is normal, not exceeding 50 degrees
+	//Message metadata
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "productType01")
-	//创建消息体
+	//Create a message body
 	msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"temperature\":35}")
-	//处理消息
+	//Process the message
 	ruleEngine.OnMsg(msg)
 
-	//消息2 温度异常，没大于50度
+	//News 2: Abnormal temperature, not exceeding 50°C
 	msg = types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"temperature\":65}")
-	//处理消息
+	//Process the message
 	ruleEngine.OnMsg(msg)
 	time.Sleep(time.Second * 40)
 }

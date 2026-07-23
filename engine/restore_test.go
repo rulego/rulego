@@ -306,7 +306,7 @@ func TestRestoreWithOptions(t *testing.T) {
 		opts = append(opts, types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
 			for _, log := range snapshot.Logs {
 				executedNodes[log.Id] = true
-				// node_a 只有输出没有输入
+				// node_a Only output, no input
 				if log.Id == "node_a" {
 					if log.InMsg.Id != "" {
 						t.Error("node_a should not have an input message")

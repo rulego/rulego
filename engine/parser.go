@@ -25,14 +25,14 @@ import (
 type JsonParser struct {
 }
 
-// DecodeRuleChain 通过json解析规则链结构体
+// DecodeRuleChain parses the rule chain structure using JSON
 func (p *JsonParser) DecodeRuleChain(rootRuleChain []byte) (types.RuleChain, error) {
 	var def types.RuleChain
 	err := json.Unmarshal(rootRuleChain, &def)
 	return def, err
 }
 
-// DecodeRuleNode 通过json解析节点结构体
+// DecodeRuleNode parses node structures using JSON
 func (p *JsonParser) DecodeRuleNode(rootRuleChain []byte) (types.RuleNode, error) {
 	var def types.RuleNode
 	err := json.Unmarshal(rootRuleChain, &def)
@@ -43,7 +43,7 @@ func (p *JsonParser) EncodeRuleChain(def interface{}) ([]byte, error) {
 	if v, err := json.Marshal(def); err != nil {
 		return nil, err
 	} else {
-		//格式化Json
+		//Formatting JSON
 		return json.Format(v)
 	}
 }
@@ -52,7 +52,7 @@ func (p *JsonParser) EncodeRuleNode(def interface{}) ([]byte, error) {
 	if v, err := json.Marshal(def); err != nil {
 		return nil, err
 	} else {
-		//格式化Json
+		//Formatting JSON
 		return json.Format(v)
 	}
 }

@@ -18,35 +18,35 @@
 // This package implements various aspects that can be applied to rule nodes and chains,
 // allowing for cross-cutting concerns to be addressed separately from the main business logic.
 //
-// Package aspect 为 RuleGo 规则引擎提供内置的面向切面编程（AOP）功能。
-// 该包实现了可应用于规则节点和链的各种切面，允许横切关注点与主要业务逻辑分离处理。
+// Package aspect provides built-in face-to-face programming (AOP) functionality for the RuleGo rule engine.
+// This package implements aspects for rule nodes and chains, allowing cross-cutting concerns to be handled separately from the main business logic.
 //
 // Available Built-in Aspects:
-// 可用的内置切面：
+// Available built-in aspects:
 //
 //   - Debug: Logging aspect for debug information before and after node execution
-//     Debug：在节点执行前后记录调试信息的日志切面
+//     Debug: A log section that records debugging information before and after node execution
 //
 //   - EndpointAspect: Management aspect for rule chain endpoints lifecycle
-//     EndpointAspect：规则链端点生命周期管理切面
+//     EndpointAspect: Rule chain endpoint lifecycle management face-to-face
 //
 //   - ConcurrencyLimiterAspect: Limits concurrent execution of rule engine
-//     ConcurrencyLimiterAspect：限制规则引擎并发执行的切面
+//     ConcurrencyLimiterAspect: The aspect of concurrent execution by the restriction rule engine
 //
 //   - MetricsAspect: Collects and maintains rule engine execution metrics
-//     MetricsAspect：收集和维护规则引擎执行指标的切面
+//     MetricsAspect: Collects and maintains rule engine execution metrics
 //
 //   - SkipFallbackAspect: Implements circuit breaker pattern for node failure handling
-//     SkipFallbackAspect：实现节点故障处理的熔断器模式切面
+//     SkipFallbackAspect: Fuse mode cross-section for node fault handling
 //
 //   - Validator: Validation aspect for rule chain initialization
-//     Validator：规则链初始化验证切面
+//     Validator: Validates rule chain initialization
 //
 // Aspect Execution Order:
-// 切面执行顺序：
+// Aspect Execution Order:
 //
 // Aspects are executed in order based on their Order() method:
-// 切面根据其 Order() 方法按顺序执行：
+// The faces are executed sequentially according to their Order() method:
 //  1. ConcurrencyLimiterAspect (order: 10)
 //  2. SkipFallbackAspect (order: 10)
 //  3. Validator (order: 10)
@@ -55,14 +55,14 @@
 //  6. EndpointAspect (order: 900)
 //
 // Usage Examples:
-// 使用示例：
+// Example:
 //
 //	// Apply debug aspect to rule engine
-//	// 为规则引擎应用调试切面
+//	Debug aspects for rule engine applications
 //	engine := rulego.NewRuleEngine(types.NewConfig().WithAspects(&Debug{}))
 //
 //	// Apply multiple aspects with custom configuration
-//	// 应用多个切面并自定义配置
+//	Apply multiple aspects and customize their configuration
 //	engine := rulego.NewRuleEngine(types.NewConfig().WithAspects(
 //		&Debug{},
 //		NewConcurrencyLimiterAspect(100),
@@ -71,10 +71,10 @@
 //	))
 //
 // Custom Aspect Development:
-// 自定义切面开发：
+// Custom Facet Development:
 //
 // To create custom aspects, implement one or more aspect interfaces:
-// 要创建自定义切面，请实现一个或多个切面接口：
+// To create custom aspects, implement one or more aspect interfaces:
 //
 //	type CustomAspect struct{}
 //
@@ -86,5 +86,5 @@
 //	}
 //
 // For detailed documentation on individual aspects, see their respective source files.
-// 有关各个切面的详细文档，请参见其各自的源文件。
+// For detailed documentation on each aspect, please refer to their respective source files.
 package aspect

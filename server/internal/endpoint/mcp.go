@@ -17,7 +17,7 @@ func (s *Server) registerMCPRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
 	mcpAuth := func(exchange *endpointApi.Exchange) (string, bool) {
-		// 优先从 URL 路径参数获取（向后兼容），然后尝试 Authorization header
+		// Prioritize obtaining URL path parameters (backward compatible), then try the Authorization header
 		apiKey := exchange.In.GetMsg().Metadata.GetValue(constants.MetaApiKey)
 		if apiKey == "" {
 			if auth := exchange.In.Headers().Get("Authorization"); auth != "" {
@@ -39,7 +39,7 @@ func (s *Server) registerMCPRoutes(ep endpointApi.HttpEndpoint) {
 		return username, true
 	}
 
-	// GET/POST/DELETE /mcp/:apiKey - MCP StreamableHTTP 端点（默认组，全部工具）
+	// GET/POST/DELETE/mcp/:apiKey - MCP StreamableHTTP endpoint (default group, all tools)
 	mcpHandler := func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		username, ok := mcpAuth(exchange)
 		if !ok {
@@ -52,7 +52,7 @@ func (s *Server) registerMCPRoutes(ep endpointApi.HttpEndpoint) {
 		r, ok1 := exchange.In.(*rest.RequestMessage)
 		w, ok2 := exchange.Out.(*rest.ResponseMessage)
 		if ok1 && ok2 {
-			// REST 框架在 GetMsg() 时已读取并关闭 body，需要恢复供 MCP handler 读取
+			// The REST framework reads and closes the body at GetMsg(), and needs to be restored for the MCP handler to read
 			r.Request().Body = io.NopCloser(bytes.NewReader(r.Body()))
 			if err := mcpSvc.HandleMCP(username, w.Response(), r.Request()); err != nil {
 				exchange.Out.SetStatusCode(http.StatusInternalServerError)
@@ -62,11 +62,11 @@ func (s *Server) registerMCPRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}
 
-	ep.GET(endpoint.NewRouter().From(base+"/mcp/:apiKey").Process(mcpHandler).End())
-	ep.POST(endpoint.NewRouter().From(base+"/mcp/:apiKey").Process(mcpHandler).End())
-	ep.DELETE(endpoint.NewRouter().From(base+"/mcp/:apiKey").Process(mcpHandler).End())
+	ep.GET(endpoint.NewRouter().From(base + "/mcp/:apiKey").Process(mcpHandler).End())
+	ep.POST(endpoint.NewRouter().From(base + "/mcp/:apiKey").Process(mcpHandler).End())
+	ep.DELETE(endpoint.NewRouter().From(base + "/mcp/:apiKey").Process(mcpHandler).End())
 
-	// GET/POST/DELETE /mcp/:apiKey/group/:group - MCP 分组 StreamableHTTP 端点
+	// GET/POST/DELETE /mcp/:apiKey/group/:group - MCP grouping StreamableHTTP endpoints
 	mcpGroupHandler := func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		username, ok := mcpAuth(exchange)
 		if !ok {
@@ -84,7 +84,7 @@ func (s *Server) registerMCPRoutes(ep endpointApi.HttpEndpoint) {
 		r, ok1 := exchange.In.(*rest.RequestMessage)
 		w, ok2 := exchange.Out.(*rest.ResponseMessage)
 		if ok1 && ok2 {
-			// REST 框架在 GetMsg() 时已读取并关闭 body，需要恢复供 MCP handler 读取
+			// The REST framework reads and closes the body at GetMsg(), and needs to be restored for the MCP handler to read
 			r.Request().Body = io.NopCloser(bytes.NewReader(r.Body()))
 			if err := mcpSvc.HandleGroupMCP(username, groupName, w.Response(), r.Request()); err != nil {
 				exchange.Out.SetStatusCode(http.StatusInternalServerError)
@@ -94,7 +94,7 @@ func (s *Server) registerMCPRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}
 
-	ep.GET(endpoint.NewRouter().From(base+"/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
-	ep.POST(endpoint.NewRouter().From(base+"/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
-	ep.DELETE(endpoint.NewRouter().From(base+"/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
+	ep.GET(endpoint.NewRouter().From(base + "/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
+	ep.POST(endpoint.NewRouter().From(base + "/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
+	ep.DELETE(endpoint.NewRouter().From(base + "/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
 }

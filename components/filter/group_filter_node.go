@@ -28,16 +28,16 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// init 注册GroupFilterNode组件
+// init registers the GroupFilterNode component
 // init registers the GroupFilterNode component with the default registry.
 func init() {
 	Registry.Add(&GroupFilterNode{})
 }
 
-// GroupFilterNodeConfiguration GroupFilterNode配置结构
+// GroupFilterNodeConfiguration GroupFilterNode configuration structure
 // GroupFilterNodeConfiguration defines the configuration structure for the GroupFilterNode component.
 type GroupFilterNodeConfiguration struct {
-	// AllMatches 决定组评估逻辑
+	// AllMatches determines the group's evaluation logic
 	// AllMatches determines the group evaluation logic:
 	//   - true: All nodes must return True for message to route to "True" chain
 	//   - false: Any node returning True will route message to "True" chain
@@ -51,50 +51,50 @@ type GroupFilterNodeConfiguration struct {
 	Timeout int `json:"timeout" label:"Timeout" desc:"Execution timeout in seconds, 0=no limit"`
 }
 
-// GroupFilterNode 将多个过滤器节点分组并集体评估的过滤组件
+// GroupFilterNode is a filter component that groups multiple filter nodes and collectively evaluates them
 // GroupFilterNode groups multiple filter nodes and evaluates them collectively.
 //
-// 核心算法：
+// Core algorithm:
 // Core Algorithm:
-// 1. 并发执行所有配置的过滤器节点 - Execute all configured filter nodes concurrently
-// 2. 使用原子操作聚合True/False结果 - Aggregate True/False results using atomic operations
-// 3. 根据AllMatches配置应用AND/OR逻辑 - Apply AND/OR logic based on AllMatches configuration
-// 4. 实现早期终止优化减少不必要计算 - Implement early termination optimization
+// 1. Execute all configured filter nodes concurrently
+// 2. Aggregating True/False results using atomic operations - Aggregating True/False results using atomic operations
+// 3. Apply AND/OR logic based on AllMatches configuration
+// 4. Implement early termination optimization to reduce unnecessary computation
 //
-// 评估逻辑 - Evaluation logic:
-//   - AllMatches=true (AND逻辑): 所有节点都必须返回True - All nodes must return True
-//   - AllMatches=false (OR逻辑): 任何节点返回True就成功 - Any node returning True is success
+// Evaluation logic:
+//   - AllMatches=true (AND logic): All nodes must return True - All nodes must return True
+//   - AllMatches=false (OR logic): Any node returning True is success
 //
-// 超时处理 - Timeout handling:
-//   - 可配置超时防止无限等待 - Configurable timeout prevents indefinite waiting
-//   - 超时时路由到Failure关系 - Route to Failure relation on timeout
+// Timeout handling:
+//   - Configurable timeout prevents indefinite waiting
+//   - Route to Failure relation on timeout - Route to Failure relation on timeout
 type GroupFilterNode struct {
-	// Config 组过滤器配置
+	// Config group filter configuration
 	// Config holds the group filter configuration
 	Config GroupFilterNodeConfiguration
 
-	// NodeIdList 要执行的节点ID列表
+	// NodeIdList is the list of node IDs to be executed
 	// NodeIdList contains the parsed list of node IDs to execute
 	NodeIdList []string
 
-	// Length 组中节点总数
+	// Length group: Total number of nodes
 	// Length is the total number of nodes in the group
 	Length int32
 }
 
-// Type 返回组件类型
+// Type returns the component type
 // Type returns the component type identifier.
 func (x *GroupFilterNode) Type() string {
 	return "groupFilter"
 }
 
-// New 创建新实例
+// New creates an instance
 // New creates a new instance.
 func (x *GroupFilterNode) New() types.Node {
 	return &GroupFilterNode{Config: GroupFilterNodeConfiguration{AllMatches: false}}
 }
 
-// Init 初始化组件
+// Init initializes the component
 // Init initializes the component.
 func (x *GroupFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
@@ -117,7 +117,7 @@ func (x *GroupFilterNode) Init(ruleConfig types.Config, configuration types.Conf
 	return err
 }
 
-// OnMsg 处理消息，并发执行所有配置的过滤器节点并根据配置的逻辑聚合结果
+// OnMsg processes messages, executes all configured filter nodes concurrently, and aggregates results based on the configured logic
 // OnMsg processes incoming messages by executing all configured filter nodes concurrently.
 func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if x.Length == 0 {
@@ -125,7 +125,7 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		return
 	}
 	var endCount int32
-	var trueCount int32 // 新增：跟踪True结果数量
+	var trueCount int32 // New: Track the number of True results
 	var completed int32
 	c := make(chan bool, 1)
 	var chanCtx context.Context
@@ -138,17 +138,17 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	defer cancel()
 
-	//执行节点列表逻辑
+	//Execute node list logic
 	for _, nodeId := range x.NodeIdList {
 		ctx.TellNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-			// 检查context是否已被取消，避免无意义的计算
+			// Check if the context has been canceled to avoid meaningless calculations
 			select {
 			case <-chanCtx.Done():
-				return // 提前退出，避免资源浪费
+				return // Exit early to avoid wasting resources
 			default:
 			}
 
-			// 直接使用原子操作获取当前计数，避免竞态窗口
+			// Directly use atomic operations to obtain the current count and avoid race window entries
 			currentEndCount := atomic.AddInt32(&endCount, 1)
 			var currentTrueCount int32
 			if relationType == types.True {
@@ -157,12 +157,12 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				currentTrueCount = atomic.LoadInt32(&trueCount)
 			}
 
-			// 判断是否应该结束并发送结果
+			// Decide whether to end and send the results
 			var shouldComplete bool
 			var result bool
 
 			if x.Config.AllMatches {
-				// AllMatches=true: 有任何False就立即返回False，所有都是True才返回True
+				// AllMatches=true: Returns False immediately if any False is found; only returns True if all are True
 				if relationType != types.True {
 					shouldComplete = true
 					result = false
@@ -171,7 +171,7 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 					result = true
 				}
 			} else {
-				// AllMatches=false: 有任何True就立即返回True，所有都完成且无True才返回False
+				// AllMatches=false: Returns True immediately if there are any Trues; returns False only when all are complete and none are True
 				if relationType == types.True {
 					shouldComplete = true
 					result = true
@@ -181,20 +181,20 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				}
 			}
 
-			// 使用CAS确保只有一个goroutine能发送结果
+			// Use CAS to ensure that only one goroutine can send results
 			if shouldComplete && atomic.CompareAndSwapInt32(&completed, 0, 1) {
-				// 使用非阻塞发送，防止在超时情况下channel阻塞
+				// Uses non-blocking sending to prevent channel blocking during timeouts
 				select {
 				case c <- result:
-					// 发送成功
+					// Sent successfully
 				default:
-					// Channel已满或无接收者（可能主函数已超时退出），放弃发送
+					// The channel is full or has no recipients (possibly the main function has timed out), so the transmission is abandoned
 				}
 			}
 		}, nil)
 	}
 
-	// 等待执行结束或者超时
+	// Waiting for execution to finish or timeout
 	select {
 	case <-chanCtx.Done():
 		ctx.TellFailure(msg, chanCtx.Err())
@@ -212,7 +212,7 @@ func (x *GroupFilterNode) Desc() string {
 	return "Group multiple filter nodes and evaluate collectively. allMatches=true requires all to pass (AND), false requires any to pass (OR). Routes to True/False"
 }
 
-// Destroy 清理资源
+// Destroy to clean up resources
 // Destroy cleans up resources.
 func (x *GroupFilterNode) Destroy() {
 }

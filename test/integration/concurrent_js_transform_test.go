@@ -12,14 +12,14 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// TestConcurrentJsTransformInRuleChain 测试规则链中多个JS转换节点的并发数据修改隔离性
-// 通过fork节点并行执行多个JS转换节点，验证数据修改的隔离性
+// TestConcurrentJsTransformInRuleChain tests the isolation of concurrent data modifications for multiple JS conversion nodes in the rule chain
+// Multiple JS conversion nodes are executed in parallel through fork nodes to verify data modification isolation
 func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 	config := rulego.NewConfig()
 
-	// 测试1: JSON数据类型的并发修改隔离测试
+	// Test 1: Concurrent modification isolation test for JSON data types
 	t.Run("JSONDataConcurrentModification", func(t *testing.T) {
-		// 定义规则链DSL，包含fork节点和两个JS转换节点
+		// Define the rule chain DSL, including fork nodes and two JS conversion nodes
 		ruleChainDSL := `{
 			"ruleChain": {
 				"id": "concurrent_json_test",
@@ -66,26 +66,26 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 			}
 		}`
 
-		// 创建规则引擎
+		// Create a rule engine
 		ruleEngine, err := rulego.New("concurrent_json_test", []byte(ruleChainDSL), rulego.WithConfig(config))
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 创建共享的JSON数据
+		// Create shared JSON data
 		sharedJSONData := `{"id": 1, "name": "test", "value": 50, "originalData": true}`
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "CONCURRENT_JSON_TEST", types.JSON, originalMetadata, sharedJSONData)
 
-		// 收集结果
+		// Collect the results
 		var results []types.RuleMsg
 		var resultsMutex sync.Mutex
 		var wg sync.WaitGroup
 
-		// 设置消息处理回调
+		// Set message handling callbacks
 		ruleEngine.OnMsg(testMsg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			defer wg.Done()
 			if err != nil {
-				t.Errorf("消息处理失败: %v", err)
+				t.Errorf("Message processing failure: %v", err)
 				return
 			}
 
@@ -94,14 +94,14 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 			resultsMutex.Unlock()
 		}))
 
-		// 等待两个JS节点都处理完成
+		// Wait for both JS nodes to finish processing
 		wg.Add(2)
 		wg.Wait()
 
-		// 验证结果
+		// Verify the results
 		assert.Equal(t, 2, len(results), "应该收到两个处理结果")
 
-		// 验证每个节点的处理结果是独立的
+		// Verify that each node's processing result is independent
 		node1Found := false
 		node2Found := false
 
@@ -112,24 +112,24 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 			if processedBy == "node1" {
 				node1Found = true
 				assert.True(t, len(resultData) > 0, "Node1结果数据不应为空")
-				t.Logf("Node1处理结果: %s", resultData)
+				t.Logf("Node1 Result: %s", resultData)
 			} else if processedBy == "node2" {
 				node2Found = true
 				assert.True(t, len(resultData) > 0, "Node2结果数据不应为空")
-				t.Logf("Node2处理结果: %s", resultData)
+				t.Logf("Node2 Result: %s", resultData)
 			}
 		}
 
 		assert.True(t, node1Found, "应该找到node1的处理结果")
 		assert.True(t, node2Found, "应该找到node2的处理结果")
 
-		// 验证原始消息数据
-		t.Logf("原始消息数据: %s", testMsg.Data.Get())
+		// Verify the original message data
+		t.Logf("Original message data: %s", testMsg.Data.Get())
 	})
 
-	// 测试2: 二进制数据类型的并发修改隔离测试
+	// Test 2: Concurrent modification isolation testing for binary data types
 	t.Run("BinaryDataConcurrentModification", func(t *testing.T) {
-		// 定义规则链DSL，包含fork节点和两个JS转换节点处理二进制数据
+		// Define the Rule Chain DSL, including fork nodes and two JS conversion nodes to process binary data
 		ruleChainDSL := `{
 			"ruleChain": {
 				"id": "concurrent_binary_test",
@@ -176,30 +176,30 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 			}
 		}`
 
-		// 创建规则引擎
+		// Create a rule engine
 		ruleEngine, err := rulego.New("concurrent_binary_test", []byte(ruleChainDSL), rulego.WithConfig(config))
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 创建共享的二进制数据
+		// Create shared binary data
 		sharedByteData := []byte{1, 2, 3, 4, 5}
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "CONCURRENT_BINARY_TEST", types.BINARY, originalMetadata, string(sharedByteData))
 
-		// 记录原始数据
+		// Record the raw data
 		originalData := make([]byte, len(sharedByteData))
 		copy(originalData, sharedByteData)
 
-		// 收集结果
+		// Collect the results
 		var results []types.RuleMsg
 		var resultsMutex sync.Mutex
 		var wg sync.WaitGroup
 
-		// 设置消息处理回调
+		// Set message handling callbacks
 		ruleEngine.OnMsg(testMsg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			defer wg.Done()
 			if err != nil {
-				t.Errorf("消息处理失败: %v", err)
+				t.Errorf("Message processing failure: %v", err)
 				return
 			}
 
@@ -208,14 +208,14 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 			resultsMutex.Unlock()
 		}))
 
-		// 等待两个JS节点都处理完成
+		// Wait for both JS nodes to finish processing
 		wg.Add(2)
 		wg.Wait()
 
-		// 验证结果
+		// Verify the results
 		assert.Equal(t, 2, len(results), "应该收到两个处理结果")
 
-		// 验证每个节点的处理结果是独立的
+		// Verify that each node's processing result is independent
 		node1Found := false
 		node2Found := false
 
@@ -226,29 +226,29 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 			if processedBy == "node1" {
 				node1Found = true
 				assert.Equal(t, "100", firstByte, "Node1应该将第一个字节设置为100")
-				t.Logf("Node1处理结果第一个字节: %s", firstByte)
+				t.Logf("Node1 first byte of processing result: %s", firstByte)
 			} else if processedBy == "node2" {
 				node2Found = true
 				assert.Equal(t, "200", firstByte, "Node2应该将第一个字节设置为200")
-				t.Logf("Node2处理结果第一个字节: %s", firstByte)
+				t.Logf("Node2 first byte of processing result: %s", firstByte)
 			}
 		}
 
 		assert.True(t, node1Found, "应该找到node1的处理结果")
 		assert.True(t, node2Found, "应该找到node2的处理结果")
 
-		// 验证原始字节数组未被修改（由于base.go中的副本机制）
+		// Verify that the original byte array has not been modified (due to the replication mechanism in base.go)
 		for i, b := range sharedByteData {
 			assert.Equal(t, originalData[i], b, "原始字节数组第%d个字节应该未被修改", i)
 		}
 
-		t.Logf("原始字节数组: %v", originalData)
-		t.Logf("处理后共享字节数组: %v", sharedByteData)
+		t.Logf("Original byte array: %v", originalData)
+		t.Logf("Processed byte array: %v", sharedByteData)
 	})
 
-	// 测试3: 高并发场景下的数据隔离测试
+	// Test 3: Data isolation testing in high-concurrency scenarios
 	t.Run("HighConcurrencyDataIsolation", func(t *testing.T) {
-		// 定义包含更多JS节点的规则链
+		// Define a rule chain that contains more JS nodes
 		ruleChainDSL := `{
 			"ruleChain": {
 				"id": "high_concurrency_test",
@@ -314,26 +314,26 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 			}
 		}`
 
-		// 创建规则引擎
+		// Create a rule engine
 		ruleEngine, err := rulego.New("high_concurrency_test", []byte(ruleChainDSL), rulego.WithConfig(config))
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 创建共享数据
+		// Create shared data
 		sharedData := `{"id": 1, "name": "shared", "value": 0}`
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "HIGH_CONCURRENCY_TEST", types.JSON, originalMetadata, sharedData)
 
-		// 收集结果
+		// Collect the results
 		var results []types.RuleMsg
 		var resultsMutex sync.Mutex
 		var wg sync.WaitGroup
 
-		// 设置消息处理回调
+		// Set message handling callbacks
 		ruleEngine.OnMsg(testMsg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			defer wg.Done()
 			if err != nil {
-				t.Errorf("消息处理失败: %v", err)
+				t.Errorf("Message processing failure: %v", err)
 				return
 			}
 
@@ -342,14 +342,14 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 			resultsMutex.Unlock()
 		}))
 
-		// 等待所有5个JS节点都处理完成
+		// Wait for all five JS nodes to finish processing
 		wg.Add(5)
 		wg.Wait()
 
-		// 验证结果
+		// Verify the results
 		assert.Equal(t, 5, len(results), "应该收到5个处理结果")
 
-		// 验证每个节点都产生了独立的结果
+		// Each node was verified to produce an independent result
 		nodeIds := make(map[string]bool)
 		for _, result := range results {
 			nodeId := result.Metadata.GetValue("nodeId")
@@ -357,14 +357,14 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 			nodeIds[nodeId] = true
 		}
 
-		// 验证所有5个节点都产生了结果
+		// All five nodes were validated and produced results
 		assert.Equal(t, 5, len(nodeIds), "应该有5个不同的节点ID")
-		t.Logf("高并发处理产生的节点ID: %v", nodeIds)
+		t.Logf("Node ID: %v generated by high concurrency processing", nodeIds)
 	})
 
-	// 测试4: 多次执行验证一致性
+	// Test 4: Multiple runs to verify consistency
 	t.Run("MultipleExecutionConsistency", func(t *testing.T) {
-		// 定义简单的规则链
+		// Define a simple chain of rules
 		ruleChainDSL := `{
 			"ruleChain": {
 				"id": "consistency_test",
@@ -403,30 +403,30 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 			}
 		}`
 
-		// 创建规则引擎
+		// Create a rule engine
 		ruleEngine, err := rulego.New("consistency_test", []byte(ruleChainDSL), rulego.WithConfig(config))
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 多次执行相同的测试
+		// The same test was performed multiple times
 		for i := 0; i < 10; i++ {
-			// 创建测试数据
+			// Create test data
 			testData := fmt.Sprintf(`{"id": %d, "name": "test%d", "iteration": %d}`, i, i, i)
 			originalMetadata := types.BuildMetadata(make(map[string]string))
 			testMsg := types.NewMsg(0, "CONSISTENCY_TEST", types.JSON, originalMetadata, testData)
 
-			// 收集结果
+			// Collect the results
 			var results []types.RuleMsg
 			var resultsMutex sync.Mutex
 			var wg sync.WaitGroup
 
-			// 先 Add 再 OnMsg，避免 OnEnd 回调先于 Add 执行导致 WaitGroup 计数变负
+			// Add first, then OnMsg to avoid OnEnd callbacks executing before Add and causing WaitGroup counts to become negative
 			wg.Add(2)
-			// 设置消息处理回调
+			// Set message handling callbacks
 			ruleEngine.OnMsg(testMsg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 				defer wg.Done()
 				if err != nil {
-					t.Errorf("第%d次执行消息处理失败: %v", i, err)
+					t.Errorf("%d message processing failure: %v", i, err)
 					return
 				}
 
@@ -435,13 +435,13 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 				resultsMutex.Unlock()
 			}))
 
-			// 等待处理完成
+			// Wait for processing to complete
 			wg.Wait()
 
-			// 验证结果
+			// Verify the results
 			assert.Equal(t, 2, len(results), "第%d次执行应该收到2个处理结果", i)
 
-			// 验证数据一致性
+			// Verify data consistency
 			aaFound := false
 			bbFound := false
 			for _, result := range results {
@@ -465,6 +465,6 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 			assert.True(t, bbFound, "第%d次执行应该找到from='bb'的结果", i)
 		}
 
-		t.Logf("多次执行一致性测试完成，共执行10次")
+		t.Logf("Multiple conformity tests were completed, totaling 10 runs")
 	})
 }

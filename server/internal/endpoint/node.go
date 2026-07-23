@@ -15,8 +15,8 @@ import (
 func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
-	// GET /shared-nodes - 获取共享节点列表
-	ep.GET(endpoint.NewRouter().From(base+"/shared-nodes").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// GET /shared-nodes - Retrieves the list of shared nodes
+	ep.GET(endpoint.NewRouter().From(base + "/shared-nodes").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -37,8 +37,8 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// POST /shared-nodes/:id/:type - 添加/更新共享节点
-	ep.POST(endpoint.NewRouter().From(base+"/shared-nodes/:id/:type").Process(s.authWithPermission("component", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// POST /shared-nodes/:id/:type - Add/update shared nodes
+	ep.POST(endpoint.NewRouter().From(base + "/shared-nodes/:id/:type").Process(s.authWithPermission("component", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -66,8 +66,8 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// GET /shared-nodes/:id/:type - 获取共享节点
-	ep.GET(endpoint.NewRouter().From(base+"/shared-nodes/:id/:type").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// GET /shared-nodes/:id/:type - Get the shared node
+	ep.GET(endpoint.NewRouter().From(base + "/shared-nodes/:id/:type").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -85,8 +85,8 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// DELETE /shared-nodes/:id/:type - 删除共享节点
-	ep.DELETE(endpoint.NewRouter().From(base+"/shared-nodes/:id/:type").Process(s.authWithPermission("component", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// DELETE /shared-nodes/:id/:type - Delete the shared nodes
+	ep.DELETE(endpoint.NewRouter().From(base + "/shared-nodes/:id/:type").Process(s.authWithPermission("component", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -99,8 +99,8 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// GET /dynamic-components - 获取动态组件列表
-	ep.GET(endpoint.NewRouter().From(base+"/dynamic-components").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// GET /dynamic-components - Retrieves a list of dynamic components
+	ep.GET(endpoint.NewRouter().From(base + "/dynamic-components").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -120,8 +120,8 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// GET /dynamic-components/:id - 获取动态组件 DSL
-	ep.GET(endpoint.NewRouter().From(base+"/dynamic-components/:id").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// GET /dynamic-components/:id - Retrieves the dynamic component DSL
+	ep.GET(endpoint.NewRouter().From(base + "/dynamic-components/:id").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -135,8 +135,8 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// POST /dynamic-components/:id - 安装/升级动态组件
-	ep.POST(endpoint.NewRouter().From(base+"/dynamic-components/:id").Process(s.authWithPermission("component", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// POST /dynamic-components/:id - Install/upgrade dynamic components
+	ep.POST(endpoint.NewRouter().From(base + "/dynamic-components/:id").Process(s.authWithPermission("component", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -147,8 +147,8 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// DELETE /dynamic-components/:id - 卸载动态组件
-	ep.DELETE(endpoint.NewRouter().From(base+"/dynamic-components/:id").Process(s.authWithPermission("component", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// DELETE /dynamic-components/:id - Uninstall dynamic components
+	ep.DELETE(endpoint.NewRouter().From(base + "/dynamic-components/:id").Process(s.authWithPermission("component", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false

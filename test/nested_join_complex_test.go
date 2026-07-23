@@ -28,13 +28,13 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// parseComplexResult 解析复杂嵌套join结果
-// 当只有一个结果时返回单元素数组，多个结果时返回原数组
+// parseComplexResult parses the result of complex nested joins
+// Returns a single-element array when there is only one result; returns the original array when there are multiple results
 func parseComplexResult(data string) ([]map[string]interface{}, error) {
 	var result []map[string]interface{}
 	err := json.Unmarshal([]byte(data), &result)
 	if err != nil {
-		// 尝试解析为单个对象
+		// Try parsing it as a single object
 		var singleObj map[string]interface{}
 		err2 := json.Unmarshal([]byte(data), &singleObj)
 		if err2 == nil {
@@ -45,12 +45,12 @@ func parseComplexResult(data string) ([]map[string]interface{}, error) {
 	return result, nil
 }
 
-// TestSwitchWithInternalJoin 测试条件分支内部有join的情况
+// TestSwitchWithInternalJoin Test Condition There are joins within the branch
 func TestSwitchWithInternalJoin(t *testing.T) {
 	config := rulego.NewConfig()
 
-	// 测试1: 条件分支 -> 某个分支内部是fork-join结构
-	// 温度35: Switch Case1匹配 -> 分支1内部fork为2个并行节点 -> 内部join -> 外部join
+	// Test 1: Conditional branch -> Inside a branch is a fork-join structure
+	// Temperature 35: Switch Case1 matches -> Branch 1 forks 2 parallel nodes internally -> Internal join -> External join
 	t.Run("Switch_BranchInternalJoin_SingleBranch", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -187,7 +187,7 @@ func TestSwitchWithInternalJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度35: Switch Case1匹配 -> fork -> 内部2个并行节点 -> 内部join -> 内部处理 -> 外部join
+		// Temperature 35: Switch Case1 match -> fork -> Two internal parallel nodes -> Internal join -> Internal processing -> External join
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.JSON, originalMetadata, `{"temperature":35}`)
 
@@ -216,23 +216,23 @@ func TestSwitchWithInternalJoin(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 
 		assert.Nil(t, resultErr)
 		assert.Equal(t, types.Success, resultRelationType)
 
-		// 解析结果 - 内部join后会合并为一条消息，然后继续处理
-		t.Logf("结果数据: %s", resultMsg.GetData())
-		t.Logf("结果关系类型: %s", resultRelationType)
+		// Parse result - After internal joins, the message will be merged into one message and then processed again
+		t.Logf("Result data: %s", resultMsg.GetData())
+		t.Logf("Result relationship type: %s", resultRelationType)
 		assert.Nil(t, resultErr)
-		// 内部fork-join后消息被合并，外部join收到的是单条消息
-		// 验证消息包含内部处理的标记
+		// After internal fork-join, messages are merged, while external joins receive a single message
+		// Validation messages contain internal processing marks
 		assert.True(t, len(resultMsg.GetData()) > 0, "结果数据不应为空")
-		t.Logf("✓ 条件分支内部join-单分支: join成功，内部fork-join正常工作")
+		t.Logf("✓ Conditional branch internal join- single branch: join successful, internal fork-join working normally")
 	})
 
-	// 测试2: 条件分支 -> Case2匹配，不经过内部fork-join
+	// Test 2: Conditional branch -> Case2 matching, without internal fork-join
 	t.Run("Switch_BranchInternalJoin_Case2Match", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -369,7 +369,7 @@ func TestSwitchWithInternalJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度60: Switch Case2匹配 -> 直接到case2_node -> 外部join
+		// Temperature 60: Switch Case2 matches -> directly to case2_node -> external join
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.JSON, originalMetadata, `{"temperature":60}`)
 
@@ -396,26 +396,26 @@ func TestSwitchWithInternalJoin(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 
 		assert.Nil(t, resultErr)
 
-		// 解析结果 - 应该只有1个结果（case2处理）
+		// Parsing result - There should be only one result (case2 handling)
 		results, err := parseComplexResult(resultMsg.GetData())
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(results), "应该只有1个分支结果")
 		assert.Equal(t, "case2_node", results[0]["nodeId"])
-		t.Logf("✓ 条件分支内部join-Case2匹配: join成功，跳过内部fork-join")
+		t.Logf("✓ Conditional branch internal join-Case2 matching: join successful, skip internal fork-join")
 	})
 }
 
-// TestInclusiveWithInternalJoin 测试包容分支内部有join的情况
+// TestInclusiveWithInternalJoin tests whether there are joins within the inclusion branch
 func TestInclusiveWithInternalJoin(t *testing.T) {
 	config := rulego.NewConfig()
 
-	// 测试1: 包容分支 -> 两个分支内部都有join
-	// 温度35: Inclusive Case1和Case2都匹配 -> 两个分支各自内部fork-join -> 外部join
+	// Test 1: Include branches -> Both branches have joins inside
+	// Temperature 35: Both Inclusive Case1 and Case2 match -> Both branches fork-join -> external join respectively
 	t.Run("Inclusive_BothBranchesInternalJoin", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -607,7 +607,7 @@ func TestInclusiveWithInternalJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度35: Inclusive Case1和Case2都匹配
+		// Temperature 35: Inclusive Case1 and Case2 both match
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.JSON, originalMetadata, `{"temperature":35}`)
 
@@ -636,25 +636,25 @@ func TestInclusiveWithInternalJoin(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 
 		assert.Nil(t, resultErr)
 		assert.Equal(t, types.Success, resultRelationType)
 
-		// 解析结果 - 应该有2个结果（process1和process2）
-		// 每个分支内部fork-join后合并为一条，然后外部join收集两个分支的结果
-		t.Logf("结果数据: %s", resultMsg.GetData())
+		// Parse results - There should be 2 results (process1 and process2)
+		// Each branch is fork-joined, merged into one, and then the external join collects the results from both branches
+		t.Logf("Result data: %s", resultMsg.GetData())
 		results, err := parseComplexResult(resultMsg.GetData())
 		assert.Nil(t, err)
-		t.Logf("结果数量: %d", len(results))
-		// 验证结果包含处理后的数据
+		t.Logf("Number of results: %d", len(results))
+		// The verification results include processed data
 		assert.True(t, len(resultMsg.GetData()) > 0, "结果数据不应为空")
-		t.Logf("✓ 包容分支内部join-两分支都有: join成功")
+		t.Logf("✓ Inclusion within the branch join- both branches have: join success")
 	})
 
-	// 测试2: 包容分支 -> 只有一个分支有内部join
-	// 温度25: Inclusive只有Case1匹配 -> 分支1内部fork-join -> 外部join
+	// Test 2: Include branches -> Only one branch has internal joins
+	// Temperature 25: Inclusive only matches Case1 with -> branch 1 internal fork-join -> external join
 	t.Run("Inclusive_SingleBranchInternalJoin", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -791,7 +791,7 @@ func TestInclusiveWithInternalJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度25: Inclusive只有Case1匹配 -> 分支1内部fork-join
+		// Temperature 25: Inclusive only matches Case1 with -> fork-join inside branch 1
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.JSON, originalMetadata, `{"temperature":25}`)
 
@@ -818,27 +818,27 @@ func TestInclusiveWithInternalJoin(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 
 		assert.Nil(t, resultErr)
 
-		// 解析结果 - 应该只有1个结果（process1）
-		t.Logf("结果数据: %s", resultMsg.GetData())
+		// Parse result - There should be only one result (process1)
+		t.Logf("Result data: %s", resultMsg.GetData())
 		results, err := parseComplexResult(resultMsg.GetData())
 		assert.Nil(t, err)
-		t.Logf("结果数量: %d", len(results))
-		// 验证结果包含处理后的数据
+		t.Logf("Number of results: %d", len(results))
+		// The verification results include processed data
 		assert.True(t, len(resultMsg.GetData()) > 0, "结果数据不应为空")
-		t.Logf("✓ 包容分支内部join-单分支: join成功，只有分支1执行")
+		t.Logf("✓ Inclusion of a single branch within join- branch: join succeeds, only branch 1 executes")
 	})
 }
 
-// TestDoubleNestedJoin 测试双层嵌套join
+// TestDoubleNestedJoin Tests the double-layer nested join
 func TestDoubleNestedJoin(t *testing.T) {
 	config := rulego.NewConfig()
 
-	// 测试: 条件分支 -> 包容分支 -> 内部fork-join -> 外部join
+	// Test: Conditional branch -> Inclusion branch -> Internal fork-join -> External join
 	t.Run("Switch_Inclusive_InternalForkJoin", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -1070,8 +1070,8 @@ func TestDoubleNestedJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度35: Switch Case1匹配 -> Inclusive High(>=30)和Low(<=40)都匹配
-		// -> fork_high和fork_low各自fork -> 内部join -> process -> 外部join
+		// Temperature 35: Switch Case1 matches -> Inclusive High (>=30) and Low (<=40) matches
+		// -> fork_high and fork_low each fork -> internal join -> process -> external join
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.JSON, originalMetadata, `{"temperature":35}`)
 
@@ -1100,19 +1100,19 @@ func TestDoubleNestedJoin(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 
 		assert.Nil(t, resultErr)
 		assert.Equal(t, types.Success, resultRelationType)
 
-		// 解析结果 - 应该有2个结果（process_high和process_low）
-		t.Logf("结果数据: %s", resultMsg.GetData())
+		// Parsing results - there should be two outcomes (process_high and process_low)
+		t.Logf("Result data: %s", resultMsg.GetData())
 		results, err := parseComplexResult(resultMsg.GetData())
 		assert.Nil(t, err)
-		t.Logf("结果数量: %d", len(results))
-		// 验证结果包含处理后的数据
+		t.Logf("Number of results: %d", len(results))
+		// The verification results include processed data
 		assert.True(t, len(resultMsg.GetData()) > 0, "结果数据不应为空")
-		t.Logf("✓ 双层嵌套join: join成功")
+		t.Logf("✓ Double-layer nesting join: join successful")
 	})
 }

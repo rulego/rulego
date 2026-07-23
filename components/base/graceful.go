@@ -26,78 +26,78 @@ import (
 	"github.com/rulego/rulego/api/types"
 )
 
-// DefaultShutdownTimeout 默认优雅停机超时时间
+// DefaultShutdownTimeout Defaults to the elegant shutdown timeout timeout
 const DefaultShutdownTimeout = 10 * time.Second
 
 // GracefulShutdown provides a base implementation for graceful shutdown functionality.
 // It can be embedded in components, endpoints, or other services that need to handle
 // graceful shutdown with timeout and status management.
 //
-// GracefulShutdown 为优雅停机功能提供基础实现。
-// 它可以嵌入到需要处理优雅停机、超时和状态管理的组件、端点或其他服务中。
+// GracefulShutdown provides the foundational implementation for the graceful shutdown function.
+// It can be embedded into components, endpoints, or other services that need to handle elegant downtime, timeouts, and state management.
 //
 // Key Features:
-// 主要特性：
-//   - Context-based shutdown signaling  基于上下文的停机信号
-//   - Configurable shutdown timeout  可配置的停机超时
-//   - Atomic shutdown state management  原子停机状态管理
-//   - Thread-safe operations  线程安全操作
-//   - Graceful vs. forced shutdown  优雅停机与强制停机
+// Key features:
+//   - Context-based shutdown signaling
+//   - Configurable shutdown timeout
+//   - Atomic shutdown state management
+//   - Thread-safe operations
+//   - Graceful vs. forced shutdown
 //
 // Usage Pattern:
-// 使用模式：
-//  1. Embed GracefulShutdown in your struct  在结构体中嵌入 GracefulShutdown
-//  2. Call InitGracefulShutdown() during initialization  在初始化期间调用 InitGracefulShutdown()
-//  3. Use GetShutdownContext() to check shutdown signals  使用 GetShutdownContext() 检查停机信号
-//  4. Call GracefulStop() to initiate shutdown  调用 GracefulStop() 启动停机
-//  5. Override doStop() to implement custom cleanup  重写 doStop() 实现自定义清理
+// Usage mode:
+//  1. Embed GracefulShutdown in your struct
+//  2. Call InitGracefulShutdown() during initialization
+//  3. Use GetShutdownContext() to check shutdown signals
+//  4. Call GracefulStop() to initiate shutdown
+//  5. Override doStop() to implement custom cleanup
 //
 // Thread Safety:
-// 线程安全：
+// Thread safety:
 //
 //	All operations are thread-safe and can be called concurrently
 //	from multiple goroutines without additional synchronization.
 //
-//	所有操作都是线程安全的，可以从多个 goroutine 并发调用，
-//	无需额外的同步。
+//	All operations are thread-safe and can be called concurrently from multiple goroutines,
+//	No additional synchronization is needed.
 type GracefulShutdown struct {
 	// shutdownCtx is the context for coordinating graceful shutdown
-	// shutdownCtx 是协调优雅停机的上下文
+	// shutdownCtx is the context for coordinating elegant shutdowns
 	shutdownCtx    context.Context
 	shutdownCancel context.CancelFunc
 
 	// shutdownTimeout defines the maximum time to wait for graceful shutdown
-	// shutdownTimeout 定义优雅停机的最大等待时间
+	// shutdownTimeout defines the maximum waiting time for elegant downtime
 	shutdownTimeout time.Duration
 
 	// isShuttingDown indicates whether the component is in shutdown process
-	// isShuttingDown 指示组件是否处于停机过程中
+	// isShuttingDown indicates whether the component is in a shutdown process
 	isShuttingDown int32
 
 	// activeOperations tracks the number of operations currently being processed
-	// activeOperations 跟踪当前正在处理的操作数量
+	// activeOperations tracks the number of operations currently being processed
 	activeOperations int64
 
 	// isReloading indicates whether the component is currently reloading
-	// isReloading 指示组件当前是否正在重载
+	// isReloading indicates whether the component is currently being reloaded
 	isReloading int32
 
 	// logger provides logging functionality
-	// logger 提供日志功能
+	// Logger provides logging functionality
 	logger types.Logger
 }
 
 // InitGracefulShutdown initializes the graceful shutdown functionality.
 // This should be called during component initialization.
 //
-// InitGracefulShutdown 初始化优雅停机功能。
-// 应在组件初始化期间调用。
+// InitGracefulShutdown initializes the graceful shutdown function.
+// It should be called during component initialization.
 //
 // Parameters:
-// 参数：
-//   - logger: Logger instance for shutdown operations  停机操作的日志记录器实例
+// Parameters:
+//   - logger: Logger instance for shutdown operations
 //   - timeout: Maximum time to wait for graceful shutdown, 0 uses default (10s)
-//     timeout: 优雅停机的最大等待时间，0 使用默认值（10秒）
+//     timeout: Maximum waiting time for elegant downtime, 0 using default value (10 seconds)
 func (g *GracefulShutdown) InitGracefulShutdown(logger types.Logger, timeout time.Duration) {
 	if timeout == 0 {
 		timeout = DefaultShutdownTimeout
@@ -112,15 +112,15 @@ func (g *GracefulShutdown) InitGracefulShutdown(logger types.Logger, timeout tim
 // GetShutdownContext returns the shutdown context for checking shutdown signals.
 // Components can use this context to detect when shutdown has been initiated.
 //
-// GetShutdownContext 返回用于检查停机信号的停机上下文。
-// 组件可以使用此上下文来检测何时启动了停机。
+// GetShutdownContext returns the shutdown context used to check the shutdown signal.
+// Components can use this context to detect when a shutdown has started.
 //
 // Returns:
-// 返回：
-//   - context.Context: Context that is canceled when shutdown starts  停机开始时取消的上下文
+// Returns:
+//   - context.Context: Context that is canceled when shutdown starts
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	select {
 //	case <-g.GetShutdownContext().Done():
@@ -136,12 +136,12 @@ func (g *GracefulShutdown) GetShutdownContext() context.Context {
 // IsShuttingDown returns whether the component is currently in shutdown process.
 // This is a thread-safe way to check shutdown status.
 //
-// IsShuttingDown 返回组件当前是否处于停机过程中。
-// 这是检查停机状态的线程安全方式。
+// IsShuttingDown returns whether the component is currently in a shutdown process.
+// This is a thread-safe method for checking the downtime status.
 //
 // Returns:
-// 返回：
-//   - bool: true if shutdown is in progress  如果正在停机则为 true
+// Returns:
+//   - bool: true if shutdown is in progress
 func (g *GracefulShutdown) IsShuttingDown() bool {
 	return atomic.LoadInt32(&g.isShuttingDown) == 1
 }
@@ -150,29 +150,29 @@ func (g *GracefulShutdown) IsShuttingDown() bool {
 // Phase 1: Sets shutdown flag to reject new operations but allows ongoing operations to complete.
 // Phase 2: Only cancels context after timeout to force interrupt ongoing operations.
 //
-// GracefulStop 启动两阶段优雅停机。
-// 第一阶段：设置停机标志拒绝新操作，但允许正在进行的操作完成。
-// 第二阶段：只有在超时后才取消上下文强制中断正在进行的操作。
+// GracefulStop initiates a two-stage elegant shutdown.
+// Phase One: Set a shutdown sign to reject new operations but allow ongoing operations to be completed.
+// Stage Two: Stop the ongoing operation by forcing context only after timeout.
 //
 // Parameters:
-// 参数：
+// Parameters:
 //   - stopFunc: Function to call for cleanup, should handle timeout logic (can be nil)
-//     stopFunc: 清理函数，应处理超时逻辑（可以为 nil）
+//     stopFunc: Cleanup function, should handle timeout logic (can be nil)
 //
 // The graceful shutdown process:
-// 优雅停机过程：
-//  1. Sets shutdown flag to prevent new operations  设置停机标志以防止新操作
-//  2. Waits for ongoing operations to complete  等待正在进行的操作完成
-//  3. Only cancels context if timeout is exceeded  只有超时时才取消上下文
-//  4. Calls stopFunc() for cleanup  调用 stopFunc() 进行清理
+// Elegant shutdown process:
+//  1. Sets shutdown flag to prevent new operations
+//  2. Waits for ongoing operations to complete
+//  3. Only cancels context if timeout is exceeded
+//  4. Calls stopFunc() for cleanup
 func (g *GracefulShutdown) GracefulStop(stopFunc func()) {
-	// 如果已经在停机，直接返回
+	// If the machine is already down, just return directly
 	if !atomic.CompareAndSwapInt32(&g.isShuttingDown, 0, 1) {
 		return
 	}
 
-	// 如果提供了停机函数，同步调用它
-	// stopFunc 应该包含等待逻辑和超时处理
+	// If a shutdown function is provided, call it synchronously
+	// stopFunc should include waiting logic and timeout handling
 	if stopFunc != nil {
 		stopFunc()
 	}
@@ -181,10 +181,10 @@ func (g *GracefulShutdown) GracefulStop(stopFunc func()) {
 // ForceStop immediately cancels the shutdown context to interrupt all ongoing operations.
 // This should only be called after graceful shutdown timeout.
 //
-// ForceStop 立即取消停机上下文以中断所有正在进行的操作。
-// 这应该只在优雅停机超时后调用。
+// ForceStop immediately removes the downtime context to interrupt all ongoing operations.
+// This should only be called after the elegant shutdown timeout.
 func (g *GracefulShutdown) ForceStop() {
-	// 强制取消上下文，中断所有正在进行的操作
+	// Forced disengagement of context, interrupting all ongoing operations
 	if g.shutdownCancel != nil {
 		g.shutdownCancel()
 	}
@@ -193,28 +193,28 @@ func (g *GracefulShutdown) ForceStop() {
 // CheckShutdownSignal is a convenience method for components to check shutdown signals.
 // It returns an error if shutdown has been requested, allowing components to exit gracefully.
 //
-// CheckShutdownSignal 是组件检查停机信号的便捷方法。
-// 如果请求了停机，它返回错误，允许组件优雅退出。
+// CheckShutdownSignal is a convenient way for components to check shutdown signals.
+// If a shutdown is requested, it returns an error and allows the component to exit gracefully.
 //
 // Returns:
-// 返回：
-//   - error: Error if shutdown is requested, nil otherwise  如果请求停机则返回错误，否则为 nil
+// Returns:
+//   - error: Error if shutdown is requested, nil otherwise
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	if err := g.CheckShutdownSignal(); err != nil {
 //	    return err // Exit the operation
 //	}
 func (g *GracefulShutdown) CheckShutdownSignal() error {
 	// First check if shutdown flag is set (phase 1 of graceful shutdown)
-	// 首先检查停机标志是否已设置（优雅停机的第一阶段）
+	// First, check if the shutdown sign has been set (the first stage of graceful shutdown).
 	if atomic.LoadInt32(&g.isShuttingDown) == 1 {
 		return fmt.Errorf("operation cancelled due to shutdown")
 	}
 
 	// Also check if context has been cancelled (phase 2 of graceful shutdown)
-	// 同时检查上下文是否已被取消（优雅停机的第二阶段）
+	// At the same time, check whether the context has been canceled (the second stage of graceful shutdown).
 	if g.shutdownCtx != nil {
 		select {
 		case <-g.shutdownCtx.Done():
@@ -228,19 +228,19 @@ func (g *GracefulShutdown) CheckShutdownSignal() error {
 // CheckShutdownContext checks if the provided context has been cancelled due to shutdown.
 // This is useful when components have their own context and want to check for shutdown.
 //
-// CheckShutdownContext 检查提供的上下文是否因停机而被取消。
-// 当组件有自己的上下文并想要检查停机时，这很有用。
+// CheckShutdownContext checks whether the provided context has been canceled due to downtime.
+// This is useful when components have their own context and want to check for downtime.
 //
 // Parameters:
-// 参数：
-//   - ctx: Context to check for cancellation  要检查取消的上下文
+// Parameters:
+//   - ctx: Context to check for cancellation
 //
 // Returns:
-// 返回：
-//   - error: Error if context is cancelled, nil otherwise  如果上下文被取消则返回错误，否则为 nil
+// Returns:
+//   - error: Error if context is cancelled, nil otherwise
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	if err := g.CheckShutdownContext(ctx); err != nil {
 //	    return err
@@ -259,15 +259,15 @@ func (g *GracefulShutdown) CheckShutdownContext(ctx context.Context) error {
 // IncrementActiveOperations atomically increments the active operations counter.
 // This should be called when starting a new operation that needs to complete before shutdown.
 //
-// IncrementActiveOperations 原子地增加活跃操作计数器。
-// 在启动需要在停机前完成的新操作时应调用此方法。
+// IncrementActiveOperations atomically increases the active operations counter.
+// This method should be called when starting a new operation that needs to be completed before shutdown.
 //
 // Returns:
-// 返回：
-//   - int64: The new count of active operations  活跃操作的新计数
+// Returns:
+//   - int64: The new count of active operations
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	count := g.IncrementActiveOperations()
 //	defer g.DecrementActiveOperations()
@@ -278,15 +278,15 @@ func (g *GracefulShutdown) IncrementActiveOperations() int64 {
 // DecrementActiveOperations atomically decrements the active operations counter.
 // This should be called when an operation completes, either successfully or with error.
 //
-// DecrementActiveOperations 原子地减少活跃操作计数器。
-// 在操作完成时应调用此方法，无论成功还是出错。
+// DecrementActiveOperations atomically reduces the active operations counter.
+// This method should be called upon completion of the operation, whether successful or incorrect.
 //
 // Returns:
-// 返回：
-//   - int64: The new count of active operations  活跃操作的新计数
+// Returns:
+//   - int64: The new count of active operations
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	defer g.DecrementActiveOperations()
 func (g *GracefulShutdown) DecrementActiveOperations() int64 {
@@ -296,12 +296,12 @@ func (g *GracefulShutdown) DecrementActiveOperations() int64 {
 // GetActiveOperations returns the current number of active operations.
 // This is useful for monitoring or debugging purposes.
 //
-// GetActiveOperations 返回当前活跃操作的数量。
-// 这对监控或调试目的很有用。
+// GetActiveOperations returns the number of currently active operations.
+// This is useful for monitoring or debugging purposes.
 //
 // Returns:
-// 返回：
-//   - int64: Current count of active operations  当前活跃操作的计数
+// Returns:
+//   - int64: Current count of active operations
 func (g *GracefulShutdown) GetActiveOperations() int64 {
 	return atomic.LoadInt64(&g.activeOperations)
 }
@@ -309,19 +309,19 @@ func (g *GracefulShutdown) GetActiveOperations() int64 {
 // WaitForActiveOperations waits for all active operations to complete with a timeout.
 // This is typically used during graceful shutdown to ensure operations finish cleanly.
 //
-// WaitForActiveOperations 等待所有活跃操作在超时时间内完成。
-// 这通常在优雅停机期间使用，以确保操作干净地完成。
+// WaitForActiveOperations Wait for all active operations to complete within the timeout.
+// This is usually used during elegant downtime to ensure the operation is clean.
 //
 // Parameters:
-// 参数：
-//   - timeout: Maximum time to wait for operations to complete  等待操作完成的最大时间
+// Parameters:
+//   - timeout: Maximum time to wait for operations to complete
 //
 // Returns:
-// 返回：
-//   - bool: true if all operations completed, false if timeout occurred  如果所有操作完成则为 true，如果超时则为 false
+// Returns:
+//   - bool: true if all operations completed, false if timeout occurred
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	if !g.WaitForActiveOperations(30 * time.Second) {
 //	    g.logf("Timeout waiting for operations to complete")
@@ -348,7 +348,7 @@ func (g *GracefulShutdown) WaitForActiveOperations(timeout time.Duration) bool {
 }
 
 // logf provides internal logging with null-check
-// logf 提供带空检查的内部日志记录
+// logf provides internal logs with null checks
 func (g *GracefulShutdown) logf(format string, args ...interface{}) {
 	if g.logger != nil {
 		g.logger.Printf(format, args...)
@@ -359,8 +359,8 @@ func (g *GracefulShutdown) logf(format string, args ...interface{}) {
 // These functions can be used by components that don't embed GracefulShutdown
 // but still need to check for shutdown signals.
 //
-// ContextUtils 为组件中的上下文检查提供实用函数。
-// 这些函数可以被不嵌入 GracefulShutdown 但仍需要检查停机信号的组件使用。
+// ContextUtils provides practical functions for contextual checking within components.
+// These functions can be used by components that are not embedded in GracefulShutdown but still need to check for shutdown signals.
 var ContextUtils = &contextUtils{}
 
 type contextUtils struct{}
@@ -368,20 +368,20 @@ type contextUtils struct{}
 // CheckContext checks if the provided context has been cancelled.
 // This is a convenience function for components to quickly check for cancellation signals.
 //
-// CheckContext 检查提供的上下文是否已被取消。
-// 这是组件快速检查取消信号的便捷函数。
+// CheckContext checks whether the provided context has been canceled.
+// This is a convenient function for components to quickly check cancel signals.
 //
 // Parameters:
-// 参数：
-//   - ctx: Context to check for cancellation  要检查取消的上下文
-//   - operation: Optional operation description for error message  错误消息的可选操作描述
+// Parameters:
+//   - ctx: Context to check for cancellation
+//   - operation: Optional operation description for error message
 //
 // Returns:
-// 返回：
-//   - error: Error if context is cancelled, nil otherwise  如果上下文被取消则返回错误，否则为 nil
+// Returns:
+//   - error: Error if context is cancelled, nil otherwise
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 //	    if err := base.ContextUtils.CheckContext(ctx.GetContext(), "network operation"); err != nil {
@@ -407,21 +407,21 @@ func (u *contextUtils) CheckContext(ctx context.Context, operation string) error
 // CheckContextWithTimeout checks if the provided context has been cancelled,
 // with an additional timeout to avoid blocking indefinitely.
 //
-// CheckContextWithTimeout 检查提供的上下文是否已被取消，
-// 并设置额外的超时以避免无限期阻塞。
+// CheckContextWithTimeout checks whether the provided context has been canceled,
+// and set additional timeouts to avoid indefinite blocking.
 //
 // Parameters:
-// 参数：
-//   - ctx: Context to check for cancellation  要检查取消的上下文
-//   - timeout: Maximum time to wait for context state  等待上下文状态的最大时间
-//   - operation: Optional operation description for error message  错误消息的可选操作描述
+// Parameters:
+//   - ctx: Context to check for cancellation
+//   - timeout: Maximum time to wait for context state
+//   - operation: Optional operation description for error message
 //
 // Returns:
-// 返回：
-//   - error: Error if context is cancelled or timeout occurs  如果上下文被取消或超时则返回错误
+// Returns:
+//   - error: Error if context is cancelled or timeout occurs
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	if err := base.ContextUtils.CheckContextWithTimeout(ctx.GetContext(),
 //	    time.Second, "database operation"); err != nil {
@@ -452,19 +452,19 @@ func (u *contextUtils) CheckContextWithTimeout(ctx context.Context, timeout time
 // ShouldStop provides a simple boolean check for whether an operation should stop.
 // This is useful for components that prefer boolean checks over error handling.
 //
-// ShouldStop 提供操作是否应该停止的简单布尔检查。
-// 这对于偏好布尔检查而非错误处理的组件很有用。
+// ShouldStop provides a simple Boolean check on whether the operation should be stopped.
+// This is useful for components that prefer Boolean checking over error handling.
 //
 // Parameters:
-// 参数：
-//   - ctx: Context to check for cancellation  要检查取消的上下文
+// Parameters:
+//   - ctx: Context to check for cancellation
 //
 // Returns:
-// 返回：
-//   - bool: true if operation should stop, false otherwise  如果操作应该停止则为 true，否则为 false
+// Returns:
+//   - bool: true if operation should stop, false otherwise
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	for !base.ContextUtils.ShouldStop(ctx.GetContext()) {
 //	    // Continue processing
@@ -484,20 +484,20 @@ func (u *contextUtils) ShouldStop(ctx context.Context) bool {
 // WithGracefulShutdown wraps a function with graceful shutdown checking.
 // It will call the provided function only if the context is not cancelled.
 //
-// WithGracefulShutdown 使用优雅停机检查包装函数。
-// 只有在上下文未被取消时才会调用提供的函数。
+// WithGracefulShutdown uses the Graceful Shutdown check wrapper function.
+// The provided function is only called when the context is not canceled.
 //
 // Parameters:
-// 参数：
-//   - ctx: Context to check for cancellation  要检查取消的上下文
-//   - operation: Function to execute if context is not cancelled  如果上下文未被取消要执行的函数
+// Parameters:
+//   - ctx: Context to check for cancellation
+//   - operation: Function to execute if context is not cancelled
 //
 // Returns:
-// 返回：
-//   - error: Error if context is cancelled, otherwise error from operation  如果上下文被取消则返回错误，否则返回操作的错误
+// Returns:
+//   - error: Error if context is cancelled, otherwise error from operation
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	err := base.ContextUtils.WithGracefulShutdown(ctx.GetContext(), func() error {
 //	    return performNetworkOperation()
@@ -516,20 +516,20 @@ func (u *contextUtils) WithGracefulShutdown(ctx context.Context, operation func(
 // IsContextCancelled provides a simple check if context is cancelled without returning an error.
 // This is useful for logging or conditional logic without error propagation.
 //
-// IsContextCancelled 提供简单的上下文取消检查而不返回错误。
-// 这对于日志记录或条件逻辑很有用，而无需错误传播。
+// IsContextCancelled provides a simple context cancel check without returning an error.
+// This is useful for logging or conditional logic without the need for false propagation.
 //
 // Parameters:
-// 参数：
-//   - ctx: Context to check  要检查的上下文
+// Parameters:
+//   - ctx: Context to check
 //
 // Returns:
-// 返回：
-//   - bool: true if context is cancelled  如果上下文被取消则为 true
-//   - error: The cancellation error if any  如果有的话，取消错误
+// Returns:
+//   - bool: true if context is cancelled
+//   - error: The cancellation error if any
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	if cancelled, err := base.ContextUtils.IsContextCancelled(ctx.GetContext()); cancelled {
 //	    logger.Printf("Operation cancelled: %v", err)
@@ -549,12 +549,12 @@ func (u *contextUtils) IsContextCancelled(ctx context.Context) (bool, error) {
 // IsReloading returns whether the component is currently in reload process.
 // This is a thread-safe way to check reload status.
 //
-// IsReloading 返回组件当前是否处于重载过程中。
-// 这是检查重载状态的线程安全方式。
+// IsReloading returns whether the component is currently in the overload process.
+// This is the thread safety method for checking overload status.
 //
 // Returns:
-// 返回：
-//   - bool: true if reload is in progress  如果正在重载则为 true
+// Returns:
+//   - bool: true if reload is in progress
 func (g *GracefulShutdown) IsReloading() bool {
 	return atomic.LoadInt32(&g.isReloading) == 1
 }
@@ -562,12 +562,12 @@ func (g *GracefulShutdown) IsReloading() bool {
 // SetReloading sets the reload status atomically.
 // This should be called when starting or finishing a reload operation.
 //
-// SetReloading 原子地设置重载状态。
-// 在开始或完成重载操作时应调用此方法。
+// SetReloading: Atomically sets the overload state.
+// This method should be called when starting or completing a reload operation.
 //
 // Parameters:
-// 参数：
-//   - reloading: true to set reloading state, false to clear it  true 设置重载状态，false 清除状态
+// Parameters:
+//   - reloading: true to set reloading state, false to clear it true
 func (g *GracefulShutdown) SetReloading(reloading bool) {
 	if reloading {
 		atomic.StoreInt32(&g.isReloading, 1)
@@ -579,16 +579,16 @@ func (g *GracefulShutdown) SetReloading(reloading bool) {
 // WaitForReloadComplete waits for reload operation to complete with a timeout.
 // This can be used by message processing to wait for reload to finish.
 //
-// WaitForReloadComplete 等待重载操作在超时时间内完成。
-// 消息处理可以使用此方法等待重载完成。
+// WaitForReloadComplete Wait for the reload operation to complete within the timeout.
+// Message processing can be used in this way to wait for the overload to complete.
 //
 // Parameters:
-// 参数：
-//   - timeout: Maximum time to wait for reload to complete  等待重载完成的最大时间
+// Parameters:
+//   - timeout: Maximum time to wait for reload to complete
 //
 // Returns:
-// 返回：
-//   - bool: true if reload completed, false if timeout occurred  如果重载完成则为 true，如果超时则为 false
+// Returns:
+//   - bool: true if reload completed, false if timeout occurred
 func (g *GracefulShutdown) WaitForReloadComplete(timeout time.Duration) bool {
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()

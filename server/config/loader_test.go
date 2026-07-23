@@ -119,7 +119,7 @@ new-group = rules
 	}
 }
 
-// ========== 环境变量替换测试 ==========
+// ========== Environment variable replacement test ==========
 
 func TestExpandEnv(t *testing.T) {
 	tests := []struct {
@@ -215,22 +215,22 @@ func TestLoadEnvVarExpansion(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	// JWT 密钥应从环境变量替换
+	// JWT keys should be replaced from environment variables
 	if cfg.JwtSecretKey != "jwt-from-env" {
 		t.Errorf("JwtSecretKey = %q, want %q", cfg.JwtSecretKey, "jwt-from-env")
 	}
-	// Global 中 llm_api_key 应从环境变量替换
+	// In Global, llm_api_key should be replaced from environment variables
 	if cfg.Global["llm_api_key"] != "llm-key-from-env" {
 		t.Errorf("Global[llm_api_key] = %q, want %q", cfg.Global["llm_api_key"], "llm-key-from-env")
 	}
-	// 环境变量未设置时使用默认值
+	// Use default values when environment variables are not set
 	if cfg.Global["llm_url"] != "http://localhost:11434" {
 		t.Errorf("Global[llm_url] = %q, want %q", cfg.Global["llm_url"], "http://localhost:11434")
 	}
 }
 
 func TestLoadEnvVarWithDefault(t *testing.T) {
-	// 不设置环境变量，验证默认值生效
+	// No environment variables are set; verify that default values are effective
 	os.Unsetenv("TEST_RULEGO_JWT_NOT_SET")
 
 	content := []byte("jwt_secret_key = ${TEST_RULEGO_JWT_NOT_SET:-default-secret}\n")
@@ -257,7 +257,7 @@ func TestLoadEnvVarWithDefault(t *testing.T) {
 }
 
 func TestLoadNewConfigFields(t *testing.T) {
-	// 验证新增的 CORS、超时、body 限制配置能正确读取
+	// Verify that the newly added CORS, timeout, and body restriction configurations can be read correctly
 	content := []byte("allow_cors = false\n" +
 		"read_timeout = 60\n" +
 		"write_timeout = 600\n" +

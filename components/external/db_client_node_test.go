@@ -56,7 +56,7 @@ func TestDbClientNode(t *testing.T) {
 		testConcurrency(t, targetNodeType, "mysql", "root:root@tcp(127.0.1.1:3306)/test")
 	})
 
-	// 添加EXEC类型测试用例
+	// Add an EXEC-type test case
 	t.Run("TestExecTypeDDL", func(t *testing.T) {
 		testExecTypeDDL(t, targetNodeType, "mysql", "root:root@tcp(127.0.1.1:3306)/test")
 	})
@@ -490,7 +490,7 @@ type testUser struct {
 	Age  int    `json:"age"`
 }
 
-// TestExpandInClause 测试 IN 子句参数展开功能
+// TestExpandInClause tests the parameter expansion function of the IN clause
 func TestExpandInClause(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -588,9 +588,9 @@ func TestExpandInClause(t *testing.T) {
 	}
 }
 
-// testExecTypeDDL 测试DDL语句（CREATE、DROP、ALTER）的EXEC类型处理
+// testExecTypeDDL tests the handling of the EXEC type of DDL statements (CREATE, DROP, ALTER).
 func testExecTypeDDL(t *testing.T, targetNodeType, driverName, dsn string) {
-	// 测试CREATE TABLE语句
+	// Test the CREATE TABLE statement
 	nodeCreate, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "CREATE TABLE IF NOT EXISTS test_exec (id INT PRIMARY KEY, name VARCHAR(50))",
 		"driverName": driverName,
@@ -598,7 +598,7 @@ func testExecTypeDDL(t *testing.T, targetNodeType, driverName, dsn string) {
 	}, Registry)
 	assert.Nil(t, err)
 
-	// 测试ALTER TABLE语句
+	// Test the ALTER TABLE statement
 	nodeAlter, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "ALTER TABLE test_exec ADD COLUMN age INT DEFAULT 0",
 		"driverName": driverName,
@@ -606,7 +606,7 @@ func testExecTypeDDL(t *testing.T, targetNodeType, driverName, dsn string) {
 	}, Registry)
 	assert.Nil(t, err)
 
-	// 测试DROP TABLE语句
+	// Test the DROP TABLE statement
 	nodeDrop, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "DROP TABLE IF EXISTS test_exec",
 		"driverName": driverName,
@@ -657,9 +657,9 @@ func testExecTypeDDL(t *testing.T, targetNodeType, driverName, dsn string) {
 	}
 }
 
-// testExecTypeWithStatement 测试WITH语句的EXEC类型处理
+// testExecTypeWithStatement tests the handling of the EXEC type in the WITH statement
 func testExecTypeWithStatement(t *testing.T, targetNodeType, driverName, dsn string) {
-	// 测试WITH语句（CTE - Common Table Expression）
+	// Testing the WITH statement (CTE - Common Table Expression)
 	nodeWith, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql": `WITH user_stats AS (
 			SELECT COUNT(*) as user_count FROM users
@@ -670,7 +670,7 @@ func testExecTypeWithStatement(t *testing.T, targetNodeType, driverName, dsn str
 	}, Registry)
 	assert.Nil(t, err)
 
-	// 测试配置化的WITH语句作为EXEC类型
+	// Test the configured WITH statement as the EXEC type
 	nodeWithExec, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql": `WITH temp_data AS (
 			SELECT id, name FROM users WHERE id = ?
@@ -707,7 +707,7 @@ func testExecTypeWithStatement(t *testing.T, targetNodeType, driverName, dsn str
 			Node:    nodeWithExec,
 			MsgList: msgList,
 			Callback: func(msg types.RuleMsg, relationType string, err error) {
-				// EXEC类型应该返回影响行数
+				// The EXEC type should return the number of affected rows
 				rowsAffected := msg.Metadata.GetValue(rowsAffectedKey)
 				assert.NotNil(t, rowsAffected)
 			},
@@ -720,7 +720,7 @@ func testExecTypeWithStatement(t *testing.T, targetNodeType, driverName, dsn str
 	}
 }
 
-// testExecTypeConfigurable 测试OpType配置化功能
+// testExecTypeConfigurable tests the OpType configuration feature
 func testExecTypeConfigurable(t *testing.T, targetNodeType, driverName, dsn string) {
 
 	nodeDeleteConfig, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
@@ -731,7 +731,7 @@ func testExecTypeConfigurable(t *testing.T, targetNodeType, driverName, dsn stri
 	}, Registry)
 	assert.Nil(t, err)
 
-	// 测试显式配置OpType为EXEC
+	// The explicit configuration for testing OpType is EXEC
 	nodeExecConfig, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "INSERT INTO users (id, name, age) VALUES (?, ?, ?)",
 		"params":     []interface{}{"${metadata.id}", "${metadata.name}", "${metadata.age}"},
@@ -741,7 +741,7 @@ func testExecTypeConfigurable(t *testing.T, targetNodeType, driverName, dsn stri
 	}, Registry)
 	assert.Nil(t, err)
 
-	// 测试显式配置OpType为SELECT（覆盖自动检测）
+	// Explicitly configure OpType for testing as SELECT (override automatic detection)
 	nodeSelectConfig, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "SELECT * FROM users WHERE id = ?",
 		"params":     []interface{}{"${metadata.id}"},
@@ -751,14 +751,14 @@ func testExecTypeConfigurable(t *testing.T, targetNodeType, driverName, dsn stri
 	}, Registry)
 	assert.Nil(t, err)
 
-	// 测试无效的OpType配置
+	// Testing invalid OpType configurations
 	_, err = test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "SELECT * FROM users",
 		"opType":     "INVALID_TYPE",
 		"driverName": driverName,
 		"dsn":        dsn,
 	}, Registry)
-	// 应该返回配置错误
+	// Configuration errors should be returned
 	assert.NotNil(t, err)
 
 	metaData := types.BuildMetadata(make(map[string]string))
@@ -796,7 +796,7 @@ func testExecTypeConfigurable(t *testing.T, targetNodeType, driverName, dsn stri
 			MsgList: msgList,
 			Callback: func(msg types.RuleMsg, relationType string, err error) {
 				assert.Equal(t, types.Success, relationType)
-				// SELECT应该返回查询结果
+				// SELECT should return the query result
 				data := msg.GetData()
 				assert.NotNil(t, data)
 			},
@@ -809,9 +809,9 @@ func testExecTypeConfigurable(t *testing.T, targetNodeType, driverName, dsn stri
 	}
 }
 
-// testExecTypeOtherStatements 测试其他EXEC类型语句（TRUNCATE、EXPLAIN、DESCRIBE、SHOW）
+// testExecTypeOtherStatements tests other EXEC-type statements (TRUNCATE, EXPLAIN, DESCRIBE, SHOW)
 func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn string) {
-	// 测试TRUNCATE语句
+	// Test the TRUNCATE statement
 	nodeTruncate, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "TRUNCATE TABLE users",
 		"driverName": driverName,
@@ -819,7 +819,7 @@ func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn s
 	}, Registry)
 	assert.Nil(t, err)
 
-	// 测试EXPLAIN语句
+	// Test the EXPLAIN statement
 	nodeExplain, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "EXPLAIN SELECT * FROM users WHERE id = 1",
 		"driverName": driverName,
@@ -827,7 +827,7 @@ func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn s
 	}, Registry)
 	assert.Nil(t, err)
 
-	// 测试DESCRIBE语句
+	// Test the DESCRIBE statement
 	nodeDescribe, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "DESCRIBE users",
 		"driverName": driverName,
@@ -835,7 +835,7 @@ func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn s
 	}, Registry)
 	assert.Nil(t, err)
 
-	// 测试SHOW语句
+	// Test the SHOW statement
 	nodeShow, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 		"sql":        "SHOW TABLES",
 		"driverName": driverName,
@@ -860,13 +860,13 @@ func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn s
 			Callback: func(msg types.RuleMsg, relationType string, err error) {
 				if err != nil {
 					if _, ok := err.(*net.OpError); ok {
-						// 跳过网络错误测试
+						// Skip network error testing
 					} else {
-						t.Logf("TRUNCATE错误: %v", err)
+						t.Logf("TRUNCATE error: %v", err)
 					}
 				} else {
 					assert.Equal(t, types.Success, relationType)
-					// TRUNCATE通常返回0行影响
+					// TRUNCATE usually returns 0 lines of impact
 					data := msg.GetData()
 					assert.NotNil(t, data)
 				}
@@ -878,13 +878,13 @@ func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn s
 			Callback: func(msg types.RuleMsg, relationType string, err error) {
 				if err != nil {
 					if _, ok := err.(*net.OpError); ok {
-						// 跳过网络错误测试
+						// Skip network error testing
 					} else {
-						t.Logf("EXPLAIN错误: %v", err)
+						t.Logf("EXPLAIN error: %v", err)
 					}
 				} else {
 					assert.Equal(t, types.Success, relationType)
-					// EXPLAIN应该返回执行计划数据
+					// EXPLAIN should return execution plan data
 					rowsAffected := msg.Metadata.GetValue(rowsAffectedKey)
 					assert.NotNil(t, rowsAffected)
 				}
@@ -896,13 +896,13 @@ func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn s
 			Callback: func(msg types.RuleMsg, relationType string, err error) {
 				if err != nil {
 					if _, ok := err.(*net.OpError); ok {
-						// 跳过网络错误测试
+						// Skip network error testing
 					} else {
-						t.Logf("DESCRIBE错误: %v", err)
+						t.Logf("DESCRIBE error: %v", err)
 					}
 				} else {
 					assert.Equal(t, types.Success, relationType)
-					// DESCRIBE应该返回表结构信息
+					// DESCRIBE should return table structure information
 					rowsAffected := msg.Metadata.GetValue(rowsAffectedKey)
 					assert.NotNil(t, rowsAffected)
 				}
@@ -914,13 +914,13 @@ func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn s
 			Callback: func(msg types.RuleMsg, relationType string, err error) {
 				if err != nil {
 					if _, ok := err.(*net.OpError); ok {
-						// 跳过网络错误测试
+						// Skip network error testing
 					} else {
-						t.Logf("SHOW错误: %v", err)
+						t.Logf("SHOW error: %v", err)
 					}
 				} else {
 					assert.Equal(t, types.Success, relationType)
-					// SHOW应该返回相关信息
+					// SHOW should return relevant information
 					rowsAffected := msg.Metadata.GetValue(rowsAffectedKey)
 					assert.NotNil(t, rowsAffected)
 				}
@@ -934,7 +934,7 @@ func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn s
 	}
 }
 
-// BenchmarkExpandInClause 基准测试
+// BenchmarkExpandInClause benchmarking
 func BenchmarkExpandInClause(b *testing.B) {
 	benchmarks := []struct {
 		name   string

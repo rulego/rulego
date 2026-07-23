@@ -16,7 +16,7 @@ func TestConfig_InitUserMap(t *testing.T) {
 	}
 	cfg.InitUserMap()
 
-	// 验证用户名-密码映射
+	// Verify the username-password mapping
 	if cfg.UserNamePasswordMap == nil {
 		t.Fatal("UserNamePasswordMap should not be nil")
 	}
@@ -27,14 +27,14 @@ func TestConfig_InitUserMap(t *testing.T) {
 		t.Errorf("viewer password = %q, want %q", cfg.UserNamePasswordMap["viewer"], "viewpass")
 	}
 
-	// 验证 API Key-用户名映射
+	// Verify the API Key-username mapping
 	if cfg.ApiKeyUserNameMap == nil {
 		t.Fatal("ApiKeyUserNameMap should not be nil")
 	}
 	if cfg.ApiKeyUserNameMap["apikey123"] != "admin" {
 		t.Errorf("apikey123 -> %q, want %q", cfg.ApiKeyUserNameMap["apikey123"], "admin")
 	}
-	// viewer 没有 API key，不应该出现在映射中
+	// The viewer does not have an API key and should not appear in the mapping
 	if _, ok := cfg.ApiKeyUserNameMap[""]; ok {
 		t.Error("empty apikey should not be in map")
 	}

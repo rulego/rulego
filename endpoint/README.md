@@ -1,6 +1,6 @@
 # Endpoint
 
-English| [中文](README_ZH.md)
+English| [Chinese](README_ZH.md)
 
 **Endpoint** is a module that abstracts different input source data routing, providing a **consistent** user experience for different protocols. It is an optional module of `RuleGo` that enables RuleGo to run independently and provide services.
 

@@ -23,35 +23,35 @@ var Node = &node{}
 type node struct {
 }
 
-// Components 创建获取规则引擎节点组件列表路由
+// Components: Create a list of routing for the fetched rule engine node components
 func (c *node) Components(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		username := msg.Metadata.GetValue(constants.KeyUsername)
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 			nodePool, _ := node_pool.DefaultNodePool.GetAllDef()
-			//组件配置内置选项
+			//Component configuration with built-in options
 			builtins := make(map[string]interface{})
 			for k, v := range service.Builtins() {
 				builtins[k] = v
 			}
-			// endpoints内置路由选项
+			// Endpoints has built-in routing options
 			builtins["endpoints"] = map[string]interface{}{
-				//in 处理器列表
+				//in the processor list
 				"inProcessors": processor.InBuiltins.Names(),
-				//in 处理器列表
+				//in the processor list
 				"outProcessors": processor.OutBuiltins.Names(),
 			}
-			//共享节点池
+			//Shared node pool
 			builtins["nodePool"] = nodePool
 
-			//响应endpoint和节点组件配置表单列表
+			//Configure the list of forms in response to endpoint and node components
 			list, err := json.Marshal(map[string]interface{}{
-				//endpoint组件
+				//Endpoint components
 				"endpoints": endpoint.Registry.GetComponentForms().Values(),
-				//节点组件
+				//Node components
 				"nodes": s.GetRuleConfig().ComponentsRegistry.GetComponentForms().Values(),
-				//组件配置内置选项
+				//Component configuration with built-in options
 				"builtins": builtins,
 			})
 			if err != nil {
@@ -67,7 +67,7 @@ func (c *node) Components(url string) endpointApi.Router {
 	}).End()
 }
 
-// ListNodePool 获取所有共享组件
+// ListNodePool retrieves all shared components
 func (c *node) ListNodePool(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -95,7 +95,7 @@ func (c *node) ListNodePool(url string) endpointApi.Router {
 	}).End()
 }
 
-// CustomNodeList 获取用户所有自定义动态组件
+// CustomNodeList retrieves all custom dynamic components from the user
 func (c *node) CustomNodeList(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		c.getCustomNodeList(false, true, exchange)
@@ -110,8 +110,8 @@ type ComponentList struct {
 	Items []types.RuleChain `json:"items"`
 }
 
-// CustomNodeList 获取用户所有自定义动态组件，默认从本地默认用户的自定义组件获取，如果配置了MarketBaseUrl，则从组件市场获取
-// - checkMy:true，检查当前用户对应的组件是否需要升级，是否已安装
+// CustomNodeList retrieves all custom dynamic components from the user, which is taken by default from the local default user's custom components. If MarketBaseUrl is configured, it is obtained from the component marketplace
+// - checkMy:true, checks whether the current user's component needs to be upgraded and if it is installed
 func (c *node) getCustomNodeList(getFromMarketplace bool, checkMy bool, exchange *endpointApi.Exchange) bool {
 	msg := exchange.In.GetMsg()
 	username := msg.Metadata.GetValue(constants.KeyUsername)
@@ -131,7 +131,7 @@ func (c *node) getCustomNodeList(getFromMarketplace bool, checkMy bool, exchange
 	var total int
 	var hasGetFromMarket = false
 	if getFromMarketplace {
-		//从组件市场获取组件
+		//Sourcing modules from the module market
 		if config.C.MarketplaceBaseUrl != "" {
 			componentList, err := GetComponentsFromMarketplace(config.C.MarketplaceBaseUrl+"/marketplace/components", keywords, nil, page, size)
 			if err != nil {
@@ -163,14 +163,14 @@ func (c *node) getCustomNodeList(getFromMarketplace bool, checkMy bool, exchange
 	}
 
 	if checkMy {
-		//获取当前用户已经安装的组件
+		//Get the components that the current user has installed
 		var installedList types.ComponentFormList
 		if s, ok := service.UserRuleEngineServiceImpl.Get(username); ok {
 			installedList = s.ComponentService().ComponentsRegistry().GetComponentForms()
 		} else {
 			return userNotFound(username, exchange)
 		}
-		//标记已安装、需要升级的组件
+		//Mark installed components that need upgrades
 		for i := range components {
 			item := &components[i]
 			if item.RuleChain.AdditionalInfo == nil {
@@ -202,7 +202,7 @@ func (c *node) getCustomNodeList(getFromMarketplace bool, checkMy bool, exchange
 	return true
 }
 
-// CustomNodeDSL 获取动态组件DSL定义
+// CustomNodeDSL obtains dynamic component DSL definitions
 func (c *node) CustomNodeDSL(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -229,7 +229,7 @@ func (c *node) customNodeDSL(username string, exchange *endpointApi.Exchange) bo
 	return true
 }
 
-// CustomNodeInstall 安装自定义动态组件
+// CustomNodeInstall installs custom dynamic components
 func (c *node) CustomNodeInstall(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -239,7 +239,7 @@ func (c *node) CustomNodeInstall(url string) endpointApi.Router {
 	}).End()
 }
 
-// CustomNodeUpgrade 安装/升级自定义动态组件
+// CustomNodeUpgrade installs/upgrades custom dynamic components
 func (c *node) CustomNodeUpgrade(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -270,7 +270,7 @@ func (c *node) customNodeInstall(username string, upgrade bool, exchange *endpoi
 	return true
 }
 
-// CustomNodeUninstall 卸载自定义动态组件
+// CustomNodeUninstall uninstalls custom dynamic components
 func (c *node) CustomNodeUninstall(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()

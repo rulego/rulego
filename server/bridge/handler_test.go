@@ -88,11 +88,11 @@ func TestBridgeWithStripPrefix(t *testing.T) {
 	br := newTestBridge(t)
 	defer br.Stop()
 
-	// 模拟挂载到 /rulego 前缀下
+	// Simulate mounting under the /rulego prefix
 	mux := http.NewServeMux()
 	mux.Handle("/rulego/", http.StripPrefix("/rulego", br.Handler()))
 
-	// 测试: /rulego/health -> 内部路由 /health
+	// Test: /rulego/health -> Internal routing /health
 	req := httptest.NewRequest(http.MethodGet, "/rulego/health", nil)
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, req)
@@ -104,7 +104,7 @@ func TestBridgeWithStripPrefix(t *testing.T) {
 		t.Fatalf("expected OK, got %s", w.Body.String())
 	}
 
-	// 测试: /rulego/api/v1/login -> 内部路由 /api/v1/login
+	// Test: /rulego/api/v1/login -> Internal routing /api/v1/login
 	loginBody := `{"username":"admin","password":"admin"}`
 	req = httptest.NewRequest(http.MethodPost, "/rulego/api/v1/login", stringReader(loginBody))
 	req.Header.Set("Content-Type", "application/json")
@@ -126,7 +126,7 @@ func TestBridgeStop(t *testing.T) {
 func newTestBridge(t *testing.T) *Bridge {
 	t.Helper()
 
-	// 写临时配置文件，使用随机端口避免冲突
+	// Write temporary configuration files and use random ports to avoid conflicts
 	cfgContent := "server = :0\ndata_dir = " + filepath.Join(t.TempDir(), "data") + "\n" +
 		"default_username = admin\n" +
 		"require_auth = false\n" +

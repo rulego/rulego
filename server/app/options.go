@@ -6,59 +6,59 @@ import (
 	"github.com/rulego/rulego/server/store"
 )
 
-// Option 应用配置选项函数类型
+// Option Apply the configuration option function type
 // Option is the application configuration option function type
 type Option func(*Options)
 
-// Options 应用配置选项集合
+// Options app configuration collection of options
 // Options contains all application configuration options
 type Options struct {
-	// ConfigFile 配置文件路径
+	// ConfigFile configuration file path
 	// ConfigFile is the path to the configuration file
 	ConfigFile string
 
-	// Config 编程式配置。非 nil 时优先于 ConfigFile 和默认配置使用。
+	// Config Programmable configuration. When not nil, use it over ConfigFile and default configuration.
 	// Config is a programmatic config. When non-nil, takes precedence over ConfigFile and defaults.
 	Config *config.Config
 
-	// TypesLogger 日志器，实现 types.Logger 接口
-	// 可用于注入应用层日志框架（如 Zap、Logrus 等）
+	// TypesLogger logger, implementing types.Logger interface
+	// Can be used to inject application-layer logging frameworks (such as Zap, Logrus, etc.)
 	// TypesLogger is the types.Logger instance for the application
 	// Can be used to inject application-level logging frameworks (e.g., Zap, Logrus)
 	TypesLogger types.Logger
 
-	// Modules 需要加载的模块列表
+	// Modules: The list of modules that need to be loaded
 	// Modules is the list of modules to load
 	Modules []Module
 
-	// ModuleOverrides 按名称覆盖模块列表，用 WithModuleOverride 添加
+	// ModuleOverrides Overrides by name to add modules using WithModuleOverride
 	// ModuleOverrides is the list of modules to override by name, added via WithModuleOverride
 	ModuleOverrides []Module
 
-	// Hooks 生命周期钩子列表
+	// Hooks lifecycle hook list
 	// Hooks is the list of lifecycle hooks
 	Hooks []Hook
 
-	// DisableTransport 禁用默认传输层（用于嵌入式模式）
+	// DisableTransport Disable the default transport layer (for embedded mode)
 	// DisableTransport disables the default transport layer (for embedded mode)
 	DisableTransport bool
 
-	// Global 自定义全局配置，嵌入模式下注入，与配置文件 [global] 合并（注入值覆盖文件值）
+	// Global custom global configuration, injection in embed mode, merged with configuration file [global] (injection value overwrites file value)
 	// Global is custom global config for embedded mode, merged with [global] section from config file (injected values override file values)
 	Global types.Properties
 
-	// StoreProvider 自定义存储提供者，用于注入数据库等自定义存储实现
+	// StoreProvider is a custom storage provider used to inject into databases and other custom storage implementations
 	// StoreProvider is a custom store provider for injecting custom storage implementations (e.g., database-backed)
 	StoreProvider store.StoreProvider
 
-	// AutoMkdir 是否在 Init 时自动创建数据目录（默认 true）。
-	// 嵌入模式下可通过 WithoutAutoMkdir() 禁用。
+	// Does AutoMkdir automatically create data directories when Init (default true).
+	// In embedded mode, it can be disabled via WithoutAutoMkdir().
 	// AutoMkdir controls whether Init auto-creates data directories (default true).
 	// Disable with WithoutAutoMkdir() in embedded mode.
 	AutoMkdir bool
 }
 
-// DefaultOptions 返回默认配置选项
+// DefaultOptions returns the default configuration options
 // DefaultOptions returns the default configuration options
 func DefaultOptions() Options {
 	return Options{
@@ -66,16 +66,16 @@ func DefaultOptions() Options {
 	}
 }
 
-// WithConfig 设置编程式配置，优先于 ConfigFile 和默认配置。
-// 适合嵌入模式：宿主直接构造 config.Config 注入，无需写配置文件。
-// 注意：传入的 Config 会被 InitUserMap/Global 合并处理；Global 选项的值仍会覆盖 Config.Global。
+// WithConfig sets programmatic configuration, taking precedence over ConfigFile and default configuration.
+// Suitable for embedding mode: host directly constructs config.Config injection, without the need to write configuration files.
+// Note: The incoming Config will be merged and processed by InitUserMap/Global; The Global option value will still override Config.Global.
 func WithConfig(cfg *config.Config) Option {
 	return func(o *Options) {
 		o.Config = cfg
 	}
 }
 
-// WithConfigFile 设置配置文件路径
+// WithConfigFile sets the configuration file path
 // WithConfigFile sets the configuration file path
 func WithConfigFile(path string) Option {
 	return func(o *Options) {
@@ -83,8 +83,8 @@ func WithConfigFile(path string) Option {
 	}
 }
 
-// WithTypesLogger 设置日志器，实现 types.Logger 接口
-// 可用于对接应用层日志框架（如 Zap、Logrus 等）
+// WithTypesLogger sets up a logger to implement types.Logger interface
+// Can be used to interface with application-layer logging frameworks (such as Zap, Logrus, etc.)
 // WithTypesLogger sets the types.Logger for the application
 // Use this to integrate with application-level logging frameworks (e.g., Zap, Logrus)
 func WithTypesLogger(l types.Logger) Option {
@@ -93,7 +93,7 @@ func WithTypesLogger(l types.Logger) Option {
 	}
 }
 
-// WithModules 设置需要加载的模块
+// WithModules sets the modules that need to be loaded
 // WithModules sets the modules to load
 func WithModules(modules ...Module) Option {
 	return func(o *Options) {
@@ -101,7 +101,7 @@ func WithModules(modules ...Module) Option {
 	}
 }
 
-// WithHooks 设置生命周期钩子
+// WithHooks sets lifecycle hooks
 // WithHooks sets the lifecycle hooks
 func WithHooks(hooks ...Hook) Option {
 	return func(o *Options) {
@@ -109,7 +109,7 @@ func WithHooks(hooks ...Hook) Option {
 	}
 }
 
-// WithGlobal 注入自定义全局配置，与配置文件 [global] 合并（注入值覆盖文件值）
+// WithGlobal injects custom global configuration, merging with the configuration file [global] (injected value overwrites file value)
 // WithGlobal injects custom global config, merged with [global] section from config file (injected values override file values)
 func WithGlobal(global types.Properties) Option {
 	return func(o *Options) {
@@ -122,7 +122,7 @@ func WithGlobal(global types.Properties) Option {
 	}
 }
 
-// WithTransportDisabled 禁用默认传输层（嵌入式模式）
+// WithTransportDisabled Disable the default transport layer (embedded mode)
 // WithTransportDisabled disables the default transport layer (embedded mode)
 func WithTransportDisabled() Option {
 	return func(o *Options) {
@@ -130,16 +130,16 @@ func WithTransportDisabled() Option {
 	}
 }
 
-// WithModuleOverride 按名称覆盖已注册的模块。
-// 在 Init 阶段，如果 ModuleOverrides 中的模块 Name() 与 Modules 中的某个模块匹配，
-// 则用前者替换后者；如果没有匹配到，Init 将返回错误。
+// WithModuleOverride Overrides registered modules by name.
+// In the Init phase, if the module Name() in ModuleOverrides matches a module in ModuleOverrides,
+// then replace the latter with the former; If no match is found, Init will return an error.
 //
-// 用法：
+// Usage:
 //
 //	application := app.New(
 //	    app.WithConfigFile("config.conf"),
 //	    app.WithModules(bootstrap.DefaultModules()...),
-//	    app.WithModuleOverride(&MyRuleModule{}),  // 覆盖 Name() == "rule" 的模块
+//	    app.WithModuleOverride(&MyRuleModule{}), // Modules that override Name() == "rule"
 //	)
 //
 // WithModuleOverride overrides a registered module by name.
@@ -151,10 +151,10 @@ func WithModuleOverride(module Module) Option {
 	}
 }
 
-// WithStoreProvider 设置自定义存储提供者，允许用户注入数据库等自定义存储实现。
-// 如果不设置，默认使用基于文件的存储实现。
+// WithStoreProvider sets up a custom storage provider, allowing users to inject into databases and other custom storage implementations.
+// If not set, file-based storage is used by default.
 //
-// 用法：
+// Usage:
 //
 //	application := app.New(
 //	    app.WithConfigFile("config.conf"),
@@ -171,8 +171,8 @@ func WithStoreProvider(provider store.StoreProvider) Option {
 	}
 }
 
-// WithoutAutoMkdir 禁用 Init 时自动创建数据目录。
-// 嵌入模式下使用，当宿主系统自行管理目录结构时调用。
+// WithoutAutoMkdir automatically creates a data directory when Init is disabled.
+// Used in embedded mode, called when the host system manages directory structures itself.
 // WithoutAutoMkdir disables auto-creation of data directories during Init.
 // Use in embedded mode when the host manages its own directory structure.
 func WithoutAutoMkdir() Option {
@@ -180,4 +180,3 @@ func WithoutAutoMkdir() Option {
 		o.AutoMkdir = false
 	}
 }
-

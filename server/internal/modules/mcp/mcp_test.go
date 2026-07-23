@@ -47,7 +47,6 @@ func TestMcpModuleStartStop(t *testing.T) {
 	}
 }
 
-
 func TestRegisterTool(t *testing.T) {
 	m := New()
 	m.cfg = &config.Config{MCP: config.MCPConfig{Enable: true}}
@@ -92,7 +91,7 @@ func TestRegisterTool_CallTool(t *testing.T) {
 		},
 	)
 
-	// 通过 CallTool 调用
+	// Called via CallTool
 	result, err := m.CallTool(context.Background(), "echo_tool", map[string]interface{}{
 		"msg": "hello",
 	})

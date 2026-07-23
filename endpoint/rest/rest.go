@@ -18,37 +18,37 @@
 // It enables creating HTTP servers that can receive, process, and respond to HTTP requests,
 // routing them to appropriate rule chains or components for business logic processing.
 //
-// Package rest 为 RuleGo 框架提供 HTTP/REST 端点实现。
-// 它支持创建 HTTP 服务器，可以接收、处理和响应 HTTP 请求，
-// 将它们路由到适当的规则链或组件进行业务逻辑处理。
+// Package rest provides HTTP/REST endpoint implementations for the RuleGo framework.
+// It supports the creation of HTTP servers that can receive, process, and respond to HTTP requests,
+// Routing them to appropriate rule chains or components for business logic processing.
 //
-// Key Features / 主要特性：
+// # Key Features
 //
-// • HTTP Server Management: Complete HTTP server lifecycle management  HTTP 服务器管理：完整的 HTTP 服务器生命周期管理
-// • Dynamic Routing: Runtime addition/removal of HTTP routes  动态路由：运行时添加/删除 HTTP 路由
-// • Method Support: All standard HTTP methods (GET, POST, PUT, DELETE, etc.)  方法支持：所有标准 HTTP 方法
-// • Path Parameters: URL path parameter extraction and processing  路径参数：URL 路径参数提取和处理
-// • CORS Support: Cross-Origin Resource Sharing configuration  CORS 支持：跨域资源共享配置
-// • SSL/TLS Support: HTTPS server with certificate configuration  SSL/TLS 支持：带证书配置的 HTTPS 服务器
-// • Static File Serving: Built-in static file serving capabilities  静态文件服务：内置静态文件服务功能
-// • Shared Server: Multiple endpoint instances can share the same server  共享服务器：多个端点实例可以共享同一服务器
+// • HTTP Server Management: Complete HTTP server lifecycle management
+// • Dynamic Routing: Runtime addition/removal of HTTP routes
+// • Method Support: All standard HTTP methods (GET, POST, PUT, DELETE, etc.)
+// • Path Parameters: URL path parameter extraction and processing
+// • CORS Support: Cross-Origin Resource Sharing Configuration
+// • SSL/TLS Support: HTTPS server with certificate configuration
+// • Static File Serving: Built-in static file serving capabilities
+// • Shared Server: Multiple endpoint instances can share the same server
 //
-// Architecture / 架构：
+// # Architecture
 //
 // The REST endpoint follows a message-based processing model:
-// REST 端点遵循基于消息的处理模型：
+// REST endpoints follow a message-based processing model:
 //
-// 1. HTTP Request → RequestMessage conversion  HTTP 请求 → RequestMessage 转换
-// 2. RequestMessage → Rule Chain/Component processing  RequestMessage → 规则链/组件处理
-// 3. Processing Result → ResponseMessage  处理结果 → ResponseMessage
-// 4. ResponseMessage → HTTP Response  ResponseMessage → HTTP 响应
+// 1. HTTP Request → RequestMessage conversion HTTP request → RequestMessage conversion
+// 2. RequestMessage → Rule Chain/Component Processing RequestMessage → Rule Chain/Component Processing
+// 3. Processing Result → ResponseMessage
+// 4. ResponseMessage → HTTP Response ResponseMessage → HTTP response
 //
-// Initialization Methods / 初始化方法：
+// # Initialization Methods
 //
 // The REST endpoint supports three initialization approaches:
-// REST 端点支持三种初始化方法：
+// REST endpoints support three initialization methods:
 //
-// 1. Registry-based Initialization / 基于注册表的初始化：
+// 1. Registry-based Initialization
 //
 //	import "github.com/rulego/rulego/endpoint"
 //
@@ -60,14 +60,14 @@
 //	}
 //
 //	// Create endpoint through registry
-//	// 通过注册表创建端点
+//	Create endpoints through the registry
 //	endpoint, err := endpoint.Registry.New(rest.Type, ruleConfig, config)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //
 //	// Add router and start
-//	// 添加路由器并启动
+//	Add the router and start it
 //	router := endpoint.NewRouter().
 //	    From("/api/device/{deviceId}").
 //	    To("chain:deviceProcessing")
@@ -75,7 +75,7 @@
 //	endpoint.AddRouter(router, "POST")
 //	endpoint.Start()
 //
-// 2. Dynamic DSL Initialization / 动态 DSL 初始化：
+// 2. Dynamic DSL Initialization
 //
 //	dslConfig := `{
 //	  "id": "http-endpoint",
@@ -102,7 +102,7 @@
 //	}`
 //
 //	// Create endpoint from DSL
-//	// 从 DSL 创建端点
+//	Create endpoints from DSL
 //	endpoint, err := endpoint.NewFromDsl([]byte(dslConfig))
 //	if err != nil {
 //	    log.Fatal(err)
@@ -110,7 +110,7 @@
 //
 //	endpoint.Start()
 //
-// 3. Direct Instantiation with Fluent API / 直接实例化和流畅 API：
+// 3. Direct Instantiation with Fluent API
 //
 //	config := &rest.Config{
 //	    Server: ":8080",
@@ -121,7 +121,7 @@
 //	err := endpoint.Init(ruleConfig, config)
 //
 //	// Using fluent API for different HTTP methods
-//	// 使用流畅 API 处理不同的 HTTP 方法
+//	Use the Smooth API to handle different HTTP methods
 //	endpoint.POST(
 //	    endpoint.NewRouter().From("/api/users").To("chain:createUser"),
 //	).GET(
@@ -134,14 +134,14 @@
 //
 //	endpoint.Start()
 //
-// Route Path Patterns / 路由路径模式：
+// # Route Path Patterns
 //
 // The endpoint supports httprouter-style path patterns:
-// 端点支持 httprouter 风格的路径模式：
+// Endpoints support HTTPROUTER-style path patterns:
 //
-// • Static paths: "/api/users"  静态路径
-// • Named parameters: "/api/users/{id}"  命名参数
-// • Catch-all parameters: "/api/files/*filepath"  通配符参数
+// • Static paths: "/api/users"
+// • Named parameters: "/api/users/{id}"
+// • Catch-all parameters: "/api/files/*filepath"
 package rest
 
 import (
@@ -169,8 +169,8 @@ import (
 
 // Constants for HTTP headers and content types used throughout the REST endpoint.
 // These constants ensure consistency and reduce magic strings in the codebase.
-// 用于 REST 端点的 HTTP 头和内容类型常量。
-// 这些常量确保一致性并减少代码中的魔法字符串。
+// HTTP header and content type constants for REST endpoints.
+// These constants ensure consistency and reduce the number of magic strings in the code.
 const (
 	ContentTypeKey                      = "Content-Type"
 	JsonContextType                     = "application/json"
@@ -183,14 +183,14 @@ const (
 
 // Type defines the component type identifier for the REST endpoint.
 // This identifier is used for component registration and DSL configuration.
-// Type 定义 REST 端点的组件类型标识符。
-// 此标识符用于组件注册和 DSL 配置。
+// Type defines the component type identifier for the REST endpoint.
+// This identifier is used for component registration and DSL configuration.
 const Type = types.EndpointTypePrefix + "http"
 
 // Endpoint is an alias for Rest to provide backward compatibility.
 // This allows users to reference the component using either name.
-// Endpoint 是 Rest 的别名，提供向后兼容性。
-// 这允许用户使用任一名称引用组件。
+// Endpoint is an alias for Rest and provides backward compatibility.
+// This allows users to reference components using any name.
 type Endpoint = Rest
 
 var _ endpoint.Endpoint = (*Endpoint)(nil)
@@ -200,36 +200,36 @@ var _ endpoint.HttpEndpoint = (*Endpoint)(nil)
 // It encapsulates all the necessary information from an HTTP request and provides methods
 // to access request data, headers, parameters, and convert the request into a RuleMsg.
 //
-// RequestMessage 表示 RuleGo 处理管道中的传入 HTTP 请求消息。
-// 它封装了 HTTP 请求的所有必要信息，并提供方法来访问请求数据、头部、参数，
-// 并将请求转换为 RuleMsg。
+// RequestMessage means RuleGo handles incoming HTTP request messages in the pipeline.
+// It encapsulates all the necessary information for HTTP requests and provides methods to access request data, headers, and parameters,
+// and convert the request into RuleMsg.
 //
-// Key Features / 主要特性：
-// • HTTP Request Wrapping: Provides a unified interface for HTTP request data  HTTP 请求包装：为 HTTP 请求数据提供统一接口
-// • Lazy Body Reading: Body is read only when accessed to optimize performance  延迟体读取：仅在访问时读取体以优化性能
-// • Parameter Extraction: Supports both path and query parameters  参数提取：支持路径和查询参数
-// • Automatic Content Type Detection: Determines data type based on Content-Type header  自动内容类型检测：基于 Content-Type 头确定数据类型
-// • Metadata Integration: Seamlessly integrates with RuleGo's metadata system  元数据集成：与 RuleGo 元数据系统无缝集成
+// Key Features
+// • HTTP Request Wrapping: Provides a unified interface for HTTP request data
+// • Lazy Body Reading: Body is read only when accessed to optimize performance
+// • Parameter Extraction: Supports both path and query parameters
+// • Automatic Content Type Detection: Determines data type based on Content-Type header
+// • Metadata Integration: Seamlessly integrates with RuleGo's metadata system
 //
-// Message Flow / 消息流：
-// 1. HTTP request received by server  服务器接收 HTTP 请求
-// 2. RequestMessage created with request context  使用请求上下文创建 RequestMessage
-// 3. Body read and cached on first access  首次访问时读取并缓存正文
-// 4. Converted to RuleMsg for rule chain processing  转换为 RuleMsg 进行规则链处理
+// Message Flow
+// 1. HTTP request received by server
+// 2. RequestMessage created with request context
+// 3. Body read and cached on first access
+// 4. Converted to RuleMsg for rule chain processing
 type RequestMessage struct {
-	//HTTP 请求对象，包含所有请求信息  HTTP request object containing all request information  HTTP 请求对象
+	//HTTP request object containing all request information HTTP request object containing all request information
 	request *http.Request
-	//HTTP 响应写入器，用于写入响应数据  HTTP response writer for writing response data  HTTP 响应写入器
+	//HTTP response writer for writing response data HTTP response writer
 	response http.ResponseWriter
-	//请求体数据，延迟读取以优化性能  Request body data, lazily loaded for performance  请求体数据
+	//Request body data, lazily loaded for performance
 	body []byte
-	//路径参数，从 URL 路径中提取的命名参数  Path parameters extracted from URL path  路径参数
+	//Path parameters, named parameters extracted from URL paths
 	Params httprouter.Params
-	//转换后的规则消息，缓存以避免重复转换  Converted rule message, cached to avoid re-conversion  转换后的规则消息
+	//Converted rule message, cached to avoid re-conversion
 	msg *types.RuleMsg
-	//处理过程中的错误信息  Error information during processing  处理错误信息
+	//Error information during processing
 	err error
-	//消息元数据，用于存储额外的键值对信息  Message metadata for storing additional key-value information  消息元数据
+	//Message metadata for storing additional key-value information
 	Metadata *types.Metadata
 }
 
@@ -237,15 +237,15 @@ type RequestMessage struct {
 // The body is read lazily on the first call and cached for subsequent calls.
 // This approach optimizes performance by avoiding unnecessary I/O operations.
 //
-// Body 返回 HTTP 请求体作为字节切片。
-// 首次调用时延迟读取正文并缓存以供后续调用。
-// 这种方法通过避免不必要的 I/O 操作来优化性能。
+// Body returns the HTTP request body as a byte slice.
+// On the first call, the text is read with delay and cached for subsequent calls.
+// This approach optimizes performance by avoiding unnecessary I/O operations.
 //
-// Returns / 返回：
-// • []byte: The request body content, empty slice if no body or error  请求体内容，如果没有正文或错误则为空切片
+// Returns
+// • []byte: The request body content, empty slice if no body or error
 //
 // Note: The request body stream is automatically closed after reading
-// 注意：读取后请求体流会自动关闭
+// Note: After reading, the request body stream will automatically close
 func (r *RequestMessage) Body() []byte {
 	if r.body == nil && r.request != nil {
 		defer func() {
@@ -262,11 +262,11 @@ func (r *RequestMessage) Body() []byte {
 // Headers returns the HTTP request headers as a textproto.MIMEHeader.
 // This provides access to all HTTP headers in a standardized format.
 //
-// Headers 返回 HTTP 请求头作为 textproto.MIMEHeader。
-// 这提供了以标准化格式访问所有 HTTP 头的能力。
+// Headers returns the HTTP request header as textproto.MIMEHeader.
+// This provides the ability to access all HTTP headers in a standardized format.
 //
-// Returns / 返回：
-// • textproto.MIMEHeader: HTTP headers map, nil if no request  HTTP 头映射，如果没有请求则为 nil
+// Returns
+// • textproto.MIMEHeader: HTTP headers map, nil if no request HTTP header map; if no request, nil is used
 func (r *RequestMessage) Headers() textproto.MIMEHeader {
 	if r.request == nil {
 		return nil
@@ -277,11 +277,11 @@ func (r *RequestMessage) Headers() textproto.MIMEHeader {
 // From returns the complete request URL as a string.
 // This is used for routing and logging purposes.
 //
-// From 返回完整的请求 URL 作为字符串。
-// 用于路由和日志记录目的。
+// From returns the complete request URL as a string.
+// Used for routing and logging purposes.
 //
-// Returns / 返回：
-// • string: Complete request URL, empty string if no request  完整请求 URL，如果没有请求则为空字符串
+// Returns
+// • string: Complete request URL, empty string if no request
 func (r RequestMessage) From() string {
 	if r.request == nil {
 		return ""
@@ -293,19 +293,19 @@ func (r RequestMessage) From() string {
 // It first checks path parameters (URL segments), then falls back to query parameters.
 // This provides a unified way to access all types of HTTP parameters.
 //
-// GetParam 通过键从路径参数或查询参数中检索参数值。
-// 它首先检查路径参数（URL 段），然后回退到查询参数。
-// 这提供了访问所有类型 HTTP 参数的统一方式。
+// GetParam retrieves parameter values from path parameters or query parameters via keys.
+// It first checks the path parameter (URL segment), then falls back to the query parameters.
+// This provides a unified way to access all types of HTTP parameters.
 //
-// Parameters / 参数：
-// • key: Parameter name to retrieve  要检索的参数名称
+// Parameters
+// • key: Parameter name to retrieve
 //
-// Returns / 返回：
-// • string: Parameter value, empty string if not found  参数值，如果未找到则为空字符串
+// Returns
+// • string: Parameter value, empty string if not found
 //
-// Priority Order / 优先级顺序：
-// 1. Path parameters (e.g., /users/{id})  路径参数
-// 2. Query parameters (e.g., ?name=value)  查询参数
+// Priority Order
+// 1. Path parameters (e.g., /users/{id})
+// 2. Query parameters (e.g., ?name=value)
 func (r *RequestMessage) GetParam(key string) string {
 	if r.request == nil {
 		return ""
@@ -320,8 +320,8 @@ func (r *RequestMessage) GetParam(key string) string {
 // SetMsg sets the RuleMsg for this request message.
 // This is typically used during message processing to cache the converted message.
 //
-// SetMsg 为此请求消息设置 RuleMsg。
-// 这通常在消息处理期间用于缓存转换后的消息。
+// SetMsg sets RuleMsg for this request message.
+// This is usually used during message processing to cache the transformed messages.
 func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
 	r.msg = msg
 }
@@ -329,17 +329,17 @@ func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
 // GetMsg converts the HTTP request to a RuleMsg for rule chain processing.
 // The conversion includes automatic data type detection and metadata population.
 //
-// GetMsg 将 HTTP 请求转换为 RuleMsg 以进行规则链处理。
-// 转换包括自动数据类型检测和元数据填充。
+// GetMsg converts HTTP requests into RuleMsg for rule chain processing.
+// Transformation includes automatic data type detection and metadata filling.
 //
-// Returns / 返回：
-// • *types.RuleMsg: Converted rule message ready for processing  转换后的规则消息，可供处理
+// Returns
+// • *types.RuleMsg: Converted rule message ready for processing
 //
-// Conversion Logic / 转换逻辑：
-// • GET requests: Query parameters as JSON data  GET 请求：查询参数作为 JSON 数据
-// • Other methods: Request body as data  其他方法：请求体作为数据
-// • Content-Type detection: JSON vs TEXT based on Content-Type header  内容类型检测：基于 Content-Type 头的 JSON vs TEXT
-// • Metadata: Additional request information  元数据：额外的请求信息
+// Conversion Logic
+// • GET requests: Query parameters as JSON data GET requests: Query parameters as JSON data
+// • Other methods: Request body as data
+// • Content-Type detection: JSON vs TEXT based on Content-Type header
+// • Metadata: Additional request information
 func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	if r.msg == nil {
 		dataType := types.TEXT
@@ -365,16 +365,16 @@ func (r *RequestMessage) GetMsg() *types.RuleMsg {
 // SetStatusCode is a no-op for request messages as status codes are set on responses.
 // This method exists to satisfy the Message interface.
 //
-// SetStatusCode 对于请求消息是无操作，因为状态码在响应上设置。
-// 此方法存在是为了满足 Message 接口。
+// SetStatusCode is non-operative for request messages because the status code is set on the response.
+// This method exists to satisfy the Message interface.
 func (r *RequestMessage) SetStatusCode(statusCode int) {
 }
 
 // SetBody sets the request body content.
 // This is typically used for testing or message transformation scenarios.
 //
-// SetBody 设置请求体内容。
-// 这通常用于测试或消息转换场景。
+// SetBody sets the content of the request body.
+// This is usually used for testing or message conversion scenarios.
 func (r *RequestMessage) SetBody(body []byte) {
 	r.body = body
 }
@@ -382,15 +382,15 @@ func (r *RequestMessage) SetBody(body []byte) {
 // SetError sets an error associated with this request message.
 // This is used to track errors during request processing.
 //
-// SetError 设置与此请求消息关联的错误。
-// 用于跟踪请求处理期间的错误。
+// SetError sets the error associated with this request message.
+// Used to track errors during request processing.
 func (r *RequestMessage) SetError(err error) {
 	r.err = err
 }
 
 // GetError returns any error associated with this request message.
 //
-// GetError 返回与此请求消息关联的任何错误。
+// GetError returns any errors associated with this request message.
 func (r *RequestMessage) GetError() error {
 	return r.err
 }
@@ -398,8 +398,8 @@ func (r *RequestMessage) GetError() error {
 // Request returns the underlying HTTP request object.
 // This provides direct access to the original HTTP request for advanced scenarios.
 //
-// Request 返回底层的 HTTP 请求对象。
-// 这为高级场景提供对原始 HTTP 请求的直接访问。
+// Request returns the underlying HTTP request object.
+// This provides direct access to the original HTTP request for advanced scenarios.
 func (r *RequestMessage) Request() *http.Request {
 	return r.request
 }
@@ -407,8 +407,8 @@ func (r *RequestMessage) Request() *http.Request {
 // Response returns the HTTP response writer.
 // This allows direct writing to the HTTP response if needed.
 //
-// Response 返回 HTTP 响应写入器。
-// 如果需要，这允许直接写入 HTTP 响应。
+// Response returns the HTTP response writer.
+// If needed, this allows direct writing of HTTP responses.
 func (r *RequestMessage) Response() http.ResponseWriter {
 	return r.response
 }
@@ -417,52 +417,52 @@ func (r *RequestMessage) Response() http.ResponseWriter {
 // It handles the conversion of rule processing results back into HTTP responses,
 // including status codes, headers, and response body content.
 //
-// ResponseMessage 表示 RuleGo 处理管道中的传出 HTTP 响应消息。
-// 它处理规则处理结果转换回 HTTP 响应，包括状态码、头部和响应体内容。
+// ResponseMessage means RuleGo handles outgoing HTTP response messages in the pipeline.
+// It handles the conversion of rule processing results back into HTTP responses, including the status code, header, and response body content.
 //
-// Thread Safety / 线程安全：
+// Thread Safety
 // ResponseMessage is thread-safe and can be safely accessed from multiple goroutines.
 // All write operations are protected by a mutex to prevent race conditions.
-// ResponseMessage 是线程安全的，可以安全地从多个协程访问。
-// 所有写操作都受互斥锁保护以防止竞态条件。
+// ResponseMessage is thread-safe and can be securely accessed from multiple coroutines.
+// All write operations are protected by mutexes to prevent race conditions.
 //
-// Key Features / 主要特性：
-// • Thread-Safe Operations: All methods are protected by mutex for concurrent access  线程安全操作：所有方法都受互斥锁保护以支持并发访问
-// • Automatic Response Writing: Body content is automatically written to HTTP response  自动响应写入：正文内容自动写入 HTTP 响应
-// • Status Code Management: Support for HTTP status code setting  状态码管理：支持 HTTP 状态码设置
-// • Header Management: Access to HTTP response headers  头部管理：访问 HTTP 响应头
-// • Error Handling: Built-in error tracking and reporting  错误处理：内置错误跟踪和报告
+// Key Features
+// • Thread-Safe Operations: All methods are protected by mutex for concurrent access
+// • Automatic Response Writing: Body content is automatically written to HTTP response
+// • Status Code Management: Support for HTTP status code setting
+// • Header Management: Access to HTTP response headers
+// • Error Handling: Built-in error tracking and reporting
 type ResponseMessage struct {
-	//原始 HTTP 请求对象  Original HTTP request object  原始 HTTP 请求对象
+	//Original HTTP request object
 	request *http.Request
-	//HTTP 响应写入器  HTTP response writer  HTTP 响应写入器
+	//HTTP response writer HTTP response writer
 	response http.ResponseWriter
-	//响应元数据  Response metadata  响应元数据
+	//Response metadata
 	metadata *types.Metadata
-	//HTTP 状态码  HTTP status code  HTTP 状态码
+	//HTTP status code HTTP status code HTTP status code
 	statusCode int
-	//响应头是否已写出  Whether response headers have been written  响应头是否已写出
+	//Whether response headers have been written
 	headerWritten bool
-	//响应体数据  Response body data  响应体数据
+	//Response body data
 	body []byte
-	//目标路径或标识符  Target path or identifier  目标路径
+	//Target path or identifier
 	to string
-	//处理结果的规则消息  Rule message with processing results  处理结果的规则消息
+	//Rule message with processing results
 	msg *types.RuleMsg
-	//响应处理过程中的错误  Error during response processing  响应处理错误
+	//Error during response processing
 	err error
-	//保护并发访问的互斥锁  Mutex protecting concurrent access  并发访问保护锁
+	//Mutex protecting concurrent access
 	mu sync.RWMutex
 }
 
 // Body returns the response body content in a thread-safe manner.
 // This method is used to retrieve the current response body data.
 //
-// Body 以线程安全的方式返回响应体内容。
-// 此方法用于检索当前响应体数据。
+// Body returns the response body content in a thread-safe manner.
+// This method is used to retrieve the current responder data.
 //
-// Returns / 返回：
-// • []byte: Current response body content  当前响应体内容
+// Returns
+// • []byte: Current response body content
 func (r *ResponseMessage) Body() []byte {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -472,11 +472,11 @@ func (r *ResponseMessage) Body() []byte {
 // Headers returns the HTTP response headers in a thread-safe manner.
 // This provides access to the response headers for reading or modification.
 //
-// Headers 以线程安全的方式返回 HTTP 响应头。
-// 这提供对响应头的访问以进行读取或修改。
+// Headers return HTTP response headers in a thread-safe manner.
+// This provides access to the response header for reading or modification.
 //
-// Returns / 返回：
-// • textproto.MIMEHeader: Response headers map, nil if no response writer  响应头映射，如果没有响应写入器则为 nil
+// Returns
+// • textproto.MIMEHeader: Response headers map, nil if no response writer
 func (r *ResponseMessage) Headers() textproto.MIMEHeader {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -489,8 +489,8 @@ func (r *ResponseMessage) Headers() textproto.MIMEHeader {
 // AddHeader appends a response header value in a thread-safe manner.
 // It is used by output processors that rely on the HeaderModifier interface.
 //
-// AddHeader 以线程安全方式追加响应头值。
-// 它用于依赖 HeaderModifier 接口的输出处理器。
+// AddHeader adds response header values in a thread-safe manner.
+// It is used for output processors that rely on the HeaderModifier interface.
 func (r *ResponseMessage) AddHeader(key, value string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -503,8 +503,8 @@ func (r *ResponseMessage) AddHeader(key, value string) {
 // SetHeader sets a response header value in a thread-safe manner.
 // It is used by output processors that rely on the HeaderModifier interface.
 //
-// SetHeader 以线程安全方式设置响应头值。
-// 它用于依赖 HeaderModifier 接口的输出处理器。
+// SetHeader sets the response header value in a thread-safe manner.
+// It is used for output processors that rely on the HeaderModifier interface.
 func (r *ResponseMessage) SetHeader(key, value string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -517,8 +517,8 @@ func (r *ResponseMessage) SetHeader(key, value string) {
 // DelHeader removes a response header value in a thread-safe manner.
 // It is used by output processors that rely on the HeaderModifier interface.
 //
-// DelHeader 以线程安全方式删除响应头值。
-// 它用于依赖 HeaderModifier 接口的输出处理器。
+// DelHeader deletes response header values in thread-safe ways.
+// It is used for output processors that rely on the HeaderModifier interface.
 func (r *ResponseMessage) DelHeader(key string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -531,8 +531,8 @@ func (r *ResponseMessage) DelHeader(key string) {
 // GetMetadata returns response-scoped metadata, initializing it lazily when needed.
 // This keeps rest.ResponseMessage compatible with the HeaderModifier interface.
 //
-// GetMetadata 返回响应作用域元数据，并在需要时延迟初始化。
-// 这使 rest.ResponseMessage 与 HeaderModifier 接口保持兼容。
+// GetMetadata returns response scope metadata and delays initialization when needed.
+// This makes rest.ResponseMessage remains compatible with the HeaderModifier interface.
 func (r *ResponseMessage) GetMetadata() *types.Metadata {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -545,11 +545,11 @@ func (r *ResponseMessage) GetMetadata() *types.Metadata {
 // From returns the original request URL for context.
 // This is useful for logging and debugging purposes.
 //
-// From 返回原始请求 URL 作为上下文。
-// 这对于日志记录和调试很有用。
+// From returns the original request URL as context.
+// This is useful for logging and debugging.
 //
-// Returns / 返回：
-// • string: Original request URL, empty if no request  原始请求 URL，如果没有请求则为空
+// Returns
+// • string: Original request URL, empty if no request
 func (r *ResponseMessage) From() string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -562,14 +562,14 @@ func (r *ResponseMessage) From() string {
 // GetParam retrieves a parameter from the original request.
 // This provides access to request parameters for response processing.
 //
-// GetParam 从原始请求中检索参数。
-// 这为响应处理提供对请求参数的访问。
+// GetParam retrieves parameters from the original request.
+// This provides access to request parameters for response processing.
 //
-// Parameters / 参数：
-// • key: Parameter name to retrieve  要检索的参数名称
+// Parameters
+// • key: Parameter name to retrieve
 //
-// Returns / 返回：
-// • string: Parameter value, empty if not found or no request  参数值，如果未找到或没有请求则为空
+// Returns
+// • string: Parameter value, empty if not found or no request
 func (r *ResponseMessage) GetParam(key string) string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -582,11 +582,11 @@ func (r *ResponseMessage) GetParam(key string) string {
 // SetMsg sets the rule message for this response in a thread-safe manner.
 // This is typically called during rule processing to set the processing result.
 //
-// SetMsg 以线程安全的方式为此响应设置规则消息。
-// 这通常在规则处理期间调用以设置处理结果。
+// SetMsg sets rule messages in this response thread-safely.
+// This is usually called during rule processing to set the processing result.
 //
-// Parameters / 参数：
-// • msg: The rule message containing processing results  包含处理结果的规则消息
+// Parameters
+// • msg: The rule message containing processing results
 func (r *ResponseMessage) SetMsg(msg *types.RuleMsg) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -596,11 +596,11 @@ func (r *ResponseMessage) SetMsg(msg *types.RuleMsg) {
 // GetMsg returns the rule message associated with this response.
 // This provides access to the processing results for response generation.
 //
-// GetMsg 返回与此响应关联的规则消息。
-// 这为响应生成提供对处理结果的访问。
+// GetMsg returns the rule message associated with this response.
+// This provides access to the processing results for response generation.
 //
-// Returns / 返回：
-// • *types.RuleMsg: The rule message with processing results  包含处理结果的规则消息
+// Returns
+// • *types.RuleMsg: The rule message with processing results
 func (r *ResponseMessage) GetMsg() *types.RuleMsg {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -610,14 +610,14 @@ func (r *ResponseMessage) GetMsg() *types.RuleMsg {
 // SetStatusCode sets the HTTP response status code.
 // The status code is immediately written to the HTTP response.
 //
-// SetStatusCode 设置 HTTP 响应状态码。
-// 状态码立即写入 HTTP 响应。
+// SetStatusCode sets the HTTP response status code.
+// The status code is immediately written into the HTTP response.
 //
-// Parameters / 参数：
-// • statusCode: HTTP status code to set (e.g., 200, 404, 500)  要设置的 HTTP 状态码
+// Parameters
+// • statusCode: HTTP status code to set (e.g., 200, 404, 500)
 //
 // Note: This should be called before SetBody to ensure proper HTTP response format
-// 注意：应在 SetBody 之前调用以确保正确的 HTTP 响应格式
+// Note: Call before SetBody to ensure the correct HTTP response formatting
 func (r *ResponseMessage) SetStatusCode(statusCode int) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -639,20 +639,20 @@ func (r *ResponseMessage) SetStatusCode(statusCode int) {
 // SetBody sets the response body content and immediately writes it to the HTTP response.
 // This method combines both storing the body content and sending it to the client.
 //
-// SetBody 设置响应体内容并立即将其写入 HTTP 响应。
-// 此方法结合了存储正文内容和将其发送给客户端。
+// SetBody sets the response body content and immediately writes it to the HTTP response.
+// This method combines storing the body content with sending it to the client.
 //
-// Parameters / 参数：
-// • body: Response body content to set and send  要设置和发送的响应体内容
+// Parameters
+// • body: Response body content to set and send
 //
-// Behavior / 行为：
-// 1. Store body content internally  内部存储正文内容
-// 2. Write body to HTTP response writer  将正文写入 HTTP 响应写入器
-// 3. Handle any write errors  处理任何写入错误
+// Behavior
+// 1. Store body content internally
+// 2. Write body to HTTP response writer
+// 3. Handle any write errors
 //
-// Thread Safety / 线程安全：
+// Thread Safety
 // This method is thread-safe and can be called concurrently
-// 此方法是线程安全的，可以并发调用
+// This method is thread-safe and can be called concurrently
 func (r *ResponseMessage) SetBody(body []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -677,11 +677,11 @@ func (r *ResponseMessage) SetBody(body []byte) {
 // SetError sets an error associated with this response message.
 // This is used for error tracking and debugging purposes.
 //
-// SetError 设置与此响应消息关联的错误。
-// 用于错误跟踪和调试目的。
+// SetError sets the error associated with this response message.
+// Used for error tracking and debugging purposes.
 //
-// Parameters / 参数：
-// • err: Error to associate with this response  要与此响应关联的错误
+// Parameters
+// • err: Error to associate with this response
 func (r *ResponseMessage) SetError(err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -691,11 +691,11 @@ func (r *ResponseMessage) SetError(err error) {
 // GetError returns any error associated with this response message.
 // This is useful for error handling and debugging.
 //
-// GetError 返回与此响应消息关联的任何错误。
-// 这对于错误处理和调试很有用。
+// GetError returns any errors associated with this response message.
+// This is useful for error handling and debugging.
 //
-// Returns / 返回：
-// • error: Associated error, nil if no error  关联的错误，如果没有错误则为 nil
+// Returns
+// • error: Associated error, nil if no error
 func (r *ResponseMessage) GetError() error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -714,19 +714,19 @@ func (r *ResponseMessage) Response() http.ResponseWriter {
 // http.ResponseWriter if it implements http.Flusher.
 // This is particularly important for streaming responses like SSE.
 //
-// Flush 通过调用底层 http.ResponseWriter 的 Flush 方法（如果实现了 http.Flusher)
-// 将缓冲数据发送到客户端。
-// 这对于 SSE 等流式响应特别重要。
+// Flush calls the underlying http.ResponseWriter's Flush method (if http.Flusher)
+// Send buffered data to the client.
+// This is especially important for stream responses like SSE.
 func (r *ResponseMessage) Flush() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.response == nil {
 		return
 	}
-	// 使用 recover 捕获 panic， 飲止在连接已关闭时发生崩溃
+	// Using recover to capture panic, the crash occurs when the connection is closed
 	defer func() {
 		if err := recover(); err != nil {
-			// 记录错误但不中断执行
+			// Records errors but does not interrupt execution
 		}
 	}()
 	if flusher, ok := r.response.(http.Flusher); ok {
@@ -737,83 +737,83 @@ func (r *ResponseMessage) Flush() {
 // Config defines the configuration structure for the REST endpoint server.
 // It contains all necessary settings for HTTP server initialization and behavior control.
 //
-// Config 定义 REST 端点服务器的配置结构。
-// 它包含 HTTP 服务器初始化和行为控制的所有必要设置。
+// Config defines the configuration structure of the REST endpoint server.
+// It contains all necessary settings for HTTP server initialization and behavior control.
 //
-// Configuration Categories / 配置类别：
+// # Configuration Categories
 //
-// Server Settings / 服务器设置：
-// • Server address and port binding  服务器地址和端口绑定
-// • SSL/TLS certificate configuration  SSL/TLS 证书配置
-// • Cross-Origin Resource Sharing (CORS) settings  跨域资源共享设置
+// Server Settings
+// • Server address and port binding
+// • SSL/TLS certificate configuration
+// • Cross-Origin Resource Sharing (CORS) settings
 //
-// Performance Tuning / 性能调优：
-// • Connection timeout configurations  连接超时配置
-// • Keep-alive connection management  Keep-alive 连接管理
-// • Resource optimization settings  资源优化设置
+// Performance Tuning
+// • Connection timeout configurations
+// • Keep-alive connection management
+// • Resource optimization settings
 //
-// Security Features / 安全功能：
-// • HTTPS support with certificate files  使用证书文件的 HTTPS 支持
-// • CORS policy enforcement  CORS 策略执行
-// • Connection timeout protection  连接超时保护
+// Security Features
+// • HTTPS support with certificate files
+// • CORS policy enforcement
+// • Connection timeout protection
 type Config struct {
 	// Server specifies the server address and port to bind to.
 	// Format: "host:port" or ":port" for all interfaces.
 	// Examples: ":8080", "localhost:9090", "0.0.0.0:3000"
-	// Server 指定要绑定的服务器地址和端口。
-	// 格式："host:port" 或 ":port" 用于所有接口。
-	// 示例：":8080"、"localhost:9090"、"0.0.0.0:3000"
+	// Server specifies the server address and port to bind.
+	// Format: use "host:port", or ":port" to listen on all interfaces.
+	// Examples: ":8080", "localhost:9090", "0.0.0.0:3000"
 	Server string `json:"server" label:"Server" desc:"HTTP server address and port to bind to, e.g. :8080, 0.0.0.0:9090" required:"true" ref:"primary"`
 
 	// CertFile specifies the path to the SSL/TLS certificate file for HTTPS.
 	// When both CertFile and CertKeyFile are provided, the server runs in HTTPS mode.
-	// CertFile 指定 HTTPS 的 SSL/TLS 证书文件路径。
-	// 当提供 CertFile 和 CertKeyFile 时，服务器以 HTTPS 模式运行。
+	// CertFile specifies the path to the HTTPS SSL/TLS certificate file.
+	// When CertFile and CertKeyFile are provided, the server runs in HTTPS mode.
 	CertFile string `json:"certFile" label:"Cert File" desc:"SSL/TLS certificate file path; provide together with certKeyFile to enable HTTPS" ref:"shared"`
 
 	// CertKeyFile specifies the path to the SSL/TLS private key file for HTTPS.
 	// This file must correspond to the certificate specified in CertFile.
-	// CertKeyFile 指定 HTTPS 的 SSL/TLS 私钥文件路径。
-	// 此文件必须与 CertFile 中指定的证书对应。
+	// CertKeyFile specifies the path of the HTTPS SSL/TLS private key file.
+	// This file must correspond to the certificate specified in CertFile.
 	CertKeyFile string `json:"certKeyFile" label:"Cert Key File" desc:"SSL/TLS private key file path; provide together with certFile to enable HTTPS" ref:"shared"`
 
 	// AllowCors enables Cross-Origin Resource Sharing (CORS) support.
 	// When true, the server allows cross-origin requests from web browsers.
 	// This is useful for API servers that need to be accessed from web applications.
-	// AllowCors 启用跨域资源共享（CORS）支持。
-	// 当为 true 时，服务器允许来自 Web 浏览器的跨域请求。
-	// 这对于需要从 Web 应用程序访问的 API 服务器很有用。
+	// AllowCors enables Cross-Origin Resource Sharing (CORS) support.
+	// When true, the server allows cross-origin requests from the web browser.
+	// This is useful for API servers that need to be accessed from web applications.
 	AllowCors bool `json:"allowCors" label:"Allow CORS" desc:"Enable Cross-Origin Resource Sharing for browser access"`
 
 	// ReadTimeout sets the maximum duration for reading the entire request, including the body.
 	// Specified in seconds. A value of 0 uses the default timeout of 10 seconds.
 	// This prevents slow or malicious clients from holding connections indefinitely.
-	// ReadTimeout 设置读取整个请求（包括正文）的最大持续时间。
-	// 以秒为单位指定。值为 0 时使用默认超时 10 秒。
-	// 这防止缓慢或恶意客户端无限期保持连接。
+	// ReadTimeout sets the maximum duration for reading the entire request (including the body).
+	// Specified in seconds. When the value is 0, use the default 10-second timeout.
+	// This prevents slow or malicious clients from staying connected indefinitely.
 	ReadTimeout int `json:"readTimeout" label:"Read Timeout" desc:"Max duration in seconds for reading the entire request, default 10"`
 
 	// WriteTimeout sets the maximum duration before timing out writes of the response.
 	// Specified in seconds. A value of 0 uses the default timeout of 10 seconds.
 	// This ensures timely response delivery and prevents resource exhaustion.
-	// WriteTimeout 设置响应写入超时前的最大持续时间。
-	// 以秒为单位指定。值为 0 时使用默认超时 10 秒。
-	// 这确保及时的响应传递并防止资源耗尽。
+	// WriteTimeout sets the maximum duration before a response writes out timeout.
+	// Specified in seconds. When the value is 0, use the default 10-second timeout.
+	// This ensures timely response delivery and prevents resource depletion.
 	WriteTimeout int `json:"writeTimeout" label:"Write Timeout" desc:"Max duration in seconds for writing the response, default 10"`
 
 	// IdleTimeout sets the maximum amount of time to wait for the next request
 	// when keep-alives are enabled. Specified in seconds.
 	// A value of 0 uses the default timeout of 60 seconds.
-	// IdleTimeout 设置启用 keep-alive 时等待下一个请求的最大时间。
-	// 以秒为单位指定。值为 0 时使用默认超时 60 秒。
+	// IdleTimeout sets the maximum waiting time for the next request when keep-alive is enabled.
+	// Specified in seconds. When the value is 0, use the default 60-second timeout.
 	IdleTimeout int `json:"idleTimeout" label:"Idle Timeout" desc:"Max duration in seconds to wait for the next keep-alive request, default 60"`
 
 	// DisableKeepalive disables HTTP keep-alive connections.
 	// When true, each request uses a new connection, which may impact performance
 	// but can be useful for certain deployment scenarios or debugging.
-	// DisableKeepalive 禁用 HTTP keep-alive 连接。
-	// 当为 true 时，每个请求使用新连接，这可能影响性能，
-	// 但对于某些部署场景或调试可能有用。
+	// DisableKeepalive Disables HTTP keep-alive connections.
+	// When true, each request uses a new connection, which may affect performance,
+	// However, it may be useful for certain deployment scenarios or debugging.
 	DisableKeepalive bool `json:"disableKeepalive" label:"Disable Keepalive" desc:"Disable HTTP keep-alive connections, each request uses a new connection"`
 }
 
@@ -821,86 +821,86 @@ type Config struct {
 // It provides a complete HTTP server solution with dynamic routing, request processing,
 // and integration with RuleGo's rule chains and components.
 //
-// Rest 表示 RuleGo 框架的 HTTP/REST 端点实现。
-// 它提供完整的 HTTP 服务器解决方案，具有动态路由、请求处理以及与 RuleGo 规则链和组件的集成。
+// Rest represents the HTTP/REST endpoint implementation of the RuleGo framework.
+// It offers a complete HTTP server solution with dynamic routing, request processing, and integration with RuleGo rule chains and components.
 //
-// Architecture / 架构：
+// # Architecture
 //
 // The Rest endpoint follows a layered architecture:
-// Rest 端点遵循分层架构：
+// Rest endpoints follow a layered architecture:
 //
-// 1. HTTP Server Layer: Handles low-level HTTP operations  HTTP 服务器层：处理低级 HTTP 操作
-// 2. Routing Layer: Maps HTTP requests to rule chains  路由层：将 HTTP 请求映射到规则链
-// 3. Message Processing Layer: Converts HTTP to RuleMsg format  消息处理层：将 HTTP 转换为 RuleMsg 格式
-// 4. Rule Engine Integration: Executes business logic  规则引擎集成：执行业务逻辑
+// 1. HTTP Server Layer: Handles low-level HTTP operations HTTP Server Layer: Handles low-level HTTP operations
+// 2. Routing Layer: Maps HTTP requests to rule chains
+// 3. Message Processing Layer: Converts HTTP to RuleMsg format
+// 4. Rule Engine Integration: Executes business logic
 //
-// Key Features / 主要特性：
+// # Key Features
 //
-// • HTTP Server Management: Complete server lifecycle with start/stop/restart  HTTP 服务器管理：完整的服务器生命周期
-// • Dynamic Routing: Runtime route addition and removal  动态路由：运行时路由添加和删除
-// • Shared Server Support: Multiple endpoint instances can share a server  共享服务器支持：多个端点实例可以共享服务器
-// • High-Performance Routing: Uses httprouter for fast HTTP routing  高性能路由：使用 httprouter 进行快速 HTTP 路由
-// • Method Support: All HTTP methods (GET, POST, PUT, DELETE, etc.)  方法支持：所有 HTTP 方法
-// • Path Parameters: Automatic extraction of URL path parameters  路径参数：自动提取 URL 路径参数
-// • Static File Serving: Built-in static file server capabilities  静态文件服务：内置静态文件服务器功能
-// • CORS Support: Cross-origin request handling  CORS 支持：跨域请求处理
-// • SSL/TLS Support: HTTPS server with certificate configuration  SSL/TLS 支持：带证书配置的 HTTPS 服务器
+// • HTTP Server Management: Complete server lifecycle with start/stop/restart HTTP Server Management: Complete server lifecycle
+// • Dynamic Routing: Runtime route addition and removal
+// • Shared Server Support: Multiple endpoint instances can share a server
+// • High-Performance Routing: Uses httprouter for fast HTTP routing
+// • Method Support: All HTTP methods (GET, POST, PUT, DELETE, etc.)
+// • Path Parameters: Automatic extraction of URL path parameters
+// • Static File Serving: Built-in static file server capabilities
+// • CORS Support: Cross-origin request handling CORS Support: Cross-origin request handling
+// • SSL/TLS Support: HTTPS server with certificate configuration
 //
-// Thread Safety / 线程安全：
+// # Thread Safety
 //
 // The Rest endpoint is designed to be thread-safe for concurrent operations:
-// Rest 端点设计为线程安全的并发操作：
+// Rest endpoints are designed for thread-safe concurrent operations:
 //
-// • Route management operations are protected by mutex  路由管理操作受互斥锁保护
-// • Server operations are safe for concurrent access  服务器操作对并发访问是安全的
-// • Message processing supports multiple concurrent requests  消息处理支持多个并发请求
+// • Route management operations are protected by mutex
+// • Server operations are safe for concurrent access
+// • Message processing supports multiple concurrent requests
 //
-// Performance Considerations / 性能考虑：
+// # Performance Considerations
 //
-// • Uses httprouter for O(1) routing performance  使用 httprouter 实现 O(1) 路由性能
-// • Connection pooling and keep-alive support  连接池和 keep-alive 支持
-// • Configurable timeouts to prevent resource exhaustion  可配置超时以防止资源耗尽
-// • Shared server instances to reduce memory usage  共享服务器实例以减少内存使用
+// • Uses httprouter for O(1) routing performance
+// • Connection pooling and keep-alive support
+// • Configurable timeouts to prevent resource exhaustion
+// • Shared server instances to reduce memory usage
 //
-// Usage Patterns / 使用模式：
+// # Usage Patterns
 //
-// 1. Simple API Server: Single endpoint with multiple routes  简单 API 服务器：单端点多路由
-// 2. Microservice Gateway: Multiple endpoints with shared server  微服务网关：共享服务器的多端点
-// 3. REST API with Rule Processing: HTTP requests routed to rule chains  带规则处理的 REST API：HTTP 请求路由到规则链
-// 4. Static File Server: Serving static content with dynamic API routes  静态文件服务器：提供静态内容和动态 API 路由
+// 1. Simple API Server: Single endpoint with multiple routes
+// 2. Microservice Gateway: Multiple endpoints with shared server
+// 3. REST API with Rule Processing: HTTP requests routed to rule chains
+// 4. Static File Server: Serving static content with dynamic API routes
 type Rest struct {
 	// BaseEndpoint provides common endpoint functionality
-	// BaseEndpoint 提供通用端点功能
+	// BaseEndpoint provides universal endpoint functionality
 	impl.BaseEndpoint
 
 	// SharedNode enables server sharing between multiple endpoint instances
-	// SharedNode 启用多个端点实例之间的服务器共享
+	// SharedNode enables server sharing among multiple endpoint instances
 	nodeBase.SharedNode[*Rest]
 
 	// Config contains the HTTP server configuration settings
-	// Config 包含 HTTP 服务器配置设置
+	// Config contains HTTP server configuration settings
 	Config Config
 
 	// RuleConfig provides access to the rule engine configuration
-	// RuleConfig 提供对规则引擎配置的访问
+	// RuleConfig provides access to the rule engine configuration
 	RuleConfig types.Config
 
 	// Server is the underlying HTTP server instance
-	// Server 是底层的 HTTP 服务器实例
+	// Server is the underlying HTTP server instance
 	Server *http.Server
 
 	// router handles HTTP request routing using httprouter for performance
-	// router 使用 httprouter 处理 HTTP 请求路由以提高性能
+	// The router uses HTTP Router to handle HTTP request routing to improve performance
 	router *httprouter.Router
 
 	// started indicates whether the HTTP server has been started
-	// started 指示 HTTP 服务器是否已启动
+	// 'started' indicates whether the HTTP server has started
 	started bool
 	// resourceMapping is the resource mapping for static file serving
 	resourceMapping string
 }
 
-// Type 组件类型
+// Type returns the component type
 func (rest *Rest) Type() string {
 	return Type
 }
@@ -939,7 +939,7 @@ func (rest *Rest) New() types.Node {
 	}
 }
 
-// Init 初始化
+// Init initializes the component
 func (rest *Rest) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &rest.Config)
 	if err != nil {
@@ -956,38 +956,38 @@ func (rest *Rest) Init(ruleConfig types.Config, configuration types.Configuratio
 	})
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (rest *Rest) Destroy() {
 	_ = rest.Close()
 }
 
-// shutdownServer 统一的服务器关闭逻辑
+// shutdownServer uses a unified shutdown logic
 // Unified server shutdown logic
-// 统一的服务器关闭逻辑
+// A unified server shutdown logic
 func (rest *Rest) shutdownServer() error {
-	// 使用锁保护并发安全
+	// Use locks to protect concurrent security
 	rest.Lock()
 	defer rest.Unlock()
 
-	// 检查服务器是否已经关闭（幂等性保证）
+	// Check if the server has been shut down (Idempotency guarantee)
 	if rest.Server == nil {
 		return nil
 	}
 
-	// 增加关闭超时时间到2秒，确保有足够时间完成优雅关闭
+	// Increase the shutdown timeout to 2 seconds to ensure enough time for elegant closing
 	// Increase shutdown timeout to 2 seconds to ensure graceful shutdown completion
-	// 增加关闭超时时间到2秒
+	// Increase the shutdown timeout to 2 seconds
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	var shutdownErr error
-	// 优雅关闭服务器
+	// Gracefully shut down the server
 	// Gracefully shutdown the server
-	// 优雅关闭服务器
+	// Gracefully shut down the server
 	if err := rest.Server.Shutdown(ctx); err != nil {
-		// 如果优雅关闭失败，强制关闭
+		// If the elegant closure fails, the forced closure is enforced
 		// Force close if graceful shutdown fails
-		// 如果优雅关闭失败，强制关闭
+		// If the elegant closure fails, the forced closure is enforced
 		rest.Printf("graceful shutdown failed, forcing close: %v", err)
 		if closeErr := rest.Server.Close(); closeErr != nil {
 			rest.Printf("force close failed: %v", closeErr)
@@ -995,23 +995,23 @@ func (rest *Rest) shutdownServer() error {
 		shutdownErr = err
 	}
 
-	// 先标记为停止状态
+	// First mark it as stopped
 	rest.started = false
-	// 清理服务器引用，防止重复关闭
+	// Clean up server references to prevent repeated shutdowns
 	// Clear server reference to prevent duplicate shutdown
-	// 清理服务器引用
+	// Clean up server references
 	rest.Server = nil
 
-	// 等待一小段时间确保端口完全释放
+	// Wait a short while to ensure the port is fully released
 	// Wait a moment to ensure port is fully released
-	// 等待确保端口完全释放
+	// Wait to ensure the port is fully released
 	time.Sleep(100 * time.Millisecond)
 
 	return shutdownErr
 }
 
 func (rest *Rest) Restart() error {
-	// 使用统一的关闭方法，忽略错误继续重启流程
+	// Use a unified closing method, ignore errors, and continue restarting the process
 	_ = rest.shutdownServer()
 
 	if rest.SharedNode.InstanceId != "" {
@@ -1063,9 +1063,9 @@ func (rest *Rest) Restart() error {
 }
 
 func (rest *Rest) Close() error {
-	// 使用统一的关闭方法，保留错误处理
+	// Use a unified closing method to retain error handling
 	if err := rest.shutdownServer(); err != nil {
-		// 在Close()方法中，我们需要继续清理，即使关闭失败
+		// In the Close() method, we need to continue cleaning up, even if the close fails
 		rest.Printf("server shutdown error during close: %v", err)
 	}
 
@@ -1079,11 +1079,11 @@ func (rest *Rest) Close() error {
 			for key := range rest.RouterStorage {
 				shared.deleteRouter(key)
 			}
-			//如果共享服务已经停止，则不需要重启
+			//If the shared service has stopped, there is no need to restart
 			if !shared.Started() {
 				return nil
 			}
-			//重启共享服务
+			//Restart the shared service
 			return shared.Restart()
 		}
 	}
@@ -1159,7 +1159,7 @@ func (rest *Rest) Listen() (net.Listener, error) {
 	return net.Listen("tcp", addr)
 }
 
-// addRouter 注册1个或者多个路由
+// addRouter registers one or more routes
 //
 // For GET, POST, PUT, PATCH and DELETE requests the respective shortcut
 // functions can be used.
@@ -1177,7 +1177,7 @@ func (rest *Rest) addRouter(method string, routers ...endpoint.Router) error {
 		if id := item.GetId(); id == "" {
 			item.SetId(rest.RouterKey(method, path))
 		}
-		//存储路由
+		//Store the route
 		item.SetParams(method)
 		rest.RouterStorage[item.GetId()] = item
 		if rest.SharedNode.InstanceId != "" {
@@ -1196,7 +1196,7 @@ func (rest *Rest) addRouter(method string, routers ...endpoint.Router) error {
 					isWait = to.IsWait()
 				}
 			}
-			// 转换路径参数格式：将 {id} 格式转换为 :id 格式
+			// Convert path parameter format: Convert {id} format to:id format
 			path = rest.convertPathParams(path)
 			rest.router.Handle(method, path, rest.handler(item, isWait))
 		}
@@ -1255,13 +1255,13 @@ func (rest *Rest) RegisterStaticFiles(resourceMapping string) endpoint.HttpEndpo
 				urlPath := strings.TrimSpace(files[0])
 				localDir := strings.TrimSpace(files[1])
 
-				// 移除 /*filepath 后缀以获取基础路径
+				// Remove the /*filepath suffix to get the base path
 				basePath := urlPath
 				if strings.HasSuffix(urlPath, "/*filepath") {
 					basePath = urlPath[:len(urlPath)-10]
 				}
 
-				// 确保路径以 /{filepath:*} 结尾，这是 fasthttp router 的要求
+				// Make sure the path ends with /{filepath:*}, which is a requirement for the fastHTTP router
 				if !strings.HasSuffix(urlPath, "/*filepath") {
 					if strings.HasSuffix(basePath, "/") {
 						urlPath = basePath + "*filepath"
@@ -1311,7 +1311,7 @@ func (rest *Rest) RouterKey(method string, from string) string {
 func (rest *Rest) handler(router endpoint.Router, isWait bool) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		defer func() {
-			//捕捉异常
+			//Capture anomalies
 			if e := recover(); e != nil {
 				rest.Printf("http endpoint handler err :\n%v", runtime.Stack())
 			}
@@ -1334,12 +1334,12 @@ func (rest *Rest) handler(router endpoint.Router, isWait bool) httprouter.Handle
 			},
 		}
 
-		//把路径参数放到msg元数据中
+		//Put the path parameter into the msg metadata
 		for _, param := range params {
 			metadata.PutValue(param.Key, param.Value)
 		}
 
-		//把url?参数放到msg元数据中
+		//Place the url? parameter into the msg metadata
 		for key, value := range r.URL.Query() {
 			if len(value) > 1 {
 				metadata.PutValue(key, str.ToString(value))
@@ -1350,7 +1350,7 @@ func (rest *Rest) handler(router endpoint.Router, isWait bool) httprouter.Handle
 		}
 		var ctx = r.Context()
 		if !isWait {
-			//异步不能使用request context，否则后续执行会取消
+			//Asynchronous Request Context cannot be used; otherwise, subsequent executions will be canceled
 			ctx = context.Background()
 		}
 		rest.DoProcess(ctx, router, exchange)
@@ -1363,14 +1363,14 @@ func (rest *Rest) Printf(format string, v ...interface{}) {
 	}
 }
 
-// Started 返回服务是否已经启动
+// Started returns whether the service has started
 func (rest *Rest) Started() bool {
 	rest.RLock()
 	defer rest.RUnlock()
 	return rest.started
 }
 
-// GetServer 获取HTTP服务
+// GetServer obtains HTTP services
 func (rest *Rest) GetServer() *http.Server {
 	rest.RLock()
 	defer rest.RUnlock()
@@ -1386,23 +1386,23 @@ func (rest *Rest) GetServer() *http.Server {
 
 func (rest *Rest) newRouter() *httprouter.Router {
 	rest.router = httprouter.New()
-	//设置跨域
+	//Set up cross-domain
 	if rest.Config.AllowCors {
-		// 直接设置 GlobalOPTIONS 而不调用 Router() 方法，避免递归锁
+		// Set GlobalOPTIONS directly without calling the Router() method to avoid recursive locks
 		// Set GlobalOPTIONS directly without calling Router() method to avoid recursive lock
-		// 直接设置 GlobalOPTIONS 避免递归锁
+		// Directly set up GlobalOPTIONS to avoid recursive locks
 		rest.router.GlobalOPTIONS = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get(HeaderKeyAccessControlRequestMethod) != "" {
-				// 设置 CORS 相关的响应头
+				// Set CORS-related response headers
 				header := w.Header()
 				header.Set(HeaderKeyAccessControlAllowMethods, HeaderValueAll)
 				header.Set(HeaderKeyAccessControlAllowHeaders, HeaderValueAll)
 				header.Set(HeaderKeyAccessControlAllowOrigin, HeaderValueAll)
 			}
-			// 返回 204 状态码
+			// Return the 204 status code
 			w.WriteHeader(http.StatusNoContent)
 		})
-		// 直接操作 Interceptors 字段，避免调用 AddInterceptors 造成递归锁
+		// Directly operate the Interceptors field to avoid recursive locks caused by calling AddInterceptors
 		corsInterceptor := func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			exchange.Out.Headers().Set(HeaderKeyAccessControlAllowOrigin, HeaderValueAll)
 			return true
@@ -1428,34 +1428,34 @@ func (rest *Rest) startServer() error {
 	rest.RUnlock()
 	var err error
 
-	// 创建HTTP服务器并应用超时配置
+	// Create an HTTP server and apply timeout configuration
 	rest.Server = &http.Server{
 		Addr:    rest.Config.Server,
 		Handler: rest.router,
 	}
 
-	// 应用读取超时配置
+	// Application reads timeout configurations
 	if rest.Config.ReadTimeout > 0 {
 		rest.Server.ReadTimeout = time.Duration(rest.Config.ReadTimeout) * time.Second
 	} else {
-		rest.Server.ReadTimeout = 10 * time.Second // 默认10秒
+		rest.Server.ReadTimeout = 10 * time.Second // Default is 10 seconds
 	}
 
-	// 应用写入超时配置
+	// Application writes timeout configuration
 	if rest.Config.WriteTimeout > 0 {
 		rest.Server.WriteTimeout = time.Duration(rest.Config.WriteTimeout) * time.Second
 	} else {
-		rest.Server.WriteTimeout = 10 * time.Second // 默认10秒
+		rest.Server.WriteTimeout = 10 * time.Second // Default is 10 seconds
 	}
 
-	// 应用空闲超时配置
+	// Application idle timeout configuration
 	if rest.Config.IdleTimeout > 0 {
 		rest.Server.IdleTimeout = time.Duration(rest.Config.IdleTimeout) * time.Second
 	} else {
-		rest.Server.IdleTimeout = 60 * time.Second // 默认60秒
+		rest.Server.IdleTimeout = 60 * time.Second // Default is 60 seconds
 	}
 
-	// 应用禁用keepalive配置
+	// Disable the keepalive configuration in the app
 	if rest.Config.DisableKeepalive {
 		rest.Server.SetKeepAlivesEnabled(false)
 	}
@@ -1463,22 +1463,22 @@ func (rest *Rest) startServer() error {
 	if err != nil {
 		return err
 	}
-	//标记已经启动
+	//The marker has already been activated
 	rest.Lock()
 	rest.started = true
 	rest.Unlock()
 
-	// 安全地访问Config字段和Server字段
+	// Securely access the Config and Server fields
 	rest.RLock()
 	isTls := rest.Config.CertKeyFile != "" && rest.Config.CertFile != ""
 	certFile := rest.Config.CertFile
 	certKeyFile := rest.Config.CertKeyFile
 	serverAddr := rest.Config.Server
 	onEvent := rest.OnEvent
-	server := rest.Server // 保存Server引用，防止在goroutine中访问时被其他goroutine修改
+	server := rest.Server // Save Server references to prevent modifications by other goroutines when accessing in goroutine
 	rest.RUnlock()
 
-	// 在锁外部调用OnEvent回调，避免死锁
+	// Calls the OnEvent callback outside the lock to avoid deadlocks
 	if onEvent != nil {
 		onEvent(endpoint.EventInitServer, rest)
 	}
@@ -1487,7 +1487,7 @@ func (rest *Rest) startServer() error {
 		go func() {
 			defer ln.Close()
 			err = server.ServeTLS(ln, certFile, certKeyFile)
-			// 安全地访问OnEvent字段
+			// Securely access the OnEvent field
 			rest.RLock()
 			onEvent := rest.OnEvent
 			rest.RUnlock()
@@ -1500,7 +1500,7 @@ func (rest *Rest) startServer() error {
 		go func() {
 			defer ln.Close()
 			err = server.Serve(ln)
-			// 安全地访问OnEvent字段
+			// Securely access the OnEvent field
 			rest.RLock()
 			onEvent := rest.OnEvent
 			rest.RUnlock()
@@ -1512,9 +1512,9 @@ func (rest *Rest) startServer() error {
 	return err
 }
 
-// convertPathParams 转换路径参数格式：将 {id}格式转换为 :id  格式
+// convertPathParams Convert path parameter format: Convert {id} format to:id
 func (rest *Rest) convertPathParams(path string) string {
-	// 使用正则表达式匹配 :参数名 格式并转换为 {参数名} 格式
+	// Use regular expressions to match:parametername_format and convert to {parameter_name}
 	re := regexp.MustCompile(`{([a-zA-Z_][a-zA-Z0-9_]*)}`)
 	return re.ReplaceAllString(path, ":$1")
 }

@@ -30,16 +30,16 @@ import (
 var _ types.RuleContext = (*NodeTestRuleContext)(nil)
 
 // NodeTestRuleContext
-// 只为测试单节点，临时创建的上下文
-// 无法把多个节点组成链式
-// callback 回调处理结果
+// A context created temporarily for testing single nodes
+// Multiple nodes cannot be combined into a chain
+// Callback processing results
 type NodeTestRuleContext struct {
 	context  context.Context
 	config   types.Config
 	callback func(msg types.RuleMsg, relationType string, err error)
 	self     types.Node
 	selfId   string
-	//所有子节点处理完成事件，只执行一次
+	//All child nodes handle the completion event and execute it only once
 	onAllNodeCompleted func()
 	onEndFunc          types.OnEndFunc
 	childrenNodes      sync.Map
@@ -220,10 +220,10 @@ func (ctx *NodeTestRuleContext) TellFlow(chainId string, msg types.RuleMsg, opts
 	}
 }
 
-// TellNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
+// TellNode independently executes a specific node and obtains its execution status through callback. It is used for grouping nodes to control the execution of a specific node
 func (ctx *NodeTestRuleContext) TellNode(context context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, callback types.OnEndFunc, onAllNodeCompleted func()) {
 	if v, ok := ctx.childrenNodes.Load(nodeId); ok {
-		// 线程安全地设置 selfId
+		// Threads safely set selfId
 		ctx.mutex.Lock()
 		ctx.selfId = nodeId
 		ctx.mutex.Unlock()
@@ -249,12 +249,12 @@ func (ctx *NodeTestRuleContext) TellNode(context context.Context, nodeId string,
 	}
 }
 
-// TellChainNode 独立执行某个节点，通过callback获取节点执行情况，用于节点分组类节点控制执行某个节点
+// TellChainNode independently executes a node and obtains the node's execution status through callback. It is used for grouping nodes to control and execute a specific node
 func (ctx *NodeTestRuleContext) TellChainNode(context context.Context, chainId string, nodeId string, msg types.RuleMsg, skipTellNext bool, callback types.OnEndFunc, onAllNodeCompleted func()) {
 	ctx.TellNode(context, nodeId, msg, skipTellNext, callback, onAllNodeCompleted)
 }
 
-// SetOnAllNodeCompleted 设置所有节点执行完回调
+// SetOnAllNodeCompleted sets the callback after all nodes have executed
 func (ctx *NodeTestRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) {
 	ctx.onAllNodeCompleted = onAllNodeCompleted
 }
@@ -263,17 +263,17 @@ func (ctx *NodeTestRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTy
 
 }
 
-// SetCallbackFunc 设置回调函数
+// SetCallbackFunc sets the callback function
 func (ctx *NodeTestRuleContext) SetCallbackFunc(functionName string, f interface{}) {
 
 }
 
-// GetCallbackFunc 获取回调函数
+// GetCallbackFunc gets the callback function
 func (ctx *NodeTestRuleContext) GetCallbackFunc(functionName string) interface{} {
 	return nil
 }
 
-// OnDebug 调用配置的OnDebug回调函数
+// OnDebug calls the configured OnDebug callback function
 func (ctx *NodeTestRuleContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 }
 
@@ -311,34 +311,34 @@ func (ctx *NodeTestRuleContext) TellStream(msg types.RuleMsg) {
 	ctx.TellNext(msg, types.Stream)
 }
 
-// GetEnv 获取环境变量和元数据
+// GetEnv retrieves environment variables and metadata
 func (ctx *NodeTestRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[string]interface{} {
-	// 创建环境变量map
+	// Create the environment variable map
 	envVars := make(map[string]interface{})
 
-	// 设置基础环境变量
+	// Set the base environment variable
 	envVars["id"] = msg.GetId()
 	envVars["ts"] = msg.GetTs()
 	envVars["data"] = msg.GetData()
 	envVars["msgType"] = msg.GetType()
 	envVars["type"] = msg.GetType()
 	envVars["dataType"] = string(msg.GetDataType())
-	// 使用 GetJsonData() 避免重复JSON解析
+	// Use GetJsonData() to avoid repeated JSON parsing
 	if msg.DataType == types.JSON {
 		if jsonData, err := msg.GetJsonData(); err == nil {
 			envVars[types.MsgKey] = jsonData
 		} else {
-			// 解析失败，使用原始数据
+			// Parsing fails, using raw data
 			envVars[types.MsgKey] = msg.GetData()
 		}
 	} else {
-		// 如果不是 JSON 类型，直接使用原始数据
+		// If it is not a JSON type, use the raw data directly
 		envVars[types.MsgKey] = msg.GetData()
 	}
-	// 优化 metadata 处理
+	// Optimized metadata processing
 	if msg.Metadata != nil {
 		if useMetadata {
-			// 遍历metadata，将键值对添加到环境变量中 - use zero-copy ForEach
+			// Traverse the metadata and add key-value pairs to environment variables - use zero-copy ForEach
 			msg.Metadata.ForEach(func(k, v string) bool {
 				envVars[k] = v
 				return true // continue iteration
@@ -350,7 +350,7 @@ func (ctx *NodeTestRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[
 	return envVars
 }
 
-// GetNodeRuleMsg 获取节点的完整消息信息（测试上下文中暂不支持跨节点取值）
+// GetNodeRuleMsg retrieves the complete message information of the node (cross-node value selection is not currently supported in the test context)
 // GetNodeRuleMsg retrieves the complete RuleMsg of a node (not supported in test context)
 func (ctx *NodeTestRuleContext) GetNodeRuleMsg(nodeId string) (types.RuleMsg, bool) {
 	return types.RuleMsg{}, false
@@ -360,8 +360,8 @@ func (ctx *NodeTestRuleContext) SetDebugMode(debugMode bool) {}
 
 func (ctx *NodeTestRuleContext) SetSkipTellNext(skip bool) {}
 
-// ExtendedTestRuleContext 扩展的测试上下文，支持结果收集和节点处理器设置
-// 可以替代 SimpleTestContext 和 MockRuleContext
+// ExtendedTestRuleContext extends the test context to support result collection and node processor settings
+// Can replace SimpleTestContext and MockRuleContext
 type ExtendedTestRuleContext struct {
 	*NodeTestRuleContext
 	nodeHandlers map[string]func(msg types.RuleMsg) (string, error)
@@ -370,14 +370,14 @@ type ExtendedTestRuleContext struct {
 	handlerMutex sync.RWMutex
 }
 
-// TestResult 测试结果结构
+// TestResult test result structure
 type TestResult struct {
 	RelationType string
 	Err          error
 }
 
-// NewExtendedTestRuleContext 创建扩展的测试上下文
-// 用于替代 SimpleTestContext 和 MockRuleContext
+// NewExtendedTestRuleContext creates an extended test context
+// Used to replace SimpleTestContext and MockRuleContext
 func NewExtendedTestRuleContext(config types.Config, callback func(msg types.RuleMsg, relationType string, err error)) *ExtendedTestRuleContext {
 	baseCtx := NewRuleContext(config, callback).(*NodeTestRuleContext)
 	return &ExtendedTestRuleContext{
@@ -388,8 +388,8 @@ func NewExtendedTestRuleContext(config types.Config, callback func(msg types.Rul
 	}
 }
 
-// NewExtendedTestRuleContextWithChannel 创建带结果通道的扩展测试上下文
-// 主要用于替代 SimpleTestContext
+// NewExtendedTestRuleContextWithChannel creates an extended test context with a result channel
+// Mainly used to replace SimpleTestContext
 func NewExtendedTestRuleContextWithChannel() *ExtendedTestRuleContext {
 	config := types.NewConfig()
 	baseCtx := NewRuleContext(config, nil).(*NodeTestRuleContext)
@@ -401,16 +401,16 @@ func NewExtendedTestRuleContextWithChannel() *ExtendedTestRuleContext {
 	}
 }
 
-// SetNodeHandler 设置节点处理器，用于模拟节点行为
-// 替代 MockRuleContext 的 SetNodeHandler 方法
+// SetNodeHandler sets up the node processor and is used to simulate node behavior
+// SetNodeHandler method that replaces MockRuleContext
 func (ctx *ExtendedTestRuleContext) SetNodeHandler(nodeId string, handler func(msg types.RuleMsg) (string, error)) {
 	ctx.handlerMutex.Lock()
 	defer ctx.handlerMutex.Unlock()
 	ctx.nodeHandlers[nodeId] = handler
 }
 
-// GetResults 获取收集的结果
-// 替代 MockRuleContext 的 GetResults 方法
+// GetResults retrieves the collected results
+// Replace MockRuleContext with the GetResults method
 func (ctx *ExtendedTestRuleContext) GetResults() []string {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
@@ -419,20 +419,20 @@ func (ctx *ExtendedTestRuleContext) GetResults() []string {
 	return results
 }
 
-// GetResultsChannel 获取结果通道
-// 用于替代 SimpleTestContext 的 results 通道
+// GetResultsChannel to obtain the results channel
+// The results channel used to replace SimpleTestContext
 func (ctx *ExtendedTestRuleContext) GetResultsChannel() <-chan TestResult {
 	return ctx.resultsChan
 }
 
-// TellNode 重写 TellNode 方法以支持节点处理器
+// TellNode overrides the TellNode method to support node processors
 func (ctx *ExtendedTestRuleContext) TellNode(context context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, callback types.OnEndFunc, onAllNodeCompleted func()) {
 	ctx.handlerMutex.RLock()
 	handler, hasHandler := ctx.nodeHandlers[nodeId]
 	ctx.handlerMutex.RUnlock()
 
 	if hasHandler {
-		// 使用自定义处理器（模拟节点行为）
+		// Using custom processors (simulating node behavior)
 		go func() {
 			relationType, err := handler(msg)
 			if callback != nil {
@@ -443,23 +443,23 @@ func (ctx *ExtendedTestRuleContext) TellNode(context context.Context, nodeId str
 			}
 		}()
 	} else {
-		// 使用原有的 TellNode 逻辑
+		// Use the original TellNode logic
 		ctx.NodeTestRuleContext.TellNode(context, nodeId, msg, skipTellNext, callback, onAllNodeCompleted)
 	}
 }
 
-// TellNext 重写以支持结果收集
+// TellNext rewrote to support results collection
 func (ctx *ExtendedTestRuleContext) TellNext(msg types.RuleMsg, relationTypes ...string) {
-	// 调用原有逻辑
+	// Call the original logic
 	ctx.NodeTestRuleContext.TellNext(msg, relationTypes...)
 
-	// 收集结果
+	// Collect the results
 	if len(relationTypes) > 0 {
 		ctx.mutex.Lock()
 		ctx.results = append(ctx.results, relationTypes[0])
 		ctx.mutex.Unlock()
 
-		// 发送到结果通道
+		// Send to the results channel
 		select {
 		case ctx.resultsChan <- TestResult{RelationType: relationTypes[0], Err: nil}:
 		default:
@@ -467,34 +467,34 @@ func (ctx *ExtendedTestRuleContext) TellNext(msg types.RuleMsg, relationTypes ..
 	}
 }
 
-// TellSuccess 重写以支持结果收集
+// TellSuccess rewrote to support result collection
 func (ctx *ExtendedTestRuleContext) TellSuccess(msg types.RuleMsg) {
-	// 调用原有逻辑
+	// Call the original logic
 	ctx.NodeTestRuleContext.TellSuccess(msg)
 
-	// 收集结果
+	// Collect the results
 	ctx.mutex.Lock()
 	ctx.results = append(ctx.results, "Success")
 	ctx.mutex.Unlock()
 
-	// 发送到结果通道
+	// Send to the results channel
 	select {
 	case ctx.resultsChan <- TestResult{RelationType: "Success", Err: nil}:
 	default:
 	}
 }
 
-// TellFailure 重写以支持结果收集
+// TellFailure overrides to support result collection
 func (ctx *ExtendedTestRuleContext) TellFailure(msg types.RuleMsg, err error) {
-	// 调用原有逻辑
+	// Call the original logic
 	ctx.NodeTestRuleContext.TellFailure(msg, err)
 
-	// 收集结果
+	// Collect the results
 	ctx.mutex.Lock()
 	ctx.results = append(ctx.results, "Failure")
 	ctx.mutex.Unlock()
 
-	// 发送到结果通道
+	// Send to the results channel
 	select {
 	case ctx.resultsChan <- TestResult{RelationType: "Failure", Err: err}:
 	default:

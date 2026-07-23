@@ -25,7 +25,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// EndpointMessage 测试endpoint请求、响应消息
+// EndpointMessage: Tests endpoint requests and responses
 func EndpointMessage(t *testing.T, m interface{}) {
 	message, ok := m.(interface {
 		//Body message body
@@ -36,15 +36,15 @@ func EndpointMessage(t *testing.T, m interface{}) {
 		GetParam(key string) string
 		//SetMsg set RuleMsg
 		SetMsg(msg *types.RuleMsg)
-		//GetMsg 把接收数据转换成 RuleMsg
+		//GetMsg converts the received data into RuleMsg
 		GetMsg() *types.RuleMsg
-		//SetStatusCode 响应 code
+		//SetStatusCode response code
 		SetStatusCode(statusCode int)
-		//SetBody 响应 body
+		//SetBody responds to body
 		SetBody(body []byte)
-		//SetError 设置错误
+		//SetError is set incorrectly
 		SetError(err error)
-		//GetError 获取错误
+		//GetError retrieves an error
 		GetError() error
 	})
 	assert.True(t, ok)

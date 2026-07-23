@@ -16,42 +16,42 @@
 
 package types
 
-// resource.go 定义 ref:// 引用机制的通用抽象（底层库，性能敏感）：
-//   - ResourceLookup / ResourceRegistry：资源目录（按 id 解析/注册实例）
-//   - TargetSender：寻址发送能力接口
+// resource.go defines a general abstraction of the ref:// reference mechanism (underlying library, performance-sensitive):
+//   - ResourceLookup / ResourceRegistry: Resource directory (parse by ID/register instances)
+//   - TargetSender: Addressing and sending capability interface
 //
-// 设计目标：
-//   - 读路径无锁、零分配（实现方用 sync.Map 等）
-//   - 不绑定具体组件类型：任何“容器”实现 ResourceLookup 即可成为 ref:// 解析源；
-//     任何寻址型组件实现 TargetSender 即可被 net 等节点寻址推送（开闭原则）
-//   - 避免 types 主包 ↔ endpoint 子包循环依赖：接口参数用 any，消费方做能力断言
+// Design Objectives:
+//   - Read paths without locks and zero allocation (implemented using sync.Map, etc.)
+//   - No specific component type: Any "container" implementing ResourceLookup can become a ref:// parsing source;
+//     Any addressable component implementing TargetSender can be addressed and pushed by nodes such as net (open/close principle).
+//   - Avoid types main package ↔ endpoint subpacket loop dependencies: interface parameters use any, and the consumer makes capability assertions
 
-// ResourceLookup 是 ref:// 引用的只读解析视图。
-// 实现方须保证：Lookup 读路径无锁、零分配。
+// ResourceLookup is a read-only parsed view referenced by ref://.
+// The implementer must ensure that lookup reads paths without locks and zero allocation.
 //
-// 已知实现：*node_pool.NodePool（共享池）、*engine.RuleChainCtx（同链 endpoint 等）。
+// Known implementation: *node_pool.NodePool (shared pool), *engine.RuleChainCtx (same-chain endpoints, etc.).
 type ResourceLookup interface {
-	// Lookup 按 id 查找资源实例。找不到返回 (nil, false)。
+	// Lookup searches for resource instances by ID. Return not found (nil, false).
 	Lookup(id string) (resource any, found bool)
 }
 
-// ResourceRegistry 是可写的资源目录，内嵌 ResourceLookup。
-// 写（Register/Unregister）低频（组件部署/重载时）；读（Lookup）高频（ref:// 解析）。
+// ResourceRegistry is a writable resource directory with embedded ResourceLookup.
+// Write (Register/Unregister) low frequency (when component deployment/overload); Lookup (ref:// Analysis).
 type ResourceRegistry interface {
 	ResourceLookup
-	// Register 注册/覆盖一个资源实例。
+	// Register: Register/override a resource instance.
 	Register(id string, resource any)
-	// Unregister 注销一个资源实例。
+	// Unregister logs out a resource instance.
 	Unregister(id string)
 }
 
-// TargetSender 是“按 target 寻址发送”的能力接口。
-// 寻址型资源（如 endpoint/net）实现此接口，即可被 net 节点的 ref:// 寻址推送复用。
+// TargetSender is an interface capable of "sending by target address."
+// Addressable resources (such as endpoint/net) implementing this interface can be pushed and reused by the net node's ref:// addressing.
 //
-// 实现方须保证：零分配（复用入参 data）、并发安全。
+// The implementer must guarantee: zero allocation (reuse of parameter data) and concurrency security.
 type TargetSender interface {
-	// SendToTarget 按 target 寻址发送 data。
-	//   - target：IP / deviceId / *（广播） / 空（广播）
-	// 返回 sent（成功数）、failed（失败数）、err（首个错误；全部失败时也返回）。
+	// SendToTarget sends data by target address.
+	//   - target:IP / deviceId / *(broadcast) / empty (broadcast)
+	// Returns sent (number of successes), failed (number of failures), err (first error; If all failed, it would also return).
 	SendToTarget(target string, data []byte) (sent, failed int, err error)
 }

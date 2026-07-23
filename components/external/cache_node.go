@@ -30,7 +30,7 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// 注册节点
+// Register the node
 func init() {
 	Registry.Add(&CacheGetNode{})
 	Registry.Add(&CacheSetNode{})
@@ -40,32 +40,32 @@ func init() {
 const (
 	CacheLevelChain                = "chain"
 	CacheLevelGlobal               = "global"
-	CacheOutputModeMergeToMetadata = 0   // 合并到当前消息元数据
-	CacheOutputModeMergeToMsg      = 1   //合并到当前消息负荷
-	CacheOutputModeNewMsg          = 2   //覆盖原消息负荷输出
-	KeyMatchAll                    = "*" //通配符
+	CacheOutputModeMergeToMetadata = 0   // Merge into the current message metadata
+	CacheOutputModeMergeToMsg      = 1   //Merge into the current message load
+	CacheOutputModeNewMsg          = 2   //Override the original message load output
+	KeyMatchAll                    = "*" //wildcard
 )
 
-// LevelKey 缓存key
+// LevelKey cache key
 type LevelKey struct {
 	Level string `json:"level" label:"Level" desc:"Cache level"`
 	Key   string `json:"key" label:"Key" desc:"Cache key, supports ${metadata.key} and ${msg.key} substitution" required:"true"`
 }
 
-// LevelKeyTemplate 缓存key模板
+// LevelKeyTemplate caches key templates
 type LevelKeyTemplate struct {
-	level       string      // 缓存级别
-	keyTemplate el.Template // 缓存key模板
+	level       string      // Cache level
+	keyTemplate el.Template // Cache key template
 }
 
 const (
-	// WhenKeyNotFoundFailure 找不到key时走失败链
+	// WhenKeyNotFoundFailure If the key cannot be found, the chain of failure occurs
 	WhenKeyNotFoundFailure = "failure"
-	// WhenKeyNotFoundSuccess 找不到key时走成功链
+	// WhenKeyNotFoundSuccess: If the key cannot be found, proceed to the success chain
 	WhenKeyNotFoundSuccess = "success"
 )
 
-// CacheGetNodeConfiguration 缓存获取节点配置
+// CacheGetNodeConfiguration retrieves the node configuration from the cache
 type CacheGetNodeConfiguration struct {
 	Keys            []LevelKey `json:"keys" label:"Keys" desc:"Cache keys to query" required:"true"`
 	OutputMode      int        `json:"outputMode" label:"Output Mode" desc:"0=merge to metadata, 1=replace msg"`
@@ -75,56 +75,56 @@ type CacheGetNodeConfiguration struct {
 // CacheGetNode retrieves data from cache storage at different levels (chain or global).
 // It supports wildcard pattern matching and multiple output modes for flexible data integration.
 //
-// CacheGetNode 从不同级别（链级或全局）的缓存存储中检索数据。
-// 支持通配符模式匹配和多种输出模式以实现灵活的数据集成。
+// CacheGetNode retrieves data from cache storage at different levels (chain-level or global).
+// Supports wildcard pattern matching and multiple output modes for flexible data integration.
 //
 // Configuration:
-// 配置说明：
+// Configuration:
 //
 //	{
-//		"keys": [                        // Keys to retrieve  要检索的键列表
+//		"keys": [                        // Keys to retrieve
 //			{
-//				"level": "chain",        // Cache level: "chain" or "global"  缓存级别
-//				"key": "sensor_${metadata.deviceId}"  // Key with variable substitution  支持变量替换的键
+//				"level": "chain",        // Cache level: "chain" or "global"
+//				"key": "sensor_${metadata.deviceId}"  // Key with variable substitution
 //			},
 //			{
 //				"level": "global",
-//				"key": "config_*"        // Wildcard pattern for multiple keys  多键通配符模式
+//				"key": "config_*"        // Wildcard pattern for multiple keys
 //			}
 //		],
-//		"outputMode": 0                  // Output mode: 0=metadata, 1=merge to msg, 2=replace msg  输出模式
+//		"outputMode": 0                  // Output mode: 0=metadata, 1=merge to msg, 2=replace msg
 //	}
 //
 // Cache Levels:
-// 缓存级别：
+// Cache level:
 //
 //   - "chain": Rule chain scoped cache for data sharing within the same rule chain instance
-//     规则链级缓存，用于同一规则链实例内的数据共享
+//     Rule chain-level caching, used for data sharing within the same rule chain instance
 //   - "global": Global cache for cross-chain data sharing across all rule chain instances
-//     全局缓存，用于所有规则链实例间的跨链数据共享
+//     Global caching, used for cross-chain data sharing among all rule chain instances
 //
 // Key Pattern Matching:
-// 键模式匹配：
+// Key mode matching:
 //
-//   - Exact match: "user:123" retrieves specific key  精确匹配：检索特定键
-//   - Wildcard: "user:*" retrieves all keys with prefix "user:"  通配符：检索所有前缀为 "user:" 的键
-//   - Variable substitution: "data_${metadata.id}" uses runtime values  变量替换：使用运行时值
+//   - Exact match: "user:123" retrieves specific key
+//   - Wildcard: "user:*" retrieves all keys with prefix "user:"
+//   - Variable substitution: "data_${metadata.id}" uses runtime values
 //
 // Output Modes:
-// 输出模式：
+// Output Mode:
 //
 //   - 0 (CacheOutputModeMergeToMetadata): Merge results to message metadata
-//     合并结果到消息元数据
+//     Merge results into message metadata
 //   - 1 (CacheOutputModeMergeToMsg): Merge to message payload (requires JSON data type)
-//     合并到消息负荷（需要 JSON 数据类型）
+//     Merge into message load (requires JSON data type)
 //   - 2 (CacheOutputModeNewMsg): Replace message payload with cache results
-//     用缓存结果替换消息负荷
+//     Replace message loads with cached results
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	// Retrieve user session and global config
-//	// 检索用户会话和全局配置
+//	Retrieve user sessions and global configurations
 //	{
 //		"id": "cacheGet",
 //		"type": "cacheGet",
@@ -137,9 +137,9 @@ type CacheGetNodeConfiguration struct {
 //		}
 //	}
 type CacheGetNode struct {
-	//节点配置
+	//Node configuration
 	Config CacheGetNodeConfiguration
-	//keys模板
+	//keys template
 	keysTemplate []LevelKeyTemplate
 }
 
@@ -156,14 +156,14 @@ func (x *CacheGetNode) New() types.Node {
 	}}
 }
 
-// Init 初始化组件
+// Init initializes the component
 func (x *CacheGetNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err != nil {
 		return err
 	}
 
-	//初始化keys模板
+	//Initialize the keys template
 	for _, item := range x.Config.Keys {
 		template, err := el.NewTemplate(item.Key)
 		if err != nil {
@@ -180,7 +180,7 @@ func (x *CacheGetNode) Init(ruleConfig types.Config, configuration types.Configu
 
 func (x *CacheGetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	env := base.NodeUtils.GetEvnAndMetadata(ctx, msg)
-	//处理keys模板
+	//Handle keys templates
 	var keys []LevelKey
 	for _, item := range x.keysTemplate {
 		keys = append(keys, LevelKey{Level: item.level, Key: item.keyTemplate.ExecuteAsString(env)})
@@ -188,7 +188,7 @@ func (x *CacheGetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	x.handleGet(ctx, msg, keys)
 }
 
-// Destroy 销毁组件
+// Destroy releases component resources
 func (x *CacheGetNode) Destroy() {
 }
 
@@ -210,10 +210,10 @@ func (x *CacheGetNode) handleGet(ctx types.RuleContext, msg types.RuleMsg, keys 
 			value, err := c.Get(item.Key)
 			if err != nil {
 				if errors.Is(err, types.ErrCacheMiss) {
-					// cache miss，由 whenKeyNotFound 控制
+					// cache miss, controlled by whenKeyNotFound
 					values[item.Key] = nil
 				} else {
-					// 底层报错，始终走失败链
+					// Errors at the bottom level always go down the chain of failure
 					ctx.TellFailure(msg, err)
 					return
 				}
@@ -226,7 +226,7 @@ func (x *CacheGetNode) handleGet(ctx types.RuleContext, msg types.RuleMsg, keys 
 }
 
 func (x *CacheGetNode) outputResult(ctx types.RuleContext, msg types.RuleMsg, values map[string]interface{}) {
-	// 检查是否全部 miss
+	// Check if all are missing
 	var notFound = true
 	for _, v := range values {
 		if v != nil {
@@ -242,9 +242,9 @@ func (x *CacheGetNode) outputResult(ctx types.RuleContext, msg types.RuleMsg, va
 			ctx.TellFailure(msg, types.ErrCacheMiss)
 			return
 		case WhenKeyNotFoundSuccess:
-			// 走成功链，继续下面的输出逻辑
+			// Follow the chain of success, continuing the output logic below
 		default:
-			// 空值：保持原有行为，Mode 2 走失败链，其他模式走成功链
+			// Null value: Maintains the original behavior, Mode 2 follows the failure chain, other modes follow the success chain
 			if x.Config.OutputMode == CacheOutputModeNewMsg {
 				ctx.TellFailure(msg, types.ErrCacheMiss)
 				return
@@ -278,7 +278,7 @@ func (x *CacheGetNode) outputResult(ctx types.RuleContext, msg types.RuleMsg, va
 	}
 }
 
-// CacheSetNodeConfiguration 缓存设置节点配置
+// CacheSetNodeConfiguration cache node configuration
 type CacheSetNodeConfiguration struct {
 	Items []CacheItem `json:"items" label:"Items" desc:"Cache items to set" required:"true"`
 }
@@ -300,45 +300,45 @@ type CacheItemTemplate struct {
 // CacheSetNode stores data in cache storage at different levels with TTL support.
 // It supports multiple cache items, variable substitution, and automatic expiration.
 //
-// CacheSetNode 在不同级别的缓存存储中存储数据，支持 TTL。
-// 支持多个缓存项、变量替换和自动过期。
+// CacheSetNode stores data in different levels of cache and supports TTL.
+// Supports multiple cache items, variable replacement, and automatic expiration.
 //
 // Configuration:
-// 配置说明：
+// Configuration:
 //
 //	{
-//		"items": [                       // Cache items to set  要设置的缓存项
+//		"items": [                       // Cache items to set
 //			{
-//				"level": "chain",        // Cache level: "chain" or "global"  缓存级别
-//				"key": "user_${metadata.userId}",     // Key with variable substitution  支持变量替换的键
-//				"value": "${msg.userData}",           // Value with variable substitution  支持变量替换的值
-//				"ttl": "1h30m"          // TTL format: 1h30m, 10m, 30s, empty=no expiration  TTL 格式
+//				"level": "chain",        // Cache level: "chain" or "global"
+//				"key": "user_${metadata.userId}",     // Key with variable substitution
+//				"value": "${msg.userData}",           // Value with variable substitution
+//				"ttl": "1h30m" // TTL format: 1h30m, 10m, 30s, empty=no expiration TTL format
 //			}
 //		]
 //	}
 //
 // TTL Format:
-// TTL 格式：
+// TTL format:
 //
-//   - "1h": 1 hour  1小时
-//   - "30m": 30 minutes  30分钟
-//   - "10s": 10 seconds  10秒
-//   - "1h30m": 1 hour 30 minutes  1小时30分钟
-//   - "": No expiration (permanent storage)  无过期时间（永久存储）
+//   - "1h": 1 hour 1 hour
+//   - "30m": 30 minutes
+//   - "10s": 10 seconds
+//   - "1h30m": 1 hour 30 minutes
+//   - "": No expiration (permanent storage)
 //
 // Variable Substitution:
-// 变量替换：
+// Variable Substitution:
 //
 // Both keys and values support runtime variable substitution:
-// 键和值都支持运行时变量替换：
-//   - ${metadata.key}: Access message metadata  访问消息元数据
-//   - ${msg.key}: Access message payload fields  访问消息负荷字段
+// Both keys and values support runtime variable substitution:
+//   - ${metadata.key}: Access message metadata
+//   - ${msg.key}: Access message payload fields
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	// Store user session with 1-hour expiration
-//	// 存储用户会话，1小时过期
+//	Stored user sessions, expires after 1 hour
 //	{
 //		"id": "cacheSet",
 //		"type": "cacheSet",
@@ -360,15 +360,15 @@ type CacheItemTemplate struct {
 //		}
 //	}
 type CacheSetNode struct {
-	// 节点配置
+	// Node configuration
 	Config CacheSetNodeConfiguration
-	// 缓存项列表模板
+	// Cache item list template
 	itemsTemplate []CacheItemTemplate
-	// 缓存项列表模板是否有变量
+	// Does the cached item list template contain variables?
 	hasVar bool
 }
 
-// Type 返回组件类型
+// Type returns the component type
 func (x *CacheSetNode) Type() string {
 	return "cacheSet"
 }
@@ -381,14 +381,14 @@ func (x *CacheSetNode) New() types.Node {
 	}}
 }
 
-// Init 初始化组件
+// Init initializes the component
 func (x *CacheSetNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err != nil {
 		return err
 	}
 	var hasVar = false
-	//初始化缓存项列表模板
+	//Initialize the cache item list template
 	for _, item := range x.Config.Items {
 		keyTemplate, err := el.NewTemplate(item.Key)
 		if err != nil {
@@ -451,11 +451,11 @@ func (x *CacheSetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 }
 
-// Destroy 销毁组件
+// Destroy releases component resources
 func (x *CacheSetNode) Destroy() {
 }
 
-// CacheDeleteNodeConfiguration 缓存删除节点配置
+// CacheDeleteNodeConfiguration Cache delete node configuration
 type CacheDeleteNodeConfiguration struct {
 	Keys []LevelKey `json:"keys" label:"Keys" desc:"Cache keys to delete" required:"true"`
 }
@@ -463,37 +463,37 @@ type CacheDeleteNodeConfiguration struct {
 // CacheDeleteNode removes data from cache storage at different levels.
 // It supports exact key deletion and prefix-based batch deletion with wildcard patterns.
 //
-// CacheDeleteNode 从不同级别的缓存存储中删除数据。
-// 支持精确键删除和基于前缀的通配符批量删除。
+// CacheDeleteNode deletes data from cache storage at different levels.
+// Supports precise key deletion and batch deletion of wildcards based on prefixes.
 //
 // Configuration:
-// 配置说明：
+// Configuration:
 //
 //	{
-//		"keys": [                        // Keys to delete  要删除的键列表
+//		"keys": [                        // Keys to delete
 //			{
-//				"level": "chain",        // Cache level: "chain" or "global"  缓存级别
-//				"key": "session_${metadata.userId}"  // Exact key with variable substitution  精确键支持变量替换
+//				"level": "chain",        // Cache level: "chain" or "global"
+//				"key": "session_${metadata.userId}"  // Exact key with variable substitution
 //			},
 //			{
 //				"level": "global",
-//				"key": "temp_*"          // Wildcard pattern for batch deletion  批量删除的通配符模式
+//				"key": "temp_*"          // Wildcard pattern for batch deletion
 //			}
 //		]
 //	}
 //
 // Deletion Patterns:
-// 删除模式：
+// Delete Mode:
 //
-//   - Exact deletion: "user:123" removes specific key  精确删除：删除特定键
-//   - Batch deletion: "session:*" removes all keys with prefix "session:"  批量删除：删除所有前缀为 "session:" 的键
-//   - Variable substitution: "cache_${metadata.id}" uses runtime values  变量替换：使用运行时值
+//   - Exact deletion: "user:123" removes specific key
+//   - Batch deletion: "session:*" removes all keys with prefix "session:"
+//   - Variable substitution: "cache_${metadata.id}" uses runtime values
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	// Clean up user session and temporary data
-//	// 清理用户会话和临时数据
+//	Clean up user sessions and temporary data
 //	{
 //		"id": "cacheDelete",
 //		"type": "cacheDelete",
@@ -505,9 +505,9 @@ type CacheDeleteNodeConfiguration struct {
 //		}
 //	}
 type CacheDeleteNode struct {
-	//节点配置
+	//Node configuration
 	Config CacheDeleteNodeConfiguration
-	//keys模板
+	//keys template
 	keysTemplate []LevelKeyTemplate
 }
 
@@ -523,14 +523,14 @@ func (x *CacheDeleteNode) New() types.Node {
 	}}
 }
 
-// Init 初始化组件
+// Init initializes the component
 func (x *CacheDeleteNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err != nil {
 		return err
 	}
 
-	//初始化keys模板
+	//Initialize the keys template
 	for _, item := range x.Config.Keys {
 		template, err := el.NewMixedTemplate(item.Key)
 		if err != nil {
@@ -548,7 +548,7 @@ func (x *CacheDeleteNode) Init(ruleConfig types.Config, configuration types.Conf
 func (x *CacheDeleteNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	env := base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 
-	//处理keys模板
+	//Handle keys templates
 	var keys []LevelKey
 	for _, item := range x.keysTemplate {
 		keys = append(keys, LevelKey{Level: item.level, Key: item.keyTemplate.ExecuteAsString(env)})
@@ -578,7 +578,7 @@ func (x *CacheDeleteNode) handleDelete(ctx types.RuleContext, msg types.RuleMsg,
 	ctx.TellSuccess(msg)
 }
 
-// Destroy 销毁组件
+// Destroy releases component resources
 func (x *CacheDeleteNode) Destroy() {
 }
 

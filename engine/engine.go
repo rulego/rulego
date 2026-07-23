@@ -18,51 +18,51 @@
 // It includes implementations for rule contexts, rule engines, and related components
 // that enable the execution and management of rule chains.
 //
-// Package engine 提供 RuleGo 规则引擎的核心功能。
-// 它包括规则上下文、规则引擎和相关组件的实现，
-// 这些组件支持规则链的执行和管理。
+// The package engine provides the core features of the RuleGo rule engine.
+// It includes the implementation of rule contexts, rule engines, and related components,
+// These components support the execution and management of the rule chain.
 //
 // The engine package is responsible for:
-// engine 包负责：
+// The engine package is responsible for:
 //   - Defining and managing rule contexts (DefaultRuleContext)
-//     定义和管理规则上下文（DefaultRuleContext）
+//     Define and manage the rule context (DefaultRuleContext)
 //   - Implementing the main rule engine (RuleEngine)
-//     实现主要的规则引擎（RuleEngine）
+//     Implementing the main rule engine (RuleEngine)
 //   - Handling rule chain execution and flow control
-//     处理规则链执行和流程控制
+//     Handle rule chain execution and process control
 //   - Managing built-in aspects and extensions
-//     管理内置切面和扩展
+//     Manage built-in aspects and extensions
 //   - Providing utilities for rule processing and message handling
-//     提供规则处理和消息处理的工具
+//     Provides tools for rule processing and message processing
 //
 // Key Components:
-// 关键组件：
+// Key components:
 //   - RuleEngine: Main engine instance managing rule chain execution
-//     RuleEngine：管理规则链执行的主引擎实例
+//     RuleEngine: The main engine instance that manages rule chain execution
 //   - RuleChainCtx: Context for individual rule chains
-//     RuleChainCtx：单个规则链的上下文
+//     RuleChainCtx: The context of a single rule chain
 //   - DefaultRuleContext: Context for message processing within rule chains
-//     DefaultRuleContext：规则链内消息处理的上下文
+//     DefaultRuleContext: The context for message processing within the rule chain
 //   - RuleNodeCtx: Context wrapper for individual node components
-//     RuleNodeCtx：单个节点组件的上下文包装器
+//     RuleNodeCtx: Context wrapper for a single node component
 //
 // Architecture Overview:
-// 架构概述：
+// Architecture Overview:
 //
 //	The engine follows a hierarchical structure where a RuleEngine contains
 //	one root RuleChainCtx, which manages multiple RuleNodeCtx instances.
 //	Message processing flows through DefaultRuleContext instances that
 //	coordinate between nodes and handle aspect-oriented programming features.
 //
-//	引擎遵循分层结构，其中 RuleEngine 包含一个根 RuleChainCtx，
-//	该上下文管理多个 RuleNodeCtx 实例。消息处理通过 DefaultRuleContext
-//	实例流转，这些实例在节点之间协调并处理面向切面编程功能。
+//	The engine follows a hierarchical structure, where the RuleEngine contains a root RuleChainCtx,
+//	This context manages multiple RuleNodeCtx instances. Message processing is done through DefaultRuleContext
+//	Instance lifecycle, where instances coordinate aspect-oriented programming behavior across nodes.
 //
 // This package is central to the RuleGo framework, offering the primary mechanisms
 // for rule-based processing and decision making in various applications.
 //
-// 此包是 RuleGo 框架的核心，为各种应用程序中基于规则的处理和决策制定
-// 提供主要机制。
+// This package is the core of the RuleGo framework, designed for rule-based processing and decision-making in various applications
+// Providing the main mechanism.
 package engine
 
 import (
@@ -91,26 +91,26 @@ var _ types.RuleEngine = (*RuleEngine)(nil)
 // These aspects provide essential cross-cutting functionality and are automatically
 // integrated into every rule engine instance to ensure consistent behavior.
 //
-// BuiltinsAspects 保存规则引擎的内置切面列表。
-// 这些切面提供基本的横切功能，并自动集成到每个规则引擎实例中以确保一致的行为。
+// BuiltinsAspects stores the list of built-in faces in the rule engine.
+// These aspects provide basic cross-cutting functionality and are automatically integrated into each rule engine instance to ensure consistent behavior.
 //
 // Built-in Aspects:
-// 内置切面：
+// Built-in Aspects:
 //
 //   - Validator: Validates node configurations and rule chain definitions
 //     before execution to prevent runtime errors.
-//     验证器：在执行前验证节点配置和规则链定义，以防止运行时错误。
+//     Verifier: Validates node configuration and rule chain definitions before execution to prevent runtime errors.
 //
 //   - Debug: Provides debugging capabilities including execution tracing,
 //     state inspection, and development-time diagnostics.
-//     调试器：提供调试功能，包括执行跟踪、状态检查和开发时诊断。
+//     Debugger: Provides debugging functions, including tracking execution, status checks, and diagnostics during development.
 //
 //   - MetricsAspect: Collects performance metrics, execution statistics,
 //     and operational data for monitoring and observability.
-//     指标切面：收集性能指标、执行统计和运营数据，用于监控和可观察性。
+//     Metric Section: Collect performance metrics, execution statistics, and operational data for monitoring and observability.
 //
 // Automatic Integration:
-// 自动集成：
+// Automatic integration:
 //
 //	These aspects are automatically added to the rule engine during initialization
 //	via the initBuiltinsAspects() method. If custom aspects are provided, the
@@ -118,23 +118,23 @@ var _ types.RuleEngine = (*RuleEngine)(nil)
 //	exists in the custom list. This ensures that essential functionality is always
 //	available without requiring explicit configuration.
 //
-//	这些切面在初始化期间通过 initBuiltinsAspects() 方法自动添加到规则引擎中。
-//	如果提供了自定义切面，除非自定义列表中已存在相同类型的切面，否则仍会包含
-//	内置切面。这确保基本功能始终可用，无需显式配置。
+//	These aspects are automatically added to the rule engine during initialization using the initBuiltinsAspects() method.
+//	If a custom facet is provided, it will still be included unless the same type of facet already exists in the custom list
+//	built-in aspects. This ensures that essential functions are always available without explicit configuration.
 var BuiltinsAspects = []types.Aspect{&aspect.Validator{}, &aspect.Debug{}, &aspect.MetricsAspect{}}
 
 // aspectsHolder holds the aspects for atomic access to improve performance
 // by avoiding lock contention during high-frequency aspect operations.
-// aspectsHolder 保存切面以提供原子访问，通过避免高频切面操作期间的锁竞争来提高性能。
+// aspectsHolder stores aspects for atomic access, avoiding lock contention during frequent aspect operations.
 type aspectsHolder struct {
 	// startAspects are executed before rule chain processing begins
-	// startAspects 在规则链处理开始前执行
+	// startAspects is executed before the rule chain process begins
 	startAspects []types.StartAspect
 	// endAspects are executed when a rule chain branch ends
-	// endAspects 在规则链分支结束时执行
+	// endAspects is executed at the end of the rule chain branch
 	endAspects []types.EndAspect
 	// completedAspects are executed when all rule chain branches complete
-	// completedAspects 在所有规则链分支完成时执行
+	// completedAspects is executed when all branches of the rule chain are completed
 	completedAspects []types.CompletedAspect
 }
 
@@ -142,136 +142,136 @@ type aspectsHolder struct {
 // Each RuleEngine instance manages exactly one root rule chain and provides
 // the primary interface for message processing and rule execution.
 //
-// RuleEngine 是规则引擎实例的核心结构。
-// 每个 RuleEngine 实例管理恰好一个根规则链，并为消息处理和规则执行提供主要接口。
+// RuleEngine is the core structure of rule engine instances.
+// Each RuleEngine instance manages exactly one root rule chain and provides the main interface for message processing and rule execution.
 //
 // Architecture & Features:
-// 架构和特性：
+// Architecture and Features:
 //   - Single root rule chain management with hot reloading capability
-//     单根规则链管理，支持热重载功能
+//     Single rule chain management, supports hot reload functionality
 //   - Aspect-oriented programming support for cross-cutting concerns
-//     面向切面编程支持，用于横切关注点
+//     Aspect-oriented programming support for cross-cutting concerns
 //   - Two-phase graceful shutdown for safe resource cleanup
-//     两阶段优雅停机，确保安全的资源清理
+//     Two-stage elegant shutdown ensures safe resource clearance
 //   - Deadlock-free reload mechanism with message queuing
-//     无死锁重载机制，支持消息队列
+//     No deadlock overload mechanism, supports message queues
 //   - Concurrent message processing with atomic operations
-//     并发消息处理，使用原子操作
+//     Concurrent message processing uses atomic operations
 //   - Context-aware processing with shutdown signal integration
-//     上下文感知处理，集成停机信号
+//     Context-aware processing, integrated shutdown signals
 //   - Sub-rule chain pool integration for nested execution
-//     子规则链池集成，支持嵌套执行
+//     Sub-rule chain pool integration, supporting nested execution
 //   - Comprehensive metrics and debugging capabilities
-//     全面的指标和调试功能
+//     Comprehensive metrics and debugging functions
 //   - Backpressure control during reload to prevent memory overflow
-//     重载期间的背压控制，防止内存溢出
+//     Backpressure control during heavy load to prevent memory overflow
 //
 // Lifecycle Management:
-// 生命周期管理：
+// Lifecycle Management:
 //  1. Creation with NewRuleEngine() and rule chain definition
-//     使用 NewRuleEngine() 和规则链定义创建
+//     Created using NewRuleEngine() and rule chain definitions
 //  2. Message processing via OnMsg() with concurrent safety
-//     通过 OnMsg() 进行消息处理，具有并发安全性
+//     Message processing is performed via OnMsg(), ensuring concurrency security
 //  3. Optional hot reloading with ReloadSelf() without downtime
-//     使用 ReloadSelf() 进行可选的热重载，无需停机
+//     Use ReloadSelf() for optional heat reloading without shutdown
 //  4. Graceful cleanup with Stop() and proper resource release
-//     使用 Stop() 进行优雅清理和适当的资源释放
+//     Use Stop() for elegant cleanup and appropriate resource release
 //
 // Thread Safety & Concurrency:
-// 线程安全和并发：
+// Thread Safety and Concurrency:
 //
 //	RuleEngine is designed for high-concurrency scenarios with:
-//	RuleEngine 设计用于高并发场景，具有：
+//	RuleEngine is designed for high-concurrency scenarios and features:
 //	- Lock-free message processing using atomic operations
-//	  使用原子操作的无锁消息处理
+//	  Handle unlocked messages using atomic operations
 //	- Safe concurrent access to rule chain definitions
-//	  对规则链定义的安全并发访问
+//	  Secure concurrent access to the rule chain as defined
 //	- Coordinated reload operations without blocking message flow
-//	  协调的重载操作，不阻塞消息流
+//	  Coordinated overloading operations without blocking the message flow
 //	- Graceful shutdown handling for all concurrent operations
-//	  对所有并发操作的优雅停机处理
+//	  Elegant shutdown handling for all concurrent operations
 //	- Backpressure control to prevent resource exhaustion
-//	  背压控制以防止资源耗尽
+//	  Backpressure control prevents resource depletion
 //
 // Memory Safety During Reload:
-// 重载期间的内存安全：
+// Memory safety during overload:
 //
 //	The engine implements sophisticated backpressure mechanisms to prevent
 //	memory overflow during reload operations:
-//	引擎实现了复杂的背压机制，在重载操作期间防止内存溢出：
+//	The engine implements a complex backpressure mechanism to prevent memory overflow during heavy load operations:
 //	- Limited concurrent goroutines waiting for reload completion
-//	  限制并发等待重载完成的goroutine数量
+//	  Limit the number of goroutines waiting for concurrent overload to complete
 //	- Fast-fail strategy for excessive reload wait requests
-//	  对过量重载等待请求的快速失败策略
+//	  A quick failure strategy for overloading and waiting for requests
 //	- Configurable memory protection thresholds
-//	  可配置的内存保护阈值
+//	  Configurable memory protection thresholds
 //	- Automatic degradation to reject mode under high load
-//	  高负载下自动降级到拒绝模式
+//	  Automatically downgraded to reject mode under heavy load
 //
 // This design ensures reliable, high-performance rule processing in production environments.
-// 此设计确保在生产环境中可靠的高性能规则处理。
+// This design ensures reliable, high-performance rule handling in production environments.
 type RuleEngine struct {
 	// Embed graceful shutdown functionality
-	// 嵌入优雅停机功能
+	// Embedded elegant shutdown function
 	base.GracefulShutdown
 
 	// Config is the configuration for the rule engine containing
 	// global settings, component registry, and execution parameters
-	// Config 是规则引擎的配置，包含全局设置、组件注册表和执行参数
+	// Config is the configuration of the rule engine, including global settings, component registry, and execution parameters
 	Config types.Config
 
 	// ruleChainPool is a pool of sub-rule engines for handling nested rule chains
-	// ruleChainPool 是处理嵌套规则链的子规则引擎池
+	// ruleChainPool is a sub-rule engine pool that handles nested rule chains
 	ruleChainPool types.RuleEnginePool
 
 	// id is the unique identifier for the rule engine instance
-	// id 是规则引擎实例的唯一标识符
+	// id is the unique identifier of the rule engine instance
 	id string
 
-	// aliases 是引擎除主 id 外的附加查找键，Pool.Get(alias) 可解析到本引擎。
-	// 当 NewRuleEngine 的 id 与 def.ruleChain.id 不同时，ruleChain.id 会被记为别名。
+	// aliases is an additional lookup key for the engine besides the main ID. Pool.Get(alias) can parse into the engine.
+	// When the NewRuleEngine's id is different from the def.ruleChain.id, ruleChain.id is recorded as an alias.
 	aliases []string
 
 	// rootRuleChainCtx is the context of the root rule chain containing
 	// all nodes and their relationships
-	// rootRuleChainCtx 是根规则链的上下文，包含所有节点及其关系
+	// rootRuleChainCtx is the context of the root rule chain, containing all nodes and their relationships
 	rootRuleChainCtx *RuleChainCtx
 
 	// aspectsPtr provides high-performance atomic access to aspects
 	// to avoid lock contention during message processing
-	// aspectsPtr 提供对切面的高性能原子访问，以避免消息处理期间的锁竞争
+	// aspectsPtr provides high-performance atomic access to the facet to avoid lock contention during message processing
 	aspectsPtr unsafe.Pointer
 
 	// initialized indicates whether the rule engine has been properly initialized
 	// Use atomic operations to prevent data races during concurrent access
-	// initialized 指示规则引擎是否已正确初始化
-	// 使用原子操作防止并发访问时的数据竞态
+	// initialized indicates whether the rule engine has been properly initialized
+	// Use atomic operations to prevent data gridlock during concurrent access
 	initialized int32
 
 	// Aspects is a list of AOP (Aspect-Oriented Programming) aspects
 	// that provide cross-cutting concerns like logging, validation, and metrics
-	// Aspects 是面向切面编程（AOP）切面列表，提供如日志、验证和指标等横切关注点
+	// Aspects are face-to-face programming (AOP) listings that provide cross-cutting concerns such as logs, validations, and metrics
 	Aspects types.AspectList
 
 	// OnUpdated is a callback function triggered when the rule chain is updated
-	// OnUpdated 是规则链更新时触发的回调函数
+	// OnUpdated is a callback function triggered when the rule chain is updated
 	OnUpdated func(chainId, nodeId string, dsl []byte)
 
 	// Backpressure control fields for memory safety during reload
-	// 重载期间内存安全的背压控制字段
+	// Backpressure control field for memory safety during overload
 
 	// maxConcurrentReloadWaiters limits the number of goroutines that can wait for reload completion
 	// to prevent memory overflow during high-traffic reload operations
-	// maxConcurrentReloadWaiters 限制可以等待重载完成的goroutine数量，
-	// 以防止高流量重载操作期间的内存溢出
+	// maxConcurrentReloadWaiters limits the number of goroutines that can wait for the overload to complete,
+	// Prevents memory overflow during high-traffic overload operations
 	maxConcurrentReloadWaiters int64
 
 	// currentReloadWaiters tracks the current number of goroutines waiting for reload
-	// currentReloadWaiters 跟踪当前等待重载的goroutine数量
+	// currentReloadWaiters tracks the number of goroutines currently waiting to be overloaded
 	currentReloadWaiters int64
 
 	// reloadBackpressureEnabled enables/disables backpressure control
-	// reloadBackpressureEnabled 启用/禁用背压控制
+	// reloadBackpressureEnabled Enable/Disables backpressure control
 	reloadBackpressureEnabled bool
 	reloadLock                sync.Mutex
 }
@@ -279,49 +279,49 @@ type RuleEngine struct {
 // NewRuleEngine creates a new RuleEngine instance with the given ID and definition.
 // It applies the provided RuleEngineOptions during the creation process.
 //
-// NewRuleEngine 使用给定的 ID 和定义创建新的 RuleEngine 实例。
-// 它在创建过程中应用提供的 RuleEngineOptions。
+// NewRuleEngine creates new RuleEngine instances using a given ID and definition.
+// It applies the provided RuleEngineOptions during the creation process.
 //
 // Parameters:
-// 参数：
+// Parameters:
 //   - id: Unique identifier for the rule engine (can be empty to use chain ID)
-//     规则引擎的唯一标识符（可以为空以使用链 ID）
+//     Unique identifier for the rule engine (can be empty to use the chain ID)
 //   - def: Rule chain definition in JSON or other supported format
-//     JSON 或其他支持格式的规则链定义
+//     Define a rule chain in JSON or other supported formats
 //   - opts: Optional configuration functions to customize the engine
-//     可选的配置函数来自定义引擎
+//     Optional configuration functions to customize the engine
 //
 // Returns:
-// 返回：
-//   - *RuleEngine: Initialized rule engine instance  已初始化的规则引擎实例
-//   - error: Initialization error if any  如果有的话，初始化错误
+// Returns:
+//   - *RuleEngine: Initialized rule engine instance
+//   - error: Initialization error if any
 //
 // The creation process involves:
-// 创建过程包括：
-//  1. Parsing the rule chain definition  解析规则链定义
-//  2. Initializing all components and their relationships  初始化所有组件及其关系
-//  3. Setting up aspects and callback functions  设置切面和回调函数
-//  4. Validating the configuration  验证配置
-//  5. Configuring backpressure control for memory safety  配置背压控制以确保内存安全
+// The creation process includes:
+//  1. Parsing the rule chain definition
+//  2. Initializing all components and their relationships
+//  3. Setting up aspects and callback functions
+//  4. Validating the configuration
+//  5. Configuring backpressure control for memory safety
 func NewRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*RuleEngine, error) {
 	if len(def) == 0 {
 		return nil, errors.New("def can not nil")
 	}
 
 	// Create a new RuleEngine with the Id
-	// 使用 ID 创建新的 RuleEngine
+	// Create a new RuleEngine using the ID
 	ruleEngine := &RuleEngine{
 		id:            id,
 		Config:        NewConfig(),
 		ruleChainPool: DefaultPool,
 		// Initialize backpressure control with default values
-		// 使用默认值初始化背压控制
+		// Initialize backpressure control using default values
 		maxConcurrentReloadWaiters: 1000, // Default: allow max 1000 concurrent waiters
 		reloadBackpressureEnabled:  true, // Enable backpressure by default
 	}
 
 	// Initialize graceful shutdown functionality
-	// 初始化优雅停机功能
+	// Initialize the elegant shutdown function
 	if ruleEngine.Config.Logger == nil {
 		ruleEngine.Config.Logger = types.DefaultLogger()
 	}
@@ -329,17 +329,17 @@ func NewRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*Rule
 
 	err := ruleEngine.ReloadSelf(def, opts...)
 	if err == nil && ruleEngine.rootRuleChainCtx != nil {
-		// def 中的 ruleChain.id（ReloadSelf 解析得到）。
+		// ruleChain.id in def (obtained by ReloadSelf parsing).
 		ruleChainId := ruleEngine.rootRuleChainCtx.Id.Id
 		if id != "" {
 			ruleEngine.rootRuleChainCtx.Id = types.RuleNodeId{Id: id, Type: types.CHAIN}
-			// id 覆盖了 ruleChain.id 时，把 ruleChain.id 记为别名。
+			// When id overrides ruleChain.id, ruleChain.id is recorded as an alias.
 			if ruleChainId != "" && ruleChainId != id {
 				ruleEngine.aliases = append(ruleEngine.aliases, ruleChainId)
 			}
 		} else {
 			// Use the rule chain ID if no ID is provided.
-			// 如果没有提供 ID，则使用规则链 ID。
+			// If no ID is provided, the rule chain ID is used.
 			ruleEngine.id = ruleChainId
 		}
 
@@ -348,37 +348,37 @@ func NewRuleEngine(id string, def []byte, opts ...types.RuleEngineOption) (*Rule
 	return ruleEngine, err
 }
 
-// Aliases 返回引擎的别名（除主 id 外可用于 Pool.Get 的查找键）。
+// Aliases returns an alias for the engine (besides the main id, it can be used as a lookup key for Pool.Get).
 func (e *RuleEngine) Aliases() []string {
 	return e.aliases
 }
 
 // Id returns the unique identifier of the rule engine instance.
-// Id 返回规则引擎实例的唯一标识符。
+// Id returns a unique identifier for the rule engine instance.
 func (e *RuleEngine) Id() string {
 	return e.id
 }
 
 // SetConfig updates the configuration of the rule engine.
 // This should be called before initialization for best results.
-// SetConfig 更新规则引擎的配置。
-// 为了获得最佳效果，应在初始化前调用。
+// SetConfig updates the configuration of the rule engine.
+// For best results, it should be called before initialization.
 func (e *RuleEngine) SetConfig(config types.Config) {
 	e.Config = config
 }
 
 // SetAspects updates the list of aspects used by the rule engine.
 // Aspects provide cross-cutting functionality like logging and validation.
-// SetAspects 更新规则引擎使用的切面列表。
-// 切面提供如日志和验证等横切功能。
+// SetAspects updates the list of faces used by the rule engine.
+// The interface provides cross-cutting functions such as logging and verification.
 func (e *RuleEngine) SetAspects(aspects ...types.Aspect) {
 	e.Aspects = aspects
 }
 
 // SetRuleEnginePool sets the pool used for managing sub-rule chains.
 // This allows for nested rule chain execution and resource sharing.
-// SetRuleEnginePool 设置用于管理子规则链的池。
-// 这允许嵌套规则链执行和资源共享。
+// SetRuleEnginePool sets the pool used to manage the subrule chain.
+// This allows nested rule chains to be executed and resource sharing.
 func (e *RuleEngine) SetRuleEnginePool(ruleChainPool types.RuleEnginePool) {
 	e.ruleChainPool = ruleChainPool
 	if e.rootRuleChainCtx != nil {
@@ -387,9 +387,9 @@ func (e *RuleEngine) SetRuleEnginePool(ruleChainPool types.RuleEnginePool) {
 }
 
 // GetAspects returns a copy of the current aspects list to avoid data races.
-// GetAspects 返回当前切面列表的副本以避免数据竞争。
+// GetAspects returns a copy of the current section list to avoid data contention.
 func (e *RuleEngine) GetAspects() types.AspectList {
-	// 返回一个副本以避免数据竞争
+	// Return a copy to avoid data contention
 	if e.rootRuleChainCtx != nil {
 		return e.rootRuleChainCtx.GetAspects()
 	}
@@ -398,19 +398,19 @@ func (e *RuleEngine) GetAspects() types.AspectList {
 
 // Reload reloads the current rule chain with optional new configuration.
 // This is a convenience method that uses the current DSL definition.
-// Reload 使用可选的新配置重载当前规则链。
-// 这是使用当前 DSL 定义的便捷方法。
+// Reload uses an optional new configuration to override the current chain of rules.
+// This is a convenient way to use the current DSL definition.
 func (e *RuleEngine) Reload(opts ...types.RuleEngineOption) error {
 	return e.ReloadSelf(e.DSL(), opts...)
 }
 
 // initBuiltinsAspects initializes the built-in aspects if no custom aspects are provided.
 // It ensures that essential aspects like validation and debugging are always available.
-// initBuiltinsAspects 如果没有提供自定义切面，则初始化内置切面。
-// 它确保验证和调试等基本切面始终可用。
+// initBuiltinsAspects initializes the built-in aspects if no custom aspects are provided.
+// It ensures that essential aspects such as verification and debugging are always available.
 func (e *RuleEngine) initBuiltinsAspects() {
 	var newAspects types.AspectList
-	//初始化内置切面
+	// Initialize the built-in aspects
 	if len(e.Aspects) == 0 {
 		for _, builtinsAspect := range BuiltinsAspects {
 			newAspects = append(newAspects, builtinsAspect.New())
@@ -423,7 +423,7 @@ func (e *RuleEngine) initBuiltinsAspects() {
 		for _, builtinsAspect := range BuiltinsAspects {
 			found := false
 			for _, item := range newAspects {
-				//判断是否是相同类型
+				//Determine whether they are the same type
 				if reflect.TypeOf(item) == reflect.TypeOf(builtinsAspect) {
 					found = true
 					break
@@ -439,8 +439,8 @@ func (e *RuleEngine) initBuiltinsAspects() {
 
 // initChain initializes the rule chain with the provided definition.
 // It sets up all nodes, relationships, and executes creation aspects.
-// initChain 使用提供的定义初始化规则链。
-// 它设置所有节点、关系并执行创建切面。
+// initChain uses the provided definition to initialize the rule chain.
+// It sets all nodes and relationships and runs the aspect creation hooks.
 func (e *RuleEngine) initChain(def types.RuleChain) error {
 	if def.RuleChain.Disabled {
 		return types.ErrEngineDisabled
@@ -450,7 +450,7 @@ func (e *RuleEngine) initChain(def types.RuleChain) error {
 			ctx.Id = e.rootRuleChainCtx.Id
 		}
 		e.rootRuleChainCtx = ctx
-		//执行创建切面逻辑
+		//Execute the creation of faceted logic
 		_, _, createdAspects, _, _ := e.Aspects.GetEngineAspects()
 		for _, aop := range createdAspects {
 			if err := aop.OnCreated(e.rootRuleChainCtx); err != nil {
@@ -468,30 +468,30 @@ func (e *RuleEngine) initChain(def types.RuleChain) error {
 // This method supports hot reloading of rule configurations without stopping the engine.
 // It implements a two-phase graceful reload process:
 //
-// Phase 1: Preparation (设置阶段)
-// - Apply configuration options  应用配置选项
-// - Wait for any ongoing reload to complete  等待任何正在进行的重载完成
-// - Set reloading state to block new messages  设置重载状态以阻塞新消息
-// - Wait for active messages to complete  等待活跃消息完成
+// Phase 1: Preparation
+// - Apply configuration options
+// - Wait for any ongoing reload to complete
+// - Set reloading state to block new messages
+// - Wait for active messages to complete
 //
-// Phase 2: Reload (重载阶段)
-// - Parse new rule chain definition  解析新的规则链定义
-// - Update or create rule chain context  更新或创建规则链上下文
-// - Update atomic aspect pointers  更新原子切面指针
-// - Resume normal operation  恢复正常运行
+// Phase 2: Reload
+// - Parse new rule chain definition
+// - Update or create rule chain context
+// - Update atomic aspect pointers
+// - Resume normal operation
 //
-// ReloadSelf 使用新定义和选项重新加载规则链。
-// 此方法支持在不停止引擎的情况下热重载规则配置。
-// 它实现了两阶段优雅重载过程：
+// ReloadSelf uses new definitions and options to reload the chain of rules.
+// This method supports hot reload rule configuration without stopping the engine.
+// It achieves a two-stage elegant heavy loading process:
 //
 // Parameters:
-// 参数：
-//   - dsl: Rule chain definition in byte format  字节格式的规则链定义
-//   - opts: Optional configuration functions  可选的配置函数
+// Parameters:
+//   - dsl: Rule chain definition in byte format
+//   - opts: Optional configuration functions
 //
 // Returns:
-// 返回：
-//   - error: Reload error if any  如果有的话，重载错误
+// Returns:
+//   - error: Reload error if any
 func (e *RuleEngine) ReloadSelf(dsl []byte, opts ...types.RuleEngineOption) error {
 	e.reloadLock.Lock()
 	defer e.reloadLock.Unlock()
@@ -500,49 +500,49 @@ func (e *RuleEngine) ReloadSelf(dsl []byte, opts ...types.RuleEngineOption) erro
 
 func (e *RuleEngine) reloadSelf(dsl []byte, opts ...types.RuleEngineOption) error {
 	// Apply the options to the RuleEngine.
-	// 将选项应用于 RuleEngine。
+	// Apply options to RuleEngine.
 	for _, opt := range opts {
 		_ = opt(e)
 	}
 
 	// Check if engine is shutting down, if so, reject reload operation
-	// 检查引擎是否正在停机，如果是，拒绝重载操作
+	// Check if the engine is shutting down; if so, refuse heavy load operation
 	if e.IsShuttingDown() {
 		return types.ErrEngineShuttingDown
 	}
 
 	// Set reloading state to block new messages during reload
-	// 设置重载状态以在重载期间阻塞新消息
+	// Set the overload state to block new messages during overload
 	if e.Initialized() {
 		e.SetReloading(true)
 		defer e.SetReloading(false)
 
 		// Wait for active messages to complete before reloading
-		// 在重载前等待活跃消息完成
+		// Wait for the active message to complete before reloading
 		waitTimeout := 10 * time.Second
 		e.WaitForActiveOperations(waitTimeout)
 	}
 
 	var err error
 	if e.Initialized() {
-		//初始化内置切面
+		// Initialize the built-in aspects
 		if len(e.Aspects) == 0 {
 			e.initBuiltinsAspects()
 		}
 		e.rootRuleChainCtx.config = e.Config
 		e.rootRuleChainCtx.SetAspects(e.Aspects)
-		//更新规则链
+		//Update the rule chain
 		err = e.rootRuleChainCtx.ReloadSelf(dsl)
-		////设置子规则链池
+		//Set up a sub-rule chain pool
 		//e.rootRuleChainCtx.SetRuleEnginePool(e.ruleChainPool)
 		if err == nil && e.OnUpdated != nil {
 			e.OnUpdated(e.id, e.id, dsl)
 		}
 	} else {
-		//初始化内置切面
+		// Initialize the built-in aspects
 		e.initBuiltinsAspects()
 		var rootRuleChainDef types.RuleChain
-		//初始化
+		//Initialization
 		if rootRuleChainDef, err = e.Config.Parser.DecodeRuleChain(dsl); err == nil {
 			err = e.initChain(rootRuleChainDef)
 		} else {
@@ -551,7 +551,7 @@ func (e *RuleEngine) reloadSelf(dsl []byte, opts ...types.RuleEngineOption) erro
 	}
 
 	// Set the aspect lists.
-	// 设置切面列表。
+	// Set the section list.
 	startAspects, endAspects, completedAspects := e.Aspects.GetChainAspects()
 	holder := &aspectsHolder{startAspects: startAspects, endAspects: endAspects, completedAspects: completedAspects}
 	atomic.StorePointer(&e.aspectsPtr, unsafe.Pointer(holder))
@@ -559,7 +559,7 @@ func (e *RuleEngine) reloadSelf(dsl []byte, opts ...types.RuleEngineOption) erro
 }
 
 // waitForReloadComplete waits for any ongoing reload to complete before starting a new one.
-// waitForReloadComplete 在开始新的重载前等待任何正在进行的重载完成。
+// waitForReloadComplete waits for any ongoing reload to complete before starting a new one.
 func (e *RuleEngine) waitForReloadComplete() error {
 	if e.IsReloading() {
 		timeout := 10 * time.Second
@@ -575,19 +575,19 @@ func (e *RuleEngine) waitForReloadComplete() error {
 // It gracefully stops accepting new messages, waits for active messages to complete,
 // performs the reload, and then resumes normal operation.
 //
-// ReloadChild 更新根规则链中的特定节点。
-// 如果 ruleNodeId 为空，则更新整个根规则链。
-// 它优雅地停止接收新消息，等待活跃消息完成，执行重载，然后恢复正常运行。
+// ReloadChild updates specific nodes in the root rule chain.
+// If ruleNodeId is empty, update the entire root rule chain.
+// It gracefully stops receiving new messages, waits for active messages to complete, performs a reload, and then resumes normal operation.
 //
 // Parameters:
-// 参数：
+// Parameters:
 //   - ruleNodeId: ID of the node to update (empty for root chain)
-//     要更新的节点 ID（根链为空）
-//   - dsl: New configuration for the node/chain  节点/链的新配置
+//     Node ID to be updated (root chain is empty)
+//   - dsl: New configuration for the node/chain
 //
 // Returns:
-// 返回：
-//   - error: Update error if any  如果有的话，更新错误
+// Returns:
+//   - error: Update error if any
 func (e *RuleEngine) ReloadChild(ruleNodeId string, dsl []byte) error {
 	e.reloadLock.Lock()
 	defer e.reloadLock.Unlock()
@@ -599,20 +599,20 @@ func (e *RuleEngine) ReloadChild(ruleNodeId string, dsl []byte) error {
 	} else if e.IsShuttingDown() {
 		return types.ErrEngineShuttingDown
 	} else if ruleNodeId == "" {
-		//更新根规则链
+		//Update the root rule chain
 		return e.reloadSelf(dsl)
 	} else {
 		// Set reloading state to block new messages during reload
-		// 设置重载状态以在重载期间阻塞新消息
+		// Set the overload state to block new messages during overload
 		e.SetReloading(true)
 		defer e.SetReloading(false)
 
 		// Wait for active messages to complete before reloading child node
-		// 在重载子节点前等待活跃消息完成
+		// Wait for active messages to complete before reloading child nodes
 		waitTimeout := 10 * time.Second
 		e.WaitForActiveOperations(waitTimeout)
 
-		//更新根规则链子节点
+		//Update the root rule chain subnodes
 		err := e.rootRuleChainCtx.ReloadChild(types.RuleNodeId{Id: ruleNodeId}, dsl)
 
 		if err == nil && e.OnUpdated != nil {
@@ -623,7 +623,7 @@ func (e *RuleEngine) ReloadChild(ruleNodeId string, dsl []byte) error {
 }
 
 // DSL returns the current rule chain configuration in its original format.
-// DSL 返回原始格式的当前规则链配置。
+// The DSL returns the current rule chain configuration in the original format.
 func (e *RuleEngine) DSL() []byte {
 	if e.rootRuleChainCtx != nil {
 		return e.rootRuleChainCtx.DSL()
@@ -633,7 +633,7 @@ func (e *RuleEngine) DSL() []byte {
 }
 
 // Definition returns the rule chain definition structure.
-// Definition 返回规则链定义结构。
+// Definition Returns the rule chain definition structure.
 func (e *RuleEngine) Definition() types.RuleChain {
 	if e.rootRuleChainCtx != nil {
 		return *e.rootRuleChainCtx.SelfDefinition
@@ -643,7 +643,7 @@ func (e *RuleEngine) Definition() types.RuleChain {
 }
 
 // NodeDSL returns the configuration of a specific node within the rule chain.
-// NodeDSL 返回规则链中特定节点的配置。
+// NodeDSL returns the configuration of a specific node in the rule chain.
 func (e *RuleEngine) NodeDSL(chainId types.RuleNodeId, childNodeId types.RuleNodeId) []byte {
 	if e.rootRuleChainCtx != nil {
 		if chainId.Id == "" {
@@ -662,13 +662,13 @@ func (e *RuleEngine) NodeDSL(chainId types.RuleNodeId, childNodeId types.RuleNod
 }
 
 // Initialized returns whether the rule engine has been properly initialized.
-// Initialized 返回规则引擎是否已正确初始化。
+// Initialized: Returns whether the rule engine has been correctly initialized.
 func (e *RuleEngine) Initialized() bool {
 	return atomic.LoadInt32(&e.initialized) == 1 && e.rootRuleChainCtx != nil
 }
 
 // RootRuleChainCtx returns the root rule chain context.
-// RootRuleChainCtx 返回根规则链上下文。
+// RootRuleChainCtx returns the root rule chain context.
 func (e *RuleEngine) RootRuleChainCtx() types.ChainCtx {
 	return e.rootRuleChainCtx
 }
@@ -676,54 +676,54 @@ func (e *RuleEngine) RootRuleChainCtx() types.ChainCtx {
 // Stop shuts down the rule engine and releases all resources.
 // Implements a two-phase graceful shutdown strategy:
 //
-// Phase 1: Graceful Shutdown (优雅停机阶段)
-// - Set shutdown flag to reject new messages  设置停机标志拒绝新消息
-// - Wait for all active messages to complete naturally  等待所有活跃消息自然完成
-// - Respect the provided context timeout  遵守提供的上下文超时
+// Phase 1: Graceful Shutdown
+// - Set shutdown flag to reject new messages
+// - Wait for all active messages to complete naturally
+// - Respect the provided context timeout
 //
-// Phase 2: Force Shutdown (强制停机阶段)
-// - If timeout exceeded, cancel contexts to interrupt operations  如果超时，取消上下文以中断操作
-// - Give brief time for operations to respond to cancellation  给操作短暂时间响应取消
-// - Clean up all resources immediately  立即清理所有资源
+// Phase 2: Force Shutdown
+// - If timeout exceeded, cancel contexts to interrupt operations
+// - Give brief time for operations to respond to cancellation
+// - Clean up all resources immediately
 //
 // Context handling:
-// 上下文处理：
-// - If ctx is provided with deadline: uses that timeout  如果提供了带截止时间的ctx：使用该超时
-// - If ctx is context.Background(): uses default 10s timeout  如果ctx是context.Background()：使用默认10秒超时
-// - If ctx is nil: performs immediate shutdown  如果ctx为nil：执行立即停机
+// Context Handling:
+// - If ctx is provided with deadline: uses that timeout
+// - If ctx is context.Background(): uses default 10s timeout
+// - If ctx is nil: performs immediate shutdown
 //
 // Concurrent calls handling:
-// 并发调用处理：
+// Concurrent Call Handling:
 //   - If graceful shutdown is already in progress, subsequent calls wait for completion
-//     如果优雅停机已在进行中，后续调用等待其完成
+//     If the elegant shutdown is already underway, subsequent calls await its completion
 //   - Only one graceful shutdown process can execute at a time
-//     一次只能执行一个优雅停机过程
+//     Only one elegant downtime can be performed at a time
 //   - No forced interruption of ongoing graceful shutdown
-//     不会强制中断正在进行的优雅停机
+//     Elegant downtime in progress is not forcibly interrupted
 //
-// Stop 关闭规则引擎并释放所有资源。
-// 实现两阶段优雅停机策略：
+// Stop Shut down the rule engine and release all resources.
+// Achieve a two-stage elegant shutdown strategy:
 func (e *RuleEngine) Stop(ctx context.Context) {
 	// Handle concurrent calls: if already shutting down, wait for completion instead of forcing
-	// 处理并发调用：如果已在停机，等待完成而不是强制停机
+	// Handling concurrent calls: If the machine is already down, wait for completion instead of forcing it
 	if e.IsShuttingDown() {
 		// Check if shutdown is already completed by checking if the engine is initialized
 		// If the engine is not initialized, shutdown has already completed
-		// 检查停机是否已经完成，通过检查引擎是否已初始化
-		// 如果引擎未初始化，说明停机已经完成
+		// Check if the shutdown has been completed, by checking if the engine has been initialized
+		// If the engine is not initialized, it means the shutdown has been completed
 		if !e.Initialized() {
 			// Shutdown has already completed, no need to wait
-			// 停机已经完成，无需等待
+			// The shutdown is complete, no waiting needed
 			return
 		}
 
 		// Wait for the ongoing shutdown to complete with a reasonable timeout
-		// 等待正在进行的停机完成，设置合理的超时
+		// Wait for the ongoing downtime to complete and set a reasonable timeout
 		shutdownWaitTimeout := 10 * time.Second // Reduced from 30s for better responsiveness
 		if ctx != nil {
 			if deadline, ok := ctx.Deadline(); ok {
 				// Use the remaining time from the provided context, but with a minimum wait time
-				// 使用提供的上下文的剩余时间，但设置最小等待时间
+				// Use the remaining time of the provided context, but set a minimum waiting time
 				remainingTime := time.Until(deadline)
 				if remainingTime > 0 && remainingTime < shutdownWaitTimeout {
 					shutdownWaitTimeout = remainingTime
@@ -732,7 +732,7 @@ func (e *RuleEngine) Stop(ctx context.Context) {
 		}
 
 		// Wait for the ongoing shutdown to complete
-		// 等待正在进行的停机完成
+		// Waiting for the ongoing downtime to be completed
 		ticker := time.NewTicker(50 * time.Millisecond) // More frequent checks for faster response
 		defer ticker.Stop()
 
@@ -743,18 +743,18 @@ func (e *RuleEngine) Stop(ctx context.Context) {
 			select {
 			case <-waitCtx.Done():
 				// Timeout waiting for shutdown to complete, force cleanup
-				// 等待停机完成超时，强制清理
+				// Wait for the shutdown to complete and timeout, then force cleanup
 				e.Config.Logger.Printf("Timeout waiting for ongoing shutdown to complete, forcing cleanup")
 				e.forceStop()
 				return
 			case <-ticker.C:
 				// Check if shutdown completed by checking initialization status
 				// Shutdown is complete when the engine is no longer initialized
-				// 通过检查初始化状态来检查停机是否完成
-				// 当引擎不再初始化时停机完成
+				// Check whether the shutdown is complete by checking the initialization status
+				// Shutdown is complete when the engine is no longer initialized
 				if !e.Initialized() {
 					// Shutdown completed successfully
-					// 停机成功完成
+					// The shutdown was successfully completed
 					return
 				}
 			}
@@ -762,7 +762,7 @@ func (e *RuleEngine) Stop(ctx context.Context) {
 	}
 
 	// Calculate timeout from context, handling negative durations explicitly
-	// 从上下文计算超时，明确处理负持续时间
+	// Timeouts are calculated from context, and negative durations are clearly handled
 	var timeout time.Duration
 	var isExpiredContext bool
 
@@ -771,46 +771,46 @@ func (e *RuleEngine) Stop(ctx context.Context) {
 			timeout = time.Until(deadline)
 			if timeout <= 0 {
 				// Context deadline has already passed
-				// 上下文截止时间已过
+				// The context deadline has passed
 				isExpiredContext = true
 				e.Config.Logger.Printf("Context deadline has already passed (negative duration: %v), performing immediate shutdown", timeout)
 				timeout = 0 // Use immediate shutdown for expired contexts
 			}
 		} else {
 			// Default timeout for context.Background() or contexts without deadline
-			// 对于 context.Background() 或没有截止时间的上下文使用默认超时
+			// For context.Background() or contexts without a cutoff time use the default timeout
 			timeout = 10 * time.Second
 		}
 	} else {
 		// Immediate shutdown for nil context
-		// 对于nil上下文立即停机
+		// Immediate shutdown for nil context
 		timeout = 0
 	}
 
 	// Perform graceful shutdown
-	// 执行优雅停机
+	// Perform elegant shutdowns
 	e.GracefulShutdown.GracefulStop(func() {
 		if isExpiredContext || timeout == 0 {
 			// For expired contexts or nil context, skip graceful wait and go straight to cleanup
-			// 对于过期上下文或nil上下文，跳过优雅等待直接清理
+			// For expired or nil contexts, skip the elegant wait and clear directly
 			e.Config.Logger.Printf("Performing immediate shutdown")
 			e.GracefulShutdown.ForceStop()
 		} else {
 			// Phase 1: Wait for all active messages to complete naturally
-			// 第一阶段：等待所有活跃消息自然完成
+			// Stage One: Wait for all active messages to be completed naturally
 			allCompleted := e.WaitForActiveOperations(timeout)
 			if !allCompleted {
 				e.Config.Logger.Printf("Graceful shutdown timeout after %v, forcing context cancellation", timeout)
 				// Phase 2: Force cancel context to interrupt ongoing operations
-				// 第二阶段：强制取消上下文以中断正在进行的操作
+				// Stage Two: Enforcedly discontextualize to interrupt ongoing operations
 				e.GracefulShutdown.ForceStop()
 				// Give a brief moment for operations to respond to cancellation
-				// 给操作一个短暂的时间来响应取消
+				// Give the operation a brief moment to respond to cancellation
 				e.WaitForActiveOperations(500 * time.Millisecond)
 			}
 		}
 		// Clean up resources
-		// 清理资源
+		// Release resources
 		e.forceStop()
 	})
 }
@@ -820,19 +820,19 @@ func (e *RuleEngine) Stop(ctx context.Context) {
 // user-provided context functionality.
 //
 // Context application strategy:
-// 上下文应用策略：
+// Contextual Application Strategy:
 //  1. If user hasn't provided custom context: use shutdown context directly
-//     如果用户没有提供自定义上下文：直接使用停机上下文
+//     If the user does not provide a custom context: use the downtime context directly
 //  2. If user provided custom context: combine both contexts
-//     如果用户提供了自定义上下文：组合两个上下文
-//     - Preserves user context values and behavior  保留用户上下文值和行为
-//     - Adds shutdown cancellation capability  添加停机取消能力
-//     - Cancellation triggers when either context is cancelled  任一上下文取消时触发取消
+//     If the user provides a custom context: combine two contexts
+//     - Preserves user context values and behavior
+//     - Adds shutdown cancellation capability
+//     - Cancellation triggers when either context is cancelled
 //
 // This design ensures both user functionality and graceful shutdown work correctly together.
 //
-// applyShutdownContext 对规则上下文副本应用优雅停机上下文处理。
-// 此方法确保消息处理尊重停机信号，同时保留用户提供的上下文功能。
+// applyShutdownContext applies elegant shutdown context handling to the rule context copy.
+// This method ensures message processing respects the downtime signal while retaining user-provided contextual functionality.
 // applyShutdownContext applies shutdown context handling to the rule context.
 // This method now only preserves context values from user context while using shutdown context for cancellation.
 // The user context cancellation feature has been removed to prevent goroutine leaks in high concurrency scenarios.
@@ -844,18 +844,18 @@ func (e *RuleEngine) applyShutdownContext(rootCtxCopy, rootCtx *DefaultRuleConte
 
 	if rootCtxCopy.GetContext() == rootCtx.GetContext() {
 		// No custom context was set by user options, use shutdown context directly
-		// 用户选项没有设置自定义上下文，直接使用停机上下文
+		// User options do not set custom contexts and directly use downtime contexts
 		rootCtxCopy.SetContext(shutdownCtx)
 	} else {
 		// User provided custom context, preserve its values but use shutdown context for cancellation
 		// This prevents goroutine leaks while maintaining context value inheritance
-		// 用户提供了自定义上下文，保留其值但使用停机上下文进行取消
+		// Users provide custom contexts that retain values but cancel them using a downtime context
 		userCtx := rootCtxCopy.GetContext()
 		combinedCtx, cancel := e.combineContextsValueOnly(userCtx, shutdownCtx)
 		rootCtxCopy.SetContext(combinedCtx)
 
 		// Ensure context is cancelled when rule chain execution completes
-		// 确保规则链执行完成时取消上下文
+		// Make sure the rule chain removes context once execution is complete
 		if cancel != nil {
 			originalOnAllNodeCompleted := rootCtxCopy.onAllNodeCompleted
 			rootCtxCopy.SetOnAllNodeCompleted(func() {
@@ -876,27 +876,27 @@ func (e *RuleEngine) applyShutdownContext(rootCtxCopy, rootCtx *DefaultRuleConte
 // 2. Can be cancelled by either user context or shutdown context
 // 3. Uses a controlled goroutine that is cleaned up when context is cancelled
 //
-// combineContextsValueOnly 创建一个从用户上下文继承值且可以被用户上下文或停机上下文取消的上下文。
+// combineContextsValueOnly creates a context that inherits a value from the user's context and can be canceled by the user's context or the downtime context.
 //
-// 返回的上下文：
-// 1. 从用户上下文继承所有值
-// 2. 可以被用户上下文或停机上下文取消
-// 3. 使用受控的协程，当上下文被取消时会被清理
+// Returned context:
+// 1. Inherit all values from the user's context
+// 2. Can be canceled by user context or downtime context
+// 3. Use controlled coroutines that are cleaned up when context is removed
 func (e *RuleEngine) combineContextsValueOnly(userCtx, shutdownCtx context.Context) (context.Context, context.CancelFunc) {
 	// Check if either context is already cancelled
-	// 检查任一上下文是否已取消
+	// Check whether any context has been canceled
 	select {
 	case <-userCtx.Done():
 		// User context already cancelled, return it directly
-		// 用户上下文已取消，直接返回
+		// User context is canceled and returns directly
 		return userCtx, func() {}
 	case <-shutdownCtx.Done():
 		// Shutdown context already cancelled, return it directly
-		// 停机上下文已取消，直接返回
+		// The downtime context has been removed, and you will return directly
 		return shutdownCtx, func() {}
 	default:
 		// Both contexts are active, create combined context
-		// 两个上下文都活跃，创建组合上下文
+		// Both contexts are active, creating a combined context
 		c := newCombinedCancelContext(userCtx, shutdownCtx)
 		return c, c.Cancel
 	}
@@ -906,8 +906,8 @@ func (e *RuleEngine) combineContextsValueOnly(userCtx, shutdownCtx context.Conte
 // of two parent contexts. It uses lazy goroutine creation - only creates a goroutine
 // when Done() is first called, avoiding unnecessary goroutines for contexts that are
 // never checked for cancellation.
-// combinedCancelContext 是一个可以被两个父上下文中的任一个取消的上下文实现。
-// 它使用延迟协程创建 - 只在首次调用Done()时创建协程，避免为不需要检查取消的上下文创建不必要的协程。
+// combinedCancelContext is a context implementation that can be canceled by either of the two parent contexts.
+// It uses delayed coroutine creation—only when Done() is called for the first time, avoiding unnecessary coroutines for contexts that don't require unchecking.
 type combinedCancelContext struct {
 	userCtx     context.Context
 	shutdownCtx context.Context
@@ -922,15 +922,15 @@ type combinedCancelContext struct {
 // newCombinedCancelContext creates a new combined context that can be cancelled
 // by either userCtx or shutdownCtx. It uses a single goroutine to monitor both
 // contexts, which exits immediately when either context is cancelled.
-// newCombinedCancelContext 创建一个新的组合上下文，可以被userCtx或shutdownCtx取消。
-// 它使用单个协程来监控两个上下文，当任一上下文取消时立即退出。
+// newCombinedCancelContext creates a new combinatorial context that can be canceled by userCtx or shutdownCtx.
+// It uses a single coroutine to monitor two contexts and immediately exits when either context is canceled.
 func newCombinedCancelContext(userCtx, shutdownCtx context.Context) *combinedCancelContext {
 	// Check if either context is already cancelled to avoid creating unnecessary goroutine
-	// 检查任一上下文是否已取消，以避免创建不必要的协程
+	// Check whether any context has been removed to avoid creating unnecessary coroutines
 	select {
 	case <-userCtx.Done():
 		// User context already cancelled, create a context that's already cancelled
-		// 用户上下文已取消，创建一个已取消的上下文
+		// User context canceled, create a deleted context
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Immediately cancel
 		c := &combinedCancelContext{
@@ -943,7 +943,7 @@ func newCombinedCancelContext(userCtx, shutdownCtx context.Context) *combinedCan
 		return c
 	case <-shutdownCtx.Done():
 		// Shutdown context already cancelled, create a context that's already cancelled
-		// 停机上下文已取消，创建一个已取消的上下文
+		// The downtime context has been removed, creating a canceled context
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Immediately cancel
 		c := &combinedCancelContext{
@@ -956,11 +956,11 @@ func newCombinedCancelContext(userCtx, shutdownCtx context.Context) *combinedCan
 		return c
 	default:
 		// Both contexts are active, will create goroutine lazily when Done() is called
-		// 两个上下文都活跃，将在首次调用Done()时延迟创建协程
+		// Both contexts are active and will delay the coroutine creation when Done() is first called
 	}
 
 	// Create an internal context that will be cancelled when either parent is cancelled
-	// 创建一个内部上下文，当任一父上下文取消时将被取消
+	// Create an inner context that will be canceled when either parent context is canceled
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &combinedCancelContext{
@@ -969,12 +969,12 @@ func newCombinedCancelContext(userCtx, shutdownCtx context.Context) *combinedCan
 		ctx:         ctx,
 		cancel:      cancel,
 		// done will be initialized lazily when Done() is first called
-		// done 将在首次调用Done()时延迟初始化
+		// done will delay initialization when Done() is first called
 	}
 }
 
 // setErr sets the error once when the context is cancelled
-// setErr 在上下文被取消时设置错误（仅设置一次）
+// setErr sets an error when the context is canceled (only once)
 func (c *combinedCancelContext) setErr(err error) {
 	c.errOnce.Do(func() {
 		c.errMu.Lock()
@@ -984,39 +984,39 @@ func (c *combinedCancelContext) setErr(err error) {
 }
 
 // Cancel cancels the context and stops the monitoring goroutine.
-// Cancel 取消上下文并停止监控协程。
+// Cancel removes context and stops monitoring coroutines.
 func (c *combinedCancelContext) Cancel() {
 	c.cancel()
 }
 
 // Done returns a channel that is closed when the context is cancelled.
 // The goroutine is created lazily on first call to avoid unnecessary goroutines.
-// Done 返回一个在上下文被取消时关闭的通道。
-// 协程在首次调用时延迟创建，以避免不必要的协程。
+// Done: Returns a channel that was closed when the context was canceled.
+// Coroutines are created with delay on the first call to avoid unnecessary coroutines.
 func (c *combinedCancelContext) Done() <-chan struct{} {
 	// Check if already cancelled before starting monitoring
-	// 在开始监控前检查是否已取消
+	// Check if the monitoring has been canceled before starting monitoring
 	select {
 	case <-c.userCtx.Done():
 		// Already cancelled, return closed channel
-		// 已取消，返回已关闭的通道
+		// Canceled, returns to closed channels
 		c.setErr(c.userCtx.Err())
 		return c.userCtx.Done()
 	case <-c.shutdownCtx.Done():
 		// Already cancelled, return closed channel
-		// 已取消，返回已关闭的通道
+		// Canceled, returns to closed channels
 		c.setErr(c.shutdownCtx.Err())
 		return c.shutdownCtx.Done()
 	default:
 		// Start monitoring lazily
-		// 延迟开始监控
+		// Delayed start monitoring
 		c.startMonitoring()
 		return c.ctx.Done()
 	}
 }
 
 // Err returns the error if either parent context is cancelled, nil otherwise.
-// Err 如果任一父上下文被取消则返回错误，否则返回nil。
+// err returns an error if either parent context is canceled; otherwise, nil is returned.
 func (c *combinedCancelContext) Err() error {
 	c.errMu.Lock()
 	defer c.errMu.Unlock()
@@ -1027,7 +1027,7 @@ func (c *combinedCancelContext) Err() error {
 }
 
 // Deadline returns the earlier deadline of the two parent contexts, or ok=false if neither has a deadline.
-// Deadline 返回两个父上下文中较早的截止时间，如果都没有截止时间则ok=false。
+// Deadline returns the earlier cutoff time in the two parent contexts; if there is no cutoff time, ok=false is used.
 func (c *combinedCancelContext) Deadline() (time.Time, bool) {
 	userDeadline, userOk := c.userCtx.Deadline()
 	shutdownDeadline, shutdownOk := c.shutdownCtx.Deadline()
@@ -1049,8 +1049,8 @@ func (c *combinedCancelContext) Deadline() (time.Time, bool) {
 
 // Value returns the value associated with this context for key, or nil if no value is associated with key.
 // It first checks the user context, then falls back to the shutdown context.
-// Value 返回与此上下文中键关联的值，如果没有与键关联的值则返回nil。
-// 它首先检查用户上下文，然后回退到停机上下文。
+// Value returns the value associated with the key in this context; if there is no value associated with the key, it returns nil.
+// It first checks the user context, then falls back to the downtime context.
 func (c *combinedCancelContext) Value(key interface{}) interface{} {
 	if val := c.userCtx.Value(key); val != nil {
 		return val
@@ -1058,12 +1058,12 @@ func (c *combinedCancelContext) Value(key interface{}) interface{} {
 	return c.shutdownCtx.Value(key)
 }
 
-// incrementActiveMessages 增加活跃消息计数
+// incrementActiveMessages increases the count of active messages
 func (e *RuleEngine) incrementActiveMessages() {
 	e.IncrementActiveOperations()
 }
 
-// decrementActiveMessages 减少活跃消息计数
+// decrementActiveMessages reduces the count of active messages
 func (e *RuleEngine) decrementActiveMessages() {
 	e.DecrementActiveOperations()
 }
@@ -1073,17 +1073,17 @@ func (e *RuleEngine) decrementActiveMessages() {
 // regardless of whether graceful shutdown completed successfully.
 //
 // Cleanup operations (with panic recovery):
-// 清理操作（带恐慌恢复）：
-// 1. Force cancellation of graceful shutdown context  强制取消优雅停机上下文
-// 2. Destroy rule chain context and all nodes  销毁规则链上下文和所有节点
-// 3. Clear instance cache entries  清理实例缓存条目
-// 4. Reset initialization state  重置初始化状态
+// Cleanup Operation (Recovery with Panic):
+// 1. Force cancellation of graceful shutdown context
+// 2. Destroy rule chain context and all nodes
+// 3. Clear instance cache entries
+// 4. Reset initialization state
 //
 // Each cleanup operation is wrapped with panic recovery to ensure
 // that failures in one cleanup step don't prevent others from executing.
 //
-// forceStop 执行规则引擎资源的立即清理。
-// 此方法在停机期间调用以确保完整的资源清理，无论优雅停机是否成功完成。
+// forceStop executes rules and immediately cleans up engine resources.
+// This method is called during downtime to ensure a complete resource cleanup, regardless of whether the graceful shutdown is successfully completed.
 func (e *RuleEngine) forceStop() {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1092,7 +1092,7 @@ func (e *RuleEngine) forceStop() {
 	}()
 
 	// Force cancellation of graceful shutdown context
-	// 强制取消优雅停机上下文
+	// Forced cancellation of graceful downtime context
 	e.GracefulShutdown.ForceStop()
 
 	if e.rootRuleChainCtx != nil {
@@ -1106,7 +1106,7 @@ func (e *RuleEngine) forceStop() {
 		}()
 	}
 
-	// 清理实例缓存
+	// Clean the instance cache
 	if e.Config.Cache != nil && e.rootRuleChainCtx != nil {
 		func() {
 			defer func() {
@@ -1124,20 +1124,20 @@ func (e *RuleEngine) forceStop() {
 // OnMsg asynchronously processes a message using the rule engine.
 // It accepts optional RuleContextOption parameters to customize the execution context.
 //
-// OnMsg 使用规则引擎异步处理消息。
-// 它接受可选的 RuleContextOption 参数来自定义执行上下文。
+// OnMsg uses a rule engine to process messages asynchronously.
+// It accepts the optional RuleContextOption parameter to customize the execution context.
 func (e *RuleEngine) OnMsg(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	e.onMsgAndWait(msg, false, opts...)
 }
 
 // OnMsgAndWait synchronously processes a message using the rule engine and waits for all nodes in the rule chain to complete before returning.
-// OnMsgAndWait 使用规则引擎同步处理消息，并在返回前等待规则链中的所有节点完成。
+// OnMsgAndWait uses the rule engine to synchronously process messages and waits for all nodes in the rule chain to complete before returning.
 func (e *RuleEngine) OnMsgAndWait(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	e.onMsgAndWait(msg, true, opts...)
 }
 
 // RootRuleContext returns the root rule context for advanced operations.
-// RootRuleContext 返回用于高级操作的根规则上下文。
+// RootRuleContext returns the root rule context used for advanced operations.
 func (e *RuleEngine) RootRuleContext() types.RuleContext {
 	if e.rootRuleChainCtx != nil {
 		return e.rootRuleChainCtx.rootRuleContext
@@ -1146,7 +1146,7 @@ func (e *RuleEngine) RootRuleContext() types.RuleContext {
 }
 
 // GetMetrics returns engine metrics if the metrics aspect is enabled.
-// GetMetrics 如果启用了指标切面，则返回引擎指标。
+// If GetMetrics is enabled, it returns the engine metrics.
 func (e *RuleEngine) GetMetrics() *metrics.EngineMetrics {
 	for _, aop := range e.Aspects {
 		if metricsAspect, ok := aop.(*aspect.MetricsAspect); ok {
@@ -1161,10 +1161,10 @@ func (e *RuleEngine) GetMetrics() *metrics.EngineMetrics {
 // Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
 // Deprecated: Use OnMsg instead.
 //
-// OnMsgWithEndFunc 是一个已弃用的方法，使用规则引擎异步处理消息。
-// endFunc 回调用于在规则链执行完成后获取结果。
-// 注意：如果规则链有多个端点，回调函数将被执行多次。
-// 已弃用：请改用 OnMsg。
+// OnMsgWithEndFunc is a deprecated method that uses a rule engine to process messages asynchronously.
+// endFunc callbacks are used to retrieve results after the rule chain has completed execution.
+// Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
+// Deprecated: Please switch to OnMsg.
 func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc types.OnEndFunc) {
 	e.OnMsg(msg, types.WithOnEnd(endFunc))
 }
@@ -1176,62 +1176,62 @@ func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc types.OnEndFunc
 // Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
 // Deprecated: Use OnMsg instead.
 //
-// OnMsgWithOptions 是一个已弃用的方法，使用规则引擎异步处理消息。
-// 它允许携带上下文选项和结束回调选项。
-// 上下文用于在不同组件实例之间共享数据。
-// endFunc 回调用于在规则链执行完成后获取结果。
-// 注意：如果规则链有多个端点，回调函数将被执行多次。
-// 已弃用：请改用 OnMsg。
+// OnMsgWithOptions is a deprecated method that uses a rule engine to process messages asynchronously.
+// It allows for carrying context options and ending callback options.
+// Context is used to share data between different component instances.
+// endFunc callbacks are used to retrieve results after the rule chain has completed execution.
+// Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
+// Deprecated: Please switch to OnMsg.
 func (e *RuleEngine) OnMsgWithOptions(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	e.onMsgAndWait(msg, false, opts...)
 }
 
 // doOnAllNodeCompleted handles the completion of all nodes within the rule chain.
 // It executes aspects, completes the run snapshot, and triggers any custom callback functions.
-// doOnAllNodeCompleted 处理规则链内所有节点的完成。
-// 它执行切面、完成运行快照并触发任何自定义回调函数。
+// doOnAllNodeCompleted handles the completion of all nodes within the rule chain.
+// It executes the aspects, completes the snapshot, and triggers any custom callback functions.
 func (e *RuleEngine) doOnAllNodeCompleted(rootCtxCopy *DefaultRuleContext, msg types.RuleMsg, customFunc func()) {
 	// Execute aspects upon completion of all nodes.
-	// 在所有节点完成后执行切面。
+	// Run the aspects after all nodes have completed.
 	e.onAllNodeCompleted(rootCtxCopy, msg)
 
 	// Trigger custom callback if provided.
-	// 如果提供了自定义回调，则触发它。
+	// If a custom callback is provided, it is triggered.
 	if customFunc != nil {
 		customFunc()
 	}
 	// Complete the run snapshot if it exists.
-	// 如果运行快照存在，则完成它。
+	// If a snapshot exists, complete it.
 	if rootCtxCopy.runSnapshot != nil {
 		rootCtxCopy.runSnapshot.onRuleChainCompleted(rootCtxCopy)
 	}
 
-	// 减少活跃消息计数
+	// Reduce active message counts
 	e.decrementActiveMessages()
 }
 
 // onErrHandler handles the scenario where the rule chain has no nodes or fails to process the message.
 // It logs an error and triggers the end-of-chain callbacks.
-// onErrHandler 处理规则链没有节点或处理消息失败的场景。
-// 它记录错误并触发链结束回调。
+// onErrHandler handles scenarios where the rule chain has no nodes or when message processing fails.
+// It records errors and triggers a chain-end callback.
 func (e *RuleEngine) onErrHandler(msg types.RuleMsg, rootCtxCopy *DefaultRuleContext, err error, needDecrement bool) {
 	// Trigger the configured OnEnd callback with the error.
-	// 使用错误触发配置的 OnEnd 回调。
+	// Use error-triggered configured OnEnd callbacks.
 	if rootCtxCopy.config.OnEnd != nil {
 		rootCtxCopy.config.OnEnd(rootCtxCopy, msg, err, types.Failure)
 	}
 	// Trigger the onEnd callback with the error and Failure relation type.
-	// 使用错误和失败关系类型触发 onEnd 回调。
+	// Trigger onEnd callbacks using error and failure relationship types.
 	if rootCtxCopy.onEnd != nil {
 		rootCtxCopy.onEnd(rootCtxCopy, msg, err, types.Failure)
 	}
 	// Execute the onAllNodeCompleted callback if it exists.
-	// 如果存在 onAllNodeCompleted 回调，则执行它。
+	// If there is an onAllNodeCompleted callback, execute it.
 	if rootCtxCopy.onAllNodeCompleted != nil {
 		rootCtxCopy.onAllNodeCompleted()
 	}
 	// Decrement active messages only if needed (when there was a corresponding increment)
-	// 只有在需要时才减少活跃消息计数（当有对应的增加时）
+	// Reduce the active message count only when needed (when there is a corresponding increase).
 	if needDecrement {
 		e.decrementActiveMessages()
 	}
@@ -1241,38 +1241,38 @@ func (e *RuleEngine) onErrHandler(msg types.RuleMsg, rootCtxCopy *DefaultRuleCon
 // This method implements a careful ordering of checks to prevent deadlocks during reload operations.
 //
 // Processing order to avoid deadlocks:
-// 处理顺序以避免死锁：
-// 1. Check engine initialization status  检查引擎初始化状态
-// 2. Check shutdown status (before incrementing counters)  检查停机状态（在增加计数前）
-// 3. Check reload status and wait for completion (before incrementing counters)  检查重载状态并等待完成（在增加计数前）
-// 4. Increment active message counter only after state checks  只有在状态检查后才增加活跃消息计数
-// 5. Process the message normally  正常处理消息
+// Processing sequence to avoid deadlocks:
+// 1. Check engine initialization status
+// 2. Check shutdown status (before incrementing counters)
+// 3. Check reload status and wait for completion (before incrementing counters)
+// 4. Increment active message counter only after state checks
+// 5. Process the message normally
 //
 // This ordering prevents the deadlock where:
-// 此顺序防止死锁，其中：
+// This sequence prevents deadlocks, where:
 //   - Messages wait for reload to complete, but
-//     消息等待重载完成，但
+//     The message is waiting for the reload to finish, but
 //   - Reload waits for active message count to reach zero
-//     重载等待活跃消息计数归零
+//     Overload waits for the active message count to reach zero
 //
-// onMsgAndWait 通过规则引擎处理消息，可选择等待完成。
+// onMsgAndWait processes messages through a rule engine and can choose to wait for completion.
 func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.RuleContextOption) {
 	// Check if the rule engine is initialized
-	// 检查规则引擎是否已初始化
+	// Check whether the rule engine has been initialized
 	if e.rootRuleChainCtx == nil {
 		// Handle uninitialized engine error through callback if options are provided
-		// 如果提供了选项，通过回调处理未初始化引擎错误
+		// If an option is provided, the error of not initializing the engine is handled via callback
 		e.handleEngineNotInitializedError(msg, opts...)
 		return
 	}
 
 	// Check if engine is shutting down first (before incrementing counter to avoid resource leak)
 	// IMPORTANT: Check before incrementing counter to prevent resource leaks
-	// 首先检查是否正在停机（在增加计数前检查以避免资源泄漏）
-	// 重要：在增加计数前检查以防止资源泄漏
+	// First, check if the machine is being shut down (check before increasing the count to avoid resource leakage).
+	// Important: Check before increasing the count to prevent resource leakage
 	if e.IsShuttingDown() {
 		// Create context and handle shutdown error through callback
-		// 创建上下文并通过回调处理停机错误
+		// Create context and handle downtime errors through callbacks
 		rootCtxCopy := e.createRootContextCopy(msg, opts...)
 		e.onErrHandler(msg, rootCtxCopy, types.ErrEngineShuttingDown, false)
 		return
@@ -1282,15 +1282,15 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 	// CRITICAL: This prevents deadlock where messages wait for reload completion
 	// while reload waits for active message count to reach zero
 	// MEMORY SAFETY: Implements backpressure control to prevent memory overflow
-	// 检查引擎是否正在重载并等待重载完成（在增加计数前检查）
-	// 关键：这防止了消息等待重载完成而重载等待活跃消息计数归零的死锁
-	// 内存安全：实现背压控制以防止内存溢出
+	// Check if the engine is being reloaded and wait for the reload to complete (check before adding counts).
+	// Crucially: This prevents deadlocks where messages wait for overload to complete while overloading waits for active message counts to reset to zero
+	// Memory safety: Implements back pressure control to prevent memory overflow
 	if e.IsReloading() {
 		// Implement backpressure control to prevent memory overflow during reload
-		// 实现背压控制以防止重载期间的内存溢出
+		// Backpressure control is implemented to prevent memory overflow during overload
 		if !e.incrementReloadWaiters() {
 			// Backpressure limit reached - reject message to prevent memory overflow
-			// 达到背压限制 - 拒绝消息以防止内存溢出
+			// Reaching the backpressure limit - rejecting messages to prevent memory overflow
 			rootCtxCopy := e.createRootContextCopy(msg, opts...)
 			e.Config.Logger.Printf("RuleEngine: %s", types.ErrEngineReloadBackpressureLimit.Error())
 			e.onErrHandler(msg, rootCtxCopy, types.ErrEngineReloadBackpressureLimit, false)
@@ -1298,15 +1298,15 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 		}
 
 		// Ensure we decrement the waiter count when done
-		// 确保完成时减少等待者计数
+		// Ensure the waiting count is reduced upon completion
 		defer e.decrementReloadWaiters()
 
 		// Wait for reload to complete with timeout
-		// 等待重载完成，设置超时
+		// Wait for the reload to complete and set timeout
 		reloadTimeout := 30 * time.Second
 		if !e.WaitForReloadComplete(reloadTimeout) {
 			// Reload timeout, handle as error
-			// 重载超时，作为错误处理
+			// Overload timeout is treated as an error
 			rootCtxCopy := e.createRootContextCopy(msg, opts...)
 			e.onErrHandler(msg, rootCtxCopy, errors.New("engine reload timeout"), false)
 			return
@@ -1315,44 +1315,44 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 
 	// Now increment active message count after all state checks pass
 	// This ensures the counter is only incremented for messages that will actually be processed
-	// 在所有状态检查通过后现在增加活跃消息计数
-	// 这确保计数器只为实际将被处理的消息增加
+	// After all status checks pass, the active message count is now increased
+	// This ensures the counter only increases for the messages that will actually be processed
 	e.incrementActiveMessages()
 
 	// Double-check shutdown status after incrementing counter to handle race condition
 	// If shutdown was initiated between our first check and counter increment,
 	// we need to decrement the counter and exit to prevent Stop() from hanging
-	// 在增加计数器后再次检查停机状态以处理竞态条件
-	// 如果在我们首次检查和计数器增加之间启动了停机，
-	// 我们需要减少计数器并退出以防止Stop()挂起
+	// After adding the counter, check the downtime status again to handle race conditions
+	// If a shutdown is initiated between our first check and the counter increase,
+	// We need to reduce the counter and exit to prevent Stop() from being suspended
 	if e.IsShuttingDown() {
 		// Create context and handle shutdown error through callback
-		// 创建上下文并通过回调处理停机错误
+		// Create context and handle downtime errors through callbacks
 		rootCtxCopy := e.createRootContextCopy(msg, opts...)
 		e.onErrHandler(msg, rootCtxCopy, types.ErrEngineShuttingDown, true)
 		return
 	}
 
 	// Create root context copy for message processing
-	// 创建根上下文副本来处理消息
+	// Create a root context replica to process messages
 	rootCtxCopy := e.createRootContextCopy(msg, opts...)
 
 	// Apply graceful shutdown context handling
 	// This combines user-provided context with shutdown context for proper cancellation
-	// 应用优雅停机上下文处理
-	// 这将用户提供的上下文与停机上下文组合以实现正确的取消
+	// Apply elegant downtime context handling
+	// This combines user-provided context with downtime context to achieve proper cancellation
 	rootCtx := e.rootRuleChainCtx.rootRuleContext.(*DefaultRuleContext)
 	e.applyShutdownContext(rootCtxCopy, rootCtx)
 
 	// Validate rule chain and context state
-	// 验证规则链和上下文状态
+	// Verify the rule chain and context state
 	if err := e.validateRuleChainState(rootCtxCopy); err != nil {
 		e.onErrHandler(msg, rootCtxCopy, err, true)
 		return
 	}
 
 	// Execute start aspects
-	// 执行开始切面
+	// Start the execution section
 	processedMsg, err := e.onStart(rootCtxCopy, msg)
 	if err != nil {
 		e.onErrHandler(msg, rootCtxCopy, err, true)
@@ -1360,23 +1360,23 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 	}
 
 	// Setup end callback wrapper
-	// 设置结束回调包装器
+	// Set the end-callback wrapper
 	e.setupEndCallback(rootCtxCopy)
 
 	// Process message with or without waiting
-	// 处理消息，可选择是否等待
+	// Handle messages and choose whether to wait
 	e.processMessage(rootCtxCopy, processedMsg, wait)
 }
 
-// processRestoreNodes 处理多节点恢复执行
-// 1. 创建父节点上下文，设置waitingCount
-// 2. 遍历恢复节点，创建子上下文并执行
+// processRestoreNodes handles multi-node recovery execution
+// 1. Create the parent node context and set waitingCount
+// 2. Traverse the recovery node, create a subcontext, and execute it
 func (e *RuleEngine) processRestoreNodes(rootCtxCopy *DefaultRuleContext, msg types.RuleMsg) {
 	restoreInfo := rootCtxCopy.restoreNodeInfo
-	// 获取父节点上下文
+	// Retrieves the parent node context
 	var parentNodeId string
 
-	// 尝试自动查找共同祖先
+	// Try to automatically find common ancestors
 	if rootCtxCopy.ruleChainCtx != nil {
 		var ruleNodeIds []types.RuleNodeId
 		for _, req := range restoreInfo.NodeRequests {
@@ -1391,30 +1391,30 @@ func (e *RuleEngine) processRestoreNodes(rootCtxCopy *DefaultRuleContext, msg ty
 	if node, ok := rootCtxCopy.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: parentNodeId}); ok {
 		parentNode = node
 	} else {
-		// 找不到父节点，报错
+		// Parent node not found, error reported
 		e.onErrHandler(msg, rootCtxCopy, fmt.Errorf("restore parent node id=%s not found", parentNodeId), true)
 		return
 	}
 
-	// 创建 parentCtx
+	// Create parentCtx
 	parentCtx := rootCtxCopy.NewNextNodeRuleContext(parentNode)
-	// 手动设置 self 为 parentNode
+	// Manually set self to parentNode
 	parentCtx.self = parentNode
-	// 设置 waitingCount
+	// Set waitingCount
 	parentCtx.waitingCount = int32(len(restoreInfo.NodeRequests))
-	// rootCtxCopy 是根，parentCtx 是 Fork 节点。
+	// rootCtxCopy is the root, and parentCtx is the fork node.
 	parentCtx.parentRuleCtx = rootCtxCopy
 
 	rootCtxCopy.childReady(msg, types.Success)
 
-	// 遍历恢复节点
+	// Traverse the recovery node
 	for _, req := range restoreInfo.NodeRequests {
 		if node, ok := rootCtxCopy.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: req.NodeId}); ok {
-			// 创建 childCtx，parent 指向 parentCtx
+			// Create childCtx, where parent points to parentCtx
 			childCtx := parentCtx.NewNextNodeRuleContext(node)
 			childCtx.parentRuleCtx = parentCtx
-			// 如果没有指定关系，则执行当前节点 (isFirst = true)
-			// 如果指定了关系，则不执行当前节点，而是查找并执行下一个节点 (isFirst = false)
+			// If no relation is specified, execute the current node (isFirst = true)
+			// If a relationship is specified, the current node is not executed, but the next node is found and executed (isFirst = false)
 			childCtx.isFirst = len(req.RelationTypes) == 0
 			childCtx.relationTypes = req.RelationTypes
 
@@ -1428,7 +1428,7 @@ func (e *RuleEngine) processRestoreNodes(rootCtxCopy *DefaultRuleContext, msg ty
 
 			childCtx.TellNext(msgCopy, childCtx.relationTypes...)
 		} else {
-			// 节点找不到，减少 waitingCount
+			// If the node cannot be found, it reduces waitingCount
 			parentCtx.childDone()
 			e.Config.Logger.Printf("Restore node id=%s not found", req.NodeId)
 		}
@@ -1437,16 +1437,16 @@ func (e *RuleEngine) processRestoreNodes(rootCtxCopy *DefaultRuleContext, msg ty
 }
 
 // onStart executes the list of start aspects before the rule chain begins processing a message.
-// onStart 在规则链开始处理消息前执行开始切面列表。
+// onStart executes the start plane list before the rule chain starts processing messages.
 // handleEngineNotInitializedError handles the case when the rule engine is not initialized.
-// handleEngineNotInitializedError 处理规则引擎未初始化的情况。
+// handleEngineNotInitializedError handles cases where the rule engine is not initialized.
 func (e *RuleEngine) handleEngineNotInitializedError(msg types.RuleMsg, opts ...types.RuleContextOption) {
 	// Extract OnEnd callback from options if provided
-	// 从选项中提取 OnEnd 回调（如果提供）
+	// Extracting OnEnd callbacks from options (if provided)
 	var onEndCallback types.OnEndFunc
 	for _, opt := range opts {
 		// Create a temporary context to extract the OnEnd callback
-		// 创建临时上下文以提取 OnEnd 回调
+		// Create a temporary context to extract OnEnd callbacks
 		tempCtx := &DefaultRuleContext{}
 		opt(tempCtx)
 		if tempCtx.onEnd != nil {
@@ -1460,14 +1460,14 @@ func (e *RuleEngine) handleEngineNotInitializedError(msg types.RuleMsg, opts ...
 	}
 
 	// Trigger the OnEnd callback with the initialization error if available
-	// 如果可用，使用初始化错误触发 OnEnd 回调
+	// If available, use an initialization error to trigger the OnEnd callback
 	if onEndCallback != nil {
 		onEndCallback(nil, msg, types.ErrEngineNotInitialized, types.Failure)
 	}
 }
 
 // createRootContextCopy creates a copy of the root context for message processing.
-// createRootContextCopy 创建根上下文的副本来处理消息。
+// createRootContextCopy creates a copy of the root context to process messages.
 func (e *RuleEngine) createRootContextCopy(msg types.RuleMsg, opts ...types.RuleContextOption) *DefaultRuleContext {
 	rootCtx := e.rootRuleChainCtx.rootRuleContext.(*DefaultRuleContext)
 	rootCtxCopy := NewRuleContext(rootCtx.GetContext(), rootCtx.config, rootCtx.ruleChainCtx, rootCtx.from, rootCtx.self, rootCtx.pool, rootCtx.onEnd, e.ruleChainPool)
@@ -1477,12 +1477,12 @@ func (e *RuleEngine) createRootContextCopy(msg types.RuleMsg, opts ...types.Rule
 	// Create a new nodeOutputCache instance for current message processing and set cross-node dependencies
 	rootCtxCopy.nodeOutputCache.SetCacheableNodes(rootCtx.ruleChainCtx.referencedNodes)
 
-	// 预计算链级 debugMode 到 debugModeOverride
+	// Precompute chain-level debugMode to debugModeOverride
 	if rootCtxCopy.ruleChainCtx != nil && rootCtxCopy.ruleChainCtx.IsDebugMode() {
 		atomic.StoreInt32(&rootCtxCopy.debugModeOverride, 1)
 	}
 
-	// 应用选项，WithDebugMode 可覆盖上面的预计算值
+	// Apply the WithDebugMode option, which overrides the precomputed values above
 	for _, opt := range opts {
 		opt(rootCtxCopy)
 	}
@@ -1491,16 +1491,16 @@ func (e *RuleEngine) createRootContextCopy(msg types.RuleMsg, opts ...types.Rule
 }
 
 // validateRuleChainState validates the rule chain and context state.
-// validateRuleChainState 验证规则链和上下文状态。
+// validateRuleChainState verifies the rule chain and context state.
 func (e *RuleEngine) validateRuleChainState(rootCtxCopy *DefaultRuleContext) error {
 	// Check if the rule chain has no nodes
-	// 检查规则链是否没有节点
+	// Check whether the rule chain has no nodes
 	if rootCtxCopy.ruleChainCtx.isEmpty {
 		return types.ErrRuleChainHasNoNodes
 	}
 
 	// Check if there's an error in the context
-	// 检查上下文中是否有错误
+	// Check for errors in context
 	if rootCtxCopy.err != nil {
 		return rootCtxCopy.err
 	}
@@ -1509,15 +1509,15 @@ func (e *RuleEngine) validateRuleChainState(rootCtxCopy *DefaultRuleContext) err
 }
 
 // setupEndCallback sets up the end callback wrapper for the context.
-// setupEndCallback 为上下文设置结束回调包装器。
+// setupEndCallback sets the context to end the callback wrapper.
 func (e *RuleEngine) setupEndCallback(rootCtxCopy *DefaultRuleContext) {
 	customOnEndFunc := rootCtxCopy.onEnd
 	rootCtxCopy.onEnd = func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		// Execute end aspects and update the message accordingly
-		// 执行结束切面并相应地更新消息
+		// Execute the end plane and update the message accordingly
 		msg = e.onEnd(rootCtxCopy, msg, err, relationType)
 		// Trigger the custom end callback if provided
-		// 如果提供了自定义结束回调，则触发它
+		// If a custom end callback is provided, it is triggered
 		if customOnEndFunc != nil {
 			customOnEndFunc(ctx, msg, err, relationType)
 		}
@@ -1525,40 +1525,40 @@ func (e *RuleEngine) setupEndCallback(rootCtxCopy *DefaultRuleContext) {
 }
 
 // processMessage processes the message through the rule chain with optional waiting.
-// processMessage 通过规则链处理消息，可选择等待。
+// processMessage processes messages through a chain of rules, and you can choose to wait.
 func (e *RuleEngine) processMessage(rootCtxCopy *DefaultRuleContext, msg types.RuleMsg, wait bool) {
 	// Set up a custom function to be called upon completion of all nodes
-	// 设置在所有节点完成时要调用的自定义函数
+	// Set the custom function to call when all nodes are completed
 	customFunc := rootCtxCopy.onAllNodeCompleted
 
 	if wait {
 		// If waiting is required, set up a channel to synchronize the completion
-		// 如果需要等待，设置通道来同步完成
+		// If waiting is needed, set up channels to synchronize completion
 		c := make(chan struct{})
 		rootCtxCopy.onAllNodeCompleted = func() {
 			defer close(c)
 			// Execute the completion handling function
-			// 执行完成处理函数
+			// Execute the completion processing function
 			e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 		}
 		// Process the message through the rule chain
-		// 通过规则链处理消息
+		// Messages are processed through a rule chain
 		if rootCtxCopy.restoreNodeInfo != nil {
 			e.processRestoreNodes(rootCtxCopy, msg)
 		} else {
 			rootCtxCopy.TellNext(msg, rootCtxCopy.relationTypes...)
 		}
 		// Block until all nodes have completed
-		// 阻塞直到所有节点完成
+		// Blocking until all nodes are completed
 		<-c
 	} else {
 		// If not waiting, simply set the completion handling function
-		// 如果不等待，只需设置完成处理函数
+		// If you don't wait, just set the completion function
 		rootCtxCopy.onAllNodeCompleted = func() {
 			e.doOnAllNodeCompleted(rootCtxCopy, msg, customFunc)
 		}
 		// Process the message through the rule chain
-		// 通过规则链处理消息
+		// Messages are processed through a rule chain
 		if rootCtxCopy.restoreNodeInfo != nil {
 			e.processRestoreNodes(rootCtxCopy, msg)
 		} else {
@@ -1583,7 +1583,7 @@ func (e *RuleEngine) onStart(ctx types.RuleContext, msg types.RuleMsg) (types.Ru
 }
 
 // onEnd executes the list of end aspects when a branch of the rule chain ends.
-// onEnd 在规则链分支结束时执行结束切面列表。
+// onEnd executes the completion aspects at the end of a rule chain branch.
 func (e *RuleEngine) onEnd(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) types.RuleMsg {
 	if aspects := e.getAspectsHolder(); aspects != nil {
 		for _, aop := range aspects.endAspects {
@@ -1596,7 +1596,7 @@ func (e *RuleEngine) onEnd(ctx types.RuleContext, msg types.RuleMsg, err error, 
 }
 
 // onAllNodeCompleted executes the list of completed aspects after all branches of the rule chain have ended.
-// onAllNodeCompleted 在规则链的所有分支结束后执行完成切面列表。
+// onAllNodeCompleted executes the completed facet list after all branches of the rule chain have finished.
 func (e *RuleEngine) onAllNodeCompleted(ctx types.RuleContext, msg types.RuleMsg) types.RuleMsg {
 	if aspects := e.getAspectsHolder(); aspects != nil {
 		for _, aop := range aspects.completedAspects {
@@ -1610,7 +1610,7 @@ func (e *RuleEngine) onAllNodeCompleted(ctx types.RuleContext, msg types.RuleMsg
 
 // getAspectsHolder safely retrieves the aspects holder with high performance
 // using atomic operations to avoid lock contention.
-// getAspectsHolder 使用原子操作安全地获取切面持有者，以避免锁竞争的高性能方法。
+// getAspectsHolder uses atomic operations to securely obtain the facet holder, a high-performance method to avoid lock contention.
 func (e *RuleEngine) getAspectsHolder() *aspectsHolder {
 	ptr := atomic.LoadPointer(&e.aspectsPtr)
 	if ptr == nil {
@@ -1622,23 +1622,23 @@ func (e *RuleEngine) getAspectsHolder() *aspectsHolder {
 // NewConfig creates a new Config and applies the options.
 // It initializes all necessary components with sensible defaults.
 //
-// NewConfig 创建新的配置并应用选项。
-// 它使用合理的默认值初始化所有必要的组件。
+// NewConfig creates a new configuration and applies options.
+// It initializes all necessary components using reasonable default values.
 //
 // Parameters:
-// 参数：
-//   - opts: Optional configuration functions  可选的配置函数
+// Parameters:
+//   - opts: Optional configuration functions
 //
 // Returns:
-// 返回：
-//   - types.Config: Initialized configuration  已初始化的配置
+// Returns:
+//   - types.Config: Initialized configuration
 //
 // Default components include:
-// 默认组件包括：
-//   - JSON parser for rule chain definitions  规则链定义的 JSON 解析器
-//   - Default component registry with built-in components  包含内置组件的默认组件注册表
-//   - User-defined functions registry  用户定义函数注册表
-//   - Default cache implementation  默认缓存实现
+// The default components include:
+//   - JSON parser for rule chain definitions
+//   - Default component registry with built-in components
+//   - User-defined functions registry
+//   - Default cache implementation
 func NewConfig(opts ...types.Option) types.Config {
 	c := types.NewConfig(opts...)
 	if c.Parser == nil {
@@ -1648,7 +1648,7 @@ func NewConfig(opts ...types.Option) types.Config {
 		c.ComponentsRegistry = Registry
 	}
 	// register all udfs
-	// 注册所有用户定义函数
+	// Register all user-defined functions
 	for name, f := range funcs.ScriptFunc.GetAll() {
 		c.RegisterUdf(name, f)
 	}
@@ -1659,7 +1659,7 @@ func NewConfig(opts ...types.Option) types.Config {
 }
 
 // WithConfig is an option that sets the Config of the RuleEngine.
-// WithConfig 是设置 RuleEngine 配置的选项。
+// WithConfig is an option to set the RuleEngine configuration.
 func WithConfig(config types.Config) types.RuleEngineOption {
 	return func(re types.RuleEngine) error {
 		re.SetConfig(config)
@@ -1671,36 +1671,36 @@ func WithConfig(config types.Config) types.RuleEngineOption {
 // that can wait for reload completion. This prevents memory overflow during
 // high-traffic reload scenarios.
 //
-// SetMaxReloadWaiters 配置可以等待重载完成的最大并发 goroutine 数量。
-// 这防止高流量重载场景下的内存溢出。
+// SetMaxReloadWaiters sets the maximum number of concurrent goroutines that can wait for the overload to complete.
+// This prevents memory overflow in high-traffic heavy load scenarios.
 //
 // Parameters:
-// 参数：
+// Parameters:
 //   - maxWaiters: Maximum number of concurrent goroutines allowed to wait
 //     If 0, disables the limit (unlimited waiters)
 //     If negative, keeps current setting unchanged
-//     maxWaiters: 允许等待的最大并发 goroutine 数量
-//     如果为 0，禁用限制（无限等待者）
-//     如果为负数，保持当前设置不变
+//     maxWaiters: The maximum number of concurrent goroutines allowed to wait
+//     If set to 0, disable the limit (Infinite Waiter)
+//     If the number is negative, keep the current setting unchanged
 //
 // Thread Safety:
-// 线程安全：
+// Thread safety:
 //
 //	This method is thread-safe and can be called during message processing.
-//	此方法是线程安全的，可以在消息处理期间调用。
+//	This method is thread-safe and can be called during message processing.
 func (e *RuleEngine) SetMaxReloadWaiters(maxWaiters int64) {
 	if maxWaiters < 0 {
 		// Keep current setting unchanged for negative values
-		// 负数时保持当前设置不变
+		// If the number is negative, keep the current setting unchanged
 		return
 	} else if maxWaiters == 0 {
 		// Disable backpressure control (unlimited waiters)
-		// 禁用背压控制（无限等待者）
+		// Disable backpressure control (Infinite Waiter)
 		e.reloadBackpressureEnabled = false
 		atomic.StoreInt64(&e.maxConcurrentReloadWaiters, 0)
 	} else {
 		// Enable backpressure control with specified limit
-		// 启用背压控制并设置指定限制
+		// Enable backpressure control and set specified limits
 		e.reloadBackpressureEnabled = true
 		atomic.StoreInt64(&e.maxConcurrentReloadWaiters, maxWaiters)
 	}
@@ -1709,17 +1709,17 @@ func (e *RuleEngine) SetMaxReloadWaiters(maxWaiters int64) {
 // GetReloadWaitersStats returns current reload waiters statistics for monitoring.
 // This provides insight into reload behavior under load.
 //
-// GetReloadWaitersStats 返回当前重载等待者统计信息用于监控。
-// 这提供了负载下重载行为的洞察。
+// GetReloadWaitersStats returns statistics for monitoring the current overloaded waiters.
+// This provides insights into overload behavior under load.
 //
 // Returns:
-// 返回：
+// Returns:
 //   - maxWaiters: Maximum allowed concurrent waiters (0 means unlimited)
-//     maxWaiters: 最大允许的并发等待者（0 表示无限制）
+//     maxWaiters: Maximum allowed concurrent waiters (0 means unlimited)
 //   - currentWaiters: Current number of goroutines waiting for reload
-//     currentWaiters: 当前等待重载的 goroutine 数量
+//     currentWaiters: The current number of goroutines waiting to be overloaded
 //   - isReloading: Whether engine is currently reloading
-//     isReloading: 引擎当前是否正在重载
+//     isReloading: Is the engine currently being reloaded?
 func (e *RuleEngine) GetReloadWaitersStats() (maxWaiters int64, currentWaiters int64, isReloading bool) {
 	if !e.reloadBackpressureEnabled {
 		return 0, atomic.LoadInt64(&e.currentReloadWaiters), e.IsReloading()
@@ -1732,8 +1732,8 @@ func (e *RuleEngine) GetReloadWaitersStats() (maxWaiters int64, currentWaiters i
 // incrementReloadWaiters atomically increments the reload waiter count.
 // Returns false if the increment would exceed the maximum allowed waiters.
 //
-// incrementReloadWaiters 原子地增加重载等待者计数。
-// 如果增加会超过最大允许的等待者数量，则返回false。
+// incrementReloadWaiters atomically increases the count of overloaded waiters.
+// If the increase exceeds the maximum allowed number of waiters, return false.
 func (e *RuleEngine) incrementReloadWaiters() bool {
 	if !e.reloadBackpressureEnabled {
 		return true // No limit when backpressure is disabled
@@ -1753,7 +1753,7 @@ func (e *RuleEngine) incrementReloadWaiters() bool {
 }
 
 // decrementReloadWaiters atomically decrements the reload waiter count.
-// decrementReloadWaiters 原子地减少重载等待者计数。
+// decrementReloadWaiters atomically reduces the count of overloaded waiters.
 func (e *RuleEngine) decrementReloadWaiters() {
 	if e.reloadBackpressureEnabled {
 		atomic.AddInt64(&e.currentReloadWaiters, -1)

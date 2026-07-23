@@ -27,23 +27,23 @@ func SaveFile(path string, data []byte) error {
 	return storage.Save(path, data)
 }
 
-// LoadFile 加载文件
+// LoadFile loads files
 func LoadFile(filePath string) []byte {
 	data, _ := storage.Get(filePath)
 	return data
 }
 
-// GetFilePaths 返回匹配的文件路径列表
+// GetFilePaths returns a list of matching file paths
 func GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string, error) {
 	return storage.GetFilePaths(loadFilePattern, excludedPatterns...)
 }
 
-// IsExist 判断路径是否存在
+// IsExist checks whether a path exists
 func IsExist(path string) bool {
 	return storage.IsExist(path)
 }
 
-// CreateDirs 创建文件夹
+// CreateDirs creates a folder
 func CreateDirs(path string) error {
 	return storage.CreateDirs(path)
 }

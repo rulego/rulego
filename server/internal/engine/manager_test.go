@@ -50,7 +50,7 @@ func TestManager_GetOrCreate(t *testing.T) {
 		t.Error("RuleStore() should not be nil")
 	}
 
-	// 再次获取应该返回同一实例
+	// Retrieving again should return the same instance
 	ue2, err := mgr.GetOrCreate("testuser")
 	if err != nil {
 		t.Fatalf("GetOrCreate second call: %v", err)
@@ -63,13 +63,13 @@ func TestManager_GetOrCreate(t *testing.T) {
 func TestManager_Get(t *testing.T) {
 	mgr, _ := setupTestManager(t)
 
-	// 不存在的用户
+	// Users who don't exist
 	_, ok := mgr.Get("nonexistent")
 	if ok {
 		t.Error("Get should return false for nonexistent user")
 	}
 
-	// 创建后可以获取
+	// You can obtain it after creation
 	_, err := mgr.GetOrCreate("user1")
 	if err != nil {
 		t.Fatal(err)
@@ -116,13 +116,13 @@ func TestManager_Stop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Stop 不应该 panic
+	// Stop should not panic
 	mgr.Stop()
 }
 
 func TestManager_InitUserEngines(t *testing.T) {
 	tmpDir := t.TempDir()
-	// 创建用户目录
+	// Create a user directory
 	userDir := filepath.Join(tmpDir, constants.DirWorkflows, "existing-user")
 	if err := os.MkdirAll(userDir, 0755); err != nil {
 		t.Fatal(err)
@@ -143,15 +143,15 @@ func TestManager_InitUserEngines(t *testing.T) {
 		t.Fatalf("InitUserEngines: %v", err)
 	}
 
-	// 应该创建了目录中的用户
+	// Users should be created in the directory
 	if _, ok := mgr.Get("existing-user"); !ok {
 		t.Error("should have engine for existing-user from directory")
 	}
-	// 应该创建了配置中的用户
+	// Users should be created in the configuration
 	if _, ok := mgr.Get("config-user"); !ok {
 		t.Error("should have engine for config-user from config")
 	}
-	// 应该创建了默认用户
+	// Default users should have been created
 	if _, ok := mgr.Get("admin"); !ok {
 		t.Error("should have engine for default admin user")
 	}
@@ -164,12 +164,12 @@ func TestUserEngine_SetMainChainId(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 空的 chainId 应该返回错误
+	// An empty chainId should return an error
 	if err := ue.SetMainChainId(""); err == nil {
 		t.Error("SetMainChainId('') should return error")
 	}
 
-	// 不存在的 chainId 应该返回错误（未部署）
+	// A non-existent chainId should return an error (undeployed)
 	if err := ue.SetMainChainId("nonexistent-chain"); err == nil {
 		t.Error("SetMainChainId with undeployed chain should return error")
 	}
@@ -202,21 +202,21 @@ func TestUserEngine_GetEngine_NotFound(t *testing.T) {
 	}
 }
 
-// 编译时接口检查
+// Compile-time interface check
 var _ services.UserEngine = (*UserEngine)(nil)
 var _ services.EngineManager = (*Manager)(nil)
 
 // ----------------------------------------------------------------------------
-// loadRules 契约测试（验证 StoreProvider 抽象不依赖文件系统）
+// loadRules contract testing (verifying StoreProvider abstraction is filesystem-independent)
 // ----------------------------------------------------------------------------
 
-// mockRuleStore 模拟一个完全自定义的 RuleStore 实现（比如 DB 后端）。
-// 故意不写任何文件到磁盘，用于证明 loadRules 不依赖文件系统。
+// mockRuleStore simulates a fully custom RuleStore implementation (such as a DB backend).
+// Intentionally not writing any files to disk to prove that loadRules does not depend on the file system.
 type mockRuleStore struct {
 	chains map[string][]byte // chainId -> DSL bytes
 }
 
-// AllChains 实现 RuleStore 接口的批量加载方法，返回全部链的 DSL。
+// AllChains implements batch loading methods for the RuleStore interface, returning the DSL for all chains.
 func (m *mockRuleStore) AllChains(username string) (map[string][]byte, error) {
 	out := make(map[string][]byte, len(m.chains))
 	for id, def := range m.chains {
@@ -250,7 +250,7 @@ func (m *mockRuleStore) Delete(username, chainId string) error {
 	return nil
 }
 
-// 构造一个最小的合法规则链 DSL（含 SystemAgent 标记的版本可选）
+// Construct a minimal valid rule chain DSL (optional version with SystemAgent tag)
 func testChainDSLWithFlags(chainId, name string, systemAgent bool) []byte {
 	sysAgent := "false"
 	if systemAgent {
@@ -276,17 +276,17 @@ func testChainDSLWithFlags(chainId, name string, systemAgent bool) []byte {
 	}`)
 }
 
-// TestLoadRules_NotDependOnFilesystem 是关键契约测试：
-// 用一个完全不写磁盘的 mock RuleStore，验证 loadRules 能正确加载所有链。
+// TestLoadRules_NotDependOnFilesystem is the key contract test:
+// Use a mock RuleStore that does not write to disks at all to verify that loadRules correctly load all chains.
 //
-// 这条测试如果通过，就证明了 StoreProvider 抽象没有泄漏——
-// 任何 RuleStore 实现（filestore、gorm、远程 API）启动时行为一致。
+// If this test passes, it proves that StoreProvider abstraction is not leaking—
+// Any RuleStore implementation (filestore, gorm, remote API) behaves consistently when launched.
 func TestLoadRules_NotDependOnFilesystem(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := &config.Config{DataDir: tmpDir, DefaultUsername: "testuser"}
 	logger := types.DefaultLogger()
 
-	// 用 filestore Provider 只是为了拿 settingStore（mock 不实现 setting）
+	// Using the filestore Provider is only to access settingStore (mock does not implement setting).
 	provider := filestore.NewFileStoreProvider(*cfg, logger)
 	mgr := NewManager(cfg, logger, provider)
 
@@ -296,17 +296,17 @@ func TestLoadRules_NotDependOnFilesystem(t *testing.T) {
 	}
 	ue := ueIface.(*UserEngine)
 
-	// 替换 ruleStore 为 mock（模拟 DB 后端，没有任何磁盘文件）
+	// Replace ruleStore with mock (simulates a DB backend, with no disk files)
 	ue.ruleStore = &mockRuleStore{chains: map[string][]byte{
 		"chain-from-db-1":    testChainDSLWithFlags("chain-from-db-1", "DB Chain 1", false),
 		"chain-from-db-2":    testChainDSLWithFlags("chain-from-db-2", "DB Chain 2", false),
 		"system-agent-chain": testChainDSLWithFlags("system-agent-chain", "Agent", true),
 	}}
 
-	// 调用 loadRules —— 内部走 AllChains，不碰文件系统
+	// Call loadRules — internally run AllChains, do not touch the file system
 	ue.loadRules()
 
-	// 验证：三条链都加载到了引擎池（含 SystemAgent，List 会过滤但 AllChains 不会）
+	// Verification: All three chains are loaded into the engine pool (including SystemAgent; List filters but AllChains does not)
 	for _, id := range []string{"chain-from-db-1", "chain-from-db-2", "system-agent-chain"} {
 		if _, ok := ue.GetEngine(id); !ok {
 			t.Errorf("chain %s should be in pool after loadRules", id)
@@ -316,7 +316,7 @@ func TestLoadRules_NotDependOnFilesystem(t *testing.T) {
 	t.Logf("PASSED: loadRules works without filesystem via RuleStore.AllChains")
 }
 
-// TestLoadRules_EmptyStore 空 store 场景不应 panic。
+// TestLoadRules_EmptyStore Empty store scenarios should not panic.
 func TestLoadRules_EmptyStore(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := &config.Config{DataDir: tmpDir, DefaultUsername: "testuser"}
@@ -331,7 +331,7 @@ func TestLoadRules_EmptyStore(t *testing.T) {
 	ue := ueIface.(*UserEngine)
 	ue.ruleStore = &mockRuleStore{chains: map[string][]byte{}}
 
-	// 不应 panic，引擎池应为空
+	// There should be no panic; the engine pool should be empty
 	ue.loadRules()
 
 	if _, ok := ue.GetEngine("anything"); ok {
@@ -339,7 +339,7 @@ func TestLoadRules_EmptyStore(t *testing.T) {
 	}
 }
 
-// errorStore 包装 mockRuleStore，让 AllChains 返回错误。
+// errorStore wraps mockRuleStore to make AllChains return an error.
 type errorStore struct {
 	mockRuleStore
 }
@@ -348,7 +348,7 @@ func (e *errorStore) AllChains(username string) (map[string][]byte, error) {
 	return nil, fmt.Errorf("simulated DB connection failure")
 }
 
-// TestLoadRules_EnumerateError 验证 store 报错时 loadRules 不会 panic。
+// TestLoadRules_EnumerateError When verifying store errors, loadRules do not panic.
 func TestLoadRules_EnumerateError(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := &config.Config{DataDir: tmpDir, DefaultUsername: "testuser"}
@@ -363,6 +363,6 @@ func TestLoadRules_EnumerateError(t *testing.T) {
 	ue := ueIface.(*UserEngine)
 	ue.ruleStore = &errorStore{}
 
-	// 不应 panic，只是记录错误日志
+	// Don't panic, just log the error
 	ue.loadRules()
 }

@@ -32,10 +32,10 @@ var (
 	addShareValue = "addShareValue"
 )
 
-// 演示自定义组件
+// Demo of custom components
 func main() {
 
-	//注册自定义组件
+	//Register custom components
 	rulego.Registry.Register(&UpperNode{})
 	rulego.Registry.Register(&TimeNode{})
 

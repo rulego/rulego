@@ -6,7 +6,7 @@ import (
 	"github.com/rulego/rulego/server/model"
 )
 
-// NopRunLogStore 空操作的运行日志存储，save_run_log=false 时使用，零开销。
+// NopRunLogStore is a runtime log storage for empty operations, used when save_run_log=false, with zero overhead.
 type NopRunLogStore struct{}
 
 func (NopRunLogStore) Save(_ string, _ model.Event) error { return nil }

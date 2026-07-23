@@ -30,26 +30,26 @@ import (
 )
 
 // Endpoint is an alias for the Endpoint interface in the endpoint package.
-// Endpoint 是端点包中 Endpoint 接口的别名。
+// Endpoint is another name for the Endpoint interface in the endpoint packet.
 type Endpoint = endpoint.Endpoint
 
 // Exchange is deprecated. Use Flow from github.com/rulego/rulego/api/types/endpoint.Exchange instead.
-// Exchange 已弃用。请使用 github.com/rulego/rulego/api/types/endpoint.Exchange 中的 Flow。
+// Exchange has been deprecated. Please use Flow in github.com/rulego/rulego/api/types/endpoint.Exchange.
 type Exchange = endpoint.Exchange
 
 // NewRouter creates a new router with the provided options.
 // This function provides a convenient way to create routers for endpoint configuration.
 //
-// NewRouter 使用提供的选项创建新的路由器。
-// 此函数为端点配置提供了创建路由器的便捷方式。
+// NewRouter uses the provided options to create a new router.
+// This function provides a convenient way to create routers for endpoint configuration.
 //
 // Parameters:
-// 参数：
-//   - opts: Router configuration options  路由器配置选项
+// Parameters:
+//   - opts: Router configuration options
 //
 // Returns:
-// 返回：
-//   - endpoint.Router: Configured router instance  配置的路由器实例
+// Returns:
+//   - endpoint.Router: Configured router instance
 func NewRouter(opts ...endpoint.RouterOption) endpoint.Router {
 	return impl.NewRouter(opts...)
 }
@@ -60,88 +60,88 @@ var _ endpoint.DynamicEndpoint = (*DynamicEndpoint)(nil)
 // DynamicEndpoint represents a dynamic endpoint with additional properties and methods.
 // It provides hot-reloading capabilities and dynamic configuration management for endpoints.
 //
-// DynamicEndpoint 表示具有附加属性和方法的动态端点。
-// 它为端点提供热重载功能和动态配置管理。
+// DynamicEndpoint represents a dynamic endpoint with additional properties and methods.
+// It provides hot reload functionality and dynamic configuration management for endpoints.
 //
 // Key Features:
-// 主要特性：
-//   - Dynamic DSL-based configuration  基于 DSL 的动态配置
-//   - Hot reloading without service interruption  无服务中断的热重载
-//   - Router management with add/remove/update operations  具有添加/删除/更新操作的路由器管理
-//   - Interceptor support for processing pipelines  支持处理管道的拦截器
-//   - Rule chain integration  规则链集成
-//   - Thread-safe operations  线程安全操作
+// Key features:
+//   - Dynamic DSL-based configuration
+//   - Hot reloading without service interruption
+//   - Router management with add/remove/update operations
+//   - Interceptor support for processing pipelines
+//   - Rule chain integration
+//   - Thread-safe operations
 //
 // Lifecycle:
-// 生命周期：
-//  1. Creation from DSL configuration  从 DSL 配置创建
-//  2. Router and interceptor setup  路由器和拦截器设置
-//  3. Service startup  服务启动
-//  4. Dynamic updates and reloads  动态更新和重载
-//  5. Graceful shutdown and cleanup  优雅关闭和清理
+// Lifecycle:
+//  1. Creation from DSL configuration
+//  2. Router and interceptor setup
+//  3. Service startup
+//  4. Dynamic updates and reloads
+//  5. Graceful shutdown and cleanup
 //
 // Configuration Management:
-// 配置管理：
-//   - Supports JSON DSL for declarative configuration  支持用于声明式配置的 JSON DSL
-//   - Enables runtime configuration changes  支持运行时配置更改
-//   - Validates configuration before applying changes  在应用更改前验证配置
-//   - Maintains configuration history for rollback  维护配置历史以供回滚
+// Configuration Management:
+//   - Supports JSON DSL for declarative configuration
+//   - Enables runtime configuration changes
+//   - Validates configuration before applying changes
+//   - Maintains configuration history for rollback
 type DynamicEndpoint struct {
 	// Endpoint is the embedded endpoint implementation providing core functionality
-	// Endpoint 是嵌入的端点实现，提供核心功能
+	// Endpoint is an embedded endpoint implementation that provides core functionality
 	Endpoint
 
 	// id is the unique identifier for this endpoint instance
-	// id 是此端点实例的唯一标识符
+	// id is the unique identifier for this endpoint instance
 	id string
 
 	// ruleChain contains the rule chain DSL definition when initialized from rule chain
-	// ruleChain 包含从规则链初始化时的规则链 DSL 定义
+	// ruleChain contains the rule chain DSL definition when initialized from the rule chain
 	ruleChain *types.RuleChain
 
 	// definition contains the endpoint DSL configuration
-	// definition 包含端点 DSL 配置
+	// definition includes endpoint DSL configurations
 	definition types.EndpointDsl
 
 	// ruleConfig contains the rule engine configuration
-	// ruleConfig 包含规则引擎配置
+	// ruleConfig contains the rule engine configuration
 	ruleConfig types.Config
 
 	// interceptors are the processing interceptors for the endpoint
-	// interceptors 是端点的处理拦截器
+	// Interceptors are endpoint interceptors
 	interceptors []endpoint.Process
 
 	// routerOpts are the router configuration options for the endpoint
-	// routerOpts 是端点的路由器配置选项
+	// routerOpts are the router configuration options for endpoints
 	routerOpts []endpoint.RouterOption
 
 	// restart indicates whether the endpoint should be restarted during reload
-	// restart 指示在重载期间是否应重启端点
+	// restart indicates whether the endpoint should be restarted during the reload
 	restart bool
 
 	// locker provides thread-safe access to endpoint state
-	// locker 为端点状态提供线程安全访问
+	// Locker provides thread-safe access to endpoint states
 	locker sync.RWMutex
 }
 
 // NewFromDsl creates a new DynamicEndpoint from the provided DSL definition and options.
 // This function parses JSON DSL configuration and creates a fully configured dynamic endpoint.
 //
-// NewFromDsl 从提供的 DSL 定义和选项创建新的 DynamicEndpoint。
-// 此函数解析 JSON DSL 配置并创建完全配置的动态端点。
+// NewFromDsl creates a new DynamicEndpoint from the provided DSL definitions and options.
+// This function parses JSON DSL configurations and creates fully configured dynamic endpoints.
 //
 // Parameters:
-// 参数：
-//   - def: JSON DSL definition bytes  JSON DSL 定义字节
-//   - opts: Optional configuration functions  可选的配置函数
+// Parameters:
+//   - def: JSON DSL definition bytes JSON DSL definition bytes
+//   - opts: Optional configuration functions
 //
 // Returns:
-// 返回：
-//   - *DynamicEndpoint: Configured dynamic endpoint  配置的动态端点
-//   - error: Creation error if any  如果有的话，创建错误
+// Returns:
+//   - *DynamicEndpoint: Configured dynamic endpoint
+//   - error: Creation error if any
 //
 // Example DSL:
-// DSL 示例：
+// DSL example:
 //
 //	{
 //	  "id": "http-endpoint",
@@ -164,7 +164,7 @@ func NewFromDsl(def []byte, opts ...endpoint.DynamicEndpointOption) (*DynamicEnd
 }
 
 // NewFromDef creates a new DynamicEndpoint from the provided DSL definition structure and options.
-// NewFromDef 从提供的 DSL 定义结构和选项创建新的 DynamicEndpoint。
+// NewFromDef creates a new DynamicEndpoint from the provided DSL definition structure and options.
 func NewFromDef(def types.EndpointDsl, opts ...endpoint.DynamicEndpointOption) (*DynamicEndpoint, error) {
 	e := &DynamicEndpoint{}
 	if err := e.ReloadFromDef(def, opts...); err != nil {
@@ -177,43 +177,43 @@ func NewFromDef(def types.EndpointDsl, opts ...endpoint.DynamicEndpointOption) (
 }
 
 // Id returns the identifier of the DynamicEndpoint.
-// Id 返回 DynamicEndpoint 的标识符。
+// Id returns the DynamicEndpoint identifier.
 func (e *DynamicEndpoint) Id() string {
 	return e.id
 }
 
 // SetId sets the identifier of the DynamicEndpoint.
-// SetId 设置 DynamicEndpoint 的标识符。
+// SetId sets the identifier for DynamicEndpoint.
 func (e *DynamicEndpoint) SetId(id string) {
 	e.id = id
 }
 
 // SetConfig sets the configuration for the DynamicEndpoint.
-// SetConfig 设置 DynamicEndpoint 的配置。
+// SetConfig sets the configuration of the DynamicEndpoint.
 func (e *DynamicEndpoint) SetConfig(config types.Config) {
 	e.ruleConfig = config
 }
 
 // SetRouterOptions sets the router options for the DynamicEndpoint.
-// SetRouterOptions 设置 DynamicEndpoint 的路由器选项。
+// SetRouterOptions sets the router options for DynamicEndpoint.
 func (e *DynamicEndpoint) SetRouterOptions(opts ...endpoint.RouterOption) {
 	e.routerOpts = opts
 }
 
 // SetRestart sets the restart flag for the DynamicEndpoint.
-// SetRestart 设置 DynamicEndpoint 的重启标志。
+// SetRestart sets the restart flag for DynamicEndpoint.
 func (e *DynamicEndpoint) SetRestart(restart bool) {
 	e.restart = restart
 }
 
 // SetInterceptors sets the interceptors for the DynamicEndpoint.
-// SetInterceptors 设置 DynamicEndpoint 的拦截器。
+// SetInterceptors sets the interceptor for DynamicEndpoint.
 func (e *DynamicEndpoint) SetInterceptors(interceptors ...endpoint.Process) {
 	e.interceptors = interceptors
 }
 
 // AddInterceptors adds interceptors to the DynamicEndpoint.
-// AddInterceptors 向 DynamicEndpoint 添加拦截器。
+// AddInterceptors adds interceptors to DynamicEndpoint.
 func (e *DynamicEndpoint) AddInterceptors(interceptors ...endpoint.Process) {
 	e.interceptors = append(e.interceptors, interceptors...)
 	e.Endpoint.AddInterceptors(interceptors...)
@@ -222,25 +222,25 @@ func (e *DynamicEndpoint) AddInterceptors(interceptors ...endpoint.Process) {
 // Reload reloads the DynamicEndpoint with the provided definition and options.
 // This method supports hot reloading of endpoint configuration without service interruption.
 //
-// Reload 使用提供的定义和选项重新加载 DynamicEndpoint。
-// 此方法支持在不中断服务的情况下热重载端点配置。
+// Reload Reloads DynamicEndpoint using the provided definitions and options.
+// This method supports hot-reloading endpoint configuration without interrupting services.
 //
 // Parameters:
-// 参数：
-//   - dsl: New JSON DSL configuration  新的 JSON DSL 配置
-//   - opts: Optional configuration functions  可选的配置函数
+// Parameters:
+//   - dsl: New JSON DSL configuration
+//   - opts: Optional configuration functions
 //
 // Returns:
-// 返回：
-//   - error: Reload error if any  如果有的话，重载错误
+// Returns:
+//   - error: Reload error if any
 //
 // Hot Reload Process:
-// 热重载过程：
-//  1. Parse new DSL configuration  解析新的 DSL 配置
-//  2. Compare with current configuration  与当前配置比较
-//  3. Determine if restart is needed  确定是否需要重启
-//  4. Apply configuration changes  应用配置更改
-//  5. Update routers as needed  根据需要更新路由器
+// Thermal Heavy-Loading Process:
+//  1. Parse new DSL configuration
+//  2. Compare with current configuration
+//  3. Determine if restart is needed
+//  4. Apply configuration changes
+//  5. Update routers as needed
 func (e *DynamicEndpoint) Reload(dsl []byte, opts ...endpoint.DynamicEndpointOption) error {
 	if dsl, err := e.unmarshal(dsl); err != nil {
 		return err
@@ -252,24 +252,24 @@ func (e *DynamicEndpoint) Reload(dsl []byte, opts ...endpoint.DynamicEndpointOpt
 // AddOrReloadRouter reloads the router for the DynamicEndpoint with the provided definition and options.
 // This method allows dynamic addition or modification of individual routers without affecting the entire endpoint.
 //
-// AddOrReloadRouter 使用提供的定义和选项为 DynamicEndpoint 重新加载路由器。
-// 此方法允许动态添加或修改单个路由器，而不影响整个端点。
+// AddOrReloadRouter uses the provided definitions and options to reload the router for DynamicEndpoint.
+// This method allows dynamic addition or modification of individual routers without affecting the entire endpoint.
 //
 // Parameters:
-// 参数：
-//   - dsl: Router JSON DSL configuration  路由器 JSON DSL 配置
-//   - opts: Optional configuration functions  可选的配置函数
+// Parameters:
+//   - dsl: Router JSON DSL configuration
+//   - opts: Optional configuration functions
 //
 // Returns:
-// 返回：
-//   - error: Operation error if any  如果有的话，操作错误
+// Returns:
+//   - error: Operation error if any
 //
 // Router Management:
-// 路由器管理：
-//   - Automatically removes existing router with same ID  自动删除具有相同 ID 的现有路由器
-//   - Validates router configuration before applying  在应用前验证路由器配置
-//   - Supports both addition and modification operations  支持添加和修改操作
-//   - Can trigger endpoint restart if configured  如果配置，可以触发端点重启
+// Router Management:
+//   - Automatically removes existing router with same ID
+//   - Validates router configuration before applying
+//   - Supports both addition and modification operations
+//   - Can trigger endpoint restart if configured
 func (e *DynamicEndpoint) AddOrReloadRouter(dsl []byte, opts ...endpoint.DynamicEndpointOption) error {
 	var routerDsl types.RouterDsl
 	if err := json.Unmarshal(dsl, &routerDsl); err != nil {
@@ -416,7 +416,7 @@ func (e *DynamicEndpoint) newEndpoint(dsl types.EndpointDsl) error {
 	if dsl.Configuration != nil {
 		configuration = dsl.Configuration.Copy()
 	}
-	//注入完整的规则链定义
+	//Inject a complete rule chain definition
 	def := e.GetRuleChain()
 
 	if def != nil {

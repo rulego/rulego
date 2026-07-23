@@ -5,8 +5,8 @@ import (
 
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
-	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/model"
+	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
 )
 
@@ -15,25 +15,25 @@ const (
 	Priority   = 10
 )
 
-// Module user 业务模块，负责用户认证和用户管理。
+// Module user: Business module, responsible for user authentication and user management.
 type Module struct {
 	cfg       *config.Config
 	userStore store.UserStore
 	authSvc   *authService
 }
 
-// New 创建 user 模块
+// New creates the user module
 func New() *Module {
 	return &Module{}
 }
 
-// Name 返回模块名称
+// Name returns the module name
 func (m *Module) Name() string { return ModuleName }
 
-// Priority 返回模块优先级
+// Priority: Returns the module's priority
 func (m *Module) Priority() int { return Priority }
 
-// Init 初始化模块，从 Container 获取配置和存储服务
+// Init initializes the module to obtain configuration and storage services from the container
 func (m *Module) Init(ctx *app.ModuleContext) error {
 	m.cfg = ctx.Config
 
@@ -51,7 +51,7 @@ func (m *Module) Init(ctx *app.ModuleContext) error {
 		return err
 	}
 
-	// 注册默认认证器和授权器，嵌入模式可通过 WithModuleOverride 替换整个 user 模块
+	// Register default authenticators and authorizers; embedded mode can replace the entire user module with WithModuleOverride
 	if err := ctx.Container.Register(services.KeyAuthenticator, services.Authenticator(NewDefaultAuthenticator(m.cfg))); err != nil {
 		return err
 	}
@@ -62,23 +62,23 @@ func (m *Module) Init(ctx *app.ModuleContext) error {
 	return nil
 }
 
-// Start 启动模块（无后台任务）
+// Start Module (No background tasks)
 func (m *Module) Start(_ context.Context) error { return nil }
 
-// Stop 停止模块
+// Stop the module
 func (m *Module) Stop(_ context.Context) error { return nil }
 
-// List 返回用户列表
+// List returns a list of users
 func (m *Module) List() []model.User {
 	return m.userStore.List()
 }
 
-// authService 认证服务实现
+// authService authentication service implementation
 type authService struct {
 	cfg *config.Config
 }
 
-// CheckPassword 校验用户名和密码
+// CheckPassword verifies username and password
 func (s *authService) CheckPassword(username, password string) bool {
 	if username == "" {
 		return false
@@ -86,7 +86,7 @@ func (s *authService) CheckPassword(username, password string) bool {
 	return s.cfg.CheckPassword(username, password)
 }
 
-// GetUsernameByApiKey 通过 API Key 获取用户名
+// GetUsernameByApiKey obtains the username through the API Key
 func (s *authService) GetUsernameByApiKey(apikey string) string {
 	if apikey == "" {
 		return ""
@@ -94,7 +94,7 @@ func (s *authService) GetUsernameByApiKey(apikey string) string {
 	return s.cfg.GetUsernameByApiKey(apikey)
 }
 
-// GetApiKeyByUsername 通过用户名获取 API Key
+// GetApiKeyByUsername Obtains the API Key through the username
 func (s *authService) GetApiKeyByUsername(username string) string {
 	if username == "" {
 		return ""

@@ -1,4 +1,4 @@
-// Package logger 提供基于配置的日志工厂，支持控制台、文件输出和日志轮转。
+// Package Logger provides a configuration-based log factory, supporting console, file output, and log rotation.
 package logger
 
 import (
@@ -11,9 +11,9 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// NewFromConfig 根据 config 创建 types.Logger。
-//   - LogFile 为空：仅控制台
-//   - LogFile 有值：控制台 + 文件（lumberjack 轮转）
+// NewFromConfig Create types.Logger based on config.
+//   - LogFile is empty: console only
+//   - LogFile with value: Console + Files (Lumberjack rotation)
 func NewFromConfig(cfg *config.Config) types.Logger {
 	if cfg == nil {
 		return types.DefaultLogger()

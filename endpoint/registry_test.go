@@ -85,13 +85,13 @@ func TestNewFromRegistry(t *testing.T) {
 	assert.True(t, ok)
 }
 
-// 测试endpoint
+// Test the endpoint
 type testEndpoint struct {
 	impl.BaseEndpoint
 	configuration types.Configuration
 }
 
-// Type 组件类型
+// Type returns the component type
 func (test *testEndpoint) Type() string {
 	return types.EndpointTypePrefix + "test"
 }
@@ -100,13 +100,13 @@ func (test *testEndpoint) New() types.Node {
 	return &testEndpoint{}
 }
 
-// Init 初始化
+// Init initializes the component
 func (test *testEndpoint) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	test.configuration = configuration
 	return nil
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (test *testEndpoint) Destroy() {
 	_ = test.Close()
 }
@@ -120,7 +120,7 @@ func (test *testEndpoint) Id() string {
 }
 
 func (test *testEndpoint) AddRouter(router endpointApi.Router, params ...interface{}) (string, error) {
-	//返回任务ID，用于清除任务
+	//Returns the task ID, used to clear the task
 	return "1", nil
 }
 
@@ -139,7 +139,7 @@ func TestEndpointAliases(t *testing.T) {
 	}
 
 	t.Run("Legacy Type Names", func(t *testing.T) {
-		// 测试旧的类型名称是否能通过别名解析
+		// Test whether old type names can pass alias parsing
 		legacyTypes := map[string]string{
 			"http":      "endpoint/http",
 			"rest":      "endpoint/http",
@@ -161,7 +161,7 @@ func TestEndpointAliases(t *testing.T) {
 	})
 
 	t.Run("Primary Type Names Still Work", func(t *testing.T) {
-		// 主类型名称应该继续工作
+		// The main type name should continue to work
 		ep, err := Registry.New("endpoint/http", config, configuration)
 		assert.Nil(t, err)
 		assert.NotNil(t, ep)

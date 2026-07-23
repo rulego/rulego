@@ -18,71 +18,71 @@
 // Endpoints serve as entry points for external data to flow into rule chains,
 // enabling integration with various protocols and data sources.
 //
-// Package endpoint 为 RuleGo 规则引擎提供输入端点组件。
-// 端点作为外部数据流入规则链的入口点，支持与各种协议和数据源的集成。
+// Package endpoint provides input endpoint components for the RuleGo rule engine.
+// Endpoints serve as entry points for external data flowing into the rule chain, supporting integration with various protocols and data sources.
 //
 // Core Architecture:
-// 核心架构：
+// Core Architecture:
 //
 // Package endpoint is a module that abstracts different input source data routing,
 // providing a consistent interface for different protocols. It enables RuleGo
 // to run independently and provide services through protocol-specific endpoints.
 //
-// Package endpoint 是一个抽象不同输入源数据路由的模块，
-// 为不同协议提供一致的接口。它使 RuleGo 能够独立运行并通过协议特定的端点提供服务。
+// The Package endpoint is a module that abstracts routing data from different input sources,
+// Provides consistent interfaces for different protocols. It enables RuleGo to operate independently and provide services through protocol-specific endpoints.
 //
 // Built-in Endpoint Types:
-// 内置端点类型：
+// Types of built-in endpoints:
 //
 // Based on the actual implementation, the following endpoint types are available:
-// 基于实际实现，提供以下端点类型：
+// Based on actual implementations, the following endpoint types are provided:
 //
-// • RestEndpoint: HTTP/REST API server (endpoint/rest)  HTTP/REST API 服务器
-// • MqttEndpoint: MQTT client (endpoint/mqtt)  MQTT 客户端
-// • WebsocketEndpoint: WebSocket server (endpoint/websocket)  WebSocket 服务器
-// • NetEndpoint: TCP/UDP network server (endpoint/net)  TCP/UDP 网络服务器
-// • ScheduleEndpoint: Timer-based message generation (endpoint/schedule)  基于定时器的消息生成
+// • RestEndpoint: HTTP/REST API server (endpoint/rest) HTTP/REST API server
+// • MqttEndpoint: MQTT client (endpoint/mqtt) MQTT client
+// • WebsocketEndpoint: WebSocket server (endpoint/websocket) The WebSocket server
+// • NetEndpoint: TCP/UDP network server (endpoint/net) is a TCP/UDP network server
+// • ScheduleEndpoint: Timer-based message generation (endpoint/schedule)
 //
 // Extended Endpoint Components:
-// 扩展端点组件：
+// Extended endpoint components:
 //
 // The RuleGo ecosystem includes several extension component libraries that provide
 // additional endpoint types and specialized components for various scenarios:
-// RuleGo 生态系统包含多个扩展组件库，为各种场景提供额外的端点类型和专用组件：
+// The RuleGo ecosystem includes multiple library of extended components, providing additional endpoint types and dedicated components for various scenarios:
 //
-// Core Extension Libraries / 核心扩展库：
+// Core Extension Libraries
 //
 //   - rulego-components: Additional general-purpose endpoint and processing components
 //     (https://github.com/rulego/rulego-components)
-//     rulego-components：额外的通用端点和处理组件
-//     包含 Kafka、Redis、RabbitMQ、NATS、gRPC、FastHTTP 等端点组件
+//     rulego-components: additional general endpoints and processing components
+//     Includes endpoint components such as Kafka, Redis, RabbitMQ, NATS, gRPC, FastHTTP, and others
 //
-// Specialized Extension Libraries / 专用扩展库：
+// Specialized Extension Libraries
 //
 //   - rulego-components-ai: AI and machine learning scenario components
 //     (https://github.com/rulego/rulego-components-ai)
-//     rulego-components-ai：AI 和机器学习场景组件
-//     包含智能推理、模型调用、数据预处理等 AI 相关端点和组件
+//     rulego-components-ai: AI and machine learning scenario components
+//     Includes AI-related endpoints and components such as intelligent inference, model calls, and data preprocessing
 //
 //   - rulego-components-ci: CI/CD and DevOps scenario components
 //     (https://github.com/rulego/rulego-components-ci)
-//     rulego-components-ci：CI/CD 和 DevOps 场景组件
-//     包含代码仓库、构建工具、部署平台集成等 CI/CD 相关端点和组件
+//     rulego-components-ci: CI/CD and DevOps scenario components
+//     Includes code warehouses, build tools, deployment platform integrations, and other CI/CD-related endpoints and components
 //
 //   - rulego-components-iot: Internet of Things scenario components
 //     (https://github.com/rulego/rulego-components-iot)
-//     rulego-components-iot：物联网场景组件
-//     包含设备连接、协议转换、数据采集等 IoT 相关端点和组件
+//     rulego-components-iot: IoT scenario components
+//     Includes IoT-related endpoints and components such as device connectivity, protocol conversion, and data collection
 //
 //   - rulego-components-etl: Extract, Transform, Load scenario components
 //     (https://github.com/rulego/rulego-components-etl)
-//     rulego-components-etl：数据提取、转换、加载场景组件
-//     包含数据库连接、文件处理、数据清洗等 ETL 相关端点和组件
+//     rulego-components-etl: Data extraction, transformation, and scene loading components
+//     Includes ETL-related endpoints and components such as database connections, file processing, and data cleaning
 //
-// Installation and Usage / 安装和使用：
+// # Installation and Usage
 //
 // These extension libraries can be imported and used alongside the core RuleGo framework:
-// 这些扩展库可以与核心 RuleGo 框架一起导入和使用：
+// These extension libraries can be imported and used together with the core RuleGo framework:
 //
 //	import (
 //	    "github.com/rulego/rulego"
@@ -94,12 +94,12 @@
 //	)
 //
 // Integration with Rule Chains:
-// 与规则链的集成：
+// Integration with Rule Chains:
 //
 // Endpoints are integrated into rule chains through DSL configuration. The complete
 // DSL structure includes both the rule chain definition and endpoint configuration:
 //
-// 端点通过 DSL 配置集成到规则链中。完整的 DSL 结构包括规则链定义和端点配置：
+// Endpoints are integrated into the rule chain through DSL configuration. A complete DSL structure includes rule chain definition and endpoint configuration:
 //
 //	{
 //	  "ruleChain": {
@@ -145,29 +145,29 @@
 //	}
 //
 // Router Configuration:
-// 路由器配置：
+// Router configuration:
 //
 // Each endpoint can define multiple routers that map input paths to rule chain nodes.
 // The router structure varies by endpoint type:
 //
-// 每个端点可以定义多个路由器，将输入路径映射到规则链节点。
-// 路由器结构因端点类型而异：
+// Each endpoint can define multiple routers to map input paths to regular chain nodes.
+// Router architecture varies depending on the type of endpoint:
 //
-// • from.path: Input pattern specific to the endpoint type  特定于端点类型的输入模式
-//   - HTTP: URL path pattern (e.g., "/api/v1/msg")  URL 路径模式
-//   - MQTT: Topic pattern (e.g., "device/+/msg")  主题模式
-//   - Schedule: Cron expression (e.g., "0 */5 * * * *")  Cron 表达式
-//   - TCP/UDP: Message pattern  消息模式
+// • from.path: Input pattern specific to the endpoint type
+//   - HTTP: URL path pattern (e.g., "/api/v1/msg") URL path pattern
+//   - MQTT: Topic pattern (e.g., "device/+/msg")
+//   - Schedule: Cron expression (e.g., "0 */5 * * * *") Cron expression
+//   - TCP/UDP: Message pattern
 //
-// • to.path: Target rule chain node in format "chainId:nodeId"  目标规则链节点，格式为 "chainId:nodeId"
+// • to.path: Target rule chain node in format "chainId:nodeId"
 //
-// • params: Protocol-specific parameters (e.g., HTTP methods)  协议特定参数（例如，HTTP 方法）
+// • params: Protocol-specific parameters (e.g., HTTP methods)
 //
 // Complete Example with Redis Endpoint:
-// Redis 端点完整示例：
+// Complete example of the Redis endpoint:
 //
 // The following example shows a Redis pub/sub endpoint integrated with a rule chain:
-// 以下示例显示了与规则链集成的 Redis 发布/订阅端点：
+// The following example shows Redis publish/subscribe endpoints integrated with Rule Chain:
 //
 //	{
 //	  "ruleChain": {
@@ -236,26 +236,26 @@
 //	}
 //
 // Dynamic Management:
-// 动态管理：
+// Dynamic management:
 //
 // Endpoints support dynamic lifecycle management through the Pool interface:
-// 端点通过 Pool 接口支持动态生命周期管理：
+// Endpoints support dynamic lifecycle management via the Pool interface:
 //
-// • Creation from DSL configuration  从 DSL 配置创建
-// • Hot reloading of configuration  配置热重载
-// • Router addition and modification  路由器添加和修改
-// • Graceful shutdown and cleanup  优雅关闭和清理
+// • Creation from DSL configuration
+// • Hot reloading of configuration
+// • Router addition and modification
+// • Graceful shutdown and cleanup
 //
 // Message Flow:
-// 消息流：
+// News Flow:
 //
-// 1. External data arrives at the endpoint  外部数据到达端点
-// 2. Endpoint converts data to RuleMsg format  端点将数据转换为 RuleMsg 格式
-// 3. Router matches input pattern and routes to target node  路由器匹配输入模式并路由到目标节点
-// 4. Rule chain processes the message  规则链处理消息
-// 5. Results can be sent back through the endpoint if needed  如果需要，可以通过端点发送回结果
+// 1. External data arrives at the endpoint
+// 2. Endpoint converts data to RuleMsg format
+// 3. Router matches input pattern and routes to target node
+// 4. Rule chain processes the message
+// 5. Results can be sent back through the endpoint if needed
 //
 // For detailed implementation examples and advanced usage patterns,
 // see the test files and example directories.
-// 有关详细的实现示例和高级使用模式，请参见测试文件和示例目录。
+// For detailed implementation examples and advanced usage patterns, please refer to the test files and sample directory.
 package endpoint

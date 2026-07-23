@@ -17,23 +17,23 @@
 package types
 
 // RuleChain defines a rule chain.
-// RuleChain 定义规则链。
+// RuleChain defines the rule chain.
 //
 // RuleChain is the top-level structure that represents a complete rule processing workflow.
 // It contains both basic information about the chain and detailed metadata about its
 // internal structure, including nodes, connections, and routing configurations.
-// RuleChain 是表示完整规则处理工作流的顶级结构。
-// 它包含链的基本信息和关于其内部结构的详细元数据，包括节点、连接和路由配置。
+// RuleChain is a top-level structure representing a complete rule-handling workflow.
+// It contains basic information about the chain and detailed metadata about its internal structure, including nodes, connections, and routing configurations.
 //
 // Structure Overview:
-// 结构概览：
+// Structure Overview:
 //   - RuleChain: Basic information (ID, name, configuration)
-//     RuleChain：基本信息（ID、名称、配置）
+//     RuleChain: Basic information (ID, name, configuration)
 //   - Metadata: Structural details (nodes, connections, endpoints)
-//     Metadata：结构详细信息（节点、连接、端点）
+//     Metadata: detailed structure information (nodes, connections, endpoints)
 //
 // Usage in DSL:
-// DSL 中的使用：
+// Use in DSL:
 //
 //	{
 //	  "ruleChain": {
@@ -49,10 +49,10 @@ package types
 //	}
 type RuleChain struct {
 	// RuleChain contains the basic information of the rule chain.
-	// RuleChain 包含规则链的基本信息。
+	// RuleChain contains the basic information of the rule chain.
 	RuleChain RuleChainBaseInfo `json:"ruleChain"`
 	// Metadata includes information about the nodes and connections within the rule chain.
-	// Metadata 包含规则链内节点和连接的信息。
+	// Metadata contains information about nodes and connections within the rule chain.
 	Metadata RuleMetadata `json:"metadata"`
 }
 
@@ -66,110 +66,110 @@ func (r RuleChain) GetNode(nodeId string) (*RuleNode, bool) {
 }
 
 // RuleChainBaseInfo defines the basic information of a rule chain.
-// RuleChainBaseInfo 定义规则链的基本信息。
+// RuleChainBaseInfo defines the basic information of the rule chain.
 //
 // This structure contains the essential metadata and configuration that applies
 // to the entire rule chain. It provides identification, behavioral settings,
 // and extensibility through additional information fields.
-// 此结构包含适用于整个规则链的基本元数据和配置。
-// 它提供标识、行为设置和通过附加信息字段的可扩展性。
+// This structure contains the basic metadata and configurations applicable to the entire rule chain.
+// It provides identification, behavior settings, and scalability through additional information fields.
 //
 // Key Features:
-// 关键特性：
+// Key features:
 //   - Unique identification with ID and Name
-//     使用 ID 和 Name 的唯一标识
+//     Use unique identifiers for ID and Name
 //   - Global debug mode control
-//     全局调试模式控制
+//     Global debugging mode control
 //   - Hierarchical chain organization (root/sub-chain)
-//     分层链组织（根/子链）
+//     Layered chain organization (root/child chain)
 //   - Runtime state management (enabled/disabled)
-//     运行时状态管理（启用/禁用）
+//     Runtime State Management (Enable/Disable)
 //   - Flexible configuration and extension support
-//     灵活的配置和扩展支持
+//     Flexible configuration and expansion support
 type RuleChainBaseInfo struct {
 	// ID is the unique identifier of the rule chain.
-	// ID 是规则链的唯一标识符。
+	// The ID is the unique identifier of the rule chain.
 	//
 	// The ID must be unique within the rule engine context and is used for
 	// chain references, sub-chain invocation, and management operations.
-	// ID 在规则引擎上下文中必须是唯一的，用于链引用、子链调用和管理操作。
+	// The ID must be unique in the context of the rule engine and is used for chain references, subchain calls, and management operations.
 	ID string `json:"id"`
 
 	// Name is the name of the rule chain.
-	// Name 是规则链的名称。
+	// Name is the name of the rule chain.
 	//
 	// The name provides a human-readable identifier for the chain, useful
 	// for UI display, logging, and administrative purposes.
-	// 名称为链提供人类可读的标识符，对 UI 显示、日志记录和管理目的很有用。
+	// The name provides a human-readable identifier for the chain, which is useful for UI display, logging, and management purposes.
 	Name string `json:"name"`
 
 	// DebugMode indicates whether the node is in debug mode. If true, a debug callback function is triggered when the node processes messages.
 	// This setting overrides the `DebugMode` configuration of the node.
-	// DebugMode 表示节点是否处于调试模式。如果为 true，节点处理消息时触发调试回调函数。
-	// 此设置覆盖节点的 `DebugMode` 配置。
+	// DebugMode indicates whether the node is in debug mode. If true, the node triggers the debug callback function when processing the message.
+	// This setting overrides the node's `DebugMode` configuration.
 	//
 	// Global Debug Control:
-	// 全局调试控制：
+	// Global Debugging and Control:
 	// When enabled at the chain level, debug mode affects all nodes within the chain,
 	// regardless of individual node debug settings. This provides convenient
 	// chain-wide debugging control.
-	// 在链级别启用时，调试模式影响链内所有节点，
-	// 无论单个节点的调试设置如何。这提供了方便的链范围调试控制。
+	// When enabled at the chain level, debug mode affects all nodes within the chain,
+	// Regardless of the debugging settings of individual nodes. This provides convenient chain-wide debugging control.
 	DebugMode bool `json:"debugMode"`
 
 	// Root indicates whether this rule chain is a root or a sub-rule chain. (Used only as a marker, not applied in actual logic)
-	// Root 表示此规则链是根链还是子规则链。（仅用作标记，不在实际逻辑中应用）
+	// Root indicates whether the rule chain is the root chain or the subchain rule. (Used only as a marker, not applied in actual logic)
 	//
 	// This field serves as organizational metadata to help distinguish between
 	// main processing chains and subsidiary chains in complex rule hierarchies.
-	// 此字段作为组织元数据，帮助在复杂规则层次结构中区分主处理链和辅助链。
+	// This field serves as organizational metadata, helping to distinguish between primary processing chains and auxiliary chains within a complex hierarchy of rules.
 	Root bool `json:"root"`
 
 	// Disabled indicates whether the rule chain is disabled.
-	// Disabled 表示规则链是否被禁用。
+	// Disabled indicates whether the rule chain is disabled.
 	//
 	// When disabled, the rule chain will not process messages and can be used
 	// for maintenance, testing, or gradual rollout scenarios.
-	// 禁用时，规则链不会处理消息，可用于维护、测试或渐进式推出场景。
+	// When disabled, the rule chain does not process messages and can be used for maintenance, testing, or incremental rollout scenarios.
 	Disabled bool `json:"disabled"`
 
 	// Configuration contains the configuration information of the rule chain.
-	// Configuration 包含规则链的配置信息。
+	// Configuration contains configuration information for the rule chain.
 	//
 	// This flexible configuration map allows chain-level settings that can
 	// be accessed by nodes within the chain for shared configuration data.
-	// 此灵活的配置映射允许链级别设置，链内节点可以访问它们以获取共享配置数据。
+	// This flexible configuration mapping allows chain-level settings, which on-chain nodes can access to access for shared configuration data.
 	Configuration Configuration `json:"configuration,omitempty"`
 
 	// AdditionalInfo is an extension field.
-	// AdditionalInfo 是扩展字段。
+	// AdditionalInfo is an extension field.
 	//
 	// This field provides extensibility for custom metadata, UI information,
 	// or integration-specific data without modifying the core structure.
-	// 此字段为自定义元数据、UI 信息或集成特定数据提供可扩展性，
-	// 无需修改核心结构。
+	// This field provides scalability for custom metadata, UI information, or integrating specific data,
+	// No modifications to the core structure are required.
 	AdditionalInfo map[string]interface{} `json:"additionalInfo,omitempty"`
 }
 
 // GetAdditionalInfo retrieves additional information by key.
-// GetAdditionalInfo 通过键检索附加信息。
+// GetAdditionalInfo retrieves additional information via key.
 //
 // This method provides safe access to additional information with existence checking.
 // It returns both the value and a boolean indicating whether the key was found.
-// 此方法提供对附加信息的安全访问，包含存在性检查。
-// 它返回值和一个布尔值，指示是否找到了键。
+// This method provides secure access to additional information and includes presence checks.
+// It returns a value and a boolean value, indicating whether the key has been found.
 //
 // Parameters:
-// 参数：
+// Parameters:
 //   - key: The key to look up in additional information
-//     key：在附加信息中查找的键
+//     key: The key to look for in the additional information
 //
 // Returns:
-// 返回：
+// Returns:
 //   - interface{}: The value associated with the key, or empty string if not found
-//     interface{}：与键关联的值，如果未找到则为空字符串
+//     interface{}: The value associated with the key; if not found, it is an empty string
 //   - bool: True if the key exists, false otherwise
-//     bool：如果键存在则为 true，否则为 false
+//     bool: If the key exists, it is true; otherwise, it is false
 func (r RuleChainBaseInfo) GetAdditionalInfo(key string) (interface{}, bool) {
 	if r.AdditionalInfo == nil {
 		return "", false
@@ -179,21 +179,21 @@ func (r RuleChainBaseInfo) GetAdditionalInfo(key string) (interface{}, bool) {
 }
 
 // PutAdditionalInfo adds additional information by key and value.
-// PutAdditionalInfo 通过键和值添加附加信息。
+// PutAdditionalInfo adds additional information through keys and values.
 //
 // This method safely adds or updates additional information, automatically
 // initializing the map if it doesn't exist.
-// 此方法安全地添加或更新附加信息，如果映射不存在则自动初始化。
+// This method securely adds or updates additional information, and automatically initializes if the mapping does not exist.
 //
 // Parameters:
-// 参数：
+// Parameters:
 //   - key: The key to store the information under
-//     key：存储信息的键
+//     key: The key used to store information
 //   - value: The value to associate with the key
-//     value：与键关联的值
+//     value: The value associated with the key
 //
 // Usage:
-// 使用：
+// Usage:
 //
 //	chainInfo.PutAdditionalInfo("version", "1.0.0")
 //	chainInfo.PutAdditionalInfo("author", "admin")
@@ -206,194 +206,194 @@ func (r RuleChainBaseInfo) PutAdditionalInfo(key string, value interface{}) {
 }
 
 // RuleMetadata defines the metadata of a rule chain, including information about nodes and connections.
-// RuleMetadata 定义规则链的元数据，包括节点和连接的信息。
+// RuleMetadata defines the metadata of the rule chain, including information about nodes and connections.
 //
 // This structure contains the detailed topology and routing information that defines
 // how messages flow through the rule chain. It includes node definitions, connections
 // between nodes, endpoint configurations, and legacy sub-chain connections.
-// 此结构包含定义消息如何通过规则链流动的详细拓扑和路由信息。
-// 它包括节点定义、节点间连接、端点配置和传统子链连接。
+// This structure contains detailed topology and routing information that defines how messages flow through the chain of rules.
+// It includes node definition, inter-node connections, endpoint configuration, and traditional subchain connections.
 //
 // Structural Components:
-// 结构组件：
+// Structural components:
 //   - FirstNodeIndex: Entry point identification
-//     FirstNodeIndex：入口点标识
+//     FirstNodeIndex: Entry point identifier
 //   - Endpoints: External connectivity configuration
-//     Endpoints：外部连接配置
+//     Endpoints: External connection configuration
 //   - Nodes: Processing component definitions
-//     Nodes：处理组件定义
+//     Nodes: Handles component definitions
 //   - Connections: Inter-node message routing
-//     Connections：节点间消息路由
+//     Connections: Message routing between nodes
 //   - RuleChainConnections: Legacy sub-chain integration
-//     RuleChainConnections：传统子链集成
+//     RuleChainConnections: Traditional subchain integration
 type RuleMetadata struct {
 	// FirstNodeIndex is the index of the first node in data flow, default is 0.
-	// FirstNodeIndex 是数据流中第一个节点的索引，默认为 0。
+	// FirstNodeIndex is the index of the first node in the data stream, defaulting to 0.
 	//
 	// This index identifies the entry point for message processing within the rule chain.
 	// It corresponds to the position in the Nodes array where execution begins.
-	// 此索引标识规则链内消息处理的入口点。
-	// 它对应于执行开始的 Nodes 数组中的位置。
+	// This index identifies the entry point for message processing within the rule chain.
+	// It corresponds to the position in the array of nodes where execution begins.
 	FirstNodeIndex int `json:"firstNodeIndex"`
 
 	// Endpoints are the component definitions of the endpoints.
-	// Endpoints 是端点的组件定义。
+	// Endpoints are the component definitions of endpoints.
 	//
 	// Endpoints define external connectivity points for the rule chain, including
 	// REST APIs, MQTT brokers, WebSocket servers, and other protocol handlers.
 	// They serve as the bridge between external systems and the rule processing logic.
-	// 端点定义规则链的外部连接点，包括 REST API、MQTT 代理、WebSocket 服务器和其他协议处理程序。
-	// 它们作为外部系统和规则处理逻辑之间的桥梁。
+	// Endpoints define external connection points of the rule chain, including REST API, MQTT proxies, WebSocket servers, and other protocol handlers.
+	// They serve as bridges between external systems and the logic of rule processing.
 	Endpoints []*EndpointDsl `json:"endpoints,omitempty"`
 
 	// Nodes are the component definitions of the nodes.
 	// Each object represents a rule node within the rule chain.
-	// Nodes 是节点的组件定义。
-	// 每个对象表示规则链内的一个规则节点。
+	// Nodes are the component definitions of nodes.
+	// Each object represents a rule node within the rule chain.
 	//
 	// Nodes define the processing components that transform, filter, route, and
 	// act upon messages as they flow through the rule chain. Each node encapsulates
 	// specific business logic or integration functionality.
-	// 节点定义在消息通过规则链流动时对消息进行转换、过滤、路由和操作的处理组件。
-	// 每个节点封装特定的业务逻辑或集成功能。
+	// Nodes define processing components that transform, filter, route, and operate messages as they flow through the rule chain.
+	// Each node encapsulates specific business logic or integration functions.
 	Nodes []*RuleNode `json:"nodes"`
 
 	// Connections define the connections between two nodes in the rule chain.
-	// Connections 定义规则链中两个节点之间的连接。
+	// Connections defines the connection between two nodes in a rule chain.
 	//
 	// Connections establish the message flow topology by specifying how messages
 	// move from one node to another based on processing results and relationship types.
-	// 连接通过指定消息如何基于处理结果和关系类型从一个节点移动到另一个节点来建立消息流拓扑。
+	// Connections establish the message stream topology by specifying how messages move from one node to another based on processing results and relationship types.
 	Connections []NodeConnection `json:"connections"`
 
 	// Deprecated: Use Flow Node instead.
 	// RuleChainConnections are the connections between a node and a sub-rule chain.
-	// 已弃用：改用 Flow Node。
-	// RuleChainConnections 是节点和子规则链之间的连接。
+	// Deprecated: Switched to Flow Node.
+	// RuleChainConnections are the connections between nodes and subrule chains.
 	//
 	// This field is maintained for backward compatibility with older rule chain
 	// definitions that use direct sub-chain connections instead of Flow nodes.
-	// 此字段保持与使用直接子链连接而不是 Flow 节点的旧规则链定义的向后兼容性。
+	// This field maintains backward compatibility with the old rule chain definition that uses direct child chain connections instead of Flow nodes.
 	RuleChainConnections []RuleChainConnection `json:"ruleChainConnections,omitempty"`
 }
 
 // RuleNode defines the information of a rule chain node.
-// RuleNode 定义规则链节点的信息。
+// RuleNode defines information about rule chain nodes.
 //
 // RuleNode represents a single processing component within a rule chain. Each node
 // encapsulates specific business logic, data transformation, or integration functionality.
 // Nodes are connected through relationships to form complete processing workflows.
-// RuleNode 表示规则链内的单个处理组件。每个节点封装特定的业务逻辑、
-// 数据转换或集成功能。节点通过关系连接形成完整的处理工作流。
+// RuleNode represents a single processing component within the rule chain. Each node encapsulates specific business logic,
+// Data conversion or integration capabilities. Nodes form a complete processing workflow through relational connections.
 //
 // Node Lifecycle:
-// 节点生命周期：
+// Node Lifecycle:
 //  1. Configuration parsing and validation
-//     配置解析和验证
+//     Configuration analysis and verification
 //  2. Component initialization with configuration
-//     使用配置进行组件初始化
+//     Component initialization is performed using configuration
 //  3. Message processing during rule execution
-//     规则执行期间的消息处理
+//     Message processing during rule execution
 //  4. Resource cleanup when node is destroyed
-//     节点销毁时的资源清理
+//     Resource cleanup during node destruction
 type RuleNode struct {
 	// Id is the unique identifier of the node, which can be any string.
-	// Id 是节点的唯一标识符，可以是任何字符串。
+	// An ID is a unique identifier for a node and can be any string.
 	//
 	// The ID must be unique within the rule chain and is used for:
-	// ID 在规则链内必须唯一，用于：
+	// The ID must be unique within the rule chain and is used for:
 	//   - Node references in connections
-	//     连接中的节点引用
+	//     Node references in the connection
 	//   - Debug and monitoring identification
-	//     调试和监控标识
+	//     Debugging and monitoring identification
 	//   - Dynamic node lookup and management
-	//     动态节点查找和管理
+	//     Dynamic node search and management
 	//   - Error reporting and logging
-	//     错误报告和日志记录
+	//     Error reporting and logging
 	Id string `json:"id"`
 
 	// AdditionalInfo is an extension field for visualization position information (reserved field).
-	// AdditionalInfo 是用于可视化位置信息的扩展字段（保留字段）。
+	// AdditionalInfo is an extended field (reserved field) used to visualize location information.
 	//
 	// This field is primarily used by visual rule chain editors to store
 	// UI-specific information such as node positioning, styling, and metadata
 	// that doesn't affect rule execution but aids in visual representation.
-	// 此字段主要由可视化规则链编辑器用于存储 UI 特定信息，
-	// 如节点定位、样式和不影响规则执行但有助于可视化表示的元数据。
+	// This field is mainly used by the Visual Rule Chain Editor to store UI-specific information,
+	// Such as node positioning, styles, and metadata that do not affect rule execution but help visualize the representation.
 	AdditionalInfo map[string]interface{} `json:"additionalInfo,omitempty"`
 
 	// Type is the type of the node, which determines the logic and behavior of the node. It should match one of the node types registered in the rule engine.
-	// Type 是节点的类型，决定节点的逻辑和行为。它应匹配规则引擎中注册的节点类型之一。
+	// Type is the type of node, determining its logic and behavior. It should match one of the node types registered in the rule engine.
 	//
 	// The type serves as a factory key to create the appropriate node implementation.
 	// Common types include filters, transformers, actions, and integrations.
-	// 类型作为工厂键来创建适当的节点实现。
-	// 常见类型包括过滤器、转换器、动作和集成。
+	// Types act as factory keys to create appropriate node implementations.
+	// Common types include filters, converters, action, and integration.
 	//
 	// Standard Node Types:
-	// 标准节点类型：
+	// Standard Node Types:
 	//   - jsFilter: JavaScript-based filtering logic
-	//     jsFilter：基于 JavaScript 的过滤逻辑
+	//     jsFilter: JavaScript-based filtering logic
 	//   - jsTransform: JavaScript-based data transformation
-	//     jsTransform：基于 JavaScript 的数据转换
+	//     jsTransform: JavaScript-based data transformation
 	//   - restApiCall: HTTP REST API integration
-	//     restApiCall：HTTP REST API 集成
+	//     restApiCall: HTTP REST API integration
 	//   - log: Logging and debugging output
-	//     log：日志记录和调试输出
+	//     log: Log recording and debugging output
 	Type string `json:"type"`
 
 	// Name is the name of the node, which can be any string.
-	// Name 是节点的名称，可以是任何字符串。
+	// Name is the name of a node, which can be any string.
 	//
 	// The name provides a human-readable identifier for the node, useful for:
-	// 名称为节点提供人类可读的标识符，用于：
+	// The name provides a human-readable identifier for nodes, used for:
 	//   - Documentation and understanding
-	//     文档和理解
+	//     Documentation and understanding
 	//   - Visual representation in editors
-	//     编辑器中的可视化表示
+	//     Visualization in the editor
 	//   - Debugging and error messages
-	//     调试和错误消息
+	//     Debugging and error messages
 	//   - Administrative and monitoring purposes
-	//     管理和监控目的
+	//     Management and monitoring purposes
 	Name string `json:"name"`
 
 	// DebugMode indicates whether the node is in debug mode. If true, a debug callback function is triggered when the node processes messages.
 	// This setting can be overridden by the RuleChain `DebugMode` configuration.
-	// DebugMode 表示节点是否处于调试模式。如果为 true，节点处理消息时触发调试回调函数。
-	// 此设置可以被 RuleChain `DebugMode` 配置覆盖。
+	// DebugMode indicates whether the node is in debug mode. If true, the node triggers the debug callback function when processing the message.
+	// This setting can be overridden by the RuleChain `DebugMode` configuration.
 	//
 	// Debug Mode Benefits:
-	// 调试模式好处：
+	// Benefits of debugging modes:
 	//   - Real-time message flow visibility
-	//     实时消息流可见性
+	//     Real-time message stream visibility
 	//   - Performance monitoring and profiling
-	//     性能监控和分析
+	//     Performance monitoring and analysis
 	//   - Error tracking and diagnostics
-	//     错误跟踪和诊断
+	//     Error tracking and diagnosis
 	//   - Development and testing support
-	//     开发和测试支持
+	//     Development and testing support
 	//
 	// Performance Considerations:
-	// 性能考虑：
+	// Performance considerations:
 	// Debug callbacks add overhead, so disable in production unless monitoring is required.
-	// 调试回调增加开销，因此除非需要监控，否则在生产环境中禁用。
+	// Debugging and callbacks increase overhead, so unless monitoring is required, they are disabled in production environments.
 	DebugMode bool `json:"debugMode"`
 
 	// Configuration contains the configuration parameters of the node, which vary depending on the node type.
 	// For example, a JS filter node might have a `jsScript` field defining the filtering logic,
 	// while a REST API call node might have a `restEndpointUrlPattern` field defining the URL to call.
-	// Configuration 包含节点的配置参数，根据节点类型而变化。
-	// 例如，JS 过滤器节点可能有定义过滤逻辑的 `jsScript` 字段，
-	// 而 REST API 调用节点可能有定义要调用的 URL 的 `restEndpointUrlPattern` 字段。
+	// Configuration contains the configuration parameters of nodes, which vary depending on the node type.
+	// For example, a JS filter node may have a `jsScript` field that defines the filtering logic,
+	// REST API call nodes may have a `restEndpointUrlPattern` field that defines the URL to be called.
 	//
 	// Configuration supports:
-	// 配置支持：
+	// Configuration support:
 	//   - Type-specific parameters for node behavior
-	//     节点行为的特定类型参数
+	//     Specific type parameters for node behavior
 	//   - Environment variable substitution (${global.key})
-	//     环境变量替换（${global.key}）
+	//     Environment variable replacement (${global.key})
 	//   - Dynamic configuration updates
-	//     动态配置更新
+	//     Dynamic configuration updates
 	//
 	Configuration Configuration `json:"configuration"`
 }
@@ -407,665 +407,665 @@ func (n RuleNode) GetAdditionalInfo(key string) (interface{}, bool) {
 }
 
 // NodeAdditionalInfo is used for visualization position information (reserved field).
-// NodeAdditionalInfo 用于可视化位置信息（保留字段）。
+// NodeAdditionalInfo is used to visualize location information (reserved fields).
 //
 // This structure defines the standard additional information fields used by
 // visual rule chain editors for node positioning and documentation.
-// 此结构定义了可视化规则链编辑器用于节点定位和文档的标准附加信息字段。
+// This structure defines standard additional information fields for node positioning and documentation in the Visual Rule Chain Editor.
 type NodeAdditionalInfo struct {
 	// Description provides detailed documentation for the node
-	// Description 为节点提供详细文档
+	// Description provides detailed documentation for nodes
 	Description string `json:"description"`
 	// LayoutX represents the horizontal position in the visual editor
-	// LayoutX 表示可视化编辑器中的水平位置
+	// LayoutX represents the horizontal position in the visual editor
 	LayoutX int `json:"layoutX"`
 	// LayoutY represents the vertical position in the visual editor
-	// LayoutY 表示可视化编辑器中的垂直位置
+	// LayoutY represents the vertical position in the visual editor
 	LayoutY int `json:"layoutY"`
 }
 
 // NodeConnection defines the connection between two nodes in a rule chain.
-// NodeConnection 定义规则链中两个节点之间的连接。
+// NodeConnection defines the connection between two nodes in a rule chain.
 //
 // NodeConnection establishes the message flow topology by specifying how messages
 // move from one processing node to another based on the results of message processing.
 // The connection type determines the conditions under which messages flow.
-// NodeConnection 通过指定消息如何基于消息处理结果从一个处理节点移动到另一个节点来建立消息流拓扑。
-// 连接类型决定消息流动的条件。
+// NodeConnection establishes the message stream topology by specifying how messages move from one processing node to another based on the result of message processing.
+// The connection type determines the conditions for message flow.
 //
 // Connection Flow Logic:
-// 连接流逻辑：
+// Connection flow logic:
 //  1. Source node processes message
-//     源节点处理消息
+//     Source nodes process messages
 //  2. Processing result determines relationship type
-//     处理结果决定关系类型
+//     The outcome of the process determines the type of relationship
 //  3. Message is routed to target node if relationship matches
-//     如果关系匹配，消息路由到目标节点
+//     If the relationship matches, the message is routed to the target node
 //  4. Multiple connections enable parallel or conditional flows
-//     多个连接支持并行或条件流
+//     Multiple connections support parallel or conditional flow
 //
 // Common Connection Types:
-// 常见连接类型：
+// Common connection types:
 //   - Success/Failure: General processing outcomes
-//     Success/Failure：一般处理结果
+//     Success/Failure: General handling results
 //   - True/False: Boolean logic for filters and conditions
-//     True/False：过滤器和条件的布尔逻辑
+//     True/False: Boolean logic for filters and conditions
 //   - Custom types: Domain-specific routing logic
-//     自定义类型：领域特定的路由逻辑
+//     Custom Type: Domain-specific routing logic
 type NodeConnection struct {
 	// FromId is the id of the source node, which should match the id of a node in the nodes array.
-	// FromId 是源节点的 id，应匹配节点数组中节点的 id。
+	// FromId is the ID of the source node and should match the node ID in the node array.
 	//
 	// This field establishes the starting point of the message flow connection.
 	// The referenced node must exist in the rule chain's node list.
-	// 此字段建立消息流连接的起始点。
-	// 引用的节点必须存在于规则链的节点列表中。
+	// This field establishes the starting point of the message stream connection.
+	// The referenced node must exist in the node list of the rule chain.
 	FromId string `json:"fromId"`
 
 	// ToId is the id of the target node, which should match the id of a node in the nodes array.
-	// ToId 是目标节点的 id，应匹配节点数组中节点的 id。
+	// ToId is the ID of the target node and should match the node ID in the node array.
 	//
 	// This field establishes the destination of the message flow connection.
 	// The referenced node must exist in the rule chain's node list.
-	// 此字段建立消息流连接的目标。
-	// 引用的节点必须存在于规则链的节点列表中。
+	// This field establishes the destination of the message stream connection.
+	// The referenced node must exist in the node list of the rule chain.
 	ToId string `json:"toId"`
 
 	// Type is the type of connection, which determines when and how messages are sent from one node to another. It should match one of the connection types supported by the source node type.
 	// For example, a JS filter node might support two connection types: "True" and "False," indicating whether the message passes or fails the filter condition.
-	// Type 是连接类型，决定何时以及如何将消息从一个节点发送到另一个节点。它应匹配源节点类型支持的连接类型之一。
-	// 例如，JS 过滤器节点可能支持两种连接类型："True" 和 "False"，表示消息是通过还是未通过过滤条件。
+	// Type is the connection type, which determines when and how to send messages from one node to another. It should match one of the connection types supported by the source node type.
+	// For example, a JS filter node may support two connection types: "True" and "False"," indicating whether the message passed or failed the filtering condition.
 	//
 	// The type acts as a conditional gate that controls message flow based on
 	// processing results. Each node type defines its own set of supported relationship types.
-	// 类型作为基于处理结果控制消息流的条件门。
-	// 每种节点类型定义自己支持的关系类型集。
+	// type as a condition gate for controlling the message stream based on processing results.
+	// Each node type defines its own set of relationship types it supports.
 	Type string `json:"type"`
 
 	// Label is the label of the connection, used for display.
-	// Label 是连接的标签，用于显示。
+	// Label is a connected label used for display.
 	//
 	// The label provides a human-readable description of the connection,
 	// useful for visual editors and documentation purposes.
-	// 标签提供连接的人类可读描述，
-	// 对于可视化编辑器和文档目的很有用。
+	// Tags provide a human-readable description of the connection,
+	// Very useful for visual editors and document purposes.
 	Label string `json:"label,omitempty"`
 }
 
 // RuleChainConnection defines the connection between a node and a sub-rule chain.
-// RuleChainConnection 定义节点和子规则链之间的连接。
+// RuleChainConnection defines the connection between nodes and sub-rule chains.
 //
 // This structure represents the legacy way of connecting to sub-rule chains
 // directly. Modern implementations should use Flow nodes instead for better
 // flexibility and consistency.
-// 此结构表示直接连接到子规则链的传统方式。
-// 现代实现应使用 Flow 节点以获得更好的灵活性和一致性。
+// This structure represents the traditional way of directly connecting to the sub-rule chain.
+// Modern implementations should use Flow nodes for better flexibility and consistency.
 type RuleChainConnection struct {
 	// FromId is the id of the source node, which should match the id of a node in the nodes array.
-	// FromId 是源节点的 id，应匹配节点数组中节点的 id。
+	// FromId is the ID of the source node and should match the node ID in the node array.
 	FromId string `json:"fromId"`
 	// ToId is the id of the target sub-rule chain, which should match one of the sub-rule chains registered in the rule engine.
-	// ToId 是目标子规则链的 id，应匹配规则引擎中注册的子规则链之一。
+	// ToId is the ID of the target subrule chain and should match one of the subrule chains registered in the rule engine.
 	ToId string `json:"toId"`
 	// Type is the type of connection, which determines when and how messages are sent from one node to another. It should match one of the connection types supported by the source node type.
-	// Type 是连接类型，决定何时以及如何将消息从一个节点发送到另一个节点。它应匹配源节点类型支持的连接类型之一。
+	// Type is the connection type, which determines when and how to send messages from one node to another. It should match one of the connection types supported by the source node type.
 	Type string `json:"type"`
 }
 
 // RuleChainRunSnapshot is a snapshot of the rule chain execution log.
-// RuleChainRunSnapshot 是规则链执行日志的快照。
+// RuleChainRunSnapshot is a snapshot of the execution log of the rule chain.
 //
 // This structure captures the complete execution trace of a rule chain run,
 // including timing information, node execution logs, and metadata.
 // It's primarily used for debugging, monitoring, and audit purposes.
-// 此结构捕获规则链运行的完整执行跟踪，
-// 包括时间信息、节点执行日志和元数据。
-// 它主要用于调试、监控和审计目的。
+// This structure captures the complete execution trace of the rule chain's execution,
+// Including time information, node execution logs, and metadata.
+// It is mainly used for commissioning, monitoring, and auditing purposes.
 //
 // Snapshot Use Cases:
-// 快照用例：
+// Snapshot use case:
 //   - Performance analysis and optimization
-//     性能分析和优化
+//     Performance analysis and optimization
 //   - Error investigation and debugging
-//     错误调查和调试
+//     Bug investigation and debugging
 //   - Audit trails for compliance
-//     合规审计跟踪
+//     Compliance audit trails
 //   - Execution monitoring and alerting
-//     执行监控和警报
+//     Monitoring and alerts are enforced
 type RuleChainRunSnapshot struct {
 	// Deprecated: User ctx.RuleChain() instead.
-	// 已弃用：使用 ctx.RuleChain() 代替。
+	// Deprecated: Use ctx.RuleChain() instead.
 	RuleChain
 	// Id is the execution ID.
-	// Id 是执行 ID。
+	// Id is the execution ID.
 	//
 	// This unique identifier tracks a specific rule chain execution instance,
 	// enabling correlation across distributed systems and log aggregation.
-	// 此唯一标识符跟踪特定的规则链执行实例，
-	// 支持跨分布式系统的关联和日志聚合。
+	// This unique identifier tracks specific rule chain execution instances,
+	// Supports association and log aggregation across distributed systems.
 	Id string `json:"id"`
 	// StartTs is the start time of execution.
-	// StartTs 是执行开始时间。
+	// StartTs is the execution start time.
 	//
 	// Timestamp when the rule chain execution began, used for performance
 	// measurement and timing analysis.
-	// 规则链执行开始的时间戳，用于性能测量和时序分析。
+	// Timestamps for the start of rule chain execution, used for performance measurement and timing analysis.
 	StartTs int64 `json:"startTs"`
 	// EndTs is the end time of execution.
-	// EndTs 是执行结束时间。
+	// EndTs is the execution end time.
 	//
 	// Timestamp when the rule chain execution completed, used for calculating
 	// total execution duration and performance analysis.
-	// 规则链执行完成的时间戳，用于计算总执行持续时间和性能分析。
+	// Timestamp of rule chain execution completion, used to calculate total execution duration and performance analysis.
 	EndTs int64 `json:"endTs"`
 	// Logs are the logs for each node.
-	// Logs 是每个节点的日志。
+	// Logs are logs for each node.
 	//
 	// Detailed execution logs for each node that processed messages during
 	// this rule chain run, providing fine-grained visibility into the execution flow.
-	// 在此规则链运行期间处理消息的每个节点的详细执行日志，
-	// 提供对执行流的细粒度可见性。
+	// During the execution of this rule chain, detailed execution logs are recorded for each node handling messages,
+	// Provides granular visibility into execution flows.
 	Logs []RuleNodeRunLog `json:"logs"`
 	// AdditionalInfo is an extension field.
-	// AdditionalInfo 是扩展字段。
+	// AdditionalInfo is an extension field.
 	//
 	// Extensible field for storing custom metadata, monitoring data,
 	// or integration-specific information related to this execution.
-	// 用于存储与此执行相关的自定义元数据、监控数据或集成特定信息的可扩展字段。
+	// Extensible fields used to store custom metadata, monitoring data, or integrating specific information related to this execution.
 	AdditionalInfo map[string]interface{} `json:"additionalInfo,omitempty"`
 }
 
 // RuleNodeRunLog is the log for a node.
-// RuleNodeRunLog 是节点的日志。
+// RuleNodeRunLog is a log of a node.
 //
 // This structure captures detailed execution information for a single node
 // during rule chain processing, including input/output messages, timing,
 // errors, and custom log entries.
-// 此结构捕获规则链处理期间单个节点的详细执行信息，
-// 包括输入/输出消息、时序、错误和自定义日志条目。
+// This structure captures detailed execution information of individual nodes during rule chain processing,
+// Includes input/output messages, timing, errors, and custom log entries.
 //
 // Log Analysis Applications:
-// 日志分析应用：
+// Log Analysis Applications:
 //   - Performance bottleneck identification
-//     性能瓶颈识别
+//     Performance bottleneck identification
 //   - Message transformation tracking
-//     消息转换跟踪
+//     Message conversion tracking
 //   - Error pattern analysis
-//     错误模式分析
+//     Error pattern analysis
 //   - Compliance and audit reporting
-//     合规和审计报告
+//     Compliance and audit reports
 type RuleNodeRunLog struct {
 	// Id is the node ID.
-	// Id 是节点 ID。
+	// Id is the node ID.
 	//
 	// Identifier of the node that generated this log entry,
 	// corresponding to the node's ID in the rule chain definition.
-	// 生成此日志条目的节点标识符，
-	// 对应于规则链定义中节点的 ID。
+	// Generate node identifiers for this log entry,
+	// Corresponds to the node ID in the rule chain definition.
 	Id string `json:"nodeId"`
 	// InMsg is the input message.
-	// InMsg 是输入消息。
+	// InMsg is the input message.
 	//
 	// The message that was received by this node for processing,
 	// capturing the state before node execution.
-	// 此节点接收用于处理的消息，
-	// 捕获节点执行前的状态。
+	// This node receives messages used for processing,
+	// Captures the state of a node before execution.
 	InMsg RuleMsg `json:"inMsg"`
 	// OutMsg is the output message.
-	// OutMsg 是输出消息。
+	// OutMsg is the output message.
 	//
 	// The message that was produced by this node after processing,
 	// showing any transformations or modifications made.
-	// 此节点处理后产生的消息，
-	// 显示所做的任何转换或修改。
+	// The message generated by this node after processing,
+	// Displays any changes or transformations made.
 	OutMsg RuleMsg `json:"outMsg"`
 	// RelationType is the connection type with the next node.
-	// RelationType 是与下一个节点的连接类型。
+	// RelationType is the connection type to the next node.
 	//
 	// The relationship type that determined the routing of the output message
 	// to subsequent nodes in the rule chain.
-	// 决定输出消息路由到规则链中后续节点的关系类型。
+	// Determines the type of relationship for routing output messages to subsequent nodes in the rule chain.
 	RelationType string `json:"relationType"`
 	// Err is the error information.
-	// Err 是错误信息。
+	// ERR is misinformation.
 	//
 	// Textual representation of any error that occurred during node execution,
 	// useful for debugging and error analysis.
-	// 节点执行期间发生的任何错误的文本表示，
-	// 对于调试和错误分析很有用。
+	// Any error that occurs during node execution is represented in text,
+	// It is useful for debugging and error analysis.
 	Err string `json:"err"`
 	// LogItems are the logs during execution.
-	// LogItems 是执行期间的日志。
+	// LogItems are logs during execution.
 	//
 	// Custom log entries generated by the node during processing,
 	// providing detailed visibility into internal operations.
-	// 节点在处理期间生成的自定义日志条目，
-	// 提供对内部操作的详细可见性。
+	// Custom log entries generated by nodes during processing,
+	// Provides detailed visibility into internal operations.
 	LogItems []string `json:"logItems"`
 	// StartTs is the start time of execution.
-	// StartTs 是执行开始时间。
+	// StartTs is the execution start time.
 	//
 	// Timestamp when this node began processing the message.
-	// 此节点开始处理消息的时间戳。
+	// This node begins processing the message timestamp.
 	StartTs int64 `json:"startTs"`
 	// EndTs is the end time of execution.
-	// EndTs 是执行结束时间。
+	// EndTs is the execution end time.
 	//
 	// Timestamp when this node completed processing the message,
 	// used for calculating node-level execution duration.
-	// 此节点完成处理消息的时间戳，
-	// 用于计算节点级执行持续时间。
+	// This node completes the timestamp of the message processing,
+	// Used to calculate the duration of node-level execution.
 	EndTs int64 `json:"endTs"`
 }
 
 // EndpointDsl defines the DSL for an endpoint.
-// EndpointDsl 定义端点的 DSL。
+// EndpointDsl defines the DSL of the endpoint.
 //
 // EndpointDsl extends RuleNode with endpoint-specific functionality, combining
 // node behavior with external connectivity capabilities. It serves as the bridge
 // between external systems and rule chain processing logic.
-// EndpointDsl 扩展了 RuleNode，增加了端点特定功能，结合了
-// 节点行为和外部连接功能。它作为外部系统和规则链处理逻辑之间的桥梁。
+// EndpointDsl extends RuleNode, adding endpoint-specific features that combine
+// Node behavior and external connection functions. It serves as a bridge between the external system and the logic of the rule chain processing.
 //
 // Endpoint Architecture:
-// 端点架构：
+// Endpoint architecture:
 //   - Node foundation: Inherits all RuleNode capabilities
-//     节点基础：继承所有 RuleNode 功能
+//     Node Basics: Inherits all RuleNode functionality
 //   - Protocol handling: Support for various communication protocols
-//     协议处理：支持各种通信协议
+//     Protocol Processing: Supports various communication protocols
 //   - Request routing: Flexible routing based on request characteristics
-//     请求路由：基于请求特征的灵活路由
+//     Request routing: Flexible routing based on request characteristics
 //   - Processing pipeline: Configurable processors for request/response handling
-//     处理管道：请求/响应处理的可配置处理器
+//     Processing pipeline: a configurable processor for request/response processing
 //
 // Supported Protocols:
-// 支持的协议：
+// Supported protocols:
 //   - HTTP/HTTPS: REST APIs, webhooks, web services
-//     HTTP/HTTPS：REST API、webhook、Web 服务
+//     HTTP/HTTPS: REST API, webhooks, web services
 //   - MQTT: IoT messaging and device communication
-//     MQTT：IoT 消息传递和设备通信
+//     MQTT: IoT Messaging and Device Communication
 //   - WebSocket: Real-time bidirectional communication
-//     WebSocket：实时双向通信
+//     WebSocket: Real-time two-way communication
 //   - TCP/UDP: Custom protocol implementations
-//     TCP/UDP：自定义协议实现
+//     TCP/UDP: custom protocol implementation
 type EndpointDsl struct {
 	RuleNode
 	// Processors is the list of global processors for the endpoint.
 	// Using processors registered in builtin/processor#Builtins xx by name.
-	// Processors 是端点的全局处理器列表。
-	// 使用按名称在 builtin/processor#Builtins xx 中注册的处理器。
+	// Processors are a list of global processors at the endpoint.
+	// Use processors registered by name in builtin/processor#Builtins xx.
 	//
 	// Processors provide pre/post-processing capabilities for endpoint requests,
 	// enabling cross-cutting concerns like authentication, validation, logging,
 	// and format conversion to be applied consistently across all routes.
-	// 处理器为端点请求提供预/后处理功能，
-	// 使认证、验证、日志记录和格式转换等横切关注点
-	// 能够在所有路由中一致应用。
+	// The processor provides pre/post-processing functions for endpoint requests,
+	// Enables cross-section of concerns such as authentication, validation, logging, and format conversion
+	// Consistent application across all routes.
 	//
 	// Common Global Processors:
-	// 常见全局处理器：
+	// Common global processors:
 	//   - auth: Authentication and authorization
-	//     auth：认证和授权
+	//     auth: Certification and authorization
 	//   - validate: Request validation and sanitization
-	//     validate：请求验证和清理
+	//     validate: Requests for validation and cleanup
 	//   - cors: Cross-Origin Resource Sharing handling
-	//     cors：跨域资源共享处理
+	//     cors: Cross-domain resource sharing processing
 	//   - rateLimit: Request rate limiting and throttling
-	//     rateLimit：请求速率限制和节流
+	//     rateLimit: Request rate limit and throttling
 	//   - compress: Response compression
-	//     compress：响应压缩
+	//     compress: response compression
 	Processors []string `json:"processors"`
 
 	// Routers is the list of routers.
-	// Routers 是路由器列表。
+	// Routers is a list of routers.
 	//
 	// Routers define the specific routing rules that determine how incoming
 	// requests are matched and processed. Each router can have its own
 	// configuration, processors, and destination rules.
-	// 路由器定义确定传入请求如何匹配和处理的特定路由规则。
-	// 每个路由器可以有自己的配置、处理器和目标规则。
+	// Routers define specific routing rules that determine how incoming requests are matched and handled.
+	// Each router can have its own configuration, processor, and target rules.
 	//
 	// Router Organization:
-	// 路由器组织：
+	// Router organization:
 	//   - Pattern matching: URL patterns, method filtering, header matching
-	//     模式匹配：URL 模式、方法过滤、标头匹配
+	//     Pattern matching: URL patterns, method filtering, header matching
 	//   - Parameter extraction: Path variables, query parameters
-	//     参数提取：路径变量、查询参数
+	//     Parameter extraction: path variables, query parameters
 	//   - Content handling: Request/response format negotiation
-	//     内容处理：请求/响应格式协商
+	//     Content Processing: Negotiation of request/response formats
 	//   - Conditional routing: Dynamic routing based on request content
-	//     条件路由：基于请求内容的动态路由
+	//     Conditional routing: dynamic routing based on the content of the request
 	Routers []*RouterDsl `json:"routers"`
 }
 
 // RouterDsl defines a router for an endpoint.
-// RouterDsl 定义端点的路由器。
+// RouterDsl defines routers with endpoints.
 //
 // RouterDsl represents a single routing rule within an endpoint that defines
 // how specific requests should be processed and where they should be forwarded.
 // It provides fine-grained control over request matching, processing, and routing.
-// RouterDsl 表示端点内的单个路由规则，定义特定请求应如何处理以及应转发到何处。
-// 它提供对请求匹配、处理和路由的细粒度控制。
+// RouterDsl represents a single routing rule within an endpoint, defining how specific requests should be handled and where they should be forwarded.
+// It provides fine-grained control over request matching, processing, and routing.
 //
 // Routing Flow:
-// 路由流程：
+// Routing process:
 //  1. Request arrives at endpoint
-//     请求到达端点
+//     Request to reach the endpoint
 //  2. Router parameters match request characteristics
-//     路由器参数匹配请求特征
+//     Router parameters match request characteristics
 //  3. From configuration processes the request
-//     From 配置处理请求
+//     From configuration to handle requests
 //  4. Message is forwarded to To destination
-//     消息转发到 To 目标
+//     Messages are forwarded to To targets
 //  5. Response is processed and returned
-//     响应被处理并返回
+//     Responses are processed and returned
 //
 // Routing Strategies:
-// 路由策略：
+// Routing strategy:
 //   - Path-based: Route by URL path patterns
-//     基于路径：按 URL 路径模式路由
+//     Path-based: Route by URL path mode
 //   - Method-based: Route by HTTP methods (GET, POST, etc.)
-//     基于方法：按 HTTP 方法路由（GET、POST 等）
+//     Method-based: routing by HTTP method (GET, POST, etc.)
 //   - Header-based: Route by request headers or content types
-//     基于标头：按请求标头或内容类型路由
+//     Header-based: Route by request header or content type
 //   - Content-based: Route by request body content
-//     基于内容：按请求正文内容路由
+//     Content-based: routing content according to the requested body content
 type RouterDsl struct {
 	// Id is the router ID, optional and by default uses From.Path.
-	// Id 是路由器 ID，可选，默认使用 From.Path。
+	// Id is the router ID, optional, default uses From.Path.
 	//
 	// The ID provides a unique identifier for the router within the endpoint,
 	// useful for debugging, monitoring, and dynamic router management.
 	// If not specified, the system uses the From.Path as the identifier.
-	// ID 为端点内的路由器提供唯一标识符，
-	// 对于调试、监控和动态路由器管理很有用。
-	// 如果未指定，系统使用 From.Path 作为标识符。
+	// ID provides a unique identifier for routers within the endpoint,
+	// It is useful for debugging, monitoring, and dynamic router management.
+	// If not specified, the system uses From.Path as the identifier.
 	Id string `json:"id"`
 
 	// Params is the parameters for the router.
 	// HTTP Endpoint router params is POST/GET/PUT...
-	// Params 是路由器的参数。
-	// HTTP 端点路由器参数是 POST/GET/PUT...
+	// Params are the parameters of the router.
+	// The HTTP endpoint router parameters are POST/GET/PUT...
 	//
 	// Parameters define the matching criteria for incoming requests.
 	// The format and meaning of parameters depend on the endpoint type:
-	// 参数定义传入请求的匹配条件。
-	// 参数的格式和含义取决于端点类型：
+	// Parameters define the matching conditions for the incoming request.
+	// The format and meaning of parameters depend on the endpoint type:
 	//
 	// HTTP Parameters:
-	// HTTP 参数：
+	// HTTP parameters:
 	//   - HTTP methods: ["GET", "POST", "PUT", "DELETE"]
-	//     HTTP 方法：["GET", "POST", "PUT", "DELETE"]
+	//     HTTP method: ["GET", "POST", "PUT", "DELETE"]
 	//   - Content types: ["application/json", "text/plain"]
-	//     内容类型：["application/json", "text/plain"]
+	//     Content type: ["application/json", "text/plain"]
 	//
 	// MQTT Parameters:
-	// MQTT 参数：
+	// MQTT parameters:
 	//   - QoS levels: [0, 1, 2]
-	//     QoS 级别：[0, 1, 2]
+	//     QoS level: [0, 1, 2]
 	//   - Retained flag: [true, false]
-	//     保留标志：[true, false]
+	//     Reserve flag: [true, false]
 	Params []interface{} `json:"params"`
 
 	// From is the source for the router.
-	// From 是路由器的源。
+	// From is the source of the router.
 	//
 	// The From configuration defines how incoming requests are received,
 	// processed, and prepared for routing to the destination.
-	// From 配置定义如何接收、处理传入请求并为路由到目标做准备。
+	// The From configuration defines how to receive, process incoming requests, and prepare them for routing to the destination.
 	From FromDsl `json:"from"`
 
 	// To is the destination for the router.
-	// To 是路由器的目标。
+	// To is the router's target.
 	//
 	// The To configuration defines where processed requests should be forwarded
 	// and how responses should be handled and returned to the client.
-	// To 配置定义处理的请求应转发到何处，以及如何处理响应并返回给客户端。
+	// To configure the definition of where the processed request should be forwarded, how to handle the response, and how to return it to the client.
 	To ToDsl `json:"to"`
 
 	// AdditionalInfo is an extension field.
-	// AdditionalInfo 是扩展字段。
+	// AdditionalInfo is an extension field.
 	//
 	// This field provides extensibility for custom router metadata,
 	// monitoring data, or protocol-specific configuration.
-	// 此字段为自定义路由器元数据、监控数据或协议特定配置提供可扩展性。
+	// This field provides scalability for customizing router metadata, monitoring data, or protocol-specific configurations.
 	AdditionalInfo map[string]interface{} `json:"additionalInfo,omitempty"`
 }
 
 // FromDsl defines the source for an endpoint router.
-// FromDsl 定义端点路由器的源。
+// FromDsl defines the source of the endpoint router.
 //
 // FromDsl configures how incoming requests are received and initially processed
 // before being forwarded to the rule chain or component destination. It defines
 // the request reception pattern, processing pipeline, and data extraction rules.
-// FromDsl 配置如何接收和初始处理传入请求，然后转发到规则链或组件目标。
-// 它定义请求接收模式、处理管道和数据提取规则。
+// FromDsl configures how to receive and initially process incoming requests, then forward them to the rule chain or component target.
+// It defines request reception patterns, processing pipelines, and data extraction rules.
 //
 // Source Processing Pipeline:
-// 源处理管道：
+// Source treatment pipeline:
 //  1. Request reception: Accept incoming requests matching the path pattern
-//     请求接收：接受匹配路径模式的传入请求
+//     Request Reception: Accepts incoming requests that match the path pattern
 //  2. Preprocessing: Apply source-specific processors
-//     预处理：应用源特定处理器
+//     Preprocessing: Apply source-specific processors
 //  3. Data extraction: Extract relevant data from the request
-//     数据提取：从请求中提取相关数据
+//     Data extraction: extracting relevant data from requests
 //  4. Message creation: Create RuleMsg for rule chain processing
-//     消息创建：为规则链处理创建 RuleMsg
+//     Message creation: Creates a RuleMsg for rule chain processing
 //
 // Path Pattern Examples:
-// 路径模式示例：
+// Example of path pattern:
 //   - Static paths: "/api/users", "/webhook/github"
-//     静态路径："/api/users"、"/webhook/github"
+//     Static paths: "/api/users", "/webhook/github"
 //   - Parameterized: "/api/users/{id}", "/orders/{orderId}/items"
-//     参数化："/api/users/{id}"、"/orders/{orderId}/items"
+//     Parameterization: "/api/users/{id}", "/orders/{orderId}/items"
 //   - Wildcards: "/files/*", "/api/v1/**"
-//     通配符："/files/*"、"/api/v1/**"
+//     Wildcards: "/files/*", "/api/v1/**"
 //   - MQTT topics: "sensor/+/temperature", "devices/+/+/telemetry"
-//     MQTT 主题："sensor/+/temperature"、"devices/+/+/telemetry"
+//     MQTT topic: "sensor/+/temperature", "devices/+/+/telemetry"
 type FromDsl struct {
 	// Path is the path of the source.
-	// Path 是源的路径。
+	// Path is the path of the source.
 	//
 	// The path defines the pattern that incoming requests must match to be
 	// processed by this router. The format depends on the endpoint protocol:
-	// 路径定义传入请求必须匹配的模式才能被此路由器处理。
-	// 格式取决于端点协议：
+	// The path defines the mode that the incoming request must match before it can be processed by this router.
+	// The format depends on the endpoint protocol:
 	//
 	// HTTP Paths:
-	// HTTP 路径：
+	// HTTP path:
 	//   - Support path parameters with {} syntax
-	//     支持使用 {} 语法的路径参数
+	//     Supports path parameters using the {} syntax
 	//   - Wildcard matching with * and **
-	//     使用 * 和 ** 的通配符匹配
+	//     Use wildcards for * and ** to match
 	//   - Query parameter extraction
-	//     查询参数提取
+	//     Query parameter extraction
 	//
 	// MQTT Topics:
-	// MQTT 主题：
+	// MQTT Topic:
 	//   - Single-level wildcard: +
-	//     单级通配符：+
+	//     Single-level wildcard: +
 	//   - Multi-level wildcard: #
-	//     多级通配符：#
+	//     Multi-level wildcards: #
 	//   - Topic parameter extraction
-	//     主题参数提取
+	//     Topic parameter extraction
 	Path string `json:"path"`
 
 	// Configuration is the configuration for the source.
-	// Configuration 是源的配置。
+	// Configuration is the configuration of the source.
 	//
 	// Source-specific configuration that controls how requests are received
 	// and initially processed. Common configurations include timeouts,
 	// buffer sizes, validation rules, and protocol-specific settings.
-	// 控制如何接收和初始处理请求的源特定配置。
-	// 常见配置包括超时、缓冲区大小、验证规则和协议特定设置。
+	// Controls the source-specific configuration for how requests are received and initially processed.
+	// Common configurations include timeout, buffer size, validation rules, and protocol-specific settings.
 	//
 	// HTTP Configuration:
-	// HTTP 配置：
+	// HTTP configuration:
 	//   - maxRequestSize: Maximum request body size
-	//     maxRequestSize：最大请求正文大小
+	//     maxRequestSize: Maximum body size of the request
 	//   - timeout: Request timeout duration
-	//     timeout：请求超时持续时间
+	//     timeout: Duration of the request timeout
 	//   - cors: CORS policy configuration
-	//     cors：CORS 策略配置
+	//     cors: CORS policy configuration
 	//
 	// MQTT Configuration:
-	// MQTT 配置：
+	// MQTT configuration:
 	//   - qos: Quality of Service level
-	//     qos：服务质量级别
+	//     QoS (QOS): Service Quality Level
 	//   - retained: Message retention flag
-	//     retained：消息保留标志
+	//     retained: message retention flag
 	//   - clientId: MQTT client identifier
-	//     clientId：MQTT 客户端标识符
+	//     clientId: MQTT client identifier
 	Configuration Configuration `json:"configuration"`
 
 	// Processors is the list of processors for the source.
 	// Using processors registered in builtin/processor#Builtins xx by name.
-	// Processors 是源的处理器列表。
-	// 使用按名称在 builtin/processor#Builtins xx 中注册的处理器。
+	// Processors are a list of processors from the source.
+	// Use processors registered by name in builtin/processor#Builtins xx.
 	//
 	// Source processors handle request preprocessing before the message
 	// is forwarded to the destination. They can modify, validate, or
 	// enrich the incoming request data.
-	// 源处理器在消息转发到目标之前处理请求预处理。
-	// 它们可以修改、验证或丰富传入的请求数据。
+	// The source processor handles request preprocessing before the message is forwarded to the destination.
+	// They can modify, validate, or enrich incoming request data.
 	//
 	// Common Source Processors:
-	// 常见源处理器：
+	// Common source processors:
 	//   - auth: Authentication verification
-	//     auth：认证验证
+	//     auth: Authentication verification
 	//   - validate: Request validation
-	//     validate：请求验证
+	//     validate: Request validation
 	//   - transform: Data format transformation
-	//     transform：数据格式转换
+	//     transform: Data format conversion
 	//   - enrich: Data enrichment from external sources
-	//     enrich：来自外部源的数据丰富
+	//     enrich: Rich data from external sources
 	Processors []string `json:"processors"`
 }
 
 // ToDsl defines the destination for an endpoint router.
-// ToDsl 定义端点路由器的目标。
+// ToDsl defines the endpoint router's target.
 //
 // ToDsl configures where processed requests should be forwarded and how
 // responses should be handled. It supports various destination types including
 // rule chains, components, and external services, with flexible response handling.
-// ToDsl 配置处理的请求应转发到何处以及如何处理响应。
-// 它支持各种目标类型，包括规则链、组件和外部服务，具有灵活的响应处理。
+// ToDsl configures where requests to be forwarded and how to handle responses.
+// It supports various target types, including rule chains, components, and external services, offering flexible response handling.
 //
 // Destination Types:
-// 目标类型：
+// Target types:
 //   - Rule chains: Forward to complete rule processing workflows
-//     规则链：转发到完整的规则处理工作流
+//     Rule chain: forwards to the complete rule processing workflow
 //   - Components: Direct component execution
-//     组件：直接组件执行
+//     Components: Directly executed by components
 //   - External services: Proxy to external APIs
-//     外部服务：代理到外部 API
+//     External services: Proxy to external APIs
 //   - Custom handlers: User-defined processing logic
-//     自定义处理程序：用户定义的处理逻辑
+//     Custom handler: User-defined processing logic
 //
 // Response Handling:
-// 响应处理：
+// Response Handling:
 //   - Synchronous: Wait for processing completion and return response
-//     同步：等待处理完成并返回响应
+//     Synchronous: Wait for processing to finish and return a response
 //   - Asynchronous: Fire-and-forget processing
-//     异步：即发即忘处理
+//     Asynchronous: Instant forgetting and handling immediately
 //   - Streaming: Real-time response streaming
-//     流式：实时响应流
+//     Stream: Real-time response flow
 //   - Callback: Response via callback mechanisms
-//     回调：通过回调机制的响应
+//     Callback: Response through the callback mechanism
 type ToDsl struct {
 	// Path is the path of the executor for the destination.
 	// For example, "chain:default" to execute by a rule chain for `default`, "component:jsTransform" to execute a JS transform component.
-	// Path 是目标执行器的路径。
-	// 例如，"chain:default" 表示由 `default` 规则链执行，"component:jsTransform" 表示执行 JS 转换组件。
+	// Path is the path of the target executor.
+	// For example, "chain:default" means executed by `default` rule chains, "component:jsTransform" means executing JS conversion components.
 	//
 	// Path Format and Examples:
-	// 路径格式和示例：
+	// Path format and examples:
 	//   - Rule chain execution: "chain:{chainId}"
-	//     规则链执行："chain:{chainId}"
+	//     Rule chain execution: "chain:{chainId}"
 	//   - Component execution: "component:{componentType}"
-	//     组件执行："component:{componentType}"
+	//     Component executes: "component:{componentType}"
 	//   - Node execution: "node:{nodeId}"
-	//     节点执行："node:{nodeId}"
+	//     Node executes: "node:{nodeId}"
 	//   - External service: "http://external-api.com/endpoint"
-	//     外部服务："http://external-api.com/endpoint"
+	//     External Services: "http://external-api.com/endpoint"
 	//   - Custom handler: "handler:{handlerName}"
-	//     自定义处理程序："handler:{handlerName}"
+	//     Custom handler: "handler:{handlerName}"
 	//
 	// The path determines how the rule engine interprets and routes
 	// the processed message for execution.
-	// 路径决定规则引擎如何解释和路由处理的消息以供执行。
+	// The path determines how the rule engine interprets and routes messages for execution.
 	Path string `json:"path"`
 
 	// Configuration is the configuration for the destination.
-	// Configuration 是目标的配置。
+	// Configuration is the configuration of the target.
 	//
 	// Destination-specific configuration that controls how the message
 	// is processed at the destination and how responses are handled.
-	// 控制消息在目标处如何处理以及如何处理响应的目标特定配置。
+	// Control how messages are handled at the target and how to address the specific configuration of the response.
 	//
 	// Common Configuration Options:
-	// 常见配置选项：
+	// Common configuration options:
 	//   - timeout: Processing timeout duration
-	//     timeout：处理超时持续时间
+	//     timeout: Handles timeout duration
 	//   - retries: Number of retry attempts on failure
-	//     retries：失败时的重试次数
+	//     retries: Number of retries upon failure
 	//   - headers: Additional headers for external services
-	//     headers：外部服务的附加标头
+	//     Headers: Additional headers for external services
 	//   - authentication: Authentication credentials
-	//     authentication：认证凭据
+	//     authentication: authentication credentials
 	Configuration Configuration `json:"configuration"`
 
 	// Wait indicates whether to wait for the 'To' executor to finish before proceeding.
-	// Wait 表示是否等待 'To' 执行器完成后再继续。
+	// Wait indicates whether to wait for the 'To' actuator to finish before continuing.
 	//
 	// This flag controls the execution mode and response handling:
-	// 此标志控制执行模式和响应处理：
+	// This flag controls execution mode and response handling:
 	//
 	// Synchronous (Wait = true):
-	// 同步（Wait = true）：
+	// Synchronization (Wait = true):
 	//   - Wait for destination processing to complete
-	//     等待目标处理完成
+	//     Wait for the target processing to complete
 	//   - Return the actual processing result to client
-	//     向客户端返回实际处理结果
+	//     Returns the actual processing result to the client
 	//   - Higher latency but guaranteed response
-	//     较高延迟但保证响应
+	//     High latency but guaranteed responsiveness
 	//   - Suitable for request-response patterns
-	//     适用于请求-响应模式
+	//     Suitable for request-response mode
 	//
 	// Asynchronous (Wait = false):
-	// 异步（Wait = false）：
+	// Asynchronous (Wait = false):
 	//   - Immediately return acknowledgment to client
-	//     立即向客户端返回确认
+	//     Immediately return the acknowledgment to the client
 	//   - Process request in background
-	//     在后台处理请求
+	//     Handle requests in the background
 	//   - Lower latency but fire-and-forget
-	//     较低延迟但即发即忘
+	//     Lower latency but instant forgetfulness
 	//   - Suitable for event processing and webhooks
-	//     适用于事件处理和 webhook
+	//     Suitable for event handling and webhooks
 	Wait bool `json:"wait"`
 
 	// Processors is the list of processors for the destination.
 	// Using processors registered in builtin/processor#Builtins xx by name.
-	// Processors 是目标的处理器列表。
-	// 使用按名称在 builtin/processor#Builtins xx 中注册的处理器。
+	// Processors are the list of processors for the target.
+	// Use processors registered by name in builtin/processor#Builtins xx.
 	//
 	// Destination processors handle response postprocessing after the
 	// destination has completed processing. They can transform, format,
 	// or enhance the response before it's returned to the client.
-	// 目标处理器在目标完成处理后处理响应后处理。
-	// 它们可以在响应返回给客户端之前转换、格式化或增强响应。
+	// The target processor responds to post-processing after the target completes processing.
+	// They can convert, format, or enhance responses before they are returned to the client.
 	//
 	// Common Destination Processors:
-	// 常见目标处理器：
+	// Common target processors:
 	//   - format: Response format conversion (JSON, XML, etc.)
-	//     format：响应格式转换（JSON、XML 等）
+	//     format: Response format conversion (JSON, XML, etc.)
 	//   - cache: Response caching
-	//     cache：响应缓存
+	//     cache: response cache
 	//   - compress: Response compression
-	//     compress：响应压缩
+	//     compress: response compression
 	//   - audit: Response auditing and logging
-	//     audit：响应审计和日志记录
+	//     audit: Response audit and log recording
 	//   - metrics: Performance metrics collection
-	//     metrics：性能指标收集
+	//     metrics: Collection of performance metrics
 	Processors []string `json:"processors"`
 }

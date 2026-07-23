@@ -37,21 +37,21 @@ type RuleGoClaim struct {
 	jwt.StandardClaims
 }
 
-// userNotFound 用户不存在
+// userNotFound user does not exist
 func userNotFound(username string, exchange *endpointApi.Exchange) bool {
 	exchange.Out.SetStatusCode(http.StatusBadRequest)
 	exchange.Out.SetBody([]byte("no found username for:" + username))
 	return false
 }
 
-// unauthorized 用户未授权
+// unauthorized user is not authorized
 func unauthorized(username string, exchange *endpointApi.Exchange) bool {
 	exchange.Out.SetStatusCode(http.StatusUnauthorized)
 	exchange.Out.SetBody([]byte("unauthorized for:" + username))
 	return false
 }
 
-// GetRuleGoFunc 动态获取指定用户规则链池
+// GetRuleGoFunc dynamically retrieves the specified user's rule chain pool
 func GetRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEnginePool {
 	msg := exchange.In.GetMsg()
 	username := msg.Metadata.GetValue(constants.KeyUsername)
@@ -71,24 +71,24 @@ var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange
 		metadata = r.GetMetadata()
 	}
 
-	// 先从 header 获取 authorization
+	// First, get authorization from the header
 	authorization := exchange.In.Headers().Get(constants.KeyAuthorization)
 
 	if !config.Get().RequireAuth && authorization == "" {
-		//允许匿名访问
+		//Anonymous access is allowed
 		if metadata != nil {
 			metadata.PutValue(constants.KeyUsername, config.C.DefaultUsername)
 		}
 		return true
 	}
-	username := getUsernameApiKey(authorization) // "Bearer api_key" 方式
+	username := getUsernameApiKey(authorization) // The "Bearer api_key" approach
 	if username != "" {
 		if metadata != nil {
 			metadata.PutValue(constants.KeyUsername, username)
 		}
 		return true
 	} else {
-		claim, err := parseToken(authorization) // "Bearer jwt" 方式
+		claim, err := parseToken(authorization) // The "Bearer jwt" approach
 		if err != nil {
 			exchange.Out.SetStatusCode(http.StatusUnauthorized)
 			exchange.Out.SetBody([]byte(err.Error()))
@@ -103,7 +103,7 @@ var AuthProcess = func(router endpointApi.Router, exchange *endpointApi.Exchange
 }
 
 func GetComponentsFromMarketplace(baseUrl, keywords string, root *bool, currentPage, size int) (ComponentList, error) {
-	// 构造查询参数
+	// Construct query parameters
 	params := url.Values{}
 	params.Add(constants.KeyKeywords, keywords)
 	params.Add(constants.KeyPage, strconv.Itoa(currentPage))
@@ -112,10 +112,10 @@ func GetComponentsFromMarketplace(baseUrl, keywords string, root *bool, currentP
 		params.Add(constants.KeyRoot, strconv.FormatBool(*root))
 	}
 
-	// 拼接完整的 URL
+	// Stitch together the complete URL
 	fullURL := baseUrl + "?" + params.Encode()
 
-	// 发送 GET 请求
+	// Send a GET request
 	resp, err := http.Get(fullURL)
 	if err != nil {
 		return ComponentList{}, err
@@ -171,8 +171,8 @@ func (c *base) Login(url string) endpointApi.Router {
 				claim := RuleGoClaim{
 					Username: user.Username,
 					StandardClaims: jwt.StandardClaims{
-						ExpiresAt: time.Now().Add(time.Duration(config.C.JwtExpireTime) * time.Millisecond).Unix(), // 设置 Token 过期时间
-						Issuer:    config.C.JwtIssuer,                                                              // 设置 Token 的签发者
+						ExpiresAt: time.Now().Add(time.Duration(config.C.JwtExpireTime) * time.Millisecond).Unix(), // Set the token expiration time
+						Issuer:    config.C.JwtIssuer,                                                              // Set the issuer of the token
 					},
 				}
 				token, err := createToken(claim)
@@ -201,7 +201,7 @@ func (c *base) Login(url string) endpointApi.Router {
 }
 
 func createToken(claim jwt.Claims) (*string, error) {
-	// 创建 JWT Token
+	// Create a JWT Token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claim)
 	tokenString, err := token.SignedString([]byte(config.Get().JwtSecretKey))
 	if err != nil {

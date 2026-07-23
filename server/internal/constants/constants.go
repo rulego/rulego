@@ -1,17 +1,17 @@
 package constants
 
 const (
-	// DirWorkflows 工作流目录
+	// DirWorkflows workflow directory
 	DirWorkflows          = "workflows"
 	DirPublic             = "public"
 	DirWorkflowsRun       = "runs"
 	DirWorkflowsRule      = "rules"
 	DirWorkflowsComponent = "components"
-	// DirSystem 系统级数据目录
+	// DirSystem system-level data directory
 	DirSystem = "system"
-	// DirSystemAgents 系统级内置智能体目录
+	// DirSystemAgents system-level built-in agent directory
 	DirSystemAgents = "system/agents"
-	// FileNameIndex 索引文件名
+	// FileNameIndex indexes the filename
 	FileNameIndex = "index"
 )
 
@@ -37,7 +37,7 @@ const (
 	KeyFilePathWhitelist = "filePathWhitelist"
 )
 
-// 查询参数名
+// Query parameter names
 const (
 	ParamMsgId             = "_msgId"
 	ParamHeadersToMetadata = "_headersToMetadata"
@@ -47,43 +47,43 @@ const (
 	ParamRootChainId       = "_rootChainId"
 )
 
-// 元数据键
+// Metadata key
 const (
 	MetaApiKey   = "apiKey"
 	MetaStream   = "stream"
 	MetaDebugKey = "debug_"
 )
 
-// 路由路径
+// Routing paths
 const (
-	PathHealth   = "/health"
-	PathEditor   = "/editor/"
-	PathLogin    = "/login"
-	PathApi      = "/api/"
+	PathHealth = "/health"
+	PathEditor = "/editor/"
+	PathLogin  = "/login"
+	PathApi    = "/api/"
 )
 
-// 认证相关
+// Certification-related
 const (
 	BearerPrefix = "Bearer "
 )
 
-// 消息类型
+// Message type
 const (
 	MsgTypeChatCompletions = "chat.completions"
 )
 
-// 容器中的服务名
+// The service name inside the container
 const (
-	SvcRuleCatalog      = "module.rule.catalog"
-	SvcRuleExecutor     = "module.rule.executor"
-	SvcRuleManager      = "module.rule.manager"
+	SvcRuleCatalog       = "module.rule.catalog"
+	SvcRuleExecutor      = "module.rule.executor"
+	SvcRuleManager       = "module.rule.manager"
 	SvcRuleEngineManager = "module.rule.engine_manager"
-	SvcNodeService      = "module.node.service"
-	SvcRunLogService    = "module.runlog.service"
-	SvcLocaleService    = "module.locale.service"
-	SvcMarketplaceSvc   = "module.marketplace.service"
-	SvcMcpService       = "module.mcp.service"
-	SvcConfigService    = "module.system.settings"
+	SvcNodeService       = "module.node.service"
+	SvcRunLogService     = "module.runlog.service"
+	SvcLocaleService     = "module.locale.service"
+	SvcMarketplaceSvc    = "module.marketplace.service"
+	SvcMcpService        = "module.mcp.service"
+	SvcConfigService     = "module.system.settings"
 )
 
 const (

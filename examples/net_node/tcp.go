@@ -25,7 +25,7 @@ import (
 
 var ruleEngine types.RuleEngine
 
-// 初始化规则引擎实例和配置
+// Initialize the rule engine instance and configuration
 func init() {
 	config := rulego.NewConfig()
 	var err error
@@ -35,7 +35,7 @@ func init() {
 	}
 }
 
-// 测试tcp节点
+// Test TCP nodes
 func main() {
 
 	metaData := types.NewMetadata()

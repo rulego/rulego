@@ -23,7 +23,7 @@ func (c *mcp) Handler(url string) endpointApi.Router {
 		}
 
 		if config.Get().RequireAuth && username == "" {
-			//不允许匿名访问
+			//Anonymous access is not allowed
 			return unauthorized(username, exchange)
 		} else if username == "" {
 			username = config.C.DefaultUsername

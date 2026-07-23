@@ -16,7 +16,7 @@ func TestDefaultAuthenticator_APIKey(t *testing.T) {
 
 	auth := NewDefaultAuthenticator(&cfg)
 
-	// 有效 API Key
+	// Valid API Key
 	ctx, err := auth.Authenticate("Bearer my-api-key")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -25,13 +25,13 @@ func TestDefaultAuthenticator_APIKey(t *testing.T) {
 		t.Errorf("username = %q, want %q", ctx.Username, "testuser")
 	}
 
-	// 无效 API Key
+	// Invalid API Key
 	_, err = auth.Authenticate("Bearer wrong-key")
 	if err == nil {
 		t.Error("expected error for invalid API key")
 	}
 
-	// 空 authorization
+	// Authorization
 	_, err = auth.Authenticate("")
 	if err == nil {
 		t.Error("expected error for empty authorization")
@@ -44,7 +44,7 @@ func TestDefaultAuthenticator_JWT(t *testing.T) {
 
 	auth := NewDefaultAuthenticator(&cfg)
 
-	// 创建有效 JWT
+	// Create a valid JWT
 	expiresAt := time.Now().Add(1 * time.Hour)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, ruleGoClaim{
 		Username: "jwtuser",
@@ -58,7 +58,7 @@ func TestDefaultAuthenticator_JWT(t *testing.T) {
 		t.Fatalf("failed to create token: %v", err)
 	}
 
-	// 有效 JWT
+	// Valid JWT
 	ctx, err := auth.Authenticate("Bearer " + tokenStr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -67,7 +67,7 @@ func TestDefaultAuthenticator_JWT(t *testing.T) {
 		t.Errorf("username = %q, want %q", ctx.Username, "jwtuser")
 	}
 
-	// 过期 JWT
+	// Expired JWT
 	expiredToken := jwt.NewWithClaims(jwt.SigningMethodHS256, ruleGoClaim{
 		Username: "expired",
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -81,7 +81,7 @@ func TestDefaultAuthenticator_JWT(t *testing.T) {
 		t.Error("expected error for expired token")
 	}
 
-	// 无效签名
+	// Invalid signatures
 	_, err = auth.Authenticate("Bearer invalid-token-string")
 	if err == nil {
 		t.Error("expected error for invalid token")
@@ -95,7 +95,7 @@ func TestDefaultAuthenticator_Priority(t *testing.T) {
 
 	auth := NewDefaultAuthenticator(&cfg)
 
-	// API Key 优先于 JWT（当 API Key 匹配时直接返回）
+	// API Key takes precedence over JWT (returns directly when API Key matches)
 	ctx, err := auth.Authenticate("Bearer my-key")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -109,7 +109,7 @@ func TestDefaultAuthorizer_AllowAll(t *testing.T) {
 	authz := NewDefaultAuthorizer()
 	user := &model.UserContext{Username: "testuser", Roles: []string{"viewer"}}
 
-	// 所有操作都应放行
+	// All operations should be allowed to proceed
 	resources := []string{"rule", "component", "config", "log", "locale", "marketplace"}
 	actions := []string{"read", "write", "delete", "execute", "operate", "access"}
 
@@ -125,13 +125,13 @@ func TestDefaultAuthorizer_AllowAll(t *testing.T) {
 func TestDefaultAuthorizer_NilUser(t *testing.T) {
 	authz := NewDefaultAuthorizer()
 
-	// nil user 也不应 panic
+	// nil users shouldn't panic either
 	if err := authz.Authorize(nil, "rule", "read"); err != nil {
 		t.Errorf("Authorize(nil, ...) = %v, want nil", err)
 	}
 }
 
-// customAuthorizer 用于测试自定义授权器
+// customAuthorizer is used to test custom authorizers
 type customAuthorizer struct {
 	denied map[string]bool
 }
@@ -156,8 +156,8 @@ func (e *PermissionDeniedError) Error() string {
 func TestCustomAuthorizer(t *testing.T) {
 	authz := &customAuthorizer{
 		denied: map[string]bool{
-			"rule:delete":    true,
-			"config:write":   true,
+			"rule:delete":     true,
+			"config:write":    true,
 			"component:write": true,
 		},
 	}
@@ -206,14 +206,14 @@ func TestUserContext_Fields(t *testing.T) {
 }
 
 func TestAuthenticatorInterface(t *testing.T) {
-	// 验证 DefaultAuthenticator 实现了 Authenticator 接口
+	// Verifying DefaultAuthenticator implements the Authenticator interface
 	var _ interface {
 		Authenticate(authorization string) (*model.UserContext, error)
 	} = &DefaultAuthenticator{}
 }
 
 func TestAuthorizerInterface(t *testing.T) {
-	// 验证 DefaultAuthorizer 实现了 Authorizer 接口
+	// Verify that DefaultAuthorizer implements the Authorizer interface
 	var _ interface {
 		Authorize(user *model.UserContext, resource, action string) error
 	} = &DefaultAuthorizer{}

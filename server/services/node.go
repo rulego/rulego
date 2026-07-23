@@ -5,13 +5,13 @@ import (
 	"github.com/rulego/rulego/node_pool"
 )
 
-// ComponentCatalog 组件目录服务接口
+// ComponentCatalog Component directory service interface
 type ComponentCatalog interface {
 	List(keywords string, size, page int) ([]types.RuleChain, int, error)
 	Get(nodeType string) ([]byte, error)
 }
 
-// ComponentAdmin 组件管理服务接口
+// ComponentAdmin Component Management Service interface
 type ComponentAdmin interface {
 	Install(id string, dsl []byte) error
 	Upgrade(id string, dsl []byte) error
@@ -20,21 +20,21 @@ type ComponentAdmin interface {
 	ComponentsRegistry() types.ComponentRegistry
 }
 
-// McpToolService MCP 工具服务接口，用于组件安装/卸载时同步 MCP 工具
+// McpToolService MCP tool interface is used to synchronize MCP tools during component installation/uninstallation
 type McpToolService interface {
-	// AddToolsFromComponent 从组件定义添加 MCP 工具，scoped to user
+	// AddToolsFromComponent: Adds MCP tools from component definitions, scoped to user
 	AddToolsFromComponent(username, componentType string, def types.ComponentForm)
-	// DeleteTools 删除 MCP 工具，scoped to user
+	// DeleteTools Removes MCP tools, scoped to user
 	DeleteTools(username string, names ...string)
 }
 
-// NodePoolCatalog 节点池目录接口
+// NodePoolCatalog The node pool directory interface
 type NodePoolCatalog interface {
 	List(page, size int, keywords, category string) ([]interface{}, int, error)
 	Get(id, nodeType string) (*types.RuleNode, error)
 }
 
-// NodePoolAdmin 节点池管理接口
+// NodePoolAdmin Node pool management interface
 type NodePoolAdmin interface {
 	SaveNode(node types.RuleNode) error
 	SaveEndpoint(endpoint types.EndpointDsl) error
@@ -43,7 +43,7 @@ type NodePoolAdmin interface {
 	GetPool() *node_pool.NodePool
 }
 
-// NodeService 节点服务门面，提供按用户隔离的组件和节点池管理
+// NodeService is the node service storefront, providing user-isolated component and node pool management
 type NodeService interface {
 	// Component operations
 	ListComponents(username, keywords string, size, page int) ([]types.RuleChain, int, error)

@@ -2,650 +2,650 @@
 
 # [v0.36.0] 2026/06/01
 ### rulego-core
-- feat(engine): 增加 Stream 关系类型，支持同步执行流 (#63)
-- feat(endpoint): 增加 SSE 流式推送支持、ScopedMessage 代理和 NetClient/WsClient 端点组件
-- feat(endpoint): rest endpoint 增加 Restart 事件
-- feat(node): 支持递归变量替换和规则链环境变量注入
-- feat(schedule): 支持自定义消息体、类型和元数据参数
-- feat(template): 增加 include 和 fileExists 内置函数
-- feat(maps): 支持 struct 字段访问和回退键查找
-- feat(logger): 重构 Logger 接口，支持日志级别
-- feat: 增加 MCP 工具提供者接口，支持 AI 工具集成；增加 GetUdf/GetUdfs 方法和 AiTool 脚本类型
-- feat(dsl): 增强节点引用提取和字段支持
-- feat(components): 增加 while 节点组件，支持 mode 配置
-- feat(components): cacheGet 节点增加 whenKeyNotFound 配置；cachePut 组件在 outputMode=2 且缓存 key 不存在时路由到 Failure 链 (#104)
-- feat: 完善组件配置表单元数据（JSON 标签、label、ref 标签、RouterForm 和共享节点支持）
-- feat: 支持 per-message debugMode 和 skip-tell-next 控制；预计算链路级别 debugMode
-- feat: 默认字段名标签改为 'json'；支持嵌套结构体扁平化在组件表单配置中
-- feat: GetEnv 支持访问全局 vars 变量
-- feat(dbClient): 增加 IN 子句切片参数展开
-- feat: NodePool.LoadFromRuleChain 跳过已加载条目
-- fix: 修复 JoinNode 超时失败、LCA 算法导致死锁、回调提前触发和元数据未合并等问题
-- fix: 修复 endpoint 节点重复写入
-- fix: 修复全局变量在 endpoint 组件 router 字段不生效 (#93)
-- fix: 修复 metadataToHeaders 处理器在 fasthttp 下不生效 (#95)
-- fix: 修复 ${ } 占位符在 inclusive/switch 节点中的支持
-- fix: 确保 ruleChainPool 传递到 rootRuleContext；传播父 ruleConfig 到动态组件子规则引擎
-- fix: 修复并发分支数据竞争、websocket 并发写入和结果切片竞争问题
-- refactor(cache): 重构 Cache.Get 签名，返回 (interface{}, error)
-- refactor: 不序列化函数体
-- perf: 优化文件操作函数
-- chore: 升级 expr-lang/expr 到 v1.17.8
+- feat(engine): Added Stream relationship types, supporting synchronous execution streams (#63)
+- feat(endpoint): Added SSE streaming push support, ScopedMessage proxy, and NetClient/WsClient endpoint components
+- feat(endpoint): rest endpoint Increases Restart events
+- feat(node): Supports recursive variable replacement and rule chain environment variable injection
+- feat(schedule): Supports custom message bodies, types, and metadata parameters
+- feat(template): Adds built-in functions for include and fileExists
+- feat(maps): Supports struct field access and backkey lookup
+- feat(logger): Refactoring Logger interface, supports log level
+- feat: Added MCP tool provider interface to support AI tool integration; Added GetUdf/GetUdfs methods and AiTool script types
+- feat(dsl): Enhanced node reference extraction and field support
+- feat(components): Adds while node components, supporting mode configuration
+- feat(components): cacheGet node adds whenKeyNotFound configuration; cachePut Routing components to Failure chain when outputMode=2 and cache key does not exist (#104)
+- feat: Improved component configuration form metadata (JSON labels, label, ref labels, RouterForm, and shared node support)
+- feat: supports per-message debugMode and skip-tell-next controls; Precompute link level debugMode
+- feat: Change the default field name tag to 'json'; Supports nested structure flattening in component form configuration
+- feat: GetEnv Supports access to global vars variables
+- feat(dbClient): Adds IN clause slice parameter expansion
+- feat: NodePool.LoadFromRuleChain Skip loaded entries
+- fix: Fixed JoinNode timeout failures, LCA algorithms causing deadlocks, premature callback triggers, and metadata not merged
+- fix: Fixed duplicate writes on endpoint nodes
+- fix: Fixed global variables not working in router fields of endpoint components (#93)
+- fix: Fixed metadataToHeaders processors not working under fasthttp (#95)
+- fix: Fixed support for the ${ } placeholder in inclusive/switch nodes
+- fix: Ensure ruleChainPool is passed to rootRuleContext; Propagate parent ruleConfig to the dynamic component subrule engine
+- fix: Fixed concurrent branch data contention, websocket concurrent write, and result slicing contention
+- refactor(cache): Refactor Cache.Get signature, return (interface{}, error)
+- refactor: Do not serialize function bodies
+- perf: Optimized file operation functions
+- chore: upgrade expr-lang/expr to v1.17.8
 ### rulego-components
-- feat(nsq): 实现 NSQD 多节点轮询发布与容错机制
-- feat: 增加 python 节点组件
-- feat: 增加文件操作节点组件（读、写、删除、列表）
-- feat: fasthttp endpoint 增加 restart 事件
-- feat: 完善 SharedNode 组件配置的 ref 标签，支持共享连接
-- opt: mongodb 客户端组件支持 ObjectId 自动转换
-- refactor(lua): 重构 lua 组件到 transform/lua 目录，适配 Cache.Get 签名变更
-- fix: 修复流式模式下 ctx.Response 数据竞争
-- chore: 升级依赖
+- feat(nsq): Implements NSQD multi-node polling release and fault tolerance mechanism
+- feat: Added python node components
+- feat: Added file operation node components (read, write, delete, list)
+- feat: fasthttp endpoint Increase restart events
+- feat: Refined ref tags configured with SharedNode components, supporting shared connections
+- opt: mongodb client components support ObjectId automatic conversion
+- refactor(lua): Refactoring lua components to the transform/lua directory and adapting Cache.Get signature changes
+- fix: Fixed ctx.Response data contention in streaming mode
+- chore: Upgrade dependencies
 ### rulego-components-ai
-- feat: 转型为全功能 AI Agent 框架，增加 ReAct Agent 循环、Tool Agent 和 Agent 工厂
-- feat: 增加 10 个 AOP 切面（日志、会话、可视化等），支持 Agent 执行生命周期拦截
-- feat: 增加统一工具抽象层：bash、read、write、edit、browseruse、mcp、skill 等内置工具
-- feat: 增加 MCP 双向协议支持（客户端 + 服务端）
-- feat: 增加意图识别模块和多维度会话管理系统
-- feat: 增加 OpenAI 流式处理器、Embedding 客户端和相似度计算
-- feat: 增加动态模型选择、重试模型和多模态视觉支持
-- feat: 增加 Skill 技能系统，支持通过规则链编排 AI 工具调用
+- feat: transform into a full-function AI Agent framework, adding ReAct Agent cycles, Tool Agent, and Agent plants
+- feat: Added 10 AOP aspects (logging, sessions, visualization, and more) to intercept the agent lifecycle
+- feat: Added unified tool abstraction layer: bash, read, write, edit, browseruse, mcp, skill, and other built-in tools
+- feat: Added MCP Bidirectional protocol support (client + server)
+- feat: Added intent recognition modules and multi-dimensional session management systems
+- feat: Added OpenAI stream processors, Embedding clients, and similarity calculations
+- feat: Added dynamic model selection, model retrying, and multimodal vision support
+- feat: Added Skill skill system to support AI tool calls orchestrated through rule chains
 ### rulego-components-iot
-- feat: 增加串口通信组件
-- feat(modbus): 增加运行时配置持久化和分级日志；完善组件表单字段标签配置
-- fix(modbus): 修复重连失败、惊群问题、多寄存器地址步进错误和共享节点池模式下的连接管理问题
-- chore: 升级依赖
+- feat: Added serial communication components
+- feat(modbus): Adds runtime configuration persistence and hierarchical logging; Improved component form field label configuration
+- fix(modbus): Fixed reconnection failures, Shock group issues, incorrect multi-register address stepping, and connection management issues in shared node pool mode
+- chore: Upgrade dependencies
 ### rulego-server
-- feat: server 从 examples/server 提升为架构级独立模块，作为 RuleGo 自动化工作流平台独立部署
-- feat: 增加文件操作和串口通信组件支持
-- feat(ci): 增加 32 位 Linux 构建目标和 server 模块 CI 工作流
-- fix: 启动失败后保持规则链启用状态 (#97 #98)
-- fix: 修复 32 位系统编译失败和空指针问题
-- fix: 修复组件市场列表 API 缺少 installed 字段
-- chore: 升级依赖；标记旧 examples/server 为废弃
+- feat: server Upgraded from examples/server to architecture-level standalone modules, deployed independently as RuleGo automation workflow platforms
+- feat: Added support for file operations and serial communication components
+- feat(ci): Added 32-bit Linux build goals and server modules CI workflow
+- fix: Keep the rule chain enabled after failed startup (#97 #98)
+- fix: Fixed 32-bit system compilation failures and null pointer issues
+- fix: Fixed the missing installed field in the component market listing API
+- chore: Upgrade dependencies; Mark old examples/server as obsolete
 
 # [v0.35.0] 2025/12/18
 ### rulego-core
-- feat(components): join组件支持把错误传递到下一个节点
-- feat(components): end组件支持把上一个节点错误传递到回调函数
-- feat(components): 增加break组件
-- feat(components): for节点组件支持中断
-- feat(components): 延迟节点组件支持通过元数据获取时间偏移
-- feat(components): join/groupAction组件支持把执行结果合并到同一个map
-- feat(components): 函数组件支持参数配置
-- feat(components): 函数组件函数注册支持添加显示名称和描述
-- feat: 执行规则链支持执行实例取消
-- feat: 引擎支持多节点执行恢复 
-- feat: 增加Config.OnEndWithFailure 配置，出现错误时，是否调用结束回调函数
-- fix: 引擎onEnd回调某些情况无法触发
-- fix: 执行快照数据竞争问题
-- perf: 优化引擎执行超时上下文性能
-- perf: 优化引擎结束回调执行顺序
-- chore(ci):压缩编译后文件
+- feat(components): join component supports passing errors to the next node
+- feat(components): end component supports passing the previous node's error to the callback function
+- feat(components): Adds break components
+- feat(components): for node components support interrupts
+- feat(components): Delay node components support obtaining time offsets through metadata
+- feat(components): join/groupAction components support merging execution results into the same map
+- feat(components): Function components support parameter configuration
+- feat(components): Function component function registration supports adding display names and descriptions
+- feat: Execute rule chains support instance cancellation
+- feat: engine supports multi-node recovery 
+- feat: Added Config.OnEndWithFailure configuration, whether to call the end callback function when an error occurs
+- fix: Engine onEnd Callback may not trigger in some cases
+- fix: Enforcement snapshot data contention issues
+- perf: Optimized the engine's timeout context performance
+- perf: Optimized the execution order of engine end-of-callbacks
+- chore(ci): Compresses the compiled file
 ### rulego-components
-- feat: opcua write组件支持int、double、数组等类型
-- chore(ci):升级依赖
+- feat: opcua write components support types such as int, double, and arrays
+- chore(ci): Upgrade dependencies
 
 # [v0.34.0] 2025/11/03
 ### rulego-core
-- feat(components): 延迟组件(delayNode),延迟时间支持毫秒
-- feat(components): 引用组件(refNode)支持引用子链
-- feat(components): 数据库客户端组件(dbClient)支持执行DDL和数据库方言
-- feat: 组件表单生成，支持生成 icon 字段
-- feat: 组件表单生成，完善通过tag配置表单
-- fix: 修复mqtt endpoint组件会初始化2个客户端
-- fix: 修复不支持多层嵌套跨节点取值
-- fix: 修复子链不支持跨节点取值
-- fix(components): fieldFilter组件CheckAllKeys 模式下逻辑错误
-- fix(components): CheckAllKeys 模式下逻辑错误
-- fix(components): join组件某些情况下阻塞
-- chore(ci):actions workflow增加mysql
+- feat(components): Delay component (delayNode), with delay time supporting milliseconds
+- feat(components): Reference components (refNode) support referencing subchains
+- feat(components): The database client component (dbClient) supports executing DDL and database dialects
+- feat: Component form generation, supports generating icon fields
+- feat: Component form generation, perfecting form configuration via tag
+- fix: Fixed mqtt endpoint component initializing two clients
+- fix: Fixed not supporting multi-layer nested cross-node value retrieval
+- fix: Fixed subchain not supporting cross-node value retrieval
+- fix(components): fieldFilter Logical error in component CheckAllKeys mode
+- fix(components): Logical error in CheckAllKeys mode
+- fix(components): join Components are blocked in certain cases
+- chore(ci):actions workflow increases mysql
 ### rulego-components
-- feat: nats endpoint组件支持 QueueSubscribe 模式
+- feat: nats endpoint components support QueueSubscribe mode
 
 # [v0.33.0] 2025/09/03
 ### rulego-core
-- feat: 完善组件配置表达式取值系统，支持跨节点取值，例如:${node1.msg.xx}
-- feat: 增加 end 节点组件
-- feat: 增加跨节点取值节点组件
-- feat: 节点组件配置表单生成，跳过不可导出和 `json:-` 字段
-- perf: 完善mqtt客户端重连机制
-- perf: 优化js引擎超时处理
-- perf: 优化表达式引擎混合字符串场景性能
-- perf: 使用 el.NewTemplate 代替 str.NewTemplate
-- perf: 完善net endpoint组件数据竞争问题
-- fix: js节点组件，dataType 字段类型转换错误
+- feat: Improve the component configuration expression value system, supporting cross-node values, for example: ${node1.msg.xx}
+- feat: Added end node components
+- feat: Added cross-node value node components
+- feat: Node component configuration form generation, skipping non-exportable and `json:-` fields
+- perf: Improve the mqtt client reconnection mechanism
+- perf: Optimized js engine timeout handling
+- perf: Optimized expression engine performance for mixed string scenes
+- perf: Use el.NewTemplate instead of str.NewTemplate
+- perf: Improve net endpoint component data contention issues
+- fix: js Node component, dataType field type conversion error
 - fix: Reload engine chainCtx lost
-- fix: 修复js脚本部分场景会读写错误
-- refactor: 重构 ctx.TellFlow 入参
-- refactor: 增加公共组件分类，重新调整部分组件分类
-- chore: expr 升级到1.17.6
+- fix: Fixed read/write errors in some scenes of js scripts
+- refactor: Refactoring ctx.TellFlow Entering the parameter
+- refactor: Added common component categories and readjusted some component categories
+- chore: expr Upgraded to 1.17.6
 
 ### rulego-components
-- feat: 增加 pulsar 发布和订阅节点组件
-- feat: 增加 pulsar 发布和订阅节点组件
-- feat: 增加流式计算转换节点组件
-- feat: 增加流式聚合运算节点组件
+- feat: Added pulsar publishing and subscription node components
+- feat: Added pulsar publishing and subscription node components
+- feat: Added streaming computation conversion node components
+- feat: Added Stream Aggregation Node Components
 
 ### rulego-server
-- fix: 完善mqtt客户端重连机制
+- fix: Improve the mqtt client reconnection mechanism
 - fix: add defer resp.Body.Close() for GetComponentsFromMarketplace
 
 ### rulego-editor
-- feat: 默认【输入】节点可以删除
-- feat: 增加最新节点组件支持
-- feat: 如果节点没配置，首次添加到画布，不弹出属性配置表单
-- feat: 增加新型画布节点，应用于for、节点组等分组组件展示效果
-- feat: 增加sql编辑器表单组件
-- fix:左边栏高度适配
-- chore: 升级最新的依赖
+- feat: By default, the [Input] node can be deleted
+- feat: Added support for the latest node components
+- feat: If a node is not configured, add it to the canvas for the first time without popping up the properties configuration form
+- feat: Added new canvas nodes for displaying grouped components such as for and node groups
+- feat: Added sql Editor form components
+- fix: Left sidebar height adaptation
+- chore: Upgrade the latest dependencies
 
 # [v0.32.0] 2025/07/11
 
 ### rulego-core
-- feat: endpoint/http restApiCall支持无感切换成fasthttp实现
-- feat: endpoint配置支持变量替换
-- feat: 规则引擎重载增加错误恢复机制
-- feat: 规则引擎增加优雅关闭
-- feat: 增加消息传递的写时复制(Copy-on-Write)机制
-- feat: RuleMsg增加zero-copy API
-- feat: RuleMsg消息负荷使用[]byte代替string
-- feat: 脚本组件支持处理字节数组输入
-- feat(endpoint/http): 增加读写超时配置
-- feat(endpoint/ws): 改进事件注册
-- feat(endpoint/net): 支持多种拆包配置
-- fix: 修复多个组件OnMsg和Destroy方法之间的竞态条件
-- fix: 修复表达式引擎`vm.VM`并发故障问题
-- fix: 增强ReloadChild和ReloadSelf方法保护
-- fix: 修复endpoint Marshal DSL循环依赖问题
-- fix: 修复groupAction、groupFilter数据竞争
-- fix(endpoint/mqtt): MaxReconnectInterval支持秒数配置方法
-- refactor: 组件配置字段名优先从JSON tag获取
-- refactor: 优化exprFilter组件初始化错误
-- refactor: 改进restApiCall组件代理逻辑
-- refactor: 将Config NetPool字段重命名为NodePool
-- refactor: 不在支持直接访问msg.Data，使用msg.GetData()和msg.SetData('')代替
-- perf: 脚本组件增加智能直通模式
-- perf: 简化共享节点组件实现
-- perf: 使用对象池优化DefaultRuleContext
-- perf: 优化表达式获取变量性能
-- perf: 所有组件和测试用例通过`-race`模式测试
-- perf: 完善代码注释
-- perf: 增加更多的示例和测试用例
+- feat: endpoint/http restApiCall supports seamless switching to fasthttp implementation
+- feat: endpoint Configure support for variable substitution
+- feat: Rule engine overload adds error recovery mechanism
+- feat: Rule engine adds graceful closing
+- feat: Added a write-time replication (Copy-on-Write) mechanism for message passing
+- feat: RuleMsg Increase zero-copy API
+- feat: RuleMsg Message load uses []byte instead of string
+- feat: Script components support handling byte array inputs
+- feat(endpoint/http): Added read/write timeout configuration
+- feat(endpoint/ws): Improved event registration
+- feat(endpoint/net): Supports multiple package split configurations
+- fix: Fixed race conditions between multiple component OnMsg and Destroy methods
+- fix: Fixed concurrent faults in expression engine `vm.VM`
+- fix: Enhanced ReloadChild and ReloadSelf method protection
+- fix: Fixed endpoint Marshal DSL loop dependency issues
+- fix: Fixed groupAction and groupFilter data contention
+- fix(endpoint/mqtt): MaxReconnectInterval Supports seconds allocation methods
+- refactor: Component configuration field names are prioritized from JSON tag
+- refactor: Optimized exprFilter component initialization errors
+- refactor: Improved restApiCall component proxy logic
+- refactor: Rename the Config NetPool field to NodePool
+- refactor: does not support direct access to msg.Data; use msg.GetData() and msg.SetData('') instead
+- perf: Added intelligent passthrough mode to script components
+- perf: Simplified implementation of shared node components
+- perf: Use object pool optimization DefaultRuleContext
+- perf: Optimize expressions to obtain variable performance
+- perf: All components and test cases are tested in `-race` mode
+- perf: Improving code comments
+- perf: Added more examples and test cases
 
 ### rulego-components
-- feat: 增加fasthttp组件
-- feat: kafka组件增加SASL和TLS配置
-- feat: Lua脚本支持处理字节流
-- feat: Lua脚本支持数组转换
-- feat: 增加集成测试和CI设置
-- feat(ci): 增加全面的GitHub Actions CI/CD流水线和中间件测试
-- feat(ci): 为所有拉取请求触发CI
-- fix: 修复kafka组件重连问题
-- perf: 使用零拷贝优化元数据访问
-- perf: 改进生命周期管理和测试
+- feat: Added fasthttp components
+- feat: kafka Components add SASL and TLS configurations
+- feat: Lua Scripts support handling byte streams
+- feat: Lua Scripts support array transformation
+- feat: Added integration testing and CI settings
+- feat(ci): Added comprehensive GitHub Actions CI/CD pipeline and middleware testing
+- feat(ci): Triggers CI for all pull requests
+- fix: Fixed kafka component reconnection issue
+- perf: Optimize metadata access with zero copy
+- perf: Improved lifecycle management and testing
 
 # [v0.31.0] 2025/05/20
 
 ### rulego-core
-- feat: 增加cacheSet/cacheGet/cacheDelete组件节点
-- feat: 增加缓存模块
-- feat(restApiCall): 允许自定义body并优化变量取值
-- feat: 节点配置支持混合字符串和变量取值
-- feat: 节点池添加 AddNode API
-- feat: base endpoint添加 HasRouter API
-- feat: 添加默认HTTP endpoint到节点池
-- feat: endpoint可获取规则链DSL
-- feat(rest endpoint): rest endpoint重启增加关闭超时
-- feat: 统一js和lua 自定义函数注册方法
-- feat: 支持把所有结构体导出函数绑定到js和lua中
-- feat: 脚本可以操作缓存
-- fix(switch): 修复Switch节点配置不能完全覆盖默认cases参数
-- fix(restApiCall): restApiCall节点请求失败无法在元数据拿到请求错误信息 
-- fix(rest endpoint): rest endpoint共享节点热更新无法恢复路由
-- fix(join): Join节点未收集错误节点信息
-- refactor: 优化JS引擎测试用例
-- refactor: 删除无用代码
-- refactor: 热更新endpoint路由恢复忽略错误
-- chore: 优化注释
+- feat: Add cacheSet/cacheGet/cacheDelete component nodes
+- feat: Added cache module
+- feat(restApiCall): Allows custom body and optimized variable values
+- feat: node configuration supports mixing strings and variable values
+- feat: Add AddNode API to the node pool
+- feat: base endpoint Add HasRouter API
+- feat: Add default HTTP endpoint to the node pool
+- feat: endpoint Obtain the rule chain DSL
+- feat(rest endpoint): rest endpoint Restart adds a timeout to close off
+- feat: Unified registration methods for js and lua custom functions
+- feat: supports binding all struct export functions to js and lua
+- feat: Scripts can manipulate caches
+- fix(switch): Fixed Switch node configuration not fully overriding the default cases parameters
+- fix(restApiCall): restApiCall node failed request and could not retrieve request error messages in the metadata 
+- fix(rest endpoint): rest endpoint Shared node hot update cannot restore routing
+- fix(join): Join node has not collected error node information
+- refactor: Optimize JS engine test cases
+- refactor: Remove unnecessary code
+- refactor: Hot update endpoint Routing recovery ignores errors
+- chore: Optimized annotations
 
 ### rulego-server
-- fix: 修复HTTP服务器重启后`/editor`找不到问题
-- feat: 注册mcp server endpoint
-- feat: 共享系统默认http server
+- fix: Fixed HTTP Issue not found after server reboot `/editor`
+- feat: Register mcp server endpoint
+- feat: Shared system default http server
 
 ### rulego-components
-- feat: Lua脚本支持与JS相同的UDF注册方法
-- feat: Lua脚本可调用缓存方法
-- feat: 添加mcp server endpoint
+- feat: Lua scripts support the same UDF registration methods as JS
+- feat: Lua Scripts can call caching methods
+- feat: Add mcp server endpoint
 
 ### rulego-editor
-- feat: 增加缓存组件
-- feat: rest节点增加body参数自定义配置
-- feat: 添加mcp server endpoint节点
-- fix: 解决复制和删除快捷键在某些情况下不生效问题
-- opt: 优化集成显示
+- feat: Added cache components
+- feat: rest node adds body parameters for custom configuration
+- feat: Add mcp server endpoint nodes
+- fix: Fixed the issue where copying and deleting shortcut keys did not work in certain cases
+- opt: Optimized integrated display
 
 ## [v0.30.0] 2025/04/03
-- feat:增加动态组件，支持通过规则链DSL定义组件
-- feat:组件注册器增加支持多租户
-- feat:引擎池支持规则引擎实例添加、修改、删除回调
-- feat:组件增加CategoryGetter DescGetter可选接口
-- feat:组件表单增加必填字段
-- feat(server):增加组件市场、组件安装、组件卸载API
-- feat(server):增加MCP服务器
-- feat(server):组件、规则链、rulego-server API支持自动注册成MCP工具
-- feat(server):rulego-server分离到独立仓库维护: https://github.com/rulego/rulego-server
-- feat(server):rulego-server 开源新版本的UI
-- fix:修复共享节点一种类型只能配置一个
+- feat: Added dynamic components, supporting component definition via rule chains DSL
+- feat: Component Registerer adds support for multiple tenants
+- feat: Engine pool supports adding, modifying, and deleting callbacks from rule engine instances
+- feat: Component adds CategoryGetter DescGetter optional interfaces
+- feat: Required fields have been added to component forms
+- feat(server): Increase module markets, module installation, module unloading, API
+- feat(server): Adds MCP servers
+- feat(server): Components, rule chains, rulego-server API support automatic registration as MCP tools
+- feat(server):rulego-server Separated into independent warehouse maintenance: https://github.com/rulego/rulego-server
+- feat(server):rulego-server UI of the new open-source version
+- fix: Fixed the issue where only one type of shared node can be configured
 - fix:OutBuiltins lock err
-- fix:[dbClient]连接不成功导致的错误
-- opt:优化组件初始化错误提示
-- opt:rest endpoint组件延迟获取body
-- chore:build.yaml 支持编译成arm64
-- chore:升级github.com/expr-lang/expr至v1.17.2
+- fix:[dbClient] Errors caused by unsuccessful connections
+- opt: Optimized component initialization error prompts
+- opt:rest endpoint Component delays body acquisition
+- chore:build.yaml Supports compiling to arm64
+- chore: Upgrade github.com/expr-lang/expr to v1.17.2
 
 ## [v0.29.0] 2025/03/06
-- feat(components):增加wukongIM节点组件 @dimon
-- feat(components):增加wukongIM输入端组件 @dimon
-- feat(components):增加beanstalkd输入端组件 @dimon
-- feat(components):增加beanstalkd节点组件 @dimon
-- feat(components):增加modbus读写节点组件 @dimon
-- feat(components):完善大模型节点组件
-- feat(components):增加获取git日志节点组件
-- feat:增加规则链校验拦截器
-- feat:校验规则链是否形成环、子规则链不允许探究输入端组件
-- feat:DSL NodeConnection 增加Label字段
-- opt:网络客户端组件运行延迟初始化
-- opt:restApiCall节点组件把响应错误通过err传递到下一个节点
-- feat(server):rulego-server支持多租户和权限校验
-- feat(server):rulego-server支持apiKey访问api
-- refactor:OnNodeBeforeInit 和 OnChainBeforeInitAspect支持获得Config
-- refactor(components):弃用旧版的大模型组件
-- refactor(components):优化mqtt客户端连接失败错误提示
+- feat(components): Added wukongIM node component @dimon
+- feat(components): Added wukongIM input component @dimon
+- feat(components): Added beanstalkd input component @dimon
+- feat(components): Added beanstalkd node component @dimon
+- feat(components): Added modbus read/write node components @dimon
+- feat(components): Improve the node components of large models
+- feat(components): Added the component for obtaining git log nodes
+- feat: Added rule chain validation interceptors
+- feat: Check whether the rule chain forms a loop; the sub-rule chain does not allow exploration of the input component
+- feat:DSL NodeConnection Add Label fields
+- opt: Delayed initialization of network client components
+- opt:restApiCall node components pass response errors to the next node via err
+- feat(server):rulego-server supports multi-tenant and permission validation
+- feat(server):rulego-server supports apiKey access to api
+- refactor:OnNodeBeforeInit and OnChainBeforeInitAspect support for obtaining Config
+- refactor(components): Deprecating older large model components
+- refactor(components): Optimized mqtt client connection failure error message
 
 ## [v0.28.0] 2025/01/09
-- feat(components):增加opcua endpoint组件 @dimon
-- feat(components):增加opcua读节点组件 @dimon
-- feat(components):增加opcua写节点组件 @dimon
-- feat(components):增加gRPC 流endpoint组件 @付晨阳
-- feat(components):增加Mysql CDC endpoint组件
-- feat(components):增加OpenTelemetry组件
-- feat(components):endpoint/ws 支持配置跨域
-- feat:for节点增加异步模式
-- feat:js引擎注入RuleContext @Husky
-- fix:解决规则链有多个结束点，会导出endpoint异常
-- fix:str.ExecuteTemplate 空参数问题
-- fix(server):save api无法保存vars
-- opt(components):优化 dbClient组件获取参数
-- opt:优化节点表单定义
-- opt:restApiCall节点读超时默认值改成2000ms
-- opt(components):redis endpoint组件接收数据后XDel @Brian B. Williams
+- feat(components): Adds opcua endpoint components @dimon
+- feat(components): Added opcua read node component @dimon
+- feat(components): Added opcua write node component @dimon
+- feat(components): Adds gRPC flow endpoint component @付晨阳
+- feat(components): Adds Mysql CDC endpoint components
+- feat(components): Adds OpenTelemetry components
+- feat(components):endpoint/ws supports cross-origin configuration
+- feat:for node adds asynchronous mode
+- feat:js Engine injection RuleContext @Husky
+- fix: Solve rule chains with multiple end points, which will export endpoint exceptions
+- fix:str.ExecuteTemplate Issues with null parameters
+- fix(server):save api Cannot save vars
+- opt(components): Optimize parameters obtained from dbClient components
+- opt: Optimized node form definitions
+- opt:restApiCall Change the default timeout value to 2000ms
+- opt(components): After receiving data from the redis endpoint component, XDel @Brian B. Williams
 
 ## [v0.27.0] 2024/12/08
 
-- feat:允许获得endpoint router错误
-- feat:规则链DSL增加Disabled字段
-- feat(endpoint/rest):允许设置跨域
-- feat(restApiCallNode):允许配置不校验证书
-- feat(flow):子规则链允许设置成继承模式
-- feat:如果规则链Disabled，则初始化引擎错误
-- feat(groupActionNode):节点ID列表允许string和数组格式
-- feat(builtin):增加toHex和setJsonDataType内置函数
-- feat(netNode):支持不发送心跳包
-- fix(endpoint/rest):类型识别错误
-- opt(netNode):优化重连机制
-- refactor:dsl additionInfo 改成map[string]interface{}类型
-- refactor:删除log依赖
-- refactor(server):重构rulego-server api
-- feat(server):规则链存储增加索引
-- feat(server):自动创建默认用户
-- feat(server):增加部署、停用规则链API
-- feat(server):允许通过Disabled字段搜索规则链
-- feat(server):增加默认的前端访问路由
-- fix(server):启动错误退出
-- ci(server):减少编译包文件大小
-- ci(server):提供RuleGo-Editor编辑器离线部署包
+- feat: Allows for endpoint router errors
+- feat: Rule chain DSL add Disabled fields
+- feat(endpoint/rest): Allows cross-origin settings
+- feat(restApiCallNode): Allows configuration without proofreading verification certificates
+- feat(flow): Subrule chains can be set to inheritance mode
+- feat: If the rule chain is Disabled, the initialization engine is incorrect
+- feat(groupActionNode): The node ID list allows string and array formats
+- feat(builtin): Adds built-in functions for toHex and setJsonDataType
+- feat(netNode): Supports not sending heartbeat packets
+- fix(endpoint/rest): Type recognition error
+- opt(netNode): Optimized the reconnection mechanism
+- refactor:dsl additionInfo changed to map[string]interface{} type
+- refactor: Removes log dependencies
+- refactor(server): Reconstructs rulego-server api
+- feat(server): Rules chain storage adds indexes
+- feat(server): Automatically creates default users
+- feat(server): Adds and disables the rule chain API
+- feat(server): Allows searching for rule chains through Disabled fields
+- feat(server): Adds default front-end access routes
+- fix(server): Startup error exits
+- ci(server): Reduces the size of the compilation package file
+- ci(server): Provides the RuleGo-Editor Editor offline deployment package
 ### RuleGo-Editor[v0.27.0]
-- feat(rulego-editor):规则链列表管理
-- feat(rulego-editor):显示规则链状态和标题
-- feat(rulego-editor):打开规则链
-- feat(rulego-editor):编辑规则链
-- feat(rulego-editor):查询规则链集成URL
-- feat(rulego-editor):优化导入导出
-- feat(rulego-editor):组件管理
-- feat(rulego-editor):后台API配置持久化
-- feat(rulego-editor):规则链部署/下线操作
-- feat(rulego-editor):增加框选、撤销、重做、小地图、全屏操作工具
-- feat(rulego-editor):子规则链节点允许通过下拉选取子规则链
+- feat(rulego-editor): Manage the rule chain list
+- feat(rulego-editor): Displays the status and title of the rule chain
+- feat(rulego-editor): Opens the rule chain
+- feat(rulego-editor): Edit the rule chain
+- feat(rulego-editor): Query rule chain integration URL
+- feat(rulego-editor): Optimized import and export
+- feat(rulego-editor): Component management
+- feat(rulego-editor): Background API configuration persistence
+- feat(rulego-editor): Rule chain deployment/offline operation
+- feat(rulego-editor): Added tools for box selection, undo, redo, minimap, and fullscreen operations
+- feat(rulego-editor): Sub-rule chain nodes allow selecting sub-rule chains by dropping down
 
 ## [v0.26.0] 2024/11/07
 
-- feat:增加注释节点
-- feat:增加条件分支节点(switch node)
-- feat:增加规则引擎指标统计模块
-- feat:增加并发限制aspect
-- feat:start aspect 提供错误中断机制
-- feat:提供 NewRuleGo Api
-- feat:net组件允许使用节点池方式
-- fix:flow node 并发读写问题
-- fix:http endpoint 异步执行会出现context canceled
-- refactor:js转换器组件忽略json转换错误
-- refactor:重构内置函数注册器
-- refactor:路由节点默认关系修改成Default
-- chore:完善部分注释
-- fix(server):config.conf允许配置js执行操作参数
-- feat(rulego-components):增加MongoDB节点组件
-- feat(rulego-components):增加redis 发布节点组件
+- feat: Add comment nodes
+- feat: Add conditional branch nodes (switch node)
+- feat: Added a rule engine indicator statistics module
+- feat: Increase concurrency limits aspect
+- feat:start aspect Provides error interrupt mechanisms
+- feat: provides NewRuleGo Api
+- feat:net components allow the use of node pooling
+- fix:flow node Concurrent read/write issues
+- fix:http endpoint Asynchronous execution will cause context canceled
+- refactor:js Converter component ignores json conversion error
+- refactor: Refactoring the built-in function registerer
+- refactor: Change the default relationship of the route node to Default
+- chore: Improved some annotations
+- fix(server):config.conf allows configuration js to execute operation parameters
+- feat(rulego-components): Adds MongoDB node components
+- feat(rulego-components): Adds redis publishing node components
 
 ## [v0.25.0] 2024/10/07
 
-- feat:增加并行网关节点组件
-- feat:增加合并汇聚节点组件
-- feat:for节点组件增加合并遍历结果选项
-- feat:节点组和子规则链节点移除合并metadata
-- feat:ruleContext允许获得Out Message和error
-- feat:websocket endpoint setBody返回错误
-- feat:增加js内置函数注册器
-- fix:http endpoint无法使用节点池
-- chore:增加贡献文档
-- chore:升级依赖
-- perf(server):优化保存运行日志
-- fix(server):实时执行日志需要过滤其他规则链数据
-- fix(server):实时日志响应错误，需要移除客户端
-- feat(rulego-components):增加gRPC客户端节点组件
-- feat(rulego-components):增加git push节点组件
-- feat(rulego-components):增加git create tag节点组件
-- feat(rulego-components):增加git commit节点组件
-- feat(rulego-editor):增加最新版本节点配置
-- feat(rulego-editor):允许跨规则链复制节点
+- feat: Added parallel network node components
+- feat: Added merged aggregated node components
+- feat:for Node component adds an option to merge traversal results
+- feat: Remove merge metadata from node groups and sub-rule chain nodes
+- feat:ruleContext allows access to Out Message and error
+- feat:websocket endpoint setBody Returns an error
+- feat: Added js built-in function registerer
+- fix:http endpoint Node pool cannot be used
+- chore: Add contribution documents
+- chore: Upgrade dependencies
+- perf(server): Optimized the storage of runtime logs
+- fix(server): Real-time execution logs require filtering other rule chain data
+- fix(server): Real-time log response error, client need to be removed
+- feat(rulego-components): Adds gRPC client node components
+- feat(rulego-components): Add git push node components
+- feat(rulego-components): Adds git create tag node components
+- feat(rulego-components): Add git commit node components
+- feat(rulego-editor): Added the latest version of node configuration
+- feat(rulego-editor): Allows nodes to be replicated across rule chains
 
 ## [v0.24.0] 2024/09/09
 
-- feat:增加节点连接资源复用机制
-- feat:网络连接类组件支持共享连接池
-- feat:增加引用节点的节点
-- feat:exec node允许通过stderr获取数据
-- feat:http endpoint允许响应html页面
-- fix(server):post msg api没有workDir
-- feat(server):增加节点复用相关api
-- feat(server):加载全局共享组件
-- feat(rulego-components):增加rabbitmq endpoint和节点组件
-- feat(rulego-components):增加opengemini读和opengemini写组件
-- feat(rulego-components):组件支持连接池
-- refactor(rulego-components):kafka组件brokers字段改成server
-- feat(rulego-editor):规则链ID默认使用nanoid
-- feat(rulego-editor):endpoint支持多路由
-- feat(rulego-editor):增加连接类型国际化
-- feat(rulego-editor):增加连接池下拉选项
-- feat(rulego-editor):增加最新版本节点配置
+- feat: Added a mechanism for reusing node connection resources
+- feat: Network connection components support shared connection pools
+- feat: Add nodes that reference nodes
+- feat:exec node Allows data to be accessed via stderr
+- feat:http endpoint Allows responses to html pages
+- fix(server):post msg api No workDir
+- feat(server): Added node reuse related api
+- feat(server): Loads globally shared components
+- feat(rulego-components): Adds rabbitmq endpoint and node components
+- feat(rulego-components): Adds opengemini read and opengemini write components
+- feat(rulego-components): Components support connection pools
+- refactor(rulego-components): Change the brokers field of kafka component to server
+- feat(rulego-editor): The rule chain ID uses nanoid by default
+- feat(rulego-editor):endpoint supports multiple routes
+- feat(rulego-editor): Added internationalization of connection types
+- feat(rulego-editor): Added connection pool dropdown options
+- feat(rulego-editor): Added the latest version of node configuration
 
 ## [v0.23.0] 2024/08/11
-- feat(server):动态获取functions节点内置函数列表API
-- feat(server):日志分页
-- feat(server):config.conf支持自定义的global配置
-- feat(rulego-components):增加redis stream endpoint组件
-- feat(rulego-components):redis 组件支持配置密码
-- feat(rulego-components):redis 组件支持HMSET、HGETALL、HDEL等操作
-- feat(rulego-components):redis 组件支持动态参数
-- feat(rulego-components-ci):增加gitClone组件
-- feat(rulego-components-ci):增加服务器指标监控组件，如：cpu、内存、磁盘、网络等
-- feat(builtin/processor):增加metadataToHeaders内置processor函数
-- feat(builtin/processor):内置responseToBody函数 支持所有endpoint类型
-- feat:rest endpoint GET请求，消息负荷从查询参数读取
-- feat:统一所有组件配置变量取值方法。
-- fix(server):无法删除规则链
-- fix(server):websocket断开连接错误
-- fix:for node 修改out数据
-- fix:TellNode找不到节点，没触发第二个回调
-- fix:dbClient node 在某些go版本下，转换int64错误
-- fix:ToString 函数适配 map[interface{}]interface{} 类型
-- refactor:打印endpoint详细错误栈
-- refactor:builtin/processor 区分 in 和 out类型
-- refactor:优化规则链解析器
+- feat(server): Dynamically retrieves the API of the built-in function list of functions nodes
+- feat(server): log pagination
+- feat(server):config.conf supports custom global configuration
+- feat(rulego-components): Adds redis stream endpoint components
+- feat(rulego-components):redis components support configuring passwords
+- feat(rulego-components):redis components support operations such as HMSET, HGETALL, HDEL
+- feat(rulego-components):redis components support dynamic parameters
+- feat(rulego-components-ci): Adds gitClone components
+- feat(rulego-components-ci): Adds server metric monitoring components, such as cpu, memory, disk, network, etc
+- feat(builtin/processor): Adds metadataToHeaders built-in processor function
+- feat(builtin/processor): Built-in responseToBody function supports all endpoint types
+- feat:rest endpoint GET Request, message load is read from query parameters
+- feat: Standardize the configuration variable value selection method across all components.
+- fix(server): Cannot delete the rule chain
+- fix(server):websocket Disconnection error
+- fix:for node Modify out data
+- fix:TellNode Node not found, no second callback triggered
+- fix:dbClient node On certain go versions, the conversion int64 error
+- fix:ToString Function adaptation map[interface{}]interface type {}
+- refactor: Print endpoint Detailed error stack
+- refactor:builtin/processor Distinguish between in and out types
+- refactor: Optimize the rule chain parser
 
 ### RuleGo-Editor[v1.4]
-- feat:支持rulego最新版本组件配置
-- feat:支持endpoint组件配置
-- feat:支持下拉表单
-- fix:修复边文本越界问题
-- fix:保存规则链失败没提示
-- fix:解决0值无法显示问题
-- fix:自定义组件无法显示问题
-- refactor:Input节点允许移动
-- refactor:增加帮助文档链接
-- refactor:升级element-plus
-- refactor:引入element-plus zhCn lang
+- feat: Supports configuration of components rulego latest version
+- feat: Supports endpoint component configuration
+- feat: Supports dropdown forms
+- fix: Fixed border text out-of-bounds issue
+- fix: No prompt for failing to save the rule chain
+- fix: Fixed the issue where the value could not be displayed
+- fix: Custom components cannot display issues
+- refactor:Input nodes allow movement
+- refactor: Added help document links
+- refactor: Upgrade element-plus
+- refactor: Introduce element-plus zhCn lang
 
 ## [v0.22.0] 2024/07/08
-- feat[rulego-editor]: 接入端(endpoint)允许可视化配置。体验地址：[http://8.134.32.225:9090/ui/](http://8.134.32.225:9090/ui/)
-- feat[rulego-components]: 增加redis endpoint组件
-- feat[rulego-components]: 增加redis 节点组件允许配置db参数
-- feat[rulego-components]: 增加nats endpoint组件
-- feat[rulego-components]: 增加nats 节点组件
-- feat: 增加for节点组件，用于控制循环节点
-- feat: 增加执行本地命令节点组件，用于控制循环节点
-- feat: 增加template节点组件
-- feat: 增加metadataTransform节点组件
-- feat: 增加OnChainBeforeInitAspect和OnNodeBeforeInitAspect增强点
-- feat: 增加规则引擎中断恢复相关API
-- feat: endpoint允许指定从规则链某节点开始执行
-- fix: mqtt client平滑关闭
-- refactor: endpoint type名称增加前缀
-- refactor: iterator 节点组件标记弃用
+- feat[rulego-editor]: Access terminal (endpoint) allows visual configuration. Experience link: [http://8.134.32.225:9090/ui/](http://8.134.32.225:9090/ui/)
+- feat[rulego-components]: Adds redis endpoint components
+- feat[rulego-components]: Added redis node components to allow configuration of db parameters
+- feat[rulego-components]: Adds nats endpoint components
+- feat[rulego-components]: Adds nats node components
+- feat: Added for node components to control loop nodes
+- feat: Added a component for executing local command nodes to control loop nodes
+- feat: Added template node components
+- feat: Added metadataTransform node components
+- feat: Increases OnChainBeforeInitAspect and OnNodeBeforeInitAspect enhancement points
+- feat: Added API related to rule engine interruption recovery
+- feat: endpoint Allows specifying execution starting from a node in the rule chain
+- fix: mqtt client Smooth closing
+- refactor: endpoint type Add a prefix to the name
+- refactor: iterator Deprecated node component tags
 
 ## [v0.21.0] 2024/06/06
 
-- feat: rule chain DSL允许动态配置接入端（endpoint）
-- feat: 接入端（endpoint）允许通过DSL动态配置和启动
-- feat: endpoint通过无阻塞方式启动
-- feat: endpoint router允许传递context
-- feat: endpoint 组件注册和rule 组件注册合并
-- feat: 增加nats 节点组件
-- feat: msgTypeSwitch 和jsSwitch 节点如果没任何匹配转发到默认链
-- feat: 增加nats endpoint组件
-- fix: 子规则链context丢失问题
-- fix: examples/server 规则链文件解析失败不保存
-- refactor: endpoint 模块优化，调整目录结构
-- refactor: engine 模块优化，调整目录结构
-- refactor：优化aspect初始化
-- chore：examples/server build关闭CGO_ENABLED
-- chore：examples/server 加入nats组件
+- feat: rule chain DSL Allows dynamic configuration of access terminals (endpoint)
+- feat: Access Terminal (endpoint) allows dynamic configuration and startup via DSL
+- feat: endpoint Starts with no blocking
+- feat: endpoint router Allows passing context
+- Merge feat: endpoint component registration and rule component registration
+- feat: Added nats node components
+- If there is no match between nodes feat: msgTypeSwitch and jsSwitch, forwarding them to the default chain
+- feat: Added nats endpoint components
+- fix: Sub-rule chain context loss issues
+- fix: examples/server Rule chain file parses fail and are not saved
+- refactor: endpoint Module optimization and adjustment of directory structure
+- refactor: engine Module optimization and adjustment of directory structure
+- refactor: Optimized aspect initialization
+- chore: examples/server build close CGO_ENABLED
+- chore: examples/server Add nats components
 
 ## [v0.20.0] 2024/04/24
-- feat: 允许不同脚本相同的函数名
-- feat: restApiCall 节点允许空body
-- feat: 可以得到规则链执行快照
-- feat: 允许在OnMsg上下文添加onDebug回调函数
-- feat: endpoint允许添加RuleContextOption
-- feat: 规则链DSL文件可以添加vars变量
-- feat: 节点配置允许通过规则链vars值替换
-- feat: 规则链池增加reload和range方法
-- feat: websocket endpoint允许和rest endpoint 共用用一个server
-- feat: 节点debugMode 允许被规则链的debugMode参数统一覆盖
-- feat: 子规则链允许通过Failure和其他节点连接
-- feat: 加载规则链跳过出错的规则链
-- feat: 规则链引擎增加初始化标志
-- feat: js相关节点运行时允许通过`vars.xx`访问规则链vars
-- feat: 重构examples/server 提供基于rulego开发应用的脚手架，前端地址：[example.rulego.cc](https://example.rulego.cc/)
-- feat: 增加rulego-components-ai模块，提供AI组件
-- feat: 增加rulego-components-ci模块，提供CD/CI组件
-- feat: 增加rulego-components-iot模块，提供iot组件
-- fix: mqtt client节点如果连接不上mqtt broker允许延迟连接，而不是报错
-- fix: 修复groupAction节点，可能并发读写问题
-- fix: 规则链没有节点，执行报错问题
-- opt: 优化大js文件的执行效率
+- feat: Allows different scripts to have the same function name
+- feat: restApiCall nodes allow empty body
+- feat: can obtain snapshots of rule chain execution
+- feat: Allows adding onDebug callback functions in OnMsg context
+- feat: endpoint Allows adding RuleContextOption
+- feat: Rule chain DSL file can add vars variables
+- feat: node configuration allows replacement with vars values via the rule chain
+- feat: Rules Chain pools add reload and range methods
+- feat: websocket endpoint allows rest endpoint to share a server
+- feat: node debugMode allows unified override by the debugMode parameters of the rule chain
+- feat: The sub-rule chain allows connections through Failure and other nodes
+- feat: Load the rule chain and skip the faulty rule chain
+- feat: Added initialization flags to the Rule Chain engine
+- feat: js Relevant node runtime allows access to the rule chain vars via `vars.xx`
+- feat: Refactoring examples/server provides scaffolding for rulego-based application development, frontend address: [example.rulego.cc](https://example.rulego.cc/)
+- feat: Add rulego-components-ai modules to provide AI components
+- feat: Add rulego-components-ci modules to provide CD/CI components
+- feat: Add rulego-components-iot modules to provide iot components
+- fix: mqtt client If nodes cannot connect mqtt broker allow delayed connections instead of errors
+- fix: Fixed groupAction nodes, which may cause concurrent read/write issues
+- fix: Rule chain has no nodes, so execution error issues
+- opt: Optimized execution efficiency for large js files
 
 ## [v0.19.0] 2024/02/18
 
-- feat:增加表达式过滤器节点组件。[文档](https://rulego.cc/pages/c8fe75/)
-- feat:增加表达式转换节点组件。[文档](https://rulego.cc/pages/3769cc/)
-  表达式示例：
-  使用函数：upper(msg.name)
-  判断：(msg.temperature+10)>50
-  三元运算：upper(msg.name==nil?'no':msg.name)
-  截取字符串：msg.name[:4]
-  替换字符串：replace("Hello World", "World", "Universe") == "Hello Universe"
+- feat: Added expression filter node components. [Document](https://rulego.cc/pages/c8fe75/)
+- feat: Added expression conversion node components. [Document](https://rulego.cc/pages/3769cc/)
+  Example expression:
+  Function used: upper(msg.name)
+  Judgment: (msg.temperature+10)> 50
+  Ternary operations: upper(msg.name==nil? 'no':msg.name)
+  Extract string: msg.name[:4]
+  Replace the string: replace("Hello World", "World", "Universe") == "Hello Universe"
 
-- feat:增加groupAction节点组件，把多个节点组成一个分组，异步执行所有节点，等待所有节点执行完成后，把所有节点结果合并，发送到下一个节点。[文档](https://rulego.cc/pages/bf06e2/)
-- feat:增加迭代器节点组件。遍历msg或者msg中指定字段每一项值到下一个节。[文档](https://rulego.cc/pages/5898a0/)
-- fix:修复子规则结果合并，并发问题。
-- fix:onEnd某些原因可能会重复调用问题。
-- fix:metadata可能会出现并发读写问题。
-- fix:js引擎初始化增加并发保护。
-- fix:jsTransform 遇到NaN值，流转到TellFailure分支。
+- feat: Add groupAction node components to group multiple nodes into a group, execute all nodes asynchronously, wait for all nodes to finish, then merge all node results and send them to the next node. [Document](https://rulego.cc/pages/bf06e2/)
+- feat: Added iterator node components. Traverse the value of each specified field in msg or msg to the next section. [Document](https://rulego.cc/pages/5898a0/)
+- fix: Fixed subrule result merging and concurrency issues.
+- fix:onEnd Some reasons may repeatedly call the issue.
+- fix:metadata Concurrent read/write issues may occur.
+- fix:js Engine initialization adds concurrency protection.
+- fix:jsTransform encounters NaN value and flows to TellFailure branch.
 
 ## [v0.18.0] 2023/12/27
 
-- feat:增加AOP模块，它允许在不修改规则链或节点的原有逻辑的情况下，对规则链的执行添加额外的行为，或者直接替换原规则链或者节点逻辑。 提供以下增强点：Before Advice、After Advice、Around Advice、Start Advice、End Advice、Completed Advice、OnCreated Advice、OnReload Advice、OnDestroy Advice。[文档](https://rulego.cc/pages/a1ed6c/)
-- feat:restApiCall节点组件，增加SSE(Server-Sent Events)流式请求模式，支持对接大模型接口。
-- feat:增加CI自动化测试流程。
-- feat:增加大量单元测试，覆盖率达到92%。
-- feat:增加性能[测试用例](https://rulego.cc/pages/f60381/) 。
-- feat:sendEmail节点组件，增加ConnectTimeout配置。
-- feat:/examples/server示例工程，增加 -js -plugins -chain_id flags，支持启动加载js原生文件、插件和指定mqtt订阅处理规则链ID。
-- fix:/examples/server示例工程，规则链文件夹多层路径无法正常解析。
-- fix:/examples/server示例工程，保存规则链，可能会出现旧规则链文件数据无法正确覆盖。
-- fix:metadata可能会出现并发读写问题。
-- fix:规则引擎同步处理数据，有几率无法正确调用onCompleted回调函数。
-- fix:RuleChainPool nil问题。
-- fix:mqtt endpoint，无法通过header得到主题。
-- refactor:onEnd回调函数允许得到relationType。
-- refactor:删除函数Configuration.GetToString。
-- opt:部分组件，增强nil检查。
-- opt:dsl AdditionalInfo字段 增加omitempty json tag。
+- feat: Added AOP module, which allows adding extra actions to the execution of the rule chain or node without modifying the original logic of the rule chain or node, or directly replacing the original rule chain or node logic. Provides the following enhancements: Before Advice, After Advice, Around Advice, Start Advice, End Advice, Completed Advice, OnCreated Advice、OnReload Advice、OnDestroy Advice. [Document](https://rulego.cc/pages/a1ed6c/)
+- feat:restApiCall node components, adding SSE(Server-Sent Events) streaming request mode, supporting integration with large model interfaces.
+- feat: Increase CI automated testing processes.
+- feat: Increased a large number of unit tests, achieving a 92% coverage rate.
+- feat: Enhanced performance [test case](https://rulego.cc/pages/f60381/).
+- feat:sendEmail node components to add ConnectTimeout configuration.
+- feat:/examples/server Example project, adds -js -plugins -chain_id flags, supports launching and loading js native files, plugins, and specified mqtt subscription processing rule chains ID.
+- fix:/examples/server Example project: Multi-layer paths in the Rule Chain folder cannot be parsed properly.
+- fix:/examples/server Example project: Saving the rule chain, may encounter issues where the old rule chain file data cannot be properly overwritten.
+- fix:metadata Concurrent read/write issues may occur.
+- fix: The rule engine processes data synchronously, which may fail to correctly call the onCompleted callback function.
+- fix:RuleChainPool nil Problem.
+- fix:mqtt endpoint, cannot get the theme through header.
+- refactor:onEnd The callback function allows relationType.
+- refactor: Delete function Configuration. GetToString.
+- opt: Partial components to enhance nil inspection.
+- opt:dsl AdditionalInfo field adds omitempty json tag.
 - opt:run go fmt。
 
 ## [v0.17.0] 2023/11/27
 
-- feat:增加websocket endpoint组件 [文档](https://rulego.cc/pages/e36f41/)
-- feat:增加tcp/udp endpoint组件 [文档](https://rulego.cc/pages/b7050c/)
-- feat:增加kafka endpoint组件(扩展组件库) [文档](https://rulego.cc/pages/07ad50/)
-- feat:增加tcp/udp 节点组件[文档](https://rulego.cc/pages/c1af87/)
-- feat:endpoint组件使用统一的创建方式[文档](https://rulego.cc/pages/5a3227/)
-- feat:增加过滤器组节点组件[文档](https://rulego.cc/pages/b14e3b/)
-- feat:增加子规则链节点组件（原子规则链配置方式废弃）[文档](https://rulego.cc/pages/e27cec/)
-- feat:允许子规则链接其它节点
-- feat:functions节点组件，支持动态指定函数名
-- feat:delay节点组件，增加覆盖模式
-- feat:支持加载JavaScript脚本文件
-- feat:onEnd回调函数，支持获取ctx
-- feat:examples/server 使用独立的go.mod
-- feat:examples/server 支持是否引入扩展组件库的build tags
-- feat:mqtt client 允许重连被取消
-- fix:http endpoint 如果不是application/json无法获取body
-- fix:mqtt client 节点组件，没有重试次数限制
-- opt:Metadata修改实现方式
-- opt:rest node  ReadTimeoutMs 默认值改成 0
-- opt:mqtt client config MaxReconnectInterval改成int
-- opt:Node接口OnMsg取消返回值error
+- feat: Added websocket endpoint Component [Documentation](https://rulego.cc/pages/e36f41/)
+- feat: Added tcp/udp endpoint Component [Documentation](https://rulego.cc/pages/b7050c/)
+- feat: Add kafka endpoint Components (Expand Component Library) [Documentation](https://rulego.cc/pages/07ad50/)
+- feat: Added tcp/udp node component [documentation](https://rulego.cc/pages/c1af87/)
+- feat:endpoint Components use a unified creation method [Documentation](https://rulego.cc/pages/5a3227/)
+- feat: Added Filter Group Node Components [Documentation](https://rulego.cc/pages/b14e3b/)
+- feat: Added sub-rule chain node components (atomic rule chain configuration is obsolete) [Document](https://rulego.cc/pages/e27cec/)
+- feat: Allows subrules to link to other nodes
+- feat:functions node component, supports dynamically specifying function names
+- feat:delay node components to add override modes
+- feat: Supports loading JavaScript script files
+- feat:onEnd Callback function, supports obtaining ctx
+- feat:examples/server Use independent go.mod
+- feat:examples/server Supports introducing build tags of the extended component library
+- feat:mqtt client Reconnection allowed is canceled
+- fix:http endpoint If not application/json, body cannot be obtained
+- fix:mqtt client node components, with no retry limit
+- opt:Metadata Modify the implementation
+- opt:rest node ReadTimeoutMs Change the default value to 0
+- opt:mqtt client config MaxReconnectInterval changed to int
+- opt:Node Interface OnMsg Cancel return value error
 - opt:config.JsMaxExecutionTime->ScriptMaxExecutionTime
 - opt:Endpoint.AddRouterWithParams->Endpoint.AddRouter
 - opt:Endpoint.RemoveRouterWithParams->Endpoint.RemoveRouter
-- opt:RuleMetadata.RuleChainConnections标记弃用
-- opt:config.OnEnd标记弃用
-- opt:RuleEngine.OnMsgWithEndFunc标记弃用
-- opt:RuleEngine.OnMsgWithOptions标记弃用
-- opt:添加doc overview
+- opt:RuleMetadata.RuleChainConnections Marking is deprecated
+- opt:config.OnEnd Marking is deprecated
+- opt:RuleEngine.OnMsgWithEndFunc Marking is deprecated
+- opt:RuleEngine.OnMsgWithOptions Marking is deprecated
+- opt: Add doc overview
 
 ## [v0.16.0] 2023/10/30
 
-- feat:提供规则链可视化编辑器RuleGo-Editor [在线使用](https://editor.rulego.cc/)
-- feat:增加ssh节点组件  [文档](https://rulego.cc/pages/fa62c1/)
-- feat:增加延迟节点组件 [文档](https://rulego.cc/pages/5f5612/)
-- feat:增加functions节点组件 [文档](https://rulego.cc/pages/b7edde/)
-- feat:dbClient节点组件支持手动导入数据库驱动，例如：TDengine
-- feat:增加schedule endpoint组件 [文档](https://rulego.cc/pages/4c4e4c/)
-- feat:http endpoint增加global options handler
-- feat:增加作为中间件独立运行的规则引擎示例工程，并提供二进制文件 [examples/server](https://github.com/rulego/rulego/tree/main/examples/server)
-- feat:endpoint.AddRouterWithParams 返回 routerId
-- feat:可视化相关api返回的json，字段首字母改成小写
-- feat:onDebug回调函数，可以得到规则链id
-- feat:完善ctx.TellSelf逻辑
-- fix:规则链JSON文件，节点Id字段改成首字母小写：id
+- feat: Provides a rule chain visualization editor RuleGo-Editor [Online Use](https://editor.rulego.cc/)
+- feat: Added ssh node component [Documentation](https://rulego.cc/pages/fa62c1/)
+- feat: Added Latency Node Component [Document](https://rulego.cc/pages/5f5612/)
+- feat: Added functions node component [Documentation](https://rulego.cc/pages/b7edde/)
+- feat:dbClient node components support manual import of database drivers, such as TDengine
+- feat: Added schedule endpoint Component [Documentation](https://rulego.cc/pages/4c4e4c/)
+- feat:http endpoint Increase global options handler
+- feat: Added example projects for rule engines running independently as middleware, and provided binary files [examples/server](https://github.com/rulego/rulego/tree/main/examples/server)
+- feat:endpoint.AddRouterWithParams Return routerId
+- feat: Visualize the json returned by the api, change the field initials to lowercase
+- feat:onDebug Callback function, which can obtain the id of the rule chain
+- feat: Perfecting ctx.TellSelf logic
+- fix: Rule chain JSON file, change the node Id field to lowercase: id
 - opt:upgraded github.com/dop251/goja v0.0.0-20230605162241-28ee0ee714f3 => v0.0.0-20231024180952-594410467bc6
-- opt:组件包结构调整
-- opt:dbClient节点dbType改成driverName
-- opt:完善文档
+- opt: Adjust the component package structure
+- Change opt:dbClient node dbType to driverName
+- opt: Perfecting documentation
 
 ## [v0.15.0] 2023/10/7
 
-- feat:增加文档官网: [rulego.cc](https://rulego.cc/)
-- feat:增加可视化相关API。[文档](https://rulego.cc/pages/cf0193/)
-- feat:增加规则链全局配置Properties。[文档](https://rulego.cc/pages/config/#properties)
-- feat:增加规则链全局配置和自定义函数到js运行时，js脚本可以调用golang自定义函数。[文档](https://rulego.cc/pages/config/#udf)
-- feat:增加同步调用规则链方式:`OnMsgAndWait`。
-- feat:http Endpoint支持把规则链处理结果响应给前端。
-- feat:Endpoint模块，路由增加Wait()语义,表示同步等待规则链执行结果。
-- feat:增加批量触发规则引擎实例池所有规则链处理消息方法。
-- feat:DefaultRuleContext增加onAllNodeCompleted回调。
-- feat:DefaultRuleContext增加parentRuleCtx,支持更加灵活的规则链嵌套。
-- fix:修复log组件，metadata参数丢失问题。
-- fix:examples/server getDsl响应头不是`application/json`。
-- opt:所有组件`config`改成大写`Config`变成公有。
-- opt:优化子规则链的调用方式。
-- opt:restApiCall组件ReadTimeoutMs 参数默认设置成2000ms。
-- opt:所有测试规则链json文件，添加ruleId。
-- opt:优化文档。
+- feat: Added official document website: [rulego.cc](https://rulego.cc/)
+- feat: Increase visualization related API. [Document](https://rulego.cc/pages/cf0193/)
+- feat: Added global rule chain configuration Properties. [Document](https://rulego.cc/pages/config/#properties)
+- feat: Adds global rule chain configuration and custom functions to js runtime, js scripts can call golang custom functions. [Document](https://rulego.cc/pages/config/#udf)
+- feat: Added synchronous call to the rule chain: `OnMsgAndWait`.
+- feat:http Endpoint Support for responding to the processing results of the rule chain to the frontend.
+- feat:Endpoint module, routing adds Wait() semantics, indicating synchronized waiting for the execution result of the rule chain.
+- feat: Added batch trigger rule engine instance pools for all rule chain message processing methods.
+- feat:DefaultRuleContext Increase onAllNodeCompleted pullbacks.
+- feat:DefaultRuleContext Added parentRuleCtx to support more flexible nested rule chains.
+- fix: Fixed log component metadata parameter loss issue.
+- fix:examples/server getDsl The response head is not `application/json`.
+- opt: All components `config` changed to uppercase `Config` became public.
+- opt: Optimize the call method of the subrule chain.
+- opt:restApiCall Component ReadTimeoutMs parameter is set to 2000ms by default.
+- opt: all test rule chains json files and add ruleId.
+- opt: Optimize documents.
 
 ## [v0.14.0] 2023/9/6
 
-### 新功能
+### New Features
 
-- 【examples】增加大量使用示例：[详情](https://gitee.com/rulego/rulego/tree/main/examples)
-- 【标准组件】增加数据库客户端节点组件(dbClient)，支持mysql和postgres数据库，可以在规则链通过配置方式对数据库进行增删修改查：[使用示例](https://gitee.com/rulego/rulego/tree/main/examples/db_client)
-- 【[扩展组件](https://gitee.com/rulego/rulego-components) 】增加redis客户端节点组件(x/redisClient):[使用示例](https://gitee.com/rulego/rulego-components/tree/main/examples/redis)
-- 【规则链引擎】增加加载指定路径文件夹所有规则链功能
-- 【HTTP Endpoint组件】URL Query参数自动存放到msg.Metadata
-- 【msg】 msg.Metadata value允许为空
-- 【节点组件】节点配置，支持字符串映射成time.Duration类型
-- 规则链配置文件支持配置规则链id
+- [examples] Added extensive usage examples: [Details](https://gitee.com/rulego/rulego/tree/main/examples)
+- [Standard Components] Add database client node components (dbClient), supporting both mysql and postgres databases. You can add, delete, or modify the database via configuration in the rule chain. Check: [Usage Example](https://gitee.com/rulego/rulego/tree/main/examples/db_client)
+- [[Extension Component](https://gitee.com/rulego/rulego-components)] Adds redis Client Node Component (x/redisClient): [Usage Example](https://gitee.com/rulego/rulego-components/tree/main/examples/redis)
+- [Rule Chain Engine] Added the ability to load all rule chains in the specified path folder
+- [HTTP Endpoint Component] URL Query parameters are automatically stored in msg.Metadata
+- [msg] msg.Metadata value Allowed to be null
+- [Node Components] Node configuration, supports string mapping to time.Duration type
+- The rule chain configuration file supports configuring rule chain id
 
-### 修复
+### Fix
 
-- 修复mqttClient节点组件，随机clientId不生效问题
+- Fixed an issue where mqttClient node components were not effective with random clientId
 
-### 改进
+### Improvements
 
-- [Endpoint](https://gitee.com/rulego/rulego/blob/main/endpoint/README_ZH.md) 接口抽象，实现types.Node 接口，上层可以根据Endpoint”类型“统一调用
-- js脚本相关节点，处理msg支持数组和map方式
-- 【HTTP Endpoint组件】配置 Addr改成Server
+- [Endpoint](https://gitee.com/rulego/rulego/blob/main/endpoint/README_ZH.md) Interface abstraction, implements types.Node interfaces, which can be uniformly called by the Endpoint "type" at the upper level
+- js Script-related nodes, handling msg supports array and map methods
+- Change the configuration Addr to Server in the [HTTP Endpoint Component].
 
-### 其他信息
+### Other information
 
-- 欢迎在 [Gitee](https://gitee.com/rulego/rulego) 或者 [Github](https://github.com/rulego/rulego) 上提交反馈或建议
-- 扩展组件rulego-components：[Gitee](https://gitee.com/rulego/rulego-components)  [Github](https://github.com/rulego/rulego-components)
-- 欢迎加入社区讨论QQ群：720103251
+- Feedback or suggestions are welcome on [Gitee](https://gitee.com/rulego/rulego) or [Github](https://github.com/rulego/rulego).
+- Extension Component rulego-components: [Gitee](https://gitee.com/rulego/rulego-components) [Github](https://github.com/rulego/rulego-components)
+- Welcome to join the community discussion QQ group: 720103251
 
 
 ## [v0.13.0] 2023/8/23
 
-### 新功能
+### New Features
 
-- 新增数据集成模块(**Endpoint**)，使用文档和介绍点击：[Gitee](https://gitee.com/rulego/rulego/blob/main/endpoint/README_ZH.md) 或者 [Github](https://github.com/rulego/rulego/blob/main/endpoint/README_ZH.md)
+- Added a data integration module (**Endpoint**), click in documentation and introduction: [Gitee](https://gitee.com/rulego/rulego/blob/main/endpoint/README_ZH.md) or [Github](https://github.com/rulego/rulego/blob/main/endpoint/README_ZH.md)
     - 提供统一的数据处理抽象，方便异构系统数据集成，目前支持HTTP和MQTT协议
     - 支持其他协议集成扩展，例如：kafka数据等
     - 支持统一的数据路由和数据响应
-- 新增字段过滤器组件(**fieldFilter**)
-- 新增RuleEngine.OnMsgWithOptions方法，支持传递context和共享数据
-- 组件支持ctx.GetContext().Value(shareKey)获取共享数据
+- Added a field filter component (**fieldFilter**)
+- Added RuleEngine.OnMsgWithOptions method to support passing context and sharing data
+- Component support ctx.GetContext().Value(shareKey) to obtain shared data
 
 
-### 修复
+### Fix
 
-- 修复RuleEngine rootCtx不安全问题
+- Fixed RuleEngine rootCtx security issues
 
-### 改进
+### Improvements
 
-- jsFilter、jsSwitch、jsTransform、log组件，在dataType=JSON数据类型下，支持js脚本使用msg.xx方式操作msg payload
-- 重命名mqttClient组件tls相关字段
-- 优化Metadata使用
-- 优化testcases
-- 优化README
+- jsFilter, jsSwitch, jsTransform, log components: Under dataType=JSON data type, support js scripts to operate msg payload in msg.xx ways
+- Rename mqttClient component tls relevant fields
+- Optimize Metadata usage
+- Optimized testcases
+- Optimized README
 
-### 其他信息
+### Other information
 
-- 新增RuleGo扩展组件库项目，欢迎贡献组件
+- Added RuleGo Extension Component Library project; contributions are welcome
     - 详情点击：[Gitee](https://gitee.com/rulego/rulego-components) 或者 [Github](https://github.com/rulego/rulego-components)
 
-- 欢迎在 [Gitee](https://gitee.com/rulego/rulego) 或者 [Github](https://github.com/rulego/rulego) 上提交反馈或建议
+- Feedback or suggestions are welcome on [Gitee](https://gitee.com/rulego/rulego) or [Github](https://github.com/rulego/rulego).

@@ -21,14 +21,14 @@ import (
 	"github.com/rulego/rulego/utils/el"
 )
 
-// addressing.go 提供 ref:// 寻址推送的通用解析工具，供官方与第三方寻址型节点（net/ws 等）复用。
+// addressing.go provides a universal parsing tool for ref:// addressing push, which can be reused by official and third-party addressable nodes (such as net/ws).
 //
-// 放在 components/base 而非 components/external：寻址解析是节点侧基础设施，第三方扩展寻址型
-// 节点时本就要 import base（其节点嵌入 base.SharedNode），可避免为复用本工具而拉入整个
-// components/external 及其全部组件依赖。寻址能力接口 TargetSender / ResourceLookup 定义在 api/types。
+// Placed in components/base rather than components/external: addressing resolution is node-side infrastructure, and third-party extended addressing is the type
+// nodes are already required to import the base (the node embeds the base.SharedNode), which can avoid pulling the entire tool for reuse
+// components/external and all its component dependencies. The addressing capability interfaces TargetSender / ResourceLookup are defined in api/types.
 
-// ResolveRefEndpoint 解析 ref:// 目标实例：同链 ChainCtx.Resources() 优先 → NodePool 回退。
-// 读路径均走 sync.Map（同链 resourceRegistry + NodePool entries），无锁、零分配。
+// ResolveRefEndpoint parsing ref:// Target example: same-chain ChainCtx.Resources() prioritizes → NodePool rollback.
+// Read paths all follow sync.Map (same-chain resourceRegistry + NodePool entries), lock-free, zero allocation.
 func ResolveRefEndpoint(ctx types.RuleContext, pool types.NodePool, id string) (any, bool) {
 	if chain, ok := ctx.RuleChain().(types.ChainCtx); ok {
 		if inst, found := chain.Resources().Lookup(id); found {
@@ -43,15 +43,15 @@ func ResolveRefEndpoint(ctx types.RuleContext, pool types.NodePool, id string) (
 	return nil, false
 }
 
-// TargetResolver 预编译 ${} 表达式模板，提供按消息内容解析寻址目标的能力。
-// 寻址型节点共用，避免每条消息重复编译模板。
+// TargetResolver precompiles ${} expression templates and provides the ability to parse and address targets by message content.
+// Addressable nodes are shared, avoiding the repeated compilation of templates for every message.
 type TargetResolver struct {
-	template el.Template // Init 时编译，nil 表示纯字面量或空
-	literal  string      // 原始配置值（空串 / 字面量 / * 等）
+	template el.Template // Init compiled, nil represents a pure literal quantity or empty
+	literal  string      // Original configuration values (empty strings / literals / *, etc.)
 }
 
-// NewTargetResolver 创建解析器。cfg 为配置中的 target 字段（支持 ${} 表达式或字面量）。
-// 编译失败时降级为字面量（不报错，与原行为一致）。
+// NewTargetResolver creates a parser. cfg is the target field in the configuration (supports ${} expressions or literals).
+// If compilation fails, it is downgraded to literal (no error, consistent with the original behavior).
 func NewTargetResolver(cfg string) *TargetResolver {
 	r := &TargetResolver{literal: cfg}
 	if cfg == "" {
@@ -64,8 +64,8 @@ func NewTargetResolver(cfg string) *TargetResolver {
 	return r
 }
 
-// Resolve 从消息中解析寻址目标，复用 ctx.GetEnv 标准环境（msg/metadata/vars/global）。
-// 返回空串表示表达式解析结果为空（调用方需判断是否允许空目标广播）。
+// Resolve: parse the address target from the message and reuse ctx.GetEnv standard environment (msg/metadata/vars/global).
+// Returning an empty string means the expression parsing result is empty (the caller must decide whether to allow the null target to be broadcast).
 func (r *TargetResolver) Resolve(ctx types.RuleContext, msg types.RuleMsg) string {
 	if r.template == nil {
 		return r.literal
@@ -73,12 +73,12 @@ func (r *TargetResolver) Resolve(ctx types.RuleContext, msg types.RuleMsg) strin
 	return r.template.ExecuteAsString(NodeUtils.GetEvnAndMetadata(ctx, msg))
 }
 
-// Literal 返回原始配置值（用于错误消息等场景）。
+// Literal returns the original configuration value (used for scenarios such as error messages).
 func (r *TargetResolver) Literal() string {
 	return r.literal
 }
 
-// IsEmpty 配置是否为空。
+// Is IsEmpty configured to be empty?
 func (r *TargetResolver) IsEmpty() bool {
 	return r.literal == ""
 }

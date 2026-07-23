@@ -28,10 +28,10 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// TestRuleGo 测试加载规则链文件夹
+// TestRuleGo tests the rule chain folder
 func TestRuleGo(t *testing.T) {
 
-	//注册自定义组件
+	//Register custom components
 	_ = Registry.Register(&test.UpperNode{})
 	_ = Registry.Register(&test.TimeNode{})
 
@@ -125,8 +125,8 @@ func TestRuleGo(t *testing.T) {
 
 }
 
-// aliasChainDefTpl 用 test/upper 节点构造一条可解析的最小链，ruleChain.id 由 %s 注入。
-// 专用于别名机制测试（不依赖业务组件注册）。
+// aliasChainDefTpl constructs a parsable minimum chain using the test/upper node, ruleChain.id injected by %s.
+// Dedicated to testing the alias mechanism (does not rely on business component registration).
 const aliasChainDefTpl = `{
   "ruleChain": {"id": "%s", "name": "alias test", "root": true, "debugMode": false},
   "metadata": {"firstNodeIndex": 0, "nodes": [
@@ -134,39 +134,39 @@ const aliasChainDefTpl = `{
   ], "connections": []}
 }`
 
-// TestPoolAlias 验证别名寻址：当 NewRuleEngine(id, def) 的 id 覆盖 def.ruleChain.id 时，
-// ruleChain.id 应被记为别名，使 Pool.Get(ruleChain.id) 也能解析到同一引擎。
-// 场景对应 rulego-bpm：链以 processDef.ID（唯一）注册，subProcess 用 ruleChain.id 寻址。
+// TestPoolAlias verifies alias addressing: When the id of NewRuleEngine(id, def) overrides def.ruleChain.id,
+// ruleChain.id should be recorded as an alias so that Pool.Get(ruleChain.id) can also parse into the same engine.
+// Scenario corresponds to rulego-bpm: chains register as processDef.ID (unique), subProcess addresses using ruleChain.id.
 func TestPoolAlias(t *testing.T) {
-	_ = Registry.Register(&test.UpperNode{}) // 注册 test/upper 节点（幂等）
+	_ = Registry.Register(&test.UpperNode{}) // Register test/upper nodes (idempotent)
 
 	pool := NewPool()
 	const (
-		primaryID    = "bpm-process-def-uuid-123" // 外部 id（如 BPM processDef.ID），保证唯一
-		ruleChainID  = "leave_approval_v2"        // def.ruleChain.id（人类可读，子流程 targetId）
+		primaryID   = "bpm-process-def-uuid-123" // External IDs (such as BPM processDef.ID) guarantee uniqueness
+		ruleChainID = "leave_approval_v2"        // def.ruleChain.id (human-readable, subflow targetId)
 	)
 	def := []byte(fmt.Sprintf(aliasChainDefTpl, ruleChainID))
 
-	// 以外部 id 注册：id 覆盖 ruleChain.id，ruleChain.id 记为别名
+	// Register with an external ID: id overrides ruleChain.id, ruleChain.id is recorded as an alias
 	e, err := pool.New(primaryID, def)
 	assert.Nil(t, err)
 	assert.Equal(t, primaryID, e.Id())
 	re := e.(*RuleEngine)
 	assert.Equal(t, []string{ruleChainID}, re.Aliases(), "ruleChain.id 应作为别名保留")
 
-	// 主 id 可查
+	// The main ID is verifiable
 	byPrimary, ok := pool.Get(primaryID)
 	assert.True(t, ok)
-	// 别名 ruleChain.id 可查（子流程寻址的关键）
+	// Alias: ruleChain.id Queryable (Key to Subflow Addressing)
 	byAlias, ok := pool.Get(ruleChainID)
 	assert.True(t, ok)
-	// 同一引擎实例（接口值相等 ⇔ 持有同一 *RuleEngine 指针）
+	// Same engine instance (interface values equal⇔ holding the same *RuleEngine pointer)
 	assert.True(t, byPrimary == byAlias)
-	// 不存在的 key 仍返回 false
+	// A key that doesn't exist still returns false
 	_, ok = pool.Get("not-exist")
 	assert.False(t, ok)
 
-	// 按别名删除：主键与别名都应清理
+	// Delete by alias: Both primary keys and aliases should be cleaned
 	pool.Del(ruleChainID)
 	_, ok = pool.Get(primaryID)
 	assert.False(t, ok, "按别名删除后主键应失效")
@@ -174,8 +174,8 @@ func TestPoolAlias(t *testing.T) {
 	assert.False(t, ok, "按别名删除后别名应失效")
 }
 
-// TestPoolAlias_NoOverride 验证：当 New(id="", def)（不覆盖）时，id=ruleChain.id，无别名。
-// 保持向后兼容：未指定外部 id 的行为与改动前一致。
+// TestPoolAlias_NoOverride Verification: When New(id="", def) (not overridden), id=ruleChain.id, no aliases.
+// Maintains backward compatibility: The behavior of unspecified external IDs remains consistent with the previous changes.
 func TestPoolAlias_NoOverride(t *testing.T) {
 	_ = Registry.Register(&test.UpperNode{})
 	pool := NewPool()
@@ -192,8 +192,8 @@ func TestPoolAlias_NoOverride(t *testing.T) {
 	assert.True(t, ok)
 }
 
-// TestPoolAlias_Stop 验证 Pool.Stop 同步清理别名：停止整个池后，
-// 别名不应再解析到已停止的引擎。
+// TestPoolAlias_Stop Verify Pool.Stop synchronized cleanup alias: After stopping the entire pool,
+// Alias should no longer be resolved to a stopped engine.
 func TestPoolAlias_Stop(t *testing.T) {
 	_ = Registry.Register(&test.UpperNode{})
 	pool := NewPool()
@@ -207,13 +207,13 @@ func TestPoolAlias_Stop(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, []string{ruleChainID}, e.(*RuleEngine).Aliases())
 
-	// 停止前别名可查
+	// Aliases before discontinuation are available
 	_, ok := pool.Get(ruleChainID)
 	assert.True(t, ok)
 
 	pool.Stop()
 
-	// 停止后主键与别名都失效
+	// After stopping, both the primary key and aliases become invalid
 	_, ok = pool.Get(primaryID)
 	assert.False(t, ok, "Stop 后主键应失效")
 	_, ok = pool.Get(ruleChainID)

@@ -28,16 +28,16 @@ import (
 	"github.com/rulego/rulego/test"
 )
 
-// TestNetSessionPush net 入+出闭环集成测试：
-// 设备 TCP 连入 endpoint/net → 首帧提取 deviceId（sessionKey=${msg.deviceId}）
-// → NetNode（server=ref://net_endpoint, target=DEV_001）寻址推送 → 设备收到 "HELLO\n"
+// TestNetSessionPush net In+Out closed-loop integrated testing:
+// Device TCP connects to endpoint/net → first frame extracts deviceId(sessionKey=${msg.deviceId})
+// → NetNode(server=ref://net_endpoint, target=DEV_001) addressing push → device receives "HELLO\n"
 //
-// 与 net_endpoint_integration_test 的区别：那个测入站+同步响应（jsTransform 回写）；
-// 本测试测**主动寻址推送**（session 新功能，跨请求复用连接）。
+// Difference from net_endpoint_integration_test: which is the incoming station + synchronous response (jsTransform writeback);
+// This test tested **active addressing push** (new session feature, cross-request multiplexing connection).
 func TestNetSessionPush(t *testing.T) {
 	config := types.NewConfig()
 
-	// ① endpoint/net 启动（随机端口 + sessionKey 提取）
+	// (1) endpoint/net startup (random port + sessionKey extraction)
 	ep := &netep.Net{}
 	if err := ep.Init(config, types.Configuration{
 		"protocol":   "tcp",
@@ -51,14 +51,14 @@ func TestNetSessionPush(t *testing.T) {
 	}
 	defer ep.Destroy()
 
-	// ② 注册 ep 到 NodePool（NetNode ref:// 的寻址目标）
+	// (2) Register ep to NodePool (the addressing target of NetNode ref://)
 	pool := node_pool.NewNodePool(config)
 	if _, err := pool.AddNode(ep); err != nil {
 		t.Fatalf("AddNode: %v", err)
 	}
 	config.NodePool = pool
 
-	// ③ 设备 TCP 连入 + 上报 deviceId
+	// (3) Device TCP connection + deviceId reported
 	conn, err := net.Dial("tcp", ep.Addr())
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
@@ -79,7 +79,7 @@ func TestNetSessionPush(t *testing.T) {
 	}
 	defer node.Destroy()
 
-	// ⑤ 触发推送
+	// (5) Trigger push notification
 	done := make(chan error, 1)
 	test.NodeOnMsg(t, node, []test.Msg{{Data: "HELLO", DataType: types.TEXT}}, func(m types.RuleMsg, rel string, err error) {
 		done <- err
@@ -93,7 +93,7 @@ func TestNetSessionPush(t *testing.T) {
 		t.Fatal("timeout waiting NetNode OnMsg callback")
 	}
 
-	// ⑥ 设备收到推送数据
+	// (6) The device receives the push data
 	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestNetSessionPush(t *testing.T) {
 	}
 }
 
-// TestNetSessionPushBroadcast 广播：target=* 所有连接都收到
+// TestNetSessionPushBroadcast Broadcast: target=* All connections are received
 func TestNetSessionPushBroadcast(t *testing.T) {
 	config := types.NewConfig()
 
@@ -128,7 +128,7 @@ func TestNetSessionPushBroadcast(t *testing.T) {
 	}
 	config.NodePool = pool
 
-	// 两个设备连入
+	// Two devices connected
 	conn1, _ := net.Dial("tcp", ep.Addr())
 	defer conn1.Close()
 	conn1.Write([]byte(`{"deviceId":"DEV_A"}` + "\n"))
@@ -138,7 +138,7 @@ func TestNetSessionPushBroadcast(t *testing.T) {
 	conn2.Write([]byte(`{"deviceId":"DEV_B"}` + "\n"))
 	time.Sleep(300 * time.Millisecond)
 
-	// 广播
+	// Broadcast
 	node := &external.NetNode{}
 	node.Init(config, types.Configuration{"server": "ref://" + ep.Id(), "target": "*"})
 	defer node.Destroy()
@@ -156,7 +156,7 @@ func TestNetSessionPushBroadcast(t *testing.T) {
 		t.Fatal("timeout")
 	}
 
-	// 两个设备都收到
+	// Both devices were received
 	for i, c := range []net.Conn{conn1, conn2} {
 		c.SetReadDeadline(time.Now().Add(2 * time.Second))
 		buf := make([]byte, 100)

@@ -17,7 +17,7 @@ import (
 	"github.com/rulego/rulego/server/services"
 )
 
-// getRuleGoFunc 动态获取指定用户的规则引擎池
+// getRuleGoFunc dynamically retrieves the rule engine pool for a specified user
 func (s *Server) getRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEnginePool {
 	username := metadataUsername(exchange)
 	if username == "" {
@@ -38,8 +38,8 @@ func (s *Server) getRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEngineP
 func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
-	// GET /rules - 获取规则链列表
-	ep.GET(endpoint.NewRouter().From(base+"/rules").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// GET /rules - Retrieves the list of rule chains
+	ep.GET(endpoint.NewRouter().From(base + "/rules").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		username := metadataUsername(exchange)
 		keywords := strings.TrimSpace(msg.Metadata.GetValue(constants.KeyKeywords))
@@ -70,7 +70,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// GET /rules/:id - 获取规则链 DSL
+	// GET /rules/:id - Retrieves the rule chain DSL
 	ep.GET(endpoint.NewRouter().From(base + "/rules/:id").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		id := metadataValue(exchange, constants.KeyId)
 		if !validateId(id) {
@@ -90,7 +90,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// POST /rules/:id - 保存规则链
+	// POST /rules/:id - stores the rule chain
 	ep.POST(endpoint.NewRouter().From(base + "/rules/:id").Process(s.authWithPermission("rule", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		id := metadataValue(exchange, constants.KeyId)
 		if !validateId(id) {
@@ -107,7 +107,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// DELETE /rules/:id - 删除规则链
+	// DELETE /rules/:id - Delete the rule chain
 	ep.DELETE(endpoint.NewRouter().From(base + "/rules/:id").Process(s.authWithPermission("rule", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		id := metadataValue(exchange, constants.KeyId)
 		if !validateId(id) {
@@ -126,7 +126,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// POST /rules/:id/operate/:type - 部署/下线规则链
+	// POST /rules/:id/operate/:type - Deploy/take down the rule chain
 	ep.POST(endpoint.NewRouter().From(base + "/rules/:id/operate/:type").Process(s.authWithPermission("rule", "operate")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		chainId := metadataValue(exchange, constants.KeyId)
 		if !validateId(chainId) {
@@ -159,7 +159,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// POST /rules/:id/notify/:msgType - 执行规则链（异步，不等待结果）
+	// POST /rules/:id/notify/:msgType - Executes the rule chain (asynchronous, does not wait for results)
 	ep.POST(endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(s.getRuleGoFunc)).
 		From(base + "/rules/:id/notify/:msgType").
 		Process(s.authWithPermission("rule", "execute")).
@@ -167,7 +167,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		To("chain:${id}${_targetNodePath}").SetOpts(s.runLogOpts()...).
 		End())
 
-	// GET /rules/:id/latest - 获取最近修改的规则链
+	// GET /rules/:id/latest - Get the most recently modified rule chain
 	ep.GET(endpoint.NewRouter().From(base + "/rules/:id/latest").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		catalog, ok := getService[services.ChainCatalog](s, exchange, services.KeyRuleCatalog)
 		if !ok {
@@ -186,7 +186,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		return false
 	}).End())
 
-	// POST /rules/:id/base - 保存规则链基础信息
+	// POST /rules/:id/base - stores basic information about the rule chain
 	ep.POST(endpoint.NewRouter().From(base + "/rules/:id/base").Process(s.authWithPermission("rule", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		id := metadataValue(exchange, constants.KeyId)
 		if !validateId(id) {
@@ -208,7 +208,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// POST /rules/:id/config/:varType - 保存规则链配置
+	// POST /rules/:id/config/:varType - Stores the rule chain configuration
 	ep.POST(endpoint.NewRouter().From(base + "/rules/:id/config/:varType").Process(s.authWithPermission("rule", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		id := metadataValue(exchange, constants.KeyId)
 		if !validateId(id) {
@@ -230,7 +230,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// POST /rules/:id/execute/:msgType - 同步执行规则链，等待结果返回
+	// POST /rules/:id/execute/:msgType - Synchronously execute the rule chain, waiting for the result to return
 	ep.POST(endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(s.getRuleGoFunc)).
 		From(base + "/rules/:id/execute/:msgType").
 		Process(s.authWithPermission("rule", "execute")).
@@ -249,7 +249,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).Wait().End())
 
-	// POST /rules/:id/v1/chat/completions - OpenAI 兼容路由
+	// POST /rules/:id/v1/chat/completions - OpenAI-compatible route
 	ep.POST(endpoint.NewRouter().From(base + "/rules/:id/v1/chat/completions").Process(s.authWithPermission("rule", "execute")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		executor, ok := getService[services.ChainExecutor](s, exchange, services.KeyRuleExecutor)
 		if !ok {
@@ -273,7 +273,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		ruleMsg := types.NewMsg(0, constants.MsgTypeChatCompletions, types.JSON, msg.Metadata, string(exchange.In.Body()))
 
 		// Use WithOnEnd to capture the rule chain output and format as OpenAI response
-		// 注入请求用户身份到执行上下文，确保系统智能体的 MCP 工具操作正确的用户空间
+		// Inject the requested user identity into the execution context to ensure the system agent's MCP tool operates correctly in user space
 		execCtx := services.ContextWithMCPRequestingUser(context.Background(), metadataUsername(exchange))
 		if err := executor.ExecuteAndWait(metadataUsername(exchange), chainId, ruleMsg,
 			types.WithContext(execCtx),
@@ -295,7 +295,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 }
 
-// transformRuleMsg 预处理消息：设置 ID、类型、headers 到 metadata
+// transformRuleMsg preprocesses messages: sets ID, type, and headers to metadata
 func (s *Server) transformRuleMsg(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 	msg := exchange.In.GetMsg()
 	if msgId := exchange.In.GetParam(constants.KeyMsgId); msgId != "" {
@@ -311,7 +311,7 @@ func (s *Server) transformRuleMsg(_ endpointApi.Router, exchange *endpointApi.Ex
 	return true
 }
 
-// resolveStartNode 从查询参数中读取 _fromNodeId 和 _onlyNodeId，设置 _targetNodePath 元数据
+// resolveStartNode reads _fromNodeId and _onlyNodeId from query parameters and sets _targetNodePath metadata
 func (s *Server) resolveStartNode(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 	msg := exchange.In.GetMsg()
 	onlyNodeId := msg.Metadata.GetValue(constants.ParamOnlyNodeId)
@@ -327,7 +327,7 @@ func (s *Server) resolveStartNode(_ endpointApi.Router, exchange *endpointApi.Ex
 	return true
 }
 
-// runLogOpts 根据 SaveRunLog 配置返回 WithOnRuleChainCompleted 选项
+// runLogOpts returns the WithOnRuleChainCompleted option based on the SaveRunLog configuration
 func (s *Server) runLogOpts() []types.RuleContextOption {
 	if !s.config.SaveRunLog {
 		return nil
@@ -343,7 +343,7 @@ func (s *Server) runLogOpts() []types.RuleContextOption {
 	}
 }
 
-// metadataUsernameFromCtx 从规则链上下文获取用户名
+// metadataUsernameFromCtx: Retrieves the username from the context of the rule chain
 func metadataUsernameFromCtx(ctx types.RuleContext) string {
 	if chainCtx, ok := ctx.RuleChain().(types.ChainCtx); ok {
 		if def := chainCtx.Definition(); def != nil {

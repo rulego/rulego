@@ -25,7 +25,7 @@ import (
 
 var ruleEngine types.RuleEngine
 
-// 初始化规则引擎实例和配置
+// Initialize the rule engine instance and configuration
 func init() {
 	config := rulego.NewConfig()
 	var err error
@@ -35,10 +35,10 @@ func init() {
 	}
 }
 
-// 测试ssh执行命令或者shell脚本
-// 脚本返回结果，会通过msg返回给下一个节点
-// 测试前，请配置正确的ssh登录信息
-// count.sh 内容
+// Test ssh to execute commands or shell scripts
+// The script returns the result and returns it to the next node via msg
+// Before testing, please configure the correct SSH login information
+// count.sh Content
 // #!/bin/sh
 // echo "The first argument is $1"
 func main() {

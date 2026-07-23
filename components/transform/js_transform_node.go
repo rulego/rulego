@@ -16,7 +16,7 @@
 
 package transform
 
-// 规则链节点配置示例：
+// Example of rule chain node configuration:
 // {
 //   "id": "s2",
 //   "type": "jsTransform",
@@ -40,24 +40,24 @@ import (
 )
 
 const (
-	// JsTransformDefaultScript 默认JS脚本，直接返回原始消息
+	// JsTransformDefaultScript is the default JS script that returns the original message directly
 	JsTransformDefaultScript = "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
-	// JsTransformType 组件类型
+	// JsTransformType component type
 	JsTransformType = "jsTransform"
-	// JsTransformFuncTemplate JS函数模板
+	// JsTransformFuncTemplate JS function template
 	JsTransformFuncTemplate = "function Transform(msg, metadata, msgType, dataType) { %s }"
-	// JsTransformFuncName JS函数名
+	// JsTransformFuncName JS function name
 	JsTransformFuncName = "Transform"
 )
 
-// JsTransformReturnFormatErr JS脚本返回值必须是map类型
+// JsTransformReturnFormatErr indicates that the JS script did not return a map.
 var JsTransformReturnFormatErr = errors.New("return the value is not a map")
 
 func init() {
 	Registry.Add(&JsTransformNode{})
 }
 
-// JsTransformNodeConfiguration JS转换节点配置
+// JsTransformNodeConfiguration JS converts node configuration
 // JsTransformNodeConfiguration defines the configuration for JsTransformNode.
 type JsTransformNodeConfiguration struct {
 	// JsScript is the JavaScript script for message transformation.
@@ -65,66 +65,66 @@ type JsTransformNodeConfiguration struct {
 	JsScript string `json:"jsScript" label:"Transform Script" desc:"JavaScript script, must return {'msg':msg,'metadata':metadata,'msgType':msgType}. Params: msg, metadata, msgType, dataType" required:"true"`
 }
 
-// JsTransformNode JavaScript消息转换节点，使用JavaScript脚本对消息进行转换处理
+// JsTransformNode is a JavaScript message conversion node that uses JavaScript scripts to process message transformation
 // JsTransformNode is a JavaScript message transformation component that processes messages using JavaScript scripts.
 //
-// 脚本环境：
+// Script environment:
 // Script Environment:
-//   - 函数签名：function Transform(msg, metadata, msgType, dataType) - Function signature
-//   - 输入参数：消息数据、元数据映射、消息类型、数据类型 - Input params: message data, metadata map, message type, data type
-//   - 返回格式：{'msg':newMsg,'metadata':newMetadata,'msgType':newType,'dataType':newDataType} - Return format
-//   - 可选字段：dataType字段可省略，保持原值 - Optional fields: dataType can be omitted to keep original
+//   - Function signature: function transform(msg, metadata, msgType, dataType) - Function signature
+//   - Input params: message data, metadata map, message type, data type
+//   - Return format: {'msg':newMsg,'metadata':newMetadata,'msgType':newType,'dataType':newDataType} - Return format
+//   - Optional fields: dataType fields can be omitted to keep original - Optional fields: dataType can be omitted to keep original
 //
-// 内置变量：
+// Built-in variables:
 // Built-in Variables:
-//   - $ctx: 上下文对象，提供缓存操作 - Context object providing cache operations
-//   - global: 全局配置属性 - Global configuration properties
-//   - vars: 规则链变量 - Rule chain variables
-//   - UDF函数: 用户自定义函数 - User-defined functions
+//   - $ctx: Context object providing cache operations - Context object providing cache operations
+//   - global: Global configuration properties
+//   - vars: Rule chain variables
+//   - UDF functions: User-defined functions
 //
-// 缓存操作示例：
+// Sample cache operation:
 // Cache Operation Examples:
 //
-//	let cache = $ctx.ChainCache(); // 获取规则链级别缓存 - Get chain-level cache
-//	// let cache = $ctx.GlobalCache(); // 获取全局级别缓存 - Get global-level cache
-//	cache.Set("key", "value"); // 设置缓存，永不过期 - Set cache, never expires
-//	cache.Set("key2", "value2", "10m"); // 设置缓存，10分钟后过期 - Set cache, expires in 10 minutes
-//	let value = cache.Get("key"); // 获取缓存 - Get cache value
-//	let exists = cache.Has("key"); // 判断缓存是否存在 - Check if cache exists
-//	cache.Delete("key"); // 删除缓存 - Delete cache
-//	let values = cache.GetByPrefix("prefix_"); // 获取前缀匹配的缓存 - Get caches by prefix
-//	cache.DeleteByPrefix("prefix_"); // 删除前缀匹配的缓存 - Delete caches by prefix
+//	let cache = $ctx.ChainCache(); Get chain-level cache
+//	// let cache = $ctx.GlobalCache(); Get global-level cache - Get global-level cache
+//	cache.Set("key", "value"); Set cache, never expire
+//	cache.Set("key2", "value2", "10m"); Set cache, expires in 10 minutes - Set cache, expires in 10 minutes
+//	let value = cache.Get("key"); Get cache value - Get cache value
+//	let exists = cache.Has("key"); Check if cache exists
+//	cache.Delete("key"); Delete cache - Delete cache
+//	let values = cache.GetByPrefix("prefix_"); Get caches by prefix matching - Get caches by prefix
+//	cache.DeleteByPrefix("prefix_"); Delete caches by prefix matching caches - Delete caches by prefix
 //
-// 配置示例 - Configuration example:
+// Configuration example:
 //
 //	{
 //	  "jsScript": "msg.temperature = msg.temperature * 9/5 + 32; metadata.unit = 'Fahrenheit'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
 //	}
 //
-// 使用场景 - Use cases:
-//   - 数据格式转换：JSON字段重组、单位换算 - Data format conversion: JSON field reorganization, unit conversion
-//   - 消息富化：添加计算字段、时间戳、标识符 - Message enrichment: add calculated fields, timestamps, identifiers
-//   - 条件转换：基于消息内容的动态转换逻辑 - Conditional transformation: dynamic conversion logic based on message content
-//   - 协议适配：不同数据协议间的消息转换 - Protocol adaptation: message conversion between different data protocols
+// Use cases:
+//   - Data format conversion: JSON field reorganization, unit conversion
+//   - Message enrichment: add calculated fields, timestamps, identifiers
+//   - Conditional transformation: Dynamic conversion logic based on message content
+//   - Protocol adaptation: message conversion between different data protocols
 type JsTransformNode struct {
-	// Config 节点配置
+	// Config defines the node configuration
 	// Config holds the node configuration
 	Config JsTransformNodeConfiguration
-	// jsEngine JavaScript执行引擎
+	// jsEngine JavaScript execution engine
 	// jsEngine JavaScript execution engine
 	jsEngine types.JsEngine
-	// passThrough 直通模式，跳过JS执行
+	// passThrough mode skips JS execution
 	// passThrough direct pass-through mode, skip JS execution
 	passThrough bool
 }
 
-// Type 返回组件类型
+// Type returns the component type
 // Type returns the component type.
 func (x *JsTransformNode) Type() string {
 	return JsTransformType
 }
 
-// New 创建新实例
+// New creates an instance
 // New creates a new instance.
 func (x *JsTransformNode) New() types.Node {
 	return &JsTransformNode{Config: JsTransformNodeConfiguration{
@@ -132,7 +132,7 @@ func (x *JsTransformNode) New() types.Node {
 	}}
 }
 
-// Init 初始化节点
+// Init initializes the node
 // Init initializes the node.
 func (x *JsTransformNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
@@ -140,29 +140,29 @@ func (x *JsTransformNode) Init(ruleConfig types.Config, configuration types.Conf
 		return err
 	}
 
-	// 检查是否启用直通模式
+	// Check whether passthrough mode is enabled
 	script := strings.TrimSpace(x.Config.JsScript)
 	if script == "" || script == JsTransformDefaultScript {
 		x.passThrough = true
 		return nil
 	}
 
-	// 初始化JavaScript执行引擎
+	// Initialize the JavaScript execution engine
 	jsScript := fmt.Sprintf(JsTransformFuncTemplate, x.Config.JsScript)
 	x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, base.NodeUtils.GetVars(configuration))
 	return err
 }
 
-// OnMsg 处理消息，使用JavaScript脚本转换消息内容
+// OnMsg processes messages and uses JavaScript scripts to transform message content
 // OnMsg processes messages using JavaScript script for message transformation.
 func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	// 直通模式：直接转发
+	// Direct Mode: Direct forwarding
 	if x.passThrough {
 		ctx.TellNext(msg, types.Success)
 		return
 	}
 
-	// 准备传递给JS脚本的数据，因为js对data就行修改，会影响原始数据，所以需要复制一份
+	// Prepare to pass the data to the JS script. Since JavaScript can modify the data, it will affect the original data, so a copy is needed
 	data := base.NodeUtils.GetDataByType(msg, false)
 
 	var metadataValues map[string]string
@@ -172,51 +172,51 @@ func (x *JsTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		metadataValues = make(map[string]string)
 	}
 
-	// 执行JavaScript脚本
+	// Execute JavaScript scripts
 	out, err := x.jsEngine.Execute(ctx, JsTransformFuncName, data, metadataValues, msg.Type, string(msg.DataType))
 	if err != nil {
 		ctx.TellFailure(msg, err)
 		return
 	}
 
-	// 处理执行结果
+	// Handle the execution results
 	x.processJsResult(ctx, msg, out)
 }
 
-// processJsResult 处理JavaScript执行结果
+// processJsResult handles the result of JavaScript execution
 // processJsResult processes JavaScript execution results.
 func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleMsg, out interface{}) {
-	// 验证返回值格式
+	// Verify the return value format
 	formatData, ok := out.(map[string]interface{})
 	if !ok {
 		ctx.TellFailure(msg, JsTransformReturnFormatErr)
 		return
 	}
 
-	// 更新数据类型
+	// Update data types
 	if formatDataType, ok := formatData[types.DataTypeKey]; ok {
 		if dataTypeStr := str.ToString(formatDataType); dataTypeStr != "" {
 			msg.DataType = types.DataType(dataTypeStr)
 		}
 	}
 
-	// 更新消息类型
+	// Update message type
 	if formatMsgType, ok := formatData[types.MsgTypeKey]; ok {
 		msg.Type = str.ToString(formatMsgType)
 	}
 
-	// 更新元数据
+	// Update metadata
 	if formatMetaData, ok := formatData[types.MetadataKey]; ok {
 		msg.Metadata.ReplaceAll(str.ToStringMapString(formatMetaData))
 	}
 
-	// 更新消息数据
+	// Update message data
 	if formatMsgData, ok := formatData[types.MsgKey]; ok {
-		// 处理字节数组
+		// Processing byte arrays
 		if byteData, isByteSlice := formatMsgData.([]byte); isByteSlice {
 			msg.SetBytes(byteData)
 		} else if byteData, isByteArray := formatMsgData.([]interface{}); isByteArray {
-			// 尝试转换为字节数组
+			// Try converting it to a byte array
 			bytes := make([]byte, len(byteData))
 			isValidByteArray := true
 			for i, v := range byteData {
@@ -235,7 +235,7 @@ func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleM
 				}
 
 				if isNumber {
-					// 边界检查
+					// Border checks
 					if byteVal < 0 || byteVal > 255 || byteVal != float64(int(byteVal)) {
 						ctx.TellFailure(msg, fmt.Errorf("byte array element at index %d has invalid value %v: must be integer in range 0-255", i, byteVal))
 						return
@@ -250,7 +250,7 @@ func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleM
 			if isValidByteArray {
 				msg.SetBytes(bytes)
 			} else {
-				// 转字符串处理
+				// String conversion processing
 				if newValue, err := str.ToStringMaybeErr(formatMsgData); err == nil {
 					msg.SetData(newValue)
 				} else {
@@ -259,7 +259,7 @@ func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleM
 				}
 			}
 		} else {
-			// 普通数据类型
+			// Ordinary data types
 			if newValue, err := str.ToStringMaybeErr(formatMsgData); err == nil {
 				msg.SetData(newValue)
 			} else {
@@ -269,7 +269,7 @@ func (x *JsTransformNode) processJsResult(ctx types.RuleContext, msg types.RuleM
 		}
 	}
 
-	// 发送到Success链
+	// Send to the Success chain
 	ctx.TellNext(msg, types.Success)
 }
 
@@ -278,7 +278,7 @@ func (x *JsTransformNode) Desc() string {
 	return "Transform messages using JavaScript. Must return {'msg':msg,'metadata':metadata,'msgType':msgType}. Params: msg, metadata, msgType, dataType."
 }
 
-// Destroy 清理资源
+// Destroy to clean up resources
 // Destroy cleans up resources.
 func (x *JsTransformNode) Destroy() {
 	if x.jsEngine != nil {

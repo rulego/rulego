@@ -9,47 +9,47 @@ import (
 // It tracks various performance indicators including success/failure counts, current
 // active executions, and total processed messages.
 //
-// MetricsAspect 实现了规则引擎执行的全面指标收集。
-// 它跟踪各种性能指标，包括成功/失败计数、当前活跃执行数和总处理消息数。
+// MetricsAspect implements comprehensive metric collection for rule engine execution.
+// It tracks various performance metrics, including success/failure counts, current active executions, and total message processing.
 //
 // Features:
-// 功能特性：
-//   - Real-time execution tracking  实时执行跟踪
-//   - Success/failure rate monitoring  成功/失败率监控
-//   - Concurrent execution counting  并发执行计数
-//   - Automatic metrics reset per instance  每实例自动指标重置
-//   - Thread-safe atomic operations  线程安全的原子操作
+// Features:
+//   - Real-time execution tracking
+//   - Success/failure rate monitoring
+//   - Concurrent execution counting
+//   - Automatic metrics reset per instance
+//   - Thread-safe atomic operations
 //
 // Metrics Collected:
-// 收集的指标：
-//   - TotalProcessed: Total number of messages processed  总处理消息数
-//   - SuccessCount: Number of successful executions  成功执行次数
-//   - FailureCount: Number of failed executions  失败执行次数
-//   - CurrentActive: Current number of active executions  当前活跃执行数
+// Collected metrics:
+//   - TotalProcessed: Total number of messages processed
+//   - SuccessCount: Number of successful executions
+//   - FailureCount: Number of failed executions
+//   - CurrentActive: Current number of active executions
 //
 // Usage:
-// 使用方法：
+// How to use:
 //
 //	// Create with default metrics instance
-//	// 使用默认指标实例创建
+//	Created using the default metric instance
 //	metricsAspect := NewMetricsAspect(nil)
 //
 //	// Create with custom metrics instance
-//	// 使用自定义指标实例创建
+//	Create using custom metric instances
 //	customMetrics := metrics.NewEngineMetrics()
 //	metricsAspect := NewMetricsAspect(customMetrics)
 //
 //	// Apply to rule engine
-//	// 应用到规则引擎
+//	Applied to the rule engine
 //	config := types.NewConfig().WithAspects(metricsAspect)
 //	engine := rulego.NewRuleEngine(config)
 //
 //	// Access metrics data
-//	// 访问指标数据
+//	Access metric data
 //	metrics := metricsAspect.GetMetrics()
 //	fmt.Printf("Success rate: %.2f%%", metrics.GetSuccessRate())
 type MetricsAspect struct {
-	metrics *metrics.EngineMetrics // Engine metrics instance  引擎指标实例
+	metrics *metrics.EngineMetrics // Engine metrics instance
 }
 
 var _ types.StartAspect = (*MetricsAspect)(nil)
@@ -59,18 +59,18 @@ var _ types.CompletedAspect = (*MetricsAspect)(nil)
 // NewMetricsAspect creates a new metrics collection aspect with the specified
 // metrics instance. If no metrics instance is provided, a new one is created.
 //
-// NewMetricsAspect 使用指定的指标实例创建新的指标收集切面。
-// 如果未提供指标实例，则会创建一个新实例。
+// NewMetricsAspect uses the specified metric instance to create a new metric collection face.
+// If no metric instance is provided, a new instance will be created.
 //
 // Parameters:
-// 参数：
+// Parameters:
 //   - m: Engine metrics instance, or nil to create a new one
-//     m：引擎指标实例，或 nil 以创建新实例
+//     m: Engine metric instance, or nil to create a new instance
 //
 // Returns:
-// 返回：
+// Returns:
 //   - *MetricsAspect: Configured metrics aspect
-//     *MetricsAspect：配置好的指标切面
+//     *MetricsAspect: Configured metrics aspect
 func NewMetricsAspect(m *metrics.EngineMetrics) *MetricsAspect {
 	if m == nil {
 		m = metrics.NewEngineMetrics()
@@ -83,8 +83,8 @@ func NewMetricsAspect(m *metrics.EngineMetrics) *MetricsAspect {
 // Order returns the execution order of this aspect. Lower values execute earlier.
 // Metrics aspect has order 20, executing after control aspects but before logging.
 //
-// Order 返回此切面的执行顺序。值越低，执行越早。
-// 指标切面的顺序为 20，在控制切面之后但在日志记录之前执行。
+// Order returns the execution order of this aspect. The lower the value, the earlier it is executed.
+// MetricsAspect has order 20, so it runs after control aspects but before logging.
 func (a *MetricsAspect) Order() int {
 	return 20
 }
@@ -92,8 +92,8 @@ func (a *MetricsAspect) Order() int {
 // New creates a new instance of the metrics aspect for each rule engine.
 // Each new instance resets the metrics to start with clean counters.
 //
-// New 为每个规则引擎创建指标切面的新实例。
-// 每个新实例重置指标以从干净的计数器开始。
+// New: Create a new instance of the metric face for each rule engine.
+// Each new instance resets the metric to start from a clean counter.
 func (a *MetricsAspect) New() types.Aspect {
 	if a.metrics == nil {
 		a.metrics = metrics.NewEngineMetrics()
@@ -107,8 +107,8 @@ func (a *MetricsAspect) New() types.Aspect {
 // PointCut determines which nodes this aspect applies to.
 // Returns true for all nodes to collect comprehensive metrics.
 //
-// PointCut 确定此切面应用于哪些节点。
-// 对所有节点返回 true 以收集全面的指标。
+// PointCut determines which nodes this section is applied to.
+// Returns true for all nodes to collect comprehensive metrics.
 func (a *MetricsAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
 	return true
 }
@@ -116,12 +116,12 @@ func (a *MetricsAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relat
 // Start is called at the beginning of rule processing. It increments both
 // the current active execution counter and the total processed counter.
 //
-// Start 在规则处理开始时调用。它同时增加当前活跃执行计数器和总处理计数器。
+// Start is called when rule processing begins. It simultaneously increases the currently active execution counter and the total processing counter.
 //
 // Metrics Updated:
-// 更新的指标：
-//   - CurrentActive: Incremented by 1  当前活跃数增加 1
-//   - TotalProcessed: Incremented by 1  总处理数增加 1
+// Updated metrics:
+//   - CurrentActive: Incremented by 1
+//   - TotalProcessed: Incremented by 1
 func (a *MetricsAspect) Start(ctx types.RuleContext, msg types.RuleMsg) (types.RuleMsg, error) {
 	a.metrics.IncrementCurrent()
 	a.metrics.IncrementTotal()
@@ -131,12 +131,12 @@ func (a *MetricsAspect) Start(ctx types.RuleContext, msg types.RuleMsg) (types.R
 // End is called at the end of rule processing. It updates success or failure
 // counters based on whether an error occurred during execution.
 //
-// End 在规则处理结束时调用。它根据执行期间是否发生错误更新成功或失败计数器。
+// End is called when rule processing is complete. It updates the success or failure counter based on whether errors occur during execution.
 //
 // Metrics Updated:
-// 更新的指标：
-//   - SuccessCount: Incremented if no error  如果没有错误则成功计数增加
-//   - FailureCount: Incremented if error occurred  如果发生错误则失败计数增加
+// Updated metrics:
+//   - SuccessCount: Incremented if no error
+//   - FailureCount: Incremented if error occurred
 func (a *MetricsAspect) End(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) types.RuleMsg {
 	if err != nil {
 		a.metrics.IncrementFailed()
@@ -149,11 +149,11 @@ func (a *MetricsAspect) End(ctx types.RuleContext, msg types.RuleMsg, err error,
 // Completed is called when rule processing is fully completed. It decrements
 // the current active execution counter to reflect completion.
 //
-// Completed 在规则处理完全完成时调用。它减少当前活跃执行计数器以反映完成。
+// Completed is called when rule processing is fully finished. It reduces the currently active execution counter to reflect completion.
 //
 // Metrics Updated:
-// 更新的指标：
-//   - CurrentActive: Decremented by 1  当前活跃数减少 1
+// Updated metrics:
+//   - CurrentActive: Decremented by 1
 func (a *MetricsAspect) Completed(ctx types.RuleContext, msg types.RuleMsg) types.RuleMsg {
 	a.metrics.DecrementCurrent()
 	return msg
@@ -162,12 +162,12 @@ func (a *MetricsAspect) Completed(ctx types.RuleContext, msg types.RuleMsg) type
 // GetMetrics returns the current metrics instance containing all collected
 // performance data. This allows external systems to monitor rule engine performance.
 //
-// GetMetrics 返回包含所有收集的性能数据的当前指标实例。
-// 这允许外部系统监控规则引擎性能。
+// GetMetrics returns the current metric instance containing all the collected performance data.
+// This allows external systems to monitor the performance of the rule engine.
 //
 // Returns:
-// 返回：
-//   - *metrics.EngineMetrics: Current metrics data  当前指标数据
+// Returns:
+//   - *metrics.EngineMetrics: Current metrics data
 func (a *MetricsAspect) GetMetrics() *metrics.EngineMetrics {
 	return a.metrics
 }

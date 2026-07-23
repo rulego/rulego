@@ -94,7 +94,7 @@ func TestMarketplaceGetComponents_ArrayResponse(t *testing.T) {
 
 func TestMarketplaceGetComponents_PaginatedResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 验证查询参数被透传
+		// Verification query parameters are passed through
 		if r.URL.Query().Get("keywords") != "test" {
 			t.Errorf("keywords param not passed, got %q", r.URL.Query().Get("keywords"))
 		}

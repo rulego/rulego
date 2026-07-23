@@ -21,7 +21,7 @@ type ruleGoClaim struct {
 	jwt.RegisteredClaims
 }
 
-// loginLimiter 登录速率限制器（基于 IP）
+// loginLimiter login rate limiter (IP-based)
 type loginLimiter struct {
 	mu       sync.Mutex
 	attempts map[string]*attemptInfo
@@ -32,17 +32,17 @@ type attemptInfo struct {
 	lastTime time.Time
 }
 
-// 全局登录限速器
+// Global login speed limiter
 var limiter = &loginLimiter{
 	attempts: make(map[string]*attemptInfo),
 }
 
 const (
-	maxLoginAttempts = 10           // 每个 IP 窗口期内最大尝试次数
-	loginWindow      = 1 * time.Minute // 窗口期
+	maxLoginAttempts = 10              // Maximum number of attempts per IP window period
+	loginWindow      = 1 * time.Minute // Window period
 )
 
-// check 允许则返回 true
+// If check allows, it returns true
 func (l *loginLimiter) check(ip string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -56,7 +56,7 @@ func (l *loginLimiter) check(ip string) bool {
 	return info.count <= maxLoginAttempts
 }
 
-// 定期清理过期的限速条目
+// Regularly clean up expired speed-limited items
 func init() {
 	go func() {
 		for {
@@ -81,7 +81,7 @@ func createToken(cfg *config.Config, claim ruleGoClaim) (*string, error) {
 	return &tokenStr, nil
 }
 
-// extractAuthorization 从请求中提取 authorization 值
+// extractAuthorization Extracts authorization values from requests
 func extractAuthorization(exchange *endpointApi.Exchange) string {
 	authorization := exchange.In.Headers().Get("Authorization")
 	if authorization == "" {
@@ -92,27 +92,27 @@ func extractAuthorization(exchange *endpointApi.Exchange) string {
 	return authorization
 }
 
-// authProcess 仅认证中间件（不检查权限），向后兼容。
-// 等价于 authWithPermission("", "")。
+// authProcess only authenticates middleware (does not check permissions) and is backward compatible.
+// Equivalent to authWithPermission("", "").
 func (s *Server) authProcess() func(endpointApi.Router, *endpointApi.Exchange) bool {
 	return s.authWithPermission("", "")
 }
 
-// authWithPermission 返回认证+授权中间件。
-// resource/action 为空时仅做认证，不检查权限。
-// Authenticator/Authorizer 从 Container 获取，未注册时使用默认实现。
+// authWithPermission returns authentication + authorization middleware.
+// When resource/action is empty, only authentication is performed without checking permissions.
+// Authenticator/Authorizer is obtained from the container and is implemented by default when not registered.
 func (s *Server) authWithPermission(resource, action string) func(endpointApi.Router, *endpointApi.Exchange) bool {
 	return func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		cfg := s.config
 		authorization := extractAuthorization(exchange)
 
-		// 匿名访问：RequireAuth=false 且无 token 时使用默认用户
+		// Anonymous access: Use the default user when RequireAuth=false and no token
 		if !cfg.RequireAuth && authorization == "" {
 			exchange.In.GetMsg().Metadata.PutValue(constants.KeyUsername, cfg.DefaultUsername)
 			return true
 		}
 
-		// 从 Container 获取认证器
+		// Obtain the authenticator from the container
 		authenticator := getAuthenticator(s.container, cfg)
 		userCtx, err := authenticator.Authenticate(authorization)
 		if err != nil {
@@ -121,10 +121,10 @@ func (s *Server) authWithPermission(resource, action string) func(endpointApi.Ro
 			return false
 		}
 
-		// 设置用户名到 metadata
+		// Set the username to metadata
 		exchange.In.GetMsg().Metadata.PutValue(constants.KeyUsername, userCtx.Username)
 
-		// 从 Container 获取授权器（resource 为空则跳过权限检查）
+		// Obtain an authorizer from the container (skip permission check if the resource is empty)
 		if resource != "" && action != "" {
 			authorizer := getAuthorizer(s.container)
 			if err := authorizer.Authorize(userCtx, resource, action); err != nil {
@@ -137,7 +137,7 @@ func (s *Server) authWithPermission(resource, action string) func(endpointApi.Ro
 	}
 }
 
-// clientIP 从 exchange 提取客户端 IP
+// clientIP extracts the client's IP from the exchange
 func clientIP(exchange *endpointApi.Exchange) string {
 	xff := exchange.In.Headers().Get("X-Forwarded-For")
 	if xff != "" {
@@ -153,11 +153,11 @@ func clientIP(exchange *endpointApi.Exchange) string {
 	return exchange.In.From()
 }
 
-// loginRoute 登录路由
+// loginRoute logs in to the route
 func (s *Server) loginRoute() endpointApi.Router {
 	cfg := s.config
-	return endpoint.NewRouter().From(s.apiBasePath()+constants.PathLogin).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		// 登录速率限制
+	return endpoint.NewRouter().From(s.apiBasePath() + constants.PathLogin).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		// Login speed limits
 		ip := clientIP(exchange)
 		if !limiter.check(ip) {
 			exchange.Out.SetStatusCode(http.StatusTooManyRequests)

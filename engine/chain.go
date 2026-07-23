@@ -31,173 +31,173 @@ import (
 // This structure is used as a key for caching node relationships to improve performance
 // by avoiding repeated lookups of node routing information.
 //
-// RelationCache 基于传入节点缓存传出节点关系。
-// 此结构用作缓存节点关系的键，通过避免重复查找节点路由信息来提高性能。
+// RelationCache is based on the relationship between the incoming node cache and the outgoing node.
+// This structure serves as a key for caching node relationships, improving performance by avoiding repeated searches for node routing information.
 //
 // Cache Key Structure:
-// 缓存键结构：
+// Cache key structure:
 //   - inNodeId: The source node from which the relationship originates
-//     关系源头的源节点
+//     Source nodes of the relationship source
 //   - relationType: The type of relationship (e.g., "Success", "Failure", "True", "False")
-//     关系类型（例如，"Success"、"Failure"、"True"、"False"）
+//     Relationship types (e.g., "Success", "Failure", "True", "False")
 //
 // Usage:
-// 用法：
+// Usage:
 //
 //	This cache significantly improves performance in rule chains with complex
 //	routing by avoiding repeated traversal of the node relationship map.
-//	该缓存通过避免重复遍历节点关系映射，显著提高了具有复杂路由的规则链的性能。
+//	This cache significantly improves the performance of rule chains with complex routing by avoiding repeated traversal of node relationship mappings.
 type RelationCache struct {
-	inNodeId     types.RuleNodeId // Identifier of the incoming node  传入节点的标识符
-	relationType string           // Type of relationship with the outgoing node  与传出节点的关系类型
+	inNodeId     types.RuleNodeId // Identifier of the incoming node
+	relationType string           // Type of relationship with the outgoing node
 }
 
 // RuleChainCtx defines an instance of a rule chain.
 // It initializes all nodes and records the routing relationships between all nodes in the rule chain.
 // This is the core context that manages the execution environment for a complete rule chain.
 //
-// RuleChainCtx 定义规则链的实例。
-// 它初始化所有节点并记录规则链中所有节点之间的路由关系。
-// 这是管理完整规则链执行环境的核心上下文。
+// RuleChainCtx defines an instance of the rule chain.
+// It initializes all nodes and records routing relationships among all nodes in the rule chain.
+// This is the core context for managing the complete rule chain execution environment.
 //
 // Core Responsibilities:
-// 核心职责：
-//   - Node lifecycle management  节点生命周期管理
-//   - Routing relationship management  路由关系管理
-//   - Configuration and variable handling  配置和变量处理
-//   - Aspect-oriented programming integration  面向切面编程集成
-//   - Sub-rule chain orchestration  子规则链编排
-//   - Thread-safe operations  线程安全操作
+// Core Responsibilities:
+//   - Node lifecycle management
+//   - Routing relationship management
+//   - Configuration and variable handling
+//   - Aspect-oriented programming integration
+//   - Sub-rule chain orchestration
+//   - Thread-safe operations
 //
 // Architecture:
-// 架构：
+// Structure:
 //
 //	Each RuleChainCtx represents a complete rule chain with:
-//	每个 RuleChainCtx 代表一个完整的规则链，包含：
-//	- Multiple RuleNodeCtx instances (individual nodes)  多个 RuleNodeCtx 实例（单个节点）
-//	- Routing matrix defining node connections  定义节点连接的路由矩阵
-//	- Shared configuration and variables  共享配置和变量
-//	- Root context for message processing  消息处理的根上下文
+//	Each RuleChainCtx represents a complete rule chain, including:
+//	- Multiple RuleNodeCtx instances (individual nodes)
+//	- Routing matrix defining node connections
+//	- Shared configuration and variables
+//	- Root context for message processing
 //
 // Performance Features:
-// 性能特性：
-//   - Relationship caching for fast routing lookups  用于快速路由查找的关系缓存
-//   - Efficient parent-child node tracking  高效的父子节点跟踪
-//   - Lock-optimized concurrent access  锁优化的并发访问
-//   - Variable preprocessing and secret decryption  变量预处理和密钥解密
+// Performance Features:
+//   - Relationship caching for fast routing lookups
+//   - Efficient parent-child node tracking
+//   - Lock-optimized concurrent access
+//   - Variable preprocessing and secret decryption
 type RuleChainCtx struct {
 	// Id is the unique identifier of the rule chain node
-	// Id 是规则链节点的唯一标识符
+	// The Id is the unique identifier of the rule chain node
 	Id types.RuleNodeId
 
 	// SelfDefinition contains the complete rule chain definition including
 	// metadata, nodes, connections, and configuration
-	// SelfDefinition 包含完整的规则链定义，包括元数据、节点、连接和配置
+	// SelfDefinition contains a complete rule chain definition, including metadata, nodes, connections, and configurations
 	SelfDefinition *types.RuleChain
 
 	// config contains the rule engine configuration including
 	// component registry, parser, and global settings
-	// config 包含规则引擎配置，包括组件注册表、解析器和全局设置
+	// config contains the rule engine configuration, including the component registry, parser, and global settings
 	config types.Config
 
 	// initialized indicates whether the rule chain context has been
 	// properly initialized and is ready for message processing
-	// initialized 指示规则链上下文是否已正确初始化并准备好进行消息处理
+	// initialized indicates whether the rule chain context has been properly initialized and ready for message processing
 	initialized bool
 
 	// componentsRegistry provides access to available node components
 	// and is used for creating new node instances during initialization
-	// componentsRegistry 提供对可用节点组件的访问，用于在初始化期间创建新节点实例
+	// componentsRegistry provides access to available node components for creating new node instances during initialization
 	componentsRegistry types.ComponentRegistry
 
 	// nodeIds maintains an ordered list of node identifiers for iteration
 	// and access by index, preserving the original definition order
-	// nodeIds 维护节点标识符的有序列表，用于迭代和按索引访问，保留原始定义顺序
+	// nodeIds maintains an ordered list of node identifiers for iteration and indexed access, preserving the original defined order
 	nodeIds []types.RuleNodeId
 
 	// nodes maps node identifiers to their corresponding node contexts,
 	// providing O(1) lookup time for node access operations
-	// nodes 将节点标识符映射到其对应的节点上下文，为节点访问操作提供 O(1) 查找时间
+	// nodes map node identifiers to their corresponding node context, providing O(1) lookup time for node access operations
 	nodes map[types.RuleNodeId]types.NodeCtx
 
 	// nodeRoutes maps each node to its outgoing relationships,
 	// defining the flow of messages through the rule chain
-	// nodeRoutes 将每个节点映射到其传出关系，定义消息通过规则链的流动
+	// nodeRoutes maps each node to its outgoing relationship and defines the flow of messages through the rule chain
 	nodeRoutes map[types.RuleNodeId][]types.RuleNodeRelation
 
 	// parentNodeIds maps each node to its incoming node identifiers,
 	// enabling reverse traversal and dependency analysis
-	// parentNodeIds 将每个节点映射到其传入节点标识符，支持反向遍历和依赖分析
+	// parentNodeIds maps each node to its incoming node identifier, supporting reverse traversal and dependency analysis
 	parentNodeIds map[types.RuleNodeId][]types.RuleNodeId
 
 	// relationCache caches outgoing node lists based on incoming node and relationship type,
 	// significantly improving routing performance for frequently accessed paths
-	// relationCache 基于传入节点和关系类型缓存传出节点列表，显著提高频繁访问路径的路由性能
+	// relationCache significantly improves routing performance for frequently accessed paths based on incoming nodes and relational type caches
 	relationCache map[RelationCache][]types.NodeCtx
 
 	// lcaCalculator provides LCA calculation functionality
-	// lcaCalculator 提供LCA计算功能
+	// lcaCalculator provides LCA calculation functions
 	lcaCalculator *lca.LCACalculator
 
 	// rootRuleContext is the root context for message processing within this rule chain,
 	// providing the entry point for message flow and execution coordination
-	// rootRuleContext 是此规则链内消息处理的根上下文，为消息流和执行协调提供入口点
+	// rootRuleContext is the root context for message processing within the chain of this rule, providing an entry point for message flow and execution coordination
 	rootRuleContext types.RuleContext
 
 	// ruleChainPool manages sub-rule chains and nested rule execution,
 	// enabling complex rule orchestration and modular rule design
-	// ruleChainPool 管理子规则链和嵌套规则执行，支持复杂的规则编排和模块化规则设计
+	// ruleChainPool manages sub-rule chains and nested rule execution, supporting complex rule orchestration and modular rule design
 	ruleChainPool types.RuleEnginePool
 
 	// aspects contains the list of AOP aspects applied to this rule chain,
 	// providing cross-cutting concerns like logging, validation, and metrics
-	// aspects 包含应用于此规则链的 AOP 切面列表，提供如日志、验证和指标等横切关注点
+	// aspects contains the AOP aspects applied to this rule chain, providing cross-cutting concerns such as logging, validation, and metrics
 	aspects types.AspectList
 
 	// afterReloadAspects contains aspects triggered after rule chain reload,
 	// enabling post-reload processing and validation
-	// afterReloadAspects 包含规则链重载后触发的切面，支持重载后处理和验证
+	// afterReloadAspects contains aspects triggered after a rule chain reload, supporting post-reload processing and validation
 	afterReloadAspects []types.OnReloadAspect
 
 	// destroyAspects contains aspects triggered when the rule chain is destroyed,
 	// enabling proper cleanup and resource deallocation
-	// destroyAspects 包含规则链销毁时触发的切面，支持正确的清理和资源释放
+	// destroyAspects contains aspects triggered when the rule chain is destroyed, supporting proper cleanup and resource release
 	destroyAspects []types.OnDestroyAspect
 
 	// vars contains user-defined variables available throughout the rule chain,
 	// supporting dynamic configuration and parameterized rule execution
-	// vars 包含在整个规则链中可用的用户定义变量，支持动态配置和参数化规则执行
+	// VARS contains user-defined variables available throughout the rule chain, supporting dynamic configuration and parameterized rule execution
 	vars map[string]string
 
 	// decryptSecrets contains decrypted secret values accessible to nodes,
 	// providing secure access to sensitive configuration data
-	// decryptSecrets 包含节点可访问的解密秘密值，为敏感配置数据提供安全访问
+	// decryptSecrets contains decryption secret values accessible to nodes, providing secure access to sensitive configuration data
 	decryptSecrets map[string]string
 
 	// isEmpty indicates whether the rule chain has no nodes,
 	// used for optimization and error handling in empty chains
-	// isEmpty 指示规则链是否没有节点，用于空链的优化和错误处理
+	// isEmpty indicates whether the rule chain has no nodes, used for optimizing and handling errors in the empty chain
 	isEmpty bool
 
 	// hasEndNode indicates whether the rule chain has configured end nodes,
 	// cached during initialization to avoid repeated traversal for performance
-	// hasEndNode 指示规则链是否配置了结束节点，在初始化时缓存以避免重复遍历提高性能
+	// hasEndNode indicates whether the rule chain has configured termination nodes, caching at initialization to avoid repeated traversals and improve performance
 	hasEndNode bool
 
 	// referencedNodes contains the list of nodes that are referenced by other nodes
-	// referencedNodes 包含被其他节点引用的节点列表
+	// referencedNodes contains a list of nodes referenced by other nodes
 	referencedNodes []string
 
 	// nodeDependencies stores the dependency mapping for each node
-	// nodeDependencies 存储每个节点的依赖关系映射
+	// nodeDependencies stores the dependency mapping for each node
 	nodeDependencies map[string][]string
 
-	// resources 本链资源目录（ref:// 同链解析用），lazy 初始化。指针以便 reload 时整体替换。
+	// resources: Resource directory on the current chain (ref:// for same-chain parsing), lazy initialization. Pointers are replaced as a whole during reload.
 	resources *resourceRegistry
 
 	// RWMutex provides thread-safe access to the rule chain context,
 	// allowing concurrent reads while ensuring exclusive writes
-	// RWMutex 为规则链上下文提供线程安全访问，允许并发读取同时确保独占写入
+	// RWMutex provides thread-safe access to the Rule Chain context, allowing concurrent reads while ensuring exclusive writes
 	sync.RWMutex
 }
 
@@ -205,40 +205,40 @@ type RuleChainCtx struct {
 // This function performs the complete initialization of a rule chain context, including node creation,
 // relationship mapping, variable processing, and aspect integration.
 //
-// InitRuleChainCtx 使用给定的配置、切面和规则链定义初始化 RuleChainCtx。
-// 此函数执行规则链上下文的完整初始化，包括节点创建、关系映射、变量处理和切面集成。
+// InitRuleChainCtx initializes RuleChainCtx using the given configuration, aspect, and rule chain definition.
+// This function performs complete initialization of the rule chain context, including node creation, relational mapping, variable handling, and facet integration.
 //
 // Parameters:
-// 参数：
+// Parameters:
 //   - config: Rule engine configuration containing component registry and global settings
-//     包含组件注册表和全局设置的规则引擎配置
+//     Includes a component registry and a global rule engine configuration
 //   - aspects: List of AOP aspects to be applied to the rule chain
-//     要应用于规则链的 AOP 切面列表
+//     The list of AOP aspects to apply to the rule chain
 //   - ruleChainDef: Complete rule chain definition with nodes and connections
-//     包含节点和连接的完整规则链定义
+//     A complete rule chain definition containing nodes and connections
 //
 // Returns:
-// 返回：
-//   - *RuleChainCtx: Fully initialized rule chain context  完全初始化的规则链上下文
-//   - error: Initialization error if any  如果有的话，初始化错误
+// Returns:
+//   - *RuleChainCtx: Fully initialized rule chain context
+//   - error: Initialization error if any
 //
 // Initialization Process:
-// 初始化过程：
-//  1. Execute before-init aspects  执行初始化前切面
-//  2. Create and configure RuleChainCtx structure  创建和配置 RuleChainCtx 结构
-//  3. Process variables and secrets  处理变量和密钥
-//  4. Initialize all node components  初始化所有节点组件
-//  5. Build node relationship mappings  构建节点关系映射
-//  6. Set up sub-rule chain connections  设置子规则链连接
-//  7. Create root rule context  创建根规则上下文
-//  8. Handle empty rule chain cases  处理空规则链情况
+// Initialization process:
+//  1. Execute before-init aspects
+//  2. Create and configure RuleChainCtx structure
+//  3. Process variables and secrets
+//  4. Initialize all node components
+//  5. Build node relationship mappings
+//  6. Set up sub-rule chain connections
+//  7. Create root rule context
+//  8. Handle empty rule chain cases
 //
 // Error Handling:
-// 错误处理：
-//   - Aspect initialization failures  切面初始化失败
-//   - Node component creation errors  节点组件创建错误
-//   - Variable processing failures  变量处理失败
-//   - Invalid rule chain definitions  无效的规则链定义
+// Error handling:
+//   - Aspect initialization failures
+//   - Node component creation errors
+//   - Variable processing failures
+//   - Invalid rule chain definitions
 func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDef *types.RuleChain, ruleChainPool types.RuleEnginePool) (*RuleChainCtx, error) {
 	// Retrieve aspects for the engine
 	chainBeforeInitAspects, _, _, afterReloadAspects, destroyAspects := aspects.GetEngineAspects()
@@ -295,7 +295,7 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 	}
 
 	// Check if there are any end nodes and cache the result
-	// 检查是否有结束节点并缓存结果
+	// Check if there are termination nodes and cache results
 	for _, nodeCtx := range ruleChainCtx.nodes {
 		if nodeCtx.Type() == types.NodeTypeEnd {
 			ruleChainCtx.hasEndNode = true
@@ -433,7 +433,7 @@ func (rc *RuleChainCtx) GetParentNodeIds(id types.RuleNodeId) ([]types.RuleNodeI
 }
 
 // GetLCA finds the lowest common ancestor of a node's parent nodes using optimized algorithm
-// GetLCA 使用优化算法查找节点所有父节点的最低共同祖先
+// GetLCA uses an optimization algorithm to find the lowest common ancestor of all parent nodes
 func (rc *RuleChainCtx) GetLCA(id types.RuleNodeId) (types.RuleNodeId, bool) {
 	return rc.lcaCalculator.GetLCA(id)
 }
@@ -447,20 +447,20 @@ func (rc *RuleChainCtx) GetLCAOfNodes(nodeIds []types.RuleNodeId) (types.RuleNod
 // This method implements a two-level caching strategy: first checking the relationCache,
 // then building the cache if needed, providing high-performance routing for message flow.
 //
-// GetNextNodes 检索具有指定关系的当前节点的子节点
-// 此方法实现两级缓存策略：首先检查 relationCache，然后在需要时构建缓存，
-// 为消息流提供高性能路由。
+// GetNextNodes retrieves the child node of the current node with the specified relationship
+// This method implements a two-level caching strategy: first check the relationCache, then build the cache when needed,
+// Providing high-performance routing for message streams.
 //
 // Parameters:
-// 参数：
-//   - id: Source node identifier  源节点标识符
+// Parameters:
+//   - id: Source node identifier
 //   - relationType: Type of relationship to follow (e.g., "Success", "Failure", "True", "False")
-//     要遵循的关系类型（例如，"Success"、"Failure"、"True"、"False"）
+//     The types of relationships to follow (e.g., "Success"," "Failure"," "True"," "False")
 //
 // Returns:
-// 返回：
-//   - []types.NodeCtx: List of child node contexts  子节点上下文列表
-//   - bool: true if any child nodes found, false otherwise  如果找到任何子节点则为 true，否则为 false
+// Returns:
+//   - []types.NodeCtx: List of child node contexts
+//   - bool: true if any child nodes found, false otherwise
 func (rc *RuleChainCtx) GetNextNodes(id types.RuleNodeId, relationType string) ([]types.NodeCtx, bool) {
 	var nodeCtxList []types.NodeCtx
 	cacheKey := RelationCache{inNodeId: id, relationType: relationType}
@@ -615,31 +615,31 @@ func (rc *RuleChainCtx) ReloadSelf(def []byte) error {
 // This method performs hot reloading of rule chain configuration, supporting
 // dynamic updates without stopping the rule engine.
 //
-// ReloadSelfFromDef 从 RuleChain 定义重新加载规则链
-// 此方法执行规则链配置的热重载，支持在不停止规则引擎的情况下进行动态更新。
+// ReloadSelfFromDef Reloads the rule chain from the RuleChain definition
+// This method performs hot reload of rule chain configuration and supports dynamic updates without stopping the rule engine.
 //
 // Parameters:
-// 参数：
-//   - def: New rule chain definition  新的规则链定义
+// Parameters:
+//   - def: New rule chain definition
 //
 // Returns:
-// 返回：
-//   - error: Reload error if any  如果有的话，重载错误
+// Returns:
+//   - error: Reload error if any
 //
 // Hot Reload Process:
-// 热重载过程：
-//  1. Check if rule chain is disabled  检查规则链是否被禁用
-//  2. Initialize new rule chain context  初始化新的规则链上下文
-//  3. Safely destroy old nodes without holding locks  在不持有锁的情况下安全销毁旧节点
-//  4. Execute destroy aspects for cleanup  执行销毁切面进行清理
-//  5. Atomically replace old context with new one  原子性地用新上下文替换旧上下文
-//  6. Execute reload aspects for post-reload processing  执行重载切面进行重载后处理
+// Thermal Heavy-Loading Process:
+//  1. Check if rule chain is disabled
+//  2. Initialize new rule chain context
+//  3. Safely destroy old nodes without holding locks
+//  4. Execute destroy aspects for cleanup
+//  5. Atomically replace old context with new one
+//  6. Execute reload aspects for post-reload processing
 //
 // Error Handling:
-// 错误处理：
-//   - Disabled rule chain detection  禁用规则链检测
-//   - Context initialization failures  上下文初始化失败
-//   - Aspect execution errors  切面执行错误
+// Error handling:
+//   - Disabled rule chain detection
+//   - Context initialization failures
+//   - Aspect execution errors
 func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -747,7 +747,7 @@ func (rc *RuleChainCtx) copyUnsafe(newCtx *RuleChainCtx) {
 	rc.decryptSecrets = newCtx.decryptSecrets
 	// Clear cache
 	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
-	// 接管 newCtx 的资源目录，使 reload 后 ref:// 解析到新 endpoint。
+	// Takes over the resource directory of newCtx, so that after reloading, ref:// parses to the new endpoint.
 	rc.resources = newCtx.resources
 }
 
@@ -818,17 +818,17 @@ func (rc *RuleChainCtx) GetRuleEnginePool() types.RuleEnginePool {
 	}
 }
 
-// Resources 返回本链资源目录的只读视图（ref:// 同链解析用，消费方只读 Lookup）。
+// Resources: Returns the read-only view of the resource directory on the current chain (ref:// for same-chain resolution, for the consumer's read-only lookup).
 func (rc *RuleChainCtx) Resources() types.ResourceLookup {
 	return rc.ensureResources()
 }
 
-// EndpointRegistry 返回可写资源目录（仅 EndpointAspect 等生产方 Register/Unregister 用）。
+// EndpointRegistry returns a writable resource directory (only used by producer Register/Unregister such as EndpointAspect for production).
 func (rc *RuleChainCtx) EndpointRegistry() types.ResourceRegistry {
 	return rc.ensureResources()
 }
 
-// ensureResources lazy 初始化资源目录（双重检查锁）。
+// ensureResources lazy initializes the resource directory (double-check lock).
 func (rc *RuleChainCtx) ensureResources() *resourceRegistry {
 	rc.RLock()
 	r := rc.resources
@@ -861,7 +861,7 @@ func (rc *RuleChainCtx) GetAspects() types.AspectList {
 	return rc.aspects
 }
 
-// HasEndNode 检查规则链是否配置了结束节点
+// HasEndNode checks whether the rule chain has configured termination nodes
 // HasEndNode checks if the rule chain has configured end nodes
 func (rc *RuleChainCtx) HasEndNode() bool {
 	rc.RLock()
@@ -869,17 +869,17 @@ func (rc *RuleChainCtx) HasEndNode() bool {
 	return rc.hasEndNode
 }
 
-// HasEndDescendant 从指定节点开始，判断其是否存在“结束节点”的后代
+// HasEndDescendant starts from a specified node and checks whether there are descendants of the "end node."
 // HasEndDescendant determines whether there exists a descendant end node starting from the given node
 //
-// 参数:
-//   - startId: 起始节点的标识符
+// Parameters:
+//   - startId: The identifier of the starting node
 //
-// 返回:
-//   - bool: 如果能到达任意结束节点则返回 true，否则返回 false
+// Back:
+//   - bool: Returns true if any termination node is reached; otherwise, returns false
 //
-// 说明:
-//   - 通过广度优先遍历沿着当前规则链的路由前进；当遇到子规则链连接时，若该子规则链已配置结束节点，则视为存在结束节点后代
+// Explanation:
+//   - Routing along the current rule chain through breadth-first traversal; When encountering a sub-rule chain connection, if the sub-rule chain has already been configured with a termination node, it is considered that there are descendants of the termination node
 func (rc *RuleChainCtx) HasEndDescendant(startId types.RuleNodeId) bool {
 	visited := make(map[types.RuleNodeId]struct{})
 	queue := []types.RuleNodeId{startId}
@@ -919,7 +919,7 @@ func (rc *RuleChainCtx) HasEndDescendant(startId types.RuleNodeId) bool {
 	return false
 }
 
-// GetReferencedNodes 获取被其他节点引用的节点列表
+// GetReferencedNodes retrieves the list of nodes referenced by other nodes
 // GetReferencedNodes gets the list of nodes that are referenced by other nodes
 func (rc *RuleChainCtx) GetReferencedNodes() []string {
 	rc.RLock()
@@ -927,7 +927,7 @@ func (rc *RuleChainCtx) GetReferencedNodes() []string {
 	return rc.referencedNodes
 }
 
-// GetNodeDependencies 获取指定节点的依赖节点ID列表
+// GetNodeDependencies retrieves the list of dependency node IDs for the specified node
 // GetNodeDependencies gets the dependent node IDs for the specified node
 func (rc *RuleChainCtx) GetNodeDependencies(nodeId string) []string {
 	rc.RLock()
@@ -938,7 +938,7 @@ func (rc *RuleChainCtx) GetNodeDependencies(nodeId string) []string {
 	return nil
 }
 
-// AddNodeDependency 添加节点之间的依赖关系
+// AddNodeDependency Adds dependencies between nodes
 // AddNodeDependency adds a dependency relationship between nodes
 func (rc *RuleChainCtx) AddNodeDependency(nodeId string, dependentNodeId string) {
 	rc.Lock()

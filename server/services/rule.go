@@ -4,40 +4,40 @@ import (
 	"github.com/rulego/rulego/api/types"
 )
 
-// ChainCatalog 规则链目录服务接口，供其他模块（如 mcp）使用
+// ChainCatalog rules the Chain Directory service interface, available for use by other modules (such as mcp).
 type ChainCatalog interface {
 	List(username, keywords string, root *bool, disabled *bool, category string, size, page int) ([]types.RuleChain, int, error)
 	Get(username, chainId string) ([]byte, error)
 	GetAsRuleChain(username, chainId string) (types.RuleChain, error)
 }
 
-// ChainExecutor 规则链执行器接口
+// ChainExecutor rules, chain executor interface
 type ChainExecutor interface {
 	Execute(username, chainId string, msg types.RuleMsg, opts ...types.RuleContextOption) error
 	ExecuteAndWait(username, chainId string, msg types.RuleMsg, opts ...types.RuleContextOption) error
 }
 
-// ChainLifecycleEvent 链生命周期事件。
+// ChainLifecycleEvent Chain Lifecycle Event.
 type ChainLifecycleEvent struct {
-	Username string // 链所属用户（多租户模型下即 username）
+	Username string // The user of the chain (username in multi-tenancy models)
 	ChainId  string
-	DSL      []byte // 事件发生时的链定义 JSON
+	DSL      []byte // The chain at the time of the event is defined as JSON
 }
 
-// ChainLifecycleListener 链生命周期监听器，供嵌入式宿主感知链变更。
-// 监听器应幂等且非阻塞；panic 由调用方捕获，不影响主流程。
+// ChainLifecycleListener is a chain lifecycle listener for embedded hosts to sense changes in the chain.
+// The monitor should be idempotent and not blocking; Panic is captured by the caller and does not affect the main process.
 type ChainLifecycleListener interface {
-	// OnSaved 链保存到存储后触发（涵盖创建和更新）。
+	// OnSaved chains are triggered after being saved to storage (covering creation and updates).
 	OnSaved(event ChainLifecycleEvent)
-	// OnDeployed 链部署到引擎池后触发。
+	// OnDeployed chain is triggered after deployment to the engine pool.
 	OnDeployed(event ChainLifecycleEvent)
-	// OnUndeployed 链从引擎池移除后触发。
+	// OnUndeployed chain is triggered after removal from the engine pool.
 	OnUndeployed(event ChainLifecycleEvent)
-	// OnDeleted 链从存储永久删除后触发。
+	// The OnDeleted chain is triggered after permanent deletion from storage.
 	OnDeleted(event ChainLifecycleEvent)
 }
 
-// BaseChainLifecycleListener 全部事件的空实现，嵌入后只覆盖关心的方法即可。
+// BaseChainLifecycleListener is an empty implementation of all events; after embedding, only the method of concern is covered.
 type BaseChainLifecycleListener struct{}
 
 func (BaseChainLifecycleListener) OnSaved(ChainLifecycleEvent)      {}
@@ -45,7 +45,7 @@ func (BaseChainLifecycleListener) OnDeployed(ChainLifecycleEvent)   {}
 func (BaseChainLifecycleListener) OnUndeployed(ChainLifecycleEvent) {}
 func (BaseChainLifecycleListener) OnDeleted(ChainLifecycleEvent)    {}
 
-// RuleAdminService 规则链管理服务接口
+// RuleAdminService Rule chain management service interface
 type RuleAdminService interface {
 	SaveAndLoad(username, chainId string, def []byte) error
 	Deploy(username, chainId string) error
@@ -57,6 +57,6 @@ type RuleAdminService interface {
 	GetEngine(username, chainId string) (types.RuleEngine, bool)
 	GetRuleConfig(username string) types.Config
 	GetSetting(username, key string) string
-	// AddLifecycleListener 注册链生命周期监听器，须在 App.Start() 之前调用。
+	// AddLifecycleListener registers the chain lifecycle listener and must be called before App.Start().
 	AddLifecycleListener(listener ChainLifecycleListener)
 }

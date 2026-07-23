@@ -18,8 +18,8 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// RuleStore 基于文件系统的规则链存储实现。
-// 使用 JSON 文件存储规则链定义，并维护索引文件加速列表查询。
+// RuleStore is implemented based on the rule chain storage of the file system.
+// Define using JSON file storage rule chains and maintain indexed file acceleration list queries.
 type RuleStore struct {
 	config   config.Config
 	username string
@@ -27,24 +27,24 @@ type RuleStore struct {
 	sync.RWMutex
 }
 
-// RuleIndex 规则链索引，仅包含必要元数据用于快速列表查询
+// RuleIndex: Rules chain index, containing only necessary metadata for quick list queries
 type RuleIndex struct {
 	Rules map[string]RuleMeta `json:"rules"`
 }
 
-// RuleMeta 规则链元数据
+// RuleMeta Rule Chain Metadata
 type RuleMeta struct {
-	Name         string `json:"name"`
-	ID           string `json:"id"`
-	Root         bool   `json:"root"`
-	Disabled     bool   `json:"disabled"`
-	UpdateTime   string `json:"updateTime"`
-	Category     string `json:"category"`
-	SystemAgent  bool   `json:"systemAgent"`
+	Name        string `json:"name"`
+	ID          string `json:"id"`
+	Root        bool   `json:"root"`
+	Disabled    bool   `json:"disabled"`
+	UpdateTime  string `json:"updateTime"`
+	Category    string `json:"category"`
+	SystemAgent bool   `json:"systemAgent"`
 }
 
-// NewRuleStore 创建规则链文件存储。
-// 如果索引文件不存在，会自动扫描规则链文件重建索引。
+// NewRuleStore creates a rule chain file storage.
+// If the index file does not exist, it will automatically scan the rule chain file to reconstruct the index.
 func NewRuleStore(cfg config.Config, username string) (*RuleStore, error) {
 	store := &RuleStore{
 		config:   cfg,
@@ -65,7 +65,7 @@ func NewRuleStore(cfg config.Config, username string) (*RuleStore, error) {
 	return store, nil
 }
 
-// Save 保存规则链定义到文件并更新索引
+// Save the rule chain defined in the file and update the index
 func (d *RuleStore) Save(username, chainId string, def []byte) error {
 	var ruleChain types.RuleChain
 	if err := json.Unmarshal(def, &ruleChain); err != nil {
@@ -78,7 +78,7 @@ func (d *RuleStore) Save(username, chainId string, def []byte) error {
 	return d.saveIndex(d.getIndexPath())
 }
 
-// Get 获取规则链原始 JSON 数据
+// Get the original JSON data of the rule chain
 func (d *RuleStore) Get(username, chainId string) ([]byte, error) {
 	category := d.getCategory(chainId)
 	if !isSafeCategory(category) {
@@ -94,7 +94,7 @@ func (d *RuleStore) Get(username, chainId string) ([]byte, error) {
 	return os.ReadFile(pathStr)
 }
 
-// GetAsRuleChain 获取规则链结构体
+// GetAsRuleChain Retrieves the rule chain struct
 func (d *RuleStore) GetAsRuleChain(username, chainId string) (types.RuleChain, error) {
 	var ruleChain types.RuleChain
 	data, err := d.Get(username, chainId)
@@ -107,8 +107,8 @@ func (d *RuleStore) GetAsRuleChain(username, chainId string) (types.RuleChain, e
 	return ruleChain, nil
 }
 
-// List 列出规则链（面向 UI）：关键字搜索、root/disabled 过滤、category 过滤、分页排序。
-// 会过滤 SystemAgent 链；启动加载请用 AllChains。
+// List lists the rule chain (UI-oriented): keyword search, root/disabled filtering, category filtering, pagination sorting.
+// It filters the SystemAgent chain; To start and load, please use AllChains.
 func (d *RuleStore) List(username string, keywords string, root *bool, disabled *bool, category string, size, page int) ([]types.RuleChain, int, error) {
 	var ruleChains []types.RuleChain
 	totalCount := 0
@@ -158,8 +158,8 @@ func (d *RuleStore) List(username string, keywords string, root *bool, disabled 
 	return ruleChains[start:end], totalCount, nil
 }
 
-// AllChains 读取该用户所有规则链的 ID 和 DSL（含 SystemAgent）。
-// 单个文件读取失败跳过。顺序未定义。
+// AllChains reads the IDs and DSLs (including SystemAgent) of all rule chains for that user.
+// Skipping single file read failures. The order is not defined.
 func (d *RuleStore) AllChains(username string) (map[string][]byte, error) {
 	d.RLock()
 	ids := make([]string, 0, len(d.index.Rules))
@@ -179,7 +179,7 @@ func (d *RuleStore) AllChains(username string) (map[string][]byte, error) {
 	return result, nil
 }
 
-// Delete 删除规则链文件并从索引中移除
+// Delete deletes the rule chain file and removes it from the index
 func (d *RuleStore) Delete(username, chainId string) error {
 	category := d.getCategory(chainId)
 	if !isSafeCategory(category) {
@@ -207,9 +207,9 @@ func (d *RuleStore) getCategory(chainId string) string {
 	return ""
 }
 
-// isSafeCategory 校验 category 不会逃逸出存储根目录，防止路径穿越。
-// category 来自客户端可控的 additionalInfo，会被直接拼入存储路径，必须校验。
-// 允许 "a/b" 这类多级分类，但禁止 ".." 段和绝对路径。
+// isSafeCategory checks that the category will not escape from the storage root directory, preventing path traversal.
+// category comes from client-controlled additionalInfo and is directly typed into the storage path, so verification is required.
+// Multi-level classifications like "a/b" are allowed, but ".." segments and absolute paths are prohibited.
 func isSafeCategory(category string) bool {
 	if category == "" {
 		return true

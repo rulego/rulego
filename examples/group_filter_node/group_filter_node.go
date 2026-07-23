@@ -27,7 +27,7 @@ import (
 
 var ruleEngine types.RuleEngine
 
-// 初始化规则引擎实例和配置
+// Initialize the rule engine instance and configuration
 func init() {
 	config := rulego.NewConfig()
 	var err error
@@ -49,7 +49,7 @@ func main() {
 	time.Sleep(time.Second * 1)
 
 	fmt.Println("第二次执行，allMatches=true：")
-	//更新规则链，groupFilter必须所有节点都满足True,才走True链
+	//When updating the rule chain, groupFilter must have all nodes satisfied with True before it can proceed with the True chain
 	_ = ruleEngine.ReloadSelf([]byte(strings.Replace(chainJsonFile1, `"allMatches":false`, `"allMatches":true`, -1)))
 
 	ruleEngine.OnMsg(msg1)
@@ -61,7 +61,7 @@ func main() {
 	time.Sleep(time.Second * 1)
 }
 
-// 注意：规则链从第三个节点开始触发。firstNodeIndex=2
+// Note: The rule chain is triggered starting from the third node. firstNodeIndex=2
 var chainJsonFile1 = `
 {
   "ruleChain": {

@@ -70,9 +70,9 @@ func TestDefaultRuleGo(t *testing.T) {
 	Stop()
 }
 
-// TestRuleGo 测试加载规则链文件夹
+// TestRuleGo tests the rule chain folder
 func TestRuleGo(t *testing.T) {
-	//注册自定义组件
+	//Register custom components
 	_ = Registry.Register(&test.UpperNode{})
 	_ = Registry.Register(&test.TimeNode{})
 
@@ -159,7 +159,7 @@ func TestRuleGo(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	ruleEngine.Stop(ctx) //故意在OnMsg之前停止
+	ruleEngine.Stop(ctx) //Deliberately stopping before OnMsg
 
 	ruleEngine.OnMsg(msg)
 
@@ -178,7 +178,7 @@ func TestHttpEndpointAspect(t *testing.T) {
 	ruleEngine, err := New(id, []byte(ruleDslStr))
 	assert.Nil(t, err)
 
-	//端口已经占用错误
+	//Port occupancy error
 	_, err = New("withHttpEndpoint2", []byte(ruleDslStr))
 	assert.NotNil(t, err)
 
@@ -212,7 +212,7 @@ func TestHttpEndpointAspect(t *testing.T) {
 func TestScheduleEndpointAspect(t *testing.T) {
 	var count = int64(0)
 
-	// 使用唯一的处理器名称避免冲突
+	// Use a unique processor name to avoid conflicts
 	processorName := "testPrint_" + t.Name()
 	processor.InBuiltins.Register(processorName, func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		//fmt.Printf("testPrint:%s \n", time.Now().Format("2006-01-02 15:04:05"))
@@ -221,11 +221,11 @@ func TestScheduleEndpointAspect(t *testing.T) {
 	})
 	defer processor.InBuiltins.Unregister(processorName)
 
-	// 修改规则定义以使用唯一的处理器名称
+	// Modify rule definitions to use unique processor names
 	ruleDsl, err := os.ReadFile("testdata/rule/with_schedule_endpoint.json")
 	assert.Nil(t, err)
 
-	// 替换处理器名称
+	// Replace the processor name
 	modifiedRuleDsl := strings.Replace(string(ruleDsl), "testPrint", processorName, -1)
 
 	id := "withScheduleEndpoint_" + t.Name()
@@ -249,11 +249,11 @@ func TestScheduleEndpointAspect(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.True(t, reflect.DeepEqual(oldAspects, ruleEngine.(*engine.RuleEngine).GetAspects()))
-	time.Sleep(time.Second * 9) // 延长等待时间从6秒到9秒，确保至少执行3次
+	time.Sleep(time.Second * 9) // Extend the wait time from 6 seconds to 9 seconds, ensuring at least 3 times
 
-	// 使用原子操作安全地读取count值
+	// Safely read count values using atomic operations
 	countValue = atomic.LoadInt64(&count)
-	// 9秒内每3秒执行一次，期望3次，允许±1误差（即2-4次都算通过）
+	// Execute every 3 seconds within 9 seconds, expect 3 attempts, allowing ± 1 error (i.e., 2-4 attempts count as passing).
 	assert.True(t, countValue >= 2 && countValue <= 4, "Expected 2-4 executions in 9 seconds with 3-second interval, but got %d", countValue)
 
 	err = ruleEngine.ReloadChild("s1", []byte(` {
@@ -268,7 +268,7 @@ func TestScheduleEndpointAspect(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-// 发送消息到rest服务器
+// Send a message to the REST server
 func sendMsg(t *testing.T, url, method string, msg types.RuleMsg, ctx types.RuleContext) types.Node {
 	node, _ := engine.Registry.NewNode("restApiCall")
 	var configuration = make(types.Configuration)
@@ -280,7 +280,7 @@ func sendMsg(t *testing.T, url, method string, msg types.RuleMsg, ctx types.Rule
 	if err != nil {
 		t.Fatal(err)
 	}
-	//发送消息
+	//Send the message
 	node.OnMsg(ctx, msg)
 	return node
 }

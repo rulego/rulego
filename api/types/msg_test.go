@@ -29,9 +29,9 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// TestMetadataOperations 测试Metadata的基本操作和COW机制
+// TestMetadataOperations Tests the basic operations and COW mechanisms of Metadata
 func TestMetadataOperations(t *testing.T) {
-	// 基本操作
+	// Basic operations
 	md := NewMetadata()
 	assert.Equal(t, 0, md.Len())
 
@@ -50,7 +50,7 @@ func TestMetadataOperations(t *testing.T) {
 	assert.Equal(t, 2, md2.Len())
 	assert.Equal(t, "value3", md2.GetValue("key3"))
 
-	// COW机制测试
+	// COW mechanism testing
 	original := NewMetadata()
 	original.PutValue("key1", "value1")
 	original.PutValue("key2", "value2")
@@ -78,7 +78,7 @@ func TestMetadataOperations(t *testing.T) {
 	assert.Equal(t, 1, copy1.Len())
 }
 
-// TestMetadataConcurrentAccess 测试Metadata并发访问安全性
+// TestMetadataConcurrentAccess Tests the security of Metadata concurrent access
 func TestMetadataConcurrentAccess(t *testing.T) {
 	original := NewMetadata()
 	original.PutValue("key1", "value1")
@@ -104,9 +104,9 @@ func TestMetadataConcurrentAccess(t *testing.T) {
 	assert.Equal(t, 1, original.Len())
 }
 
-// TestRuleMsgOperations 测试RuleMsg的基本操作和复制机制
+// TestRuleMsgOperations tests the basic operations and replication mechanisms of RuleMsg
 func TestRuleMsgOperations(t *testing.T) {
-	// 基本操作
+	// Basic operations
 	metadata := NewMetadata()
 	metadata.PutValue("userId", "12345")
 
@@ -124,7 +124,7 @@ func TestRuleMsgOperations(t *testing.T) {
 	assert.Equal(t, BINARY, byteMsg.DataType)
 	assert.Equal(t, string(byteData), string(byteMsg.GetBytes()))
 
-	// COW机制测试
+	// COW mechanism testing
 	original := NewMsg(0, "TEST", JSON, nil, "original data")
 	copy1 := original.Copy()
 	copy2 := original.Copy()
@@ -143,7 +143,7 @@ func TestRuleMsgOperations(t *testing.T) {
 	assert.Equal(t, "modified data 1", copy1.GetData())
 	assert.Equal(t, "modified data 2", copy2.GetData())
 
-	// nil metadata处理
+	// nil metadata processing
 	msgWithNilMetadata := RuleMsg{
 		Id:       "test",
 		Type:     "test",
@@ -156,9 +156,9 @@ func TestRuleMsgOperations(t *testing.T) {
 	assert.Equal(t, "value", copiedMsg.Metadata.GetValue("test"))
 }
 
-// TestSharedDataOperations 测试SharedData的核心功能
+// TestSharedDataOperations Tests the core features of SharedData
 func TestSharedDataOperations(t *testing.T) {
-	// 基本操作
+	// Basic operations
 	sd := NewSharedData("test data")
 	assert.Equal(t, "test data", sd.Get())
 	assert.Equal(t, "test data", sd.GetUnsafe())
@@ -171,7 +171,7 @@ func TestSharedDataOperations(t *testing.T) {
 	assert.Equal(t, "byte data", sd2.Get())
 	assert.Equal(t, 9, sd2.Len())
 
-	// COW机制
+	// COW Mechanism
 	copy := sd.Copy()
 	assert.Equal(t, int64(2), sd.GetRefCount())
 	assert.Equal(t, int64(2), copy.GetRefCount())
@@ -192,7 +192,7 @@ func TestSharedDataOperations(t *testing.T) {
 	assert.True(t, empty.IsEmpty())
 	assert.Equal(t, 0, empty.Len())
 
-	// 可修改字节数组测试
+	// Byte array tests can be modified
 	msd := NewSharedData("Hello World")
 	mutableBytes := msd.GetMutableBytes()
 	mutableBytes[0] = 'h'
@@ -202,11 +202,11 @@ func TestSharedDataOperations(t *testing.T) {
 	assert.Equal(t, "hello World", msd.Get())
 }
 
-// TestRuleMsgZeroCopyAndSharedData 测试零拷贝API和SharedData访问
+// TestRuleMsgZeroCopyAndSharedData tests the zero-copy API and SharedData access
 func TestRuleMsgZeroCopyAndSharedData(t *testing.T) {
 	msg := NewMsg(0, "TEST", JSON, NewMetadata(), "")
 
-	// 零拷贝API测试
+	// Zero-copy API testing
 	testData := "Zero Copy Test Data"
 	msg.SetData(testData)
 	result := msg.GetData()
@@ -222,7 +222,7 @@ func TestRuleMsgZeroCopyAndSharedData(t *testing.T) {
 	assert.Equal(t, string(byteData), msg.GetData())
 	assert.Equal(t, byteData, msg.GetBytes())
 
-	// SharedData直接访问测试
+	// SharedData provides direct access to testing
 	msg2 := NewMsg(0, "TEST", JSON, NewMetadata(), "Original Data")
 	sharedData := msg2.GetSharedData()
 	assert.NotNil(t, sharedData)
@@ -237,7 +237,7 @@ func TestRuleMsgZeroCopyAndSharedData(t *testing.T) {
 	sharedData.SetBytes(mutableBytes)
 	assert.Equal(t, "Mriginal Data", msg2.GetData())
 
-	// 消息间数据共享
+	// Data sharing between messages
 	msg3 := NewMsg(0, "TEST2", JSON, NewMetadata(), "")
 	sharedDataCopy := sharedData.Copy()
 	msg3.SetSharedData(sharedDataCopy)
@@ -250,14 +250,14 @@ func TestRuleMsgZeroCopyAndSharedData(t *testing.T) {
 	assert.Equal(t, "Modified Data", msg3.GetData())
 	assert.Equal(t, int64(1), sharedData.GetRefCount())
 
-	// nil SharedData处理
+	// nil SharedData processing
 	msg2.SetSharedData(nil)
 	newSharedData := msg2.GetSharedData()
 	assert.NotNil(t, newSharedData)
 	assert.Equal(t, "", newSharedData.Get())
 }
 
-// TestJSONSerialization 测试JSON序列化
+// TestJSONSerialization Tests JSON serialization
 func TestJSONSerialization(t *testing.T) {
 	metadata := NewMetadata()
 	metadata.PutValue("key1", "value1")
@@ -303,9 +303,9 @@ func TestJSONSerialization(t *testing.T) {
 	assert.True(t, strings.Contains(string(emptyMetadataJSON), `"metadata":{}`))
 }
 
-// TestJSONParsingAndCache 测试JSON解析和缓存机制
+// TestJSONParsingAndCache tests JSON parsing and caching mechanisms
 func TestJSONParsingAndCache(t *testing.T) {
-	// 基本JSON解析
+	// Basic JSON parsing
 	msg := NewMsg(0, "TEST", JSON, nil, `{"test": "data"}`)
 	jsonData1, err := msg.GetJsonData()
 	assert.Nil(t, err)
@@ -313,12 +313,12 @@ func TestJSONParsingAndCache(t *testing.T) {
 	assert.True(t, ok, "Expected JSON object")
 	assert.Equal(t, "data", jsonMap1["test"])
 
-	// 缓存测试
+	// Cache testing
 	jsonData2, err := msg.GetJsonData()
 	assert.Nil(t, err)
 	assert.Equal(t, jsonData1, jsonData2, "Second call should return cached result")
 
-	// 数据修改应清除缓存
+	// Data modifications should be cleared from the cache
 	msg.SetData(`{"test": "modified"}`)
 	newJsonData, err := msg.GetJsonData()
 	assert.Nil(t, err)
@@ -333,7 +333,7 @@ func TestJSONParsingAndCache(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "from_bytes", bytesJsonMap["test"])
 
-	// JSON数组支持
+	// JSON array support
 	arrayMsg := NewMsg(0, "TEST", JSON, nil, `["apple", "banana", "cherry"]`)
 	arrayData, err := arrayMsg.GetJsonData()
 	assert.Nil(t, err)
@@ -342,7 +342,7 @@ func TestJSONParsingAndCache(t *testing.T) {
 	assert.Equal(t, 3, len(arraySlice))
 	assert.Equal(t, "apple", arraySlice[0])
 
-	// 嵌套JSON
+	// Nested JSON
 	nestedMsg := NewMsg(0, "TEST", JSON, nil, `[{"name": "Alice"}, {"name": "Bob"}]`)
 	nestedData, err := nestedMsg.GetJsonData()
 	assert.Nil(t, err)
@@ -353,7 +353,7 @@ func TestJSONParsingAndCache(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "Alice", firstItem["name"])
 
-	// SharedData级别缓存
+	// SharedData-level caching
 	sd := NewSharedData(`{"name": "Alice", "age": 30}`)
 	data1, err := sd.GetJsonData()
 	assert.Nil(t, err)
@@ -366,7 +366,7 @@ func TestJSONParsingAndCache(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEqual(t, data1, data3, "Cache should be cleared after data modification")
 
-	// 委托测试
+	// Commissioned testing
 	jsonMsg := NewMsgWithJsonData(`{"delegated": true}`)
 	msgData, err := jsonMsg.GetJsonData()
 	assert.Nil(t, err)
@@ -375,7 +375,7 @@ func TestJSONParsingAndCache(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, msgData, sdData)
 
-	// nil Data处理
+	// nil data processing
 	emptyMsg := RuleMsg{Id: "empty", Type: "test"}
 	emptyData, err := emptyMsg.GetJsonData()
 	assert.Nil(t, err)
@@ -384,7 +384,7 @@ func TestJSONParsingAndCache(t *testing.T) {
 	assert.Equal(t, 0, len(emptyMap))
 }
 
-// TestCacheSharedOnCopy 测试复制时的缓存共享和COW保护
+// TestCacheSharedOnCopy: Tests cache sharing and COW protection during replication
 func TestCacheSharedOnCopy(t *testing.T) {
 	original := NewSharedData(`{"original": true}`)
 	originalData1, err := original.GetJsonData()
@@ -399,7 +399,7 @@ func TestCacheSharedOnCopy(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, originalData1, originalData2, "Original should use cache")
 
-	// 修改复制实例（触发COW）
+	// Modifying the copy instance (triggering COW)
 	copy.SetUnsafe(`{"original": false}`)
 	originalData3, err := original.GetJsonData()
 	assert.Nil(t, err)
@@ -409,7 +409,7 @@ func TestCacheSharedOnCopy(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotEqual(t, originalData1, newCopyData, "Copy should have independent cache after modification")
 
-	// COW保护下的缓存共享测试
+	// Cache sharing testing under COW protection
 	original2 := NewSharedData(`{"user": "Alice", "score": 100}`)
 	originalData, err := original2.GetJsonData()
 	assert.Nil(t, err)
@@ -439,9 +439,9 @@ func TestCacheSharedOnCopy(t *testing.T) {
 	assert.Equal(t, originalData, copyData2Again, "Copy2 cache should remain unchanged")
 }
 
-// TestConcurrentOperations 测试并发操作安全性
+// TestConcurrentOperations tests the security of concurrent operations
 func TestConcurrentOperations(t *testing.T) {
-	// RuleMsg并发访问
+	// RuleMsg concurrently accesses
 	msg := NewMsg(0, "CONCURRENT_TEST", JSON, NewMetadata(), "Concurrent Test Data")
 	originalSharedData := msg.GetSharedData()
 
@@ -468,17 +468,17 @@ func TestConcurrentOperations(t *testing.T) {
 		assert.Equal(t, expected, result)
 	}
 
-	// 并发JSON解析测试 - 每个goroutine使用独立的消息副本
+	// Concurrent JSON parsing tests – Each goroutine uses an independent copy of the message
 	baseJsonMsg := NewMsgWithJsonData(`{"temperature": 25.5, "humidity": 60}`)
 	var wg2 sync.WaitGroup
 	errors := make(chan error, 1000)
 
-	// 并发读取 - 每个goroutine使用独立副本
+	// Concurrent reads – each goroutine uses an independent copy
 	for i := 0; i < 50; i++ {
 		wg2.Add(1)
 		go func() {
 			defer wg2.Done()
-			msgCopy := baseJsonMsg.Copy() // 每个goroutine使用独立副本
+			msgCopy := baseJsonMsg.Copy() // Each goroutine uses an independent copy
 			for j := 0; j < 5; j++ {
 				_, err := msgCopy.GetJsonData()
 				if err != nil {
@@ -492,16 +492,16 @@ func TestConcurrentOperations(t *testing.T) {
 		}()
 	}
 
-	// 并发写入 - 每个goroutine使用独立副本
+	// Concurrent writes – each goroutine uses an independent copy
 	for i := 0; i < 10; i++ {
 		wg2.Add(1)
 		go func(id int) {
 			defer wg2.Done()
-			msgCopy := baseJsonMsg.Copy() // 每个goroutine使用独立副本
+			msgCopy := baseJsonMsg.Copy() // Each goroutine uses an independent copy
 			for j := 0; j < 3; j++ {
 				newData := fmt.Sprintf(`{"temperature": %d, "humidity": 70}`, id)
 				msgCopy.SetData(newData)
-				// 验证数据设置成功
+				// Verify that the data settings are successful
 				if msgCopy.GetData() != newData {
 					select {
 					case errors <- fmt.Errorf("data not set correctly"):
@@ -525,13 +525,13 @@ func TestConcurrentOperations(t *testing.T) {
 		case err := <-errors:
 			t.Fatalf("Concurrent operation failed: %v", err)
 		default:
-			// 测试通过
+			// Passed the test
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("Test timed out")
 	}
 
-	// SharedData并发操作 - 每个goroutine使用独立副本
+	// SharedData concurrent operation – Each goroutine uses an independent copy
 	baseSd := NewSharedData(`{"counter": 0, "active": true}`)
 	var wg3 sync.WaitGroup
 
@@ -539,7 +539,7 @@ func TestConcurrentOperations(t *testing.T) {
 		wg3.Add(1)
 		go func() {
 			defer wg3.Done()
-			sdCopy := baseSd.Copy() // 每个goroutine使用独立副本
+			sdCopy := baseSd.Copy() // Each goroutine uses an independent copy
 			for j := 0; j < 5; j++ {
 				_, err := sdCopy.GetJsonData()
 				if err != nil {
@@ -557,10 +557,10 @@ func TestConcurrentOperations(t *testing.T) {
 		wg3.Add(1)
 		go func(id int) {
 			defer wg3.Done()
-			sdCopy := baseSd.Copy() // 每个goroutine使用独立副本
+			sdCopy := baseSd.Copy() // Each goroutine uses an independent copy
 			newData := fmt.Sprintf(`{"counter": %d, "active": true}`, id)
 			sdCopy.SetUnsafe(newData)
-			// 验证数据设置成功
+			// Verify that the data settings are successful
 			if sdCopy.GetUnsafe() != newData {
 				select {
 				case errors <- fmt.Errorf("shared data not set correctly"):
@@ -579,13 +579,13 @@ func TestConcurrentOperations(t *testing.T) {
 
 	select {
 	case <-done3:
-		// 测试通过
+		// Passed the test
 	case <-time.After(5 * time.Second):
 		t.Fatal("SharedData test timed out")
 	}
 }
 
-// TestConcurrentModificationSafety 测试多个实例并发修改的安全性
+// TestConcurrentModificationSafety Tests the security of multiple instances modifying concurrently
 func TestConcurrentModificationSafety(t *testing.T) {
 	original := NewSharedData(`{"concurrent": "test", "value": "100"}`)
 	originalData, err := original.GetJsonData()
@@ -597,7 +597,7 @@ func TestConcurrentModificationSafety(t *testing.T) {
 		copies[i] = original.Copy()
 	}
 
-	// 验证共享缓存
+	// Verify shared cache
 	for i, copy := range copies {
 		copyData, err := copy.GetJsonData()
 		assert.Nil(t, err)
@@ -608,7 +608,7 @@ func TestConcurrentModificationSafety(t *testing.T) {
 	errors := make(chan error, numCopies)
 	results := make([]string, numCopies)
 
-	// 并发修改所有副本
+	// Concurrent modifications to all copies
 	for i := 0; i < numCopies; i++ {
 		wg.Add(1)
 		go func(index int) {
@@ -642,34 +642,34 @@ func TestConcurrentModificationSafety(t *testing.T) {
 		case err := <-errors:
 			t.Fatalf("Concurrent modification failed: %v", err)
 		default:
-			// 测试通过
+			// Passed the test
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Test timed out")
 	}
 
-	// 验证独立性
+	// Validating independence
 	for i, result := range results {
 		expected := fmt.Sprintf("%d", i)
 		assert.Equal(t, expected, result, "Copy %d should have independent value", i)
 		assert.Equal(t, int64(1), copies[i].GetRefCount(), "Copy %d should have independent refCount", i)
 	}
 
-	// 验证原始实例不受影响
+	// Verify that the original instance is unaffected
 	originalDataAgain, err := original.GetJsonData()
 	assert.Nil(t, err)
 	assert.Equal(t, originalData, originalDataAgain, "Original should remain unchanged")
 	assert.Equal(t, int64(1), original.GetRefCount(), "Original should have independent refCount")
 }
 
-// TestErrorHandling 测试错误处理
+// TestErrorHandling: Test error handling
 func TestErrorHandling(t *testing.T) {
-	// 无效JSON
+	// Invalid JSON
 	msg := NewMsg(0, "ERROR_TEST", JSON, nil, "invalid json {")
 	_, err := msg.GetJsonData()
 	assert.NotNil(t, err)
 
-	// 空数据JSON解析
+	// Empty data JSON parsing
 	emptyMsg := NewMsg(0, "EMPTY_TEST", JSON, nil, "")
 	emptyJson, err := emptyMsg.GetJsonData()
 	assert.Nil(t, err)
@@ -682,7 +682,7 @@ func TestErrorHandling(t *testing.T) {
 	assert.NotNil(t, copy)
 	assert.Equal(t, 0, copy.Len())
 
-	// 无效JSON后修复
+	// Fix after invalid JSON
 	invalidSD := NewSharedData(`{"invalid": json}`)
 	_, err = invalidSD.GetJsonData()
 	assert.NotNil(t, err)
@@ -695,7 +695,7 @@ func TestErrorHandling(t *testing.T) {
 	assert.Equal(t, "json", jsonMap["valid"])
 }
 
-// TestAPICompatibility 测试API兼容性
+// TestAPICompatibility Test API compatibility
 func TestAPICompatibility(t *testing.T) {
 	stringMsg := NewMsg(0, "STRING_TEST", TEXT, NewMetadata(), "string data")
 	assert.Equal(t, "string data", stringMsg.GetData())
@@ -715,9 +715,9 @@ func TestAPICompatibility(t *testing.T) {
 	assert.True(t, len(jsonMsg.Id) > 0)
 }
 
-// TestMemoryOptimization 测试内存优化和泄漏检测
+// TestMemoryOptimization Testing memory optimization and leak detection
 func TestMemoryOptimization(t *testing.T) {
-	// 大数据COW测试
+	// Big data COW testing
 	largeData := strings.Repeat("Large data test ", 1000)
 	metadata := NewMetadata()
 	for i := 0; i < 50; i++ {
@@ -740,10 +740,10 @@ func TestMemoryOptimization(t *testing.T) {
 
 	for i, copy := range copies {
 		if copy.GetData() != largeData {
-			t.Errorf("副本 %d 数据不正确", i)
+			t.Errorf("Copy %d data is incorrect", i)
 		}
 		if copy.Metadata.Len() != metadata.Len() {
-			t.Errorf("副本 %d metadata长度不正确", i)
+			t.Errorf("The copy %d metadata length is incorrect", i)
 		}
 	}
 
@@ -760,7 +760,7 @@ func TestMemoryOptimization(t *testing.T) {
 		assert.False(t, copies[i].Metadata.Has("modified"))
 	}
 
-	// 简化内存泄漏检测
+	// Simplified memory leak detection
 	var m1, m2 runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&m1)
@@ -786,63 +786,63 @@ func TestMemoryOptimization(t *testing.T) {
 	maxAcceptableGrowth := int64(1024 * 1024) // 1MB
 
 	if allocDiff > maxAcceptableGrowth {
-		t.Errorf("可能存在内存泄漏，内存增长: %d bytes", allocDiff)
+		t.Errorf("There may be memory leaks, memory growth: %d bytes", allocDiff)
 	}
 }
 
-// TestRuleMsgDataTypeJSONMarshaling 测试RuleMsg在不同数据类型下的JSON编码
+// TestRuleMsgDataTypeJSONMarshaling: Test RuleMsg's JSON encoding under different data types
 func TestRuleMsgDataTypeJSONMarshaling(t *testing.T) {
 	metadata := NewMetadata()
 	metadata.PutValue("deviceId", "sensor001")
 	metadata.PutValue("location", "北京")
 
-	// 测试TEXT类型消息
+	// Test TEXT type messages
 	textMsg := NewMsg(1640995200000, "TELEMETRY", TEXT, metadata, "Hello, 世界!")
 	textMsgJson, err := json.Marshal(textMsg)
 	assert.Nil(t, err)
-	// 验证TEXT数据正常编码为字符串
+	// Verify that TEXT data is properly encoded as a string
 	assert.True(t, strings.Contains(string(textMsgJson), "Hello, 世界!"))
 	assert.True(t, strings.Contains(string(textMsgJson), `"dataType":"TEXT"`))
 
-	// 测试JSON类型消息
+	// Test JSON-type messages
 	jsonData := `{"temperature": 25.5, "humidity": 60.0, "status": "正常"}`
 	jsonMsg := NewMsg(1640995200000, "TELEMETRY", JSON, metadata, jsonData)
 	jsonMsgJson, err := json.Marshal(jsonMsg)
 	assert.Nil(t, err)
-	// 验证JSON数据正常编码
+	// Verify that JSON data is encoded correctly
 	assert.True(t, strings.Contains(string(jsonMsgJson), "temperature"))
 	assert.True(t, strings.Contains(string(jsonMsgJson), `"dataType":"JSON"`))
 
-	// 测试BINARY类型消息 - 使用模拟的图片数据
+	// Testing BINARY-type messages - using simulated image data
 	binaryData := []byte{
-		0xFF, 0xD8, 0xFF, 0xE0, // JPEG文件头
+		0xFF, 0xD8, 0xFF, 0xE0, // JPEG file header
 		0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, // JFIF
-		0x80, 0x81, 0x82, 0x83, // 一些二进制字节
-		0xFF, 0xFF, 0xFE, 0xFD, // 更多二进制字节
-		0x00, 0x01, 0x02, 0x03, // 控制字符
+		0x80, 0x81, 0x82, 0x83, // Some binary bytes
+		0xFF, 0xFF, 0xFE, 0xFD, // More binary bytes
+		0x00, 0x01, 0x02, 0x03, // Control characters
 	}
 	binaryMsg := NewMsgFromBytes(1640995200000, "IMAGE_DATA", BINARY, metadata, binaryData)
 	binaryMsgJson, err := json.Marshal(binaryMsg)
 	assert.Nil(t, err)
 
-	// 验证BINARY数据使用16进制编码
+	// Verify BINARY data using hexadecimal encoding
 	expectedHex := hex.EncodeToString(binaryData)
 	assert.True(t, strings.Contains(string(binaryMsgJson), expectedHex))
 	assert.True(t, strings.Contains(string(binaryMsgJson), `"dataType":"BINARY"`))
 	assert.True(t, strings.Contains(string(binaryMsgJson), `"type":"IMAGE_DATA"`))
 
-	// 测试包含无效UTF-8的TEXT消息
+	// Test contains invalid UTF-8 TEXT messages
 	invalidUtf8Data := []byte{'H', 'e', 'l', 'l', 'o', 0xFF, 0xFE, 'W', 'o', 'r', 'l', 'd'}
 	invalidUtf8Msg := NewMsgFromBytes(1640995200000, "CORRUPTED_TEXT", TEXT, metadata, invalidUtf8Data)
 	invalidUtf8MsgJson, err := json.Marshal(invalidUtf8Msg)
 	assert.Nil(t, err)
 
-	// 验证无效UTF-8的TEXT数据也使用16进制编码
+	// Verification of invalid UTF-8 TEXT data also uses hexadecimal encoding
 	expectedInvalidHex := hex.EncodeToString(invalidUtf8Data)
 	assert.True(t, strings.Contains(string(invalidUtf8MsgJson), expectedInvalidHex))
 	assert.True(t, strings.Contains(string(invalidUtf8MsgJson), `"dataType":"TEXT"`))
 
-	// 测试消息复制后的数据类型保持
+	// Test the data type after message replication is maintained
 	textMsgCopy := textMsg.Copy()
 	textMsgCopy.SetData("Modified text data")
 	textMsgCopyJson, err := json.Marshal(textMsgCopy)
@@ -850,22 +850,22 @@ func TestRuleMsgDataTypeJSONMarshaling(t *testing.T) {
 	assert.True(t, strings.Contains(string(textMsgCopyJson), "Modified text data"))
 	assert.True(t, strings.Contains(string(textMsgCopyJson), `"dataType":"TEXT"`))
 
-	// 验证原消息未受影响
+	// Verify that the original message was not affected
 	originalTextJson, err := json.Marshal(textMsg)
 	assert.Nil(t, err)
 	assert.True(t, strings.Contains(string(originalTextJson), "Hello, 世界!"))
 
-	// 测试跨数据类型的数据设置
+	// Test data settings across data types
 	binaryMsgCopy := binaryMsg.Copy()
 	binaryMsgCopy.SetData("Now it's text data")
 	binaryMsgCopyJson, err := json.Marshal(binaryMsgCopy)
 	assert.Nil(t, err)
-	// 数据类型仍然是BINARY，但现在包含文本数据，应该使用16进制编码
+	// The data type is still BINARY, but now it contains text data and should use hexadecimal encoding
 	textDataHex := hex.EncodeToString([]byte("Now it's text data"))
 	assert.True(t, strings.Contains(string(binaryMsgCopyJson), textDataHex))
 	assert.True(t, strings.Contains(string(binaryMsgCopyJson), `"dataType":"BINARY"`))
 
-	// 测试JSON反序列化
+	// Test JSON deserialization
 	var deserializedTextMsg RuleMsg
 	err = json.Unmarshal(textMsgJson, &deserializedTextMsg)
 	assert.Nil(t, err)
@@ -875,126 +875,126 @@ func TestRuleMsgDataTypeJSONMarshaling(t *testing.T) {
 	assert.Equal(t, textMsg.GetData(), deserializedTextMsg.GetData())
 	assert.Equal(t, textMsg.Metadata.GetValue("deviceId"), deserializedTextMsg.Metadata.GetValue("deviceId"))
 
-	// 演示数据完整性
+	// Demonstrate data integrity
 	decodedData, err := hex.DecodeString(expectedHex)
 	assert.Nil(t, err)
 	assert.Equal(t, binaryData, decodedData)
 }
 
-// TestSharedDataJSONRoundTrip 测试SharedData JSON序列化/反序列化往返的修复
-// 这个测试用于验证前面修复的bug：UnmarshalJSON正确处理MarshalJSON生成的hex编码数据
+// TestSharedDataJSONRoundTrip: Fixes SharedDataJSON's serialization/deserialization round trip
+// This test is used to verify the bug previously fixed: UnmarshalJSON correctly handles hex encoding data generated by MarshalJSON
 func TestSharedDataJSONRoundTrip(t *testing.T) {
-	// 测试1：BINARY数据类型的往返序列化
+	// Test 1: Round-trip serialization of BINARY data types
 	t.Run("BINARY data round-trip", func(t *testing.T) {
-		// 创建包含二进制数据的SharedData
+		// Create SharedData containing binary data
 		binaryData := []byte{0x01, 0x02, 0xFF, 0xFE, 0x80, 0x7F, 0x00, 0x0A, 0x0D, 0x1F}
 		original := NewSharedDataFromBytesWithType(binaryData, BINARY)
 
-		// 验证原始数据
+		// Verify the original data
 		assert.Equal(t, BINARY, original.dataType)
 		assert.Equal(t, binaryData, original.GetBytes())
 		assert.Equal(t, string(binaryData), original.Get())
 
-		// JSON序列化
+		// JSON serialization
 		jsonData, err := json.Marshal(original)
 		assert.Nil(t, err)
 
-		// 验证序列化结果包含hex编码
+		// Verify that serialization results include hex encoding
 		expectedHex := hex.EncodeToString(binaryData)
 		jsonStr := string(jsonData)
 		assert.True(t, strings.Contains(jsonStr, expectedHex), "JSON should contain hex-encoded data")
 
-		// JSON反序列化
+		// JSON deserialization
 		var deserialized SharedData
 		err = json.Unmarshal(jsonData, &deserialized)
 		assert.Nil(t, err)
 
-		// 验证反序列化后的数据正确
+		// Verify the correctness of the deserialized data
 		assert.Equal(t, binaryData, deserialized.GetBytes(), "Binary data should be correctly decoded from hex")
 		assert.Equal(t, BINARY, deserialized.dataType, "DataType should be inferred as BINARY")
 		assert.Equal(t, original.Get(), deserialized.Get(), "String representation should match")
 		assert.Equal(t, int64(1), deserialized.GetRefCount(), "RefCount should be initialized")
 	})
 
-	// 测试2：包含无效UTF-8的TEXT数据往返序列化
+	// Test 2: Serialization of TEXT data containing invalid UTF-8 data for round trips
 	t.Run("Invalid UTF-8 TEXT data round-trip", func(t *testing.T) {
-		// 创建包含无效UTF-8字节的TEXT数据
+		// Create TEXT data containing invalid UTF-8 bytes
 		invalidUtf8Data := []byte{'H', 'e', 'l', 'l', 'o', 0xFF, 0xFE, 'W', 'o', 'r', 'l', 'd'}
 		original := NewSharedDataFromBytesWithType(invalidUtf8Data, TEXT)
 
-		// 验证原始数据
+		// Verify the original data
 		assert.Equal(t, TEXT, original.dataType)
 		assert.Equal(t, invalidUtf8Data, original.GetBytes())
 
-		// JSON序列化
+		// JSON serialization
 		jsonData, err := json.Marshal(original)
 		assert.Nil(t, err)
 
-		// 验证序列化结果包含hex编码（因为包含无效UTF-8）
+		// Verify that serialization results contain hex encoding (because they contain invalid UTF-8)
 		expectedHex := hex.EncodeToString(invalidUtf8Data)
 		jsonStr := string(jsonData)
 		assert.True(t, strings.Contains(jsonStr, expectedHex), "Invalid UTF-8 should be hex-encoded")
 
-		// JSON反序列化
+		// JSON deserialization
 		var deserialized SharedData
 		err = json.Unmarshal(jsonData, &deserialized)
 		assert.Nil(t, err)
 
-		// 验证反序列化后的数据正确
+		// Verify the correctness of the deserialized data
 		assert.Equal(t, invalidUtf8Data, deserialized.GetBytes(), "Invalid UTF-8 data should be correctly decoded")
 		assert.Equal(t, BINARY, deserialized.dataType, "DataType should be inferred as BINARY for invalid UTF-8")
 	})
 
-	// 测试3：有效UTF-8的TEXT数据往返序列化
+	// Test 3: Reciprocating and serializing TEXT data for valid UTF-8
 	t.Run("Valid UTF-8 TEXT data round-trip", func(t *testing.T) {
 		textData := "Hello, 世界! This is valid UTF-8 text."
 		original := NewSharedDataWithType(textData, TEXT)
 
-		// 验证原始数据
+		// Verify the original data
 		assert.Equal(t, TEXT, original.dataType)
 		assert.Equal(t, textData, original.Get())
 
-		// JSON序列化
+		// JSON serialization
 		jsonData, err := json.Marshal(original)
 		assert.Nil(t, err)
 
-		// 验证序列化结果直接包含文本（不需要hex编码）
+		// Verify serialization results directly containing text (no hex encoding required)
 		jsonStr := string(jsonData)
 		assert.True(t, strings.Contains(jsonStr, textData), "Valid UTF-8 should be stored as plain text")
 
-		// JSON反序列化
+		// JSON deserialization
 		var deserialized SharedData
 		err = json.Unmarshal(jsonData, &deserialized)
 		assert.Nil(t, err)
 
-		// 验证反序列化后的数据正确
+		// Verify the correctness of the deserialized data
 		assert.Equal(t, textData, deserialized.Get(), "Text data should be preserved")
 		assert.Equal(t, TEXT, deserialized.dataType, "DataType should be inferred as TEXT")
 	})
 
-	// 测试4：JSON数据往返序列化
+	// Test 4: Serialization of JSON data round-trip
 	t.Run("JSON data round-trip", func(t *testing.T) {
 		jsonData := `{"name": "Alice", "age": 30, "active": true}`
 		original := NewSharedDataWithType(jsonData, JSON)
 
-		// 验证原始数据
+		// Verify the original data
 		assert.Equal(t, JSON, original.dataType)
 		assert.Equal(t, jsonData, original.Get())
 
-		// JSON序列化
+		// JSON serialization
 		serializedData, err := json.Marshal(original)
 		assert.Nil(t, err)
 
-		// JSON反序列化
+		// JSON deserialization
 		var deserialized SharedData
 		err = json.Unmarshal(serializedData, &deserialized)
 		assert.Nil(t, err)
 
-		// 验证反序列化后的数据正确
+		// Verify the correctness of the deserialized data
 		assert.Equal(t, jsonData, deserialized.Get(), "JSON data should be preserved")
 		assert.Equal(t, JSON, deserialized.dataType, "DataType should be inferred as JSON")
 
-		// 验证JSON解析功能正常
+		// Verify that the JSON parsing function is normal
 		parsedData, err := deserialized.GetJsonData()
 		assert.Nil(t, err)
 		parsedMap, ok := parsedData.(map[string]interface{})
@@ -1003,9 +1003,9 @@ func TestSharedDataJSONRoundTrip(t *testing.T) {
 		assert.Equal(t, float64(30), parsedMap["age"])
 	})
 
-	// 测试5：hex检测启发式算法的边界情况
+	// Test 5: hex detects the boundary state of heuristic algorithms
 	t.Run("Hex detection heuristics", func(t *testing.T) {
-		// 短的有效hex字符串（应该被识别为普通文本）
+		// Short valid hex strings (should be recognized as plain text)
 		shortHex := "cafe"
 		sd1 := NewSharedDataWithType(shortHex, TEXT)
 		jsonData1, _ := json.Marshal(sd1)
@@ -1015,20 +1015,20 @@ func TestSharedDataJSONRoundTrip(t *testing.T) {
 		assert.Equal(t, shortHex, deserialized1.Get(), "Short hex-like string should be treated as text")
 		assert.Equal(t, TEXT, deserialized1.dataType, "Should be inferred as TEXT")
 
-		// 长的有效hex字符串（应该被识别为hex编码）
+		// Long valid hex strings (should be recognized as hex encoding)
 		longHex := "0123456789abcdef0123456789abcdef"
 		sd2 := NewSharedData(longHex)
 		jsonData2, _ := json.Marshal(sd2)
 
 		var deserialized2 SharedData
 		json.Unmarshal(jsonData2, &deserialized2)
-		// 这应该被解码为二进制数据
+		// This should be decoded into binary data
 		expectedBytes, _ := hex.DecodeString(longHex)
 		assert.Equal(t, expectedBytes, deserialized2.GetBytes(), "Long hex string should be decoded")
 		assert.Equal(t, BINARY, deserialized2.dataType, "Should be inferred as BINARY")
 
-		// 奇数长度hex字符串（不是有效hex）
-		oddHex := "123456789abcde1" // 15个字符，奇数长度
+		// Odd-length hex string (not a valid hex)
+		oddHex := "123456789abcde1" // 15 characters, odd length
 		sd3 := NewSharedDataWithType(oddHex, TEXT)
 		jsonData3, _ := json.Marshal(sd3)
 
@@ -1037,7 +1037,7 @@ func TestSharedDataJSONRoundTrip(t *testing.T) {
 		assert.Equal(t, oddHex, deserialized3.Get(), "Odd length hex should be treated as text")
 		assert.Equal(t, TEXT, deserialized3.dataType, "Should be inferred as TEXT")
 
-		// 包含非hex字符的字符串
+		// Strings containing non-hex characters
 		nonHex := "123456789abcdefg"
 		sd4 := NewSharedDataWithType(nonHex, TEXT)
 		jsonData4, _ := json.Marshal(sd4)
@@ -1048,35 +1048,35 @@ func TestSharedDataJSONRoundTrip(t *testing.T) {
 		assert.Equal(t, TEXT, deserialized4.dataType, "Should be inferred as TEXT")
 	})
 
-	// 测试6：与RuleMsg的集成测试
+	// Test 6: Integration test with RuleMsg
 	t.Run("Integration with RuleMsg", func(t *testing.T) {
-		// 创建包含二进制数据的RuleMsg
-		binaryData := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A} // PNG文件头
+		// Create a RuleMsg containing binary data
+		binaryData := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A} // PNG file header
 		metadata := NewMetadata()
 		metadata.PutValue("fileType", "png")
 
 		originalMsg := NewMsgFromBytes(12345, "IMAGE_UPLOAD", BINARY, metadata, binaryData)
 
-		// 序列化整个RuleMsg
+		// Serialize the entire RuleMsg
 		msgJsonData, err := json.Marshal(originalMsg)
 		assert.Nil(t, err)
 
-		// 反序列化RuleMsg
+		// Deserialization of RuleMsg
 		var deserializedMsg RuleMsg
 		err = json.Unmarshal(msgJsonData, &deserializedMsg)
 		assert.Nil(t, err)
 
-		// 验证所有字段都正确恢复
+		// Verify that all fields are correctly restored
 		assert.Equal(t, originalMsg.Id, deserializedMsg.Id)
 		assert.Equal(t, originalMsg.Type, deserializedMsg.Type)
 		assert.Equal(t, originalMsg.DataType, deserializedMsg.DataType)
 		assert.Equal(t, binaryData, deserializedMsg.GetBytes(), "Binary data should be preserved in RuleMsg")
 		assert.Equal(t, "png", deserializedMsg.Metadata.GetValue("fileType"))
 
-		// 验证SharedData的dataType被正确推断
-		// 注意：在RuleMsg中，DataType字段会被单独序列化，但SharedData的dataType需要被推断
+		// Verify that SharedData's dataType is inferred correctly
+		// Note: In RuleMsg, the dataType field is serialized individually, but the DataType of SharedData needs to be inferred
 		sharedData := deserializedMsg.GetSharedData()
-		// 由于原始数据是二进制数据，SharedData应该推断为BINARY类型
+		// Since the original data is binary, SharedData should be inferred to be BINARY type
 		assert.Equal(t, BINARY, sharedData.dataType, "SharedData should infer BINARY type")
 	})
 }

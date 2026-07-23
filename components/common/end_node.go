@@ -25,24 +25,24 @@ func init() {
 	Registry.Add(&EndNode{})
 }
 
-// EndNode 结束节点组件，用于触发规则链的结束回调。如果规则链设置了结束节点组件，则会替代默认的分支结束行为，只有运行到结束节点组件时，才会触发结束回调
+// EndNode is the termination node component, used to trigger the end callback of the rule chain. If the rule chain has an end node component, it replaces the default branch end behavior, and only triggers the end callback when the node is terminated
 // EndNode is an end node component that triggers the end callback of the rule chain. If the rule chain has an end node component set, it will replace the default branch ending behavior.
 //
-// 功能说明：
 // Function Description:
-// 1. 接收消息并触发DoOnEnd回调 - Receives messages and triggers DoOnEnd callback
-// 2. 使用上一个节点传入的关系类型 - Uses the relation type passed from the previous node
-// 3. 不会继续传递消息到下一个节点 - Does not continue passing messages to next nodes
+// Function Description:
+// 1. Receive messages and trigger DoOnEnd callbacks - Receives messages and triggers DoOnEnd callbacks
+// 2. Use the relation type passed from the previous node - Uses the relation type passed from the previous node
+// 3. Does not continue passing messages to the next node - Does not continue passing messages to the next nodes
 //
-// 使用场景：
+// Usage scenarios:
 // Use Cases:
-// - 规则链的明确结束点 - Explicit end point of rule chains
-// - 触发特定的结束处理逻辑 - Trigger specific end processing logic
-// - 替代默认的分支结束行为 - Replace default branch ending behavior
+// - Explicit end point of rule chains
+// - Trigger specific end processing logic
+// - Replace default branch ending behavior - Replace default branch ending behavior
 type EndNode struct {
 }
 
-// Type 返回组件类型
+// Type returns the component type
 // Type returns the component type identifier.
 func (x *EndNode) Type() string {
 	return types.NodeTypeEnd

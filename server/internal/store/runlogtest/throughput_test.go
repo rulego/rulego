@@ -19,7 +19,7 @@ import (
 	"github.com/rulego/rulego/server/store"
 )
 
-// BenchmarkThroughput 并发吞吐量测试
+// BenchmarkThroughput concurrent throughput testing
 func BenchmarkThroughput(b *testing.B) {
 	scenarios := []struct {
 		name      string
@@ -94,7 +94,7 @@ func BenchmarkThroughput(b *testing.B) {
 				wg.Wait()
 				elapsed := time.Since(start)
 
-				// 等待异步日志写入完成
+				// Wait for the asynchronous log to finish writing
 				if s != nil {
 					time.Sleep(500 * time.Millisecond)
 				}

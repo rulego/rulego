@@ -27,7 +27,7 @@ import (
 
 var ruleEngine types.RuleEngine
 
-// 初始化自定义函数、规则引擎实例和配置
+// Initialize custom functions, rule engine instances, and configurations
 func init() {
 	action.Functions.Register("add", func(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.TellSuccess(msg)
@@ -56,18 +56,18 @@ func init() {
 	}
 }
 
-// 测试使用占位符替换配置
+// Test using placeholders to replace configurations
 func main() {
 
-	//元数据
+	//Metadata
 	metaData := types.NewMetadata()
 	metaData.PutValue("postUrl", "http://127.0.0.1:8080/api/msg")
 	metaData.PutValue("functionName", "add")
 
-	//处理数据
+	//Processing data
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
-		//得到规则链处理结果
+		//Obtain the result of the rule chain processing
 		fmt.Println("执行结果", msg, err)
 	}))
 

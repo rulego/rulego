@@ -17,20 +17,20 @@
 // Package action provides action node components for the RuleGo rule engine.
 // Action nodes perform operations, transformations, and business logic execution as part of rule chain processing.
 //
-// Package action 为 RuleGo 规则引擎提供动作节点组件。
-// 动作节点作为规则链处理的一部分执行操作、转换和业务逻辑。
+// Package action provides action node components for the RuleGo rule engine.
+// Action nodes act as part of the rule chain processing to execute operations, transformations, and business logic.
 //
 // Registration:
-// 注册：
+// Registration:
 //
 // All components are automatically registered during package initialization:
-// 所有组件在包初始化期间自动注册：
+// All components are automatically registered during package initialization:
 //
 // Example Usage:
-// 使用示例：
+// Example:
 //
 //	// Delay message processing
-//	// 延迟消息处理
+//	Delayed message processing
 //	{
 //		"id": "delay1",
 //		"type": "delay",
@@ -42,7 +42,7 @@
 //
 //
 //	// Execute custom function
-//	// 执行自定义函数
+//	Execute custom functions
 //	{
 //		"id": "customLogic",
 //		"type": "functions",
@@ -52,5 +52,5 @@
 //	}
 //
 // For detailed documentation on individual components, see their respective source files.
-// 有关各个组件的详细文档，请参见其各自的源文件。
+// For detailed documentation of each component, please refer to their respective source files.
 package action

@@ -1,6 +1,6 @@
 package services
 
-// LocaleService 国际化服务接口
+// LocaleService international service interface
 type LocaleService interface {
 	Get(lang string) (interface{}, error)
 	Save(lang string, data []byte) error

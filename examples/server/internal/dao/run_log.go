@@ -25,24 +25,24 @@ func NewEventDao(config config.Config) (*EventDao, error) {
 	}, nil
 }
 
-// SaveRunLog 保存工作流运行日志快照
+// SaveRunLog stores a snapshot of the workflow running log
 func (s *EventDao) SaveRunLog(username string, ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) error {
 	var paths = []string{s.config.DataDir, constants.DirWorkflows}
 	chainId := ctx.RuleChain().GetNodeId().Id
 	paths = append(paths, username, constants.DirWorkflowsRun, chainId)
 	pathStr := path.Join(paths...)
-	//创建文件夹
+	//Create a folder
 	_ = fs.CreateDirs(pathStr)
 	snapshot.Id = time.Now().Format("20060102150405000") + "_" + snapshot.Id
-	//保存到文件
+	//Save to file
 	if byteV, err := json.Marshal(snapshot); err != nil {
-		logger.Logger.Printf("dao/EventDao:SaveRunLog marshal error", err)
+		logger.Logger.Printf("dao/EventDao:SaveRunLog marshal error: %v", err)
 		return err
 	} else {
 		//v, _ := json.Format(byteV)
-		//保存规则链到文件
+		//Save the rule chain to the file
 		if err = fs.SaveFile(filepath.Join(pathStr, snapshot.Id), byteV); err != nil {
-			logger.Logger.Printf("dao/EventDao:SaveRunLog save file error", err)
+			logger.Logger.Printf("dao/EventDao:SaveRunLog save file error: %v", err)
 			return err
 		}
 	}
@@ -85,28 +85,28 @@ func (s *EventDao) List(username string, chainId string, current, size int) ([]t
 
 	var paths = []string{s.config.DataDir, constants.DirWorkflows}
 	if chainId == "" {
-		//加载所有
+		//Load all
 		paths = append(paths, username, constants.DirWorkflowsRun)
 	} else {
 		paths = append(paths, username, constants.DirWorkflowsRun, chainId)
 	}
 	pathStr := path.Join(paths...)
-	// 获取目录下所有运行日志文件
+	// Retrieves all runtime log files in the directory
 	var files []string
 	if err := filepath.Walk(pathStr, s.visit(&files)); err != nil {
 		return snapshots, 0, nil
 	}
-	// 按文件时间戳排序
+	// Sort by file timestamp
 	fileWithTimestamps := file.SortFilesByTimestamp(files)
 
-	// 计算分页的起始索引
+	// Calculate the starting index of the page
 	start := (current - 1) * size
 	end := start + size
 	if end > len(files) {
 		end = len(files)
 	}
 
-	// 遍历文件，每个文件对应一条 RuleChainRunSnapshot 记录
+	// Traverse the file, with each file corresponding to a RuleChainRunSnapshot record
 	for _, file := range fileWithTimestamps[start:end] {
 		data, err := os.ReadFile(file.Path)
 		if err != nil {

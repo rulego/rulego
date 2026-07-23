@@ -3,16 +3,16 @@ package locale
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
-	"fmt"
 	"strings"
 
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
-	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/internal/constants"
+	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/utils/fs"
 )
 
@@ -21,12 +21,12 @@ const (
 	Priority   = 50
 )
 
-// Module locale 业务模块，负责语言包管理。
+// Module locale: Business module, responsible for language package management.
 type Module struct {
 	cfg *config.Config
 }
 
-// New 创建 locale 模块
+// New creates the locale module
 func New() *Module {
 	return &Module{}
 }

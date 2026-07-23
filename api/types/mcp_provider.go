@@ -2,32 +2,32 @@ package types
 
 import "context"
 
-// MCPToolDefinition MCP 工具定义。由应用层填充，库层消费。
-// 只使用标准类型，零外部依赖。
+// MCPToolDefinition MCP tool definition. Filled by the application layer, consumed by the storage layer.
+// Only standard types are used, with zero external dependencies.
 type MCPToolDefinition struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	InputSchema []byte `json:"inputSchema"` // JSON Schema bytes
 }
 
-// MCPToolProvider MCP 工具提供者接口。
-// 应用层实现此接口并注册到 Config.Udf，库层通过 UDF 获取并适配为 eino 工具。
+// MCPToolProvider MCP tool provider interface.
+// The application layer implements this interface and registers it in Config.Udf, while the repository layer obtains and adapts it to eino tools via UDF.
 //
-// 注册方式：
+// Registration method:
 //
 //	ruleConfig.RegisterUdf("mcp_tool_provider", myProvider)
 //
-// 获取方式：
+// How to obtain:
 //
 //	provider := ruleConfig.GetUdf("mcp_tool_provider", "").(types.MCPToolProvider)
 type MCPToolProvider interface {
-	// ListToolDefinitions 返回所有可用工具的定义
+	// ListToolDefinitions returns definitions for all available tools
 	ListToolDefinitions() ([]MCPToolDefinition, error)
-	// CallTool 调用指定工具，返回结果文本
+	// CallTool calls the specified tool and returns the result text
 	CallTool(ctx context.Context, toolName string, args map[string]interface{}) (string, error)
 }
 
 const (
-	// MCPToolProviderKey UDF 注册 key
+	// MCPToolProviderKey UDF registration key
 	MCPToolProviderKey = "mcp_tool_provider"
 )

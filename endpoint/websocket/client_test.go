@@ -21,7 +21,7 @@ import (
 
 var wsClientTestServer = ":9092"
 
-// 测试客户端请求/响应消息
+// Test client request/response messages
 func TestWsClientMessage(t *testing.T) {
 	t.Run("ClientRequest", func(t *testing.T) {
 		var request = &WsClientRequestMessage{}
@@ -33,7 +33,7 @@ func TestWsClientMessage(t *testing.T) {
 	})
 }
 
-// 测试客户端类型和默认值
+// Test client types and default values
 func TestWsClientType(t *testing.T) {
 	config := types.NewConfig()
 	client := &WsClient{}
@@ -44,14 +44,14 @@ func TestWsClientType(t *testing.T) {
 	assert.Equal(t, ClientType, client.Type())
 	assert.Equal(t, "ws://127.0.0.1:9999/ws", client.Id())
 
-	// 验证默认值
+	// Verify the default value
 	defaultClient := client.New().(*WsClient)
 	assert.Equal(t, 5, defaultClient.Config.ReconnectInterval)
 	assert.Equal(t, true, defaultClient.Config.AllowText)
 	assert.Equal(t, true, defaultClient.Config.AllowBinary)
 }
 
-// 测试路由管理
+// Test routing management
 func TestWsClientRouter(t *testing.T) {
 	config := types.NewConfig()
 	client := &WsClient{}
@@ -60,39 +60,39 @@ func TestWsClientRouter(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	// 添加nil路由
+	// Add nil routing
 	_, err = client.AddRouter(nil)
 	assert.Equal(t, "router can not nil", err.Error())
 
-	// 添加路由
+	// Add routes
 	router := impl.NewRouter().SetId("r1").From("").End()
 	routerId, err := client.AddRouter(router)
 	assert.Nil(t, err)
 	assert.Equal(t, "r1", routerId)
 
-	// 重复路由
+	// Repeat routing
 	router = impl.NewRouter().SetId("r1").From("").End()
 	_, err = client.AddRouter(router)
 	assert.NotNil(t, err)
 
-	// 删除路由
+	// Delete the route
 	err = client.RemoveRouter("r1")
 	assert.Nil(t, err)
 	err = client.RemoveRouter("r1")
 	assert.Equal(t, "router: r1 not found", err.Error())
 }
 
-// 测试WebSocket客户端连接到服务端并接收数据
+// Test the WebSocket client to connect to the server and receive data
 func TestWsClientConnect(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
 
-	// 启动WebSocket服务端
+	// Start the WebSocket server
 	go startWSPushServer(t, stop, &wg)
 	time.Sleep(time.Millisecond * 300)
 
-	// 创建客户端
+	// Create a client
 	config := engine.NewConfig(types.WithDefaultPool())
 
 	client := &WsClient{}
@@ -127,13 +127,13 @@ func TestWsClientConnect(t *testing.T) {
 	assert.True(t, count > 0, fmt.Sprintf("expected receiveCount > 0, got %d", count))
 }
 
-// 测试WebSocket客户端发送和接收
+// Test the sending and receiving of the WebSocket client
 func TestWsClientSendReceive(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
 
-	// 启动WebSocket回显服务端
+	// Start the WebSocket echo server
 	go startWSEchoServer(t, stop, &wg)
 	time.Sleep(time.Millisecond * 300)
 
@@ -160,7 +160,7 @@ func TestWsClientSendReceive(t *testing.T) {
 	assert.Nil(t, err)
 	time.Sleep(time.Millisecond * 300)
 
-	// 发送数据
+	// Send data
 	err = client.Send([]byte("hello ws"))
 	assert.Nil(t, err)
 
@@ -175,7 +175,7 @@ func TestWsClientSendReceive(t *testing.T) {
 	mu.Unlock()
 }
 
-// 测试WebSocket客户端二进制消息
+// Testing the WebSocket client's binary messages
 func TestWsClientBinaryMessage(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -222,7 +222,7 @@ func TestWsClientBinaryMessage(t *testing.T) {
 	mu.Unlock()
 }
 
-// 测试连接失败
+// Test connection failed
 func TestWsClientConnectFail(t *testing.T) {
 	config := types.NewConfig()
 	client := &WsClient{}
@@ -236,7 +236,7 @@ func TestWsClientConnectFail(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-// 测试客户端配置
+// Test client configuration
 func TestWsClientConfig(t *testing.T) {
 	config := engine.NewConfig()
 	client := &WsClient{}
@@ -259,7 +259,7 @@ func TestWsClientConfig(t *testing.T) {
 	assert.Equal(t, "Bearer token123", client.Config.Headers["Authorization"])
 }
 
-// 测试Close和Destroy
+// Test Close and Destroy
 func TestWsClientCloseDestroy(t *testing.T) {
 	config := types.NewConfig()
 	client := &WsClient{}
@@ -268,14 +268,14 @@ func TestWsClientCloseDestroy(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	// 未连接状态下Close不应报错
+	// Close should not give an error when not connected
 	err = client.Close()
 	assert.Nil(t, err)
 
 	client.Destroy()
 }
 
-// 测试OnEvent回调
+// Test the OnEvent callback
 func TestWsClientOnEvent(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -313,7 +313,7 @@ func TestWsClientOnEvent(t *testing.T) {
 	assert.True(t, connectEventFired, "expected EventConnect to be fired")
 }
 
-// 测试消息类型过滤
+// Test message type filtering
 func TestWsClientMessageFilter(t *testing.T) {
 	config := types.NewConfig()
 	client := &WsClient{}
@@ -327,11 +327,11 @@ func TestWsClientMessageFilter(t *testing.T) {
 	assert.Equal(t, false, client.Config.AllowBinary)
 }
 
-// ==================== 集成测试 ====================
+// ==================== Integration testing ====================
 
-// TestWsClientWithRuleChainIntegration 完整流程：WS服务端推送 → 客户端接收 → Router → 规则链 → 响应回写
+// TestWsClientWithRuleChainIntegration complete process: WS server pushes → client receives → Router → rules chain → response writeback
 func TestWsClientWithRuleChainIntegration(t *testing.T) {
-	// 加载规则链
+	// Load the rule chain
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
 	if err != nil {
 		t.Fatal(err)
@@ -345,7 +345,7 @@ func TestWsClientWithRuleChainIntegration(t *testing.T) {
 	var serverReceived string
 	var mu sync.Mutex
 
-	// 启动WebSocket服务端：接收消息并读取客户端回写
+	// Start the WebSocket server: Receive messages and read client feedback
 	go func() {
 		defer wg.Done()
 		var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
@@ -357,10 +357,10 @@ func TestWsClientWithRuleChainIntegration(t *testing.T) {
 			}
 			defer conn.Close()
 
-			// 推送数据
+			// Push data
 			conn.WriteMessage(websocket.TextMessage, []byte(`{"test":"integration"}`))
 
-			// 读取客户端回写
+			// Read the client's writeback
 			_, msg, err := conn.ReadMessage()
 			if err == nil {
 				mu.Lock()
@@ -379,7 +379,7 @@ func TestWsClientWithRuleChainIntegration(t *testing.T) {
 	}()
 	time.Sleep(time.Millisecond * 300)
 
-	// 创建客户端
+	// Create a client
 	client := &WsClient{}
 	err = client.Init(config, types.Configuration{
 		"server":            "ws://127.0.0.1:9096/ws",
@@ -395,7 +395,7 @@ func TestWsClientWithRuleChainIntegration(t *testing.T) {
 		atomic.AddInt32(&processedCount, 1)
 		return true
 	}).To("chain:default").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		// 回写响应到服务端
+		// Write back the response to the server
 		result := exchange.Out.GetMsg().GetData()
 		exchange.Out.SetBody([]byte("client response: " + result))
 		return true
@@ -419,14 +419,14 @@ func TestWsClientWithRuleChainIntegration(t *testing.T) {
 	mu.Unlock()
 }
 
-// TestWsClientReconnect 测试断线重连
+// TestWsClientReconnect Test disconnection and reconnection
 func TestWsClientReconnect(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
 	var totalReceived int32
 
-	// 第一轮服务端：发送数据后关闭
+	// First server side: Shut down after sending data
 	go func() {
 		defer wg.Done()
 		var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
@@ -438,7 +438,7 @@ func TestWsClientReconnect(t *testing.T) {
 			}
 			conn.WriteMessage(websocket.TextMessage, []byte("first batch"))
 			time.Sleep(time.Millisecond * 300)
-			conn.Close() // 主动关闭
+			conn.Close() // Proactively close it
 		})
 		server := &http.Server{Addr: ":19097", Handler: mux}
 		go func() {
@@ -470,13 +470,13 @@ func TestWsClientReconnect(t *testing.T) {
 	firstBatch := atomic.LoadInt32(&totalReceived)
 	assert.True(t, firstBatch > 0, "expected first batch data")
 
-	// 第二轮服务端（不同端口，同一客户端指向新地址不现实，所以验证重连逻辑存在即可）
+	// Second round of server (different ports, it's unrealistic for the same client to point to a new address, so just verify the presence of reconnection logic)
 	client.Destroy()
 	close(stop)
 	wg.Wait()
 }
 
-// TestWsClientHeartbeat 测试心跳发送
+// TestWsClientHeartbeat tests heartbeat transmission
 func TestWsClientHeartbeat(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -495,16 +495,16 @@ func TestWsClientHeartbeat(t *testing.T) {
 			}
 			defer conn.Close()
 
-			// 设置 ping handler 检测心跳
+			// Set the ping handler to detect your heartbeat
 			conn.SetPingHandler(func(appData string) error {
 				mu.Lock()
 				receivedPing = true
 				mu.Unlock()
-				// 必须回复 pong，否则客户端可能阻塞
+				// You must reply with pong, otherwise the client may be blocked
 				return conn.WriteMessage(websocket.PongMessage, []byte(appData))
 			})
 
-			// gorilla/websocket 的控制帧在 ReadMessage 时处理，必须持续读取
+			// control frames for gorilla/websocket are processed during ReadMessage and must be read continuously
 			for {
 				select {
 				case <-stop:
@@ -552,7 +552,7 @@ func TestWsClientHeartbeat(t *testing.T) {
 	mu.Unlock()
 }
 
-// TestWsClientRegistryCreateEndpoint 验证 WsClient 实现 endpoint.Endpoint 接口
+// TestWsClientRegistryCreateEndpoint Verify WsClient implementing the endpoint.Endpoint interface
 func TestWsClientRegistryCreateEndpoint(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -562,7 +562,7 @@ func TestWsClientRegistryCreateEndpoint(t *testing.T) {
 
 	config := engine.NewConfig()
 
-	// 验证 WsClient 实现了 endpoint.Endpoint 接口
+	// Verify that WsClient has implemented the endpoint.Endpoint interface
 	var _ endpoint.Endpoint = &WsClient{}
 
 	ep := &WsClient{}
@@ -588,7 +588,7 @@ func TestWsClientRegistryCreateEndpoint(t *testing.T) {
 	assert.Nil(t, err)
 	time.Sleep(time.Millisecond * 300)
 
-	// 发送数据，服务端回显
+	// Send data, server echo
 	err = ep.Send([]byte("registry test"))
 	assert.Nil(t, err)
 
@@ -603,7 +603,7 @@ func TestWsClientRegistryCreateEndpoint(t *testing.T) {
 	mu.Unlock()
 }
 
-// TestWsClientCustomHeaders 测试自定义Header连接
+// TestWsClientCustomHeaders tests the custom header connection
 func TestWsClientCustomHeaders(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -676,9 +676,9 @@ func TestWsClientCustomHeaders(t *testing.T) {
 	msgMu.Unlock()
 }
 
-// ==================== 辅助函数 ====================
+// ==================== Auxiliary Function ====================
 
-// startWSPushServer 启动一个主动推送数据的WebSocket服务端
+// startWSPushServer starts a WebSocket server that actively pushes data
 func startWSPushServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
@@ -691,7 +691,7 @@ func startWSPushServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		}
 		defer conn.Close()
 
-		// 主动推送数据
+		// Proactively push data
 		for i := 0; i < 5; i++ {
 			msg := fmt.Sprintf(`{"push":%d,"data":"sensor reading"}`, i)
 			err := conn.WriteMessage(websocket.TextMessage, []byte(msg))
@@ -701,7 +701,7 @@ func startWSPushServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 			time.Sleep(time.Millisecond * 200)
 		}
 
-		// 保持连接直到被通知停止
+		// Stay connected until notified to stop
 		<-stop
 	})
 
@@ -713,12 +713,12 @@ func startWSPushServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	_ = server.ListenAndServe()
 }
 
-// startWSEchoServer 启动一个回显WebSocket服务端
+// startWSEchoServer starts an echo WebSocket server
 func startWSEchoServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	startWSEchoServerPort(t, stop, wg, ":9093")
 }
 
-// startWSEchoServerPort 启动一个指定端口的回显WebSocket服务端
+// startWSEchoServerPort Starts a specified port of the echo WebSocket server
 func startWSEchoServerPort(t *testing.T, stop chan struct{}, wg *sync.WaitGroup, addr string) {
 	defer wg.Done()
 	var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
@@ -736,7 +736,7 @@ func startWSEchoServerPort(t *testing.T, stop chan struct{}, wg *sync.WaitGroup,
 			if err != nil {
 				break
 			}
-			// 回显
+			// Hui Xian
 			conn.WriteMessage(mt, []byte("echo:"+string(message)))
 		}
 	})
@@ -749,7 +749,7 @@ func startWSEchoServerPort(t *testing.T, stop chan struct{}, wg *sync.WaitGroup,
 	_ = server.ListenAndServe()
 }
 
-// startWSBinaryServer 启动一个发送二进制数据的WebSocket服务端
+// startWSBinaryServer starts a WebSocket server that sends binary data
 func startWSBinaryServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
@@ -762,11 +762,11 @@ func startWSBinaryServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		}
 		defer conn.Close()
 
-		// 发送二进制数据
+		// Send binary data
 		binaryData := []byte{0x01, 0x02, 0x03, 0x04, 0x05}
 		conn.WriteMessage(websocket.BinaryMessage, binaryData)
 
-		// 保持连接
+		// Stay connected
 		<-stop
 	})
 
@@ -778,7 +778,7 @@ func startWSBinaryServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	_ = server.ListenAndServe()
 }
 
-// TestWsClientHeartbeatCustomData 测试自定义心跳包内容（通过配置，发送TextMessage而非Ping帧）
+// TestWsClientHeartbeatCustomData tests the contents of the custom heartbeat packet (by configuration, sending a TextMessage instead of a Ping frame)
 func TestWsClientHeartbeatCustomData(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -851,7 +851,7 @@ func TestWsClientHeartbeatCustomData(t *testing.T) {
 	mu.Unlock()
 }
 
-// TestWsClientHeartbeatCallback 测试通过OnHeartbeat回调自定义心跳
+// TestWsClientHeartbeatCallback tests custom heartbeats using OnHeartbeat callbacks
 func TestWsClientHeartbeatCallback(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -907,7 +907,7 @@ func TestWsClientHeartbeatCallback(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	// 自定义心跳：发送二进制心跳帧
+	// Custom heartbeat: Send binary heartbeat frames
 	client.OnHeartbeat = func(conn *websocket.Conn) error {
 		atomic.AddInt32(&callbackCalled, 1)
 		return conn.WriteMessage(websocket.BinaryMessage, []byte{0xAA, 0xBB, 0xCC})

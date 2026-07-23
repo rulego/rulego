@@ -27,16 +27,16 @@ import (
 	"github.com/rulego/rulego/engine"
 )
 
-// TestChainEndpointRefPush 验证 ref:// 引用「同链 endpoint」寻址推送（方案 B）。
+// TestChainEndpointRefPush verifies ref:// refers to the "same-chain endpoint" for addressing push (Solution B).
 //
-// endpoint/net 定义在规则链 metadata.endpoints 内（不进 NodePool），
-// NetNode ref://ep_net 应通过同链 ResourceRegistry 解析（resolveRef 同链优先），
-// 再 SendToTarget 按 deviceId 寻址推送。设备连入后自动收到定时推送。
+// endpoint/net is defined within the rule chain metadata.endpoints (not entered into NodePool),
+// NetNode ref://ep_net should be parsed via the same-chain ResourceRegistry (resolveRef takes precedence over on-chain),
+// Then SendToTarget presses deviceId to address and push the target. Once the device is connected, it automatically receives scheduled push notifications.
 //
-// 与 TestNetScheduledAutoPush 的区别：那个 endpoint 注册在共享池 NodePool（ref 走 NodePool）；
-// 本测试 endpoint 在链内（ref 走同链 Resources），验证新的通用资源目录机制。
+// Difference from TestNetScheduledAutoPush: The endpoint is registered in the shared pool NodePool (ref goes to NodePool);
+// This test uses endpoints on-chain (ref runs on the same chain as Resources), verifying the new general resource directory mechanism.
 func TestChainEndpointRefPush(t *testing.T) {
-	// 启用 endpoint；故意不设 NodePool → ref:// 必须走同链解析
+	// Enable endpoints; NodePool → ref:// deliberately omitted requires same-chain resolution
 	config := rulego.NewConfig(types.WithEndpointEnabled(true))
 
 	chain := `{
@@ -61,7 +61,7 @@ func TestChainEndpointRefPush(t *testing.T) {
 	}
 	defer rulego.Del("test_chain_ep_ref")
 
-	// 从引擎 rootChainCtx 的资源目录取同链 endpoint 实例（验证 EndpointAspect 注册生效）
+	// Fetch the on-chain endpoint instance from the engine rootChainCtx's resource directory (verify that EndpointAspect registration is valid)
 	ruleEng, ok := eng.(*engine.RuleEngine)
 	if !ok {
 		t.Fatalf("engine type %T not *engine.RuleEngine", eng)
@@ -75,7 +75,7 @@ func TestChainEndpointRefPush(t *testing.T) {
 		t.Fatalf("ep_net resource type %T not *netep.Net", epInst)
 	}
 
-	// 设备连入并上报业务 deviceId（触发 sessionKey 提取，session 绑定 DEV_001）
+	// Device connects and reports business deviceId (triggers sessionKey extraction, session binds DEV_001)
 	conn, err := net.Dial("tcp", ep.Addr())
 	if err != nil {
 		t.Fatalf("Dial %s: %v", ep.Addr(), err)
@@ -86,7 +86,7 @@ func TestChainEndpointRefPush(t *testing.T) {
 	}
 	time.Sleep(500 * time.Millisecond)
 
-	// 断言：设备自动收到定时推送（ref:// 同链寻址成功）
+	// Assertion: Device automatically receives scheduled push notifications (ref:// Same-chain addressing successful)
 	count := 0
 	for i := 0; i < 3; i++ {
 		if err := conn.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
@@ -103,11 +103,11 @@ func TestChainEndpointRefPush(t *testing.T) {
 	if count < 2 {
 		t.Fatalf("expected >=2 chain-ref pushes, got %d", count)
 	}
-	t.Logf("PASS: ref:// 同链 endpoint 寻址推送 %d 次成功", count)
+	t.Logf("PASS: ref:// Same-chain endpoint addressed push %d successfully", count)
 }
 
-// TestChainEndpointRefReload 验证 reload 规则链后，同链 endpoint 仍注册到资源目录
-// （EndpointAspect.OnReload 的 syncResources 重新注册），ref:// 同链解析不失效。
+// TestChainEndpointRefReload After verifying the reload rule chain, the same-chain endpoint is still registered in the resource directory
+// (Re-register syncResources in EndpointAspect.OnReload), ref:// same-chain resolution remains intact.
 func TestChainEndpointRefReload(t *testing.T) {
 	config := rulego.NewConfig(types.WithEndpointEnabled(true))
 	chain := `{
@@ -130,17 +130,17 @@ func TestChainEndpointRefReload(t *testing.T) {
 	defer rulego.Del("test_chain_ep_reload")
 	ruleEng := eng.(*engine.RuleEngine)
 
-	// reload 前：OnCreated 已注册 ep_net 到资源目录
+	// Before reload: OnCreated has registered ep_net to the resource directory
 	if _, found := ruleEng.RootRuleChainCtx().Resources().Lookup("ep_net"); !found {
 		t.Fatal("ep_net not registered before reload (OnCreated syncResources failed)")
 	}
 
-	// reload 规则链
+	// reload the rule chain
 	if err := eng.ReloadSelf([]byte(chain)); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
-	// reload 后：OnReload 应重新注册 ep_net，ref:// 同链解析不失效
+	// After reload: OnReload should re-register the ep_net, ref:// same-chain resolution will not be disabled
 	if _, found := ruleEng.RootRuleChainCtx().Resources().Lookup("ep_net"); !found {
 		t.Fatal("ep_net not registered after reload (OnReload syncResources failed)")
 	}

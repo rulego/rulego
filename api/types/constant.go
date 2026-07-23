@@ -31,7 +31,7 @@ const (
 	// Secrets ruleChain dsl additionalInfo secrets key
 	Secrets = "secrets"
 	// RuleChainKey ruleChain dsl key for accessing rule chain properties
-	// RuleChainKey 规则链 DSL 键，用于访问规则链属性
+	// RuleChainKey DSL key, used to access the rule chain properties
 	RuleChainKey = "ruleChain"
 )
 
@@ -43,25 +43,25 @@ const (
 )
 
 // Node type constants define the standard node types used in rule chains.
-// 节点类型常量定义规则链中使用的标准节点类型。
+// Node Type Constants define the standard node types used in the rule chain.
 const (
 	// NodeTypeEnd represents the end node type that triggers rule chain completion callbacks
-	// NodeTypeEnd 表示触发规则链完成回调的结束节点类型
+	// NodeTypeEnd indicates the type of node that triggers the rule chain completion callback
 	NodeTypeEnd = "end"
 )
 
 const (
-	//NodeConfigurationKeyIsInitNetResource 组件配置key是否是初始化网络资源，用于节点组件初始化参数校验区分
+	//NodeConfigurationKeyIsInitNetResource component configuration key is used to initialize network resources, used for parameter validation differentiation in node component initialization
 	NodeConfigurationKeyIsInitNetResource = "$initNetResource"
-	// NodeConfigurationKeyChainCtx 获取规则链上下文Key, value类型: ChainCtx
+	// NodeConfigurationKeyChainCtx obtains the context of the rule chain, Key, value type: ChainCtx
 	NodeConfigurationKeyChainCtx = "$chainCtx"
-	//NodeConfigurationKeySelfDefinition 获取节点定义，value类型: RuleNode
+	//NodeConfigurationKeySelfDefinition Gets the node definition, value type: RuleNode
 	NodeConfigurationKeySelfDefinition = "$selfDefinition"
-	//NodeConfigurationKeyRuleChainDefinition 获取规则链定义，应用于动态endpoint的初始化。value类型: *RuleChain
+	//NodeConfigurationKeyRuleChainDefinition obtains the rule chain definition and is used for the initialization of dynamic endpoints. value type: *RuleChain
 	NodeConfigurationKeyRuleChainDefinition = "$ruleChainDefinition"
-	//NodeConfigurationKeySessionKey 服务端型 endpoint 会话寻址的 sessionKey 配置键（值支持 ${} 表达式或数组多候选）
+	//NodeConfigurationKeySessionKey Server-type endpoint sessionKey configuration key for session addressing (values support ${} expressions or array multi-candidate configuration)
 	NodeConfigurationKeySessionKey = "sessionKey"
-	//NodeConfigurationKeySessionTTL 服务端型 endpoint 会话空闲 TTL（秒，<=0 使用默认 1800）
+	//NodeConfigurationKeySessionTTL Server-type endpoint session idle TTL (seconds, <=0 uses default 1800)
 	NodeConfigurationKeySessionTTL = "sessionTTL"
 )
 
@@ -87,29 +87,29 @@ var (
 )
 
 const (
-	// DefaultRelationType 找不到匹配节点时使用的默认关系名称
+	// DefaultRelationType The default relationship name used when a matching node cannot be found
 	// DefaultRelationType is the default relation name used when no matching node is found.
 	DefaultRelationType = "Default"
 
-	// DefaultRelationTypeKey 用于自定义默认关系类型的配置属性键
+	// DefaultRelationTypeKey is used to customize the configuration attribute key for the default relationship type
 	// DefaultRelationTypeKey is the configuration property key for customizing the default relation type.
 	DefaultRelationTypeKey = "defaultRelationType"
 )
 
 const (
-	// KeyStreamCompleted 流式完成键
+	// KeyStreamCompleted key
 	KeyStreamCompleted = "stream_completed"
-	// KeyStreamStart 流式开始键
+	// KeyStreamStart key
 	KeyStreamStart = "stream_start"
-	// ValueTrue 真值字符串
+	// ValueTrue truth string
 	ValueTrue = "true"
 )
 
 const (
 	// KeyDebugMode per-message debug mode metadata key
-	// KeyDebugMode per-message 调试模式元数据键
+	// KeyDebugMode per-message Debug mode metadata key
 	KeyDebugMode = "_debugMode"
 	// KeySkipTellNext per-message skip tell next metadata key
-	// KeySkipTellNext per-message 跳过通知下一节点元数据键
+	// KeySkipTellNext per-message skips the next node metadata key for notification
 	KeySkipTellNext = "_skipTellNext"
 )

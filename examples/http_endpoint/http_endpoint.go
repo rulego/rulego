@@ -30,11 +30,11 @@ import (
 	"syscall"
 )
 
-// 处理http路由
+// Handle HTTP routing
 func main() {
 
 	config := rulego.NewConfig(types.WithDefaultPool())
-	//注册规则链
+	//Register the rule chain
 	_, err := rulego.New("default", []byte(defaultChain1), rulego.WithConfig(config))
 	if err != nil {
 		fmt.Println(err)
@@ -45,39 +45,39 @@ func main() {
 		fmt.Println(err)
 		os.Exit(0)
 	}
-	//创建http endpoint服务
+	//Create an HTTP endpoint service
 	restEndpoint, err := endpoint.Registry.New(rest.Type, config, rest.Config{
 		Server: ":9090",
 	})
 
-	//添加全局拦截器
+	//Added a global interceptor
 	restEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		userId := exchange.In.Headers().Get("userId")
 		if userId == "blacklist" {
-			//不允许访问
+			//Access is not permitted
 			return false
 		}
-		//权限校验逻辑
+		//Permission validation logic
 		return true
 	})
-	//路由1
+	//Route 1
 	router1 := endpoint.NewRouter().From("/api/v1/hello/:name").Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		//处理请求
+		//Processing requests
 		request, ok := exchange.In.(*rest.RequestMessage)
 		if ok {
 			if request.Request().Method != http.MethodGet {
-				//响应错误
+				//Response errors
 				exchange.Out.SetStatusCode(http.StatusMethodNotAllowed)
-				//不执行后续动作
+				//Do not perform subsequent actions
 				return false
 			} else {
-				//响应请求
+				//Responding to requests
 				exchange.Out.Headers().Set("Content-Type", "application/json")
 				exchange.Out.SetBody([]byte(exchange.In.From() + "\n"))
 				exchange.Out.SetBody([]byte("s1 process" + "\n"))
 				name := request.GetMsg().Metadata.GetValue("name")
 				if name == "break" {
-					//不执行后续动作
+					//Do not perform subsequent actions
 					return false
 				} else {
 					return true
@@ -96,61 +96,61 @@ func main() {
 		return true
 	}).End()
 
-	//路由2 采用配置方式调用规则链
+	//Route 2 calls the rule chain using configuration methods
 	router2 := endpoint.NewRouter().From("/api/v1/msg2Chain1/:msgType").To("chain:default").End()
 
-	//路由3 采用配置方式调用规则链,to路径带变量
+	//Route 3 calls the rule chain using configuration mode, with the to path with variables
 	router3 := endpoint.NewRouter().From("/api/v1/msg2Chain2/:msgType").
 		Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			msg := exchange.In.GetMsg()
-			//获取消息类型
+			//Get message types
 			msg.Type = msg.Metadata.GetValue("msgType")
 
-			//从header获取用户ID
+			//Obtain the user ID from the header
 			userId := exchange.In.Headers().Get("userId")
 			if userId == "" {
 				userId = "default"
 			}
-			//把userId存放在msg元数据
+			//Store userId in the msg metadata
 			msg.Metadata.PutValue("userId", userId)
 			return true
 		}).To("chain:${userId}").End()
 
-	//路由4 采用配置方式调用规则链,to路径带变量，并异步响应
+	//Route 4 calls the rule chain in a configuration manner, with a to-path variable and asynchronous response
 	router4 := endpoint.NewRouter().From("/api/v1/msg2Chain3/:msgType").
 		Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			msg := exchange.In.GetMsg()
-			//获取消息类型
+			//Get message types
 			msg.Type = msg.Metadata.GetValue("msgType")
 
-			//从header获取用户ID
+			//Obtain the user ID from the header
 			userId := exchange.In.Headers().Get("userId")
 			if userId == "" {
 				userId = "default"
 			}
-			//把userId存放在msg元数据
+			//Store userId in the msg metadata
 			msg.Metadata.PutValue("userId", userId)
 			return true
 		}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		//响应给客户端
+		//Respond to the client
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.SetBody([]byte("ok"))
 		return true
 	}).To("chain:${userId}").End()
 
-	//路由5 采用配置方式调用规则链,同步等待规则链执行结果，并同步响应客户端
+	//Route 5 calls the rule chain in a configuration manner, synchronously waits for the execution result of the rule chain, and responds to the client in sync
 	router5 := endpoint.NewRouter().From("/api/v1/msg2Chain4/:chainId").
 		To("chain:${chainId}").
-		//必须增加Wait，异步转同步，http才能正常响应，如果不响应同步响应，不要加这一句，会影响吞吐量
+		//You must add Wait and switch from asynchronous to synchronous for HTTP to respond properly. If it doesn't respond synchronously, don't add this phrase, as it will affect throughput
 		Wait().
 		Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			err := exchange.Out.GetError()
 			if err != nil {
-				//错误
+				//Wrong
 				exchange.Out.SetStatusCode(400)
 				exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 			} else {
-				//把处理结果响应给客户端，http endpoint 必须增加 Wait()，否则无法正常响应
+				//Deliver the processing result to the client; the HTTP endpoint must add Wait(), otherwise it cannot respond properly
 				outMsg := exchange.Out.GetMsg()
 				exchange.Out.Headers().Set("Content-Type", "application/json")
 				exchange.Out.SetBody([]byte(outMsg.GetData()))
@@ -159,20 +159,20 @@ func main() {
 			return true
 		}).End()
 
-	//路由6 直接调用node组件方式
+	//Route 6: Direct call to node components
 	router6 := endpoint.NewRouter().From("/api/v1/msgToComponent1/:msgType").
 		Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			msg := exchange.In.GetMsg()
-			//获取消息类型
+			//Get message types
 			msg.Type = msg.Metadata.GetValue("msgType")
 			return true
 		}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		//响应给客户端
+		//Respond to the client
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.SetBody([]byte("ok"))
 		return true
 	}).ToComponent(func() types.Node {
-		//定义日志组件，处理数据
+		//Define log components and process data
 		var configuration = make(types.Configuration)
 		configuration["jsScript"] = `
 				return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
@@ -182,15 +182,15 @@ func main() {
 		return logNode
 	}()).End()
 
-	//路由7 采用配置方式调用node组件
+	//Route 7 calls node components using configuration methods
 	router7 := endpoint.NewRouter().From("/api/v1/msgToComponent2/:msgType").
 		Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			msg := exchange.In.GetMsg()
-			//获取消息类型
+			//Get message types
 			msg.Type = msg.Metadata.GetValue("msgType")
 			return true
 		}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		//响应给客户端
+		//Respond to the client
 		//exchange.Out.SetBody([]byte("ok"))
 		return true
 	}).To("component:log", types.Configuration{"jsScript": `
@@ -198,16 +198,16 @@ func main() {
         `}).
 		Wait().
 		Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-			//把处理结果，同步响应给前端，http endpoint 必须增加 Wait()，否则无法正常响应
+			//Synchronize the processing results to the front end; the HTTP endpoint must add Wait(), otherwise it cannot respond properly
 			outMsg := exchange.Out.GetMsg()
 			exchange.Out.Headers().Set("Content-Type", "application/json")
 			exchange.Out.SetBody([]byte(outMsg.GetData()))
 			return true
 		}).End()
 
-	//注册路由,Get 方法
+	//Register a route and get a method
 	_, _ = restEndpoint.AddRouter(router1, "GET")
-	//注册路由，POST方式
+	//Register routing and POST methods
 	_, _ = restEndpoint.AddRouter(router2, "POST")
 	_, _ = restEndpoint.AddRouter(router3, "POST")
 	_, _ = restEndpoint.AddRouter(router4, "POST")
@@ -215,10 +215,10 @@ func main() {
 	_, _ = restEndpoint.AddRouter(router6, "POST")
 	_, _ = restEndpoint.AddRouter(router7, "POST")
 
-	//并启动服务
+	//And launch the service
 	_ = restEndpoint.Start()
 	sigs := make(chan os.Signal, 1)
-	// 监听系统信号，包括中断信号和终止信号
+	// Monitor system signals, including interrupt and termination signals
 	signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	select {

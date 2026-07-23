@@ -22,8 +22,8 @@ import (
 	"github.com/rulego/rulego/api/types"
 )
 
-// stubCtx 仅覆盖 GetEnv 的 RuleContext 桩：TargetResolver.Resolve 只调 ctx.GetEnv，
-// 其余方法经嵌入的接口（测试不触达）。避免 base 包为造 ctx 而反向 import engine。
+// stubCtx only overrides GetEnv's RuleContext stub: TargetResolver.Resolve only calls ctx.GetEnv,
+// The remaining methods go through embedded interfaces (not reached by testing). Avoid using the base package to import the engine backward for CTX purposes.
 type stubCtx struct {
 	types.RuleContext
 	env map[string]interface{}
@@ -31,7 +31,7 @@ type stubCtx struct {
 
 func (s *stubCtx) GetEnv(_ types.RuleMsg, _ bool) map[string]interface{} { return s.env }
 
-// TestTargetResolver_Empty 空配置：IsEmpty 且 Resolve 返回空串（字面量分支不触达 ctx）。
+// TestTargetResolver_Empty Null configuration: IsEmpty and Resolve returns an empty string (literal branches do not reach ctx).
 func TestTargetResolver_Empty(t *testing.T) {
 	r := NewTargetResolver("")
 	if !r.IsEmpty() {
@@ -45,7 +45,7 @@ func TestTargetResolver_Empty(t *testing.T) {
 	}
 }
 
-// TestTargetResolver_Literal 非表达式字面量原样返回。
+// TestTargetResolver_Literal Returns non-expression literals as they are.
 func TestTargetResolver_Literal(t *testing.T) {
 	r := NewTargetResolver("192.168.1.100")
 	if r.IsEmpty() {
@@ -54,13 +54,13 @@ func TestTargetResolver_Literal(t *testing.T) {
 	if r.Literal() != "192.168.1.100" {
 		t.Fatalf("Literal=%q", r.Literal())
 	}
-	// 字面量也会被 el 编译成模板，故 Resolve 同样走 ctx.GetEnv 分支，需有效 ctx
+	// literal values are also compiled into templates by el, so Resolve also uses ctx.GetEnv branch, requires a valid ctx
 	if got := r.Resolve(&stubCtx{env: map[string]interface{}{}}, types.NewMsg(0, "", types.TEXT, types.NewMetadata(), "")); got != "192.168.1.100" {
 		t.Fatalf("literal Resolve got %q want 192.168.1.100", got)
 	}
 }
 
-// TestTargetResolver_Star 广播标记 "*" 原样返回。
+// TestTargetResolver_Star Return the broadcast mark "*" as is.
 func TestTargetResolver_Star(t *testing.T) {
 	r := NewTargetResolver("*")
 	if got := r.Resolve(&stubCtx{env: map[string]interface{}{}}, types.NewMsg(0, "", types.TEXT, types.NewMetadata(), "")); got != "*" {
@@ -68,7 +68,7 @@ func TestTargetResolver_Star(t *testing.T) {
 	}
 }
 
-// TestTargetResolver_MsgExpression ${msg.deviceId} 从 ctx.GetEnv 环境解析。
+// TestTargetResolver_MsgExpression ${msg.deviceId} from ctx.GetEnv environment analysis.
 func TestTargetResolver_MsgExpression(t *testing.T) {
 	r := NewTargetResolver("${msg.deviceId}")
 	ctx := &stubCtx{env: map[string]interface{}{
@@ -79,8 +79,8 @@ func TestTargetResolver_MsgExpression(t *testing.T) {
 	}
 }
 
-// TestTargetResolver_MetadataExpression ${metadata.host} 与平铺 ${host} 均可解析
-// （GetEvnAndMetadata 标准环境同时提供两者，TargetResolver 不自建环境）。
+// TestTargetResolver_MetadataExpression ${metadata.host} and tiling ${host} can both be parsed
+// (GetEvnAndMetadata standard environment provides both, while TargetResolver does not build its own environment.)
 func TestTargetResolver_MetadataExpression(t *testing.T) {
 	r := NewTargetResolver("${metadata.host}")
 	ctx := &stubCtx{env: map[string]interface{}{
@@ -92,7 +92,7 @@ func TestTargetResolver_MetadataExpression(t *testing.T) {
 	}
 }
 
-// TestTargetResolver_NestedMsgExpression ${msg.header.sn} 嵌套字段解析。
+// TestTargetResolver_NestedMsgExpression ${msg.header.sn} Nested field parsing.
 func TestTargetResolver_NestedMsgExpression(t *testing.T) {
 	r := NewTargetResolver("${msg.header.sn}")
 	ctx := &stubCtx{env: map[string]interface{}{

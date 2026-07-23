@@ -119,8 +119,8 @@ func TestGracefulShutdownBasicFunctionality(t *testing.T) {
 
 	// Phase 1: Context should NOT be cancelled immediately (two-phase graceful shutdown)
 	// But CheckShutdownSignal should return error due to shutdown flag
-	// 第一阶段：上下文不应立即被取消（两阶段优雅停机）
-	// 但CheckShutdownSignal应该因为停机标志而返回错误
+	// Stage One: Context Should Not Be Immediately Canceled (Two-Stage Graceful Shutdown)
+	// But CheckShutdownSignal should return an error due to the shutdown flag
 	select {
 	case <-ctx.Done():
 		t.Error("Context should not be cancelled in phase 1 of graceful shutdown")
@@ -137,7 +137,7 @@ func TestGracefulShutdownBasicFunctionality(t *testing.T) {
 	assert.True(t, stopCalled)
 
 	// Phase 2: Test forced shutdown (context cancellation)
-	// 第二阶段：测试强制停机（上下文取消）
+	// Phase Two: Test Forced Downtime (Context Cancellation)
 	graceful.ForceStop()
 
 	// Now context should be cancelled
@@ -275,7 +275,7 @@ func TestGracefulShutdownWithNilStopFunc(t *testing.T) {
 	assert.True(t, graceful.IsShuttingDown())
 
 	// Phase 1: Context should NOT be cancelled immediately (two-phase graceful shutdown)
-	// 第一阶段：上下文不应立即被取消（两阶段优雅停机）
+	// Stage One: Context Should Not Be Immediately Canceled (Two-Stage Graceful Shutdown)
 	ctx := graceful.GetShutdownContext()
 	select {
 	case <-ctx.Done():
@@ -313,7 +313,7 @@ func TestGracefulShutdownWithTimeout(t *testing.T) {
 	graceful.GracefulStop(func() {
 		atomic.StoreInt64(&stopCalled, 1)
 		// Simulate work that takes time to complete
-		// 模拟需要时间完成的工作
+		// Simulating tasks that take time to complete
 		time.Sleep(150 * time.Millisecond)
 	})
 
@@ -324,7 +324,7 @@ func TestGracefulShutdownWithTimeout(t *testing.T) {
 	assert.Equal(t, int64(1), atomic.LoadInt64(&stopCalled))
 
 	// Should have taken at least the time of the work in stopFunc
-	// 应该至少花费stopFunc中工作的时间
+	// At least the time spent working in stopFunc should be taken
 	assert.True(t, elapsed >= 100*time.Millisecond, "Shutdown took too little time: %v", elapsed)
 	assert.True(t, elapsed <= 300*time.Millisecond, "Shutdown took too long: %v", elapsed)
 

@@ -37,48 +37,48 @@ var (
 // automatic endpoint creation, configuration, and cleanup. It bridges the
 // gap between rule chains and endpoint management.
 //
-// EndpointAspect 管理规则链端点的生命周期，提供自动端点创建、配置和清理。
-// 它在规则链和端点管理之间架起桥梁。
+// EndpointAspect manages the lifecycle of rule chain endpoints, providing automatic endpoint creation, configuration, and cleanup.
+// It builds a bridge between the rule chain and endpoint management.
 //
 // Features:
-// 功能特性：
-//   - Automatic endpoint lifecycle management  自动端点生命周期管理
-//   - Dynamic endpoint creation and destruction  动态端点创建和销毁
-//   - Hot reloading of endpoint configurations  端点配置的热重载
-//   - Integration with rule engine pools  与规则引擎池的集成
-//   - Support for multiple endpoint types  支持多种端点类型
+// Features:
+//   - Automatic endpoint lifecycle management
+//   - Dynamic endpoint creation and destruction
+//   - Hot reloading of endpoint configurations
+//   - Integration with rule engine pools
+//   - Support for multiple endpoint types
 //
 // Lifecycle Events:
-// 生命周期事件：
+// Lifecycle Events:
 //   - OnCreated: Creates endpoints when rule chain is created
-//     OnCreated：规则链创建时创建端点
+//     OnCreated: Creates endpoints when the rule chain is created
 //   - OnReload: Updates endpoints when rule chain is reloaded
-//     OnReload：规则链重新加载时更新端点
+//     OnReload: Updates endpoints when the rule chain reloads
 //   - OnDestroy: Cleans up endpoints when rule chain is destroyed
-//     OnDestroy：规则链销毁时清理端点
+//     OnDestroy: Cleans endpoints when the rule chain is destroyed
 //
 // Usage:
-// 使用方法：
+// How to use:
 //
 //	// Create endpoint aspect with pool
-//	// 使用池创建端点切面
+//	Use the pool to create endpoint aspects
 //	endpointPool := endpoint.NewPool()
 //	aspect := &EndpointAspect{EndpointPool: endpointPool}
 //
 //	// Apply to rule engine
-//	// 应用到规则引擎
+//	Applied to the rule engine
 //	config := types.NewConfig().WithAspects(aspect)
 //	engine := rulego.NewRuleEngine(config)
 type EndpointAspect struct {
-	EndpointPool      endpoint.Pool      // Pool for managing endpoint instances  管理端点实例的池
-	ruleChainEndpoint *RuleChainEndpoint // Associated rule chain endpoint manager  关联的规则链端点管理器
+	EndpointPool      endpoint.Pool      // Pool for managing endpoint instances
+	ruleChainEndpoint *RuleChainEndpoint // Associated rule chain endpoint manager
 }
 
 // Order returns the execution order of this aspect. Higher values execute later.
 // EndpointAspect has order 900, executing late to ensure other aspects are set up first.
 //
-// Order 返回此切面的执行顺序。值越高，执行越晚。
-// EndpointAspect 的顺序为 900，执行较晚以确保其他切面首先设置。
+// Order returns the execution order of this aspect. The higher the value, the later it is executed.
+// EndpointAspect has order 900, so it runs late to ensure other aspects are configured first.
 func (aspect *EndpointAspect) Order() int {
 	return 900
 }
@@ -86,15 +86,15 @@ func (aspect *EndpointAspect) Order() int {
 // New creates a new instance of the endpoint aspect for each rule engine.
 // Each instance shares the same endpoint pool but maintains separate state.
 //
-// New 为每个规则引擎创建端点切面的新实例。
-// 每个实例共享相同的端点池但维护独立的状态。
+// New creates a new endpoint aspect instance for each rule engine.
+// Each instance shares the same endpoint pool but maintains independent states.
 func (aspect *EndpointAspect) New() types.Aspect {
 	return &EndpointAspect{EndpointPool: aspect.EndpointPool}
 }
 
 // Type returns the unique identifier for this aspect type.
 //
-// Type 返回此切面类型的唯一标识符。
+// Type returns a unique identifier for this facet type.
 func (aspect *EndpointAspect) Type() string {
 	return "endpoint"
 }
@@ -102,8 +102,8 @@ func (aspect *EndpointAspect) Type() string {
 // PointCut determines which nodes this aspect applies to.
 // Returns true for all nodes as endpoint management is chain-level.
 //
-// PointCut 确定此切面应用于哪些节点。
-// 对所有节点返回 true，因为端点管理是链级别的。
+// PointCut determines which nodes this section is applied to.
+// Returns true for all nodes, because endpoint management is chain-level.
 func (aspect *EndpointAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg, relationType string) bool {
 	return true
 }
@@ -111,24 +111,24 @@ func (aspect *EndpointAspect) PointCut(ctx types.RuleContext, msg types.RuleMsg,
 // OnCreated is called when a rule chain is created. It initializes endpoints
 // defined in the rule chain metadata if endpoint functionality is enabled.
 //
-// OnCreated 在规则链创建时调用。如果启用了端点功能，它会初始化规则链元数据中定义的端点。
+// OnCreated is called when the rule chain is created. If endpoint functionality is enabled, it initializes the endpoints defined in the rule chain metadata.
 //
 // Process:
-// 处理过程：
-//  1. Check if context is a chain context  检查上下文是否为链上下文
-//  2. Verify endpoint functionality is enabled  验证端点功能是否启用
-//  3. Create rule chain endpoint manager  创建规则链端点管理器
-//  4. Initialize all defined endpoints  初始化所有定义的端点
+// Handling process:
+//  1. Check if context is a chain context
+//  2. Verify endpoint functionality is enabled
+//  3. Create rule chain endpoint manager
+//  4. Initialize all defined endpoints
 //
 // Parameters:
-// 参数：
+// Parameters:
 //   - ctx: Node context containing rule chain information
-//     ctx：包含规则链信息的节点上下文
+//     ctx: The node context containing the rule chain information
 //
 // Returns:
-// 返回：
+// Returns:
 //   - error: Endpoint creation error if any, nil on success
-//     error：端点创建错误（如果有），成功时为 nil
+//     error: Endpoint creation error (if any), nil on success
 func (aspect *EndpointAspect) OnCreated(ctx types.NodeCtx) error {
 	if chainCtx, ok := ctx.(types.ChainCtx); ok {
 		if !chainCtx.Config().EndpointEnabled {
@@ -140,19 +140,19 @@ func (aspect *EndpointAspect) OnCreated(ctx types.NodeCtx) error {
 			return err
 		} else {
 			aspect.ruleChainEndpoint = ruleChainEndpoint
-			// 注册同链 endpoint 供 ref:// 同链寻址（注册底层实例，稳定实现 TargetSender）
+			// Register same-chain endpoints for ref:// same-chain addressing (register underlying instances and stably implement TargetSender)
 			aspect.syncResources(chainCtx, nil, ruleChainEndpoint.GetEndpoints())
 		}
 	}
 	return nil
 }
 
-// syncResources 同步链资源目录：注销 oldEps，注册 newEps 的底层实例。
-// 用于 OnCreated（oldEps=nil 全量注册）与 OnReload（先注销旧再注册新）。
-// 注册底层 endpoint.Endpoint（而非 DynamicEndpoint 包装），因其稳定实现 TargetSender。
+// syncResources: Delete oldEps and register the underlying instance of newEps.
+// Used for OnCreated (oldEps = nil, full registration) and OnReload (deregistering old first, then registering new).
+// Register the underlying endpoint.Endpoint (rather than DynamicEndpoint wrappers), which provides a stable implementation of TargetSender.
 func (aspect *EndpointAspect) syncResources(chainCtx types.ChainCtx, oldEps, newEps []endpoint.DynamicEndpoint) {
 	reg := chainCtx.EndpointRegistry()
-	// 先 Register 新（Store 覆盖），保证窗口期 resources 总有最新值，避免并发 Lookup 落空。
+	// First, register new ones (Store override) to ensure that resources in the window period always have the latest values, avoiding missed concurrent lookups.
 	newIds := make(map[string]bool, len(newEps))
 	for _, ep := range newEps {
 		if ep == nil {
@@ -162,13 +162,13 @@ func (aspect *EndpointAspect) syncResources(chainCtx types.ChainCtx, oldEps, new
 			reg.Register(ep.Id(), inner)
 			newIds[ep.Id()] = true
 		} else {
-			// Target()==nil：底层 endpoint 未初始化，记录日志便于排查（否则静默不注册，ref:// 仅报 not found）
+			// target()==nil: The underlying endpoint is not initialized, logging is easy to check (otherwise it will be silent and not registered, ref:// only reports 'not found')
 			if l := chainCtx.Config().Logger; l != nil {
 				l.Printf("endpoint %s Target() is nil, skip register to chain resources", ep.Id())
 			}
 		}
 	}
-	// 再 Unregister 仅移除的（不在 newEps），消除「先删全部再加」的中间空窗。
+	// Then Unregister only removes the one (not in newEps), and clears the gap in the middle of 'delete all first, then add'.
 	for _, ep := range oldEps {
 		if ep != nil && !newIds[ep.Id()] {
 			reg.Unregister(ep.Id())
@@ -179,25 +179,25 @@ func (aspect *EndpointAspect) syncResources(chainCtx types.ChainCtx, oldEps, new
 // OnReload is called when a rule chain is reloaded. It updates the endpoint
 // configuration and manages endpoint lifecycle changes (add/remove/modify).
 //
-// OnReload 在规则链重新加载时调用。它更新端点配置并管理端点生命周期变化（添加/删除/修改）。
+// OnReload is called when the rule chain reloads. It updates endpoint configurations and manages endpoint lifecycle changes (add/delete/modify).
 //
 // Process:
-// 处理过程：
-//  1. Check if endpoints are still enabled  检查端点是否仍然启用
-//  2. Update configuration and pool references  更新配置和池引用
-//  3. Compare old and new endpoint definitions  比较旧的和新的端点定义
-//  4. Apply endpoint changes (add/remove/modify)  应用端点变化（添加/删除/修改）
+// Handling process:
+//  1. Check if endpoints are still enabled
+//  2. Update configuration and pool references
+//  3. Compare old and new endpoint definitions
+//  4. Apply endpoint changes (add/remove/modify)
 //
 // Parameters:
-// 参数：
-//   - _: Previous node context (unused)  之前的节点上下文（未使用）
+// Parameters:
+//   - _: Previous node context (unused)
 //   - ctx: New node context with updated configuration
-//     ctx：具有更新配置的新节点上下文
+//     ctx: New node context with updated configuration
 //
 // Returns:
-// 返回：
+// Returns:
 //   - error: Reload error if any, nil on success
-//     error：重新加载错误（如果有），成功时为 nil
+//     error: Reloading error (if any), nil on success
 func (aspect *EndpointAspect) OnReload(_ types.NodeCtx, ctx types.NodeCtx) error {
 	if chainCtx, ok := ctx.(types.ChainCtx); ok && aspect.ruleChainEndpoint != nil {
 		if !ctx.Config().EndpointEnabled {
@@ -207,7 +207,7 @@ func (aspect *EndpointAspect) OnReload(_ types.NodeCtx, ctx types.NodeCtx) error
 		}
 		aspect.ruleChainEndpoint.config = ctx.Config()
 		aspect.ruleChainEndpoint.ruleGoPool = chainCtx.GetRuleEnginePool()
-		// Reload 后按最终存活状态同步资源目录（含 Reload 部分成功的情况）。
+		// After reloading, the resource directory is synchronized according to the last survival state (including cases where the reload partially succeeds).
 		err := aspect.ruleChainEndpoint.Reload(chainCtx.Definition(), chainCtx.Definition().Metadata.Endpoints)
 		aspect.syncResources(chainCtx, nil, aspect.ruleChainEndpoint.GetEndpoints())
 		return err
@@ -218,10 +218,10 @@ func (aspect *EndpointAspect) OnReload(_ types.NodeCtx, ctx types.NodeCtx) error
 // OnDestroy is called when a rule chain is destroyed. It performs cleanup
 // of all associated endpoints to prevent resource leaks.
 //
-// OnDestroy 在规则链销毁时调用。它执行所有关联端点的清理以防止资源泄漏。
+// OnDestroy is called when the rule chain is destroyed. It cleans all associated endpoints to prevent resource leaks.
 func (aspect *EndpointAspect) OnDestroy(ctx types.NodeCtx) {
 	if aspect.ruleChainEndpoint != nil {
-		// Destroy 前取 oldEps 并注销（Destroy 会清空 endpoints map）。
+		// Destroy takes oldEps before and logs out (Destroy will clear the endpoints map).
 		if chainCtx, ok := ctx.(types.ChainCtx); ok {
 			aspect.syncResources(chainCtx, aspect.ruleChainEndpoint.GetEndpoints(), nil)
 		}
@@ -260,7 +260,7 @@ func NewRuleChainEndpoint(ruleEngineId string, config types.Config, endpointPool
 	return ruleChainEndpoint, nil
 }
 
-// Start 启动服务
+// Start the service
 func (e *RuleChainEndpoint) Start() error {
 	endpoints := e.GetEndpoints()
 	for _, ep := range endpoints {
@@ -407,7 +407,7 @@ func (e *RuleChainEndpoint) checkEndpointChanges(oldEndpoints, newEndpoints []*t
 	return added, removed, modified
 }
 
-// 绑定To,To必须是当前规则链ID
+// Bind To, and To must be the current rule chain ID
 func (e *RuleChainEndpoint) bindTo(def *types.EndpointDsl, ruleEngineId string) {
 	for _, r := range def.Routers {
 		if r.To.Path == "" {

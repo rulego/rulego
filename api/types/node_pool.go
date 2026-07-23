@@ -17,436 +17,436 @@
 package types
 
 // SharedNode represents a network resource node component such as a client or server connection.
-// SharedNode 表示网络资源节点组件，如客户端或服务器连接。
+// SharedNode represents network resource node components, such as client or server connections.
 //
 // SharedNode extends the basic Node interface with resource sharing capabilities,
 // enabling connection pooling, resource reuse, and shared state management across
 // multiple rule chains and components.
-// SharedNode 扩展了基本的 Node 接口，增加了资源共享功能，
-// 支持多个规则链和组件间的连接池、资源重用和共享状态管理。
+// SharedNode extends the basic Node interface and adds resource sharing features,
+// Supports connection pools, resource reuse, and shared state management among multiple rule chains and components.
 //
 // Key Features:
-// 关键特性：
+// Key features:
 //   - Resource sharing across multiple rule chains
-//     多个规则链间的资源共享
+//     Resource sharing across multiple rule chains
 //   - Connection pooling for network clients
-//     网络客户端的连接池
+//     The connection pool for network clients
 //   - Lifecycle management of shared resources
-//     共享资源的生命周期管理
+//     Lifecycle management of shared resources
 //   - Performance optimization through reuse
-//     通过重用实现性能优化
+//     Performance optimization is achieved through reuse
 //
 // Common Use Cases:
-// 常见用例：
+// Common Use Cases:
 //   - HTTP client pooling for REST API calls
-//     REST API 调用的 HTTP 客户端池
+//     HTTP client pool for REST API calls
 //   - Database connection pooling
-//     数据库连接池
+//     Database connection pool
 //   - Message queue connection sharing
-//     消息队列连接共享
+//     Message queue connection sharing
 //   - TCP/UDP socket connection management
-//     TCP/UDP 套接字连接管理
+//     Manage TCP/UDP socket connections
 //   - Cache client sharing (Redis, Memcached)
-//     缓存客户端共享（Redis、Memcached）
+//     Cached client sharing (Redis, Memcached)
 type SharedNode interface {
 	Node
 	// GetInstance retrieves the underlying net client or server connection.
 	// Used for connection pool reuse
-	// GetInstance 检索底层网络客户端或服务器连接。
-	// 用于连接池重用
+	// GetInstance retrieves connections between underlying network clients or servers.
+	// Used for reuse of connection pools
 	//
 	// This method provides access to the actual network resource (connection, client, etc.)
 	// that can be shared across multiple components. The returned instance should be
 	// thread-safe and ready for concurrent use.
-	// 此方法提供对实际网络资源（连接、客户端等）的访问，
-	// 可以在多个组件间共享。返回的实例应该是线程安全的并准备好并发使用。
+	// This method provides access to actual network resources (connections, clients, etc.),
+	// It can be shared across multiple components. The returned instance should be thread-safe and ready for concurrent use.
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - interface{}: The shared resource instance (HTTP client, DB connection, etc.)
-	//     interface{}：共享资源实例（HTTP 客户端、数据库连接等）
+	//     interface{}: Shared resource instance (HTTP client, database connection, etc.)
 	//   - error: Any error that occurred while accessing the resource
-	//     error：访问资源时发生的任何错误
+	//     error: Any error that occurs when accessing resources
 	//
 	// Example implementations:
-	// 实现示例：
+	// Implementation example:
 	//   - HTTP client: return &http.Client{}, nil
-	//     HTTP 客户端：return &http.Client{}, nil
+	//     HTTP client: return &http.Client{}, nil
 	//   - DB connection: return sql.DB instance, nil
-	//     数据库连接：return sql.DB 实例, nil
+	//     Database connection: return sql.DB instance, nil
 	//   - Redis client: return redis.Client instance, nil
-	//     Redis 客户端：return redis.Client 实例, nil
+	//     Redis client: return redis.Client instance, nil
 	GetInstance() (interface{}, error)
 }
 
 // SharedNodeCtx represents the context wrapper for shared node components.
-// SharedNodeCtx 表示共享节点组件的上下文包装器。
+// SharedNodeCtx represents a context wrapper for sharing node components.
 //
 // SharedNodeCtx extends NodeCtx with additional capabilities for managing shared
 // resources and provides both the node context and direct access to the underlying
 // shared resource instance.
-// SharedNodeCtx 扩展了 NodeCtx，增加了管理共享资源的额外功能，
-// 并提供节点上下文和对底层共享资源实例的直接访问。
+// SharedNodeCtx extends NodeCtx, adding additional features for managing shared resources,
+// It also provides node context and direct access to underlying shared resource instances.
 //
 // This interface serves as a bridge between the rule engine's node management
 // system and the shared resource pooling system, enabling efficient resource
 // utilization while maintaining proper isolation and lifecycle management.
-// 此接口作为规则引擎的节点管理系统和共享资源池系统之间的桥梁，
-// 在保持适当隔离和生命周期管理的同时实现高效的资源利用。
+// This interface serves as a bridge between the node management system of the rule engine and the shared resource pool system,
+// Achieve efficient resource utilization while maintaining proper isolation and lifecycle management.
 //
 // Architectural Benefits:
-// 架构优势：
+// Architecture Advantages:
 //   - Unified interface for both node and resource management
-//     节点和资源管理的统一接口
+//     Unified interface for node and resource management
 //   - Consistent access patterns across different resource types
-//     不同资源类型的一致访问模式
+//     Consistent access patterns for different resource types
 //   - Simplified integration with existing rule chain infrastructure
-//     与现有规则链基础设施的简化集成
+//     Simplified integration with existing rule chain infrastructure
 //   - Enhanced monitoring and debugging capabilities
-//     增强的监控和调试功能
+//     Enhanced monitoring and commissioning capabilities
 type SharedNodeCtx interface {
 	NodeCtx
 	// GetInstance Obtain shared component resource instance
-	// GetInstance 获取共享组件资源实例
+	// GetInstance obtains the shared component resource instance
 	//
 	// This method provides direct access to the shared resource managed by this node context.
 	// It's a convenience method that delegates to the underlying SharedNode's GetInstance method.
-	// 此方法提供对此节点上下文管理的共享资源的直接访问。
-	// 它是委托给底层 SharedNode 的 GetInstance 方法的便利方法。
+	// This method provides direct access to shared resources managed by this node's context.
+	// It is a convenient method delegated to the underlying SharedNode's GetInstance method.
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - interface{}: The shared resource instance
-	//     interface{}：共享资源实例
+	//     interface{}: Shared resource instance
 	//   - error: Any error that occurred during resource access
-	//     error：资源访问期间发生的任何错误
+	//     error: Any error that occurs during resource access
 	GetInstance() (interface{}, error)
 
 	// GetNode returns the underlying node instance
-	// GetNode 返回底层节点实例
+	// GetNode returns the underlying node instance
 	//
 	// This method provides access to the raw node implementation, which can be useful
 	// for advanced operations, debugging, or when type-specific functionality is needed.
-	// 此方法提供对原始节点实现的访问，这对于高级操作、调试或需要特定类型功能时很有用。
+	// This method provides access to the original node implementation, which is useful for advanced operations, debugging, or when specific types of functionality are needed.
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - interface{}: The underlying node instance (typically implementing SharedNode)
-	//     interface{}：底层节点实例（通常实现 SharedNode）
+	//     interface{}: Underlying node instance (usually SharedNode)
 	GetNode() interface{}
 }
 
 // NodePool provides centralized management for shared node resources across rule chains.
-// NodePool 为规则链间的共享节点资源提供集中管理。
+// NodePool provides centralized management for shared node resources between rule chains.
 //
 // NodePool serves as a registry and factory for shared network resources, enabling
 // efficient resource pooling, lifecycle management, and configuration consistency
 // across multiple rule chains within an application.
-// NodePool 作为共享网络资源的注册表和工厂，支持应用程序内多个规则链间的
-// 高效资源池、生命周期管理和配置一致性。
+// NodePool acts as a registry and factory for shared network resources, supporting multiple rule chains within the application
+// Efficient resource pooling, lifecycle management, and allocation consistency.
 //
 // Architecture Overview:
-// 架构概览：
+// Architecture Overview:
 //   - Centralized resource management for all rule chains
-//     所有规则链的集中资源管理
+//     Centralized resource management of all rule chains
 //   - Factory pattern for creating shared node instances
-//     创建共享节点实例的工厂模式
+//     Create a factory pattern for shared node instances
 //   - Configuration-driven resource initialization
-//     配置驱动的资源初始化
+//     Configuration-driven resource initialization
 //   - Automatic lifecycle management
-//     自动生命周期管理
+//     Automated lifecycle management
 //
 // Resource Lifecycle:
-// 资源生命周期：
+// Resource lifecycle:
 //  1. Load: Parse configuration and prepare resources
-//     Load：解析配置并准备资源
+//     Load: Parses the configuration and prepares resources
 //  2. Create: Instantiate shared node contexts
-//     Create：实例化共享节点上下文
+//     Create: Instantiate the shared node context
 //  3. Manage: Provide access and maintain connections
-//     Manage：提供访问并维护连接
+//     Manage: Provides access and maintains connections
 //  4. Cleanup: Properly dispose of resources
-//     Cleanup：适当处置资源
+//     Cleanup: Appropriate disposal of resources
 //
 // Thread Safety:
-// 线程安全性：
+// Thread safety:
 // All methods should be thread-safe to support concurrent access from
 // multiple rule chains and components.
-// 所有方法都应该是线程安全的，以支持来自多个规则链和组件的并发访问。
+// All methods should be thread-safe to support concurrent access from multiple rule chains and components.
 type NodePool interface {
-	// NodePool 是资源池，亦即 ResourceLookup：ref:// 解析按 id 取实例时，
-	// NodePool.Lookup 作为共享池回退源（与 ChainCtx.Resources() 同链目录并列）。
+	// NodePool is a resource pool, meaning that when parsing ResourceLookup:ref:// to fetch instances by ID,
+	// NodePool.Lookup serves as the shared pool fallback source (alongside ChainCtx.Resources() in the same chain directory).
 	ResourceLookup
 
 	// Load loads sharedNode list from a ruleChain DSL definition.
-	// Load 从规则链 DSL 定义加载共享节点列表。
+	// Load: loads the list of shared nodes from the rule chain DSL definition.
 	//
 	// This method parses a complete rule chain DSL and extracts shared node
 	// configurations, creating a new NodePool instance with those resources.
-	// 此方法解析完整的规则链 DSL 并提取共享节点配置，
-	// 使用这些资源创建新的 NodePool 实例。
+	// This method parses the complete rule chain DSL and extracts the shared node configuration,
+	// Use these resources to create new NodePool instances.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - dsl: Rule chain DSL in byte format (typically JSON)
-	//     dsl：字节格式的规则链 DSL（通常是 JSON）
+	//     dsl: Byte-format rule chain DSL (usually JSON)
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - NodePool: New pool instance with loaded shared nodes
-	//     NodePool：包含已加载共享节点的新池实例
+	//     NodePool: Contains new pool instances loaded on shared nodes
 	//   - error: Any error that occurred during parsing or loading
-	//     error：解析或加载期间发生的任何错误
+	//     error: Any error that occurs during parsing or loading
 	//
 	// Usage:
-	// 使用：
+	// Usage:
 	//   dsl := []byte(`{"endpoints": [...], "metadata": {...}}`)
 	//   pool, err := nodePool.Load(dsl)
 	Load(dsl []byte) (NodePool, error)
 
 	// LoadFromRuleChain loads sharedNode list from a ruleChain definition.
-	// LoadFromRuleChain 从规则链定义加载共享节点列表。
+	// LoadFromRuleChain Loads a list of shared nodes from the rule chain definition.
 	//
 	// This method accepts a parsed RuleChain structure and extracts shared node
 	// configurations from it, providing a more direct way to initialize the pool
 	// when the rule chain structure is already available.
-	// 此方法接受解析的 RuleChain 结构并从中提取共享节点配置，
-	// 当规则链结构已经可用时提供更直接的初始化池的方式。
+	// This method accepts the parsed RuleChain structure and extracts the shared node configuration from it,
+	// When the rule chain structure is already available, it provides a more direct way to initialize the pool.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - def: Parsed rule chain definition structure
-	//     def：解析的规则链定义结构
+	//     def: The definition structure of the rule chain for parsing
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - NodePool: New pool instance with loaded shared nodes
-	//     NodePool：包含已加载共享节点的新池实例
+	//     NodePool: Contains new pool instances loaded on shared nodes
 	//   - error: Any error that occurred during loading
-	//     error：加载期间发生的任何错误
+	//     error: Any error that occurs during loading
 	LoadFromRuleChain(def RuleChain) (NodePool, error)
 
 	// NewFromEndpoint new an endpoint sharedNode
-	// NewFromEndpoint 从端点创建新的共享节点
+	// NewFromEndpoint Creates a new shared node from the endpoint
 	//
 	// This method creates a shared node context from an endpoint DSL definition,
 	// enabling endpoint components to be managed as shared resources.
-	// 此方法从端点 DSL 定义创建共享节点上下文，
-	// 使端点组件能够作为共享资源进行管理。
+	// This method creates a shared node context from the endpoint DSL definition,
+	// Enables endpoint components to be managed as shared resources.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - def: Endpoint DSL definition
-	//     def：端点 DSL 定义
+	//     def: Endpoint DSL definition
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - SharedNodeCtx: Configured shared node context for the endpoint
-	//     SharedNodeCtx：端点的配置共享节点上下文
+	//     SharedNodeCtx: The endpoint configuration shares node context
 	//   - error: Any error that occurred during creation
-	//     error：创建期间发生的任何错误
+	//     error: Any error that occurs during creation
 	NewFromEndpoint(def EndpointDsl) (SharedNodeCtx, error)
 
 	// NewFromRuleNode new a rule node sharedNode
-	// NewFromRuleNode 从规则节点创建新的共享节点
+	// NewFromRuleNode creates a new shared node from the rule node
 	//
 	// This method creates a shared node context from a rule node definition,
 	// enabling regular rule nodes to be managed as shared resources.
-	// 此方法从规则节点定义创建共享节点上下文，
-	// 使常规规则节点能够作为共享资源进行管理。
+	// This method creates a shared node context from the rule node definition,
+	// Allows regular rule nodes to be managed as shared resources.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - def: Rule node definition
-	//     def：规则节点定义
+	//     def: Rule node definition
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - SharedNodeCtx: Configured shared node context for the rule node
-	//     SharedNodeCtx：规则节点的配置共享节点上下文
+	//     SharedNodeCtx: Configuration of rule nodes that share node context
 	//   - error: Any error that occurred during creation
-	//     error：创建期间发生的任何错误
+	//     error: Any error that occurs during creation
 	NewFromRuleNode(def RuleNode) (SharedNodeCtx, error)
 
 	// AddNode add a sharedNode
-	// AddNode 添加共享节点
+	// AddNode adds a shared node
 	//
 	// This method adds a pre-configured node to the pool, wrapping it in a
 	// SharedNodeCtx for management. This is useful for programmatically
 	// adding nodes or integrating with external resource management systems.
-	// 此方法将预配置节点添加到池中，将其包装在 SharedNodeCtx 中进行管理。
-	// 这对于以编程方式添加节点或与外部资源管理系统集成很有用。
+	// This method adds pre-configured nodes to the pool and wraps them in SharedNodeCtx for management.
+	// This is useful for adding nodes programmatically or integrating with external resource management systems.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - endpoint: Pre-configured node instance to add
-	//     endpoint：要添加的预配置节点实例
+	//     Endpoint: The preconfigured node instance to add
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - SharedNodeCtx: Wrapped node context for the added node
-	//     SharedNodeCtx：添加节点的包装节点上下文
+	//     SharedNodeCtx: Adds the node's wrapper node context
 	//   - error: Any error that occurred during addition
-	//     error：添加期间发生的任何错误
+	//     error: Any errors that occur during the addition process
 	AddNode(endpoint Node) (SharedNodeCtx, error)
 
 	// Get retrieves a SharedNode instance by its ID.
-	// Get 通过 ID 检索 SharedNode 实例。
+	// Get retrieves the SharedNode instance by ID.
 	//
 	// This method provides access to a previously registered shared node context
 	// by its unique identifier. It's the primary way to access shared resources
 	// from rule chain components.
-	// 此方法通过其唯一标识符提供对先前注册的共享节点上下文的访问。
-	// 这是从规则链组件访问共享资源的主要方式。
+	// This method provides access to the context of previously registered shared nodes through its unique identifier.
+	// This is the main way to access shared resources from rule chain components.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - id: Unique identifier of the shared node
-	//     id：共享节点的唯一标识符
+	//     id: The unique identifier of the shared node
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - SharedNodeCtx: The shared node context if found
-	//     SharedNodeCtx：如果找到则返回共享节点上下文
+	//     SharedNodeCtx: Returns the shared node context if found
 	//   - bool: True if the node was found, false otherwise
-	//     bool：如果找到节点则为 true，否则为 false
+	//     bool: if a node is found, it is true; otherwise, it is false
 	Get(id string) (SharedNodeCtx, bool)
 
 	// GetInstance retrieves a net client or server connection by its nodeTye and ID.
-	// GetInstance 通过节点类型和 ID 检索网络客户端或服务器连接。
+	// GetInstance retrieves network client or server connections by node type and ID.
 	//
 	// This is a convenience method that combines node lookup and instance access
 	// in a single call, providing direct access to the underlying shared resource.
-	// 这是一个便利方法，在单次调用中结合节点查找和实例访问，
-	// 提供对底层共享资源的直接访问。
+	// This is a convenient method that combines node lookup and instance access in a single call,
+	// Provide direct access to underlying shared resources.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - id: Unique identifier of the shared node
-	//     id：共享节点的唯一标识符
+	//     id: The unique identifier of the shared node
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - interface{}: The shared resource instance if found
-	//     interface{}：如果找到则返回共享资源实例
+	//     interface{}: If found, returns a shared resource instance
 	//   - error: Any error that occurred during lookup or access
-	//     error：查找或访问期间发生的任何错误
+	//     error: Any error that occurs during searching or access
 	GetInstance(id string) (interface{}, error)
 
 	// Del deletes a SharedNode instance by its nodeTye and ID.
-	// Del 通过节点类型和 ID 删除 SharedNode 实例。
+	// Del deletes SharedNode instances by node type and ID.
 	//
 	// This method removes a shared node from the pool and properly cleans up
 	// its resources. It should be used when a shared resource is no longer needed
 	// or when updating configurations.
-	// 此方法从池中删除共享节点并适当清理其资源。
-	// 当不再需要共享资源或更新配置时应使用它。
+	// This method removes shared nodes from the pool and properly cleans up their resources.
+	// It should be used when shared resources are no longer needed or when configuration updates are needed.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - id: Unique identifier of the shared node to delete
-	//     id：要删除的共享节点的唯一标识符
+	//     id: The unique identifier of the shared node to be deleted
 	//
 	// Cleanup Process:
-	// 清理过程：
+	// Cleaning process:
 	//   1. Locate the node by ID
-	//      通过 ID 定位节点
+	//      Nodes are located by ID
 	//   2. Call the node's Destroy() method
-	//      调用节点的 Destroy() 方法
+	//      Call the node's Destroy() method
 	//   3. Remove from internal registry
-	//      从内部注册表中删除
+	//      Removed from the internal registry
 	//   4. Clean up any associated metadata
-	//      清理任何关联的元数据
+	//      Clean up any associated metadata
 	Del(id string)
 
 	// Stop stops and releases all SharedNode instances.
-	// Stop 停止并释放所有 SharedNode 实例。
+	// Stop and release all SharedNode instances.
 	//
 	// This method performs a complete shutdown of the node pool, properly
 	// cleaning up all shared resources. It should be called during application
 	// shutdown to ensure proper resource cleanup.
-	// 此方法执行节点池的完全关闭，适当清理所有共享资源。
-	// 应在应用程序关闭期间调用它以确保适当的资源清理。
+	// This method completes the node pool and properly cleans all shared resources.
+	// It should be called during application shutdown to ensure proper resource cleanup.
 	//
 	// Shutdown Process:
-	// 关闭过程：
+	// Closing process:
 	//   1. Iterate through all registered nodes
-	//      遍历所有注册的节点
+	//      Traverse all registered nodes
 	//   2. Call Destroy() on each node
-	//      在每个节点上调用 Destroy()
+	//      Call Destroy() on each node
 	//   3. Clear internal registries
-	//      清除内部注册表
+	//      Clear the internal registry
 	//   4. Release pool resources
-	//      释放池资源
+	//      Release pool resources
 	//
 	// Thread Safety:
-	// 线程安全性：
+	// Thread safety:
 	// This method should handle concurrent access gracefully and ensure
 	// that no new operations can start while shutdown is in progress.
-	// 此方法应优雅地处理并发访问，并确保在关闭进行时不能启动新操作。
+	// This method should elegantly handle concurrent access and ensure that no new operations can be initiated while the shutdown is in progress.
 	Stop()
 
 	// GetAll get all SharedNode instances
-	// GetAll 获取所有 SharedNode 实例
+	// GetAll retrieves all SharedNode instances
 	//
 	// This method returns a snapshot of all currently registered shared node
 	// contexts in the pool. It's useful for monitoring, debugging, and
 	// administrative operations.
-	// 此方法返回池中当前注册的所有共享节点上下文的快照。
-	// 它对于监控、调试和管理操作很有用。
+	// This method returns a snapshot of the context of all currently registered shared nodes in the pool.
+	// It is useful for monitoring, debugging, and managing operations.
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - []SharedNodeCtx: Slice containing all shared node contexts
-	//     []SharedNodeCtx：包含所有共享节点上下文的切片
+	//     [] SharedNodeCtx: A slice containing all shared node contexts
 	//
 	// Note: The returned slice is a snapshot and modifications to it
 	// will not affect the actual pool contents.
-	// 注意：返回的切片是快照，对其的修改不会影响实际池内容。
+	// Note: The returned slices are snapshots; modifying them will not affect the actual pool content.
 	GetAll() []SharedNodeCtx
 
 	// GetAllDef get all SharedNode instances definition
-	// GetAllDef 获取所有 SharedNode 实例定义
+	// GetAllDef retrieves all SharedNode instance definitions
 	//
 	// This method returns the configuration definitions for all shared nodes
 	// in the pool, organized by node type. It's useful for configuration
 	// export, backup, and debugging purposes.
-	// 此方法返回池中所有共享节点的配置定义，按节点类型组织。
-	// 它对于配置导出、备份和调试目的很有用。
+	// This method returns the configuration definitions for all shared nodes in the pool, organized by node type.
+	// It is useful for configuring export, backup, and debugging purposes.
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - map[string][]*RuleNode: Map of node type to list of node definitions
-	//     map[string][]*RuleNode：节点类型到节点定义列表的映射
+	//     map[string][] *RuleNode: Mapping node type to node definition list
 	//   - error: Any error that occurred during definition extraction
-	//     error：定义提取期间发生的任何错误
+	//     error: Defines any errors that occur during extraction
 	//
 	// The returned map structure allows for easy organization and
 	// categorization of shared resources by their type.
-	// 返回的映射结构允许按类型轻松组织和分类共享资源。
+	// The returned mapping structure allows for easy organization and classification of shared resources by type.
 	GetAllDef() (map[string][]*RuleNode, error)
 
 	// Range iterates over all shared node instances in the pool using a callback function.
-	// Range 使用回调函数遍历池中的所有共享节点实例。
+	// Range uses the callback function to traverse all shared node instances in the pool.
 	//
 	// This method provides a flexible way to process all shared nodes without loading
 	// them all into memory at once. The callback function receives key-value pairs
 	// representing the node ID and its corresponding SharedNodeCtx.
-	// 此方法提供灵活的方式处理所有共享节点，而无需一次性将它们全部加载到内存中。
-	// 回调函数接收表示节点ID及其对应SharedNodeCtx的键值对。
+	// This method offers a flexible way to handle all shared nodes without having to load them all into memory at once.
+	// The callback function receives the key-value pair representing the node ID and its corresponding SharedNodeCtx.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - f: Callback function that receives (key, value) pairs
-	//     f：接收(键,值)对的回调函数
+	//     f: Callback function for receiving (key, value) pairs
 	//     - key: Node ID (string)
-	//       key：节点ID（字符串）
+	//       key: Node ID (string)
 	//     - value: SharedNodeCtx instance
-	//       value：SharedNodeCtx实例
+	//       value: SharedNodeCtx instance
 	//     - return: false to stop iteration, true to continue
-	//       return：返回false停止迭代，true继续
+	//       return: returns false to stop iteration, true continues
 	//
 	// Usage:
-	// 使用：
+	// Usage:
 	//   pool.Range(func(key, value any) bool {
 	//       id := key.(string)
 	//       ctx := value.(SharedNodeCtx)
@@ -455,10 +455,10 @@ type NodePool interface {
 	//   })
 	//
 	// Thread Safety:
-	// 线程安全：
+	// Thread safety:
 	// This method is thread-safe and can be called concurrently.
 	// The iteration provides a consistent snapshot at the time of the call.
-	// 此方法是线程安全的，可以并发调用。
-	// 迭代在调用时提供一致的快照。
+	// This method is thread-safe and can be called concurrently.
+	// Iteration provides a consistent snapshot at the time of invocation.
 	Range(f func(key, value any) bool)
 }

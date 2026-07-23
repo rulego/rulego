@@ -19,12 +19,12 @@ const (
 	Priority   = 65
 )
 
-// Module system 业务模块，负责系统配置的读写。
+// Module system business modules are responsible for reading and writing system configurations.
 type Module struct {
 	cfg *config.Config
 }
 
-// New 创建 system 模块
+// New creates the system module
 func New() *Module {
 	return &Module{}
 }

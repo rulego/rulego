@@ -7,7 +7,7 @@ import (
 	"github.com/rulego/rulego/server/model"
 )
 
-// RunLogService 运行日志服务接口
+// RunLogService runs the log service interface
 type RunLogService interface {
 	SaveRunLog(username string, ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) error
 	List(username, chainId string, startTime, endTime time.Time, size, page int) ([]model.Event, int, error)

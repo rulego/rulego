@@ -34,7 +34,7 @@ type Address struct {
 	Detail string
 }
 
-// RuleChainBaseInfo 用于测试结构体字段访问，模拟 types.RuleChainBaseInfo
+// RuleChainBaseInfo is used to test struct field access, simulating types.RuleChainBaseInfo
 type RuleChainBaseInfo struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
@@ -93,9 +93,9 @@ func TestMap2Struct(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-// TestGet 测试Get函数
+// TestGet Test Get function
 func TestGet(t *testing.T) {
-	// 定义一个map，包含嵌套结构
+	// Define a map containing nested structures
 	value := map[string]interface{}{
 		"name": "Alice",
 		"age":  25,
@@ -106,7 +106,7 @@ func TestGet(t *testing.T) {
 		},
 		"friends": []string{"Bob", "Charlie"},
 	}
-	// 定义一些测试用例，包含字段名和期望的值
+	// Define some test cases, including field names and expected values
 	cases := []struct {
 		fieldName string
 		expected  interface{}
@@ -121,7 +121,7 @@ func TestGet(t *testing.T) {
 		{"hobbies", nil},
 		{"address.zipcode", nil},
 	}
-	// 遍历每个测试用例，调用GetFieldValue函数，断言结果是否与期望的值相等
+	// Traverse each test case and call the GetFieldValue function to assert whether the result matches the expected value
 	for _, c := range cases {
 		actual := Get(value, c.fieldName)
 		assert.Equal(t, c.expected, actual)
@@ -130,14 +130,14 @@ func TestGet(t *testing.T) {
 	value2 := map[string]string{
 		"name": "Alice",
 	}
-	// 定义一些测试用例，包含字段名和期望的值
+	// Define some test cases, including field names and expected values
 	cases2 := []struct {
 		fieldName string
 		expected  interface{}
 	}{
 		{"name", "Alice"},
 	}
-	// 遍历每个测试用例，调用GetFieldValue函数，断言结果是否与期望的值相等
+	// Traverse each test case and call the GetFieldValue function to assert whether the result matches the expected value
 	for _, c := range cases2 {
 		actual := Get(value2, c.fieldName)
 		assert.Equal(t, c.expected, actual)
@@ -163,10 +163,10 @@ func TestGet(t *testing.T) {
 	assert.Nil(t, Get(mapWithIntKey, "1"))
 }
 
-// TestGetWithFlatKey 测试Get函数对扁平存储的多级key的支持
-// 这种场景常见于 config.Properties 中使用 map[string]string 存储 ${global.llm.providers.default.base_url} 这种配置
+// TestGetWithFlatKey tests the Get function's support for multi-level keys in flat storage
+// This scenario is common in config.Properties uses map[string]string to store ${global.llm.providers.default.base_url} in this configuration
 func TestGetWithFlatKey(t *testing.T) {
-	// 模拟 config.Properties.Values() 返回的扁平 map
+	// Simulated config.Properties.Values() returns a flat map
 	globalEnv := map[string]string{
 		"root_dir":                       "/workspace",
 		"llm.providers.default.name":     "openai",
@@ -174,23 +174,23 @@ func TestGetWithFlatKey(t *testing.T) {
 		"llm.providers.default.api_key":  "sk-xxx",
 	}
 
-	// 模拟 env 结构
+	// Simulating ENV structures
 	env := map[string]interface{}{
 		"global": globalEnv,
 	}
 
-	// 测试用例：使用多级 key 访问扁平存储的值
+	// Test case: Using multi-level keys to access flat-stored values
 	cases := []struct {
 		fieldName string
 		expected  interface{}
 	}{
-		// 简单 key 仍然正常工作
+		// The simple key still works fine
 		{"global.root_dir", "/workspace"},
-		// 多级 key 应该能找到扁平存储的值
+		// Multi-level keys should be able to find flat-stored values
 		{"global.llm.providers.default.name", "openai"},
 		{"global.llm.providers.default.base_url", "https://api.openai.com"},
 		{"global.llm.providers.default.api_key", "sk-xxx"},
-		// 不存在的 key 返回 nil
+		// A non-existent key returns nil
 		{"global.nonexistent", nil},
 		{"global.llm.providers.default.nonexistent", nil},
 	}
@@ -200,25 +200,25 @@ func TestGetWithFlatKey(t *testing.T) {
 		assert.Equal(t, c.expected, actual)
 	}
 
-	// 直接测试 map[string]string 的 fallback 行为
+	// Directly test the fallback behavior of map[string]string
 	t.Run("direct_flat_key_access", func(t *testing.T) {
-		// 直接访问 map[string]string 中的扁平 key
+		// Directly access the flat key in map[string]string
 		assert.Equal(t, "openai", Get(globalEnv, "llm.providers.default.name"))
 		assert.Equal(t, "/workspace", Get(globalEnv, "root_dir"))
 		assert.Equal(t, nil, Get(globalEnv, "llm.providers.other.name"))
 	})
 }
 
-// TestGetWithStruct 测试Get函数对结构体的支持
+// TestGetWithStruct Tests the Get function's support for structures
 func TestGetWithStruct(t *testing.T) {
-	// 测试结构体直接访问
+	// Test structure is accessed directly
 	ruleChain := RuleChainBaseInfo{
 		ID:        "chain-001",
 		Name:      "Test Chain",
 		DebugMode: true,
 	}
 
-	// 测试通过 JSON tag 访问
+	// The test was accessed via JSON tag
 	cases := []struct {
 		fieldName string
 		expected  interface{}
@@ -226,10 +226,10 @@ func TestGetWithStruct(t *testing.T) {
 		{"id", "chain-001"},
 		{"name", "Test Chain"},
 		{"debugMode", true},
-		{"ID", "chain-001"},         // 大写也能匹配
-		{"NAME", "Test Chain"},      // 全大写也能匹配
-		{"debugmode", true},         // 全小写也能匹配
-		{"nonexistent", nil},        // 不存在的字段返回 nil
+		{"ID", "chain-001"},    // Uppercase can also match
+		{"NAME", "Test Chain"}, // All uppercase letters can also match
+		{"debugmode", true},    // All lowercase letters can also match
+		{"nonexistent", nil},   // Fields that do not exist return nil
 	}
 
 	for _, c := range cases {
@@ -237,7 +237,7 @@ func TestGetWithStruct(t *testing.T) {
 		assert.Equal(t, c.expected, actual)
 	}
 
-	// 测试结构体指针
+	// Test the structure pointer
 	casesPtr := []struct {
 		fieldName string
 		expected  interface{}
@@ -252,11 +252,11 @@ func TestGetWithStruct(t *testing.T) {
 		assert.Equal(t, c.expected, actual)
 	}
 
-	// 测试 nil 指针
+	// Test the nil pointer
 	var nilPtr *RuleChainBaseInfo
 	assert.Nil(t, Get(nilPtr, "id"))
 
-	// 测试嵌套结构体
+	// Test nested structures
 	user := User{
 		Username: "testuser",
 		Age:      30,
@@ -267,7 +267,7 @@ func TestGetWithStruct(t *testing.T) {
 	assert.Equal(t, 30, Get(user, "Age"))
 	assert.Equal(t, Address{Detail: "Beijing"}, Get(user, "Address"))
 
-	// 测试 map 中包含结构体，然后访问结构体字段
+	// Test the map to contain structures, then access the structure field
 	env := map[string]interface{}{
 		"ruleChain": &ruleChain,
 		"global": map[string]string{
@@ -294,8 +294,8 @@ func TestMap2StructWithJsonTag(t *testing.T) {
 	var s3 ComplexJsonTagStruct
 	_ = Map2Struct(m3, &s3)
 
-	// 如果 Map2Struct 不支持 json tag，这里应该失败（为空）
-	// 如果支持，这里应该是 value3
+	// If Map2Struct does not support json tags, it should fail here (empty).
+	// If supported, it should be value3 here
 	assert.Equal(t, "value3", s3.MyField)
 }
 

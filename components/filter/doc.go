@@ -18,90 +18,90 @@
 // Filter nodes evaluate conditions and route messages based on boolean logic,
 // enabling conditional processing within rule chains.
 //
-// Package filter 为 RuleGo 规则引擎提供过滤器节点组件。
-// 过滤器节点评估条件并基于布尔逻辑路由消息，在规则链内启用条件处理。
+// Package filter provides filter node components for the RuleGo rule engine.
+// Filter nodes evaluate conditions and, based on Boolean logical routing messages, enable conditional handling within the rule chain.
 //
 // Filter nodes are essential for decision-making in rule chains, responsible for:
-// 过滤器节点对规则链中的决策至关重要，负责：
+// Filter nodes are crucial for decision-making in the rule chain and are responsible for:
 //
-// • Evaluating boolean conditions and expressions  评估布尔条件和表达式
-// • Routing messages based on True/False outcomes  基于 True/False 结果路由消息
-// • Implementing complex conditional logic  实现复杂的条件逻辑
-// • Filtering data based on criteria  基于条件过滤数据
-// • Grouping and coordinating multiple conditions  分组和协调多个条件
-// • Performing type checking and validation  执行类型检查和验证
+// • Evaluating boolean conditions and expressions
+// • Routing messages based on True/False outcomes
+// • Implementing complex conditional logic
+// • Filtering data based on criteria
+// • Grouping and coordinating multiple conditions
+// • Performing type checking and validation
 //
 // Available Filter Components:
-// 可用的过滤器组件：
+// Available filter components:
 //
 //   - ExprFilterNode: Evaluates complex expressions using expression language
-//     使用表达式语言评估复杂表达式
+//     Evaluate complex expressions using an expression language
 //   - JsFilterNode: Executes JavaScript-based filter logic
-//     执行基于 JavaScript 的过滤逻辑
+//     Execute JavaScript-based filtering logic
 //   - JsSwitchNode: JavaScript-based conditional routing
-//     基于 JavaScript 的条件路由
+//     JavaScript-based conditional routing
 //   - GroupFilterNode: Coordinates multiple filter conditions
-//     协调多个过滤条件
+//     Coordinate multiple filtering conditions
 //   - MsgTypeSwitchNode: Routes messages based on message type
-//     基于消息类型路由消息
+//     Routing messages based on message type
 //   - SwitchNode: General purpose conditional routing
-//     通用条件路由
+//     Universal conditional routing
 //   - FieldFilterNode: Filters based on specific field values
-//     基于特定字段值过滤
+//     Filtering based on specific field values
 //   - ForkNode: Parallel message processing gateway
-//     并行消息处理网关
+//     Parallel message processing gateway
 //
 // Component Categories by Function:
-// 按功能分类的组件：
+// Components classified by function:
 //
 // Expression Evaluation:
-// 表达式评估：
+// Expression Evaluation:
 //   - ExprFilterNode: Advanced expression language support
-//     高级表达式语言支持
+//     High-level expression language support
 //   - JsFilterNode: JavaScript-based conditions
-//     基于 JavaScript 的条件
+//     JavaScript-based conditions
 //
 // Message Routing:
-// 消息路由：
+// Message routing:
 //   - MsgTypeSwitchNode: Message type-based routing
-//     基于消息类型的路由
+//     Routing based on message type
 //   - SwitchNode: General conditional routing
-//     通用条件路由
+//     Universal conditional routing
 //   - JsSwitchNode: JavaScript-based routing
-//     基于 JavaScript 的路由
+//     JavaScript-based routing
 //
 // Data Filtering:
-// 数据过滤：
+// Data Filtering:
 //   - FieldFilterNode: Field-based conditions
-//     基于字段的条件
+//     Field-based conditions
 //
 // Coordination:
-// 协调：
+// Coordination:
 //   - GroupFilterNode: Multiple condition coordination
-//     多条件协调
+//     Multi-condition coordination
 //   - ForkNode: Parallel processing coordination
-//     并行处理协调
+//     Coordinate and handle in parallel
 //
 // Filter Output Relations:
-// 过滤器输出关系：
+// Filter output relationships:
 //
 // Filter nodes typically produce three types of outputs:
-// 过滤器节点通常产生三种类型的输出：
-//   - "True": Condition evaluated to true  条件评估为真
-//   - "False": Condition evaluated to false  条件评估为假
-//   - "Failure": Error occurred during evaluation  评估期间发生错误
+// Filter nodes typically produce three types of outputs:
+//   - "True": Condition evaluated to true
+//   - "False": Condition evaluated to false
+//   - "Failure": Error occurred during evaluation
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	// Register filter components with the rule engine
-//	// 向规则引擎注册过滤器组件
+//	Register the filter component with the rule engine
 //	rulego.Registry.Register(&ExprFilterNode{})
 //	rulego.Registry.Register(&JsFilterNode{})
 //	rulego.Registry.Register(&MsgTypeSwitchNode{})
 //
 //	// Use in rule chain configuration:
-//	// 在规则链配置中使用：
+//	Used in the rule chain configuration:
 //	{
 //		"id": "temperatureFilter",
 //		"type": "exprFilter",
@@ -111,5 +111,5 @@
 //	}
 //
 // For detailed documentation on individual components, see their respective source files.
-// 有关各个组件的详细文档，请参见其各自的源文件。
+// For detailed documentation of each component, please refer to their respective source files.
 package filter

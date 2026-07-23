@@ -26,22 +26,22 @@ import (
 	"github.com/rulego/rulego/utils/el"
 )
 
-// SessionKeyResolver 用 rulego ${} 表达式提取 sessionKey。配置为 string 或 []string（多候选按序取首个非空）。
-// env 含 msg/metadata/data，注入 hex、reFind 辅助函数（expr 不内置）。
+// SessionKeyResolver extracts sessionKey using the rulego ${} expression. Configured as string or []string (multiple candidates sequentially take the first non-empty one).
+// env includes msg/metadata/data, and injects hex and reFind auxiliary functions (expr is not built-in).
 //
-// 表达式示例：
+// Example expression:
 //
-//	${msg.deviceId}              JSON 字段
-//	${msg.header.sn}             嵌套字段
+//	${msg.deviceId} JSON field
+//	${msg.header.sn}
 //	${metadata.deviceId}         metadata
-//	${data[4:14]}                原始字节切片
-//	${hex(data[4:14])}           切片后转十六进制
-//	${reFind("ID:([a-zA-Z0-9_]+)", data)}  正则提取捕获组（双引号；正则避免 \w 用 [a-zA-Z0-9_]）
+//	${data[4:14]}
+//	${hex(data[4:14])}
+//	${reFind("ID:([a-zA-Z0-9_]+)", data)}
 type SessionKeyResolver struct {
 	templates []el.Template
 }
 
-// NewSessionKeyResolver 把配置归一化为 el.Template 列表，编译失败的候选静默跳过。
+// NewSessionKeyResolver normalizes the configuration to el.Template list, silently skipping candidates that fail compile.
 func NewSessionKeyResolver(cfg interface{}) *SessionKeyResolver {
 	r := &SessionKeyResolver{}
 	for _, raw := range toStringSlice(cfg) {
@@ -52,7 +52,7 @@ func NewSessionKeyResolver(cfg interface{}) *SessionKeyResolver {
 	return r
 }
 
-// Resolve 按候选顺序执行表达式，返回首个非空结果。data 为原始上行字节（供 ${data[...]} 切片与 reFind）。
+// Resolve executes expressions in candidate order and returns the first non-empty result. data is the original uplink byte (for ${data[...]} slicing and reFind).
 func (r *SessionKeyResolver) Resolve(msg types.RuleMsg, data []byte) string {
 	if len(r.templates) == 0 {
 		return ""
@@ -66,7 +66,7 @@ func (r *SessionKeyResolver) Resolve(msg types.RuleMsg, data []byte) string {
 	return ""
 }
 
-// buildSessionEnv 构造表达式环境（msg/metadata/data），注入 hex、reFind 辅助函数。
+// buildSessionEnv constructs the expression environment (msg/metadata/data), injecting hex and reFind auxiliary functions.
 func buildSessionEnv(msg types.RuleMsg, data []byte) map[string]any {
 	env := map[string]any{
 		"id":       msg.Id,
@@ -75,7 +75,7 @@ func buildSessionEnv(msg types.RuleMsg, data []byte) map[string]any {
 		"dataType": string(msg.DataType),
 		"data":     string(data),
 	}
-	// msg：优先解析原始字节 data（net 场景 dataType 常为 BINARY 但帧是 JSON），其次解析 msg 自身
+	// msg: prioritizes parsing the original byte data (net scenario dataType is usually BINARY but the frame is JSON), followed by parsing the msg itself
 	var jsonMap interface{}
 	if len(data) > 0 && json.Unmarshal(data, &jsonMap) == nil {
 		env["msg"] = jsonMap
@@ -84,7 +84,7 @@ func buildSessionEnv(msg types.RuleMsg, data []byte) map[string]any {
 	} else {
 		env["msg"] = msg.GetData()
 	}
-	// metadata：放入 env["metadata"] 并平铺（兼容 ${metadata.x} 与 ${x}）
+	// metadata: Insert env["metadata"] and tile (compatible with ${metadata.x} and ${x})
 	if msg.Metadata != nil {
 		md := map[string]string{}
 		msg.Metadata.ForEach(func(k, v string) bool {
@@ -103,11 +103,11 @@ func hexEncode(s string) string {
 	return fmt.Sprintf("%x", s)
 }
 
-// reCache 缓存已编译的正则，避免高频调用时重复编译。
+// reCache caches compiled regex to avoid repeated compilations during high-frequency calls.
 var reCache sync.Map
 
-// regexFind 正则匹配，返回首个捕获组（无分组返回整条匹配），未匹配返回空串。
-// 编译结果按 pattern 缓存，同 pattern 只编译一次。
+// regexFind regex matches and returns the first capture group (if no grouping, the entire match is returned); if no match is found, it returns an empty string.
+// The compiled result is cached according to the pattern, and the same pattern is compiled only once.
 func regexFind(pattern, s string) string {
 	var re *regexp.Regexp
 	if v, ok := reCache.Load(pattern); ok {
@@ -130,7 +130,7 @@ func regexFind(pattern, s string) string {
 	return m[0]
 }
 
-// toStringSlice 归一化配置（nil/string/[]string/[]interface{}）为 []string。
+// toStringSlice normalized configuration (nil/string/[]string/[]interface{}) is set to []string.
 func toStringSlice(cfg interface{}) []string {
 	switch v := cfg.(type) {
 	case nil:

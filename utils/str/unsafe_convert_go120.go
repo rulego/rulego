@@ -4,12 +4,12 @@ package str
 
 import "unsafe"
 
-// Go 1.20+版本的实现，使用官方unsafe函数
+// Go version 1.20+ implementation, using the official unsafe function
 func unsafeStringFromBytes_impl(b []byte) string {
 	if len(b) == 0 {
 		return ""
 	}
-	// 使用Go 1.20+的官方unsafe函数
+	// Use the official unsafe function from Go 1.20+
 	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
@@ -17,9 +17,9 @@ func unsafeBytesFromString_impl(s string) []byte {
 	if len(s) == 0 {
 		return nil
 	}
-	// 使用Go 1.20+的官方unsafe函数
+	// Use the official unsafe function from Go 1.20+
 	return unsafe.Slice(unsafe.StringData(s), len(s))
 }
 
-// 实现信息
+// Implementation information
 const implementationInfo = "Go 1.20+ official unsafe"

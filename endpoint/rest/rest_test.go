@@ -72,7 +72,7 @@ func (w *panicResponseWriter) WriteHeader(statusCode int) {
 	panic("writer closed")
 }
 
-// 测试请求/响应消息
+// Test request/response messages
 func TestRestMessage(t *testing.T) {
 	t.Run("Request", func(t *testing.T) {
 		var request = &RequestMessage{}
@@ -168,7 +168,7 @@ func TestRouterId(t *testing.T) {
 
 func TestRestEndpointConfig(t *testing.T) {
 	config := engine.NewConfig(types.WithDefaultPool())
-	//创建rest endpoint服务
+	//Create a REST Endpoint service
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Server: testConfigServer,
@@ -215,7 +215,7 @@ func TestRestEndpointConfig(t *testing.T) {
 	restEndpoint.HEAD(router)
 	restEndpoint.PUT(router)
 
-	//删除路由
+	//Delete the route
 	restEndpoint.RemoveRouter(routerId)
 	restEndpoint.RemoveRouter(routerId, "POST")
 
@@ -228,9 +228,9 @@ func TestRestEndpoint(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
-	//启动服务
+	//Start the server
 	go startServer(t, stop, &wg)
-	//等待服务器启动完毕
+	//Wait for the server to start up
 	time.Sleep(time.Millisecond * 200)
 
 	config := engine.NewConfig(types.WithDefaultPool())
@@ -242,13 +242,13 @@ func TestRestEndpoint(t *testing.T) {
 
 	sendMsg(t, "http://127.0.0.1"+testServer+"/api/v1/msg2Chain2/TEST_MSG_TYPE1?aa=xx", "POST", msg1, ctx)
 	time.Sleep(time.Millisecond * 500)
-	//停止服务器
+	//Stop the server
 	stop <- struct{}{}
 	time.Sleep(time.Millisecond * 200)
 	wg.Wait()
 }
 
-// 发送消息到rest服务器
+// Send a message to the REST server
 func sendMsg(t *testing.T, url, method string, msg types.RuleMsg, ctx types.RuleContext) types.Node {
 	node, _ := engine.Registry.NewNode("restApiCall")
 	var configuration = make(types.Configuration)
@@ -259,19 +259,19 @@ func sendMsg(t *testing.T, url, method string, msg types.RuleMsg, ctx types.Rule
 	if err != nil {
 		t.Fatal(err)
 	}
-	//发送消息
+	//Send the message
 	node.OnMsg(ctx, msg)
 	return node
 }
 
-// 启动rest服务
+// Start the REST service
 func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	config := engine.NewConfig(types.WithDefaultPool())
-	//注册规则链
+	//Register the rule chain
 	_, _ = engine.New("default", buf, engine.WithConfig(config))
 
 	var nodeConfig = make(types.Configuration)
@@ -284,47 +284,47 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	assert.True(t, reflect.DeepEqual(&Rest{
 		Config: Config{
 			Server:       ":6333",
-			ReadTimeout:  10, // 默认10秒
-			WriteTimeout: 10, // 默认10秒
-			IdleTimeout:  60, // 默认60秒
+			ReadTimeout:  10, // Default is 10 seconds
+			WriteTimeout: 10, // Default is 10 seconds
+			IdleTimeout:  60, // Default is 60 seconds
 		},
 	}, restEndpoint.New()))
 
-	//添加全局拦截器
+	//Added a global interceptor
 	restEndpoint.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		//权限校验逻辑
+		//Permission validation logic
 		return true
 	})
-	//设置跨域
+	//Set up cross-domain
 	restEndpoint.GlobalOPTIONS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Access-Control-Request-Method") != "" {
-			// 设置 CORS 相关的响应头
+			// Set CORS-related response headers
 			header := w.Header()
 			header.Set("Access-Control-Allow-Methods", r.Header.Get("Allow"))
 			header.Set("Access-Control-Allow-Headers", "*")
 			header.Set("Access-Control-Allow-Origin", "*")
 		}
-		// 返回 204 状态码
+		// Return the 204 status code
 		w.WriteHeader(http.StatusNoContent)
 	}))
-	//路由1
+	//Route 1
 	router1 := impl.NewRouter().From("/api/v1/hello/:name").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		//处理请求
+		//Processing requests
 		request, ok := exchange.In.(*RequestMessage)
 		if ok {
 			if request.request.Method != http.MethodGet {
-				//响应错误
+				//Response errors
 				exchange.Out.SetStatusCode(http.StatusMethodNotAllowed)
-				//不执行后续动作
+				//Do not perform subsequent actions
 				return false
 			} else {
-				//响应请求
+				//Responding to requests
 				exchange.Out.Headers().Set(ContentTypeKey, JsonContextType)
 				exchange.Out.SetBody([]byte(exchange.In.From() + "\n"))
 				exchange.Out.SetBody([]byte("s1 process" + "\n"))
 				name := request.GetMsg().Metadata.GetValue("name")
 				if name == "break" {
-					//不执行后续动作
+					//Do not perform subsequent actions
 					return false
 				} else {
 					return true
@@ -343,21 +343,21 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		return true
 	}).End()
 
-	//路由2 采用配置方式调用规则链
+	//Route 2 calls the rule chain using configuration methods
 	router2 := impl.NewRouter().From("/api/v1/msg2Chain1/:msgType").To("chain:default").End()
 
-	//路由3 采用配置方式调用规则链,to路径带变量
+	//Route 3 calls the rule chain using configuration mode, with the to path with variables
 	router3 := impl.NewRouter().From("/api/v1/msg2Chain2/:msgType").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		//获取消息类型
+		//Get message types
 		msg.Type = msg.Metadata.GetValue("msgType")
 
-		//从header获取用户ID
+		//Obtain the user ID from the header
 		userId := exchange.In.Headers().Get("userId")
 		if userId == "" {
 			userId = "default"
 		}
-		//把userId存放在msg元数据
+		//Store userId in the msg metadata
 		msg.Metadata.PutValue("userId", userId)
 		return true
 	}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
@@ -376,7 +376,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 
 		assert.Equal(t, "/api/v1/msg2Chain2/"+msgType+"?aa=xx", responseMessage.From())
 		assert.Equal(t, "xx", responseMessage.GetParam("aa"))
-		//响应给客户端
+		//Respond to the client
 		exchange.Out.Headers().Set(ContentTypeKey, JsonContextType)
 		exchange.Out.SetStatusCode(200)
 		exchange.Out.SetBody([]byte("ok"))
@@ -389,19 +389,19 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		return true
 	}).End()
 
-	//路由4 直接调用node组件方式
+	//Routing 4: Direct call to node components
 	router4 := impl.NewRouter().From("/api/v1/msgToComponent1/:msgType").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		//获取消息类型
+		//Get message types
 		msg.Type = msg.Metadata.GetValue("msgType")
 		return true
 	}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		//响应给客户端
+		//Respond to the client
 		exchange.Out.Headers().Set(ContentTypeKey, JsonContextType)
 		exchange.Out.SetBody([]byte("ok"))
 		return true
 	}).ToComponent(func() types.Node {
-		//定义日志组件，处理数据
+		//Define log components and process data
 		var configuration = make(types.Configuration)
 		configuration["jsScript"] = `
 		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
@@ -411,14 +411,14 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		return logNode
 	}()).End()
 
-	//路由5 采用配置方式调用node组件
+	//Route 5 calls node components using configuration methods
 	router5 := impl.NewRouter().From("/api/v1/msgToComponent2/:msgType").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		//获取消息类型
+		//Get message types
 		msg.Type = msg.Metadata.GetValue("msgType")
 		return true
 	}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		//响应给客户端
+		//Respond to the client
 		exchange.Out.Headers().Set(ContentTypeKey, JsonContextType)
 		exchange.Out.SetBody([]byte("ok"))
 		return true
@@ -426,16 +426,16 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
        `}).End()
 
-	//注册路由,Get 方法
+	//Register a route and get a method
 	_, _ = restEndpoint.AddRouter(router1, "GET")
-	//注册路由，POST方式
+	//Register routing and POST methods
 	_, _ = restEndpoint.AddRouter(router2, "POST")
 	_, _ = restEndpoint.AddRouter(router3, "POST")
 	_, _ = restEndpoint.AddRouter(router4, "POST")
 	_, _ = restEndpoint.AddRouter(router5, "POST")
 
 	assert.NotNil(t, restEndpoint.Router)
-	//启动服务
+	//Start the server
 	err = restEndpoint.Start()
 	//fmt.Println(err)
 	<-stop

@@ -19,11 +19,11 @@ import (
 )
 
 const (
-	// bucketPrefix 运行日志 bucket 前缀
+	// bucketPrefix runlog bucket prefix
 	bucketPrefix = "runlog:"
 )
 
-// RunLogStore 基于 BBolt 的运行日志存储实现。
+// RunLogStore is implemented based on BBolt's runlog storage.
 type RunLogStore struct {
 	cfg    config.Config
 	logger types.Logger
@@ -32,7 +32,7 @@ type RunLogStore struct {
 	stopCh chan struct{}
 }
 
-// NewRunLogStore 创建 BBolt 运行日志存储
+// NewRunLogStore creates the BBolt runtime log store
 func NewRunLogStore(cfg config.Config, logger types.Logger) (*RunLogStore, error) {
 	if logger == nil {
 		logger = types.DefaultLogger()
@@ -55,7 +55,7 @@ func NewRunLogStore(cfg config.Config, logger types.Logger) (*RunLogStore, error
 	return s, nil
 }
 
-// Close 关闭数据库，停止后台 goroutine
+// Close: Close the database and stop the background goroutine
 func (s *RunLogStore) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -67,14 +67,14 @@ func bucketName(username string) []byte {
 	return []byte(bucketPrefix + username)
 }
 
-// makeKey 生成 BBolt key：{chainId}:{reverseTimestamp}_{snapshotId}
-// reverseTimestamp 使 BBolt B+ 树按 key 有序时天然倒序（最新在前）
+// makeKey generates BBolt key:{chainId}:{reverseTimestamp}_{snapshotId}
+// reverseTimestamp causes BBolt B+ trees to naturally reverse order when ordered by key (latest first)
 func makeKey(chainId, snapshotId string) []byte {
 	ts := math.MaxInt64 - time.Now().UnixNano()
 	return []byte(fmt.Sprintf("%s:%d_%s", chainId, ts, snapshotId))
 }
 
-// Save 保存运行日志
+// Save the runlog
 func (s *RunLogStore) Save(username string, event model.Event) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -105,7 +105,7 @@ func (s *RunLogStore) Save(username string, event model.Event) error {
 	return nil
 }
 
-// List 列出运行日志，支持按 chainId、时间范围过滤和分页
+// List displays runtime logs, supports filtering by chainId, time range, and pagination
 func (s *RunLogStore) List(username, chainId string, startTime, endTime time.Time, size, page int) ([]model.Event, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -130,7 +130,7 @@ func (s *RunLogStore) List(username, chainId string, startTime, endTime time.Tim
 					continue
 				}
 				if !startTime.IsZero() && e.StartTs < startTime.UnixMilli() {
-					break // 按 reverseTimestamp 倒序，后续全比 startTime 更早
+					break // In reverse order of reverseTimestamp, the subsequent ones all preceded startTime
 				}
 				if !endTime.IsZero() && e.StartTs > endTime.UnixMilli() {
 					continue
@@ -164,7 +164,7 @@ func (s *RunLogStore) List(username, chainId string, startTime, endTime time.Tim
 	return events, total, err
 }
 
-// Get 获取单条运行日志
+// Get a single runtime log
 func (s *RunLogStore) Get(username, logId string) (model.Event, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -190,7 +190,7 @@ func (s *RunLogStore) Get(username, logId string) (model.Event, error) {
 	return event, err
 }
 
-// Delete 删除运行日志
+// Delete: Deletes the runtime log
 func (s *RunLogStore) Delete(username, logId string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -211,7 +211,7 @@ func (s *RunLogStore) Delete(username, logId string) error {
 	})
 }
 
-// DeleteByChainId 删除指定规则链的所有运行日志
+// DeleteByChainId deletes all runtime logs of the specified rule chain
 func (s *RunLogStore) DeleteByChainId(username, chainId string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -236,9 +236,9 @@ func (s *RunLogStore) DeleteByChainId(username, chainId string) error {
 	})
 }
 
-// lazyRetainCount 惰性清理：当 chainId 的记录数超过限制时，删除最旧的记录。
-// key 格式 {chainId}:{reverseTs}_{id}，reverseTs 使 key 升序排列时最新在前。
-// 所以 keys[0] 是最新的，keys[len-1] 是最旧的，应从尾部删除。
+// lazyRetainCount lazy cleaning: When chainId exceeds the record count, the oldest record is deleted.
+// Key format {chainId}: {reverseTs}_{id}, reverseTs causes the latest key to be listed first in ascending order.
+// Therefore, keys[0] is the newest, and keys[len-1] is the oldest, so it should be removed from the tail.
 func (s *RunLogStore) lazyRetainCount(username, chainId string) {
 	maxCount := s.cfg.RunLogRetentionCount
 	if maxCount <= 0 {
@@ -258,7 +258,7 @@ func (s *RunLogStore) lazyRetainCount(username, chainId string) {
 		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
 			keys = append(keys, k)
 		}
-		// 超出限制，从尾部删除最旧的记录
+		// If the limit is exceeded, the oldest record is removed from the tail
 		if len(keys) > maxCount {
 			deleteCount := len(keys) - maxCount
 			for i := len(keys) - deleteCount; i < len(keys); i++ {
@@ -283,7 +283,7 @@ func (s *RunLogStore) retentionLoop() {
 	}
 }
 
-// cleanExpired 清理过期数据，加写锁保护
+// cleanExpired: Cleans expired data and adds write lock protection
 func (s *RunLogStore) cleanExpired() {
 	maxDays := s.cfg.RunLogRetentionDays
 	if maxDays <= 0 {

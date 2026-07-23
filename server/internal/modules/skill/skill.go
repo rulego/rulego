@@ -27,13 +27,13 @@ const (
 	Priority   = 55
 )
 
-// Module skill 业务模块，负责 AI 技能管理。
+// Module skill business module, responsible for AI skill management.
 type Module struct {
 	cfg    *config.Config
 	logger types.Logger
 }
 
-// New 创建 skill 模块
+// New: Create the skill module
 func New() *Module {
 	return &Module{}
 }

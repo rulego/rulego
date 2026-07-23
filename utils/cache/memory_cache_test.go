@@ -35,7 +35,7 @@ func TestMemoryCache(t *testing.T) {
 		assert.Equal(t, "value1", v)
 		assert.Nil(t, err)
 
-		// 测试过期时间
+		// Test expiration time
 		err = c.Set("key2", "value2", "1s")
 		assert.Nil(t, err)
 		time.Sleep(2 * time.Second)
@@ -52,7 +52,7 @@ func TestMemoryCache(t *testing.T) {
 			t.Errorf("c.Has(\"nonexistent\") should be false")
 		}
 
-		// 测试过期后Has返回false
+		// After the test expires, HaAs returns false
 		c.Set("key2", "value2", "1s")
 		time.Sleep(2 * time.Second)
 		if c.Has("key2") {
@@ -217,12 +217,12 @@ func TestMemoryCache_GetByPrefix(t *testing.T) {
 }
 
 func TestNamespaceCache(t *testing.T) {
-	// 创建底层缓存和命名空间缓存
+	// Create underlying caches and namespace caches
 	baseCache := NewMemoryCache(time.Minute * 5)
 	namespace := "test:"
 	cache := NewNamespaceCache(baseCache, namespace)
 
-	// 测试Set和Get
+	// Test Set and Get
 	t.Run("SetAndGet", func(t *testing.T) {
 		err := cache.Set("key1", "value1", "1m")
 		assert.Nil(t, err)
@@ -231,13 +231,13 @@ func TestNamespaceCache(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, "value1", value)
 
-		// 验证底层缓存key是否正确添加前缀
+		// Verify that the underlying cache key is correctly prefixed
 		baseValue, err := baseCache.Get(namespace + "key1")
 		assert.Nil(t, err)
 		assert.Equal(t, "value1", baseValue)
 	})
 
-	// 测试Has
+	// Test Has
 	t.Run("Has", func(t *testing.T) {
 		if !cache.Has("key1") {
 			t.Errorf("cache.Has(\"key1\") should be true")
@@ -247,7 +247,7 @@ func TestNamespaceCache(t *testing.T) {
 		}
 	})
 
-	// 测试Delete
+	// Test Delete
 	t.Run("Delete", func(t *testing.T) {
 		err := cache.Delete("key1")
 		assert.Nil(t, err)
@@ -258,17 +258,17 @@ func TestNamespaceCache(t *testing.T) {
 		}
 	})
 
-	// 测试DeleteByPrefix
+	// Test DeleteByPrefix
 	t.Run("DeleteByPrefix", func(t *testing.T) {
-		// 添加多个带前缀的key
+		// Add multiple keys with prefixes
 		cache.Set("key2", "value2", "1m")
 		cache.Set("key3", "value3", "1m")
 
-		// 删除所有带前缀的key
+		// Delete all keys with prefixes
 		err := cache.DeleteByPrefix("")
 		assert.Nil(t, err)
 
-		// 验证所有key已被删除
+		// Verify that all keys have been deleted
 		_, err = cache.Get("key2")
 		assert.Equal(t, types.ErrCacheMiss, err)
 		_, err = cache.Get("key3")
@@ -281,12 +281,12 @@ func TestNamespaceCache(t *testing.T) {
 		}
 	})
 
-	// 测试自定义前缀删除
+	// Test custom prefix deletion
 	t.Run("DeleteWithCustomPrefix", func(t *testing.T) {
 		cache.Set("sub:key4", "value4", "1m")
 		cache.Set("sub:key5", "value5", "1m")
 
-		// 删除特定前缀的key
+		// Delete keys with specific prefixes
 		err := cache.DeleteByPrefix("sub:")
 		assert.Nil(t, err)
 
@@ -296,7 +296,7 @@ func TestNamespaceCache(t *testing.T) {
 		assert.Equal(t, types.ErrCacheMiss, err)
 	})
 
-	// 测试GetByPrefix返回的key是否已正确截取命名空间前缀
+	// Test whether the key returned by GetByPrefix has correctly extracted the namespace prefix
 	t.Run("GetByPrefixKeyFormat", func(t *testing.T) {
 		cache.Set("prefix1", "value1", "1m")
 		cache.Set("prefix2", "value2", "1m")
@@ -305,14 +305,14 @@ func TestNamespaceCache(t *testing.T) {
 		result := cache.GetByPrefix("")
 		assert.Equal(t, 3, len(result))
 
-		// 验证返回的key不包含命名空间前缀
+		// Verify that the returned key does not contain the namespace prefix
 		for k := range result {
 			if len(k) >= len(namespace) && k[:len(namespace)] == namespace {
 				t.Errorf("GetByPrefix returned key contains namespace prefix: %s", k)
 			}
 		}
 
-		// 测试带前缀查询
+		// Test with prefix query
 		result = cache.GetByPrefix("pre")
 		assert.Equal(t, 3, len(result))
 		for k := range result {

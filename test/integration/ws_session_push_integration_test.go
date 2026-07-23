@@ -29,13 +29,13 @@ import (
 	"github.com/rulego/rulego/test"
 )
 
-// TestWsSessionPush ws 入+出闭环集成测试：
-// 设备 WS 连入 endpoint/ws → 首帧提取 deviceId → WsNode ref://寻址推送 → 设备收到 "HELLO"
+// TestWsSessionPush ws input+out/exit closed-loop integration test:
+// Device WS connects to endpoint/ws → first frame extraction deviceId → WsNode ref:// addressing push → device receives "HELLO"
 func TestWsSessionPush(t *testing.T) {
 	config := types.NewConfig()
 	serverPort := "localhost:9211"
 
-	// ① endpoint/ws 启动（sessionKey=${msg.deviceId}）
+	// (1) endpoint/ws start (sessionKey=${msg.deviceId})
 	ep := &wsep.Websocket{}
 	if err := ep.Init(config, types.Configuration{
 		"server":     ":9211",
@@ -55,14 +55,14 @@ func TestWsSessionPush(t *testing.T) {
 	defer ep.Destroy()
 	time.Sleep(300 * time.Millisecond)
 
-	// ② 注册到 NodePool
+	// (2) Register in NodePool
 	pool := node_pool.NewNodePool(config)
 	if _, err := pool.AddNode(ep); err != nil {
 		t.Fatalf("AddNode: %v", err)
 	}
 	config.NodePool = pool
 
-	// ③ 设备 WS 连入 + 上报 deviceId
+	// (3) Device WS connects + reports deviceId
 	c, _, err := websocket.DefaultDialer.Dial("ws://"+serverPort+"/ws", nil)
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
@@ -83,7 +83,7 @@ func TestWsSessionPush(t *testing.T) {
 	}
 	defer node.Destroy()
 
-	// ⑤ 触发推送
+	// (5) Trigger push notification
 	done := make(chan error, 1)
 	test.NodeOnMsg(t, node, []test.Msg{{Data: "HELLO", DataType: types.TEXT}}, func(m types.RuleMsg, rel string, err error) {
 		done <- err
@@ -97,7 +97,7 @@ func TestWsSessionPush(t *testing.T) {
 		t.Fatal("timeout waiting WsNode OnMsg callback")
 	}
 
-	// ⑥ 设备收到推送
+	// (6) The device receives a push notification
 	if err := c.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
 		t.Fatal(err)
 	}

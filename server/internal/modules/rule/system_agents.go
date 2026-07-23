@@ -11,11 +11,11 @@ import (
 	"github.com/rulego/rulego/server/internal/registry"
 )
 
-// deploySystemAgents 启动时部署 dataDir/system/agents 下的内置智能体规则链。
+// deploySystemAgents deploys the built-in agent rule chain under dataDir/system/agents when launched.
 func (m *Module) deploySystemAgents() error {
 	agentsDir := filepath.Join(m.cfg.DataDir, constants.DirSystemAgents)
 
-	// AI 组件已加载时，自动创建缺失的默认智能体
+	// When the AI component is loaded, the missing default agent is automatically created
 	if registry.AiToolsProvider != nil {
 		m.ensureDefaultAgents(agentsDir)
 	}
@@ -39,8 +39,8 @@ func (m *Module) deploySystemAgents() error {
 				continue
 			}
 			chainId := strings.TrimSuffix(filepath.Base(f), constants.RuleChainFileSuffix)
-				def = m.markSystemAgent(def)
-				if err := m.SaveAndLoad(m.cfg.DefaultUsername, chainId, def); err != nil {
+			def = m.markSystemAgent(def)
+			if err := m.SaveAndLoad(m.cfg.DefaultUsername, chainId, def); err != nil {
 				m.logger.Warnf("[rule] deploy agent %s: %v", chainId, err)
 			} else {
 				m.logger.Infof("[rule] deployed system agent: %s", chainId)
@@ -50,7 +50,7 @@ func (m *Module) deploySystemAgents() error {
 	return nil
 }
 
-// ensureDefaultAgents 检查嵌入的默认智能体模板，自动创建缺失的智能体目录。
+// ensureDefaultAgents checks the embedded default agent template and automatically creates a missing agent directory.
 func (m *Module) ensureDefaultAgents(agentsDir string) {
 	entries, err := defaultAgentsFS.ReadDir("template")
 	if err != nil {
@@ -74,7 +74,7 @@ func (m *Module) ensureDefaultAgents(agentsDir string) {
 	}
 }
 
-// markSystemAgent 给规则链 JSON 注入 systemAgent=true 标记
+// markSystemAgent injects the systemAgent=true tag into the rule chain JSON
 func (m *Module) markSystemAgent(def []byte) []byte {
 	var chain map[string]interface{}
 	if err := json.Unmarshal(def, &chain); err != nil {
@@ -98,13 +98,13 @@ func (m *Module) markSystemAgent(def []byte) []byte {
 	return b
 }
 
-// copyEmbeddedDir 递归复制 embed.FS 中的目录到目标路径。
+// copyEmbeddedDir Reconstructively copy the directory from embed.FS to the target path.
 func copyEmbeddedDir(fsys fs.FS, src, dst string) error {
 	return fs.WalkDir(fsys, src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		// embed.FS 使用正斜杠，计算相对路径后转换为本地路径
+		// embed.FS uses a forward slash, calculates relative paths, and converts them to local paths
 		rel := strings.TrimPrefix(p, src)
 		rel = strings.TrimPrefix(rel, "/")
 		target := filepath.Join(dst, rel)

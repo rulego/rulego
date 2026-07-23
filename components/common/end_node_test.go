@@ -52,17 +52,17 @@ func TestEndNode(t *testing.T) {
 			AfterSleep: time.Millisecond * 200,
 		}}
 
-		// 测试结束节点会触发DoOnEnd回调
+		// The test termination node triggers a DoOnEnd callback
 		// Test that end node triggers DoOnEnd callback
 		test.NodeOnMsgWithChildren(t, node, msgList, nil, func(msg types.RuleMsg, relationType string, err error) {
-			// 结束节点不会有正常的Success/Failure回调，而是通过DoOnEnd处理
+			// The termination node does not have normal Success/Failure callbacks; instead, it is handled through DoOnEnd
 			// End node doesn't have normal Success/Failure callbacks, but handles through DoOnEnd
-			// 这里主要验证节点能正常处理消息而不出错
+			// Here, the main goal is to verify that nodes can process messages normally without errors
 			// Here we mainly verify that the node can process messages without errors
 			assert.NotNil(t, msg)
 		})
 
-		// 注意：由于结束节点调用DoOnEnd，实际的回调行为可能不同
+		// Note: Because the termination node calls DoOnEnd, the actual callback behavior may vary
 		// Note: Since end node calls DoOnEnd, the actual callback behavior may be different
 		time.Sleep(time.Millisecond * 300)
 	})
@@ -86,7 +86,7 @@ func TestEndNode(t *testing.T) {
 
 	t.Run("Destroy", func(t *testing.T) {
 		node := &EndNode{}
-		node.Destroy() // 应该不会出错
+		node.Destroy() // It shouldn't go wrong
 		// Should not cause any error
 	})
 }

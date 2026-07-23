@@ -28,19 +28,19 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// parseNestedResult 解析嵌套分支join结果
+// parseNestedResult parses the nested branch join result
 func parseNestedResult(data string) ([]map[string]interface{}, error) {
 	var result []map[string]interface{}
 	err := json.Unmarshal([]byte(data), &result)
 	return result, err
 }
 
-// TestSwitchNestedInclusiveWithJoin 测试条件分支嵌套包容分支后join
+// TestSwitchNestedInclusiveWithJoin Test condition branch Nested Inclusive branch then join
 func TestSwitchNestedInclusiveWithJoin(t *testing.T) {
 	config := rulego.NewConfig()
 
-	// 测试1: 条件分支 -> 包容分支 -> join
-	// 温度35: Switch的Case1匹配 -> Inclusive的Case1和Case2都匹配 -> 两个分支都执行 -> join
+	// Test 1: Conditional branch -> Inclusion branch -> join
+	// Temperature 35: Switch Case1 matches -> Inclusive Case1 and Case2 both match -> Both branches execute -> join
 	t.Run("Switch_NestedInclusive_AllInnerMatch", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -162,7 +162,7 @@ func TestSwitchNestedInclusiveWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度35: Switch Case1匹配 -> Inclusive Inner1(>=30)和Inner2(<=40)都匹配
+		// Temperature 35: Switch Case1 matches -> Inclusive Inner1 (>=30) and Inner2 (<=40) both match
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.JSON, originalMetadata, `{"temperature":35}`)
 
@@ -188,13 +188,13 @@ func TestSwitchNestedInclusiveWithJoin(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 
 		assert.Nil(t, resultErr)
 		assert.Equal(t, types.Success, resultRelationType)
 
-		// 解析结果 - 应该有2个结果（高温和低温分支）
+		// Analytical results – there should be two outcomes (high temperature and low temperature branches)
 		results, err := parseNestedResult(resultMsg.GetData())
 		assert.Nil(t, err)
 		assert.Equal(t, 2, len(results), "应该有2个分支结果")
@@ -205,11 +205,11 @@ func TestSwitchNestedInclusiveWithJoin(t *testing.T) {
 		}
 		assert.True(t, nodeIds["branch_high"])
 		assert.True(t, nodeIds["branch_low"])
-		t.Logf("✓ 条件分支嵌套包容分支-内部都匹配: join成功，收到%d个结果", len(results))
+		t.Logf("✓ Conditional branches nested inclusive branches - internal matching: join successful, receive %d results", len(results))
 	})
 
-	// 测试2: 条件分支 -> 包容分支 -> join，只有部分内部匹配
-	// 温度25: Switch的Case1匹配 -> Inclusive的Inner2(<=40)匹配，Inner1(>=30)不匹配
+	// Test 2: Conditional branch -> Inclusion branch -> join, only partial internal matching
+	// Temperature 25: Switch Case1 matches -> Inclusive's Inner2 (<=40) matches, Inner1 (>=30) does not match
 	t.Run("Switch_NestedInclusive_PartialInnerMatch", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -331,7 +331,7 @@ func TestSwitchNestedInclusiveWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度25: Switch Case1匹配 -> Inclusive只有Inner2(<=40)匹配
+		// Temperature 25: Switch Case1 matches -> Inclusive only matches Inner2 (<=40).
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.JSON, originalMetadata, `{"temperature":25}`)
 
@@ -355,21 +355,21 @@ func TestSwitchNestedInclusiveWithJoin(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 
 		assert.Nil(t, resultErr)
 
-		// 解析结果 - 应该只有1个结果（低温分支）
+		// Analysis result - There should be only one result (cold branch)
 		results, err := parseNestedResult(resultMsg.GetData())
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(results), "应该只有1个分支结果")
 		assert.Equal(t, "branch_low", results[0]["nodeId"])
-		t.Logf("✓ 条件分支嵌套包容分支-部分内部匹配: join成功，收到%d个结果", len(results))
+		t.Logf("✓ Conditional branch nested inclusion branch - partial internal matching: join successful, received %d results", len(results))
 	})
 
-	// 测试3: 条件分支 -> 包容分支 -> join，外层Case2匹配
-	// 温度60: Switch的Case2匹配 -> 直接到branch_cold -> join
+	// Test 3: Conditional branch -> Inclusion branch -> join, outer Case2 match
+	// Temperature 60: Switch's Case2 matches -> directly to branch_cold -> join
 	t.Run("Switch_NestedInclusive_OuterCase2Match", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -491,7 +491,7 @@ func TestSwitchNestedInclusiveWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度60: Switch Case2匹配 -> 直接到branch_cold
+		// Temperature 60: Switch Case2 matches -> directly to branch_cold
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.JSON, originalMetadata, `{"temperature":60}`)
 
@@ -515,26 +515,26 @@ func TestSwitchNestedInclusiveWithJoin(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 
 		assert.Nil(t, resultErr)
 
-		// 解析结果 - 应该只有1个结果（cold分支）
+		// Parse result - should have only 1 result (cold branch)
 		results, err := parseNestedResult(resultMsg.GetData())
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(results), "应该只有1个分支结果")
 		assert.Equal(t, "branch_cold", results[0]["nodeId"])
-		t.Logf("✓ 条件分支嵌套包容分支-外层Case2匹配: join成功，收到%d个结果", len(results))
+		t.Logf("✓ Conditional branch nested inclusion branch - outer Case2 match: join successful, receive %d results", len(results))
 	})
 }
 
-// TestInclusiveNestedSwitchWithJoin 测试包容分支嵌套条件分支后join
+// TestInclusiveNestedSwitchWithJoin TestInclusive branch Nested Condition branch join
 func TestInclusiveNestedSwitchWithJoin(t *testing.T) {
 	config := rulego.NewConfig()
 
-	// 测试1: 包容分支 -> 条件分支 -> join
-	// 温度35: Inclusive的Case1和Case2都匹配 -> 每个分支内部的Switch再做条件判断
+	// Test 1: Inclusion branch -> conditional branch -> join
+	// Temperature 35: Both Case1 and Case2 of inclusive match -> The Switch inside each branch performs conditional checks
 	t.Run("Inclusive_NestedSwitch_AllOuterMatch", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -696,9 +696,9 @@ func TestInclusiveNestedSwitchWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度35: Inclusive Case1和Case2都匹配
-		// Switch1: Warm(<=35)匹配
-		// Switch2: Medium(<=40)匹配
+		// Temperature 35: Inclusive Case1 and Case2 both match
+		// Switch1: Warm(<=35) match
+		// Switch2: Medium (<=40) match
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.JSON, originalMetadata, `{"temperature":35}`)
 
@@ -722,12 +722,12 @@ func TestInclusiveNestedSwitchWithJoin(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 
 		assert.Nil(t, resultErr)
 
-		// 解析结果 - 应该有2个结果（warm和medium）
+		// Parse results - There should be two results (warm and medium)
 		results, err := parseNestedResult(resultMsg.GetData())
 		assert.Nil(t, err)
 		assert.Equal(t, 2, len(results), "应该有2个分支结果")
@@ -738,11 +738,11 @@ func TestInclusiveNestedSwitchWithJoin(t *testing.T) {
 		}
 		assert.True(t, nodeIds["warm_node"])
 		assert.True(t, nodeIds["medium_node"])
-		t.Logf("✓ 包容分支嵌套条件分支-外层都匹配: join成功，收到%d个结果", len(results))
+		t.Logf("✓ Nested branch with conditional conditions for both branches and outer layers to match: join successful, received %d results", len(results))
 	})
 
-	// 测试2: 包容分支 -> 条件分支 -> join，只有外层一个匹配
-	// 温度25: Inclusive只有Case1匹配 -> Switch1的Warm匹配
+	// Test 2: Inclusion branch -> conditional branch -> join, only the outer layer matches
+	// Temperature 25: Inclusive only matches Case1 -> Switch1's Warm match
 	t.Run("Inclusive_NestedSwitch_PartialOuterMatch", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -904,8 +904,8 @@ func TestInclusiveNestedSwitchWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度25: Inclusive只有Case1匹配(20<=temp<=50)，Case2不匹配(temp>30)
-		// Switch1: Warm(<=35)匹配
+		// Temperature 25: Inclusive only matches Case1 (20<=temp<=50), Case2 does not match (temp>30)
+		// Switch1: Warm(<=35) match
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.JSON, originalMetadata, `{"temperature":25}`)
 
@@ -929,21 +929,21 @@ func TestInclusiveNestedSwitchWithJoin(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 
 		assert.Nil(t, resultErr)
 
-		// 解析结果 - 应该只有1个结果（warm）
+		// Parse result - There should only be 1 result (warm)
 		results, err := parseNestedResult(resultMsg.GetData())
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(results), "应该只有1个分支结果")
 		assert.Equal(t, "warm_node", results[0]["nodeId"])
-		t.Logf("✓ 包容分支嵌套条件分支-部分外层匹配: join成功，收到%d个结果", len(results))
+		t.Logf("✓ Nested conditional branch with inclusive branches - partial outer matching results: join successful, received %d results", len(results))
 	})
 
-	// 测试3: 包容分支 -> 条件分支 -> join，内部switch无匹配
-	// 温度55: Inclusive只有Case2匹配(>30) -> Switch2需要<=40或>40，55>40匹配VeryHot
+	// Test 3: Inclusion branch -> conditional branch -> join; internal switch has no match
+	// Temperature 55: Inclusive only matches Case2 (>30) -> Switch2 requires <=40 or >40, 55>40 matches VeryHot
 	t.Run("Inclusive_NestedSwitch_InnerSwitchMatch", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -1105,8 +1105,8 @@ func TestInclusiveNestedSwitchWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度55: Inclusive Case1不匹配(20<=55<=50 false)，Case2匹配(55>30)
-		// Switch2: VeryHot(>40)匹配
+		// Temperature 55: Inclusive Case1 does not match (20< = 55< = 50 false), Case2 matches (55>30)
+		// Switch2: VeryHot (>40) matches
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "TEST", types.JSON, originalMetadata, `{"temperature":55}`)
 
@@ -1130,16 +1130,16 @@ func TestInclusiveNestedSwitchWithJoin(t *testing.T) {
 		select {
 		case <-done:
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时")
+			t.Fatal("Test timeout")
 		}
 
 		assert.Nil(t, resultErr)
 
-		// 解析结果 - 应该只有1个结果（veryhot）
+		// Parsing result - There should only be 1 result (veryhot)
 		results, err := parseNestedResult(resultMsg.GetData())
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(results), "应该只有1个分支结果")
 		assert.Equal(t, "veryhot_node", results[0]["nodeId"])
-		t.Logf("✓ 包容分支嵌套条件分支-内部匹配: join成功，收到%d个结果", len(results))
+		t.Logf("✓ Nested conditional branch for inclusion branches—internal matching: join successful, receive %d results", len(results))
 	})
 }

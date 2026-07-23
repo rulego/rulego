@@ -26,7 +26,7 @@ type Template interface {
 	Parse() error
 	Execute(data map[string]any) string
 	ExecuteFn(loadDataFunc func() map[string]any) string
-	// IsNotVar 是否是模板变量，否则是普通字符串
+	// Is IsNotVar a template variable? Otherwise, it is a regular string
 	IsNotVar() bool
 }
 
@@ -41,7 +41,7 @@ func NewTemplate(tmpl string, params ...any) Template {
 	return &NotTemplate{Tmpl: tmpl}
 }
 
-// VarTemplate 模板变量支持 这种方式 ${xx}
+// VarTemplate template variables support this method ${xx}
 //
 // Deprecated: Use github.com/rulego/rulego/utils/el.Template instead.
 // This type will be removed in a future version.
@@ -69,7 +69,7 @@ func (t *VarTemplate) IsNotVar() bool {
 	return false
 }
 
-// NotTemplate 原样输出
+// NotTemplate outputs as is
 //
 // Deprecated: Use github.com/rulego/rulego/utils/el.Template instead.
 // This type will be removed in a future version.

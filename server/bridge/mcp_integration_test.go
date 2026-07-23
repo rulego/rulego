@@ -15,32 +15,32 @@ import (
 
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
-	// 注册 AI 组件
+	// Register for AI components
 	_ "github.com/rulego/rulego-components-ai/agent"
 	_ "github.com/rulego/rulego-components-ai/processor"
 )
 
-// skipIfNoLLMKey 如果没有设置 LLM_API_KEY 则跳过测试
+// skipIfNoLLMKey skips the test if LLM_API_KEY is not set
 func skipIfNoLLMKey(t *testing.T) {
 	t.Helper()
 	if os.Getenv("LLM_API_KEY") == "" {
-		t.Skip("跳过集成测试：未设置 LLM_API_KEY 环境变量")
+		t.Skip("Skipping integration testing: LLM_API_KEY environment variable not set")
 	}
 }
 
-// newIntegrationBridge 创建集成测试用的 Bridge。
-// 使用干净的临时数据目录，仅复制 system/agents。
+// newIntegrationBridge creates a bridge for integration testing.
+// Use a clean temporary data directory, copying only system/agents.
 func newIntegrationBridge(t *testing.T) *Bridge {
 	t.Helper()
 
-	// 创建干净的临时数据目录，避免旧链干扰
+	// Create a clean temporary data directory to avoid interference from old chains
 	tmpData := t.TempDir()
 	srcData := os.Getenv("RULEGO_DATA_DIR")
 	if srcData == "" {
 		srcData, _ = filepath.Abs(filepath.Join("..", "data"))
 	}
 	copyDir(t, filepath.Join(srcData, "system"), filepath.Join(tmpData, "system"))
-	// 兼容旧版路径：同时拷贝 agents 到 data_dir/agents/（部分旧配置使用 global.data_dir + '/agents/'）
+	// Compatible with older paths: Copy agents to data_dir/agents/ (some older configurations use global.data_dir + '/agents/')
 	copyDir(t, filepath.Join(srcData, "system", "agents"), filepath.Join(tmpData, "agents"))
 
 	llmURL := os.Getenv("LLM_BASE_URL")
@@ -66,31 +66,31 @@ func newIntegrationBridge(t *testing.T) *Bridge {
 
 	cfgFile := filepath.Join(t.TempDir(), "config.conf")
 	if err := os.WriteFile(cfgFile, []byte(cfgContent), 0644); err != nil {
-		t.Fatalf("写入配置文件失败: %v", err)
+		t.Fatalf("Configuration file writing failure: %v", err)
 	}
 
-	// 修复 generator-lite 中的参数兼容性（某些模型不支持 frequencyPenalty/presencePenalty）
+	// Fixed parameter compatibility in generator-lite (some models do not support frequencyPenalty/presencePenalty)
 	patchAgentParams(t, filepath.Join(tmpData, "system", "agents", "generator-lite", "generator-lite.json"))
 	patchAgentParams(t, filepath.Join(tmpData, "system", "agents", "generator", "generator.json"))
 
 	br, err := NewBridgeWithDefaults(cfgFile)
 	if err != nil {
-		t.Fatalf("创建 Bridge 失败: %v", err)
+		t.Fatalf("Failed to create Bridge: %v", err)
 	}
 	return br
 }
 
-// patchAgentParams 修复 agent 配置中的参数兼容性
+// patchAgentParams Fixes parameter compatibility in agent configuration
 func patchAgentParams(t *testing.T, jsonPath string) {
 	t.Helper()
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
-		t.Logf("patchAgentParams: 跳过 %s: %v", jsonPath, err)
+		t.Logf("patchAgentParams: Skip %s: %v", jsonPath, err)
 		return
 	}
 	var cfg map[string]interface{}
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		t.Logf("patchAgentParams: 解析失败 %s: %v", jsonPath, err)
+		t.Logf("patchAgentParams: Parsing failure %s: %v", jsonPath, err)
 		return
 	}
 	metadata, _ := cfg["metadata"].(map[string]interface{})
@@ -108,18 +108,18 @@ func patchAgentParams(t *testing.T, jsonPath string) {
 		if params == nil {
 			continue
 		}
-		// 某些模型不支持这些参数，删除避免报错
+		// Some models do not support these parameters; deleting them can avoid errors
 		delete(params, "frequencyPenalty")
 		delete(params, "presencePenalty")
 		t.Logf("patchAgentParams: 已清理 %s 中节点 %v 的 penalty 参数", jsonPath, node["id"])
 	}
 	patched, _ := json.MarshalIndent(cfg, "", "  ")
 	if err := os.WriteFile(jsonPath, patched, 0644); err != nil {
-		t.Logf("patchAgentParams: 写入失败 %s: %v", jsonPath, err)
+		t.Logf("patchAgentParams: Write failure %s: %v", jsonPath, err)
 	}
 }
 
-// copyDir 递归复制目录
+// copyDir recursively copies the directory
 func copyDir(t *testing.T, src, dst string) {
 	t.Helper()
 	info, err := os.Stat(src)
@@ -146,7 +146,7 @@ func copyDir(t *testing.T, src, dst string) {
 	}
 }
 
-// chatRequest 发送聊天请求到 generator 端点
+// chatRequest sends a chat request to the generator endpoint
 func chatRequest(t *testing.T, handler http.Handler, token string, messages []map[string]string, stream bool) *http.Response {
 	t.Helper()
 	body := map[string]interface{}{
@@ -166,7 +166,7 @@ func chatRequest(t *testing.T, handler http.Handler, token string, messages []ma
 	return w.Result()
 }
 
-// getRuleChainViaAPI 通过 REST API 获取已保存的规则链
+// getRuleChainViaAPI retrieves the saved rule chain via the REST API
 func getRuleChainViaAPI(t *testing.T, handler http.Handler, token, chainId string) map[string]interface{} {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/rules/"+chainId, nil)
@@ -182,7 +182,7 @@ func getRuleChainViaAPI(t *testing.T, handler http.Handler, token, chainId strin
 	return result
 }
 
-// parseResponse 从非流式响应中提取最终消息内容
+// parseResponse extracts the final message content from non-streaming responses
 func parseResponse(t *testing.T, resp *http.Response) string {
 	t.Helper()
 	bodyBytes, _ := io.ReadAll(resp.Body)
@@ -204,7 +204,7 @@ func parseResponse(t *testing.T, resp *http.Response) string {
 	return string(bodyBytes)
 }
 
-// ---- 验证辅助函数 ----
+// ---- Validation Auxiliary Functions ----
 
 func findNodesByType(chainDef map[string]interface{}, nodeType string) []map[string]interface{} {
 	metadata, _ := chainDef["metadata"].(map[string]interface{})
@@ -239,9 +239,9 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
-// ---- 增强验证辅助函数 ----
+// ---- Enhanced Verification Auxiliary Function ----
 
-// ValidationResult 验证结果汇总
+// ValidationResult Summary of validation results
 type ValidationResult struct {
 	Valid            bool
 	TotalNodes       int
@@ -251,7 +251,7 @@ type ValidationResult struct {
 	Warnings         []string
 }
 
-// validateChainStructure 验证规则链结构完整性
+// validateChainStructure verifies the integrity of the rule chain structure
 func validateChainStructure(t *testing.T, chainDef map[string]interface{}) *ValidationResult {
 	t.Helper()
 	result := &ValidationResult{
@@ -266,7 +266,7 @@ func validateChainStructure(t *testing.T, chainDef map[string]interface{}) *Vali
 		return result
 	}
 
-	// 验证节点
+	// Verification nodes
 	nodes, ok := metadata["nodes"].([]interface{})
 	if !ok {
 		result.Valid = false
@@ -275,7 +275,7 @@ func validateChainStructure(t *testing.T, chainDef map[string]interface{}) *Vali
 	}
 	result.TotalNodes = len(nodes)
 
-	// 收集所有节点 ID 和类型，检查唯一性
+	// Collect all node IDs and types to check for uniqueness
 	nodeIDs := make(map[string]bool)
 
 	for i, n := range nodes {
@@ -302,13 +302,13 @@ func validateChainStructure(t *testing.T, chainDef map[string]interface{}) *Vali
 			result.NodeTypes[nodeType]++
 		}
 
-		// 验证节点名称
+		// Verify the node name
 		if _, hasName := node["name"]; !hasName {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("节点 %s 缺少 name", nodeID))
 		}
 	}
 
-	// 验证连接
+	// Verify the connection
 	connections, ok := metadata["connections"].([]interface{})
 	if !ok {
 		result.Warnings = append(result.Warnings, "metadata.connections 不存在或格式无效")
@@ -344,39 +344,39 @@ func validateChainStructure(t *testing.T, chainDef map[string]interface{}) *Vali
 	return result
 }
 
-// printValidationResult 打印验证结果详情
+// printValidationResult Prints the details of the validation result
 func printValidationResult(t *testing.T, result *ValidationResult) {
 	t.Helper()
-	t.Logf("=== 规则链验证结果 ===")
-	t.Logf("总节点数: %d", result.TotalNodes)
-	t.Logf("总连接数: %d", result.TotalConnections)
-	t.Logf("节点类型分布:")
+	t.Logf("=== Rule chain validation results ===")
+	t.Logf("Total number of nodes: %d", result.TotalNodes)
+	t.Logf("Total connections: %d", result.TotalConnections)
+	t.Logf("Node type distribution:")
 	for nodeType, count := range result.NodeTypes {
 		t.Logf("  - %s: %d", nodeType, count)
 	}
 
 	if len(result.Errors) > 0 {
-		t.Logf("错误 (%d):", len(result.Errors))
+		t.Logf("Error (%d):", len(result.Errors))
 		for _, err := range result.Errors {
 			t.Logf("  ✗ %s", err)
 		}
 	}
 
 	if len(result.Warnings) > 0 {
-		t.Logf("警告 (%d):", len(result.Warnings))
+		t.Logf("Warning (%d):", len(result.Warnings))
 		for _, warn := range result.Warnings {
 			t.Logf("  ⚠ %s", warn)
 		}
 	}
 
 	if result.Valid {
-		t.Log("验证结果: ✓ 通过")
+		t.Log("Verification result: ✓ Passed")
 	} else {
-		t.Log("验证结果: ✗ 失败")
+		t.Log("Verification result: ✗ Failed")
 	}
 }
 
-// waitForChainWithRetry 等待规则链创建完成（带重试）
+// waitForChainWithRetry Waits for the rule chain to complete creation (with retry)
 func waitForChainWithRetry(t *testing.T, handler http.Handler, token, chainId string, maxRetries int) map[string]interface{} {
 	t.Helper()
 	for i := 0; i < maxRetries; i++ {
@@ -389,20 +389,20 @@ func waitForChainWithRetry(t *testing.T, handler http.Handler, token, chainId st
 	return nil
 }
 
-// GenerationQuality 生成质量评估
+// GenerationQuality generates quality assessments
 type GenerationQuality struct {
-	ParseSuccess       bool    // 是否成功解析
-	ChainCreated       bool    // 规则链是否创建
-	NodeCount          int     // 节点数量
-	ConnectionCount    int     // 连接数量
-	HasStartNode       bool    // 是否有起始节点
-	HasEndNode         bool    // 是否有结束节点
-	ConfigCompleteness float64 // 配置完整度 (0-1)
-	StructureValid     bool    // 结构是否有效
-	Score              float64 // 综合得分 (0-100)
+	ParseSuccess       bool    // Whether the analysis was successful
+	ChainCreated       bool    // Whether a rule chain is created
+	NodeCount          int     // Number of nodes
+	ConnectionCount    int     // Number of connections
+	HasStartNode       bool    // Is there a starting node?
+	HasEndNode         bool    // Is there an end node?
+	ConfigCompleteness float64 // Configuration completeness (0-1)
+	StructureValid     bool    // Whether the structure is effective
+	Score              float64 // Overall score (0-100)
 }
 
-// evaluateGenerationQuality 评估生成质量
+// evaluateGenerationQuality assesses the quality of generation
 func evaluateGenerationQuality(t *testing.T, chainDef map[string]interface{}, expectedNodeTypes []string) *GenerationQuality {
 	t.Helper()
 	quality := &GenerationQuality{}
@@ -424,7 +424,7 @@ func evaluateGenerationQuality(t *testing.T, chainDef map[string]interface{}, ex
 	quality.NodeCount = len(nodes)
 	quality.ConnectionCount = len(connections)
 
-	// 检查起始和结束节点
+	// Check the start and end nodes
 	for _, n := range nodes {
 		node, _ := n.(map[string]interface{})
 		if node == nil {
@@ -439,7 +439,7 @@ func evaluateGenerationQuality(t *testing.T, chainDef map[string]interface{}, ex
 		}
 	}
 
-	// 计算配置完整度
+	// Calculate configuration completeness
 	configuredNodes := 0
 	for _, n := range nodes {
 		node, _ := n.(map[string]interface{})
@@ -454,11 +454,11 @@ func evaluateGenerationQuality(t *testing.T, chainDef map[string]interface{}, ex
 		quality.ConfigCompleteness = float64(configuredNodes) / float64(quality.NodeCount)
 	}
 
-	// 验证结构
+	// Verify structure
 	validation := validateChainStructure(t, chainDef)
 	quality.StructureValid = validation.Valid
 
-	// 检查期望的节点类型
+	// Check the desired node type
 	foundTypes := make(map[string]bool)
 	for _, n := range nodes {
 		node, _ := n.(map[string]interface{})
@@ -475,7 +475,7 @@ func evaluateGenerationQuality(t *testing.T, chainDef map[string]interface{}, ex
 		}
 	}
 
-	// 计算综合得分
+	// Calculate the overall score
 	score := 0.0
 	if quality.ParseSuccess {
 		score += 10
@@ -507,36 +507,36 @@ func evaluateGenerationQuality(t *testing.T, chainDef map[string]interface{}, ex
 	return quality
 }
 
-// printGenerationQuality 打印生成质量评估
+// printGenerationQuality print generation quality assessment
 func printGenerationQuality(t *testing.T, quality *GenerationQuality) {
 	t.Helper()
-	t.Logf("=== 生成质量评估 ===")
-	t.Logf("解析成功: %v", quality.ParseSuccess)
-	t.Logf("规则链创建: %v", quality.ChainCreated)
-	t.Logf("节点数量: %d", quality.NodeCount)
-	t.Logf("连接数量: %d", quality.ConnectionCount)
-	t.Logf("有起始节点: %v", quality.HasStartNode)
-	t.Logf("有结束节点: %v", quality.HasEndNode)
-	t.Logf("配置完整度: %.1f%%", quality.ConfigCompleteness*100)
-	t.Logf("结构有效: %v", quality.StructureValid)
-	t.Logf("综合得分: %.1f/100", quality.Score)
+	t.Logf("=== Generate Quality Assessment ===")
+	t.Logf("Analysis successful: %v", quality.ParseSuccess)
+	t.Logf("Rule chain creation: %v", quality.ChainCreated)
+	t.Logf("Number of nodes: %d", quality.NodeCount)
+	t.Logf("Number of connections: %d", quality.ConnectionCount)
+	t.Logf("There is a starting node: %v", quality.HasStartNode)
+	t.Logf("There is an end node: %v", quality.HasEndNode)
+	t.Logf("Configuration completeness: %.1f%%", quality.ConfigCompleteness*100)
+	t.Logf("Effective structure: %v", quality.StructureValid)
+	t.Logf("Overall score: %.1f/100", quality.Score)
 
 	if quality.Score >= 80 {
-		t.Log("质量等级: 优秀 ✓")
+		t.Log("Quality Grade: Excellent ✓")
 	} else if quality.Score >= 60 {
-		t.Log("质量等级: 良好")
+		t.Log("Quality grade: Good")
 	} else if quality.Score >= 40 {
-		t.Log("质量等级: 一般")
+		t.Log("Quality Grade: Average")
 	} else {
-		t.Log("质量等级: 需改进 ✗")
+		t.Log("Quality Grade: Needs improvement ✗")
 	}
 }
 
-// validateChainWithEngine 通过引擎初始化验证规则链
+// validateChainWithEngine validates the rule chain through engine initialization
 func validateChainWithEngine(t *testing.T, chainDef map[string]interface{}) error {
 	t.Helper()
 
-	// 提取规则链定义
+	// Extract the rule chain definition
 	ruleChain, ok := chainDef["ruleChain"].(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("缺少 ruleChain 字段")
@@ -547,28 +547,28 @@ func validateChainWithEngine(t *testing.T, chainDef map[string]interface{}) erro
 		return fmt.Errorf("缺少 metadata 字段")
 	}
 
-	// 序列化为 JSON
+	// Serialized as JSON
 	chainJSON, err := json.Marshal(chainDef)
 	if err != nil {
 		return fmt.Errorf("序列化规则链失败: %v", err)
 	}
 
-	// 使用 rulego 引擎验证
+	// Validate using the rulego engine
 	registry := rulego.Registry
 
-	// 解析规则链定义
+	// Analyze the definition of the rule chain
 	var def types.RuleChain
 	if err := json.Unmarshal(chainJSON, &def); err != nil {
 		return fmt.Errorf("解析规则链定义失败: %v", err)
 	}
 
-	// 尝试创建规则链实例
+	// Try creating a rule chain instance
 	chainId, _ := ruleChain["id"].(string)
 	if chainId == "" {
 		chainId = "validation_test"
 	}
 
-	// 验证节点类型是否都已注册
+	// Verify whether all node types are registered
 	nodes, _ := metadata["nodes"].([]interface{})
 	for i, n := range nodes {
 		node, ok := n.(map[string]interface{})
@@ -580,14 +580,14 @@ func validateChainWithEngine(t *testing.T, chainDef map[string]interface{}) erro
 			continue
 		}
 
-		// 检查组件是否已注册 - 使用 NewNode 尝试创建
+		// Check if the component is registered - try creating it using NewNode
 		_, err := registry.NewNode(nodeType)
 		if err != nil {
 			return fmt.Errorf("节点[%d] 类型 '%s' 未在引擎中注册: %v", i, nodeType, err)
 		}
 	}
 
-	// 验证连接的有效性
+	// Verify the effectiveness of the connection
 	connections, _ := metadata["connections"].([]interface{})
 	nodeIds := make(map[string]bool)
 	for _, n := range nodes {
@@ -616,31 +616,31 @@ func validateChainWithEngine(t *testing.T, chainDef map[string]interface{}) erro
 		}
 	}
 
-	t.Log("引擎验证通过: 所有节点类型已注册，连接引用有效")
+	t.Log("Engine validation passed: All node types are registered, and connection references are valid")
 	return nil
 }
 
-// printEngineValidationResult 打印引擎验证结果
+// printEngineValidationResult Prints the engine validation result
 func printEngineValidationResult(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
-		t.Logf("引擎验证结果: ✗ 失败")
-		t.Logf("  错误: %v", err)
+		t.Logf("Engine validation result: ✗ Failed")
+		t.Logf("Mistake: %v", err)
 	} else {
-		t.Log("引擎验证结果: ✓ 通过")
+		t.Log("Engine validation result: ✓ Passed")
 	}
 }
 
-// ---- 字段名验证 ----
+// ---- Field Name Validation ----
 
-// componentFieldSpec 组件字段规范
+// componentFieldSpec Component field specification
 type componentFieldSpec struct {
-	RequiredFields []string          // 必需字段
-	OptionalFields []string          // 可选字段
-	WrongFields    map[string]string // 常见错误字段 -> 正确字段映射
+	RequiredFields []string          // Required fields
+	OptionalFields []string          // Optional fields
+	WrongFields    map[string]string // Common error fields -> Correct field mapping
 }
 
-// getComponentFieldSpec 获取组件字段规范
+// getComponentFieldSpec obtains the component field specification
 func getComponentFieldSpec(nodeType string) *componentFieldSpec {
 	specs := map[string]*componentFieldSpec{
 		"jsFilter": {
@@ -685,7 +685,7 @@ func getComponentFieldSpec(nodeType string) *componentFieldSpec {
 	return nil
 }
 
-// FieldValidationError 字段验证错误
+// FieldValidationError field validation error
 type FieldValidationError struct {
 	NodeID       string
 	NodeType     string
@@ -693,7 +693,7 @@ type FieldValidationError struct {
 	CorrectField string
 }
 
-// validateComponentFields 验证组件字段名是否正确
+// validateComponentFields verifies whether the component field name is correct
 func validateComponentFields(t *testing.T, chainDef map[string]interface{}) []FieldValidationError {
 	t.Helper()
 	var errors []FieldValidationError
@@ -727,10 +727,10 @@ func validateComponentFields(t *testing.T, chainDef map[string]interface{}) []Fi
 			continue
 		}
 
-		// 检查是否有错误字段名
+		// Check for incorrect field names
 		for wrongField, correctField := range spec.WrongFields {
 			if _, hasWrong := config[wrongField]; hasWrong {
-				// 检查是否同时有正确字段
+				// Check if the correct fields exist at the same time
 				if _, hasCorrect := config[correctField]; !hasCorrect {
 					errors = append(errors, FieldValidationError{
 						NodeID:       nodeID,
@@ -742,10 +742,10 @@ func validateComponentFields(t *testing.T, chainDef map[string]interface{}) []Fi
 			}
 		}
 
-		// 检查必需字段是否存在
+		// Check if the required fields exist
 		for _, requiredField := range spec.RequiredFields {
 			if _, has := config[requiredField]; !has {
-				t.Logf("警告: 节点 %s (%s) 缺少必需字段: %s", nodeID, nodeType, requiredField)
+				t.Logf("Warning: Node %s (%s) missing required field: %s", nodeID, nodeType, requiredField)
 			}
 		}
 	}
@@ -753,31 +753,31 @@ func validateComponentFields(t *testing.T, chainDef map[string]interface{}) []Fi
 	return errors
 }
 
-// printFieldValidationErrors 打印字段验证错误
+// printFieldValidationErrors prints field validation errors
 func printFieldValidationErrors(t *testing.T, errors []FieldValidationError) {
 	t.Helper()
 	if len(errors) == 0 {
-		t.Log("字段验证结果: ✓ 通过 - 所有字段名正确")
+		t.Log("Field validation result: ✓ Passed - All field names are correct")
 		return
 	}
 
-	t.Logf("字段验证结果: ✗ 失败 - 发现 %d 个错误", len(errors))
+	t.Logf("Field validation result: ✗ Failure - %d errors found", len(errors))
 	for _, err := range errors {
-		t.Logf("  ✗ 节点 %s (%s): 使用了错误字段 '%s'，应为 '%s'",
+		t.Logf("✗ Node %s (%s): Uses the error field '%s', which should be '%s'",
 			err.NodeID, err.NodeType, err.WrongField, err.CorrectField)
 	}
 }
 
-// ---- Lite 响应格式验证 ----
+// ---- Lite response format validation----
 
-// validateLiteResponseFormat 验证 Lite 响应格式（应该只包含 JSON）
+// validateLiteResponseFormat Validates the Lite response format (should only include JSON)
 func validateLiteResponseFormat(t *testing.T, content string) (bool, string) {
 	t.Helper()
 
-	// 尝试直接解析为 JSON
+	// Try parsing directly as JSON
 	var parsed map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &parsed); err == nil {
-		// 检查是否包含规则链结构
+		// Check whether the rule chain structure is included
 		if _, hasRuleChain := parsed["ruleChain"]; hasRuleChain {
 			return true, "标准规则链格式"
 		}
@@ -788,13 +788,13 @@ func validateLiteResponseFormat(t *testing.T, content string) (bool, string) {
 		}
 	}
 
-	// 如果不是纯 JSON，检查是否包含 JSON 块
+	// If it's not pure JSON, check if JSON blocks are included
 	jsonStart := strings.Index(content, "{")
 	jsonEnd := strings.LastIndex(content, "}")
 	if jsonStart >= 0 && jsonEnd > jsonStart {
 		jsonContent := content[jsonStart : jsonEnd+1]
 		if err := json.Unmarshal([]byte(jsonContent), &parsed); err == nil {
-			// 检查是否有额外的文本
+			// Check for any extra text
 			prefix := strings.TrimSpace(content[:jsonStart])
 			suffix := strings.TrimSpace(content[jsonEnd+1:])
 
@@ -808,9 +808,9 @@ func validateLiteResponseFormat(t *testing.T, content string) (bool, string) {
 	return false, "无法解析为有效的规则链 JSON"
 }
 
-// ---- 规则链运行验证 ----
+// ---- Rule Chain Execution Validation ----
 
-// executeRuleChain 通过 API 执行规则链
+// executeRuleChain executes the rule chain via API
 func executeRuleChain(t *testing.T, handler http.Handler, token, chainId string, msgData string) (int, string) {
 	t.Helper()
 
@@ -837,7 +837,7 @@ func executeRuleChain(t *testing.T, handler http.Handler, token, chainId string,
 	return resp.StatusCode, string(respBody)
 }
 
-// ---- 基础测试用例 ----
+// ---- Basic Test Cases ----
 
 func TestIntegration_SimpleFilterChain(t *testing.T) {
 	skipIfNoLLMKey(t)
@@ -852,55 +852,55 @@ func TestIntegration_SimpleFilterChain(t *testing.T) {
 	}, false)
 
 	content := parseResponse(t, resp)
-	t.Logf("Agent 响应: %s", truncate(content, 500))
+	t.Logf("Agent Response: %s", truncate(content, 500))
 
-	// 使用重试机制等待规则链创建
+	// Use a retry mechanism to wait for the rule chain to be created
 	chain := waitForChainWithRetry(t, handler, token, "test_filter", 10)
 	if chain == nil {
-		t.Fatal("未找到生成的规则链 test_filter")
+		t.Fatal("The generated rule chain test_filter not found")
 	}
 
-	// 验证结构完整性
+	// Verify structural integrity
 	validation := validateChainStructure(t, chain)
 	printValidationResult(t, validation)
 
-	// 评估生成质量
+	// Evaluate the quality of the generation
 	expectedTypes := []string{"jsFilter"}
 	quality := evaluateGenerationQuality(t, chain, expectedTypes)
 	printGenerationQuality(t, quality)
 
-	// 验证必需节点
+	// Verify required nodes
 	if !hasNodeType(chain, "jsFilter") {
-		t.Error("规则链中未找到 jsFilter 节点")
+		t.Error("No jsFilter node found in the rule chain")
 	} else {
-		// 验证 jsFilter 配置
+		// Verify the jsFilter configuration
 		filterConfig := getNodeConfig(chain, "jsFilter")
 		if filterConfig != nil {
 			if script, ok := filterConfig["jsScript"].(string); ok {
 				if strings.Contains(script, "temperature") || strings.Contains(script, "msg") {
-					t.Log("验证通过: jsFilter 包含相关脚本逻辑")
+					t.Log("Validation passed: jsFilter contains relevant script logic")
 				} else {
-					t.Error("jsFilter 脚本中未包含 temperature 相关逻辑")
+					t.Error("jsFilter The script does not include temperature-related logic")
 				}
 			}
 		}
-		t.Log("验证通过: 包含 jsFilter 节点")
+		t.Log("Verification passed: Includes jsFilter nodes")
 	}
 
-	// 字段名验证
+	// Field name validation
 	fieldErrors := validateComponentFields(t, chain)
 	printFieldValidationErrors(t, fieldErrors)
 
-	// 引擎验证
+	// Engine validation
 	engineErr := validateChainWithEngine(t, chain)
 	printEngineValidationResult(t, engineErr)
 
-	// 质量阈值检查
+	// Quality threshold check
 	if quality.Score < 50 {
-		t.Errorf("生成质量得分过低: %.1f/100", quality.Score)
+		t.Errorf("Generation quality score too low: %.1f/100", quality.Score)
 	}
 	if len(fieldErrors) > 0 {
-		t.Error("存在字段名错误，请检查生成结果")
+		t.Error("There is an error in the field name; please check the generated result")
 	}
 }
 
@@ -912,87 +912,87 @@ func TestIntegration_MultiTurn_Refine(t *testing.T) {
 	handler := br.Handler()
 	token := loginAndGetToken(t, br)
 
-	// 第一轮：创建基础规则链
+	// Round One: Create the basic rule chain
 	resp1 := chatRequest(t, handler, token, []map[string]string{
 		{"role": "user", "content": "创建一个规则链，接收MQTT消息并打印日志。规则链ID设为test_multiturn。"},
 	}, false)
 	content1 := parseResponse(t, resp1)
-	t.Logf("第一轮响应: %s", truncate(content1, 500))
+	t.Logf("First round of response: %s", truncate(content1, 500))
 
 	chain1 := waitForChainWithRetry(t, handler, token, "test_multiturn", 10)
 	if chain1 == nil {
-		t.Fatal("第一轮：未找到生成的规则链")
+		t.Fatal("Round 1: The generated rule chain was not found")
 	}
 
-	// 第一轮质量评估
+	// The first round of quality assessment
 	quality1 := evaluateGenerationQuality(t, chain1, []string{"log"})
-	t.Log("=== 第一轮生成质量 ===")
+	t.Log("=== First round of generation mass ===")
 	printGenerationQuality(t, quality1)
 
 	if !hasNodeType(chain1, "log") {
-		t.Error("第一轮规则链中未找到 log 节点")
+		t.Error("No log nodes were found in the first round of the rule chain")
 	}
 
-	// 第二轮：优化规则链（增加 jsFilter）
+	// Round 2: Optimize the rule chain (add jsFilter)
 	resp2 := chatRequest(t, handler, token, []map[string]string{
 		{"role": "user", "content": "创建一个规则链，接收MQTT消息并打印日志。规则链ID设为test_multiturn。"},
 		{"role": "assistant", "content": content1},
 		{"role": "user", "content": "在日志节点前面增加一个jsFilter节点，只处理包含temperature字段的消息。"},
 	}, false)
 	content2 := parseResponse(t, resp2)
-	t.Logf("第二轮响应: %s", truncate(content2, 500))
+	t.Logf("Second round of response: %s", truncate(content2, 500))
 
 	chain2 := waitForChainWithRetry(t, handler, token, "test_multiturn", 10)
 	if chain2 == nil {
-		t.Fatal("第二轮：未找到更新的规则链")
+		t.Fatal("Second round: No updated rule chain found")
 	}
 
-	// 第二轮质量评估
+	// Second round of quality assessment
 	quality2 := evaluateGenerationQuality(t, chain2, []string{"jsFilter", "log"})
-	t.Log("=== 第二轮生成质量 ===")
+	t.Log("=== Second round of generating mass ===")
 	printGenerationQuality(t, quality2)
 
-	// 验证优化效果
+	// Verify the optimization effect
 	if !hasNodeType(chain2, "jsFilter") {
-		t.Error("第二轮修改后规则链中未找到 jsFilter 节点")
+		t.Error("After the second round of modifications, no jsFilter node was found in the rule chain")
 	} else {
-		// 验证 jsFilter 配置是否包含 temperature
+		// Verify whether the jsFilter configuration includes temperature
 		filterConfig := getNodeConfig(chain2, "jsFilter")
 		if filterConfig != nil {
 			if script, ok := filterConfig["jsScript"].(string); ok {
 				if strings.Contains(script, "temperature") {
-					t.Log("验证通过: jsFilter 包含 temperature 条件")
+					t.Log("Verification passed: jsFilter includes temperature conditions")
 				} else {
-					t.Error("jsFilter 脚本中未包含 temperature 条件")
+					t.Error("jsFilter The script does not include temperature conditions")
 				}
 			}
 		}
 	}
 
-	// 比较两轮的质量提升
-	t.Logf("质量变化: %.1f -> %.1f (+%.1f)", quality1.Score, quality2.Score, quality2.Score-quality1.Score)
+	// Comparing the quality improvements of the two rounds
+	t.Logf("Mass change: %.1f -> %.1f (+%.1f)", quality1.Score, quality2.Score, quality2.Score-quality1.Score)
 
-	// 验证结构完整性
+	// Verify structural integrity
 	validation := validateChainStructure(t, chain2)
 	printValidationResult(t, validation)
 
-	// 字段名验证
+	// Field name validation
 	fieldErrors := validateComponentFields(t, chain2)
 	printFieldValidationErrors(t, fieldErrors)
 
-	// 引擎验证
+	// Engine validation
 	engineErr := validateChainWithEngine(t, chain2)
 	printEngineValidationResult(t, engineErr)
 
 	if !validation.Valid {
-		t.Error("第二轮规则链结构验证失败")
+		t.Error("The second round of rule chain structure verification failed")
 	}
 	if len(fieldErrors) > 0 {
-		t.Error("存在字段名错误，请检查生成结果")
+		t.Error("There is an error in the field name; please check the generated result")
 	}
 }
 
-// ---- 工业场景测试 ----
+// ---- Industrial Scenario Testing ----
 
 func TestIntegration_PidFlowControl(t *testing.T) {
 	skipIfNoLLMKey(t)
@@ -1014,87 +1014,87 @@ func TestIntegration_PidFlowControl(t *testing.T) {
 	}, false)
 
 	content := parseResponse(t, resp)
-	t.Logf("Agent 响应: %s", truncate(content, 500))
+	t.Logf("Agent Response: %s", truncate(content, 500))
 
 	chain := waitForChainWithRetry(t, handler, token, "pid_flow_control", 10)
 	if chain == nil {
-		t.Fatal("未找到生成的规则链 pid_flow_control")
+		t.Fatal("The generated rule chain pid_flow_control not found")
 	}
 
-	// 验证结构完整性
+	// Verify structural integrity
 	validation := validateChainStructure(t, chain)
 	printValidationResult(t, validation)
 
-	// 评估生成质量
+	// Evaluate the quality of the generation
 	expectedTypes := []string{"net", "x/python", "fork"}
 	quality := evaluateGenerationQuality(t, chain, expectedTypes)
 	printGenerationQuality(t, quality)
 
-	// 验证 net 节点数量（1个输入 + 3个输出 = 4个）
+	// Number of nodes to verify net (1 input + 3 outputs = 4)
 	netNodes := findNodesByType(chain, "net")
 	if len(netNodes) < 4 {
-		t.Errorf("期望至少 4 个 net 节点，实际 %d 个", len(netNodes))
+		t.Errorf("Expect at least 4 net nodes, but actually %d", len(netNodes))
 	} else {
-		t.Logf("验证通过: %d 个 net 节点", len(netNodes))
+		t.Logf("Verification passed: %d net nodes", len(netNodes))
 
-		// 验证 net 节点配置
+		// Verify the net node configuration
 		for _, node := range netNodes {
 			config, _ := node["configuration"].(map[string]interface{})
 			if config != nil {
 				if host, ok := config["host"].(string); ok {
-					t.Logf("  net 节点 host: %s", host)
+					t.Logf("net Node host: %s", host)
 				}
 			}
 		}
 	}
 
-	// 验证 x/python 节点
+	// Verify the x/python node
 	if !hasNodeType(chain, "x/python") {
-		t.Error("未找到 x/python 节点")
+		t.Error("x/python node not found")
 	} else {
 		pyConfig := getNodeConfig(chain, "x/python")
 		if pyConfig != nil {
 			if script, ok := pyConfig["script"].(string); ok && script != "" {
-				t.Logf("验证通过: x/python 包含脚本 (长度=%d)", len(script))
-				// 检查脚本是否包含 PID 相关逻辑
+				t.Logf("Validation passed: x/python Includes script (length=%d)", len(script))
+				// Check whether the script contains PID-related logic
 				if strings.Contains(strings.ToLower(script), "pid") ||
 					strings.Contains(strings.ToLower(script), "error") ||
 					strings.Contains(strings.ToLower(script), "integral") {
-					t.Log("验证通过: Python 脚本包含 PID 控制逻辑")
+					t.Log("Verification passed: Python script contains PID control logic")
 				}
 			} else {
-				t.Error("x/python 节点脚本为空")
+				t.Error("x/python The node script is empty")
 			}
 		}
 	}
 
-	// 验证 fork 节点
+	// Verify fork nodes
 	if !hasNodeType(chain, "fork") {
-		t.Error("未找到 fork 节点")
+		t.Error("fork node not found")
 	}
 
-	// 验证连接关系
+	// Verify the connection relationship
 	metadata, _ := chain["metadata"].(map[string]interface{})
 	nodes, _ := metadata["nodes"].([]interface{})
-	t.Logf("规则链总节点数: %d (期望 >= 5)", len(nodes))
+	t.Logf("Total number of nodes in the rule chain: %d (expected > = 5)", len(nodes))
 	if len(nodes) < 5 {
-		t.Errorf("期望至少 5 个节点，实际 %d 个", len(nodes))
+		t.Errorf("Expect at least 5 nodes, but actually %d", len(nodes))
 	}
 
-	// 字段名验证（特别关注 net 节点的 server 字段）
+	// Field name validation (especially focusing on the server field of the NET node)
 	fieldErrors := validateComponentFields(t, chain)
 	printFieldValidationErrors(t, fieldErrors)
 
-	// 引擎验证
+	// Engine validation
 	engineErr := validateChainWithEngine(t, chain)
 	printEngineValidationResult(t, engineErr)
 
-	// 质量阈值检查
+	// Quality threshold check
 	if quality.Score < 60 {
-		t.Errorf("生成质量得分过低: %.1f/100，工业场景需要更高准确度", quality.Score)
+		t.Errorf("Generation quality score too low: %.1f/100; industrial scenarios require higher accuracy", quality.Score)
 	}
 	if len(fieldErrors) > 0 {
-		t.Error("存在字段名错误，请检查生成结果")
+		t.Error("There is an error in the field name; please check the generated result")
 	}
 }
 
@@ -1119,67 +1119,67 @@ func TestIntegration_DOSlidingWindow(t *testing.T) {
 	}, false)
 
 	content := parseResponse(t, resp)
-	t.Logf("Agent 响应: %s", truncate(content, 500))
+	t.Logf("Agent Response: %s", truncate(content, 500))
 
 	chain := waitForChainWithRetry(t, handler, token, "do_sliding_window", 10)
 	if chain == nil {
-		t.Fatal("未找到生成的规则链 do_sliding_window")
+		t.Fatal("The generated rule chain do_sliding_window not found")
 	}
 
-	// 验证结构完整性
+	// Verify structural integrity
 	validation := validateChainStructure(t, chain)
 	printValidationResult(t, validation)
 
-	// 评估生成质量
+	// Evaluate the quality of the generation
 	expectedTypes := []string{"x/streamAggregator", "jsTransform", "jsFilter", "x/redisPub"}
 	quality := evaluateGenerationQuality(t, chain, expectedTypes)
 	printGenerationQuality(t, quality)
 
-	// 验证 streamAggregator 配置
+	// Verify streamAggregator configuration
 	if !hasNodeType(chain, "x/streamAggregator") {
-		t.Error("未找到 x/streamAggregator 节点")
+		t.Error("x/streamAggregator node not found")
 	} else {
 		saConfig := getNodeConfig(chain, "x/streamAggregator")
 		if saConfig != nil {
 			sql, _ := saConfig["sql"].(string)
 			sqlUpper := strings.ToUpper(sql)
 			if !strings.Contains(sqlUpper, "SLIDINGWINDOW") {
-				t.Errorf("SQL 中未包含 SlidingWindow: %s", sql)
+				t.Errorf("SlidingWindow: %s is not included in SQL", sql)
 			}
 			if !strings.Contains(sqlUpper, "AVG") {
-				t.Errorf("SQL 中未包含 AVG: %s", sql)
+				t.Errorf("AVG: %s is not included in SQL", sql)
 			}
 			if !strings.Contains(sqlUpper, "DO") {
-				t.Errorf("SQL 中未包含 DO 字段: %s", sql)
+				t.Errorf("DO field not included in SQL: %s", sql)
 			}
-			t.Logf("验证通过: streamAggregator SQL = %s", sql)
+			t.Logf("Verification passed: streamAggregator SQL = %s", sql)
 		} else {
-			t.Error("x/streamAggregator 节点配置为空")
+			t.Error("x/streamAggregator node is configured to be empty")
 		}
 	}
 
-	// 验证其他必需节点
+	// Validate other required nodes
 	if !hasNodeType(chain, "jsTransform") {
-		t.Error("未找到 jsTransform 节点")
+		t.Error("jsTransform node not found")
 	}
 	if !hasNodeType(chain, "jsFilter") {
-		t.Error("未找到 jsFilter 节点")
+		t.Error("jsFilter node not found")
 	}
 	if !hasNodeType(chain, "x/redisPub") {
-		t.Error("未找到 x/redisPub 节点")
+		t.Error("x/redisPub node not found")
 	} else {
-		// 验证 redisPub 配置
+		// Verify the redisPub configuration
 		redisConfig := getNodeConfig(chain, "x/redisPub")
 		if redisConfig != nil {
 			if channel, ok := redisConfig["channel"].(string); ok {
 				if strings.Contains(channel, "alarm") {
-					t.Logf("验证通过: redisPub channel = %s", channel)
+					t.Logf("Verification passed: redisPub channel = %s", channel)
 				}
 			}
 		}
 	}
 
-	// 验证连接关系：streamAggregator -> jsTransform
+	// Verify the connection relationship: streamAggregator -> jsTransform
 	metadata, _ := chain["metadata"].(map[string]interface{})
 	connections, _ := metadata["connections"].([]interface{})
 	saNodes := findNodesByType(chain, "x/streamAggregator")
@@ -1194,30 +1194,30 @@ func TestIntegration_DOSlidingWindow(t *testing.T) {
 			}
 		}
 		if !hasConnection {
-			t.Error("streamAggregator 没有输出连接")
+			t.Error("streamAggregator No output connection")
 		}
 	}
 
-	// 字段名验证
+	// Field name validation
 	fieldErrors := validateComponentFields(t, chain)
 	printFieldValidationErrors(t, fieldErrors)
 
-	// 引擎验证
+	// Engine validation
 	engineErr := validateChainWithEngine(t, chain)
 	printEngineValidationResult(t, engineErr)
 
-	// 质量阈值检查（流式聚合场景较复杂）
+	// Quality threshold check (flow vector aggregation scenarios are more complex)
 	if quality.Score < 50 {
-		t.Errorf("生成质量得分过低: %.1f/100", quality.Score)
+		t.Errorf("Generation quality score too low: %.1f/100", quality.Score)
 	}
 	if len(fieldErrors) > 0 {
-		t.Error("存在字段名错误，请检查生成结果")
+		t.Error("There is an error in the field name; please check the generated result")
 	}
 }
 
-// ---- Generator Lite 测试 ----
+// ---- Generator Lite Test ----
 
-// chatRequestLite 发送聊天请求到 generator-lite 端点（单次生成，无工具调用）
+// chatRequestLite sends chat requests to generator-lite endpoints (one-time generation, no tool calls)
 func chatRequestLite(t *testing.T, handler http.Handler, token string, messages []map[string]string) *http.Response {
 	t.Helper()
 	body := map[string]interface{}{
@@ -1237,9 +1237,9 @@ func chatRequestLite(t *testing.T, handler http.Handler, token string, messages 
 	return w.Result()
 }
 
-// extractRuleChainFromText 从 AI 文本响应中提取规则链 JSON
+// extractRuleChainFromText extracts the rule chain JSON from AI text responses
 func extractRuleChainFromText(text string) map[string]interface{} {
-	// 收集候选 JSON 片段：全文 + 所有顶层 {} 对象
+	// Collect candidate JSON snippets: full text + all top-level {} objects
 	candidates := []string{text}
 	searchText := text
 	for {
@@ -1274,7 +1274,7 @@ func extractRuleChainFromText(text string) map[string]interface{} {
 		if _, ok := parsed["ruleChain"]; ok {
 			return parsed
 		}
-		// 没有ruleChain包装但有metadata.nodes → 自动包装
+		// No ruleChain wrapper but metadata.nodes → automatic wrapping
 		if meta, ok := parsed["metadata"].(map[string]interface{}); ok {
 			if _, hasNodes := meta["nodes"]; hasNodes {
 				return normalizeChain(parsed)
@@ -1284,7 +1284,7 @@ func extractRuleChainFromText(text string) map[string]interface{} {
 	return nil
 }
 
-// normalizeChain 将非标准结构包装为标准规则链格式
+// normalizeChain packages non-standard structures into standard regular chain formats
 func normalizeChain(raw map[string]interface{}) map[string]interface{} {
 	rc := map[string]interface{}{
 		"id":             raw["id"],
@@ -1322,63 +1322,63 @@ func TestLite_SimpleFilterChain(t *testing.T) {
 	})
 
 	content := parseResponse(t, resp)
-	t.Logf("Lite 响应长度: %d 字符", len(content))
+	t.Logf("Lite Response length: %d characters", len(content))
 
-	// 验证 Lite 响应格式（应该只包含 JSON，无多余文本）
+	// Verify the Lite response format (should include only JSON, no extra text)
 	isValidFormat, formatDesc := validateLiteResponseFormat(t, content)
-	t.Logf("Lite 响应格式验证: %v - %s", isValidFormat, formatDesc)
+	t.Logf("Lite Response format verification: %v - %s", isValidFormat, formatDesc)
 	if !isValidFormat {
-		t.Error("Lite 响应格式不符合要求：应只返回规则链 JSON，不应包含多余文本")
+		t.Error("Lite Response format does not meet requirements: Only the rule chain JSON should be returned, and unnecessary text should not be included")
 	}
 
 	chain := extractRuleChainFromText(content)
 	if chain == nil {
-		t.Logf("Lite 响应全文: %s", content)
-		t.Fatal("未能从 Lite 响应中提取规则链 JSON")
+		t.Logf("Lite Full response text: %s", content)
+		t.Fatal("Failure to extract the rule chain JSON from Lite responses")
 	}
 
-	// 验证结构完整性
+	// Verify structural integrity
 	validation := validateChainStructure(t, chain)
 	printValidationResult(t, validation)
 
-	// 评估生成质量
+	// Evaluate the quality of the generation
 	expectedTypes := []string{"jsFilter"}
 	quality := evaluateGenerationQuality(t, chain, expectedTypes)
 	printGenerationQuality(t, quality)
 
-	// 验证 jsFilter 节点
+	// Verify the jsFilter node
 	nodes := findNodesByType(chain, "jsFilter")
 	if len(nodes) == 0 {
-		t.Error("规则链中未找到 jsFilter 节点")
+		t.Error("No jsFilter node found in the rule chain")
 	} else {
 		config, ok := nodes[0]["configuration"].(map[string]interface{})
 		if !ok || config == nil {
-			t.Error("jsFilter 节点配置为空")
+			t.Error("jsFilter node is configured to be empty")
 		} else {
 			script, _ := config["jsScript"].(string)
-			t.Logf("jsFilter 脚本: %s", truncate(script, 300))
+			t.Logf("jsFilter Script: %s", truncate(script, 300))
 			if !strings.Contains(script, "temperature") {
-				t.Error("jsFilter 脚本中未包含 temperature 条件")
+				t.Error("jsFilter The script does not include temperature conditions")
 			} else {
-				t.Log("验证通过: jsFilter 包含 temperature 条件")
+				t.Log("Verification passed: jsFilter includes temperature conditions")
 			}
 		}
 	}
 
-	// 字段名验证
+	// Field name validation
 	fieldErrors := validateComponentFields(t, chain)
 	printFieldValidationErrors(t, fieldErrors)
 
-	// 引擎验证
+	// Engine validation
 	engineErr := validateChainWithEngine(t, chain)
 	printEngineValidationResult(t, engineErr)
 
-	// 质量阈值检查
+	// Quality threshold check
 	if quality.Score < 50 {
-		t.Errorf("生成质量得分过低: %.1f/100", quality.Score)
+		t.Errorf("Generation quality score too low: %.1f/100", quality.Score)
 	}
 	if len(fieldErrors) > 0 {
-		t.Error("存在字段名错误，请检查生成结果")
+		t.Error("There is an error in the field name; please check the generated result")
 	}
 }
 
@@ -1395,65 +1395,65 @@ func TestLite_SerialPipeline(t *testing.T) {
 	})
 
 	content := parseResponse(t, resp)
-	t.Logf("Lite 响应长度: %d 字符", len(content))
+	t.Logf("Lite Response length: %d characters", len(content))
 
-	// 验证 Lite 响应格式（应该只包含 JSON，无多余文本）
+	// Verify the Lite response format (should include only JSON, no extra text)
 	isValidFormat, formatDesc := validateLiteResponseFormat(t, content)
-	t.Logf("Lite 响应格式验证: %v - %s", isValidFormat, formatDesc)
+	t.Logf("Lite Response format verification: %v - %s", isValidFormat, formatDesc)
 	if !isValidFormat {
-		t.Error("Lite 响应格式不符合要求：应只返回规则链 JSON，不应包含多余文本")
+		t.Error("Lite Response format does not meet requirements: Only the rule chain JSON should be returned, and unnecessary text should not be included")
 	}
 
 	chain := extractRuleChainFromText(content)
 	if chain == nil {
-		t.Fatal("未能从 Lite 响应中提取规则链 JSON")
+		t.Fatal("Failure to extract the rule chain JSON from Lite responses")
 	}
 
-	// 验证结构完整性
+	// Verify structural integrity
 	validation := validateChainStructure(t, chain)
 	printValidationResult(t, validation)
 
-	// 评估生成质量
+	// Evaluate the quality of the generation
 	expectedTypes := []string{"jsTransform", "jsFilter", "restApiCall"}
 	quality := evaluateGenerationQuality(t, chain, expectedTypes)
 	printGenerationQuality(t, quality)
 
-	// 验证必需节点
+	// Verify required nodes
 	if !hasNodeType(chain, "jsTransform") {
-		t.Error("未找到 jsTransform 节点")
+		t.Error("jsTransform node not found")
 	}
 	if !hasNodeType(chain, "jsFilter") {
-		t.Error("未找到 jsFilter 节点")
+		t.Error("jsFilter node not found")
 	}
 	if !hasNodeType(chain, "restApiCall") {
-		t.Error("未找到 restApiCall 节点")
+		t.Error("restApiCall node not found")
 	} else {
-		// 验证 restApiCall 配置
+		// Verify the restApiCall configuration
 		restConfig := getNodeConfig(chain, "restApiCall")
 		if restConfig != nil {
-			// 检查是否使用了正确的字段名
+			// Check whether the correct field names are being used
 			if url, hasURL := restConfig["restEndpointUrlPattern"]; hasURL {
-				t.Logf("验证通过: restApiCall 使用 restEndpointUrlPattern = %v", url)
+				t.Logf("Validation passed: restApiCall use restEndpointUrlPattern = %v", url)
 			} else if _, hasURL2 := restConfig["url"]; hasURL2 {
-				t.Error("restApiCall 使用了 'url' 而非 'restEndpointUrlPattern'")
+				t.Error("restApiCall uses 'url' instead of 'restEndpointUrlPattern'")
 			}
 		}
 	}
 
-	// 字段名验证
+	// Field name validation
 	fieldErrors := validateComponentFields(t, chain)
 	printFieldValidationErrors(t, fieldErrors)
 
-	// 引擎验证
+	// Engine validation
 	engineErr := validateChainWithEngine(t, chain)
 	printEngineValidationResult(t, engineErr)
 
-	// 质量阈值检查
+	// Quality threshold check
 	if quality.Score < 50 {
-		t.Errorf("生成质量得分过低: %.1f/100", quality.Score)
+		t.Errorf("Generation quality score too low: %.1f/100", quality.Score)
 	}
 	if len(fieldErrors) > 0 {
-		t.Error("存在字段名错误，请检查生成结果")
+		t.Error("There is an error in the field name; please check the generated result")
 	}
 }
 
@@ -1470,56 +1470,56 @@ func TestLite_ParallelWithForkJoin(t *testing.T) {
 	})
 
 	content := parseResponse(t, resp)
-	t.Logf("Lite 响应长度: %d 字符", len(content))
+	t.Logf("Lite Response length: %d characters", len(content))
 
-	// 验证 Lite 响应格式（应该只包含 JSON，无多余文本）
+	// Verify the Lite response format (should include only JSON, no extra text)
 	isValidFormat, formatDesc := validateLiteResponseFormat(t, content)
-	t.Logf("Lite 响应格式验证: %v - %s", isValidFormat, formatDesc)
+	t.Logf("Lite Response format verification: %v - %s", isValidFormat, formatDesc)
 	if !isValidFormat {
-		t.Error("Lite 响应格式不符合要求：应只返回规则链 JSON，不应包含多余文本")
+		t.Error("Lite Response format does not meet requirements: Only the rule chain JSON should be returned, and unnecessary text should not be included")
 	}
 
 	chain := extractRuleChainFromText(content)
 	if chain == nil {
-		t.Fatal("未能从 Lite 响应中提取规则链 JSON")
+		t.Fatal("Failure to extract the rule chain JSON from Lite responses")
 	}
 
-	// 验证结构完整性
+	// Verify structural integrity
 	validation := validateChainStructure(t, chain)
 	printValidationResult(t, validation)
 
-	// 评估生成质量
+	// Evaluate the quality of the generation
 	expectedTypes := []string{"fork", "join", "jsTransform", "restApiCall", "log"}
 	quality := evaluateGenerationQuality(t, chain, expectedTypes)
 	printGenerationQuality(t, quality)
 
-	// 验证必需节点
+	// Verify required nodes
 	if !hasNodeType(chain, "fork") {
-		t.Error("未找到 fork 节点")
+		t.Error("fork node not found")
 	}
 	if !hasNodeType(chain, "join") {
-		t.Error("未找到 join 节点")
+		t.Error("join node not found")
 	}
 	if !hasNodeType(chain, "jsTransform") {
-		t.Error("未找到 jsTransform 节点")
+		t.Error("jsTransform node not found")
 	}
 	if !hasNodeType(chain, "restApiCall") {
-		t.Error("未找到 restApiCall 节点")
+		t.Error("restApiCall node not found")
 	}
 	if !hasNodeType(chain, "log") {
-		t.Error("未找到 log 节点")
+		t.Error("log node not found")
 	}
 
-	// 验证 fork 和 join 成对
+	// Verify that fork and join are paired
 	forkCount := len(findNodesByType(chain, "fork"))
 	joinCount := len(findNodesByType(chain, "join"))
 	if forkCount != joinCount {
-		t.Errorf("fork(%d) 和 join(%d) 数量不匹配", forkCount, joinCount)
+		t.Errorf("fork (%d) and join (%d) numbers do not match", forkCount, joinCount)
 	} else {
-		t.Logf("验证通过: fork(%d) 和 join(%d) 成对", forkCount, joinCount)
+		t.Logf("Verification passed: fork (%d) and join (%d) paired", forkCount, joinCount)
 	}
 
-	// 验证连接关系：fork 应该有多个输出连接
+	// Verifying connection relationships: forks should have multiple output connections
 	metadata, _ := chain["metadata"].(map[string]interface{})
 	connections, _ := metadata["connections"].([]interface{})
 	forkNodes := findNodesByType(chain, "fork")
@@ -1533,26 +1533,26 @@ func TestLite_ParallelWithForkJoin(t *testing.T) {
 			}
 		}
 		if outputCount >= 3 {
-			t.Logf("验证通过: fork 节点有 %d 个输出分支", outputCount)
+			t.Logf("Verification passed: fork node has %d output branches", outputCount)
 		} else {
-			t.Errorf("fork 节点输出分支不足: 期望 >= 3，实际 %d", outputCount)
+			t.Errorf("fork Node outputs insufficient branches: Expected > = 3, actual %d", outputCount)
 		}
 	}
 
-	// 字段名验证
+	// Field name validation
 	fieldErrors := validateComponentFields(t, chain)
 	printFieldValidationErrors(t, fieldErrors)
 
-	// 引擎验证
+	// Engine validation
 	engineErr := validateChainWithEngine(t, chain)
 	printEngineValidationResult(t, engineErr)
 
-	// 质量阈值检查
+	// Quality threshold check
 	if quality.Score < 50 {
-		t.Errorf("生成质量得分过低: %.1f/100", quality.Score)
+		t.Errorf("Generation quality score too low: %.1f/100", quality.Score)
 	}
 	if len(fieldErrors) > 0 {
-		t.Error("存在字段名错误，请检查生成结果")
+		t.Error("There is an error in the field name; please check the generated result")
 	}
 }
 
@@ -1569,51 +1569,51 @@ func TestLite_ConditionalBranch(t *testing.T) {
 	})
 
 	content := parseResponse(t, resp)
-	t.Logf("Lite 响应长度: %d 字符", len(content))
+	t.Logf("Lite Response length: %d characters", len(content))
 
-	// 验证 Lite 响应格式（应该只包含 JSON，无多余文本）
+	// Verify the Lite response format (should include only JSON, no extra text)
 	isValidFormat, formatDesc := validateLiteResponseFormat(t, content)
-	t.Logf("Lite 响应格式验证: %v - %s", isValidFormat, formatDesc)
+	t.Logf("Lite Response format verification: %v - %s", isValidFormat, formatDesc)
 	if !isValidFormat {
-		t.Error("Lite 响应格式不符合要求：应只返回规则链 JSON，不应包含多余文本")
+		t.Error("Lite Response format does not meet requirements: Only the rule chain JSON should be returned, and unnecessary text should not be included")
 	}
 
 	chain := extractRuleChainFromText(content)
 	if chain == nil {
-		t.Fatal("未能从 Lite 响应中提取规则链 JSON")
+		t.Fatal("Failure to extract the rule chain JSON from Lite responses")
 	}
 
-	// 验证结构完整性
+	// Verify structural integrity
 	validation := validateChainStructure(t, chain)
 	printValidationResult(t, validation)
 
-	// 评估生成质量
+	// Evaluate the quality of the generation
 	expectedTypes := []string{"jsFilter", "restApiCall", "log"}
 	quality := evaluateGenerationQuality(t, chain, expectedTypes)
 	printGenerationQuality(t, quality)
 
-	// 验证必需节点
+	// Verify required nodes
 	if !hasNodeType(chain, "jsFilter") {
-		t.Error("未找到 jsFilter 节点")
+		t.Error("jsFilter node not found")
 	} else {
-		// 验证 jsFilter 配置
+		// Verify the jsFilter configuration
 		filterConfig := getNodeConfig(chain, "jsFilter")
 		if filterConfig != nil {
 			if script, ok := filterConfig["jsScript"].(string); ok {
 				if strings.Contains(script, "amount") || strings.Contains(script, "1000") {
-					t.Log("验证通过: jsFilter 包含金额判断逻辑")
+					t.Log("Verification passed: jsFilter includes amount determination logic")
 				}
 			}
 		}
 	}
 	if !hasNodeType(chain, "restApiCall") {
-		t.Error("未找到 restApiCall 节点")
+		t.Error("restApiCall node not found")
 	}
 	if !hasNodeType(chain, "log") {
-		t.Error("未找到 log 节点")
+		t.Error("log node not found")
 	}
 
-	// 验证 True 和 False 连接
+	// Verify True and False connections
 	metadata, _ := chain["metadata"].(map[string]interface{})
 	connections, _ := metadata["connections"].([]interface{})
 	filterNodes := findNodesByType(chain, "jsFilter")
@@ -1633,29 +1633,29 @@ func TestLite_ConditionalBranch(t *testing.T) {
 			}
 		}
 		if !hasTrue {
-			t.Error("jsFilter 缺少 True 连接")
+			t.Error("jsFilter Lack of True connections")
 		}
 		if !hasFalse {
-			t.Error("jsFilter 缺少 False 连接")
+			t.Error("jsFilter Lack of False connections")
 		}
 		if hasTrue && hasFalse {
-			t.Log("验证通过: jsFilter 包含 True 和 False 分支连接")
+			t.Log("Verification passed: jsFilter includes True and False branch connections")
 		}
 	}
 
-	// 字段名验证
+	// Field name validation
 	fieldErrors := validateComponentFields(t, chain)
 	printFieldValidationErrors(t, fieldErrors)
 
-	// 引擎验证
+	// Engine validation
 	engineErr := validateChainWithEngine(t, chain)
 	printEngineValidationResult(t, engineErr)
 
-	// 质量阈值检查
+	// Quality threshold check
 	if quality.Score < 50 {
-		t.Errorf("生成质量得分过低: %.1f/100", quality.Score)
+		t.Errorf("Generation quality score too low: %.1f/100", quality.Score)
 	}
 	if len(fieldErrors) > 0 {
-		t.Error("存在字段名错误，请检查生成结果")
+		t.Error("There is an error in the field name; please check the generated result")
 	}
 }

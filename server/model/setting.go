@@ -1,6 +1,6 @@
 package model
 
-// UserSetting 用户设置领域模型
+// UserSetting: Sets the domain model
 type UserSetting struct {
 	LatestChainId string `json:"latestChainId"`
 	CoreChainId   string `json:"coreChainId"`

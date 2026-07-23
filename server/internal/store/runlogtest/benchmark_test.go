@@ -15,7 +15,7 @@ import (
 	"github.com/rulego/rulego/server/store"
 )
 
-// 简单规则链 DSL：单节点 jsTransform
+// Simple Rule Chain DSL: Single-node jsTransform
 const simpleChainDSL = `
 {
   "ruleChain": {
@@ -32,7 +32,7 @@ const simpleChainDSL = `
 }
 `
 
-// 10 节点规则链 DSL：模拟实际场景
+// 10-node rule chain DSL: simulates real-world scenarios
 const multiNodeChainDSL = `
 {
   "ruleChain": {
@@ -80,7 +80,7 @@ func makeEvent(id int) model.Event {
 	}
 }
 
-// ==================== 存储层 Benchmark ====================
+// ==================== Storage Layer Benchmark ====================
 
 func benchStore(b *testing.B, name string, s store.RunLogStore) {
 	b.Run(name+"/Save", func(b *testing.B) {
@@ -90,9 +90,9 @@ func benchStore(b *testing.B, name string, s store.RunLogStore) {
 		}
 	})
 
-	// 先写入 100 条用于查询
+	// First, write 100 entries for the query
 	for i := 0; i < 100; i++ {
-		_ = s.Save("bench-user", makeEvent(i + 10000))
+		_ = s.Save("bench-user", makeEvent(i+10000))
 	}
 
 	b.Run(name+"/List", func(b *testing.B) {
@@ -129,7 +129,7 @@ func BenchmarkStores(b *testing.B) {
 	benchStore(b, "Nop", nopstore.NopRunLogStore{})
 }
 
-// ==================== 并发写入 Benchmark ====================
+// ==================== Write concurrently to the Benchmark ====================
 
 func benchConcurrentSave(b *testing.B, name string, s store.RunLogStore, workers int) {
 	b.Run(fmt.Sprintf("%s/ConcurrentSave_%dw", name, workers), func(b *testing.B) {

@@ -6,7 +6,7 @@ import (
 	"github.com/rulego/rulego/server/store"
 )
 
-// UserEngine 用户级规则引擎接口
+// UserEngine user-level rule engine interface
 type UserEngine interface {
 	Pool() *rulego.RuleGo
 	RuleConfig() types.Config
@@ -18,7 +18,7 @@ type UserEngine interface {
 	GetSetting(key string) string
 }
 
-// EngineManager 多租户引擎管理器接口
+// EngineManager multi-tenant engine manager interface
 type EngineManager interface {
 	GetOrCreate(username string) (UserEngine, error)
 	Get(username string) (UserEngine, bool)

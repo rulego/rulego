@@ -23,7 +23,7 @@ import (
 )
 
 func TestCheckCycles(t *testing.T) {
-	// 创建一个不存在环的规则链
+	// Create a rule chain that does not exist in a loop
 	metadataWithoutCycle := types.RuleMetadata{
 		Nodes: []*types.RuleNode{
 			{Id: "s1_1"},
@@ -38,12 +38,12 @@ func TestCheckCycles(t *testing.T) {
 		},
 	}
 
-	// 测试无环情况
+	// Testing the absence of rings
 	err := CheckCycles(metadataWithoutCycle)
 	assert.Nil(t, err)
 	//assert.NoError(t, err, "Cycle detection failed for a valid rule chain")
 
-	// 创建一个存在环的规则链
+	// Create a rule chain with an existence loop
 	metadataWithCycle := types.RuleMetadata{
 		Nodes: []*types.RuleNode{
 			{Id: "s1"},
@@ -53,11 +53,11 @@ func TestCheckCycles(t *testing.T) {
 		Connections: []types.NodeConnection{
 			{FromId: "s1", ToId: "s2"},
 			{FromId: "s2", ToId: "s3"},
-			{FromId: "s3", ToId: "s1"}, // 形成环
+			{FromId: "s3", ToId: "s1"}, // Forming a ring
 		},
 	}
 
-	// 测试有环情况
+	// Test with rings
 	err = CheckCycles(metadataWithCycle)
 	assert.NotNil(t, err)
 	//assert.EqualError(t, err, ErrCycleDetected.Error(), "Cycle detection failed for a rule chain with cycles")

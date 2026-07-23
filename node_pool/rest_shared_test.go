@@ -30,13 +30,13 @@ import (
 	"github.com/rulego/rulego/utils/json"
 )
 
-// TestRestSharedNodeBasicOperations 测试REST endpoint的基本SharedNode功能和多实例共享
+// TestRestSharedNodeBasicOperations Tests the basic SharedNode functionality and multi-instance sharing of REST endpoints
 func TestRestSharedNodeBasicOperations(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
-	// 子测试1：基本SharedNode功能
+	// Subtest 1: Basic SharedNode functionality
 	t.Run("BasicSharedNodeFunctionality", func(t *testing.T) {
 		var restDsl = []byte(`
 			{
@@ -49,7 +49,7 @@ func TestRestSharedNodeBasicOperations(t *testing.T) {
 		       }
 		     }`)
 
-		// 创建共享节点
+		// Create a shared node
 		var def types.EndpointDsl
 		err := json.Unmarshal(restDsl, &def)
 		assert.Nil(t, err)
@@ -58,30 +58,30 @@ func TestRestSharedNodeBasicOperations(t *testing.T) {
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 验证共享节点已创建
+		// Verify that the shared node has been created
 		sharedCtx, ok := pool.Get("shared_rest_endpoint")
 		assert.True(t, ok)
 		assert.NotNil(t, sharedCtx)
 
-		// 获取REST实例
+		// Get the REST instance
 		restInstance, err := pool.GetInstance("shared_rest_endpoint")
 		assert.Nil(t, err)
 		assert.NotNil(t, restInstance)
 
-		// 验证实例类型和配置
+		// Verify instance types and configurations
 		restEndpoint, ok := restInstance.(*rest.Rest)
 		assert.True(t, ok)
 		assert.NotNil(t, restEndpoint)
 		assert.Equal(t, ":9080", restEndpoint.Config.Server)
 
-		// 清理
+		// Cleanup
 		pool.Del("shared_rest_endpoint")
 		assert.Equal(t, 0, len(pool.GetAll()))
 	})
 
-	// 子测试2：多实例共享验证
+	// Subtest 2: Multi-instance shared validation
 	t.Run("MultipleInstancesSharing", func(t *testing.T) {
-		// 创建共享的REST服务器节点
+		// Create a shared REST server node
 		var sharedServerDsl = []byte(`
 			{
 		       "id": "shared_rest_server",
@@ -100,40 +100,40 @@ func TestRestSharedNodeBasicOperations(t *testing.T) {
 		assert.NotNil(t, sharedCtx)
 		assert.Nil(t, err)
 
-		// 验证只有一个共享服务器节点存在
+		// Verify that only one shared server node exists
 		assert.Equal(t, 1, len(pool.GetAll()))
 
-		// 获取共享服务器实例
+		// Obtain the shared server instance
 		sharedInstance, err := pool.GetInstance("shared_rest_server")
 		assert.Nil(t, err)
 		sharedRest, ok := sharedInstance.(*rest.Rest)
 		assert.True(t, ok)
 		assert.Equal(t, ":9081", sharedRest.Config.Server)
 
-		// 验证多次获取返回同一个实例
+		// Verification returns the same instance multiple times
 		instance1, err := pool.GetInstance("shared_rest_server")
 		assert.Nil(t, err)
 		instance2, err := pool.GetInstance("shared_rest_server")
 		assert.Nil(t, err)
-		assert.Equal(t, instance1, instance2) // 应该是同一个实例
+		assert.Equal(t, instance1, instance2) // It should be the same example
 
-		// 验证不存在的节点返回错误
+		// Verify that a nonexistent node returns an error
 		_, err = pool.GetInstance("non_existent_node")
 		assert.NotNil(t, err)
 
-		// 清理
+		// Cleanup
 		pool.Stop()
 		assert.Equal(t, 0, len(pool.GetAll()))
 	})
 }
 
-// TestRestSharedNodeLifecycleManagement 测试REST endpoint的生命周期管理（重启和注销）
+// TestRestSharedNodeLifecycleManagement Tests lifecycle management of REST endpoints (restart and logout)
 func TestRestSharedNodeLifecycleManagement(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
-	// 子测试1：重启功能测试
+	// Subtest 1: Restart the function test
 	t.Run("RestartFunctionality", func(t *testing.T) {
 		var restDsl = []byte(`
 			{
@@ -146,7 +146,7 @@ func TestRestSharedNodeLifecycleManagement(t *testing.T) {
 		       }
 		     }`)
 
-		// 创建共享节点
+		// Create a shared node
 		var def types.EndpointDsl
 		err := json.Unmarshal(restDsl, &def)
 		assert.Nil(t, err)
@@ -155,16 +155,16 @@ func TestRestSharedNodeLifecycleManagement(t *testing.T) {
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 获取REST实例
+		// Get the REST instance
 		restInstance, err := pool.GetInstance("restart_test_rest")
 		assert.Nil(t, err)
 		_, ok := restInstance.(*rest.Rest)
 		assert.True(t, ok)
 
-		// 测试重启功能：删除旧节点并创建新节点
+		// Test the restart function: delete the old node and create a new one
 		pool.Del("restart_test_rest")
 		time.Sleep(1 * time.Second)
-		// 创建更新的配置
+		// Create updated configurations
 		var newRestDsl = []byte(`
 			{
 		       "id": "restart_test_rest",
@@ -177,7 +177,7 @@ func TestRestSharedNodeLifecycleManagement(t *testing.T) {
 		       }
 		     }`)
 
-		// 重新创建节点
+		// Recreate the node
 		var newDef types.EndpointDsl
 		err = json.Unmarshal(newRestDsl, &newDef)
 		assert.Nil(t, err)
@@ -185,18 +185,18 @@ func TestRestSharedNodeLifecycleManagement(t *testing.T) {
 		assert.NotNil(t, newCtx)
 		assert.Nil(t, err)
 
-		// 验证配置已更新
+		// Verification configuration has been updated
 		updatedInstance, err := pool.GetInstance("restart_test_rest")
 		assert.Nil(t, err)
 		updatedRest, ok := updatedInstance.(*rest.Rest)
 		assert.True(t, ok)
 		assert.True(t, updatedRest.Config.AllowCors)
 
-		// 清理
+		// Cleanup
 		pool.Del("restart_test_rest")
 	})
 
-	// 子测试2：注销影响测试
+	// Subtest 2: Drop off impact test
 	t.Run("UnregisterImpact", func(t *testing.T) {
 		var restDsl = []byte(`
 			{
@@ -209,7 +209,7 @@ func TestRestSharedNodeLifecycleManagement(t *testing.T) {
 		       }
 		     }`)
 
-		// 创建共享节点
+		// Create a shared node
 		var def types.EndpointDsl
 		err := json.Unmarshal(restDsl, &def)
 		assert.Nil(t, err)
@@ -218,41 +218,41 @@ func TestRestSharedNodeLifecycleManagement(t *testing.T) {
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 验证节点存在
+		// Verification nodes exist
 		_, ok := pool.Get("unregister_test_rest")
 		assert.True(t, ok)
 		assert.Equal(t, 1, len(pool.GetAll()))
 
-		// 获取实例
+		// Get the instance
 		instance, err := pool.GetInstance("unregister_test_rest")
 		assert.Nil(t, err)
 		assert.NotNil(t, instance)
 
-		// 注销节点
+		// Deregister nodes
 		pool.Del("unregister_test_rest")
 
-		// 验证节点已被删除
+		// The verification node has been removed
 		_, ok = pool.Get("unregister_test_rest")
 		assert.False(t, ok)
 		assert.Equal(t, 0, len(pool.GetAll()))
 
-		// 尝试获取已删除的实例
+		// Attempt to retrieve deleted instances
 		instance, err = pool.GetInstance("unregister_test_rest")
 		assert.NotNil(t, err)
 		assert.Nil(t, instance)
 	})
 
-	// 最终清理
+	// Eventually, the cleanup was done
 	pool.Stop()
 }
 
-// TestRestSharedNodeAdvancedFeatures 测试REST endpoint的高级功能（路由和并发）
+// TestRestSharedNodeAdvancedFeatures Tests advanced features of REST endpoints (routing and concurrency)
 func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
-	// 子测试1：路由功能测试
+	// Subtest 1: Routing function test
 	t.Run("RouteFunctionality", func(t *testing.T) {
 		var restDsl = []byte(`
 			{
@@ -265,7 +265,7 @@ func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
 		       }
 		     }`)
 
-		// 创建共享节点
+		// Create a shared node
 		var def types.EndpointDsl
 		err := json.Unmarshal(restDsl, &def)
 		assert.Nil(t, err)
@@ -274,13 +274,13 @@ func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 获取REST实例
+		// Get the REST instance
 		restInstance, err := pool.GetInstance("routes_test_rest")
 		assert.Nil(t, err)
 		restEndpoint, ok := restInstance.(*rest.Rest)
 		assert.True(t, ok)
 
-		// 添加路由
+		// Add routes
 		router := impl.NewRouter().From("/test").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			exchange.Out.SetBody([]byte("Hello from shared REST endpoint"))
 			return true
@@ -288,11 +288,11 @@ func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
 
 		restEndpoint.GET(router)
 
-		// 清理
+		// Cleanup
 		pool.Del("routes_test_rest")
 	})
 
-	// 子测试2：并发访问测试
+	// Subtest 2: Concurrent Access Test
 	t.Run("ConcurrentAccess", func(t *testing.T) {
 		var restDsl = []byte(`
 			{
@@ -305,7 +305,7 @@ func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
 		       }
 		     }`)
 
-		// 创建共享节点
+		// Create a shared node
 		var def types.EndpointDsl
 		err := json.Unmarshal(restDsl, &def)
 		assert.Nil(t, err)
@@ -314,7 +314,7 @@ func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
 		assert.NotNil(t, ctx)
 		assert.Nil(t, err)
 
-		// 并发获取实例
+		// Concurrent instance acquisition
 		const numGoroutines = 10
 		results := make(chan interface{}, numGoroutines)
 		errors := make(chan error, numGoroutines)
@@ -330,7 +330,7 @@ func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
 			}()
 		}
 
-		// 收集结果
+		// Collect the results
 		var instances []interface{}
 		for i := 0; i < numGoroutines; i++ {
 			select {
@@ -343,29 +343,29 @@ func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
 			}
 		}
 
-		// 验证所有实例都是相同的（共享实例）
+		// Verify that all instances are the same (shared instance)
 		assert.Equal(t, numGoroutines, len(instances))
 		for i := 1; i < len(instances); i++ {
 			assert.Equal(t, instances[0], instances[i])
 		}
 
-		// 清理
+		// Cleanup
 		pool.Del("concurrent_test_rest")
 	})
 
-	// 最终清理
+	// Eventually, the cleanup was done
 	pool.Stop()
 }
 
-// TestRestSharedNodeWithRefProtocol 测试使用ref://方式引入共享REST endpoint及其生命周期管理
+// TestRestSharedNodeWithRefProtocol tests introduce shared REST endpoints and their lifecycle management using ref:// method
 func TestRestSharedNodeWithRefProtocol(t *testing.T) {
 	config := engine.NewConfig()
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
-	// 子测试1：基本ref://引用功能
+	// Subtest 1: Basic ref:// Reference Function
 	t.Run("BasicRefProtocol", func(t *testing.T) {
-		// 创建共享节点
+		// Create a shared node
 		var sharedRestDsl = []byte(`
 			{
 		       "id": "shared_rest_endpoint_ref",
@@ -385,11 +385,11 @@ func TestRestSharedNodeWithRefProtocol(t *testing.T) {
 		assert.NotNil(t, sharedCtx)
 		assert.Nil(t, err)
 
-		// 验证共享节点已创建
+		// Verify that the shared node has been created
 		_, ok := pool.Get("shared_rest_endpoint_ref")
 		assert.True(t, ok)
 
-		// 创建使用ref://引用的配置
+		// Create configurations that use ref:// references
 		var refRestDsl = []byte(`
 			{
 		       "id": "ref_rest_endpoint",
@@ -401,51 +401,51 @@ func TestRestSharedNodeWithRefProtocol(t *testing.T) {
 		       }
 		     }`)
 
-		// 解析引用配置
+		// Parse reference configuration
 		var refDef types.EndpointDsl
 		err = json.Unmarshal(refRestDsl, &refDef)
 		assert.Nil(t, err)
 		assert.Equal(t, "ref://shared_rest_endpoint_ref", refDef.Configuration["server"])
 
-		// 测试通过ref://获取共享实例
+		// Testing ref:// to obtain shared instances
 		serverConfig := refDef.Configuration["server"].(string)
 		if strings.HasPrefix(serverConfig, "ref://") {
 			instanceId := serverConfig[len("ref://"):]
 			assert.Equal(t, "shared_rest_endpoint_ref", instanceId)
 
-			// 从池中获取引用的实例
+			// Retrieve the instance of references from the pool
 			sharedInstance, err := pool.GetInstance(instanceId)
 			assert.Nil(t, err)
 			assert.NotNil(t, sharedInstance)
 
-			// 验证获取的是同一个共享实例
+			// Verify that the same shared instance is obtained
 			sharedRest, ok := sharedInstance.(*rest.Rest)
 			assert.True(t, ok)
 			assert.Equal(t, ":9087", sharedRest.Config.Server)
 
 		}
 
-		// 验证ref://引用不会创建新的节点实例
-		assert.Equal(t, 1, len(pool.GetAll())) // 只有一个共享节点
+		// Verification ref:// reference does not create a new node instance
+		assert.Equal(t, 1, len(pool.GetAll())) // There is only one shared node
 	})
 
-	// 子测试2：测试共享节点重启不影响引用
+	// Subtest 2: Test that restarting the shared node does not affect references
 	t.Run("SharedNodeRestartIsolation", func(t *testing.T) {
-		// 获取原始共享实例的引用
+		// Retrieves a reference to the original shared instance
 		originalInstance, err := pool.GetInstance("shared_rest_endpoint_ref")
 		assert.Nil(t, err)
 		originalRest, ok := originalInstance.(*rest.Rest)
 		assert.True(t, ok)
 		originalServer := originalRest.Config.Server
 
-		// 模拟共享节点重启：删除并重新创建
+		// Simulated shared node restart: Delete and recreate
 		pool.Del("shared_rest_endpoint_ref")
 		time.Sleep(1 * time.Second)
-		// 验证共享节点已被删除
+		// Verify that the shared node has been removed
 		_, ok = pool.Get("shared_rest_endpoint_ref")
 		assert.False(t, ok)
 
-		// 重新创建共享节点（模拟重启后的新配置）
+		// Recreate the shared node (simulate the new configuration after a restart)
 		var restartedRestDsl = []byte(`
 			{
 		       "id": "shared_rest_endpoint_ref",
@@ -465,30 +465,30 @@ func TestRestSharedNodeWithRefProtocol(t *testing.T) {
 		_, err = pool.NewFromEndpoint(restartedDef)
 		assert.Nil(t, err)
 
-		// 验证重启后的实例配置已更新
+		// Verify that the rebooted instance configuration has been updated
 		restartedInstance, err := pool.GetInstance("shared_rest_endpoint_ref")
 		assert.Nil(t, err)
 		restartedRest, ok := restartedInstance.(*rest.Rest)
 		assert.True(t, ok)
-		assert.Equal(t, originalServer, restartedRest.Config.Server) // 服务器地址保持一致
-		assert.True(t, restartedRest.Config.AllowCors)               // 新配置生效
+		assert.Equal(t, originalServer, restartedRest.Config.Server) // The server address remains consistent
+		assert.True(t, restartedRest.Config.AllowCors)               // The new configuration takes effect
 
-		// 验证通过ref://仍然可以正常获取更新后的实例
+		// ref:// verification passes, the updated instance can still be obtained normally
 		refInstance, err := pool.GetInstance("shared_rest_endpoint_ref")
 		assert.Nil(t, err)
-		assert.Equal(t, restartedInstance, refInstance) // 引用获取的是同一个实例
+		assert.Equal(t, restartedInstance, refInstance) // The reference retrieves the same instance
 	})
 
-	// 子测试3：测试多个引用节点的独立性
+	// Subtest 3: Testing the independence of multiple reference nodes
 	t.Run("MultipleReferencesIndependence", func(t *testing.T) {
-		// 创建多个使用ref://的配置（模拟不同规则链中的引用）
+		// Create multiple configurations using ref:// (simulating references in different rule chains)
 		refConfigs := []string{
 			`{"id": "ref1", "type": "endpoint/http", "configuration": {"server": "ref://shared_rest_endpoint_ref"}}`,
 			`{"id": "ref2", "type": "endpoint/http", "configuration": {"server": "ref://shared_rest_endpoint_ref"}}`,
 			`{"id": "ref3", "type": "endpoint/http", "configuration": {"server": "ref://shared_rest_endpoint_ref"}}`,
 		}
 
-		// 验证所有引用都指向同一个共享实例
+		// Verify that all references point to the same shared instance
 		sharedInstance, err := pool.GetInstance("shared_rest_endpoint_ref")
 		assert.Nil(t, err)
 
@@ -506,15 +506,15 @@ func TestRestSharedNodeWithRefProtocol(t *testing.T) {
 			}
 		}
 
-		// 验证节点池中仍然只有一个共享节点
+		// There is still only one shared node in the validator node pool
 		assert.Equal(t, 1, len(pool.GetAll()))
 	})
 
-	// 清理
+	// Cleanup
 	pool.Stop()
 }
 
-// TestRestSharedNodeDynamicRestart 测试REST endpoint的动态重启是否生效
+// TestRestSharedNodeDynamicRestart tests whether the dynamic restart of the REST endpoint is effective
 func TestRestSharedNodeDynamicRestart(t *testing.T) {
 	var restDsl = []byte(`
 		{
@@ -532,7 +532,7 @@ func TestRestSharedNodeDynamicRestart(t *testing.T) {
 	pool := NewNodePool(config)
 	config.NodePool = pool
 
-	// 创建共享节点
+	// Create a shared node
 	var def types.EndpointDsl
 	err := json.Unmarshal(restDsl, &def)
 	assert.Nil(t, err)
@@ -541,14 +541,14 @@ func TestRestSharedNodeDynamicRestart(t *testing.T) {
 	assert.NotNil(t, ctx)
 	assert.Nil(t, err)
 
-	// 获取初始实例
+	// Obtain the initial instance
 	initialInstance, err := pool.GetInstance("dynamic_restart_test")
 	assert.Nil(t, err)
 	initialRest, ok := initialInstance.(*rest.Rest)
 	assert.True(t, ok)
-	assert.False(t, initialRest.Config.AllowCors) // 初始配置
+	assert.False(t, initialRest.Config.AllowCors) // Initial configuration
 
-	// 动态更新配置并重启
+	// Dynamically update configurations and restart
 	var updatedRestDsl = []byte(`
 		{
 	       "id": "dynamic_restart_test",
@@ -561,36 +561,36 @@ func TestRestSharedNodeDynamicRestart(t *testing.T) {
 	       }
 	     }`)
 
-	// 删除旧节点并重新创建
+	// Delete the old node and recreate it
 	pool.Del("dynamic_restart_test")
 	time.Sleep(1 * time.Second)
-	// 重新创建节点
+	// Recreate the node
 	var updatedDef types.EndpointDsl
 	err = json.Unmarshal(updatedRestDsl, &updatedDef)
 	assert.Nil(t, err)
 	_, err = pool.NewFromEndpoint(updatedDef)
 	assert.Nil(t, err)
 
-	// 获取更新后的实例
+	// Get the updated instance
 	updatedInstance, err := pool.GetInstance("dynamic_restart_test")
 	assert.Nil(t, err)
 	updatedRest, ok := updatedInstance.(*rest.Rest)
 	assert.True(t, ok)
 
-	// 验证配置已更新
-	assert.True(t, updatedRest.Config.AllowCors) // 配置已更新
+	// Verification configuration has been updated
+	assert.True(t, updatedRest.Config.AllowCors) // The configuration has been updated
 
-	// 验证配置更新成功
+	// Verify that the configuration update was successful
 
-	// 添加一个简单的路由来测试功能
+	// Add a simple route to test the functionality
 	router := impl.NewRouter().From("/cors-test").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.Out.SetBody([]byte("CORS enabled"))
 		return true
 	}).End()
 	updatedRest.GET(router)
 
-	// 验证路由已添加
+	// Verification routes have been added
 
-	// 清理
+	// Cleanup
 	pool.Stop()
 }

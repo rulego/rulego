@@ -49,7 +49,7 @@ import (
 	"io"
 )
 
-// generateKey 根据给定的字符串生成一个AES密钥
+// generateKey generates an AES key based on the given string
 func generateKey(key []byte) []byte {
 	newKey := make([]byte, 32) // AES-256
 	copy(newKey, key)
@@ -59,14 +59,14 @@ func generateKey(key []byte) []byte {
 	return newKey
 }
 
-// Encrypt 使用AES-256加密数据
+// Encrypt uses AES-256 to encrypt data
 func Encrypt(plaintext string, key []byte) (string, error) {
 	block, err := aes.NewCipher(generateKey(key))
 	if err != nil {
 		return "", err
 	}
 
-	// 原始数据填充
+	// Raw data filling
 	padding := aes.BlockSize - len(plaintext)%aes.BlockSize
 	padtext := make([]byte, padding)
 	for i := range padtext {
@@ -74,7 +74,7 @@ func Encrypt(plaintext string, key []byte) (string, error) {
 	}
 	plaintext += string(padtext)
 
-	// 加密
+	// Encryption
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
 	iv := ciphertext[:aes.BlockSize]
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
@@ -87,7 +87,7 @@ func Encrypt(plaintext string, key []byte) (string, error) {
 	return hex.EncodeToString(ciphertext), nil
 }
 
-// Decrypt 使用AES-256解密数据
+// Decrypt uses AES-256 to decrypt data
 func Decrypt(encrypted string, key []byte) (string, error) {
 	block, err := aes.NewCipher(generateKey(key))
 	if err != nil {
@@ -108,7 +108,7 @@ func Decrypt(encrypted string, key []byte) (string, error) {
 	mode := cipher.NewCBCDecrypter(block, iv)
 	mode.CryptBlocks(ciphertext, ciphertext)
 
-	// 移除填充
+	// Remove the filler
 	padding := int(ciphertext[len(ciphertext)-1])
 	if padding < 1 || padding > aes.BlockSize {
 		return "", err

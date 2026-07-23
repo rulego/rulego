@@ -1,6 +1,6 @@
-// Package bridge 提供标准库 net/http 桥接层，允许宿主系统（如 Gin/Echo）嵌入 RuleGo 服务。
+// Package bridge provides a standard library net/http bridge layer, allowing host systems (such as Gin/Echo) to embed RuleGo services.
 //
-// 嵌入式接入示例（Gin）：
+// Embedded Access Example (Gin):
 //
 //	package main
 //
@@ -13,7 +13,7 @@
 //	)
 //
 //	func main() {
-//		// 方式一：自定义模块（推荐）
+//		Method 1: Custom Modules (Recommended)
 //		application, _ := app.New(
 //			app.WithConfigFile("config.conf"),
 //			app.WithModules(user.New(), rule.New()),
@@ -22,16 +22,16 @@
 //
 //		r := gin.Default()
 //
-//		// 用户自己的路由
+//		User-made routes
 //		r.GET("/api/users", userListHandler)
 //
-//		// RuleGo 路由挂载到 /rulego 前缀下，避免与宿主路由冲突
+//		RuleGo routes are mounted under the /rulego prefix to avoid conflicts with host routes
 //		r.Group("/rulego").Any("/*path", gin.WrapH(b.Handler()))
 //
 //		r.Run(":8080")
 //	}
 //
-//	// 方式二：默认模块
+//	Method 2: Default module
 //	b, _ := bridge.NewBridgeWithDefaults("config.conf")
 //	handler := b.Handler()
 package bridge
@@ -39,21 +39,23 @@ package bridge
 import (
 	"net/http"
 
+	"github.com/julienschmidt/httprouter"
+
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/bootstrap"
 	"github.com/rulego/rulego/server/config"
 	srvEndpoint "github.com/rulego/rulego/server/internal/endpoint"
 )
 
-// Bridge 桥接 RuleGo REST endpoint 到标准 net/http Handler。
-// 允许宿主系统（如 Gin/Echo）通过标准 http.Handler 访问完整的 RuleGo API。
+// Bridge bridges RuleGo REST endpoints to standard net/http handlers.
+// Allows host systems (such as Gin/Echo) to pass through standard http.Handler provides access to the complete RuleGo API.
 type Bridge struct {
 	app     *app.App
 	handler http.Handler
 }
 
-// NewBridge 创建桥接器，接受已构造但未 Init 的 app.App。
-// 会自动注册存储钩子、初始化应用、创建 REST endpoint。
+// NewBridge Create a bridge that accepts app.App that have been constructed but not yet Inited.
+// It automatically registers storage hooks, initializes applications, and creates REST endpoints.
 func NewBridge(application *app.App) (*Bridge, error) {
 	app.RegisterDefaultStoresHook(application)
 
@@ -75,7 +77,7 @@ func NewBridge(application *app.App) (*Bridge, error) {
 	srv := srvEndpoint.NewServer(application.Container(), cfg, typesLogger)
 	_ = srv
 
-	// 使用标准 net/http 端点（不走注册表，确保不被 fasthttp 替换）
+	// Use standard net/http endpoints (avoid the registry, ensuring it is not replaced by fasthttp)
 	restEp, err := srv.NewStandardRestEndpoint()
 	if err != nil {
 		return nil, err
@@ -85,17 +87,15 @@ func NewBridge(application *app.App) (*Bridge, error) {
 		return nil, err
 	}
 
-	// 启动 endpoint（注册路由但不监听端口）
-	if err := restEp.Start(); err != nil {
-		return nil, err
+	// Do NOT call restEp.Start(): rest.Rest.Start() binds cfg.Server and
+	// serves, but an embedded host must own the only listener. Routes are
+	// already registered by initRestEndpoint, and Router() carries the CORS
+	// setup, so the router itself is the complete handler.
+	type routerProvider interface {
+		Router() *httprouter.Router
 	}
-
-	// 获取底层 http.Server 的 Handler
-	type serverProvider interface {
-		GetServer() *http.Server
-	}
-	if sp, ok := restEp.(serverProvider); ok {
-		if h := sp.GetServer().Handler; h != nil {
+	if rp, ok := restEp.(routerProvider); ok {
+		if h := rp.Router(); h != nil {
 			return &Bridge{app: application, handler: h}, nil
 		}
 	}
@@ -103,8 +103,8 @@ func NewBridge(application *app.App) (*Bridge, error) {
 	return &Bridge{app: application}, nil
 }
 
-// NewBridgeWithDefaults 使用默认模块创建桥接器。
-// 适用于快速接入场景，包含 user、rule、node 等全部默认模块。
+// NewBridgeWithDefaults creates a bridge using the default module.
+// Suitable for fast access scenarios, including all default modules such as user, rule, node, etc.
 func NewBridgeWithDefaults(configFile string) (*Bridge, error) {
 	application := app.New(
 		app.WithConfigFile(configFile),
@@ -113,20 +113,20 @@ func NewBridgeWithDefaults(configFile string) (*Bridge, error) {
 	return NewBridge(application)
 }
 
-// Handler 返回标准 http.Handler，可直接嵌入 Gin/Echo 等框架。
-// 宿主可通过 http.StripPrefix 去掉挂载前缀：
+// Handler returns the standard http.Handler, which can directly embed frameworks like Gin/Echo.
+// The host can access http.StripPrefix removes the mount prefix:
 //
 //	r.Group("/rulego").Any("/*path", gin.WrapH(http.StripPrefix("/rulego", bridge.Handler())))
 func (b *Bridge) Handler() http.Handler {
 	return b.handler
 }
 
-// App 返回底层的 app.App，用于生命周期管理。
+// The app returns the underlying app.App for lifecycle management.
 func (b *Bridge) App() *app.App {
 	return b.app
 }
 
-// Stop 停止应用和 endpoint。
+// Stop the application and endpoint.
 func (b *Bridge) Stop() error {
 	if b.app != nil {
 		return b.app.Stop()

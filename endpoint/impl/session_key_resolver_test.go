@@ -26,7 +26,7 @@ func jsonMsg(s string) types.RuleMsg {
 	return types.NewMsg(0, "", types.JSON, types.NewMetadata(), s)
 }
 
-// binaryMsg 构造一个非 JSON 的占位 msg（${data[...]} 类测试只用 data 参数）
+// binaryMsg constructs a non-JSON placeholder msg(${data[...]} class tests use only the data parameter)
 func binaryMsg() types.RuleMsg {
 	return types.NewMsg(0, "", types.BINARY, types.NewMetadata(), "")
 }
@@ -63,7 +63,7 @@ func TestResolveMetadata(t *testing.T) {
 	}
 }
 
-// expr 原生字符串切片（byte 级）
+// expr native string slicing (byte level)
 func TestResolveDataSlice(t *testing.T) {
 	r := NewSessionKeyResolver("${data[4:11]}")
 	got := r.Resolve(binaryMsg(), []byte("XXXXDEV_001_YY"))
@@ -72,7 +72,7 @@ func TestResolveDataSlice(t *testing.T) {
 	}
 }
 
-// 切片 + 注入的 hex 函数
+// Slicing + injected hex function
 func TestResolveHex(t *testing.T) {
 	r := NewSessionKeyResolver("${hex(data[2:4])}")
 	got := r.Resolve(binaryMsg(), []byte{0x00, 0x00, 0xAB, 0xCD, 0xFF})
@@ -81,7 +81,7 @@ func TestResolveHex(t *testing.T) {
 	}
 }
 
-// 注入的 reFind 函数：返回捕获组
+// Injection reFind function: Returns the capture group
 func TestResolveReFindGroup(t *testing.T) {
 	r := NewSessionKeyResolver(`${reFind("ID:([A-Z0-9]+)", data)}`)
 	got := r.Resolve(binaryMsg(), []byte("log ID:DEV001 end"))
@@ -90,7 +90,7 @@ func TestResolveReFindGroup(t *testing.T) {
 	}
 }
 
-// reFind 无分组 → 返回整条匹配
+// reFind without grouping → returns the entire match
 func TestResolveReFindNoGroup(t *testing.T) {
 	r := NewSessionKeyResolver(`${reFind("DEV_[0-9]+", data)}`)
 	got := r.Resolve(binaryMsg(), []byte("log DEV_001 end"))
@@ -99,20 +99,20 @@ func TestResolveReFindNoGroup(t *testing.T) {
 	}
 }
 
-// 多候选跨类型回退：JSON miss → 字节切片
+// Multi-candidate cross-type rollback: JSON miss→ byte slicing
 func TestResolveMultiCandidateFallback(t *testing.T) {
 	r := NewSessionKeyResolver([]string{"${msg.deviceId}", "${data[4:10]}"})
-	// 帧1：JSON 有 deviceId
+	// Frame 1: JSON has deviceId
 	if got := r.Resolve(jsonMsg(`{"deviceId":"JSON_DEV"}`), nil); got != "JSON_DEV" {
 		t.Fatalf("frame1 got %q, want JSON_DEV", got)
 	}
-	// 帧2：JSON 无 deviceId（返回空），回退 data[4:10]
+	// Frame 2: JSON without deviceId (returns empty), reverts data [4:10]
 	if got := r.Resolve(jsonMsg(`{"x":1}`), []byte("XXXXHEXDEV_")); got != "HEXDEV" {
 		t.Fatalf("frame2 got %q, want HEXDEV", got)
 	}
 }
 
-// 无效候选（表达式编译失败）被跳过，不影响后续候选
+// Invalid candidates (expression compilation failure) are skipped and do not affect subsequent candidates
 func TestResolveInvalidCandidateSkipped(t *testing.T) {
 	r := NewSessionKeyResolver([]string{"${this is invalid !!!}", "${msg.deviceId}"})
 	got := r.Resolve(jsonMsg(`{"deviceId":"FALLBACK"}`), nil)
@@ -128,7 +128,7 @@ func TestResolveEmptyConfig(t *testing.T) {
 	}
 }
 
-// 验证 el 模板只编译一次：多次 Resolve 复用（间接证明）
+// Verify that the template is compiled only once: multiple Resolve reuse (indirect proof)
 func TestResolveReuseAcrossCalls(t *testing.T) {
 	r := NewSessionKeyResolver(`${reFind("DEV_[0-9]+", data)}`)
 	for i := 0; i < 3; i++ {

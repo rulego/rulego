@@ -14,7 +14,7 @@ import (
 )
 
 func TestLCAComplexBug(t *testing.T) {
-	// 读取规则链文件
+	// Read the rule chain file
 	ruleChainFile := filepath.Join("..", "testdata", "rule", "test_lca_complex_bug.json")
 	buf, err := os.ReadFile(ruleChainFile)
 	if err != nil {
@@ -63,7 +63,7 @@ func TestLCAComplexBug(t *testing.T) {
 			}),
 		)
 
-		// 等待执行完成或超时
+		// Wait for execution to complete or timeout
 		done := make(chan struct{})
 		go func() {
 			wg.Wait()
@@ -93,7 +93,7 @@ func TestLCAComplexBug(t *testing.T) {
 		}
 	}
 
-	// 跑2次以复现问题
+	// Run twice to reproduce the problem
 	for i := 1; i <= 2; i++ {
 		t.Logf("--- Starting Run %d ---", i)
 		runTest(i)

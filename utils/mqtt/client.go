@@ -52,17 +52,17 @@ import (
 	"time"
 )
 
-// Handler 订阅数据处理器
+// Handler subscribes to data processors
 type Handler struct {
-	//订阅主题
+	//Subscribe to the topic
 	Topic string
-	//订阅Qos
+	//Subscribe to QoS
 	Qos byte
-	//接收订阅数据 处理
+	//Receive subscription data for processing
 	Handle func(c paho.Client, data paho.Message)
 }
 
-// Config 客户端配置
+// Config client configuration
 type Config struct {
 	Server               string        `json:"server" label:"Server" desc:"MQTT broker address, format host:port, e.g. 127.0.0.1:1883" required:"true" ref:"primary"`
 	Username             string        `json:"username" label:"Username" desc:"MQTT authentication username" ref:"shared"`
@@ -76,25 +76,25 @@ type Config struct {
 	CertKeyFile          string        `json:"certKeyFile" label:"Cert Key File" desc:"TLS client private key file path" ref:"shared"`
 }
 
-// Client mqtt客户端
+// Client: mqtt client
 type Client struct {
 	sync.RWMutex
 	wg     sync.WaitGroup
 	client paho.Client
-	//订阅主题和处理器映射
+	//Subscribe to themes and processor mappings
 	msgHandlerMap map[string]Handler
-	// 连接状态标识 (0=未连接, 1=已连接)
+	// Connection status indicator (0=Not connected, 1=Connected)
 	isConnected int32
 }
 
-// NewClient 创建一个MQTT客户端实例
-// 支持自动重连和指数退避重试策略
+// NewClient creates an MQTT client instance
+// Supports automatic reconnection and exponential retry strategies
 func NewClient(ctx context.Context, conf Config) (*Client, error) {
 	var err error
 
 	b := Client{
 		msgHandlerMap: make(map[string]Handler),
-		isConnected:   0, // 初始化为未连接状态
+		isConnected:   0, // Initialize to unconnected state
 	}
 
 	opts := paho.NewClientOptions()
@@ -103,18 +103,18 @@ func NewClient(ctx context.Context, conf Config) (*Client, error) {
 	opts.SetPassword(conf.Password)
 	opts.SetCleanSession(conf.CleanSession)
 	if conf.ClientID == "" {
-		//随机clientId
+		//Random clientId
 		opts.SetClientID("rulego/" + string2.RandomStr(8))
 	} else {
 		opts.SetClientID(conf.ClientID)
 	}
 
-	// 设置回调函数
+	// Set callback functions
 	opts.SetOnConnectHandler(b.onConnected)
 	opts.SetConnectionLostHandler(b.onConnectionLost)
 	opts.SetReconnectingHandler(b.onReconnecting)
 
-	// 配置自动重连
+	// Configure automatic reconnection
 	opts.SetAutoReconnect(true)
 	if conf.MaxReconnectInterval <= 0 {
 		conf.MaxReconnectInterval = time.Second * 60
@@ -131,7 +131,7 @@ func NewClient(ctx context.Context, conf Config) (*Client, error) {
 	}
 	b.client = paho.NewClient(opts)
 
-	// 初始连接重试逻辑，使用指数退避策略
+	// Initial connection retries logic, using exponential retreat strategies
 	maxRetries := 5
 	retryInterval := time.Second * 2
 
@@ -139,23 +139,23 @@ func NewClient(ctx context.Context, conf Config) (*Client, error) {
 		if token := b.client.Connect(); token.Wait() && token.Error() != nil {
 			select {
 			case <-ctx.Done():
-				// context被取消或超时，返回错误
+				// context is canceled or timed out, returning an error
 				return nil, ctx.Err()
 			case <-time.After(retryInterval):
-				// 指数退避：每次重试间隔增加50%
+				// Exponential Retreat: Increase the interval between retries by 50%
 				retryInterval = time.Duration(float64(retryInterval) * 1.5)
 				if retryInterval > conf.MaxReconnectInterval {
 					retryInterval = conf.MaxReconnectInterval
 				}
 			}
 		} else {
-			// 连接成功，设置连接状态
+			// Connection successful, set the connection status
 			atomic.StoreInt32(&b.isConnected, 1)
 			return &b, nil
 		}
 	}
 
-	// 达到最大重试次数，返回最后一次连接错误
+	// Reaches the maximum number of retries and returns the last connection error
 	if token := b.client.Connect(); token.Wait() && token.Error() != nil {
 		return nil, fmt.Errorf("failed to connect after %d retries: %v", maxRetries, token.Error())
 	}
@@ -164,7 +164,7 @@ func NewClient(ctx context.Context, conf Config) (*Client, error) {
 	return &b, nil
 }
 
-// RegisterHandler 注册订阅数据处理器
+// RegisterHandler Registers and subscribes to the data processor
 func (b *Client) RegisterHandler(handler Handler) {
 	b.Lock()
 	defer b.Unlock()
@@ -172,7 +172,7 @@ func (b *Client) RegisterHandler(handler Handler) {
 	b.subscribeHandler(handler)
 }
 
-// UnregisterHandler 删除订阅数据处理器
+// UnregisterHandler deletes the subscribed data processor
 func (b *Client) UnregisterHandler(topic string) error {
 	b.Lock()
 	defer b.Unlock()
@@ -190,7 +190,7 @@ func (b *Client) UnregisterHandler(topic string) error {
 	}
 }
 
-// GetHandlerByUpTopic 通过主题获取数据处理器
+// GetHandlerByUpTopic Gets the data processor through topics
 func (b *Client) GetHandlerByUpTopic(topic string) Handler {
 	b.RLock()
 	defer b.RUnlock()
@@ -214,20 +214,20 @@ func (b *Client) Close() error {
 	return nil
 }
 
-// IsConnected 检查MQTT客户端是否已连接
+// IsConnected checks whether the MQTT client is connected
 func (b *Client) IsConnected() bool {
 	return atomic.LoadInt32(&b.isConnected) == 1
 }
 
-// Publish 发布数据
+// Publish the data
 func (b *Client) Publish(topic string, qos byte, data []byte) error {
-	// 检查连接状态
+	// Check the connection status
 	if !b.IsConnected() {
 		return errors.New("MQTT client is not connected")
 	}
 
 	token := b.client.Publish(topic, qos, false, data)
-	// 使用5秒超时等待发布完成
+	// Use a 5-second timeout to wait for the release to complete
 	if !token.WaitTimeout(5 * time.Second) {
 		return errors.New("publish timeout after 5 seconds")
 	}
@@ -239,7 +239,7 @@ func (b *Client) Publish(topic string, qos byte, data []byte) error {
 	return nil
 }
 
-// onConnected MQTT连接成功回调
+// onConnected MQTT connection successful callback
 func (b *Client) onConnected(c paho.Client) {
 	atomic.StoreInt32(&b.isConnected, 1)
 	b.subscribe()
@@ -247,14 +247,14 @@ func (b *Client) onConnected(c paho.Client) {
 
 func (b *Client) subscribe() {
 	b.RLock()
-	// 创建处理器副本以避免在迭代过程中持有锁
+	// Creates a copy of the processor to avoid holding locks during iterations
 	handlers := make([]Handler, 0, len(b.msgHandlerMap))
 	for _, handler := range b.msgHandlerMap {
 		handlers = append(handlers, handler)
 	}
 	b.RUnlock()
 
-	// 在不持有锁的情况下订阅
+	// Subscribe without holding a lock
 	for _, handler := range handlers {
 		b.subscribeHandler(handler)
 	}
@@ -263,7 +263,7 @@ func (b *Client) subscribe() {
 func (b *Client) subscribeHandler(handler Handler) {
 	topic := handler.Topic
 	for {
-		if token := b.client.Subscribe(topic, handler.Qos, handler.Handle).(*paho.SubscribeToken); token.Wait() && (token.Error() != nil || is128Err(token, topic)) { //128 ACK错误
+		if token := b.client.Subscribe(topic, handler.Qos, handler.Handle).(*paho.SubscribeToken); token.Wait() && (token.Error() != nil || is128Err(token, topic)) { //128 ACK error
 			time.Sleep(2 * time.Second)
 			continue
 		}
@@ -271,19 +271,19 @@ func (b *Client) subscribeHandler(handler Handler) {
 	}
 }
 
-// 判断是否是acl 128错误
+// Determine whether it is an ACL 128 error
 func is128Err(token *paho.SubscribeToken, topic string) bool {
 	result, ok := token.Result()[topic]
 	return ok && result == 128
 }
 
-// onReconnecting MQTT重连中回调
-// 在客户端尝试重新连接时被调用
+// onReconnecting MQTT reconnects during callback
+// It is called when the client attempts to reconnect
 func (b *Client) onReconnecting(c paho.Client, opts *paho.ClientOptions) {
 }
 
-// onConnectionLost MQTT连接丢失回调
-// 当与MQTT代理的连接意外丢失时被调用
+// onConnectionLost MQTT connection lost callback
+// It is called when the connection to the MQTT proxy is accidentally lost
 func (b *Client) onConnectionLost(c paho.Client, reason error) {
 	atomic.StoreInt32(&b.isConnected, 0)
 }
@@ -318,8 +318,8 @@ func newTLSConfig(CAFile, certFile, certKeyFile string) (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
-// NormalizeConfigKeys 兼容旧版本配置 key 的大小写差异
-// 将旧版本的 key（如 qOS、clientID、cAFile）映射到新版本的 key（qos、clientId、caFile）
+// NormalizeConfigKeys is compatible with case differences in older configuration keys
+// Map old versions of keys (such as qOS, clientID, cAFile) to new versions of keys (qos, clientId, caFile)
 func NormalizeConfigKeys(configuration map[string]interface{}) {
 	keyMappings := [][2]string{
 		{"qOS", "qos"},

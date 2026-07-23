@@ -215,10 +215,10 @@ func readUploadedSkillArchive(exchange *endpointApi.Exchange) ([]byte, error) {
 	if !ok || req.Request() == nil {
 		return nil, errors.New("unsupported request")
 	}
-	// 注意：rest.RequestMessage.Body() 会 io.ReadAll 后 Close 掉 request.Body 流，
-	// 请求管线在到达本 handler 前已缓存过 Body()，导致 request.Body 已耗尽。
-	// 因此不能用 req.Request().ParseMultipartForm（它读原始流，必失败）；
-	// 改从已缓存的 Body() 字节，借助 multipart.Reader 解析。
+	// Note: rest.RequestMessage.Body () will close the request.Body stream after io.ReadAll,
+	// The request pipeline caches Body() before reaching this handler, causing the request.Body to be exhausted.
+	// Therefore, req.Request (). cannot be used. ParseMultipartForm (It reads the original stream and will definitely fail);
+	// Instead, from the cached Body() bytes, use multipart.Reader analysis.
 	body := req.Body()
 	mediaType, params, err := mime.ParseMediaType(req.Request().Header.Get("Content-Type"))
 	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
@@ -250,8 +250,8 @@ func skillScopeFromExchange(exchange *endpointApi.Exchange) (string, error) {
 	return skillmodule.NormalizeSkillScope(scope)
 }
 
-// reloadBuiltInAssistant 重载内置智能体，使全局技能变更立即生效。
-// 重载失败不阻塞响应，静默忽略。
+// reloadBuiltInAssistant reloads the built-in agent, making global skill changes take effect immediately.
+// Overload failures do not block response, silently ignoring them.
 func (s *Server) reloadBuiltInAssistant() {
 	admin, err := app.GetAs[services.RuleAdminService](s.container, services.KeyRuleManager)
 	if err != nil {

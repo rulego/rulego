@@ -171,7 +171,7 @@ func TestRuleModule_GetRuleConfig_NoUser(t *testing.T) {
 	}
 
 	rc := m.GetRuleConfig("nonexistent")
-	// 用户不存在时应返回空配置
+	// If the user does not exist, return an empty configuration
 	_ = rc
 }
 
@@ -231,7 +231,7 @@ func TestRuleModule_SaveAndLoad(t *testing.T) {
 		t.Fatalf("SaveAndLoad: %v", err)
 	}
 
-	// 验证能获取到
+	// Verification can be obtained
 	def, err := m.Get("admin", "test-chain-1")
 	if err != nil {
 		t.Fatalf("Get after SaveAndLoad: %v", err)
@@ -240,7 +240,7 @@ func TestRuleModule_SaveAndLoad(t *testing.T) {
 		t.Error("Get should return non-empty definition")
 	}
 
-	// 验证 List 能看到
+	// You can see it by checking the verification list
 	chains, total, err := m.List("admin", "", nil, nil, "", 20, 1)
 	if err != nil {
 		t.Fatalf("List: %v", err)
@@ -275,7 +275,7 @@ func TestRuleModule_DeployUndeploy(t *testing.T) {
 		t.Fatalf("Undeploy: %v", err)
 	}
 
-	// 重新 Deploy
+	// Redeploy
 	if err := m.Deploy("admin", "deploy-test"); err != nil {
 		t.Fatalf("Deploy: %v", err)
 	}
@@ -325,15 +325,15 @@ func TestRuleModule_Delete_SystemAgent(t *testing.T) {
 	}
 }
 
-// TestRuleModule_SaveAndLoad_StripsSystemAgentFromUserNamespace 验证非 DefaultUsername
-// 命名空间的调用者无法通过 SaveAndLoad 注入 systemAgent 标记（防止伪装不可删除链）。
+// TestRuleModule_SaveAndLoad_StripsSystemAgentFromUserNamespace Verify that it is not a DefaultUsername
+// Namespace callers cannot inject systemAgent tags via SaveAndLoad (to prevent disguising the undeleteable chain).
 func TestRuleModule_SaveAndLoad_StripsSystemAgentFromUserNamespace(t *testing.T) {
 	m, _ := setupRuleModule(t)
 	if err := m.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 
-	// 模拟普通用户命名空间（DefaultUsername="admin"，使用 "tenant-1" 区分）
+	// Simulates a regular user namespace (DefaultUsername="admin", distinguished by "tenant-1")
 	chainDef := `{
 		"ruleChain": {
 			"id": "poison-chain",
@@ -346,7 +346,7 @@ func TestRuleModule_SaveAndLoad_StripsSystemAgentFromUserNamespace(t *testing.T)
 		t.Fatalf("SaveAndLoad: %v", err)
 	}
 
-	// 保存后读取定义：systemAgent 标记应已被剥离
+	// After saving, read the definition: the systemAgent tag should have been stripped off
 	raw, err := m.Get("tenant-1", "poison-chain")
 	if err != nil {
 		t.Fatalf("Get: %v", err)
@@ -359,13 +359,13 @@ func TestRuleModule_SaveAndLoad_StripsSystemAgentFromUserNamespace(t *testing.T)
 		t.Error("systemAgent marker should be stripped for non-default namespace")
 	}
 
-	// 剥离后该链应可被删除（非系统智能体）
+	// After separation, the chain should be deleted (not a system agent)
 	if err := m.Delete("tenant-1", "poison-chain"); err != nil {
 		t.Errorf("Delete should succeed after stripping systemAgent, got: %v", err)
 	}
 }
 
-// capturingListener 记录收到的事件，用于断言 Save/Deploy/Undeploy/Delete 是否触发监听器
+// capturingListener records received events and asserts whether Save/Deploy/Undeploy/Delete triggers the listener
 type capturingListener struct {
 	savedEvents      []services.ChainLifecycleEvent
 	deployedEvents   []services.ChainLifecycleEvent
@@ -373,12 +373,20 @@ type capturingListener struct {
 	deletedEvents    []services.ChainLifecycleEvent
 }
 
-func (c *capturingListener) OnSaved(e services.ChainLifecycleEvent)      { c.savedEvents = append(c.savedEvents, e) }
-func (c *capturingListener) OnDeployed(e services.ChainLifecycleEvent)   { c.deployedEvents = append(c.deployedEvents, e) }
-func (c *capturingListener) OnUndeployed(e services.ChainLifecycleEvent) { c.undeployedEvents = append(c.undeployedEvents, e) }
-func (c *capturingListener) OnDeleted(e services.ChainLifecycleEvent)    { c.deletedEvents = append(c.deletedEvents, e) }
+func (c *capturingListener) OnSaved(e services.ChainLifecycleEvent) {
+	c.savedEvents = append(c.savedEvents, e)
+}
+func (c *capturingListener) OnDeployed(e services.ChainLifecycleEvent) {
+	c.deployedEvents = append(c.deployedEvents, e)
+}
+func (c *capturingListener) OnUndeployed(e services.ChainLifecycleEvent) {
+	c.undeployedEvents = append(c.undeployedEvents, e)
+}
+func (c *capturingListener) OnDeleted(e services.ChainLifecycleEvent) {
+	c.deletedEvents = append(c.deletedEvents, e)
+}
 
-// TestRuleModule_LifecycleListener_AllEvents 验证全部 4 个事件正确触发
+// TestRuleModule_LifecycleListener_AllEvents Verify that all 4 events are triggered correctly
 func TestRuleModule_LifecycleListener_AllEvents(t *testing.T) {
 	m, _ := setupRuleModule(t)
 	if err := m.Start(context.Background()); err != nil {
@@ -416,7 +424,7 @@ func TestRuleModule_LifecycleListener_AllEvents(t *testing.T) {
 		t.Errorf("after Undeploy, expected 1 undeployed event, got %d", len(listener.undeployedEvents))
 	}
 
-	// 再次 Deploy → OnDeployed
+	// Deploy → OnDeployed again
 	if err := m.Deploy("admin", "lifecycle-test"); err != nil {
 		t.Fatal(err)
 	}
@@ -433,8 +441,8 @@ func TestRuleModule_LifecycleListener_AllEvents(t *testing.T) {
 	}
 }
 
-// TestRuleModule_LifecycleListener_BaseDefault 验证 BaseChainLifecycleListener 默认实现可用
-// （监听器只关心 OnDeleted，其他用 Base 的默认空实现）
+// TestRuleModule_LifecycleListener_BaseDefault Verify that the default implementation of BaseChainLifecycleListener is available
+// (Listeners only care about OnDeleted; others are implemented by default null in Base)
 type deleteOnlyListener struct {
 	services.BaseChainLifecycleListener
 	deletedCount int
@@ -458,7 +466,7 @@ func TestRuleModule_LifecycleListener_BaseDefault(t *testing.T) {
 	if err := m.SaveAndLoad("admin", "base-test", []byte(chainDef)); err != nil {
 		t.Fatal(err)
 	}
-	// SaveAndLoad 不该触发 OnDeleted
+	// SaveAndLoad should not trigger OnDeleted
 	if listener.deletedCount != 0 {
 		t.Errorf("deleteOnlyListener should not fire on SaveAndLoad, got %d", listener.deletedCount)
 	}
@@ -471,13 +479,13 @@ func TestRuleModule_LifecycleListener_BaseDefault(t *testing.T) {
 	}
 }
 
-// TestRuleModule_LifecycleListener_PanicSafe 验证监听器 panic 不会中断 Deploy
+// TestRuleModule_LifecycleListener_PanicSafe Verify that the listener panic does not interrupt Deploy
 type panickingListener struct {
 	services.BaseChainLifecycleListener
 }
 
 func (p *panickingListener) OnDeployed(services.ChainLifecycleEvent) { panic("intentional") }
-func (p *panickingListener) OnSaved(services.ChainLifecycleEvent)   { panic("intentional") }
+func (p *panickingListener) OnSaved(services.ChainLifecycleEvent)    { panic("intentional") }
 
 func TestRuleModule_LifecycleListener_PanicSafe(t *testing.T) {
 	m, _ := setupRuleModule(t)
@@ -491,14 +499,14 @@ func TestRuleModule_LifecycleListener_PanicSafe(t *testing.T) {
 		"ruleChain": {"id": "panic-test", "name": "Panic Test"},
 		"metadata": {"nodes": [], "connections": []}
 	}`
-	// SaveAndLoad 应该成功，尽管 OnSaved/OnDeployed 都 panic
+	// SaveAndLoad should succeed, even though both OnSaved/OnDeployed panic
 	if err := m.SaveAndLoad("admin", "panic-test", []byte(chainDef)); err != nil {
 		t.Fatalf("SaveAndLoad should succeed despite listener panic, got: %v", err)
 	}
 }
 
-// TestRuleModule_CategoryFilter 验证 category 过滤工作正常
-// （category 通过 AdditionalInfo["category"] 持久化，filestore 已支持过滤）
+// TestRuleModule_CategoryFilter Verify that category filtering is working properly
+// (category is persisted via AdditionalInfo["category"], and the filestore supports filtering)
 func TestRuleModule_CategoryFilter(t *testing.T) {
 	m, _ := setupRuleModule(t)
 	if err := m.Start(context.Background()); err != nil {
@@ -528,7 +536,7 @@ func TestRuleModule_CategoryFilter(t *testing.T) {
 		}
 	}
 
-	// 过滤 timer 分类
+	// Filter timer categories
 	timerChains, total, err := m.List("admin", "", nil, nil, "timer", 0, 0)
 	if err != nil {
 		t.Fatalf("List timer: %v", err)
@@ -543,7 +551,7 @@ func TestRuleModule_CategoryFilter(t *testing.T) {
 		}
 	}
 
-	// 过滤 api 分类
+	// Filter API categories
 	_, apiTotal, err := m.List("admin", "", nil, nil, "api", 0, 0)
 	if err != nil {
 		t.Fatalf("List api: %v", err)
@@ -552,7 +560,7 @@ func TestRuleModule_CategoryFilter(t *testing.T) {
 		t.Errorf("api category total = %d, want 1", apiTotal)
 	}
 
-	// 不过滤
+	// No filtering
 	_, allTotal, err := m.List("admin", "", nil, nil, "", 0, 0)
 	if err != nil {
 		t.Fatalf("List all: %v", err)
@@ -562,7 +570,7 @@ func TestRuleModule_CategoryFilter(t *testing.T) {
 	}
 }
 
-// 编译时接口检查
+// Compile-time interface check
 var _ services.ChainCatalog = (*Module)(nil)
 var _ services.ChainExecutor = (*Module)(nil)
 var _ services.RuleAdminService = (*Module)(nil)

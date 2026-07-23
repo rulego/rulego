@@ -28,7 +28,7 @@ import (
 	"path/filepath"
 )
 
-// ComponentService 自定义组件服务
+// ComponentService: Custom component services
 type ComponentService struct {
 	username     string
 	config       config.Config

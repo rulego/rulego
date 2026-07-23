@@ -3,7 +3,7 @@
 package main
 
 import (
-	// Endpoint 组件
+	// Endpoint components
 	_ "github.com/rulego/rulego-components/endpoint/grpc_stream"
 	_ "github.com/rulego/rulego-components/endpoint/kafka"
 	_ "github.com/rulego/rulego-components/endpoint/nats"
@@ -14,10 +14,10 @@ import (
 	_ "github.com/rulego/rulego-components/endpoint/redis_stream"
 	_ "github.com/rulego/rulego-components/endpoint/wukongim"
 
-	// External 组件
+	// External components
 	_ "github.com/rulego/rulego-components/external/email"
 	_ "github.com/rulego/rulego-components/external/file"
-	_ "github.com/rulego/rulego-components/external/grpc" // 编译后文件大约增加7M
+	_ "github.com/rulego/rulego-components/external/grpc" // The compiled file increases by about 7M
 	_ "github.com/rulego/rulego-components/external/kafka"
 	_ "github.com/rulego/rulego-components/external/mongodb"
 	_ "github.com/rulego/rulego-components/external/nats"
@@ -29,7 +29,7 @@ import (
 	_ "github.com/rulego/rulego-components/external/redis"
 	_ "github.com/rulego/rulego-components/external/wukongim"
 
-	// 脚本支持
+	// Script support
 	_ "github.com/rulego/rulego-components/action/python"
 	_ "github.com/rulego/rulego-components/filter/lua"
 	_ "github.com/rulego/rulego-components/stats/streamsql"

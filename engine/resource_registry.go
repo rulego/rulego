@@ -18,11 +18,11 @@ package engine
 
 import "sync"
 
-// resourceRegistry 是 types.ResourceRegistry 的引擎内默认实现。
-// 用 sync.Map：读路径（Lookup）完全无锁，适合底层库高频 ref:// 解析；
-// 写路径（Register/Unregister）低频（组件部署/重载）。
+// resourceRegistry is the default implementation within types.ResourceRegistry's engine.
+// Use sync.Map: Lookup path is completely lock-free, suitable for high-frequency ref:// parsing of underlying libraries;
+// Write path (Register/Unregister) Low frequency (component deployment/overload).
 //
-// 零值可用：RuleChainCtx 可直接以值字段持有，无需构造初始化。
+// Zero value available: RuleChainCtx can be held directly as a value field, without the need for initialization.
 type resourceRegistry struct {
 	items sync.Map // id -> any
 }

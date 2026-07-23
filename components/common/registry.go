@@ -18,6 +18,6 @@ package common
 
 import "github.com/rulego/rulego/api/types"
 
-// Registry 通用组件注册表
+// Registry is a universal component registry
 // Registry is the common components registry
 var Registry = &types.SafeComponentSlice{}

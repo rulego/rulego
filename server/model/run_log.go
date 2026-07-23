@@ -2,7 +2,7 @@ package model
 
 import "encoding/json"
 
-// Event 规则链运行事件
+// Event Rule Chain runs events
 type Event struct {
 	Id        string          `json:"id"`
 	ChainId   string          `json:"chainId"`
@@ -13,4 +13,3 @@ type Event struct {
 	ErrorMsg  string          `json:"errorMsg,omitempty"`
 	Logs      json.RawMessage `json:"logs,omitempty"`
 }
-

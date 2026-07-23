@@ -13,7 +13,7 @@ import (
 	"github.com/rulego/rulego/utils/fs"
 )
 
-// HandleDebugLog 处理调试日志数据
+// HandleDebugLog handles debug log data
 func (m *Module) HandleDebugLog(username, chainId string, data map[string]interface{}) {
 	if ruleChainId, ok := data["ruleChainId"]; ok {
 		chainId = fmt.Sprintf("%v", ruleChainId)
@@ -25,7 +25,7 @@ func (m *Module) HandleDebugLog(username, chainId string, data map[string]interf
 	}
 }
 
-// SaveDebugData 保存调试数据到文件
+// SaveDebugData saves debug data to a file
 func (m *Module) SaveDebugData(username, chainId string, data map[string]interface{}) {
 	_ = saveDebugDataToPath(m.cfg, username, data, chainId)
 }
@@ -43,20 +43,20 @@ func saveDebugDataToPath(cfg *config.Config, username string, data map[string]in
 	return nil
 }
 
-// 调试数据 WebSocket 客户端管理
+// Debug data via WebSocket client management
 
 var (
 	debugClientsMu sync.RWMutex
 	debugClients   = make(map[string][]*DebugDataClient)
 )
 
-// DebugDataClient 调试数据客户端
+// DebugDataClient Debugging the data client
 type DebugDataClient struct {
 	ChainId string
 	DataCh  chan map[string]interface{}
 }
 
-// SendDebugDataToClients 向所有监听指定规则链的客户端发送调试数据
+// SendDebugDataToClients sends debug data to all clients monitoring the specified rule chain
 func SendDebugDataToClients(chainId string, data map[string]interface{}) {
 	debugClientsMu.RLock()
 	clients := debugClients[chainId]
@@ -69,14 +69,14 @@ func SendDebugDataToClients(chainId string, data map[string]interface{}) {
 	}
 }
 
-// RegisterDebugClient 注册调试数据客户端
+// RegisterDebugClient Registers and debuves the data client
 func RegisterDebugClient(client *DebugDataClient) {
 	debugClientsMu.Lock()
 	debugClients[client.ChainId] = append(debugClients[client.ChainId], client)
 	debugClientsMu.Unlock()
 }
 
-// UnregisterDebugClient 注销调试数据客户端
+// UnregisterDebugClient logs out of the debugging data client
 func UnregisterDebugClient(client *DebugDataClient) {
 	debugClientsMu.Lock()
 	defer debugClientsMu.Unlock()

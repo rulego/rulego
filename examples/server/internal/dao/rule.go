@@ -17,7 +17,7 @@ import (
 	"sync"
 )
 
-// IndexKeySpe key 连接符
+// IndexKeySpe key linker
 var IndexKeySpe = ":"
 
 type RuleDao struct {
@@ -27,7 +27,7 @@ type RuleDao struct {
 	sync.RWMutex
 }
 
-// Index 定义索引结构，仅包含必要元数据
+// Index defines the index structure, containing only the necessary metadata
 type Index struct {
 	// key=chainId
 	Rules map[string]RuleMeta `json:"rules"`
@@ -66,13 +66,13 @@ func (d *RuleDao) List(username string, keywords string, root *bool, disabled *b
 	var ruleChains []types.RuleChain
 	totalCount := 0
 	indexList := d.getAllIndex()
-	// 遍历索引中的元数据
+	// Traverse metadata in the index
 	for _, meta := range indexList {
 		if (root == nil || meta.Root == *root) &&
 			(disabled == nil || meta.Disabled == *disabled) {
 			if keywords == "" || strings.Contains(meta.Name, keywords) ||
 				strings.Contains(meta.ID, keywords) {
-				// 根据元数据加载完整的规则链数据
+				// Load complete rule chain data based on metadata
 				ruleChainData, err := d.GetAsRuleChain(username, meta.ID)
 				if err != nil {
 					continue
@@ -83,7 +83,7 @@ func (d *RuleDao) List(username string, keywords string, root *bool, disabled *b
 		}
 	}
 
-	// 排序逻辑
+	// Sorting logic
 	sort.Slice(ruleChains, func(i, j int) bool {
 		var iTime, jTime string
 		if v, ok := ruleChains[i].RuleChain.GetAdditionalInfo(constants.KeyUpdateTime); ok {
@@ -119,7 +119,7 @@ func (d *RuleDao) Get(username, chainId string) ([]byte, error) {
 }
 
 func (d *RuleDao) GetAsRuleChain(username, chainId string) (types.RuleChain, error) {
-	// 根据ID加载规则链DSL数据
+	// Load the rule chain DSL data according to the ID
 	var ruleChain types.RuleChain
 	data, err := d.Get(username, chainId)
 	if err != nil {
@@ -140,9 +140,9 @@ func (d *RuleDao) Save(username, chainId string, def []byte) error {
 	if err := d.saveRuleChain(username, chainId, def); err != nil {
 		return err
 	}
-	//创建索引
+	//Create indexes
 	d.createIndex(ruleChain)
-	// 保存索引到文件
+	// Save the index to the file
 	return d.saveIndex(d.getIndexPath())
 }
 
@@ -150,16 +150,16 @@ func (d *RuleDao) saveRuleChain(username, chainId string, def []byte) error {
 	var paths = []string{d.config.DataDir, constants.DirWorkflows}
 	paths = append(paths, username, constants.DirWorkflowsRule)
 	pathStr := path.Join(paths...)
-	//创建文件夹
+	//Create a folder
 	_ = fs.CreateDirs(pathStr)
-	//保存到文件
+	//Save to file
 	var buf bytes.Buffer
 	err := json.Indent(&buf, def, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	//保存规则链到文件
+	//Save the rule chain to the file
 	return fs.SaveFile(filepath.Join(pathStr, chainId+constants.RuleChainFileSuffix), buf.Bytes())
 }
 func (d *RuleDao) Delete(username, chainId string) error {
@@ -181,31 +181,31 @@ func (d *RuleDao) rebuildIndex() error {
 	paths = append(paths, d.config.DataDir, constants.DirWorkflows)
 	paths = append(paths, d.username, constants.DirWorkflowsRule)
 
-	// 构建完整的路径
+	// Build a complete path
 	basePath := filepath.Join(paths...)
 
-	// 读取目录下的所有文件
+	// Read all files in the directory
 	files, err := os.ReadDir(basePath)
 	if err != nil {
 		return err
 	}
 
-	// 遍历文件
+	// Traverse the file
 	for _, file := range files {
 		if file.IsDir() {
 			continue
 		}
 		if filepath.Ext(strings.ToLower(file.Name())) == constants.RuleChainFileSuffix {
-			// 构建文件的完整路径
+			// Complete path to the build file
 			filePath := filepath.Join(basePath, file.Name())
 
-			// 读取文件内容
+			// Read the file content
 			data, err := os.ReadFile(filePath)
 			if err != nil {
 				continue
 			}
 
-			// 解析 JSON 数据到 RuleChain 结构体
+			// Parse JSON data to the RuleChain structure
 			var ruleChain types.RuleChain
 			err = json.Unmarshal(data, &ruleChain)
 			if err != nil {
@@ -235,7 +235,7 @@ func (d *RuleDao) loadIndex(indexPath string) error {
 func (d *RuleDao) createIndex(ruleChain types.RuleChain) {
 	updateTime, _ := ruleChain.RuleChain.GetAdditionalInfo(constants.KeyUpdateTime)
 	chainId := ruleChain.RuleChain.ID
-	// 更新索引
+	// Update the index
 	meta := RuleMeta{
 		Name:       ruleChain.RuleChain.Name,
 		ID:         chainId,

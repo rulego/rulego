@@ -115,7 +115,7 @@ func TestParseVars(t *testing.T) {
 	assert.True(t, strings.Contains(strings.Join(actualOutput, ","), "sql"))
 }
 
-// TestExtractReferencedNodeIds 测试从节点配置中提取被引用的节点ID
+// TestExtractReferencedNodeIds tests to extract the referenced node ID from the node configuration
 // TestExtractReferencedNodeIds tests extracting referenced node IDs from node configuration
 func TestExtractReferencedNodeIds(t *testing.T) {
 	// Test case 1: Basic cross-node references
@@ -171,7 +171,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes5, "node1"))
 
 	// Test case 6: Function expressions with node references
-	// 测试包含函数表达式的节点引用
+	// Test node references containing function expressions
 	config6 := types.Configuration{
 		"param1": "${upper(node1.msg.name)}",
 		"param2": "${lower(node2.data.value)}",
@@ -186,7 +186,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes6, "service_node"))
 
 	// Test case 7: Mixed function expressions and regular references
-	// 测试混合函数表达式和常规引用
+	// Test hybrid function expressions and regular references
 	config7 := types.Configuration{
 		"script": "var name = ${upper(node1.msg.name)}; var value = ${node2.data.value}; return name + value;",
 		"url":    "http://localhost:8080/${lower(api_node.metadata.endpoint)}/${node3.data.id}",
@@ -199,7 +199,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes7, "node3"))
 
 	// Test case 8: Function expressions with nested properties
-	// 测试包含嵌套属性的函数表达式
+	// Test function expressions containing nested properties
 	config8 := types.Configuration{
 		"param1": "${format(node1.data.user.name)}",
 		"param2": "${validate(node2.metadata.config.rules)}",
@@ -210,7 +210,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes8, "node2"))
 
 	// Test case 9: Function expressions should not match built-in variables
-	// 测试函数表达式不应匹配内置变量
+	// Test function expressions should not match built-in variables
 	config9 := types.Configuration{
 		"param1": "${upper(msg.name)}",
 		"param2": "${lower(metadata.type)}",
@@ -221,7 +221,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.Equal(t, 0, len(referencedNodes9)) // Should not extract built-in variables
 
 	// Test case 10: Complex expr-lang expressions with nested functions
-	// 测试复杂的expr-lang表达式，包含嵌套函数
+	// Testing complex expr-lang expressions that include nested functions
 	config10 := types.Configuration{
 		"param1": "${split(lower(node1.data.Name), ' ')}",
 		"param2": "${join(upper(node2.data.items), ',')}",
@@ -234,7 +234,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes10, "config_node"))
 
 	// Test case 11: Complex conditional and mathematical expressions
-	// 测试复杂的条件和数学表达式
+	// Test complex conditions and mathematical expressions
 	config11 := types.Configuration{
 		"condition1":  "${node1.data.value > 100 && node2.metadata.status == 'active'}",
 		"condition2":  "${len(processor_node.msg.items) > 0 ? validator_node.data.result : 'default'}",
@@ -249,7 +249,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes11, "service_node"))
 
 	// Test case 12: Array/slice operations and nested property access
-	// 测试数组/切片操作和嵌套属性访问
+	// Test array/slicing operations and nested property access
 	config12 := types.Configuration{
 		"nested":   "${api_node.data.response.user.profile.name}",
 		"array_op": "${node1.data.items[0].name + node2.msg.values[node3.data.index]}",
@@ -265,7 +265,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes12, "filter_node"))
 
 	// Test case 13: Mixed complex expressions in single string
-	// 测试单个字符串中的混合复杂表达式
+	// Test mixed complex expressions in a single string
 	config13 := types.Configuration{
 		"script": "var name = ${upper(node1.msg.name)}; var items = ${split(node2.data.list, ',')}; return ${node3.data.value > 0 ? processor_node.metadata.result : 'empty'};",
 	}
@@ -277,7 +277,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes13, "processor_node"))
 
 	// Test case 14: Deep nested field node references
-	// 测试深层嵌套字段节点引用
+	// Test the deep nested field node references
 	config14 := types.Configuration{
 		"deepNested1": "${user_node.data.profile.personal.address.street.name}",
 		"deepNested2": "${config_node.metadata.settings.database.connection.pool.maxSize}",
@@ -294,7 +294,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes14, "transform_node"))
 
 	// Test case 15: Nested field references with function expressions
-	// 测试带函数表达式的嵌套字段引用
+	// Test nested field references with function expressions
 	config15 := types.Configuration{
 		"nestedFunc1": "${upper(user_node.data.profile.contact.email.domain)}",
 		"nestedFunc2": "${lower(product_node.metadata.category.main.subcategory.name)}",
@@ -311,7 +311,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes15, "stats_node"))
 
 	// Test case 16: Complex nested field references with mixed operations
-	// 测试复杂嵌套字段引用与混合操作
+	// Testing complex nested field references and hybrid operations
 	config16 := types.Configuration{
 		"complexNested1": "${user_node.data.profile.preferences.settings.theme.colors.primary} + ${ui_node.metadata.config.styles.default.background}",
 		"complexNested2": "${order_node.msg.items[0].product.details.specifications.dimensions.width} * ${calc_node.data.factors.scaling.horizontal}",
@@ -330,7 +330,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes16, "display_node"))
 
 	// Test case 17: Nested field references within JSON object structures
-	// 测试JSON对象结构内的嵌套字段引用
+	// Test the nested field references within the JSON object structure
 	config17 := types.Configuration{
 		"jsonNested1": map[string]interface{}{"aa": "${user_node.data.profile.personal}"},
 		"jsonNested2": map[string]interface{}{"config": "${config_node.metadata.settings.database}", "backup": "${backup_node.data.path}"},
@@ -346,7 +346,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes17, "deep_node"))
 
 	// Test case 18: Mixed string and object nested field references
-	// 测试混合字符串和对象嵌套字段引用
+	// Test mixed strings and object nested field references
 	config18 := types.Configuration{
 		"mixedNested1": "prefix_${prefix_node.data.value}_suffix",
 		"mixedNested2": map[string]interface{}{"key": "${key_node.metadata.secret}", "value": "static_value"},
@@ -362,7 +362,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes18, "param_node"))
 
 	// Test case 19: Node references without ${}
-	// 测试不带 ${} 的节点引用
+	// Test node references without ${}
 	config19 := types.Configuration{
 		"script": "var value = node1.msg.xx + node2.data.yy;",
 		"param":  "node3.metadata.zz",
@@ -374,7 +374,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes19, "node3"))
 
 	// Test case 20: Node references with special characters in ID
-	// 测试包含特殊字符的节点引用 ID
+	// Test node reference IDs containing special characters
 	config20 := types.Configuration{
 		"script": "var value = test/node-1.msg.aa + group1/node_2.data.bb;",
 		"param":  "system-config/v1.metadata.cc",
@@ -386,7 +386,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes20, "system-config/v1"))
 
 	// Test case 21: Deeply nested structure (like inclusive node cases)
-	// 测试深层嵌套结构（如包容分支节点的 cases）
+	// Testing deep nested structures (such as cases that include branch nodes)
 	config21 := types.Configuration{
 		"cases": []interface{}{
 			map[string]interface{}{
@@ -404,7 +404,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes21, "node_4"))
 
 	// Test case 22: New reference types (id, ts, dataType, global, vars)
-	// 测试新增的引用类型
+	// Test the new reference type
 	config22 := types.Configuration{
 		"f1": "node1.id",
 		"f2": "node2.ts",
@@ -421,7 +421,7 @@ func TestExtractReferencedNodeIds(t *testing.T) {
 	assert.True(t, contains(referencedNodes22, "node5"))
 }
 
-// TestParseCrossNodeDependencies 测试解析规则链中的跨节点依赖关系
+// TestParseCrossNodeDependencies tests and parses cross-node dependencies in the rule chain
 // TestParseCrossNodeDependencies tests parsing cross-node dependencies in rule chain
 func TestParseCrossNodeDependencies(t *testing.T) {
 	// Create test rule chain
@@ -477,7 +477,7 @@ func TestParseCrossNodeDependencies(t *testing.T) {
 	assert.False(t, hasIndependentDeps)
 }
 
-// TestGetReferencedNodeIds 测试获取规则链中所有被引用的节点ID
+// TestGetReferencedNodeIds tests to obtain all referenced node IDs in the rule chain
 // TestGetReferencedNodeIds tests getting all referenced node IDs in rule chain
 func TestGetReferencedNodeIds(t *testing.T) {
 	// Create test rule chain
@@ -520,7 +520,7 @@ func TestGetReferencedNodeIds(t *testing.T) {
 	assert.False(t, contains(referencedNodeIds, "node3"))
 }
 
-// TestIsNodeIdDefined 测试检查节点ID是否在规则链中定义
+// TestIsNodeIdDefined tests whether the node ID is defined in the rule chain
 // TestIsNodeIdDefined tests checking if node ID is defined in rule chain
 func TestIsNodeIdDefined(t *testing.T) {
 	ruleChain := types.RuleChain{
@@ -541,7 +541,7 @@ func TestIsNodeIdDefined(t *testing.T) {
 	assert.False(t, IsNodeIdDefined(ruleChain, ""))
 }
 
-// contains 辅助函数，检查字符串切片是否包含指定字符串
+// contains auxiliary function, checks whether the string slice contains the specified string
 // contains helper function to check if string slice contains specified string
 func contains(slice []string, item string) bool {
 	for _, s := range slice {

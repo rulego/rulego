@@ -3,8 +3,8 @@
 package main
 
 import (
-	// 注册扩展组件库
-	// 使用`go build -tags with_extend .`把扩展组件编译到运行文件
+	// Register the Extended Component Library
+	// Use `go build -tags with_extend .` to include the general extension components in the executable
 	//_ "github.com/rulego/rulego-components/endpoint/beanstalkd"
 	//_ "github.com/rulego/rulego-components/external/beanstalkd"
 
@@ -18,7 +18,7 @@ import (
 	_ "github.com/rulego/rulego-components/endpoint/redis_stream"
 	_ "github.com/rulego/rulego-components/endpoint/wukongim"
 	_ "github.com/rulego/rulego-components/external/file"
-	_ "github.com/rulego/rulego-components/external/grpc" //编译后文件大约增加7M
+	_ "github.com/rulego/rulego-components/external/grpc" //The compiled file increases by about 7M
 	_ "github.com/rulego/rulego-components/external/kafka"
 	_ "github.com/rulego/rulego-components/external/mongodb"
 	_ "github.com/rulego/rulego-components/external/nats"

@@ -18,7 +18,7 @@ import (
 	"github.com/rulego/rulego/server/services"
 )
 
-// newMCPBridge 创建包含 MCP 模块的测试 Bridge，返回 bridge 和 mcp module
+// newMCPBridge creates a test bridge containing the MCP module, returning both the bridge and the mcp module
 func newMCPBridgeWithModule(t *testing.T) (*Bridge, *mcpmodule.Module) {
 	t.Helper()
 	tmpData := filepath.Join(t.TempDir(), "data")
@@ -42,7 +42,7 @@ func newMCPBridgeWithModule(t *testing.T) (*Bridge, *mcpmodule.Module) {
 	return br, mcpMod
 }
 
-// callTool 直接通过 MCP 模块调用工具（绕过 HTTP SSE 传输层）
+// callTool calls tools directly through the MCP module (bypassing the HTTP SSE transport layer)
 func callToolDirect(t *testing.T, mcpMod *mcpmodule.Module, toolName string, args map[string]interface{}) string {
 	t.Helper()
 	result, err := mcpMod.CallTool(context.Background(), toolName, args)
@@ -52,7 +52,7 @@ func callToolDirect(t *testing.T, mcpMod *mcpmodule.Module, toolName string, arg
 	return result
 }
 
-// parseChainJSON 从工具调用结果中解析规则链
+// parseChainJSON parses the rule chain from the result of the tool call
 func parseChainJSON(t *testing.T, raw string) map[string]interface{} {
 	t.Helper()
 	var chain map[string]interface{}
@@ -62,12 +62,12 @@ func parseChainJSON(t *testing.T, raw string) map[string]interface{} {
 	return chain
 }
 
-// TestMCP_PreviewRuleChain 测试 preview_rule_chain 工具
+// TestMCP_PreviewRuleChain Test preview_rule_chain tools
 func TestMCP_PreviewRuleChain(t *testing.T) {
 	br, mcpMod := newMCPBridgeWithModule(t)
 	defer br.Stop()
 
-	// 确保工具已加载
+	// Make sure the tool is loaded
 	defs, err := mcpMod.ListToolDefinitions()
 	if err != nil {
 		t.Fatalf("ListToolDefinitions error: %v", err)
@@ -77,11 +77,11 @@ func TestMCP_PreviewRuleChain(t *testing.T) {
 		toolNames[d.Name] = true
 	}
 	if !toolNames["preview_rule_chain"] {
-		t.Fatal("preview_rule_chain 工具未注册")
+		t.Fatal("preview_rule_chain The tool is not registered")
 	}
-	t.Logf("已注册 %d 个工具", len(defs))
+	t.Logf("%d tools have been registered", len(defs))
 
-	// 场景1: preview 有效规则链 → 返回带 _preview 标记的 JSON
+	// Scenario 1: preview of the valid rule chain → returns JSON with the _preview tag
 	t.Run("ValidChain", func(t *testing.T) {
 		result := callToolDirect(t, mcpMod, "preview_rule_chain", map[string]interface{}{
 			"id": "test_preview_valid",
@@ -105,15 +105,15 @@ func TestMCP_PreviewRuleChain(t *testing.T) {
 
 		chain := parseChainJSON(t, result)
 		if preview, _ := chain["_preview"].(bool); !preview {
-			t.Errorf("preview 结果缺少 _preview:true, chain: %v", chain)
+			t.Errorf("preview Results lack _preview:true and chain: %v", chain)
 		}
 		if id, _ := chain["_id"].(string); id != "test_preview_valid" {
 			t.Errorf("_id = %q, want test_preview_valid", id)
 		}
-		t.Log("验证通过: preview 返回带 _preview 和 _id 标记的完整 JSON")
+		t.Log("Verification passed: preview returned the full JSON marked with _preview and _id")
 	})
 
-	// 场景2: preview 有错误字段 → 返回校验警告（LLM 可据此修正）
+	// Scenario 2: preview has an error field → Returns a validation warning (LLM can fix this)
 	t.Run("InvalidField_ReturnsWarning", func(t *testing.T) {
 		result := callToolDirect(t, mcpMod, "preview_rule_chain", map[string]interface{}{
 			"id": "test_preview_invalid",
@@ -137,18 +137,18 @@ func TestMCP_PreviewRuleChain(t *testing.T) {
 		})
 
 		if !strings.Contains(result, "unknown fields") {
-			t.Errorf("校验失败应返回警告, 实际: %s", result)
+			t.Errorf("A verification failure should return a warning, actually: %s", result)
 		}
 		if !strings.Contains(result, "wrongFieldName") {
-			t.Errorf("警告应包含错误字段名, 实际: %s", result)
+			t.Errorf("The warning should include the name of the error field, actually: %s", result)
 		}
 		if !strings.Contains(result, "jsScript") {
-			t.Errorf("警告应包含可用字段列表帮助 LLM 修正, 实际: %s", result)
+			t.Errorf("The warning should include a list of available fields to help LLM correct, actually: %s", result)
 		}
-		t.Logf("验证通过: 校验警告 = %s", truncate(result, 200))
+		t.Logf("Verification passed: Validation warning = %s", truncate(result, 200))
 	})
 
-	// 场景3: preview 不保存规则链
+	// Scenario 3: Preview does not save the rule chain
 	t.Run("DoesNotSave", func(t *testing.T) {
 		callToolDirect(t, mcpMod, "preview_rule_chain", map[string]interface{}{
 			"id": "test_preview_nosave",
@@ -170,24 +170,24 @@ func TestMCP_PreviewRuleChain(t *testing.T) {
 			},
 		})
 
-		// 用 get_rule_chain 验证链不存在（应该返回错误）
+		// Use get_rule_chain to verify that the chain does not exist (it should return an error)
 		_, err := mcpMod.CallTool(context.Background(), "get_rule_chain", map[string]interface{}{
 			"id": "test_preview_nosave",
 		})
 		if err == nil {
-			t.Error("preview 不应保存规则链，但 get_rule_chain 查到了")
+			t.Error("preview should not store the rule chain, but get_rule_chain found it")
 		}
-		t.Log("验证通过: preview 未保存规则链")
+		t.Log("Validation successful: preview Rule chain not saved")
 	})
 }
 
-// TestMCP_PreviewValidationRetry 模拟 LLM 校验失败→根据警告修正→重试流程
+// TestMCP_PreviewValidationRetry Simulates LLM validation failures → retries → retries based on warnings
 func TestMCP_PreviewValidationRetry(t *testing.T) {
 	br, mcpMod := newMCPBridgeWithModule(t)
 	defer br.Stop()
 
-	// 第一次: LLM 猜错字段名（url → 应该是 restEndpointUrlPattern）
-	t.Log("=== 第一次尝试: 错误字段 ===")
+	// First time: LLM guessed the wrong field name (url → should be restEndpointUrlPattern)
+	t.Log("=== First attempt: Error field ===")
 	wrongResult := callToolDirect(t, mcpMod, "preview_rule_chain", map[string]interface{}{
 		"id": "test_retry",
 		"body": map[string]interface{}{
@@ -207,18 +207,18 @@ func TestMCP_PreviewValidationRetry(t *testing.T) {
 	})
 
 	if !strings.Contains(wrongResult, "unknown fields") {
-		t.Fatalf("期望返回校验警告, 实际: %s", wrongResult)
+		t.Fatalf("Expect to return a checksum warning, actually: %s", wrongResult)
 	}
 	if !strings.Contains(wrongResult, "url") {
-		t.Fatalf("警告应指出错误字段 'url': %s", wrongResult)
+		t.Fatalf("The warning should indicate the error field 'url': %s", wrongResult)
 	}
 	if !strings.Contains(wrongResult, "restEndpointUrlPattern") {
-		t.Fatalf("警告应包含正确字段 'restEndpointUrlPattern': %s", wrongResult)
+		t.Fatalf("The warning should include the correct field 'restEndpointUrlPattern': %s", wrongResult)
 	}
-	t.Logf("校验警告 (LLM 据此修正): %s", truncate(wrongResult, 200))
+	t.Logf("Check-in warning (LLM corrected accordingly): %s", truncate(wrongResult, 200))
 
-	// 第二次: LLM 根据警告修正字段名
-	t.Log("=== 第二次尝试: 修正字段 ===")
+	// Second time: The LLM corrects field names based on warnings
+	t.Log("=== Second attempt: Correction field ===")
 	correctResult := callToolDirect(t, mcpMod, "preview_rule_chain", map[string]interface{}{
 		"id": "test_retry",
 		"body": map[string]interface{}{
@@ -240,11 +240,11 @@ func TestMCP_PreviewValidationRetry(t *testing.T) {
 
 	chain := parseChainJSON(t, correctResult)
 	if preview, _ := chain["_preview"].(bool); !preview {
-		t.Fatalf("修正后应返回预览 JSON: %s", correctResult)
+		t.Fatalf("After correction, return to preview JSON: %s", correctResult)
 	}
-	t.Log("修正后预览成功")
+	t.Log("Preview after correction successful")
 
-	// 确认保存
+	// Confirm and save
 	saveResult := callToolDirect(t, mcpMod, "save_rule_chain", map[string]interface{}{
 		"id": "test_retry",
 		"body": map[string]interface{}{
@@ -264,14 +264,14 @@ func TestMCP_PreviewValidationRetry(t *testing.T) {
 		},
 	})
 	if saveResult != "save ok" {
-		t.Fatalf("save 失败: %s", saveResult)
+		t.Fatalf("save Failure: %s", saveResult)
 	}
-	t.Log("=== 保存成功 ===")
+	t.Log("=== Save successful ===")
 
 	callToolDirect(t, mcpMod, "delete_rule_chain", map[string]interface{}{"id": "test_retry"})
 }
 
-// TestMCP_FullCRUD 测试完整 CRUD + Execute 流程
+// TestMCP_FullCRUD Test the complete CRUD + Execute flow
 func TestMCP_FullCRUD(t *testing.T) {
 	br, mcpMod := newMCPBridgeWithModule(t)
 	defer br.Stop()
@@ -326,15 +326,15 @@ func TestMCP_FullCRUD(t *testing.T) {
 	}
 	t.Log("5. Delete OK")
 
-	// 6. Verify deleted — get_rule_chain 应该找不到该链
+	// 6. Verify deleted — get_rule_chain The chain should not be found
 	_, err := mcpMod.CallTool(context.Background(), "get_rule_chain", map[string]interface{}{"id": chainId})
 	if err == nil {
-		t.Fatal("已删除的链应该查询失败")
+		t.Fatal("Deleted chains should fail to query")
 	}
 	t.Log("6. Verify deleted OK")
 }
 
-// TestMCP_ToolRegistration 验证 preview_rule_chain 工具已注册
+// TestMCP_ToolRegistration Verify that the preview_rule_chain tool is registered
 func TestMCP_ToolRegistration(t *testing.T) {
 	br, mcpMod := newMCPBridgeWithModule(t)
 	defer br.Stop()
@@ -358,24 +358,24 @@ func TestMCP_ToolRegistration(t *testing.T) {
 
 	for _, name := range expectedTools {
 		if !toolMap[name] {
-			t.Errorf("工具 %s 未注册", name)
+			t.Errorf("Tool %s Not registered", name)
 		}
 	}
 
-	t.Logf("已注册 %d 个工具 (期望 %d)", len(defs), len(expectedTools))
+	t.Logf("%d tools registered (expected %d)", len(defs), len(expectedTools))
 }
 
-// TestMCP_MultiUserIsolation 测试多用户场景下工具 handler 隔离
-// 修复前：toolDefs 是全局 map，后注册的用户的 handler 会覆盖前一个用户的闭包 username
-// 修复后：userToolDefs 按 username 存储，CallTool 通过 context 中的 username 查找正确 handler
+// TestMCP_MultiUserIsolation Test tool handler isolation in multi-user scenarios
+// Before fixing: toolDefs is a global map; the handler of the later registered user will override the previous user's closed username
+// After fixing: userToolDefs is stored by username, and CallTool finds the correct handler by username in context
 func TestMCP_MultiUserIsolation(t *testing.T) {
 	br, mcpMod := newMCPBridgeWithModule(t)
 	defer br.Stop()
 
-	// 模拟 admin 用户通过 "self" MCP 调用（注入 username 到 context）
+	// Simulate admin users calling via "self" MCP (injecting username into context)
 	ctx := context.Background()
 
-	// 保存规则链（无 username context，回退到全局 toolDefs）
+	// Save the rule chain (no username context, rollback to global toolDefs)
 	adminChainId := fmt.Sprintf("admin_chain_%d", time.Now().UnixNano())
 	adminBody := map[string]interface{}{
 		"ruleChain": map[string]interface{}{"id": adminChainId, "name": "Admin Chain", "root": false},
@@ -404,7 +404,7 @@ func TestMCP_MultiUserIsolation(t *testing.T) {
 	}
 	t.Logf("admin save ok: %s", truncate(result, 100))
 
-	// 验证可以通过 get_rule_chain 读到
+	// Verification can be read through get_rule_chain
 	result, err = mcpMod.CallTool(ctx, "get_rule_chain", map[string]interface{}{
 		"id": adminChainId,
 	})
@@ -416,7 +416,7 @@ func TestMCP_MultiUserIsolation(t *testing.T) {
 	}
 	t.Log("admin chain read ok")
 
-	// 清理
+	// Cleanup
 	callToolDirect(t, mcpMod, "delete_rule_chain", map[string]interface{}{"id": adminChainId})
 }
 

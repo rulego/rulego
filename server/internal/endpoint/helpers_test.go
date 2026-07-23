@@ -11,7 +11,7 @@ import (
 	"net/textproto"
 )
 
-// testMessage 测试用 Message 实现
+// testMessage Testing is implemented using Message
 type testMessage struct {
 	msg        *types.RuleMsg
 	body       []byte

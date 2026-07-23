@@ -20,7 +20,7 @@ func init() {
 	}
 }
 
-// Builtins 获取内置组件配置选项
+// Builtins get built-in component configuration options
 func Builtins() map[string]interface{} {
 	lock.RLock()
 	defer lock.RUnlock()
@@ -35,21 +35,21 @@ func Builtins() map[string]interface{} {
 	return data
 }
 
-// RegisterBuiltin 注册内置组件配置选项
+// RegisterBuiltin Builtin Built-in Component Configuration Options
 func RegisterBuiltin(name string, value interface{}) {
 	lock.Lock()
 	defer lock.Unlock()
 	builtins[name] = value
 }
 
-// RegisterGlobalUdf 注册全局 UDF
+// RegisterGlobalUdf registers the global UDF
 func RegisterGlobalUdf(name string, value interface{}) {
 	lock.Lock()
 	defer lock.Unlock()
 	globalUdfs[name] = value
 }
 
-// GlobalUdfs 获取全局 UDF
+// GlobalUdfs obtain global UDF
 func GlobalUdfs() map[string]interface{} {
 	lock.RLock()
 	defer lock.RUnlock()

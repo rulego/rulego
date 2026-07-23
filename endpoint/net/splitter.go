@@ -10,34 +10,34 @@ import (
 	"strings"
 )
 
-// PacketMode 数据包分割模式
+// PacketMode packet splitting mode
 type PacketMode string
 
 const (
-	// PacketModeLine 按行分割（默认模式，以\n或\r\n分割）
+	// PacketModeLine line splitting (default mode, split by \n or \r\n)
 	PacketModeLine PacketMode = "line"
-	// PacketModeFixed 固定长度分割
+	// PacketModeFixed fixed-length split
 	PacketModeFixed PacketMode = "fixed"
-	// PacketModeDelimiter 自定义分隔符分割
+	// PacketModeDelimiter Custom delimiter splits
 	PacketModeDelimiter PacketMode = "delimiter"
 
-	// 长度前缀模式（4种组合）
-	// PacketModeLengthPrefixLE 长度前缀，小端序，长度不包含前缀
+	// Length prefix mode (4 combinations)
+	// PacketModeLengthPrefixLE length prefix, small-termination, length does not include prefixes
 	PacketModeLengthPrefixLE PacketMode = "length_prefix_le"
-	// PacketModeLengthPrefixBE 长度前缀，大端序，长度不包含前缀
+	// PacketModeLengthPrefixBE length prefix, major terminology, length does not include prefixes
 	PacketModeLengthPrefixBE PacketMode = "length_prefix_be"
-	// PacketModeLengthPrefixLEInc 长度前缀，小端序，长度包含前缀
+	// PacketModeLengthPrefixLEInc length prefix, small-terminology, length includes prefix
 	PacketModeLengthPrefixLEInc PacketMode = "length_prefix_le_inc"
-	// PacketModeLengthPrefixBEInc 长度前缀，大端序，长度包含前缀
+	// PacketModeLengthPrefixBEInc length prefix, major terminology, length containing prefix
 	PacketModeLengthPrefixBEInc PacketMode = "length_prefix_be_inc"
 )
 
-// String 返回模式的字符串表示
+// String returns the pattern of string representation
 func (p PacketMode) String() string {
 	return string(p)
 }
 
-// IsValid 检查模式是否有效
+// IsValid checks whether the mode is valid
 func (p PacketMode) IsValid() bool {
 	switch p {
 	case PacketModeLine, PacketModeFixed, PacketModeDelimiter,
@@ -49,7 +49,7 @@ func (p PacketMode) IsValid() bool {
 	}
 }
 
-// IsLengthPrefixMode 检查是否为长度前缀模式
+// IsLengthPrefixMode checks whether it is a length prefix mode
 func (p PacketMode) IsLengthPrefixMode() bool {
 	switch p {
 	case PacketModeLengthPrefixLE, PacketModeLengthPrefixBE,
@@ -60,33 +60,33 @@ func (p PacketMode) IsLengthPrefixMode() bool {
 	}
 }
 
-// IsBigEndian 是否为大端序
+// Is IsBigEndian a large endology sequence?
 func (p PacketMode) IsBigEndian() bool {
 	switch p {
 	case PacketModeLengthPrefixBE, PacketModeLengthPrefixBEInc:
 		return true
 	default:
-		return false // 默认小端序
+		return false // Default is the small end-to-end order
 	}
 }
 
-// IncludesPrefix 长度是否包含前缀本身
+// IncludesPrefix: Does the length contain the prefix itself?
 func (p PacketMode) IncludesPrefix() bool {
 	switch p {
 	case PacketModeLengthPrefixLEInc, PacketModeLengthPrefixBEInc:
 		return true
 	default:
-		return false // 默认不包含
+		return false // Not included by default
 	}
 }
 
-// PacketSplitter 数据包分割器接口
+// PacketSplitter interface
 type PacketSplitter interface {
-	// ReadPacket 从连接中读取一个完整的数据包
+	// ReadPacket reads a complete data packet from a connection
 	ReadPacket(reader *bufio.Reader) ([]byte, error)
 }
 
-// LineSplitter 按行分割的数据包分割器
+// LineSplitter is a packet splitter by row
 type LineSplitter struct{}
 
 func (s *LineSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) {
@@ -94,10 +94,10 @@ func (s *LineSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) {
 	if err != nil {
 		return data, err
 	}
-	// 去掉换行符分隔符
+	// Remove line break separators
 	if len(data) > 0 && data[len(data)-1] == '\n' {
 		data = data[:len(data)-1]
-		// 如果是\r\n，也去掉\r
+		// If it is \r\n, also remove \r
 		if len(data) > 0 && data[len(data)-1] == '\r' {
 			data = data[:len(data)-1]
 		}
@@ -105,7 +105,7 @@ func (s *LineSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) {
 	return data, nil
 }
 
-// FixedLengthSplitter 固定长度数据包分割器
+// FixedLengthSplitter
 type FixedLengthSplitter struct {
 	PacketSize int
 }
@@ -116,7 +116,7 @@ func (s *FixedLengthSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) {
 	return data, err
 }
 
-// DelimiterSplitter 自定义分隔符数据包分割器
+// DelimiterSplitter is a custom delimiter packet splitter
 type DelimiterSplitter struct {
 	Delimiter []byte
 }
@@ -133,11 +133,11 @@ func (s *DelimiterSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) {
 
 		buffer = append(buffer, b)
 
-		// 检查是否匹配分隔符
+		// Check if the separator matches
 		if b == s.Delimiter[delimiterIndex] {
 			delimiterIndex++
 			if delimiterIndex == len(s.Delimiter) {
-				// 找到完整分隔符，返回包含分隔符的完整数据
+				// Find the complete delimiter and return the complete data containing the separator
 				return buffer, nil
 			}
 		} else {
@@ -146,23 +146,23 @@ func (s *DelimiterSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) {
 	}
 }
 
-// LengthPrefixSplitter 长度前缀数据包分割器
+// LengthPrefixSplitter is a packet splitter with the length prefix
 type LengthPrefixSplitter struct {
-	PrefixSize     int  // 长度前缀的字节数（1-4字节）
-	BigEndian      bool // 是否使用大端序
-	IncludesPrefix bool // 长度是否包含前缀本身
-	MaxPacketSize  int  // 最大数据包大小
+	PrefixSize     int  // Number of bytes of length prefixes (1-4 bytes)
+	BigEndian      bool // Whether to use large-scale sequence
+	IncludesPrefix bool // Does the length contain the prefix itself?
+	MaxPacketSize  int  // Maximum packet size
 }
 
 func (s *LengthPrefixSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) {
-	// 读取长度前缀
+	// Read the length prefix
 	prefixBytes := make([]byte, s.PrefixSize)
 	_, err := io.ReadFull(reader, prefixBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	// 解析长度值
+	// Parse length values
 	var length uint32
 	if s.BigEndian {
 		switch s.PrefixSize {
@@ -171,7 +171,7 @@ func (s *LengthPrefixSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) 
 		case 2:
 			length = uint32(binary.BigEndian.Uint16(prefixBytes))
 		case 3:
-			// 大端序3字节：在前面补0变成4字节
+			// Major Sequence 3 bytes: Add 0 before it to become 4 bytes
 			length = uint32(prefixBytes[0])<<16 | uint32(prefixBytes[1])<<8 | uint32(prefixBytes[2])
 		case 4:
 			length = binary.BigEndian.Uint32(prefixBytes)
@@ -185,7 +185,7 @@ func (s *LengthPrefixSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) 
 		case 2:
 			length = uint32(binary.LittleEndian.Uint16(prefixBytes))
 		case 3:
-			// 小端序3字节：将3字节按小端序组合
+			// Small end-order 3-byte: Combine 3 bytes according to small-end-order order
 			length = uint32(prefixBytes[0]) | uint32(prefixBytes[1])<<8 | uint32(prefixBytes[2])<<16
 		case 4:
 			length = binary.LittleEndian.Uint32(prefixBytes)
@@ -194,12 +194,12 @@ func (s *LengthPrefixSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) 
 		}
 	}
 
-	// 检查数据包大小限制
+	// Check the packet size limits
 	if int(length) > s.MaxPacketSize {
 		return nil, fmt.Errorf("packet too large: %d > %d", length, s.MaxPacketSize)
 	}
 
-	// 根据IncludesPrefix确定数据长度
+	// Determine the data length based on IncludesPrefix
 	var dataLength uint32
 	if s.IncludesPrefix {
 		if length < uint32(s.PrefixSize) {
@@ -210,23 +210,23 @@ func (s *LengthPrefixSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) 
 		dataLength = length
 	}
 
-	// 读取数据部分
+	// Data reading section
 	data := make([]byte, dataLength)
 	_, err = io.ReadFull(reader, data)
 	if err != nil {
 		return nil, err
 	}
 
-	// 返回包含长度前缀的完整数据包
+	// Returns the complete packet containing the length prefix
 	result := make([]byte, 0, len(prefixBytes)+len(data))
 	result = append(result, prefixBytes...)
 	result = append(result, data...)
 	return result, nil
 }
 
-// CreatePacketSplitter 根据配置创建数据包分割器
+// CreatePacketSplitter creates a packet splitter based on the configuration
 func CreatePacketSplitter(config Config) (PacketSplitter, error) {
-	// 默认为line模式
+	// The default is Line mode
 	mode := strings.ToLower(config.PacketMode)
 	if mode == "" {
 		mode = PacketModeLine.String()
@@ -249,10 +249,10 @@ func CreatePacketSplitter(config Config) (PacketSplitter, error) {
 			return nil, errors.New("delimiter must be specified for delimiter mode")
 		}
 
-		// 解析分隔符（支持十六进制格式）
+		// Parse separator (supports hexadecimal format)
 		var delimiter []byte
 		if strings.HasPrefix(config.Delimiter, HexPrefix) || strings.HasPrefix(config.Delimiter, HexPrefixUp) {
-			// 十六进制格式: 0x0A0D
+			// Hexadecimal format: 0x0A0D
 			hexStr := config.Delimiter[2:]
 			if len(hexStr)%2 != 0 {
 				return nil, errors.New("invalid hex delimiter format")
@@ -266,7 +266,7 @@ func CreatePacketSplitter(config Config) (PacketSplitter, error) {
 				delimiter[i/2] = b[0]
 			}
 		} else {
-			// 直接使用字符串作为分隔符
+			// Directly use strings as delimiters
 			delimiter = []byte(config.Delimiter)
 		}
 

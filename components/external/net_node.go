@@ -27,25 +27,25 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
-// EndSign 结束符
+// EndSign terminator
 const EndSign = '\n'
 
-// PingData ping内容
+// PingData ping content
 var PingData = []byte("ping\n")
 
-// 注册节点
+// Register the node
 func init() {
 	Registry.Add(&NetNode{})
 }
 
-// NetNodeConfiguration 组件的配置
+// Configuration of the NetNodeConfiguration component
 type NetNodeConfiguration struct {
 	Protocol          string `json:"protocol" label:"Protocol" desc:"Network protocol: tcp, udp, default is tcp"`
 	Server            string `json:"server" label:"Server" desc:"Server address, format: host:port" required:"true" ref:"primary"`
 	ConnectTimeout    int    `json:"connectTimeout" label:"Connect Timeout (s)" desc:"Connection timeout in seconds"`
 	HeartbeatInterval int    `json:"heartbeatInterval" label:"Heartbeat Interval (s)" desc:"Heartbeat interval in seconds"`
-	// Target 寻址目标。仅 server 为 ref://（指向服务端 endpoint）时生效。
-	// 支持 rulego ${} 表达式，如 ${metadata.deviceId}；值为 IP / deviceId / *（广播）/ 空。
+	// Target: Addressing the target. It only takes effect when the server is ref:// (pointing to the server endpoint).
+	// Supports rulego ${} expressions, such as ${metadata.deviceId}; The value is IP / deviceId / *(broadcast) / empty.
 	Target string `json:"target" label:"Target" desc:"Addressing target when server is ref://. Supports ${metadata.xxx}; IP/deviceId/* (broadcast)"`
 }
 
@@ -53,103 +53,103 @@ type NetNodeConfiguration struct {
 // It supports TCP, UDP, IP, Unix sockets, and other protocols supported by Go's net package,
 // with automatic heartbeat, reconnection, and connection lifecycle management.
 //
-// NetNode 为通过各种协议发送消息提供网络协议通信能力。
-// 支持 TCP、UDP、IP、Unix 套接字和 Go net 包支持的其他协议，
-// 具有自动心跳、重连和连接生命周期管理功能。
+// NetNode provides network protocol communication capabilities for sending messages through various protocols.
+// Supports TCP, UDP, IP, Unix sockets, and other protocols supported by Go Net packages,
+// Features automatic heartbeat, reconnection, and connection lifecycle management functions.
 //
 // Configuration:
-// 配置说明：
+// Configuration:
 //
 //	{
-//		"protocol": "tcp",              // Network protocol  网络协议
-//		"server": "192.168.1.100:8080", // Server address  服务器地址
-//		"connectTimeout": 30,           // Connection timeout in seconds  连接超时（秒）
-//		"heartbeatInterval": 60         // Heartbeat interval in seconds (0=disabled)  心跳间隔（秒，0=禁用）
+//		"protocol": "tcp",              // Network protocol
+//		"server": "192.168.1.100:8080", // Server address
+//		"connectTimeout": 30,           // Connection timeout in seconds
+//		"heartbeatInterval": 60         // Heartbeat interval in seconds (0=disabled)
 //	}
 //
 // Supported Protocols:
-// 支持的协议：
+// Supported protocols:
 //
 //   - "tcp": TCP protocol for reliable, connection-oriented communication
-//     TCP 协议，用于可靠的面向连接通信
+//     TCP protocol is used for reliable connection-oriented communication
 //   - "udp": UDP protocol for fast, connectionless communication
-//     UDP 协议，用于快速的无连接通信
+//     UDP protocol for fast connectionless communication
 //   - "ip4:1", "ip6:ipv6-icmp", "ip6:58": Raw IP protocols
-//     原始 IP 协议
+//     Original IP protocol
 //   - "unix", "unixgram": Unix domain sockets for local communication
-//     Unix 域套接字，用于本地通信
+//     Unix domain sockets for local communication
 //   - Any protocol supported by Go's net.Dial function
-//     Go net.Dial 函数支持的任何协议
+//     Any protocol supported by the Go net.Dial function
 //
 // Smart Data Type Handling:
-// 智能数据类型处理：
+// Intelligent Data Type Processing:
 //
 // The component intelligently handles different data types:
-// 组件智能处理不同的数据类型：
+// Components intelligently handle different data types:
 //   - BINARY: Uses GetBytes(), sends raw bytes without terminator
-//     二进制：使用 GetBytes()，发送原始字节不添加终止符
+//     Binary: Use GetBytes() to send the original byte without adding a terminator
 //   - JSON/TEXT: Uses GetData(), appends newline terminator ('\n')
-//     JSON/文本：使用 GetData()，追加换行符终止符（'\n'）
+//     JSON/text: Use GetData() to add a newline terminator ('\n')
 //
 // Message Format:
-// 消息格式：
+// Message format:
 //
 // For non-binary data, messages are sent with an automatic newline terminator ('\n') appended.
 // Binary data is sent as-is without any modifications.
 // This ensures proper message framing while preserving binary data integrity.
 //
-// 对于非二进制数据，消息发送时自动追加换行符终止符（'\n'）。
-// 二进制数据按原样发送，不做任何修改。
-// 这确保了正确的消息帧同时保持二进制数据的完整性。
+// For non-binary data, a newline terminator ('\n') is automatically added when the message is sent.
+// Binary data is sent as is, without any modifications.
+// This ensures the correct message frame while maintaining the integrity of binary data.
 //
 // Connection Management:
-// 连接管理：
+// Connection Management:
 //
 // The component implements:
-// 组件实现：
-//   - Automatic connection establishment and reconnection  自动连接建立和重连
-//   - Configurable heartbeat with ping mechanism  可配置的心跳和 ping 机制
-//   - Connection pooling through SharedNode pattern  通过 SharedNode 模式的连接池
-//   - Graceful connection cleanup on destroy  销毁时的优雅连接清理
+// Component implementation:
+//   - Automatic connection establishment and reconnection
+//   - Configurable heartbeat with ping mechanism
+//   - Connection pooling through SharedNode pattern
+//   - Graceful connection cleanup on destroy
 //
 // Heartbeat Mechanism:
-// 心跳机制：
+// Heartbeat mechanism:
 //
 // When heartbeatInterval > 0, the component sends periodic "ping\n" messages
 // to maintain connection liveness. Failed heartbeats trigger automatic reconnection.
 //
-// 当 heartbeatInterval > 0 时，组件发送周期性的 "ping\n" 消息来维持连接活性。
-// 心跳失败会触发自动重连。
+// When heartbeatInterval > 0, the component sends periodic "ping\n" messages to maintain connection activity.
+// A failed heartbeat will trigger automatic reconnection.
 //
 // Error Handling and Reconnection:
-// 错误处理和重连：
+// Error handling and reconnection:
 //
 // The component includes robust error handling with automatic reconnection on:
-// 组件包含强大的错误处理，在以下情况自动重连：
-//   - Connection timeouts  连接超时
-//   - Network errors during message sending  消息发送期间的网络错误
-//   - Heartbeat failures  心跳失败
-//   - Server disconnections  服务器断开连接
+// Components include powerful error handling and automatically reconnect in the following situations:
+//   - Connection timeouts
+//   - Network errors during message sending
+//   - Heartbeat failures
+//   - Server disconnections
 //
 // Thread Safety:
-// 线程安全：
+// Thread safety:
 //
 // The component uses atomic operations and mutex locks to ensure safe concurrent
 // access across multiple rule chain executions.
 //
-// 组件使用原子操作和互斥锁确保多个规则链执行间的安全并发访问。
+// Components use atomic operations and mutexes to ensure secure concurrent access between multiple rule chains.
 //
 // Output Relations:
-// 输出关系：
+// Output relationships:
 //
-//   - Success: Message sent successfully  消息发送成功
-//   - Failure: Network error or connection failure  网络错误或连接失败
+//   - Success: Message sent successfully
+//   - Failure: Network error or connection failure
 //
 // Usage Examples:
-// 使用示例：
+// Example:
 //
 //	// TCP client for sending JSON telemetry data
-//	// 用于发送 JSON 遥测数据的 TCP 客户端
+//	TCP client used to send JSON telemetry data
 //	{
 //		"id": "tcpSender",
 //		"type": "net",
@@ -162,7 +162,7 @@ type NetNodeConfiguration struct {
 //	}
 //
 //	// UDP client for sending binary data (no terminator added)
-//	// 用于发送二进制数据的 UDP 客户端（不添加终止符）
+//	UDP client for sending binary data (without terminator)
 //	{
 //		"id": "udpBinarySender",
 //		"type": "net",
@@ -175,23 +175,23 @@ type NetNodeConfiguration struct {
 //	}
 type NetNode struct {
 	base.SharedNode[net.Conn]
-	// 节点配置
+	// Node configuration
 	Config NetNodeConfiguration
-	// ruleGo配置
+	// ruleGo configuration
 	ruleConfig types.Config
-	// target 解析器（Init 时预编译模板），ref:// 模式使用
+	// target parser (a precompiled template when Init), used in ref:// mode
 	targetResolver *base.TargetResolver
-	// 创建一个心跳定时器，用于定期发送心跳消息，可以为0表示不发心跳
+	// Create a heartbeat timer to regularly send heartbeat messages; 0 can indicate no heartbeat
 	heartbeatTimer *time.Timer
-	//心跳间隔
+	//Heartbeat interval
 	heartbeatDuration time.Duration
-	// 连接是否已经断开，0：没端口；1：端口
+	// Check if the connection has been disconnected, 0: No port; 1: Port
 	disconnected int32
-	//断开连接次数
+	//Number of disconnections
 	disconnectedCount int32
 }
 
-// Type 组件类型
+// Type returns the component type
 func (x *NetNode) Type() string {
 	return "net"
 }
@@ -204,39 +204,39 @@ func (x *NetNode) New() types.Node {
 	}}
 }
 
-// Init 初始化
+// Init initializes the component
 func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	x.ruleConfig = ruleConfig
 	if err := maps.Map2Struct(configuration, &x.Config); err != nil {
 		return err
 	}
-	// 设置默认值
+	// Set the default value
 	x.setDefaultConfig()
 	x.targetResolver = base.NewTargetResolver(x.Config.Target)
 	x.heartbeatDuration = time.Duration(x.Config.HeartbeatInterval) * time.Second
 	return x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow, x.initConnect, func(conn net.Conn) error {
-		// 清理回调函数：关闭连接并清理相关状态
+		// Cleanup callback function: Close the connection and clean up the related status
 		x.onDisconnect()
 		return conn.Close()
 	})
 }
 
-// OnMsg：server 为 ref:// 时走寻址推送，否则出站 dial。
+// OnMsg: The server pushes addresses at ref://, otherwise it will dial out.
 func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var data []byte
 
-	// 根据数据类型智能处理
+	// Intelligent processing based on data type
 	if msg.GetDataType() == types.BINARY {
-		// 二进制数据：直接获取字节数组，不添加结束符
+		// Binary data: Directly obtains a byte array without adding terminators
 		data = msg.GetBytes()
 	} else {
-		// 文本或JSON数据：获取字符串并添加换行符结束符
+		// Text or JSON data: Retrieves the string and adds a newline terminator
 		strData := msg.GetData()
 		data = []byte(strData)
 		data = append(data, EndSign)
 	}
 
-	// 模式判定：ref:// 指向服务端 endpoint → 寻址推送；否则出站 dial
+	// Mode determination: ref:// Points to server endpoint → Addresses push; Otherwise, exit the station dial
 	if x.IsFromPool() {
 		x.onSendToEndpoint(ctx, msg, data)
 		return
@@ -244,9 +244,9 @@ func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	x.onWrite(ctx, msg, data)
 }
 
-// onSendToEndpoint ref:// 模式：解析目标实例，按 target 寻址推送。
-// 解析顺序：同链 Resources 优先 → NodePool 回退（均走 sync.Map，无锁读）。
-// TargetSender → SendToTarget 寻址；net.Conn → 直接 Write（共享出站连接兼容）。
+// onSendToEndpoint ref:// mode: Parse the target instance and push by target address.
+// Parsing order: Resources on the same chain prioritize → NodePool reverts (all follow sync.Map, unlocked read).
+// TargetSender → SendToTarget addressing; net.Conn → Direct Write (compatible with shared outbound connections).
 func (x *NetNode) onSendToEndpoint(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
 	target := x.targetResolver.Resolve(ctx, msg)
 	if target == "" && !x.targetResolver.IsEmpty() && x.targetResolver.Literal() != "*" {
@@ -270,9 +270,9 @@ func (x *NetNode) onSendToEndpoint(ctx types.RuleContext, msg types.RuleMsg, dat
 		}
 		ctx.TellSuccess(msg)
 	case net.Conn:
-		// ref:// 借用另一个出站 NetNode 的共享连接（非本节点本地连接）。
-		// 借用方只负责单次 Write，失败即 TellFailure；连接的健康/重连由持有方
-		// （原 NetNode 的心跳/tryReconnect）管理，本节点不接管其生命周期。
+		// ref:// Borrow a shared connection from another outbound NetNode (not a local connection to this node).
+		// The borrower is only responsible for a single write; failure is called TellFailure; The health of the connection/reconnection is determined by the holder
+		// (formerly NetNode's heartbeat/tryReconnect) management; this node does not take over its lifecycle.
 		if _, err := v.Write(data); err != nil {
 			ctx.TellFailure(msg, err)
 			return
@@ -283,7 +283,7 @@ func (x *NetNode) onSendToEndpoint(ctx types.RuleContext, msg types.RuleMsg, dat
 	}
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (x *NetNode) Destroy() {
 	_ = x.SharedNode.Close()
 }
@@ -292,7 +292,7 @@ func (x *NetNode) Printf(format string, v ...interface{}) {
 	x.ruleConfig.Logger.Printf(format, v...)
 }
 
-// initConnect 方法简化
+// The initConnect method is simplified
 func (x *NetNode) initConnect() (net.Conn, error) {
 	conn, err := net.DialTimeout(x.Config.Protocol, x.Config.Server, time.Duration(x.Config.ConnectTimeout)*time.Second)
 	if err != nil {
@@ -301,7 +301,7 @@ func (x *NetNode) initConnect() (net.Conn, error) {
 
 	x.setDisconnected(false)
 	if x.heartbeatDuration != 0 {
-		// 初始化心跳定时器
+		// Initialize the heartbeat timer
 		if x.heartbeatTimer == nil {
 			x.heartbeatTimer = time.AfterFunc(x.heartbeatDuration, func() {
 				x.onPing()
@@ -313,35 +313,35 @@ func (x *NetNode) initConnect() (net.Conn, error) {
 	return conn, nil
 }
 
-// 重连
+// Repeatedly connected
 func (x *NetNode) tryReconnect() {
-	// ref:// endpoint 模式不重连（非出站连接）
+	// ref:// Endpoint mode does not reconnect (non-outbound connection)
 	if x.IsFromPool() {
 		return
 	}
-	// 尝试通过SharedNode获取新连接（会触发重新初始化）
+	// Attempting to obtain a new connection via SharedNode (triggering reinitialization)
 	if conn, err := x.SharedNode.GetSafely(); err != nil {
-		// 5秒后重试
+		// Try again after 5 seconds
 		x.heartbeatTimer.Reset(5 * time.Second)
 	} else {
 		x.setDisconnected(false)
 		x.Printf("Reconnected to: %s", conn.RemoteAddr().String())
-		// 重连成功后，重置为正常的心跳间隔
+		// After successful reconnection, the interval is reset to normal
 		x.heartbeatTimer.Reset(x.heartbeatDuration)
 	}
 }
 
 func (x *NetNode) onPing() {
-	// ref:// endpoint 模式无心跳（服务端寻址，非出站连接；且 SharedNode.GetSafely 会类型断言失败）
+	// ref:// endpoint mode: no heartbeat (server-side addressing, not outbound connection; and SharedNode.GetSafely type assertion fails)
 	if x.IsFromPool() {
 		return
 	}
-	// 如果连接已经断开，尝试重连
+	// If the connection has already been disconnected, try reconnecting
 	if x.isDisconnected() {
 		x.tryReconnect()
 		return
 	}
-	// 发送心跳
+	// Sending heartbeats
 	if conn, err := x.SharedNode.GetSafely(); err == nil {
 		if _, err := conn.Write(PingData); err != nil {
 			x.Printf("Ping failed: %v", err)
@@ -354,30 +354,30 @@ func (x *NetNode) onPing() {
 }
 
 func (x *NetNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
-	// 向服务器发送数据
+	// Send data to the server
 	if conn, err := x.SharedNode.GetSafely(); err != nil {
 		ctx.TellFailure(msg, err)
 	} else if _, err := conn.Write(data); err != nil {
 		if atomic.LoadInt32(&x.disconnectedCount) == 0 {
 			x.setDisconnected(true)
-			//重试一次
+			//Try again
 			x.onWrite(ctx, msg, data)
 		} else {
 			x.setDisconnected(true)
 			ctx.TellFailure(msg, err)
 		}
 	} else {
-		//重置心跳发送间隔
+		//Reset the heartbeat sending interval
 		if x.heartbeatTimer != nil {
 			x.heartbeatTimer.Reset(x.heartbeatDuration)
 		}
-		//发送到下一个节点
+		//Send to the next node
 		ctx.TellSuccess(msg)
 	}
 }
 
 func (x *NetNode) onDisconnect() {
-	// 停止心跳定时器
+	// Stop the heartbeat timer
 	if x.heartbeatTimer != nil {
 		x.heartbeatTimer.Stop()
 	}
@@ -398,7 +398,7 @@ func (x *NetNode) setDisconnected(disconnected bool) {
 	}
 }
 
-// 默认值设置
+// Default value settings
 func (x *NetNode) setDefaultConfig() {
 	if x.Config.Protocol == "" {
 		x.Config.Protocol = "tcp"

@@ -33,8 +33,8 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// TestNetEndpointIntegrationDSL 使用DSL配置的NET端点集成测试
-// 测试场景：DSL配置的TCP/UDP服务器 + JS转换器 + 规则引擎客户端 + 双向通信
+// TestNetEndpointIntegrationDSL: NET endpoint integration testing using DSL-configured solutions
+// Test scenario: DSL-configured TCP/UDP server + JS converter + rule engine client + two-way communication
 func TestNetEndpointIntegrationDSL(t *testing.T) {
 	t.Run("TCP_Delimiter_JS_Transform_DSL", func(t *testing.T) {
 		testTCPDelimiterWithJSTransformDSL(t)
@@ -53,24 +53,24 @@ func TestNetEndpointIntegrationDSL(t *testing.T) {
 	})
 }
 
-// testTCPDelimiterWithJSTransformDSL 测试TCP分隔符模式 + JS转换器 (使用DSL配置)
+// testTCPDelimiterWithJSTransformDSL Test TCP delimiter mode + JS converter (configured with DSL)
 func testTCPDelimiterWithJSTransformDSL(t *testing.T) {
 	var wg sync.WaitGroup
 	serverPort := ":9101"
 
-	// 服务器端接收消息统计
+	// Server-side message reception statistics
 	var serverReceivedCount int32
 
-	// 创建AT命令处理的DSL配置
+	// Create a DSL configuration for AT command processing
 	dslConfig := createDelimiterDSL(serverPort)
 
-	// 启动DSL配置的服务器
+	// Start the server configured with DSL
 	ruleEngine := startDSLServer(t, "delimiterProcessor", dslConfig)
 	defer ruleEngine.Stop(context.Background())
 
-	time.Sleep(time.Millisecond * 300) // 等待服务器启动
+	time.Sleep(time.Millisecond * 300) // Wait for the server to start
 
-	// 客户端测试数据
+	// Client test data
 	testCases := []struct {
 		name     string
 		command  string
@@ -83,7 +83,7 @@ func testTCPDelimiterWithJSTransformDSL(t *testing.T) {
 		{"无效格式", "INVALID_FORMAT\r\n", "Unknown command format"},
 	}
 
-	// 创建多个客户端发送数据
+	// Create multiple clients to send data
 	clientCount := len(testCases)
 	wg.Add(clientCount)
 
@@ -95,11 +95,11 @@ func testTCPDelimiterWithJSTransformDSL(t *testing.T) {
 		}, clientId int) {
 			defer wg.Done()
 
-			// 使用规则引擎创建客户端
+			// Create clients using the rule engine
 			config := types.NewConfig()
 			client := createNetClientNode(t, config, "tcp", "localhost"+serverPort)
 
-			// 发送消息并验证响应
+			// Send messages and verify responses
 			var responseReceived string
 			var responseMutex sync.Mutex
 
@@ -115,17 +115,17 @@ func testTCPDelimiterWithJSTransformDSL(t *testing.T) {
 				}
 			})
 
-			// 创建测试消息
+			// Create test messages
 			metaData := types.NewMetadata()
 			metaData.PutValue("clientId", fmt.Sprintf("client_%d", clientId))
 			metaData.PutValue("testCase", testCase.name)
 
 			msg := types.NewMsg(0, "NET_CLIENT_MSG", types.TEXT, metaData, testCase.command)
 
-			// 发送消息
+			// Send the message
 			client.OnMsg(ctx, msg)
 
-			// 等待响应
+			// Waiting for a response
 			time.Sleep(time.Millisecond * 600)
 
 		}(tc, i)
@@ -133,30 +133,30 @@ func testTCPDelimiterWithJSTransformDSL(t *testing.T) {
 
 	wg.Wait()
 
-	// 验证处理结果
+	// Verify the processing results
 	finalCount := atomic.LoadInt32(&serverReceivedCount)
 
-	// 降低成功要求 - 只要有一些测试成功即可（网络环境可能不稳定）
+	// Lower success requirements – as long as some tests succeed (network environment may be unstable)
 	assert.True(t, finalCount >= 0, "DSL configuration should be functional even if network is unstable")
 }
 
-// testTCPFixedLengthBinaryDSL 测试TCP固定长度二进制协议 (使用DSL配置)
+// testTCPFixedLengthBinaryDSL Test TCP fixed-length binary protocol (configured with DSL)
 func testTCPFixedLengthBinaryDSL(t *testing.T) {
 	var wg sync.WaitGroup
 	serverPort := ":9102"
 
 	var binaryMessagesReceived int32
 
-	// 创建固定长度处理的DSL配置
+	// Create a fixed-length DSL configuration
 	dslConfig := createFixedLengthDSL(serverPort, 16)
 
-	// 启动DSL配置的服务器
+	// Start the server configured with DSL
 	ruleEngine := startDSLServer(t, "fixedLengthProcessor", dslConfig)
 	defer ruleEngine.Stop(context.Background())
 
 	time.Sleep(time.Millisecond * 300)
 
-	// 二进制测试用例
+	// Binary test cases
 	testCases := []struct {
 		deviceId uint32
 		command  uint32
@@ -196,19 +196,19 @@ func testTCPFixedLengthBinaryDSL(t *testing.T) {
 				}
 			})
 
-			// 构造16字节二进制消息
+			// Constructs 16-byte binary messages
 			binaryMsg := make([]byte, 16)
-			// 设备ID (big-endian)
+			// Device ID (big-endian)
 			binaryMsg[0] = byte(testCase.deviceId >> 24)
 			binaryMsg[1] = byte(testCase.deviceId >> 16)
 			binaryMsg[2] = byte(testCase.deviceId >> 8)
 			binaryMsg[3] = byte(testCase.deviceId)
-			// 命令 (big-endian)
+			// Command (big-endian)
 			binaryMsg[4] = byte(testCase.command >> 24)
 			binaryMsg[5] = byte(testCase.command >> 16)
 			binaryMsg[6] = byte(testCase.command >> 8)
 			binaryMsg[7] = byte(testCase.command)
-			// 数据部分
+			// Data section
 			copy(binaryMsg[8:], testCase.data)
 
 			metaData := types.NewMetadata()
@@ -227,21 +227,21 @@ func testTCPFixedLengthBinaryDSL(t *testing.T) {
 	receivedCount := atomic.LoadInt32(&binaryMessagesReceived)
 	//t.Logf("Successfully processed %d out of %d binary test cases using DSL", receivedCount, len(testCases))
 
-	// 至少要有一些测试成功
+	// At least some tests need to be successful
 	assert.True(t, receivedCount > 0, "At least some binary test cases should succeed with DSL configuration")
 }
 
-// testUDPTextCommunicationDSL 测试UDP文本通信 (使用DSL配置)
+// testUDPTextCommunicationDSL Test UDP text communication (using DSL configuration)
 func testUDPTextCommunicationDSL(t *testing.T) {
 	var wg sync.WaitGroup
 	serverPort := ":9103"
 
 	var udpMessagesReceived int32
 
-	// 创建UDP处理的DSL配置
+	// Create a DSL configuration for UDP processing
 	dslConfig := createUDPDSL(serverPort)
 
-	// 启动DSL配置的服务器
+	// Start the server configured with DSL
 	ruleEngine := startDSLServer(t, "udpProcessor", dslConfig)
 	defer ruleEngine.Stop(context.Background())
 
@@ -308,32 +308,32 @@ func testUDPTextCommunicationDSL(t *testing.T) {
 	receivedCount := atomic.LoadInt32(&udpMessagesReceived)
 	//t.Logf("Successfully processed %d out of %d UDP test cases using DSL", receivedCount, len(testMessages))
 
-	// UDP可能不稳定，降低成功要求
+	// UDP may be unstable, lowering the requirements for success
 	assert.True(t, receivedCount >= 0, "UDP DSL configuration should be functional")
 }
 
-// testTCPLengthPrefixProtocolDSL 测试TCP长度前缀协议 (使用DSL配置)
+// testTCPLengthPrefixProtocolDSL Testing TCP length prefix protocol (using DSL configuration)
 func testTCPLengthPrefixProtocolDSL(t *testing.T) {
 	serverPort := ":9104"
 	var messagesReceived int32
 
-	// 创建长度前缀处理的DSL配置
+	// Create a DSL configuration for length prefix handling
 	dslConfig := createLengthPrefixDSL(serverPort)
 
-	// 启动DSL配置的服务器
+	// Start the server configured with DSL
 	ruleEngine := startDSLServer(t, "lengthPrefixProcessor", dslConfig)
 	defer ruleEngine.Stop(context.Background())
 
 	time.Sleep(time.Millisecond * 300)
 
-	// 测试长度前缀消息
+	// Test length prefix messages
 	testCases := []struct {
 		msgType byte
 		payload []byte
 	}{
-		{0x10, []byte{}},                 // 心跳消息
-		{0x20, []byte{0x12, 0x34, 0x56}}, // 数据上传
-		{0xFF, []byte{0x99}},             // 未知类型
+		{0x10, []byte{}},                 // Heartbeat message
+		{0x20, []byte{0x12, 0x34, 0x56}}, // Data upload
+		{0xFF, []byte{0x99}},             // Unknown type
 	}
 
 	for i, tc := range testCases {
@@ -356,13 +356,13 @@ func testTCPLengthPrefixProtocolDSL(t *testing.T) {
 			}
 		})
 
-		// 构造长度前缀消息
-		dataLen := uint16(1 + len(tc.payload)) // 消息类型(1字节) + 载荷
+		// Construct length prefix messages
+		dataLen := uint16(1 + len(tc.payload)) // Message type (1 byte) + payload
 		message := make([]byte, 2+int(dataLen))
-		message[0] = byte(dataLen >> 8) // 长度高字节
-		message[1] = byte(dataLen)      // 长度低字节
-		message[2] = tc.msgType         // 消息类型
-		copy(message[3:], tc.payload)   // 载荷数据
+		message[0] = byte(dataLen >> 8) // Length is high bytes
+		message[1] = byte(dataLen)      // Low length bytes
+		message[2] = tc.msgType         // Message type
+		copy(message[3:], tc.payload)   // Load data
 
 		metaData := types.NewMetadata()
 		metaData.PutValue("test_case", fmt.Sprintf("length_prefix_%d", i))
@@ -383,25 +383,25 @@ func testTCPLengthPrefixProtocolDSL(t *testing.T) {
 	receivedCount := atomic.LoadInt32(&messagesReceived)
 	//t.Logf("Successfully processed %d out of %d length prefix test cases using DSL", receivedCount, len(testCases))
 
-	// 至少要有一些测试成功
+	// At least some tests need to be successful
 	assert.True(t, receivedCount > 0, "At least some length prefix test cases should succeed with DSL configuration")
 }
 
-// TestNetEndpointComplexScenarioDSL 测试复杂场景：多客户端 + 多种协议 + 并发处理 (使用DSL配置)
+// TestNetEndpointComplexScenarioDSL Testing complex scenarios: multi-client + multiple protocols + concurrent processing (using DSL configuration)
 func TestNetEndpointComplexScenarioDSL(t *testing.T) {
 	serverPort := ":9105"
 	var totalMessagesReceived int32
 
-	// 创建复杂场景的DSL配置
+	// Create DSL configurations for complex scenes
 	dslConfig := createComplexScenarioDSL(serverPort)
 
-	// 启动DSL配置的服务器
+	// Start the server configured with DSL
 	ruleEngine := startDSLServer(t, "complexProcessor", dslConfig)
 	defer ruleEngine.Stop(context.Background())
 
 	time.Sleep(time.Millisecond * 400)
 
-	// 并发测试：5个客户端，每个发送3条不同类型的消息
+	// Concurrency testing: 5 clients, each sending 3 different types of messages
 	clientCount := 5
 	//messagesPerClient := 3
 	//expectedTotal := clientCount * messagesPerClient
@@ -428,7 +428,7 @@ func TestNetEndpointComplexScenarioDSL(t *testing.T) {
 				}
 			})
 
-			// 每个客户端发送不同类型的消息
+			// Each client sends different types of messages
 			messages := []string{
 				fmt.Sprintf(`{"client_id":%d,"message_type":"json","data":"test_data"}`, id),
 				fmt.Sprintf("AT+INFO,client=%d", id),
@@ -443,10 +443,10 @@ func TestNetEndpointComplexScenarioDSL(t *testing.T) {
 				msg := types.NewMsg(0, "MULTI_TYPE_MSG", types.TEXT, metaData, msgContent+"\n")
 				client.OnMsg(ctx, msg)
 
-				time.Sleep(time.Millisecond * 200) // 避免消息太快
+				time.Sleep(time.Millisecond * 200) // Avoid sending messages too quickly
 			}
 
-			// 等待所有响应
+			// Waiting for all responses
 			time.Sleep(time.Millisecond * 800)
 
 			//clientSuccessCount := atomic.LoadInt32(&successCount)
@@ -457,32 +457,32 @@ func TestNetEndpointComplexScenarioDSL(t *testing.T) {
 
 	wg.Wait()
 
-	// 验证结果
+	// Verify the results
 	finalTotal := atomic.LoadInt32(&totalMessagesReceived)
-	// 复杂场景可能在网络环境下不稳定，降低要求
+	// Complex scenarios may be unstable in network environments, lowering requirements
 	assert.True(t, finalTotal >= 0, "Complex DSL scenario should be functional")
 }
 
-// TestSimpleNetEndpointIntegrationDSL 简化的集成测试 (使用DSL配置)
+// TestSimpleNetEndpointIntegrationDSL: Simplified integration testing (using DSL configuration)
 func TestSimpleNetEndpointIntegrationDSL(t *testing.T) {
 	var messagesReceived int32
 	serverPort := ":9110"
 
-	// 创建简单的DSL配置
+	// Create a simple DSL configuration
 	dslConfig := createSimpleDSL(serverPort)
 
-	// 启动DSL配置的服务器
+	// Start the server configured with DSL
 	ruleEngine := startDSLServer(t, "simpleProcessor", dslConfig)
 	defer ruleEngine.Stop(context.Background())
 
-	// 等待服务器启动
+	// Wait for the server to start
 	time.Sleep(time.Millisecond * 400)
 
-	// 创建客户端
+	// Create a client
 	config := types.NewConfig()
 	client := createNetClientNode(t, config, "tcp", "localhost"+serverPort)
 
-	// 测试发送消息
+	// Test sending messages
 	var responseReceived string
 	var responseMutex sync.Mutex
 
@@ -499,46 +499,46 @@ func TestSimpleNetEndpointIntegrationDSL(t *testing.T) {
 		}
 	})
 
-	// 发送测试消息
+	// Send test messages
 	testMessage := "Hello from RuleGo DSL client!\n"
 	metaData := types.NewMetadata()
 	metaData.PutValue("test", "simple_integration_dsl")
 
 	msg := types.NewMsg(0, "TEST_MSG", types.TEXT, metaData, testMessage)
 
-	// 发送消息
+	// Send the message
 	client.OnMsg(ctx, msg)
 
-	// 等待响应
+	// Waiting for a response
 	time.Sleep(time.Millisecond * 600)
 
-	// 验证结果
+	// Verify the results
 	receivedCount := atomic.LoadInt32(&messagesReceived)
 
 	responseMutex.Lock()
-	// 检查是否收到了响应
+	// Check if a response has been received
 	success := receivedCount > 0 && responseReceived != ""
 	assert.True(t, success, "Should receive at least one response with DSL configuration")
 	responseMutex.Unlock()
 }
 
-// TestNetEndpointHotReloadDSL 测试规则引擎热更新DSL功能
+// TestNetEndpointHotReloadDSL Test rule engine hot update DSL functionality
 func TestNetEndpointHotReloadDSL(t *testing.T) {
 	serverPort := ":9111"
 	var messagesReceived int32
 	var responseMutex sync.Mutex
 	//var lastResponse string
 
-	// 第一阶段：创建初始的简单echo DSL配置
+	// Stage One: Create an initial simple echo DSL configuration
 	initialDSL := createInitialEchoDSL(serverPort)
 
-	// 启动DSL配置的服务器
+	// Start the server configured with DSL
 	ruleEngine := startDSLServer(t, "hotReloadProcessor", initialDSL)
 	defer ruleEngine.Stop(context.Background())
 
-	time.Sleep(time.Millisecond * 300) // 等待服务器启动
+	time.Sleep(time.Millisecond * 300) // Wait for the server to start
 
-	// 创建客户端（保持连接活跃）
+	// Create a client (keep the connection active)
 	config := types.NewConfig()
 	client := createNetClientNode(t, config, "tcp", "localhost"+serverPort)
 
@@ -553,7 +553,7 @@ func TestNetEndpointHotReloadDSL(t *testing.T) {
 		}
 	})
 
-	// 第一阶段测试：验证初始行为
+	// Stage One Testing: Verify initial behavior
 	//t.Log("=== Phase 1: Testing initial DSL behavior ===")
 
 	metaData1 := types.NewMetadata()
@@ -568,22 +568,22 @@ func TestNetEndpointHotReloadDSL(t *testing.T) {
 	initialCount := atomic.LoadInt32(&messagesReceived)
 	responseMutex.Unlock()
 
-	// 验证初始响应（简单验证服务器工作）
+	// Initial Verification Response (Simple Server Verification Operations)
 	assert.True(t, initialCount > 0, "Should receive initial response")
 	//t.Logf("Initial response received: %q", initialResponse)
 
-	// 第二阶段：热更新DSL配置
+	// Phase Two: Hot update of DSL configurations
 	//t.Log("=== Phase 2: Hot reloading DSL configuration ===")
 
 	updatedDSL := createUpdatedEnhancedDSL(serverPort)
 
-	// 执行热更新
+	// Perform hot updates
 	err := ruleEngine.ReloadSelf([]byte(updatedDSL))
 	assert.Nil(t, err, "Hot reload should succeed")
 
-	time.Sleep(time.Millisecond * 200) // 等待配置生效
+	time.Sleep(time.Millisecond * 200) // Wait for the configuration to take effect
 
-	// 第三阶段：验证更新后的行为
+	// Stage Three: Verify the updated behavior
 	//t.Log("=== Phase 3: Testing updated DSL behavior ===")
 
 	metaData2 := types.NewMetadata()
@@ -598,24 +598,24 @@ func TestNetEndpointHotReloadDSL(t *testing.T) {
 	finalCount := atomic.LoadInt32(&messagesReceived)
 	responseMutex.Unlock()
 
-	// 验证热更新成功（消息数量增加说明服务器在热更新后继续工作）
+	// Verify that the hot update succeeded (an increase in message count indicates the server continues working after the hot update)
 	assert.True(t, finalCount > initialCount, "Should receive updated response")
 	//t.Logf("Updated response received: %q", updatedResponse)
 
-	// 验证热更新功能：服务器没有重启但配置已更新
+	// Verify hot update function: The server has not restarted but the configuration has been updated
 	assert.True(t, finalCount >= 2, "Hot reload should allow continued operation")
 
 	//t.Log("=== Hot reload DSL test completed successfully ===")
 }
 
-// 辅助函数
+// Auxiliary function
 
-// startDSLServer 启动使用DSL配置的服务器
+// startDSLServer Starts the server configured with DSL
 func startDSLServer(t *testing.T, chainId string, dslConfig string) types.RuleEngine {
 	config := rulego.NewConfig(
 		types.WithDefaultPool(),
 		types.WithOnDebug(func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-			// 简化调试输出 - 只在有错误时输出
+			// Simplified debug output – output only when there are errors
 			if err != nil {
 				t.Logf("[DSL DEBUG] Chain: %s, Node: %s, Relation: %s, Error: %v", chainId, nodeId, relationType, err)
 			}
@@ -628,7 +628,7 @@ func startDSLServer(t *testing.T, chainId string, dslConfig string) types.RuleEn
 	return ruleEngine
 }
 
-// createDelimiterDSL 创建分隔符模式的DSL配置
+// createDelimiterDSL: Creates a DSL configuration for delimiter mode
 func createDelimiterDSL(port string) string {
 	jsScript := `var response = ""; 
 var data = msg.toString().trim(); 
@@ -713,7 +713,7 @@ return { 'msg': response, 'metadata': metadata, 'msgType': msgType, 'dataType': 
 }`, port, escapeForJSON(jsScript))
 }
 
-// createFixedLengthDSL 创建固定长度模式的DSL配置
+// createFixedLengthDSL: Creates a fixed-length DSL configuration
 func createFixedLengthDSL(port string, size int) string {
 	jsScript := `var response;
 if (msg.length !== 16) {
@@ -786,7 +786,7 @@ return {
 }`, port, size, escapeForJSON(jsScript))
 }
 
-// createUDPDSL 创建UDP协议的DSL配置
+// createUDPDSL Creates the DSL configuration for the UDP protocol
 func createUDPDSL(port string) string {
 	jsScript := `var data = msg.toString().trim();
 var response = "";
@@ -858,7 +858,7 @@ return {
 }`, port, escapeForJSON(jsScript))
 }
 
-// createLengthPrefixDSL 创建长度前缀模式的DSL配置
+// createLengthPrefixDSL: Creates a DSL configuration for length prefix mode
 func createLengthPrefixDSL(port string) string {
 	jsScript := `var response;
 if (msg.length >= 3) {
@@ -943,7 +943,7 @@ return {
 }`, port, escapeForJSON(jsScript))
 }
 
-// createComplexScenarioDSL 创建复杂场景的DSL配置
+// createComplexScenarioDSL: Creates DSL configurations for complex scenes
 func createComplexScenarioDSL(port string) string {
 	jsScript := `var data = msg.toString().trim();
 var msgType = "";
@@ -1018,7 +1018,7 @@ return {
 }`, port, escapeForJSON(jsScript))
 }
 
-// createSimpleDSL 创建简单的DSL配置
+// createSimpleDSL Creates a simple DSL configuration
 func createSimpleDSL(port string) string {
 	return fmt.Sprintf(`{
   "ruleChain": {
@@ -1068,9 +1068,9 @@ func createSimpleDSL(port string) string {
 }`, port)
 }
 
-// createNetClientNode 创建NET客户端节点
+// createNetClientNode Creates a NET client node
 func createNetClientNode(t *testing.T, config types.Config, protocol, server string) types.Node {
-	// 注册NET客户端组件
+	// Register the.NET client component
 	components := engine.Registry.GetComponents()
 	if _, exists := components["net"]; !exists {
 		_ = engine.Registry.Register(&external.NetNode{})
@@ -1083,7 +1083,7 @@ func createNetClientNode(t *testing.T, config types.Config, protocol, server str
 		"protocol":          protocol,
 		"server":            server,
 		"connectTimeout":    10,
-		"heartbeatInterval": 0, // 禁用心跳
+		"heartbeatInterval": 0, // Avoid heartbeats
 	}
 
 	err = node.Init(config, configuration)
@@ -1092,18 +1092,18 @@ func createNetClientNode(t *testing.T, config types.Config, protocol, server str
 	return node
 }
 
-// 添加辅助函数来正确转义JSON字符串
+// Add auxiliary functions to correctly escape JSON strings
 func escapeForJSON(s string) string {
-	// 替换特殊字符为JSON转义序列
-	s = strings.ReplaceAll(s, `\`, `\\`)  // 反斜杠
-	s = strings.ReplaceAll(s, `"`, `\"`)  // 双引号
-	s = strings.ReplaceAll(s, "\n", `\n`) // 换行符
-	s = strings.ReplaceAll(s, "\r", `\r`) // 回车符
-	s = strings.ReplaceAll(s, "\t", `\t`) // 制表符
+	// Replace special characters with JSON escape sequences
+	s = strings.ReplaceAll(s, `\`, `\\`)  // Backslash
+	s = strings.ReplaceAll(s, `"`, `\"`)  // Double quotation marks
+	s = strings.ReplaceAll(s, "\n", `\n`) // Line change symbol
+	s = strings.ReplaceAll(s, "\r", `\r`) // Return permit
+	s = strings.ReplaceAll(s, "\t", `\t`) // Clock Symbol
 	return s
 }
 
-// createInitialEchoDSL 创建初始的简单echo DSL配置
+// createInitialEchoDSL: Creates an initial simple echo DSL configuration
 func createInitialEchoDSL(port string) string {
 	jsScript := `var data = msg.toString().trim(); var response = 'ECHO: ' + data; metadata['processedBy'] = 'initial-echo-processor'; metadata['timestamp'] = new Date().toISOString(); return { 'msg': response, 'metadata': metadata, 'msgType': 'ECHO_RESPONSE', 'dataType': 'TEXT' };`
 
@@ -1155,7 +1155,7 @@ func createInitialEchoDSL(port string) string {
 }`, port, escapeForJSON(jsScript))
 }
 
-// createUpdatedEnhancedDSL 创建更新后的增强DSL配置
+// createUpdatedEnhancedDSL Creates the updated enhanced DSL configuration
 func createUpdatedEnhancedDSL(port string) string {
 	jsScript := `var data = msg.toString().trim(); var timestamp = new Date().toISOString(); var processCount = (metadata['globalProcessCount'] || 0) + 1; metadata['globalProcessCount'] = processCount; var response = JSON.stringify({ "status": "enhanced", "data": data, "timestamp": timestamp, "processCount": processCount, "processor": "enhanced-hot-reload-processor" }); metadata['processedBy'] = 'enhanced-hot-reload-processor'; metadata['timestamp'] = timestamp; metadata['processCount'] = processCount; return { 'msg': response, 'metadata': metadata, 'msgType': 'ENHANCED_RESPONSE', 'dataType': 'JSON' };`
 

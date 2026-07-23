@@ -39,7 +39,7 @@ func TestEndpoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	config := engine.NewConfig(types.WithDefaultPool())
-	//注册规则链
+	//Register the rule chain
 	_, _ = engine.New("default", buf, engine.WithConfig(config))
 
 	var from = "aa"
@@ -96,7 +96,7 @@ func TestEndpoint(t *testing.T) {
 
 	})
 
-	//测试新建路由
+	//Test the new route
 	t.Run("NewRouter", func(t *testing.T) {
 		exchange := &endpoint.Exchange{
 			In:  &testRequestMessage{body: []byte("{\"productName\":\"lala\"}")},
@@ -158,7 +158,7 @@ func TestEndpoint(t *testing.T) {
 		})
 		assert.Equal(t, 2, len(testEp.Interceptors))
 		testEp.DoProcess(context.WithValue(context.TODO(), "baseAdd", "baseValue"), router, exchange)
-		//测试from process中断
+		//Testing interrupts from process
 		var firstDone int32
 		var secondDone int32
 		testEp = &testEndpoint{}
@@ -177,7 +177,7 @@ func TestEndpoint(t *testing.T) {
 		assert.True(t, atomic.LoadInt32(&firstDone) == 1)
 		assert.False(t, atomic.LoadInt32(&secondDone) == 1)
 
-		//测试to process中断
+		//Testing to process interrupted
 		atomic.StoreInt32(&firstDone, 0)
 		atomic.StoreInt32(&secondDone, 0)
 		testEp = &testEndpoint{}
@@ -225,7 +225,7 @@ func TestEndpoint(t *testing.T) {
 			atomic.StoreInt32(&end, 1)
 			return true
 		}).End()
-		//执行路由
+		//Execute routing
 		executeRouterTest(router, exchange)
 		assert.True(t, atomic.LoadInt32(&end) == 1)
 	})
@@ -248,7 +248,7 @@ func TestEndpoint(t *testing.T) {
 		}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return false
 		})
-		//执行路由
+		//Execute routing
 		executeRouterTest(router, exchange)
 		time.Sleep(time.Millisecond * 200)
 		assert.True(t, atomic.LoadInt32(&end) == 1)
@@ -259,7 +259,7 @@ func TestEndpoint(t *testing.T) {
 		assert.Equal(t, "executor=component, path not support variables", router.Err().Error())
 	})
 
-	//测试组件不存在
+	//There are no test components
 	t.Run("ExecuteComponentNotFount", func(t *testing.T) {
 		router := NewRouter().From(from).To("component:aa", configuration).End()
 		assert.Equal(t, "component not found. componentType=aa", router.Err().Error())
@@ -276,9 +276,9 @@ func TestEndpoint(t *testing.T) {
 			atomic.StoreInt32(&end, 1)
 			return true
 		})
-		//执行路由
+		//Execute routing
 		executeRouterTest(router, exchange)
-		//同步
+		//Synchronized
 		assert.True(t, atomic.LoadInt32(&end) == 1)
 	})
 
@@ -310,7 +310,7 @@ func TestEndpoint(t *testing.T) {
 			atomic.StoreInt32(&end, 1)
 			return true
 		})
-		//执行路由
+		//Execute routing
 		executeRouterTest(router2, exchange)
 		time.Sleep(time.Millisecond * 100)
 		assert.True(t, atomic.LoadInt32(&end) == 1)
@@ -322,7 +322,7 @@ func TestEndpoint(t *testing.T) {
 			Out: &testResponseMessage{}}
 		errChain := strings.Replace(string(buf), "\"jsScript\": \"return msg=='aa';\"", "\"jsScript\": \"return a;\"", -1)
 
-		//注册规则链
+		//Register the rule chain
 		_, err = engine.New("errChainId", []byte(errChain), engine.WithConfig(config))
 
 		var end int32
@@ -333,7 +333,7 @@ func TestEndpoint(t *testing.T) {
 				atomic.StoreInt32(&end, 1)
 				return true
 			})
-		//执行路由
+		//Execute routing
 		executeRouterTest(router2, exchange)
 		time.Sleep(time.Millisecond * 100)
 		assert.True(t, atomic.LoadInt32(&end) == 1)
@@ -353,7 +353,7 @@ func TestEndpoint(t *testing.T) {
 		}).To("nothing:aa").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return true
 		})
-		//执行路由
+		//Execute routing
 		executeRouterTest(router2, exchange)
 		time.Sleep(time.Millisecond * 100)
 		assert.False(t, atomic.LoadInt32(&done) == 1)
@@ -372,7 +372,7 @@ func TestEndpoint(t *testing.T) {
 			atomic.StoreInt32(&done, 1)
 			return true
 		})
-		//执行路由
+		//Execute routing
 		executeRouterTest(router2, exchange)
 		time.Sleep(time.Millisecond * 100)
 		assert.False(t, atomic.LoadInt32(&done) == 1)
@@ -392,9 +392,9 @@ func TestEndpoint(t *testing.T) {
 			}).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 			return false
 		})
-		//执行路由
+		//Execute routing
 		executeRouterTest(router2, exchange)
-		//同步
+		//Synchronized
 		assert.True(t, atomic.LoadInt32(&end) == 1)
 	})
 
@@ -407,7 +407,7 @@ func TestEndpoint(t *testing.T) {
 			assert.Equal(t, "chainId=aa not found error", exchange.Out.GetError().Error())
 			return true
 		})
-		//执行路由
+		//Execute routing
 		executeRouterTest(router2, exchange)
 	})
 
@@ -435,19 +435,19 @@ func TestEndpoint(t *testing.T) {
 }
 
 func executeRouterTest(router endpoint.Router, exchange *endpoint.Exchange) {
-	//执行from端逻辑
+	//Execute the FROM logic on the from side
 	if fromFlow := router.GetFrom(); fromFlow != nil {
 		if !fromFlow.ExecuteProcess(router, exchange) {
 			return
 		}
 	}
-	//执行to端逻辑
+	//Execute the to-end logic
 	if router.GetFrom() != nil && router.GetFrom().GetTo() != nil {
 		router.GetFrom().GetTo().Execute(context.TODO(), exchange)
 	}
 }
 
-// testRequestMessage 请求消息
+// testRequestMessage Request a message
 type testRequestMessage struct {
 	headers textproto.MIMEHeader
 	body    []byte
@@ -500,7 +500,7 @@ func (r *testRequestMessage) GetError() error {
 	return r.err
 }
 
-// testResponseMessage 响应消息
+// testResponseMessage
 type testResponseMessage struct {
 	body    []byte
 	msg     *types.RuleMsg
@@ -600,13 +600,13 @@ func TestScopedMessageHeaderModifierPassThrough(t *testing.T) {
 	assert.Equal(t, "", out.Headers().Get("Content-Type"))
 }
 
-// 测试endpoint
+// Test the endpoint
 type testEndpoint struct {
 	BaseEndpoint
 	configuration types.Configuration
 }
 
-// Type 组件类型
+// Type returns the component type
 func (test *testEndpoint) Type() string {
 	return "test"
 }
@@ -615,13 +615,13 @@ func (test *testEndpoint) New() types.Node {
 	return &testEndpoint{}
 }
 
-// Init 初始化
+// Init initializes the component
 func (test *testEndpoint) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	test.configuration = configuration
 	return nil
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (test *testEndpoint) Destroy() {
 	_ = test.Close()
 }
@@ -635,7 +635,7 @@ func (test *testEndpoint) Id() string {
 }
 
 func (test *testEndpoint) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
-	//返回任务ID，用于清除任务
+	//Returns the task ID, used to clear the task
 	return "1", nil
 }
 

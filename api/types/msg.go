@@ -31,40 +31,40 @@ import (
 // DataType defines the type of data contained in a message.
 // It helps components understand how to process the message payload.
 //
-// DataType 定义消息中包含的数据类型。
-// 它帮助组件理解如何处理消息负载。
+// DataType defines the data type contained in the message.
+// It helps components understand how to handle message loads.
 type DataType string
 
 // Constants for different data types that a message can represent.
 // These types guide component behavior and processing logic.
-// 表示消息可以代表的不同数据类型的常量。
-// 这些类型指导组件行为和处理逻辑。
+// Represents the constants of different data types that messages can represent.
+// These types guide component behavior and processing logic.
 const (
 	// JSON represents data in JSON format - most common for structured data
-	// JSON 表示 JSON 格式的数据 - 结构化数据最常用的格式
+	// JSON stands for JSON data – the most commonly used format for structured data
 	JSON = DataType("JSON")
 
 	// TEXT represents plain text data - used for simple string content
-	// TEXT 表示纯文本数据 - 用于简单的字符串内容
+	// TEXT stands for plain text data—used for simple string content
 	TEXT = DataType("TEXT")
 
 	// BINARY represents binary data - used for files, images, or other binary content
-	// BINARY 表示二进制数据 - 用于文件、图像或其他二进制内容
+	// BINARY stands for binary data—used for files, images, or other binary content
 	BINARY = DataType("BINARY")
 )
 
 // Constants for keys used in message handling and metadata operations.
 // These standardized keys ensure consistency across the rule engine.
-// 用于消息处理和元数据操作的键常量。
-// 这些标准化的键确保规则引擎的一致性。
+// Key constants used for message processing and metadata operations.
+// These standardized keys ensure consistency in the rule engine.
 const (
-	IdKey       = "id"       // Key for the message unique identifier  消息唯一标识符的键
-	TsKey       = "ts"       // Key for the message timestamp  消息时间戳的键
-	DataKey     = "data"     // Key for the message content  消息内容的键
-	MsgKey      = "msg"      // Key for the message content object  消息内容对象的键
-	MetadataKey = "metadata" // Key for the message metadata  消息元数据的键
-	MsgTypeKey  = "msgType"  // Key for the message type  消息类型的键
-	DataTypeKey = "dataType" // Key for the data type of the message  消息数据类型的键
+	IdKey       = "id"       // Key for the message unique identifier
+	TsKey       = "ts"       // Key for the message timestamp
+	DataKey     = "data"     // Key for the message content
+	MsgKey      = "msg"      // Key for the message content object
+	MetadataKey = "metadata" // Key for the message metadata
+	MsgTypeKey  = "msgType"  // Key for the message type
+	DataTypeKey = "dataType" // Key for the data type of the message
 )
 
 // Properties is a simple map type for storing key-value pairs as metadata.
@@ -72,16 +72,16 @@ const (
 // This type is suitable for scenarios where performance is not critical or when
 // metadata sharing between multiple instances is not required.
 //
-// Properties 是用于存储键值对作为元数据的简单映射类型。
-// 它提供基本的元数据管理操作，但不包含写时复制优化。
-// 此类型适用于性能不关键或不需要在多个实例间共享元数据的场景。
+// Properties are simple mapping types used to store key-value pairs as metadata.
+// It provides basic metadata management operations but does not include write-time replication optimization.
+// This type is suitable for scenarios where performance is not critical or metadata is not needed to be shared across multiple instances.
 type Properties map[string]string
 
 // NewProperties creates a new empty Properties instance.
 // Returns an initialized Properties map ready for use.
 //
-// NewProperties 创建一个新的空 Properties 实例。
-// 返回一个已初始化的 Properties 映射，可立即使用。
+// NewProperties creates a new empty Properties instance.
+// Returns an initialized Properties map, which can be used immediately.
 func NewProperties() Properties {
 	return make(Properties)
 }
@@ -90,15 +90,15 @@ func NewProperties() Properties {
 // If the input data is nil, returns an empty Properties instance.
 // The function creates a deep copy of the input data to ensure isolation.
 //
-// BuildProperties 从现有数据创建新的 Properties 实例。
-// 如果输入数据为 nil，返回空的 Properties 实例。
-// 该函数创建输入数据的深度副本以确保隔离。
+// BuildProperties creates new Properties instances from existing data.
+// If the input data is nil, it returns an empty Properties instance.
+// This function creates deep copies of input data to ensure isolation.
 func BuildProperties(data Properties) Properties {
 	if data == nil {
 		return make(Properties)
 	}
 	// Pre-allocate with known capacity to reduce map resizing
-	// 预分配已知容量以减少映射重新调整大小
+	// Pre-allocate known capacity to reduce mapping and resize
 	metadata := make(Properties, len(data))
 	for k, v := range data {
 		metadata[k] = v
@@ -109,8 +109,8 @@ func BuildProperties(data Properties) Properties {
 // Copy creates a deep copy of the Properties.
 // This ensures that modifications to the copy do not affect the original.
 //
-// Copy 创建 Properties 的深度副本。
-// 这确保对副本的修改不会影响原始数据。
+// Copy creates a deep copy of the properties.
+// This ensures that modifications to copies do not affect the original data.
 func (md Properties) Copy() Properties {
 	return BuildProperties(md)
 }
@@ -118,8 +118,8 @@ func (md Properties) Copy() Properties {
 // Has checks if a key exists in the metadata.
 // Returns true if the key exists, false otherwise.
 //
-// Has 检查元数据中是否存在键。
-// 如果键存在返回 true，否则返回 false。
+// Has checked whether keys exist in metadata.
+// If the key exists, return true; otherwise, return false.
 func (md Properties) Has(key string) bool {
 	_, ok := md[key]
 	return ok
@@ -128,8 +128,8 @@ func (md Properties) Has(key string) bool {
 // GetValue retrieves a value by key from the metadata.
 // Returns the value if the key exists, or an empty string if not found.
 //
-// GetValue 通过键从元数据中检索值。
-// 如果键存在返回值，如果未找到返回空字符串。
+// GetValue retrieves values from metadata via keys.
+// If the key has a return value, if no return string is found, it returns an empty string.
 func (md Properties) GetValue(key string) string {
 	v, _ := md[key]
 	return v
@@ -138,8 +138,8 @@ func (md Properties) GetValue(key string) string {
 // PutValue sets a value in the metadata.
 // If the key is empty, the operation is ignored to prevent invalid entries.
 //
-// PutValue 在元数据中设置值。
-// 如果键为空，操作将被忽略以防止无效条目。
+// PutValue sets values in metadata.
+// If the key is empty, the operation will be ignored to prevent invalid entries.
 func (md Properties) PutValue(key, value string) {
 	if key != "" {
 		md[key] = value
@@ -150,8 +150,8 @@ func (md Properties) PutValue(key, value string) {
 // Note: This returns a direct reference to the internal map, so modifications
 // will affect the original Properties instance.
 //
-// Values 返回包含所有键值对的底层映射。
-// 注意：这返回内部映射的直接引用，因此修改会影响原始 Properties 实例。
+// Values returns the underlying mapping containing all key-value pairs.
+// Note: This returns a direct reference to the internal mapping, so modifications will affect the original Properties instance.
 func (md Properties) Values() map[string]string {
 	return md
 }
@@ -159,26 +159,26 @@ func (md Properties) Values() map[string]string {
 // Metadata is a type for message metadata within the rule engine.
 // It uses Copy-on-Write mechanism to optimize performance in multi-node scenarios.
 //
-// Metadata 是规则引擎中消息元数据的类型。
-// 它使用写时复制机制来优化多节点场景下的性能。
+// Metadata is the type of message metadata in the rule engine.
+// It uses a write-time replication mechanism to optimize performance in multi-node scenarios.
 //
 // Key Features:
-// 主要特性：
-//   - Copy-on-Write optimization for better performance  写时复制优化以获得更好的性能
-//   - Thread-safe operations with mutex protection  使用互斥锁保护的线程安全操作
-//   - Efficient sharing between multiple rule nodes  多个规则节点间的高效共享
-//   - JSON marshaling/unmarshaling support  JSON 序列化/反序列化支持
+// Key features:
+//   - Copy-on-Write optimization for better performance
+//   - Thread-safe operations with mutex protection
+//   - Efficient sharing between multiple rule nodes
+//   - JSON marshaling/unmarshaling support: JSON serialization/deserialization support
 type Metadata struct {
 	// data holds the actual metadata key-value pairs
-	// data 保存实际的元数据键值对
+	// data saves the actual metadata key-value pair
 	data map[string]string
 
 	// shared indicates if this metadata is shared with other instances
-	// shared 表示此元数据是否与其他实例共享
+	// Shared indicates whether this metadata is shared with other instances
 	shared bool
 
 	// mu protects the shared flag and data during copy operations
-	// mu 在复制操作期间保护共享标志和数据
+	// mu protects shared tokens and data during the replication operation
 	mu sync.RWMutex
 }
 
@@ -429,49 +429,49 @@ func (md *Metadata) Len() int {
 // the message content, metadata, type information, and timing details.
 // RuleMsg is the core data structure that flows through the rule engine nodes.
 //
-// RuleMsg 表示规则引擎系统中的消息。
-// 它封装了消息处理所需的所有信息，包括消息内容、元数据、类型信息和时间详情。
-// RuleMsg 是流经规则引擎节点的核心数据结构。
+// RuleMsg represents messages in the rule engine system.
+// It encapsulates all the information needed for message processing, including message content, metadata, type information, and time details.
+// RuleMsg is the core data structure that flows through the nodes of the rule engine.
 //
 // Key Features:
-// 主要特性：
-//   - Copy-on-Write optimization for data and metadata  数据和元数据的写时复制优化
-//   - Support for multiple data types (JSON, TEXT, BINARY)  支持多种数据类型（JSON、TEXT、BINARY）
-//   - Efficient copying and sharing between nodes  节点间的高效复制和共享
+// Key features:
+//   - Copy-on-Write optimization for data and metadata
+//   - Support for multiple data types (JSON, TEXT, BINARY)
+//   - Efficient copying and sharing between nodes
 //
 // Usage Example:
-// 使用示例：
+// Example:
 //
 //	// Create a new message with JSON data
-//	// 创建包含 JSON 数据的新消息
+//	Create a new message containing JSON data
 //	metadata := types.NewMetadata()
 //	metadata.PutValue("deviceId", "sensor001")
 //	msg := types.NewMsg(0, "TELEMETRY", types.JSON, metadata, `{"temperature": 25.5}`)
 //
 //	// Copy message efficiently (uses Copy-on-Write)
-//	// 高效复制消息（使用写时复制）
+//	Efficient message replication (using write-time copying)
 //	msgCopy := msg.Copy()
 //
 //	// Modify copy without affecting original
-//	// 修改副本而不影响原始消息
+//	Modifying copies without affecting the original message
 //	msgCopy.SetData(`{"temperature": 26.0}`)
 type RuleMsg struct {
 	// Ts is the message timestamp in milliseconds since Unix epoch.
 	// This field is automatically set when creating a new message if not provided.
-	// Ts 是自 Unix 纪元以来的消息时间戳（毫秒）。
-	// 如果未提供，创建新消息时会自动设置此字段。
+	// Ts is the message timestamp (in milliseconds) since the Unix era.
+	// If not provided, this field will be automatically set when creating a new message.
 	Ts int64 `json:"ts"`
 
 	// Id is the unique identifier for the message as it flows through the rule engine.
 	// Each message gets a UUID when created, ensuring uniqueness across the system.
-	// Id 是消息在规则引擎中流转时的唯一标识符。
-	// 每个消息在创建时都会获得一个 UUID，确保在系统中的唯一性。
+	// An ID is the unique identifier for messages as they flow through the rules engine.
+	// Each message receives a UUID at creation, ensuring uniqueness within the system.
 	Id string `json:"id"`
 
 	// DataType specifies the format of the data contained in the message.
 	// Supported types include JSON, TEXT, and BINARY.
-	// DataType 指定消息中包含数据的格式。
-	// 支持的类型包括 JSON、TEXT 和 BINARY。
+	// DataType specifies the format in which the data is included in the message.
+	// Supported types include JSON, TEXT, and BINARY.
 	DataType DataType `json:"dataType"`
 
 	// Type is a crucial field for the rule engine to distribute and categorize messages.
@@ -479,23 +479,23 @@ type RuleMsg struct {
 	// Common examples include: POST_TELEMETRY, ACTIVITY_EVENT, INACTIVITY_EVENT,
 	// CONNECT_EVENT, DISCONNECT_EVENT, ENTITY_CREATED, ENTITY_UPDATED, ENTITY_DELETED,
 	// DEVICE_ALARM, POST_DEVICE_DATA.
-	// Type 是规则引擎分发和分类消息的关键字段。
-	// 此字段决定规则引擎如何路由和处理消息。
-	// 常见示例包括：POST_TELEMETRY、ACTIVITY_EVENT、INACTIVITY_EVENT、
-	// CONNECT_EVENT、DISCONNECT_EVENT、ENTITY_CREATED、ENTITY_UPDATED、ENTITY_DELETED、
-	// DEVICE_ALARM、POST_DEVICE_DATA。
+	// Type is a key field for the rule engine to distribute and classify messages.
+	// This field determines how the rules engine routes and processes messages.
+	// Common examples include: POST_TELEMETRY, ACTIVITY_EVENT, INACTIVITY_EVENT,
+	// CONNECT_EVENT, DISCONNECT_EVENT, ENTITY_CREATED, ENTITY_UPDATED, ENTITY_DELETED,
+	// DEVICE_ALARM, POST_DEVICE_DATA.
 	Type string `json:"type"`
 
 	// Data contains the actual message payload using Copy-on-Write optimization.
 	// The format of this data should match the DataType field.
-	// Data 包含使用写时复制优化的实际消息负载。
-	// 此数据的格式应与 DataType 字段匹配。
+	// Data contains the actual message payload optimized using write-time replication.
+	// The format of this data should match the DataType field.
 	Data *SharedData `json:"data"`
 
 	// Metadata contains additional key-value pairs associated with the message.
 	// This field uses Copy-on-Write optimization for better performance in multi-node scenarios.
-	// Metadata 包含与消息相关的附加键值对。
-	// 此字段使用写时复制优化，在多节点场景下提供更好的性能。
+	// Metadata contains additional key-value pairs related to messages.
+	// This field uses write-time replication optimization, providing better performance in multi-node scenarios.
 	Metadata *Metadata `json:"metadata"`
 }
 

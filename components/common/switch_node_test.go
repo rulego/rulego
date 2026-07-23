@@ -121,7 +121,7 @@ func TestSwitchNode(t *testing.T) {
 				},
 			},
 			{
-				// case 引用缺失字段 msg.temperature2，求值失败应跳过而非报错，走 Default 兜底
+				// case references the missing field msg.temperature2; if evaluation fails, skip it instead of reporting errors, and use Default as a backup
 				Node:    node2,
 				MsgList: []test.Msg{msg1},
 				Callback: func(msg types.RuleMsg, relationType string, err error) {

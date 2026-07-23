@@ -125,16 +125,16 @@ func (f *LocalFileStorage) Delete(path string) error {
 
 // GetFilePaths returns file paths matching the pattern
 func (f *LocalFileStorage) GetFilePaths(loadFilePattern string, excludedPatterns ...string) ([]string, error) {
-	// 分割输入参数为目录和文件名
+	// Split the input parameters as the directory and filename
 	dir, file := filepath.Split(loadFilePattern)
 	var paths []string
-	// 遍历目录
+	// Browse through the directory
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// 如果是文件，且文件名匹配输入参数
+		// If it is a file and the filename matches the input parameters
 		if !d.IsDir() {
 			matched, _ := filepath.Match(file, d.Name())
 			if matched && !isMatch(d, excludedPatterns...) {
@@ -143,7 +143,7 @@ func (f *LocalFileStorage) GetFilePaths(loadFilePattern string, excludedPatterns
 		} else {
 			for _, item := range excludedPatterns {
 				if matched, _ := filepath.Match(item, d.Name()); matched {
-					return filepath.SkipDir // 跳过该子目录
+					return filepath.SkipDir // Skip this subdirectory
 				}
 			}
 

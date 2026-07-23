@@ -58,7 +58,7 @@ func TestDelayNode(t *testing.T) {
 		}, Registry)
 	})
 
-	// 测试新的DelayMs字段（数值模式）
+	// Test the new DelayMs field (numeric mode)
 	t.Run("DelayMsNumeric", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"delayMs":        "1000",
@@ -81,7 +81,7 @@ func TestDelayNode(t *testing.T) {
 		})
 	})
 
-	// 测试新的DelayMs字段（模板模式）
+	// Testing the new DelayMs field (template mode)
 	t.Run("DelayMsTemplate", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"delayMs":        "${delayTime}",
@@ -104,7 +104,7 @@ func TestDelayNode(t *testing.T) {
 			assert.Equal(t, types.Success, relationType)
 		})
 
-		// 测试模板解析错误
+		// Test template parsing error
 		metaData.PutValue("delayTime", "invalid")
 		msgList = []test.Msg{
 			{
@@ -119,7 +119,7 @@ func TestDelayNode(t *testing.T) {
 		})
 	})
 
-	// 延迟偏移：偏移时间大于或等于延迟，立即执行
+	// Delayed offset: The offset time is greater than or equal to the delay and executed immediately
 	t.Run("DelayOffsetImmediate", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"delayMs":        "1000",
@@ -128,7 +128,7 @@ func TestDelayNode(t *testing.T) {
 		assert.Nil(t, err)
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
-		// 等于延迟
+		// This equals delay
 		metaData.PutValue(KeyDelayOffsetMs, "1000")
 
 		var msgList = []test.Msg{
@@ -143,7 +143,7 @@ func TestDelayNode(t *testing.T) {
 			assert.Equal(t, types.Success, relationType)
 		})
 
-		// 大于延迟
+		// Greater than delay
 		metaData.PutValue(KeyDelayOffsetMs, "1500")
 		msgList = []test.Msg{
 			{
@@ -158,7 +158,7 @@ func TestDelayNode(t *testing.T) {
 		})
 	})
 
-	// 延迟偏移：偏移时间小于延迟，按剩余时间延迟
+	// Delay offset: If the offset time is less than the delay, the remaining time is used for delay
 	t.Run("DelayOffsetReduced", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"delayMs":        "2000",
@@ -182,7 +182,7 @@ func TestDelayNode(t *testing.T) {
 		})
 	})
 
-	// 延迟偏移：元数据值非法，走失败链路
+	// Delay offset: Metadata values are invalid and follow the failure route
 	t.Run("DelayOffsetInvalid", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"delayMs":        "1000",
@@ -206,7 +206,7 @@ func TestDelayNode(t *testing.T) {
 		})
 	})
 
-	// 兼容旧配置：periodInSeconds + 延迟偏移
+	// Compatible with older configurations: periodInSeconds + delay offset
 	t.Run("DelayOffsetWithPeriodInSeconds", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"periodInSeconds": 2,
@@ -230,7 +230,7 @@ func TestDelayNode(t *testing.T) {
 		})
 	})
 
-	// 测试向后兼容性 - 旧的periodInSeconds字段
+	// Testing backward compatibility - the old periodInSeconds field
 	t.Run("BackwardCompatibility", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"periodInSeconds": 1,
@@ -261,9 +261,9 @@ func TestDelayNode(t *testing.T) {
 		assert.Nil(t, err)
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
-		//第1条消息，成功
-		//第2条消息，因为队列已经满，报错
-		//第3条消息，成功，因为第1条消息已经被消费
+		//The first message: success
+		//Message 2: Because the queue is full, an error is reported
+		//The third message succeeds, because the first message has already been consumed
 		var msgList = []test.Msg{
 			{
 				MetaData:   metaData,
@@ -287,11 +287,11 @@ func TestDelayNode(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(3)
 		test.NodeOnMsg(t, node, msgList, func(msg types.RuleMsg, relationType string, err2 error) {
-			// 根据消息数据判断期望的结果
+			// Judge the expected outcome based on the message data
 			if msg.Data.Get() == "AA" || msg.Data.Get() == "CC" {
 				assert.Equal(t, types.Success, relationType)
 			} else {
-				// 第二条消息BB应该失败，因为队列已满（maxPendingMsgs: 1）
+				// The second message BB should fail because the queue is full (maxPendingMsgs: 1)
 				assert.Equal(t, types.Failure, relationType)
 			}
 			wg.Done()
@@ -320,7 +320,7 @@ func TestDelayNode(t *testing.T) {
 			assert.Equal(t, types.Success, relationType)
 		})
 
-		//测试错误
+		//Test error
 		metaData.PutValue("period", "aa")
 		msgList = []test.Msg{
 			{
@@ -335,7 +335,7 @@ func TestDelayNode(t *testing.T) {
 		})
 	})
 
-	//覆盖模式
+	//Coverage mode
 	t.Run("Overlay", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"periodInSeconds": 2,
@@ -345,7 +345,7 @@ func TestDelayNode(t *testing.T) {
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
 
-		//第2条消息，覆盖上一条
+		//Message 2, override the previous one
 		var msgList = []test.Msg{
 			{
 				MetaData:   metaData,

@@ -22,36 +22,36 @@ import (
 	"sync/atomic"
 )
 
-// NodeOutputCache 节点输出缓存，支持并发安全访问
+// NodeOutputCache Node output cache, supports concurrent secure access
 // NodeOutputCache provides thread-safe storage for node outputs
 type NodeOutputCache struct {
-	// outputs 存储节点输出，key为nodeId，value为RuleMsg
+	// outputs stores node outputs, with the key being nodeId and the value being RuleMsg
 	outputs sync.Map
-	// hasOutputs 标记是否启用了跨节点取值功能
+	// Whether the hasOutputs tag enables cross-node value retrieval
 	hasOutputs int32
-	// 需要缓存的节点ID集合，用于选择性缓存
+	// A collection of node IDs that need to be cached, used for selective caching
 	cacheableNodes sync.Map // map[string]bool
 }
 
-// StoreNodeOutput 存储节点输出
-// 只有在节点被其他节点引用时才进行缓存
+// StoreNodeOutput: Store the node output
+// Caching is only performed when a node is referenced by another node
 // StoreNodeOutput stores the output of a node
 func (cache *NodeOutputCache) StoreNodeOutput(nodeId string, msg types.RuleMsg) {
 	if nodeId == "" {
 		return
 	}
 
-	// 检查节点是否需要缓存
+	// Check if nodes need caching
 	isCacheable := cache.IsNodeCacheable(nodeId)
 	if isCacheable {
-		// 储存节点输出
+		// Stored node output
 		cache.outputs.Store(nodeId, msg.Copy())
-		// 设置hasOutputs标志
+		// Set the hasOutputs flag
 		atomic.StoreInt32(&cache.hasOutputs, 1)
 	}
 }
 
-// SetCacheableNodes 设置需要缓存的节点ID集合
+// SetCacheableNodes sets the collection of node IDs to be cached
 // SetCacheableNodes sets the collection of node IDs that need to be cached
 func (cache *NodeOutputCache) SetCacheableNodes(nodeIds []string) {
 	for _, nodeId := range nodeIds {
@@ -59,26 +59,26 @@ func (cache *NodeOutputCache) SetCacheableNodes(nodeIds []string) {
 	}
 }
 
-// IsNodeCacheable 检查节点是否需要缓存
+// IsNodeCacheable checks whether a node needs caching
 // IsNodeCacheable checks if a node needs to be cached
 func (cache *NodeOutputCache) IsNodeCacheable(nodeId string) bool {
 	_, exists := cache.cacheableNodes.Load(nodeId)
 	return exists
 }
 
-// AddCacheableNode 添加单个需要缓存的节点
+// AddCacheableNode adds a single node that needs to be cached
 // AddCacheableNode adds a single node that needs to be cached
 func (cache *NodeOutputCache) AddCacheableNode(nodeId string) {
 	cache.cacheableNodes.Store(nodeId, true)
 }
 
-// RemoveCacheableNode 移除不需要缓存的节点
+// RemoveCacheableNode removes nodes that do not require caching
 // RemoveCacheableNode removes a node that no longer needs to be cached
 func (cache *NodeOutputCache) RemoveCacheableNode(nodeId string) {
 	cache.cacheableNodes.Delete(nodeId)
 }
 
-// GetNodeRuleMsg 获取节点的完整消息信息
+// GetNodeRuleMsg retrieves the complete message information of the node
 // GetNodeRuleMsg retrieves the complete RuleMsg of a node
 func (cache *NodeOutputCache) GetNodeRuleMsg(nodeId string) (types.RuleMsg, bool) {
 	if atomic.LoadInt32(&cache.hasOutputs) == 0 {
@@ -91,13 +91,13 @@ func (cache *NodeOutputCache) GetNodeRuleMsg(nodeId string) (types.RuleMsg, bool
 	return types.RuleMsg{}, false
 }
 
-// HasOutputs 检查是否有节点输出
+// HasOutputs checks whether there is a node output
 // HasOutputs checks if there are any node outputs
 func (cache *NodeOutputCache) HasOutputs() bool {
 	return atomic.LoadInt32(&cache.hasOutputs) != 0
 }
 
-// Clear 清空所有节点输出
+// Clear: Clears all node outputs
 // Clear removes all node outputs
 func (cache *NodeOutputCache) Clear() {
 	cache.outputs.Range(func(key, value interface{}) bool {
@@ -105,14 +105,14 @@ func (cache *NodeOutputCache) Clear() {
 		return true
 	})
 	atomic.StoreInt32(&cache.hasOutputs, 0)
-	// 清空可缓存节点集合
+	// Clearing the cacheable node set
 	cache.cacheableNodes.Range(func(key, value interface{}) bool {
 		cache.cacheableNodes.Delete(key)
 		return true
 	})
 }
 
-// EnableCrossNodeAccess 启用跨节点取值功能
+// EnableCrossNodeAccess enables cross-node value retrieval
 // EnableCrossNodeAccess enables cross-node value access for this cache
 func (cache *NodeOutputCache) EnableCrossNodeAccess() {
 	atomic.StoreInt32(&cache.hasOutputs, 1)

@@ -1,4 +1,4 @@
-// Package engine 提供多租户规则引擎池管理和用户级引擎实例。
+// Package engine provides multi-tenant rule engine pool management and user-level engine instances.
 package engine
 
 import (
@@ -23,7 +23,7 @@ import (
 	"github.com/rulego/rulego/server/services"
 )
 
-// UserEngine 用户级规则引擎，管理引擎池和配置
+// UserEngine is a user-level rule engine that manages engine pools and configurations
 type UserEngine struct {
 	pool       *rulego.RuleGo
 	username   string
@@ -36,17 +36,17 @@ type UserEngine struct {
 	mainEngine types.RuleEngine
 }
 
-// Manager 管理多租户用户引擎池
+// Manager manages the multi-tenant user engine pool
 type Manager struct {
 	pool          map[string]*UserEngine
 	locker        sync.RWMutex
 	cfg           *config.Config
 	logger        types.Logger
 	storeProvider store.StoreProvider
-	systemEp      types.Node // 共享给用户池的系统端点（如主 HTTP server），由 SetSystemEndpoint 注入；nil 表示不注入
+	systemEp      types.Node // System endpoints shared with the user pool (such as the main HTTP server) are injected by SetSystemEndpoint; nil means no injection
 }
 
-// NewManager 创建引擎管理器
+// NewManager creates an engine manager
 func NewManager(cfg *config.Config, logger types.Logger, storeProvider store.StoreProvider) *Manager {
 	return &Manager{
 		pool:          make(map[string]*UserEngine),
@@ -56,20 +56,20 @@ func NewManager(cfg *config.Config, logger types.Logger, storeProvider store.Sto
 	}
 }
 
-// SetSystemEndpoint 设置要注入到每个用户池的系统端点（如开启 share_http_server 时的主 HTTP server）。
-// 设置后新建用户引擎时会把该端点加入用户节点池，供用户规则链通过 ref:// 引用。
+// SetSystemEndpoint sets the system endpoint to be injected into each user pool (such as the main HTTP server when share_http_server is enabled).
+// When setting up a new user engine, this endpoint will be added to the user node pool for user rule chains to be referenced by the user rule chain via ref://.
 func (m *Manager) SetSystemEndpoint(ep types.Node) {
 	m.systemEp = ep
 }
 
-// GetOrCreate 获取或创建用户引擎，使用 double-check locking 防止竞态
+// GetOrCreate fetchs or creates a user engine, using double-check locking to prevent race states
 func (m *Manager) GetOrCreate(username string) (services.UserEngine, error) {
 	if ue, ok := m.get(username); ok {
 		return ue, nil
 	}
 	m.locker.Lock()
 	defer m.locker.Unlock()
-	// 拿到写锁后再次检查，防止并发创建
+	// After obtaining the write lock, check again to prevent concurrency creation
 	if ue, ok := m.pool[username]; ok {
 		return ue, nil
 	}
@@ -81,20 +81,20 @@ func (m *Manager) GetOrCreate(username string) (services.UserEngine, error) {
 	return ue, nil
 }
 
-// Get 获取已有用户引擎
+// Get an existing user engine
 func (m *Manager) Get(username string) (services.UserEngine, bool) {
 	return m.get(username)
 }
 
-// InitUserEngines 初始化已有用户目录的引擎。
-// 分两阶段执行：
-//  1. 创建所有用户引擎（不加载规则链），让 MCP 等模块在 Start 阶段注册 UDF
-//  2. 统一加载所有规则链，此时 UDF（如 mcp_tool_provider）已就绪
+// InitUserEngines initializes the engine for an existing user directory.
+// Implemented in two phases:
+//  1. Create all user engines (without loading the rule chain), and have modules like MCP register UDF during the Start phase
+//  2. Load all rule chains uniformly; at this point, the UDF (such as mcp_tool_provider) is ready
 func (m *Manager) InitUserEngines() error {
 	userPath := path.Join(m.cfg.DataDir, constants.DirWorkflows)
 	_ = fs.CreateDirs(userPath)
 
-	// Phase 1: 创建所有用户引擎（不加载规则链）
+	// Phase 1: Create all user engines (no rule chains loaded)
 	entries, err := os.ReadDir(userPath)
 	if err != nil {
 		return err
@@ -119,8 +119,8 @@ func (m *Manager) InitUserEngines() error {
 		}
 	}
 
-	// Phase 2: 统一加载规则链
-	// 此时 MCP 等模块已通过 GetOrCreate 注册了 UDF（如 mcp_tool_provider），可以安全加载含 AI/agent 节点的规则链。
+	// Phase 2: Uniformly load the rule chain
+	// At this point, modules like MCP have registered UDFs (such as mcp_tool_provider) through GetOrCreate, allowing safe loading of rule chains containing AI/agent nodes.
 	m.locker.RLock()
 	userEngines := make([]*UserEngine, 0, len(m.pool))
 	for _, ue := range m.pool {
@@ -134,7 +134,7 @@ func (m *Manager) InitUserEngines() error {
 	return nil
 }
 
-// Stop 停止所有用户引擎
+// Stop: Stop all user engines
 func (m *Manager) Stop() {
 	m.locker.Lock()
 	defer m.locker.Unlock()
@@ -150,14 +150,14 @@ func (m *Manager) get(username string) (*UserEngine, bool) {
 	return ue, ok
 }
 
-// newUserEngine 创建用户级引擎实例
+// newUserEngine creates user-level engine instances
 func (m *Manager) newUserEngine(username string) (*UserEngine, error) {
 	cfg := m.cfg
 	logger := m.logger
 	componentRegistry := rulegoEngine.NewCustomComponentRegistry(rulegoEngine.Registry, new(rulegoEngine.RuleComponentRegistry))
 	poolConfig := rulego.NewConfig(types.WithComponentsRegistry(componentRegistry), types.WithLogger(logger))
 	pool := node_pool.NewNodePool(poolConfig)
-	// 将系统端点（如主 HTTP server）注入用户池，供用户规则链通过 ref:// 引用。
+	// Inject system endpoints (such as the main HTTP server) into the user pool for user rule chains to be referenced by ref://.
 	if m.systemEp != nil {
 		if _, err := pool.AddNode(m.systemEp); err != nil {
 			m.logger.Errorf("inject system endpoint into user=%s pool error: %s", username, err)
@@ -189,57 +189,57 @@ func (m *Manager) newUserEngine(username string) (*UserEngine, error) {
 	}
 
 	ue.initRuleConfig()
-	// 确保 Udf map 已初始化
+	// Make sure the UDF map is initialized
 	if ue.ruleConfig.Udf == nil {
 		ue.ruleConfig.Udf = make(map[string]interface{})
 	}
 	ue.loadJs()
 	ue.loadPlugins()
-	// 注意：不在创建阶段加载规则链。
-	// 规则链由 InitUserEngines() 统一加载，确保 MCP 等模块的 UDF（如 mcp_tool_provider）
-	// 在规则链初始化之前完成注册。
+	// Note: Do not load the rule chain during the creation phase.
+	// The rule chain is uniformly loaded by InitUserEngines() to ensure the UDF of modules like MCP (such as mcp_tool_provider)
+	// Complete registration before the rule chain is initialized.
 
 	return ue, nil
 }
 
-// Stop 停止引擎
+// Stop: Stop the engine
 func (ue *UserEngine) Stop() {
 	if ue.pool != nil {
 		ue.pool.Stop()
 	}
 }
 
-// Pool 返回底层 RuleGo 池
+// Pool: Returns the underlying RuleGo pool
 func (ue *UserEngine) Pool() *rulego.RuleGo {
 	return ue.pool
 }
 
-// RuleConfig 返回规则引擎配置
+// RuleConfig returns the rule engine configuration
 func (ue *UserEngine) RuleConfig() types.Config {
 	return ue.ruleConfig
 }
 
-// RuleStore 返回规则链存储
+// RuleStore returns the rule chain storage
 func (ue *UserEngine) RuleStore() store.RuleStore {
 	return ue.ruleStore
 }
 
-// SettingStore 返回设置存储
+// SettingStore returns the settings storage.
 func (ue *UserEngine) SettingStore() store.SettingStore {
 	return ue.setStore
 }
 
-// Username 返回用户名
+// Username returns the username
 func (ue *UserEngine) Username() string {
 	return ue.username
 }
 
-// GetEngine 获取指定规则链引擎
+// GetEngine obtains the specified rule chain engine
 func (ue *UserEngine) GetEngine(chainId string) (types.RuleEngine, bool) {
 	return ue.pool.Get(chainId)
 }
 
-// LoadRule 从存储加载规则链到引擎池
+// LoadRule runs from the storage loading rule chain to the engine pool
 func (ue *UserEngine) LoadRule(chainId string) error {
 	def, err := ue.ruleStore.Get(ue.username, chainId)
 	if err != nil {
@@ -248,7 +248,7 @@ func (ue *UserEngine) LoadRule(chainId string) error {
 	return ue.loadDef(chainId, def)
 }
 
-// loadDef 把 DSL 编译进引擎池（已存在则 reload）。
+// loadDef compiles the DSL into the engine pool (if it already exists, reload).
 func (ue *UserEngine) loadDef(chainId string, def []byte) error {
 	if ruleEngine, ok := ue.pool.Get(chainId); ok {
 		return ruleEngine.ReloadSelf(def)
@@ -257,7 +257,7 @@ func (ue *UserEngine) loadDef(chainId string, def []byte) error {
 	return err
 }
 
-// SetMainChainId 设置主规则链
+// SetMainChainId sets the main rule chain
 func (ue *UserEngine) SetMainChainId(chainId string) error {
 	if chainId == "" {
 		return fmt.Errorf("chainId is empty")
@@ -273,12 +273,12 @@ func (ue *UserEngine) SetMainChainId(chainId string) error {
 	}
 }
 
-// SaveSetting 保存用户设置
+// SaveSetting saves user settings
 func (ue *UserEngine) SaveSetting(key, value string) error {
 	return ue.setStore.Save(key, value)
 }
 
-// GetSetting 获取用户设置
+// GetSetting obtains user settings
 func (ue *UserEngine) GetSetting(key string) string {
 	return ue.setStore.Get(key)
 }
@@ -306,7 +306,7 @@ func (ue *UserEngine) initRuleConfig() {
 		ue.ruleConfig.SecretKey = *ue.config.SecretKey
 	}
 
-	// OnDebug 回调：存到内存 + 推送到 WebSocket 客户端
+	// OnDebug callback: Save to memory + push to WebSocket client
 	ue.ruleConfig.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		errStr := ""
 		if err != nil {
@@ -322,11 +322,11 @@ func (ue *UserEngine) initRuleConfig() {
 			"msgId":        msg.Id,
 			"ts":           time.Now().UnixMilli(),
 		}
-		// 存到内存，供 REST API 查询（双击节点时使用）
+		// Stored in memory for REST API queries (used when double-clicking a node)
 		runlog.DefaultDebugDataStore.Add(chainId, nodeId, logData)
-		// 推送到 WebSocket 客户端
+		// Push to the WebSocket client
 		runlog.SendDebugDataToClients(chainId, logData)
-		// 子规则链调试日志同步推送到调试发起的根链路，使主链路控制台可见
+		// The sub-rule chain debugging log is synchronously pushed to the root link initiated by debugging, making it visible to the main link console
 		if root := msg.Metadata.GetValue(constants.ParamRootChainId); root != "" && root != chainId {
 			runlog.SendDebugDataToClients(root, logData)
 		}
@@ -368,7 +368,7 @@ func (ue *UserEngine) loadPlugins() {
 	}
 }
 
-// loadRules 通过 RuleStore.AllChains 一次取回该用户所有规则链并加载到引擎池。
+// loadRules retrieves all of the user's rule chains at once via RuleStore.AllChains and loads them into the engine pool.
 func (ue *UserEngine) loadRules() {
 	chains, err := ue.ruleStore.AllChains(ue.username)
 	if err != nil {

@@ -38,32 +38,32 @@ import (
 	"sync"
 )
 
-// TemplateFunc 内置模板函数
+// TemplateFunc has built-in template functions
 var TemplateFunc = NewFuncMap[any]()
 
-// ScriptFunc 内置Js用户函数
+// ScriptFunc has built-in JS user functions
 var ScriptFunc = NewFuncMap[any]()
 
 func init() {
 	TemplateFunc.Register("escape", func(s string) string {
 		var replacer = strings.NewReplacer(
-			"\\", "\\\\", // 反斜杠
-			"\"", "\\\"", // 双引号
-			"\n", "\\n", // 换行符
-			"\r", "\\r", // 回车符
-			"\t", "\\t", // 制表符
+			"\\", "\\\\", // Backslash
+			"\"", "\\\"", // Double quotation marks
+			"\n", "\\n", // Line change symbol
+			"\r", "\\r", // Return permit
+			"\t", "\\t", // Clock Symbol
 		)
 		return replacer.Replace(s)
 	})
 }
 
-// FuncMap 是一个泛型映射，用于存储函数
+// FuncMap is a generic mapping used to store functions
 type FuncMap[T any] struct {
 	v map[string]T
 	sync.RWMutex
 }
 
-// NewFuncMap 创建一个新的FuncMap实例
+// NewFuncMap creates a new FuncMap instance
 func NewFuncMap[T any]() *FuncMap[T] {
 	return &FuncMap[T]{v: make(map[string]T)}
 }

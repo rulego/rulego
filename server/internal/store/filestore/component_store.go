@@ -18,8 +18,8 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// ComponentStore 基于文件系统的组件存储实现。
-// 组件定义以 JSON 文件形式存储，使用索引文件加速列表查询。
+// ComponentStore is implemented based on the component storage of the file system.
+// Component definitions are stored as JSON files, using index files to accelerate list queries.
 type ComponentStore struct {
 	config   config.Config
 	username string
@@ -27,19 +27,19 @@ type ComponentStore struct {
 	sync.RWMutex
 }
 
-// ComponentIndex 组件索引
+// ComponentIndex component index
 type ComponentIndex struct {
 	Components map[string]ComponentMeta `json:"rules"`
 }
 
-// ComponentMeta 组件元数据
+// ComponentMeta component metadata
 type ComponentMeta struct {
 	Name       string `json:"name"`
 	ID         string `json:"id"`
 	UpdateTime string `json:"updateTime"`
 }
 
-// NewComponentStore 创建组件文件存储
+// NewComponentStore creates component file storage
 func NewComponentStore(cfg config.Config, username string) (*ComponentStore, error) {
 	store := &ComponentStore{
 		config:   cfg,
@@ -58,7 +58,7 @@ func NewComponentStore(cfg config.Config, username string) (*ComponentStore, err
 	return store, nil
 }
 
-// Save 保存组件定义到文件并更新索引
+// Save the component defined in the file and update the index
 func (d *ComponentStore) Save(username, componentId string, def []byte) error {
 	var ruleChain types.RuleChain
 	if err := json.Unmarshal(def, &ruleChain); err != nil {
@@ -71,14 +71,14 @@ func (d *ComponentStore) Save(username, componentId string, def []byte) error {
 	return d.saveIndex(d.getIndexPath())
 }
 
-// Get 获取组件定义原始 JSON 数据
+// Get the original JSON data defined by the component
 func (d *ComponentStore) Get(username, componentId string) ([]byte, error) {
 	var paths = []string{d.config.DataDir, constants.DirWorkflows}
 	paths = append(paths, username, constants.DirWorkflowsComponent, componentId+constants.RuleChainFileSuffix)
 	return os.ReadFile(path.Join(paths...))
 }
 
-// List 列出组件，支持关键字搜索和分页
+// List lists, component listing, supports keyword search and pagination
 func (d *ComponentStore) List(username, keywords string, size, page int) ([][]byte, int, error) {
 	var results [][]byte
 	totalCount := 0
@@ -120,7 +120,7 @@ func (d *ComponentStore) List(username, keywords string, size, page int) ([][]by
 	return results[start:end], totalCount, nil
 }
 
-// Delete 删除组件文件并从索引中移除
+// Delete deletes component files and removes them from the index
 func (d *ComponentStore) Delete(username, componentId string) error {
 	var paths = []string{d.config.DataDir, constants.DirWorkflows}
 	paths = append(paths, username, constants.DirWorkflowsComponent)

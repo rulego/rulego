@@ -13,7 +13,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// memoryNodePoolStore 内存实现的 NodePoolStore，用于测试
+// memoryNodePoolStore memory-based NodePoolStore for testing
 type memoryNodePoolStore struct {
 	mu   sync.Mutex
 	data []byte
@@ -33,7 +33,7 @@ func (s *memoryNodePoolStore) Get() ([]byte, error) {
 	return s.data, nil
 }
 
-// portCounter 用于为每个测试分配唯一端口，避免 REST endpoint 端口冲突
+// portCounter is used to assign a unique port to each test to avoid REST endpoint port conflicts
 var portCounter int64 = 19000
 
 func nextPort() string {
@@ -41,7 +41,7 @@ func nextPort() string {
 	return fmt.Sprintf(":%d", portCounter)
 }
 
-// newTestPoolService 创建测试用的 UserNodePoolService
+// newTestPoolService creates a UserNodePoolService for testing
 func newTestPoolService() *UserNodePoolService {
 	config := engine.NewConfig()
 	pool := node_pool.NewNodePool(config)
@@ -52,7 +52,7 @@ func newTestPoolService() *UserNodePoolService {
 	}
 }
 
-// mqttNodeJSON 生成 mqtt 客户端节点 JSON（用指定 ID 和 name）
+// mqttNodeJSON Generates mqtt client node JSON (with specified ID and name)
 func mqttNodeJSON(id, name string) []byte {
 	return []byte(fmt.Sprintf(`{
 		"id": "%s",
@@ -65,7 +65,7 @@ func mqttNodeJSON(id, name string) []byte {
 	}`, id, name))
 }
 
-// endpointJSON 生成 REST endpoint JSON（用指定 ID 和唯一端口）
+// endpointJSON generates REST endpoint JSON (with specified ID and unique port)
 func endpointJSON(id, name string) []byte {
 	return []byte(fmt.Sprintf(`{
 		"id": "%s",
@@ -77,7 +77,7 @@ func endpointJSON(id, name string) []byte {
 	}`, id, name, nextPort()))
 }
 
-// poolWithNodesJSON 生成包含指定数量 nodes 和 endpoints 的完整池 DSL
+// poolWithNodesJSON generates a complete pool DSL containing a specified number of nodes and endpoints
 func poolWithNodesJSON(nodeCount, endpointCount int) []byte {
 	nodes := ""
 	for i := 0; i < nodeCount; i++ {
@@ -113,13 +113,13 @@ func poolWithNodesJSON(nodeCount, endpointCount int) []byte {
 	}`, endpoints, nodes))
 }
 
-// ====== 测试：公共池 + 用户池合并 ======
+// ====== Test: Merge public pool + user pool ======
 
 func TestPoolMerge_PublicAndUser(t *testing.T) {
 	svc := newTestPoolService()
 	defer svc.nodePool.Stop()
 
-	// 1. 加载公共池（1个node + 1个endpoint）
+	// 1. Load the public pool (1 node + 1 endpoint)
 	globalDSL := poolWithNodesJSON(1, 1)
 	_, err := svc.nodePool.Load(globalDSL)
 	assert.Nil(t, err)
@@ -129,20 +129,20 @@ func TestPoolMerge_PublicAndUser(t *testing.T) {
 	_, ok = svc.nodePool.Get("pool_ep_0")
 	assert.True(t, ok, "公共池 endpoint 应存在")
 
-	// 2. 用户添加私有节点
+	// 2. Users add private nodes
 	var node types.RuleNode
 	err = json.Unmarshal(mqttNodeJSON("user_mqtt_01", "用户MQTT"), &node)
 	assert.Nil(t, err)
 	err = svc.SaveNode(node)
 	assert.Nil(t, err)
 
-	// 3. 合并后两套节点都存在
+	// 3. Both sets of nodes exist after the merge
 	_, ok = svc.nodePool.Get("pool_node_0")
 	assert.True(t, ok, "公共池 node 仍应存在")
 	_, ok = svc.nodePool.Get("user_mqtt_01")
 	assert.True(t, ok, "用户私有节点应存在")
 
-	// 4. GetAllDef 包含全部
+	// 4. GetAllDef includes everything
 	defs, err := svc.nodePool.GetAllDef()
 	assert.Nil(t, err)
 	total := 0
@@ -153,7 +153,7 @@ func TestPoolMerge_PublicAndUser(t *testing.T) {
 }
 
 func TestPoolMerge_UserPoolReload(t *testing.T) {
-	// 第一阶段：用户保存节点
+	// Phase One: Users save nodes
 	svc := newTestPoolService()
 	var node types.RuleNode
 	err := json.Unmarshal(mqttNodeJSON("persist_mqtt", "持久化MQTT"), &node)
@@ -166,7 +166,7 @@ func TestPoolMerge_UserPoolReload(t *testing.T) {
 	assert.True(t, len(savedData) > 0)
 	svc.nodePool.Stop()
 
-	// 第二阶段：模拟重启，先加载公共池，再恢复用户数据
+	// Stage Two: Simulate a restart, first load the public pool, then restore user data
 	svc2 := newTestPoolService()
 	defer svc2.nodePool.Stop()
 
@@ -184,7 +184,7 @@ func TestPoolMerge_UserPoolReload(t *testing.T) {
 	assert.True(t, ok, "重启后用户私有节点应从 store 恢复")
 }
 
-// ====== 测试：添加后立即可用 ======
+// ====== Test: Immediately available ====== after adding
 
 func TestSaveNode_ImmediateAvailability(t *testing.T) {
 	svc := newTestPoolService()
@@ -196,25 +196,25 @@ func TestSaveNode_ImmediateAvailability(t *testing.T) {
 	err = svc.SaveNode(node)
 	assert.Nil(t, err)
 
-	// 通过 Get 查找
+	// Find it through Get search
 	found, err := svc.Get("imm_mqtt", "node")
 	assert.Nil(t, err)
 	assert.NotNil(t, found)
 	assert.Equal(t, "imm_mqtt", found.Id)
 }
 
-// ====== 测试：HTTP Endpoint 可见性 ======
+// ====== Test: HTTP endpoint visibility ======
 
 func TestEndpointVisibility(t *testing.T) {
 	svc := newTestPoolService()
 	defer svc.nodePool.Stop()
 
-	// 加载包含 endpoint 的 DSL
+	// Load the DSL containing the endpoint
 	globalDSL := poolWithNodesJSON(0, 1)
 	_, err := svc.nodePool.Load(globalDSL)
 	assert.Nil(t, err)
 
-	// endpoint 在 GetAll 中可见
+	// Endpoint is visible in GetAll
 	all := svc.nodePool.GetAll()
 	assert.Equal(t, 1, len(all), "应有1个 endpoint")
 
@@ -223,7 +223,7 @@ func TestEndpointVisibility(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "pool_ep_0", def.Id)
 
-	// endpoint 在 GetAllDef 中，key 以 "endpoint/" 为前缀
+	// In GetAllDef, the key is prefixed with "endpoint/"
 	defs, err := svc.nodePool.GetAllDef()
 	assert.Nil(t, err)
 	epNodes, hasEp := defs["endpoint/http"]
@@ -254,31 +254,31 @@ func TestSaveEndpoint_ImmediateAvailability(t *testing.T) {
 	assert.NotNil(t, instance)
 }
 
-// ====== 测试：List 过滤与分页 ======
+// ====== Test: List filtering and pagination ======
 
 func TestList_FilterByCategory(t *testing.T) {
 	svc := newTestPoolService()
 	defer svc.nodePool.Stop()
 
-	// 1个公共 node + 1个公共 endpoint
+	// 1 public node + 1 public endpoint
 	globalDSL := poolWithNodesJSON(1, 1)
 	_, err := svc.nodePool.Load(globalDSL)
 	assert.Nil(t, err)
 
-	// 再添加1个用户 node
+	// Add one more user node
 	var node types.RuleNode
 	err = json.Unmarshal(mqttNodeJSON("user_node", "用户节点"), &node)
 	assert.Nil(t, err)
 	err = svc.SaveNode(node)
 	assert.Nil(t, err)
 
-	// 过滤 endpoint：应只有1个
+	// Filter endpoint: There should be only one
 	epList, epTotal, err := svc.List(1, 20, "", "endpoint")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, epTotal, "应只有1个 endpoint")
 	assert.Equal(t, 1, len(epList))
 
-	// 过滤 node：应有2个（pool_node_0 + user_node）
+	// Filter nodes: should have 2 (pool_node_0 + user_node)
 	nodeList, nodeTotal, err := svc.List(1, 20, "", "node")
 	assert.Nil(t, err)
 	assert.Equal(t, 2, nodeTotal, "应有2个普通 node")
@@ -300,12 +300,12 @@ func TestList_KeywordFilter(t *testing.T) {
 	err = svc.SaveNode(node)
 	assert.Nil(t, err)
 
-	// 按 "pool" 关键字过滤：匹配 pool_node_0 和 pool_ep_0
+	// Filter by the "pool" keyword: match pool_node_0 and pool_ep_0
 	_, total, err := svc.List(1, 20, "pool", "")
 	assert.Nil(t, err)
 	assert.Equal(t, 2, total, "匹配 'pool' 的应只有2个")
 
-	// 无匹配
+	// No matching
 	_, total, err = svc.List(1, 20, "notexist", "")
 	assert.Nil(t, err)
 	assert.Equal(t, 0, total)
@@ -319,25 +319,25 @@ func TestList_Pagination(t *testing.T) {
 	_, err := svc.nodePool.Load(globalDSL)
 	assert.Nil(t, err)
 
-	// 第1页，每页1条
+	// Page 1, one entry per page
 	list, total, err := svc.List(1, 1, "", "")
 	assert.Nil(t, err)
 	assert.Equal(t, 2, total, "总共2个节点")
 	assert.Equal(t, 1, len(list))
 
-	// 第2页
+	// Page 2
 	list, total, err = svc.List(2, 1, "", "")
 	assert.Nil(t, err)
 	assert.Equal(t, 2, total)
 	assert.Equal(t, 1, len(list))
 
-	// 超出范围
+	// Beyond the scope
 	list, _, err = svc.List(10, 1, "", "")
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(list))
 }
 
-// ====== 测试：CRUD 全流程 ======
+// ====== Testing: CRUD full-process ======
 
 func TestCRUD_RoundTrip(t *testing.T) {
 	svc := newTestPoolService()
@@ -356,7 +356,7 @@ func TestCRUD_RoundTrip(t *testing.T) {
 	assert.NotNil(t, found)
 	assert.Equal(t, "CRUD测试MQTT", found.Name)
 
-	// Update（先删后加，因为 NewFromRuleNode 不支持重复 ID）
+	// Update (delete first, then add, because NewFromRuleNode does not support duplicate IDs)
 	svc.nodePool.Del("crud_mqtt")
 	node.Name = "更新后的MQTT"
 	node.Configuration = map[string]interface{}{
@@ -380,10 +380,10 @@ func TestCRUD_RoundTrip(t *testing.T) {
 	assert.Nil(t, found, "删除后 Get 应返回 nil")
 }
 
-// ====== 测试：saveState 持久化 ======
+// ====== Test: saveState persistence ======
 
 func TestSaveState_PersistenceRoundTrip(t *testing.T) {
-	// 保存 node + endpoint
+	// Save node + endpoint
 	svc := newTestPoolService()
 	var node types.RuleNode
 	err := json.Unmarshal(mqttNodeJSON("persist_node", "持久化节点"), &node)
@@ -398,12 +398,12 @@ func TestSaveState_PersistenceRoundTrip(t *testing.T) {
 	err = svc.SaveEndpoint(endpointDef)
 	assert.Nil(t, err)
 
-	// 读取持久化数据
+	// Read persistence data
 	savedData, err := svc.store.Get()
 	assert.Nil(t, err)
 	assert.True(t, len(savedData) > 0)
 
-	// 验证序列化结构
+	// Verify serialized structures
 	var saved types.RuleChain
 	err = json.Unmarshal(savedData, &saved)
 	assert.Nil(t, err)
@@ -412,7 +412,7 @@ func TestSaveState_PersistenceRoundTrip(t *testing.T) {
 	assert.Equal(t, 1, len(saved.Metadata.Endpoints), "应有1个 endpoint")
 	svc.nodePool.Stop()
 
-	// 在新 service 中恢复
+	// Restoring in the new service
 	svc2 := newTestPoolService()
 	defer svc2.nodePool.Stop()
 	svc2.store = &memoryNodePoolStore{data: savedData}
@@ -425,7 +425,7 @@ func TestSaveState_PersistenceRoundTrip(t *testing.T) {
 	assert.True(t, ok, "恢复后 endpoint 应存在")
 }
 
-// ====== 测试：GetAllDefs 结构正确 ======
+// ====== Test: GetAllDefs structure correctly ======
 
 func TestGetAllDefs_Structure(t *testing.T) {
 	svc := newTestPoolService()
@@ -444,14 +444,14 @@ func TestGetAllDefs_Structure(t *testing.T) {
 	defs, err := svc.nodePool.GetAllDef()
 	assert.Nil(t, err)
 
-	// mqttClient 类型应有2个节点
+	// The mqttClient type should have 2 nodes
 	mqttNodes, hasMqtt := defs["mqttClient"]
 	assert.True(t, hasMqtt, "mqttClient 类型应存在")
 	if hasMqtt {
 		assert.Equal(t, 2, len(mqttNodes), "应有2个 mqttClient 节点")
 	}
 
-	// endpoint/http 类型应有1个
+	// There should be one endpoint/http type
 	epNodes, hasEp := defs["endpoint/http"]
 	assert.True(t, hasEp, "endpoint/http 类型应存在")
 	if hasEp {
@@ -459,7 +459,7 @@ func TestGetAllDefs_Structure(t *testing.T) {
 	}
 }
 
-// ====== 测试：删除/查询不存在节点 ======
+// ====== Test: Delete/query node ====== does not exist
 
 func TestDelete_NonExistent(t *testing.T) {
 	svc := newTestPoolService()
@@ -476,7 +476,7 @@ func TestGet_NonExistent(t *testing.T) {
 	assert.Nil(t, found, "获取不存在的节点应返回 nil")
 }
 
-// newTestPoolServiceWithSystem 创建带系统节点 id 的测试 service（模拟 share_http_server 开启）。
+// newTestPoolServiceWithSystem Create a test service with the system node ID (simulation share_http_server enabled).
 func newTestPoolServiceWithSystem(systemNodeId string) *UserNodePoolService {
 	config := engine.NewConfig()
 	pool := node_pool.NewNodePool(config)
@@ -488,21 +488,21 @@ func newTestPoolServiceWithSystem(systemNodeId string) *UserNodePoolService {
 	}
 }
 
-// ====== 测试：系统节点保护（share_http_server 开启时，主 HTTP server 端点不可改/删/持久化）======
+// ====== Testing: System node protection (when share_http_server enabled, the main HTTP server endpoint cannot be changed/deleted/persistent) ======
 
 func TestSystemNodeProtection_RejectModifyDelete(t *testing.T) {
 	svc := newTestPoolServiceWithSystem(":9090")
 	defer svc.nodePool.Stop()
 
-	// SaveNode 系统 id 应被拒绝
+	// The SaveNode system ID should be denied
 	err := svc.SaveNode(types.RuleNode{Id: ":9090", Type: "mqttClient"})
 	assert.True(t, err != nil && strings.Contains(err.Error(), "system node"), "SaveNode 系统 id 应被拒绝")
 
-	// SaveEndpoint 系统 id 应被拒绝
+	// The SaveEndpoint system ID should be denied
 	err = svc.SaveEndpoint(types.EndpointDsl{RuleNode: types.RuleNode{Id: ":9090", Type: "endpoint/http"}})
 	assert.True(t, err != nil && strings.Contains(err.Error(), "system node"), "SaveEndpoint 系统 id 应被拒绝")
 
-	// Delete 系统 id 应被拒绝
+	// Delete system ID should be denied
 	err = svc.Delete(":9090", "endpoint")
 	assert.True(t, err != nil && strings.Contains(err.Error(), "system node"), "Delete 系统 id 应被拒绝")
 }
@@ -511,21 +511,21 @@ func TestSaveState_SkipsSystemNode(t *testing.T) {
 	svc := newTestPoolServiceWithSystem(":9090")
 	defer svc.nodePool.Stop()
 
-	// 模拟 Manager 注入的系统节点（直接 NewFromRuleNode，绕过 SaveNode 拦截）
+	// Simulating the system nodes injected by Manager (directly using NewFromRuleNode to bypass SaveNode interception)
 	var sysNode types.RuleNode
 	err := json.Unmarshal(mqttNodeJSON(":9090", "系统节点"), &sysNode)
 	assert.Nil(t, err)
 	_, err = svc.nodePool.NewFromRuleNode(sysNode)
 	assert.Nil(t, err)
 
-	// 普通节点
+	// Ordinary nodes
 	var normalNode types.RuleNode
 	err = json.Unmarshal(mqttNodeJSON("normal_mqtt", "普通节点"), &normalNode)
 	assert.Nil(t, err)
 	_, err = svc.nodePool.NewFromRuleNode(normalNode)
 	assert.Nil(t, err)
 
-	// saveState 应跳过系统节点
+	// saveState should skip system nodes
 	err = svc.saveState()
 	assert.Nil(t, err)
 
@@ -552,7 +552,7 @@ func TestSystemNodeProtection_NormalNodeUnaffected(t *testing.T) {
 	svc := newTestPoolServiceWithSystem(":9090")
 	defer svc.nodePool.Stop()
 
-	// 普通节点（id != :9090）应正常保存
+	// Ordinary nodes (id!=:9090) should be saved normally
 	var node types.RuleNode
 	err := json.Unmarshal(mqttNodeJSON("normal_mqtt", "普通节点"), &node)
 	assert.Nil(t, err)

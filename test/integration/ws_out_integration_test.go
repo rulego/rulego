@@ -29,29 +29,29 @@ import (
 	"github.com/rulego/rulego/test"
 )
 
-// TestWsOut ws 出站集成测试：
-// WsNode 作为客户端拨号连远端 ws server → 发送数据 → server 收到。
-// 与 ws_session_push_integration_test（入站寻址推送）对应，本测试验证出站直发主路径。
+// TestWsOut ws Outbound Integration Testing:
+// WsNode acts as a client dial-up, connects to the remote WS server → sends data → server receives.
+// Corresponding to ws_session_push_integration_test (Inbound Addressing Push), this test verifies the main outbound direct dispatch path.
 func TestWsOut(t *testing.T) {
 	config := types.NewConfig()
 
-	// ① 起一个 ws server，收到消息塞 chan
+	// (1) Set up a WS server and send messages to Chan
 	received := make(chan []byte, 4)
 	srv := newWsOutServer(received)
 	defer srv.Close()
 	wsURL := "ws://" + strings.TrimPrefix(srv.URL, "http://")
 
-	// ② WsNode dial 该 server
+	// (2) WsNode dial for this server
 	node := &external.WsNode{}
 	if err := node.Init(config, types.Configuration{
 		"server":            wsURL,
-		"heartbeatInterval": 0, // 禁用心跳，专注验证出站发送
+		"heartbeatInterval": 0, // Disable heartbeat, focus on verifying outbound sending
 	}); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	defer node.Destroy()
 
-	// ③ 发送文本
+	// (3) Send text
 	done := make(chan error, 1)
 	test.NodeOnMsg(t, node, []test.Msg{{Data: "HELLO", DataType: types.TEXT}}, func(m types.RuleMsg, rel string, err error) {
 		done <- err
@@ -65,7 +65,7 @@ func TestWsOut(t *testing.T) {
 		t.Fatal("timeout OnMsg")
 	}
 
-	// ④ server 收到 "HELLO"
+	// (4) Server receives "HELLO"
 	select {
 	case got := <-received:
 		if string(got) != "HELLO" {
@@ -76,7 +76,7 @@ func TestWsOut(t *testing.T) {
 	}
 }
 
-// newWsOutServer 起一个真实 ws server，把收到的消息塞进 received
+// newWsOutServer creates a real WS server and inserts the received message into the received server
 func newWsOutServer(received chan<- []byte) *httptest.Server {
 	upgrader := websocket.Upgrader{}
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

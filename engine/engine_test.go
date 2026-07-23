@@ -145,7 +145,7 @@ var updateRuleChainFile = `
 	}
 `
 
-// 修改metadata和msg 节点
+// Modify the Metadata and MSG nodes
 var modifyMetadataAndMsgNode = `
 	  {
 			"id":"s2",
@@ -158,7 +158,7 @@ var modifyMetadataAndMsgNode = `
 		  }
 `
 
-// 加载文件
+// Load the file
 func loadFile(filePath string) []byte {
 	buf, err := os.ReadFile(testdataFolder + filePath)
 	if err != nil {
@@ -248,7 +248,7 @@ func TestReloadRuleChain(t *testing.T) {
 		}
 		atomic.StoreInt32(&config2DebugDone, 1)
 	}
-	//更新规则链
+	//Update the rule chain
 	err = ruleEngine.ReloadSelf([]byte(updateRuleChainFile), WithConfig(config2))
 	assert.Nil(t, err)
 
@@ -257,7 +257,7 @@ func TestReloadRuleChain(t *testing.T) {
 	assert.True(t, atomic.LoadInt32(&config2DebugDone) == 1)
 }
 
-// 测试子规则链
+// Test the sub-rule chain
 func TestSubRuleChain(t *testing.T) {
 	//start := time.Now()
 	var completed int32
@@ -275,12 +275,12 @@ func TestSubRuleChain(t *testing.T) {
 
 	ruleFile := loadFile("./chain_has_sub_chain_node.json")
 	subRuleFile := loadFile("./sub_chain.json")
-	//初始化子规则链实例
+	//Initialize the sub-rule chain instance
 	_, err := New("sub_chain_01", subRuleFile, WithConfig(config))
 
 	chainId := str.RandomStr(10)
 
-	//初始化主规则链实例
+	//Initialize the main rule chain instance
 	ruleEngine, err := New(chainId, ruleFile, WithConfig(config))
 	assert.Nil(t, err)
 	defer Del(chainId)
@@ -294,7 +294,7 @@ func TestSubRuleChain(t *testing.T) {
 		metaData.PutValue("name4", "name4")
 		msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "aa")
 
-		//处理消息并得到处理结果
+		//Processing messages and obtaining processing results
 		ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 
 			atomic.AddInt32(&completed, 1)
@@ -322,7 +322,7 @@ func TestSubRuleChain(t *testing.T) {
 	//fmt.Printf("use times:%s \n", time.Since(start))
 }
 
-// 测试规则链debug模式
+// Testing the rule chain debug mode
 func TestRuleChainDebugMode(t *testing.T) {
 	config := NewConfig()
 	var inTimes int32
@@ -344,7 +344,7 @@ func TestRuleChainDebugMode(t *testing.T) {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "productType01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "aa")
-	//处理消息并得到处理结果
+	//Processing messages and obtaining processing results
 	ruleEngine.OnMsg(msg)
 	time.Sleep(time.Millisecond * 200)
 
@@ -360,7 +360,7 @@ func TestRuleChainDebugMode(t *testing.T) {
 
 	atomic.StoreInt32(&inTimes, 0)
 	atomic.StoreInt32(&outTimes, 0)
-	//处理消息并得到处理结果
+	//Processing messages and obtaining processing results
 	ruleEngine.OnMsg(msg)
 	time.Sleep(time.Second)
 
@@ -376,7 +376,7 @@ func TestRuleChainDebugMode(t *testing.T) {
 
 	atomic.StoreInt32(&inTimes, 0)
 	atomic.StoreInt32(&outTimes, 0)
-	//处理消息并得到处理结果
+	//Processing messages and obtaining processing results
 	ruleEngine.OnMsg(msg)
 	time.Sleep(time.Millisecond * 200)
 
@@ -401,7 +401,7 @@ func TestNotDebugModel(t *testing.T) {
 	wg.Add(1)
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		wg.Done()
-		//已经被 s2 节点修改消息类型
+		//The message type has already been modified by the s2 node
 		assert.Equal(t, "TEST_MSG_TYPE2", msg.Type)
 		assert.Nil(t, err)
 	}))
@@ -421,7 +421,7 @@ func TestNotDebugModel(t *testing.T) {
 	assert.True(t, atomic.LoadInt32(&debugDone) == 1)
 }
 
-// 测试获取节点
+// Test to obtain nodes
 func TestGetNodeId(t *testing.T) {
 	parser := JsonParser{}
 	def, _ := parser.DecodeRuleChain([]byte(ruleChainFile))
@@ -437,7 +437,7 @@ func TestGetNodeId(t *testing.T) {
 	_ = nodeCtx
 }
 
-// 测试callRestApi
+// Test the callRestApi
 func TestCallRestApi(t *testing.T) {
 	//start := time.Now()
 	maxTimes := 1
@@ -445,7 +445,7 @@ func TestCallRestApi(t *testing.T) {
 	group.Add(maxTimes)
 
 	//wp, _ := ants.NewPool(math.MaxInt32)
-	//使用协程池
+	//Use coroutine pools
 	config := NewConfig(types.WithDefaultPool())
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		if err != nil {
@@ -472,7 +472,7 @@ func TestCallRestApi(t *testing.T) {
 	//fmt.Printf("total massages:%d,use times:%s \n", maxTimes, time.Since(start))
 }
 
-// 测试消息路由
+// Test message routing
 func TestMsgTypeSwitch(t *testing.T) {
 	var wg sync.WaitGroup
 
@@ -485,13 +485,13 @@ func TestMsgTypeSwitch(t *testing.T) {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 
-	//TEST_MSG_TYPE1 找到2条chains,4个nodes
+	//TEST_MSG_TYPE1 Find 2 chains and 4 nodes
 	wg.Add(6)
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsg(msg)
 	wg.Wait()
 
-	//TEST_MSG_TYPE2 找到1条chain,2个nodes
+	//TEST_MSG_TYPE2 Find 1 chain and 2 nodes
 	wg.Add(4)
 	msg = types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
@@ -501,7 +501,7 @@ func TestMsgTypeSwitch(t *testing.T) {
 	}))
 	wg.Wait()
 
-	//TEST_MSG_TYPE3 找到1 other chain,4个node
+	//TEST_MSG_TYPE3 Find 1 other chain and 4 nodes
 	wg.Add(4)
 	msg = types.NewMsg(0, "TEST_MSG_TYPE3", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
@@ -513,7 +513,7 @@ func TestMsgTypeSwitch(t *testing.T) {
 }
 
 func TestWithContext(t *testing.T) {
-	//注册自定义组件
+	//Register custom components
 	_ = Registry.Register(&test.UpperNode{})
 	_ = Registry.Register(&test.TimeNode{})
 
@@ -572,7 +572,7 @@ func TestSpecifyID(t *testing.T) {
 	assert.Equal(t, true, ok)
 }
 
-// TestOnMsgAndWait 测试同步执行规则链
+// TestOnMsgAndWait tests synchronously executes the rule chain
 func TestOnMsgAndWait(t *testing.T) {
 	var wg sync.WaitGroup
 
@@ -591,29 +591,29 @@ func TestOnMsgAndWait(t *testing.T) {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 
-	//TEST_MSG_TYPE1 找到2条chains,5个nodes
+	//TEST_MSG_TYPE1 Find 2 chains and 5 nodes
 	wg.Add(10)
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	var count int32
 	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		atomic.AddInt32(&count, 1)
 	}))
-	time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
+	time.Sleep(time.Millisecond * 50) //Because OnEnd and onCompleted are asynchronous. So the order cannot be guaranteed; here we need to wait a moment
 	assert.Equal(t, int32(2), count)
 	wg.Wait()
 
-	//TEST_MSG_TYPE2 找到1条chain,2个nodes
+	//TEST_MSG_TYPE2 Find 1 chain and 2 nodes
 	wg.Add(4)
 	count = 0
 	msg = types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		atomic.AddInt32(&count, 1)
 	}))
-	//time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
+	//time.Sleep(time.Millisecond * 50) // Because OnEnd and onCompleted are asynchronous. So the order cannot be guaranteed; here we need to wait a moment
 	assert.Equal(t, int32(1), count)
 	wg.Wait()
 
-	//TEST_MSG_TYPE3 找到0条chain,1个node
+	//TEST_MSG_TYPE3 Find 0 chains and 1 node
 	wg.Add(2)
 	count = 0
 	data := ""
@@ -627,7 +627,7 @@ func TestOnMsgAndWait(t *testing.T) {
 	wg.Wait()
 }
 
-// 测试functions节点，并发修改metadata
+// Test the functions node and concurrently modify metadata
 func TestFunctionsNode(t *testing.T) {
 	action.Functions.Register("modifyMetadata", func(ctx types.RuleContext, msg types.RuleMsg) {
 		msg.Metadata.PutValue("aa", "aa")
@@ -703,7 +703,7 @@ func TestExecuteNode(t *testing.T) {
 	msg1 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
 
 	// Use WaitGroup to ensure callback completes before reload
-	// 使用 WaitGroup 确保回调完成后再重新加载
+	// Use WaitGroup to ensure the callback completes before reloading
 	var firstCallbackDone sync.WaitGroup
 	firstCallbackDone.Add(1)
 	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
@@ -712,16 +712,16 @@ func TestExecuteNode(t *testing.T) {
 	}))
 
 	// Wait for callback to complete before reloading
-	// 等待回调完成后再重新加载
+	// Wait for the callback to complete before reloading
 	firstCallbackDone.Wait()
 
 	chainJsonFile1 := string(loadFile("./test_group_filter_node.json"))
 	newChainJsonFile1 := strings.Replace(chainJsonFile1, `"allMatches": false`, `"allMatches": true`, -1)
 	newChainJsonFile1 = strings.Replace(newChainJsonFile1, "test_group_filter_node", chainId, -1)
-	//更新规则链，groupFilter必须所有节点都满足True,才走True链
+	//When updating the rule chain, groupFilter must have all nodes satisfied with True before it can proceed with the True chain
 	_ = ruleEngine.ReloadSelf([]byte(newChainJsonFile1))
 
-	// 等待规则链重新加载完成
+	// Wait for the rule chain to reload
 	time.Sleep(time.Millisecond * 200)
 
 	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
@@ -792,7 +792,7 @@ func TestBatchOnMsgAndWait(t *testing.T) {
 
 }
 
-// TestBatchOnMsgAndWait  测试同步处理消息，有多个end
+// TestBatchOnMsgAndWait
 func TestBatchOnMsgAndWaitMultipleOnEnd(t *testing.T) {
 	config := NewConfig()
 	ruleEngine, err := New(str.RandomStr(10), loadFile("./chain_msg_type_switch.json"), WithConfig(config))
@@ -808,7 +808,7 @@ func TestBatchOnMsgAndWaitMultipleOnEnd(t *testing.T) {
 		ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 			atomic.AddInt32(&count, 1)
 		}))
-		time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
+		time.Sleep(time.Millisecond * 50) //Because OnEnd and onCompleted are asynchronous. So the order cannot be guaranteed; here we need to wait a moment
 		assert.Equal(t, int32(2), atomic.LoadInt32(&count))
 	}
 	time.Sleep(time.Millisecond * 100)
@@ -826,14 +826,14 @@ var s1NodeFile = `
 		  }
 `
 
-// TestEngine 测试规则引擎
+// TestEngine is the test rules engine
 func TestEngine(t *testing.T) {
 	config := NewConfig()
 	_, err := New("subChain01", []byte{}, WithConfig(config))
 	assert.NotNil(t, err)
-	//初始化子规则链
+	//Initialize the sub-rule chain
 	subRuleEngine, err := New("subChain01", loadFile("./sub_chain.json"), WithConfig(config))
-	//初始化根规则链
+	//Initialize the root rule chain
 	ruleEngine, err := New("testEngine", []byte(ruleChainFile), WithConfig(config))
 	if err != nil {
 		t.Errorf("%v", err)
@@ -842,7 +842,7 @@ func TestEngine(t *testing.T) {
 
 	assert.Equal(t, strings.Replace(ruleChainFile, " ", "", -1), strings.Replace(string(ruleEngine.DSL()), " ", "", -1))
 
-	//获取节点
+	//Obtain the node
 	s1NodeId := types.RuleNodeId{Id: "s1"}
 	ruleEngine.RootRuleChainCtx()
 	s1Node, ok := ruleEngine.RootRuleChainCtx().GetNodeById(s1NodeId)
@@ -870,7 +870,7 @@ func TestEngine(t *testing.T) {
 	assert.Equal(t, "过滤", s1RuleNodeCtx.SelfDefinition.Name)
 	assert.Equal(t, "return msg.temperature>10;", s1RuleNodeCtx.SelfDefinition.Configuration["jsScript"])
 
-	//获取子规则链
+	//Obtain the sub-rule chain
 	subChain01Id := types.RuleNodeId{Id: "subChain01", Type: types.CHAIN}
 	subChain01Node, ok := ruleEngine.RootRuleChainCtx().GetNodeById(subChain01Id)
 	assert.True(t, ok)
@@ -879,7 +879,7 @@ func TestEngine(t *testing.T) {
 	assert.Equal(t, "测试子规则链", subChain01NodeCtx.SelfDefinition.RuleChain.Name)
 	assert.Equal(t, subChain01NodeCtx, subRuleEngine.RootRuleChainCtx())
 
-	//修改根规则链节点
+	//Modify root rule chain nodes
 	_ = ruleEngine.ReloadChild(s1NodeId.Id, []byte(s1NodeFile))
 	s1Node, ok = ruleEngine.RootRuleChainCtx().GetNodeById(s1NodeId)
 	assert.True(t, ok)
@@ -889,7 +889,7 @@ func TestEngine(t *testing.T) {
 	assert.Equal(t, "return msg!='bb';", s1RuleNodeCtx.SelfDefinition.Configuration["jsScript"])
 
 	subRuleChain := string(loadFile("./sub_chain.json"))
-	//修改子规则链
+	//Modifying the sub-rule chain
 	_ = subRuleEngine.ReloadSelf([]byte(strings.Replace(subRuleChain, "测试子规则链", "测试子规则链-更改", -1)))
 
 	subChain01Node, ok = ruleEngine.RootRuleChainCtx().GetNodeById(types.RuleNodeId{Id: "subChain01", Type: types.CHAIN})
@@ -898,7 +898,7 @@ func TestEngine(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "测试子规则链-更改", subChain01NodeCtx.SelfDefinition.RuleChain.Name)
 
-	//获取规则引擎实例
+	//Get the rule engine instance
 	ruleEngineNew, ok := Get("testEngine")
 	assert.True(t, ok)
 	assert.Equal(t, ruleEngine, ruleEngineNew)
@@ -927,7 +927,7 @@ func TestEngine(t *testing.T) {
 	time.Sleep(time.Millisecond * 200)
 	assert.True(t, atomic.LoadInt32(&onAllNodeCompleted) == 1)
 
-	//删除对应规则引擎实例
+	//Delete the corresponding rule engine instance
 	Del("testEngine")
 	_, ok = Get("testEngine")
 	assert.False(t, ok)
@@ -1062,7 +1062,7 @@ func TestReload(t *testing.T) {
 	}))
 
 	config.Properties.PutValue("js", "return msg.temperature>70;")
-	//刷新配置
+	//Refresh the configuration
 	_ = ruleEngine.Reload(WithConfig(config))
 	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, types.False, relationType)
@@ -1107,7 +1107,7 @@ func TestUseVars(t *testing.T) {
 		assert.Equal(t, types.True, relationType)
 	}))
 	ruleChainFile = strings.Replace(ruleChainFile, "msg.temperature>10;", "msg.temperature>70;", 1)
-	//刷新配置
+	//Refresh the configuration
 	_ = ruleEngine.ReloadSelf([]byte(ruleChainFile), WithConfig(config))
 	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, types.False, relationType)
@@ -1196,12 +1196,12 @@ func TestDoOnEnd(t *testing.T) {
           }
         }`
 
-	//测试函数
+	//Testing the function
 	action.Functions.Register("doEnd", func(ctx types.RuleContext, msg types.RuleMsg) {
 		if msg.Metadata.GetValue("productType") == "test01" {
 			ctx.TellNext(msg, types.True)
 		} else {
-			//中断执行规则链
+			//Interrupt the execution rule chain
 			ctx.DoOnEnd(msg, nil, types.False)
 		}
 	})
@@ -1256,7 +1256,7 @@ func TestJoinNode(t *testing.T) {
 		wg.Wait()
 	})
 	t.Run("Single Parent Join Test", func(t *testing.T) {
-		// 创建只有一个父节点的join场景
+		// Create a join scenario with only one parent node
 		singleParentJoinDSL := `{
 			"ruleChain": {
 				"id": "singleParentJoin",
@@ -1307,10 +1307,10 @@ func TestJoinNode(t *testing.T) {
 			var result []map[string]interface{}
 			json.Unmarshal([]byte(msg.GetData()), &result)
 			assert.Equal(t, types.Success, relationType)
-			assert.Equal(t, 1, len(result)) // 应该只有一个输入消息
+			assert.Equal(t, 1, len(result)) // There should only be one input message
 			assert.Equal(t, "node_transform", result[0]["nodeId"])
 
-			// 正确解析消息数据
+			// Correctly parse message data
 			if msgInfo, ok := result[0]["msg"].(map[string]interface{}); ok {
 				if dataStr, ok := msgInfo["data"].(string); ok {
 					var msgData map[string]interface{}
@@ -1323,12 +1323,12 @@ func TestJoinNode(t *testing.T) {
 		}))
 
 		wg.Wait()
-		// 验证单父节点场景下回调能正常触发
+		// Verify that callbacks are triggered normally in single-parent node scenarios
 		assert.Equal(t, int32(1), atomic.LoadInt32(&callbackCount))
 	})
 
 	t.Run("Join Node Timeout Test", func(t *testing.T) {
-		// 创建一个真正会超时的join场景：延迟节点延迟时间超过join超时时间
+		// Create a join scenario where the node delays longer than the join timeout
 		timeoutJoinDSL := `{
 			"ruleChain": {
 				"id": "timeoutJoin",
@@ -1408,24 +1408,24 @@ func TestJoinNode(t *testing.T) {
 
 		start := time.Now()
 
-		// 使用OnMsg让分支并行执行
+		// Use OnMsg to run branches in parallel
 		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-			// 只统计来自join节点的回调
+			// Only counts callbacks from join nodes
 			if ctx.GetSelfId() == "node_join" {
 				atomic.AddInt32(&callbackCount, 1)
 				joinCallbackReceived = true
 				elapsed := time.Since(start)
 
-				// join节点超时应该返回Failure
+				// When the join node timeout, it should return a Failure
 				assert.Equal(t, types.Failure, relationType)
 				assert.NotNil(t, err)
 
-				// 检查错误信息是否包含超时相关内容
+				// Check if the error message contains timeout-related content
 				errMsg := err.Error()
 				assert.True(t, strings.Contains(errMsg, "context deadline exceeded") || strings.Contains(errMsg, "timeout"),
 					"错误信息应该包含超时相关内容: %s", errMsg)
 
-				// 验证确实在超时时间附近结束（1秒超时）
+				// Verification does indeed end near the timeout time (1-second timeout)
 				assert.True(t, elapsed > 900*time.Millisecond && elapsed < 1500*time.Millisecond,
 					"执行时间应该在1秒左右: %v", elapsed)
 
@@ -1439,7 +1439,7 @@ func TestJoinNode(t *testing.T) {
 	})
 
 	t.Run("Concurrent Join Test", func(t *testing.T) {
-		// 测试多个消息同时处理join节点的情况
+		// Test the situation where multiple messages are processed simultaneously by a join node
 		var ruleChainFile = loadFile("test_join_node.json")
 		config := NewConfig(types.WithDefaultPool())
 		ruleEngine, err := New("concurrentJoinTest", ruleChainFile, WithConfig(config))
@@ -1463,25 +1463,25 @@ func TestJoinNode(t *testing.T) {
 						atomic.AddInt32(&successCount, 1)
 						var result []map[string]interface{}
 						json.Unmarshal([]byte(msg.GetData()), &result)
-						assert.Equal(t, 2, len(result)) // 每个join都应该有2个输入
+						assert.Equal(t, 2, len(result)) // Each join should have two inputs
 					}
 				}))
 			}(i)
 		}
 
 		wg.Wait()
-		// 验证所有消息都能正常处理
+		// Verify that all messages are processed correctly
 		assert.Equal(t, int32(concurrentCount), atomic.LoadInt32(&successCount))
 	})
 
 	t.Run("Multi Branch Join Test", func(t *testing.T) {
-		// 测试多分支Join场景 - 一个过滤器分出两个分支，都汇聚到join节点
+		// Testing multi-branch Join scenarios – a single filter splits into two branches, both converging into a join node
 		var ruleChainFile = loadFile("test_join_multi_branch.json")
 		config := NewConfig(types.WithDefaultPool())
 		ruleEngine, err := New("multiBranchJoinTest", ruleChainFile, WithConfig(config))
 		assert.Nil(t, err)
 
-		// 测试温度 > 50 的情况，会走True分支到node_4
+		// When testing at > 50 temperatures, the True branch will go to node_4
 		t.Run("High Temperature", func(t *testing.T) {
 			var wg sync.WaitGroup
 			wg.Add(1)
@@ -1498,7 +1498,7 @@ func TestJoinNode(t *testing.T) {
 					atomic.AddInt32(&callbackCount, 1)
 					joinCallbackReceived = true
 
-					// join节点应该能正常处理
+					// The join node should handle it properly
 					assert.Equal(t, types.Success, relationType)
 					assert.Nil(t, err)
 
@@ -1536,9 +1536,9 @@ func TestDisabled(t *testing.T) {
 	assert.Equal(t, types.ErrEngineDisabled.Error(), err.Error())
 }
 
-// TestMetadataCopyOnWritePerformance 测试新 Metadata 设计在多节点并发场景下的性能和正确性
+// TestMetadataCopyOnWritePerformance Tests the performance and correctness of new Metadata designs in multi-node concurrency scenarios
 func TestMetadataCopyOnWritePerformance(t *testing.T) {
-	// 创建一个多节点规则链，用于测试并发场景
+	// Create a multi-node rule chain to test concurrency scenarios
 	multiNodeRuleChain := `{
 		"ruleChain": {
 			"id": "test_cow_performance",
@@ -1608,14 +1608,14 @@ func TestMetadataCopyOnWritePerformance(t *testing.T) {
 	assert.Nil(t, err)
 	defer Del(chainId)
 
-	// 测试并发场景下的性能和正确性
+	// Testing performance and correctness in concurrent scenarios
 	var wg sync.WaitGroup
 	var processedCount int32
 	var isolationErrors int32
 	maxGoroutines := 50
 	messagesPerGoroutine := 20
 
-	// 记录开始时间
+	// Record the start time
 	startTime := time.Now()
 
 	wg.Add(maxGoroutines)
@@ -1625,7 +1625,7 @@ func TestMetadataCopyOnWritePerformance(t *testing.T) {
 			defer wg.Done()
 
 			for j := 0; j < messagesPerGoroutine; j++ {
-				// 创建包含大量元数据的消息
+				// Create messages containing large amounts of metadata
 				metaData := types.NewMetadata()
 				for k := 0; k < 100; k++ {
 					metaData.PutValue(fmt.Sprintf("key_%d", k), fmt.Sprintf("value_%d_%d_%d", goroutineIndex, j, k))
@@ -1636,13 +1636,13 @@ func TestMetadataCopyOnWritePerformance(t *testing.T) {
 				msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"test\":\"data\"}")
 
 				var msgWg sync.WaitGroup
-				msgWg.Add(3) // 三个并行的transform节点，每个都会触发EndFunc
+				msgWg.Add(3) // Three parallel transform nodes, each triggering EndFunc
 
 				ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, resultMsg types.RuleMsg, err error) {
 					defer msgWg.Done()
 					atomic.AddInt32(&processedCount, 1)
 
-					// 验证消息隔离性
+					// Verify message isolation
 					if resultMsg.Metadata.GetValue("goroutineID") != fmt.Sprintf("%d", goroutineIndex) {
 						atomic.AddInt32(&isolationErrors, 1)
 						t.Errorf("Metadata isolation failed: expected goroutineID %d, got %s", goroutineIndex, resultMsg.Metadata.GetValue("goroutineID"))
@@ -1653,7 +1653,7 @@ func TestMetadataCopyOnWritePerformance(t *testing.T) {
 						t.Errorf("Metadata isolation failed: expected messageIndex %d, got %s", j, resultMsg.Metadata.GetValue("messageIndex"))
 					}
 
-					// 验证至少有一个节点处理标记（因为每个transform节点只设置自己的标记）
+					// Verify that at least one node handles the tag (because each transform node only sets its own tag)
 					processedCount := 0
 					if resultMsg.Metadata.GetValue("node1_processed") == "true" {
 						processedCount++
@@ -1679,16 +1679,16 @@ func TestMetadataCopyOnWritePerformance(t *testing.T) {
 
 	wg.Wait()
 
-	// 计算总耗时
+	// Calculate total time taken
 	totalTime := time.Since(startTime)
 	totalMessages := int32(maxGoroutines * messagesPerGoroutine)
-	expectedProcessedCount := totalMessages * 3 // 每个消息会被3个并行节点处理
+	expectedProcessedCount := totalMessages * 3 // Each message is processed by three parallel nodes
 
-	// 验证测试结果
+	// Verify test results
 	assert.Equal(t, int32(0), atomic.LoadInt32(&isolationErrors), "No metadata isolation errors should occur")
 	assert.Equal(t, expectedProcessedCount, atomic.LoadInt32(&processedCount), "All messages should be processed by all nodes")
 
-	// 输出性能统计
+	// Output performance statistics
 	t.Logf("Performance Test Results:")
 	t.Logf("Total input messages: %d", totalMessages)
 	t.Logf("Total processed callbacks: %d", atomic.LoadInt32(&processedCount))
@@ -1698,9 +1698,9 @@ func TestMetadataCopyOnWritePerformance(t *testing.T) {
 	t.Logf("Isolation errors: %d", atomic.LoadInt32(&isolationErrors))
 }
 
-// TestMetadataIsolationInMultipleNodes 测试多节点场景下 Metadata 的隔离性
+// TestMetadataIsolationInMultipleNodes Tests the isolation of metadata in multi-node scenarios
 func TestMetadataIsolationInMultipleNodes(t *testing.T) {
-	// 创建一个分叉规则链，测试不同分支的 Metadata 隔离
+	// Create a fork rule chain to test Metadata isolation for different branches
 	forkRuleChain := `{
 		"ruleChain": {
 			"id": "test_metadata_isolation",
@@ -1773,7 +1773,7 @@ func TestMetadataIsolationInMultipleNodes(t *testing.T) {
 	assert.Nil(t, err)
 	defer Del(chainId)
 
-	// 发送测试消息
+	// Send test messages
 	metaData := types.NewMetadata()
 	metaData.PutValue("original_key", "original_value")
 	metaData.PutValue("shared_key", "shared_value")
@@ -1787,9 +1787,9 @@ func TestMetadataIsolationInMultipleNodes(t *testing.T) {
 	}))
 
 	wg.Wait()
-	time.Sleep(time.Millisecond * 200) // 等待所有调试回调完成
+	time.Sleep(time.Millisecond * 200) // Wait for all debugging callbacks to complete
 
-	// 验证结果
+	// Verify the results
 	mu.Lock()
 	assert.Equal(t, 1, len(branch1Results), "Should have one result from branch1")
 	assert.Equal(t, 1, len(branch2Results), "Should have one result from branch2")
@@ -1798,11 +1798,11 @@ func TestMetadataIsolationInMultipleNodes(t *testing.T) {
 	branch2Msg := branch2Results[0]
 	mu.Unlock()
 
-	// 验证分支隔离性
+	// Verify branch isolation
 	assert.Equal(t, "BRANCH1", branch1Msg.Type)
 	assert.Equal(t, "BRANCH2", branch2Msg.Type)
 
-	// 验证 Metadata 隔离性
+	// Verify Metadata isolation
 	assert.Equal(t, "branch1", branch1Msg.Metadata.GetValue("branch"))
 	assert.Equal(t, "branch2", branch2Msg.Metadata.GetValue("branch"))
 
@@ -1812,7 +1812,7 @@ func TestMetadataIsolationInMultipleNodes(t *testing.T) {
 	assert.Equal(t, "data2", branch2Msg.Metadata.GetValue("branch2_data"))
 	assert.Equal(t, "", branch2Msg.Metadata.GetValue("branch1_data"))
 
-	// 验证原始数据仍然存在
+	// The original data is still validated
 	assert.Equal(t, "original_value", branch1Msg.Metadata.GetValue("original_key"))
 	assert.Equal(t, "original_value", branch2Msg.Metadata.GetValue("original_key"))
 	assert.Equal(t, "shared_value", branch1Msg.Metadata.GetValue("shared_key"))
@@ -1820,9 +1820,9 @@ func TestMetadataIsolationInMultipleNodes(t *testing.T) {
 
 }
 
-// TestGroupActionNodeIntegration 测试 GroupActionNode 在完整规则链中的集成功能
+// TestGroupActionNodeIntegration Tests the integration of GroupActionNode in a complete rule chain
 func TestGroupActionNodeIntegration(t *testing.T) {
-	// 注册测试用的函数
+	// Register a function for testing
 	action.Functions.Register("processTemperature", func(ctx types.RuleContext, msg types.RuleMsg) {
 		msg.Metadata.PutValue("tempProcessed", "true")
 		msg.Metadata.PutValue("processNode", "temperature")
@@ -1838,11 +1838,11 @@ func TestGroupActionNodeIntegration(t *testing.T) {
 	action.Functions.Register("processPressure", func(ctx types.RuleContext, msg types.RuleMsg) {
 		msg.Metadata.PutValue("pressureProcessed", "true")
 		msg.Metadata.PutValue("processNode", "pressure")
-		time.Sleep(time.Millisecond * 10) // 模拟较慢的处理
+		time.Sleep(time.Millisecond * 10) // Simulates slower processing
 		ctx.TellFailure(msg, errors.New("pressure sensor failed"))
 	})
 
-	// GroupActionNode 规则链配置
+	// GroupActionNode rule chain configuration
 	groupActionRuleChain := `{
 		"ruleChain": {
 			"id": "test_group_action_chain",
@@ -1932,14 +1932,14 @@ func TestGroupActionNodeIntegration(t *testing.T) {
 		config := NewConfig()
 		config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			if flowType == types.Out && nodeId == "successResult" {
-				// 应该走成功路径，因为温度和湿度节点都会成功(满足matchNum=2)
+				// You should follow the successful path, because both temperature and humidity nodes will succeed (meeting matchNum=2)
 				result := msg.Metadata.GetValue("groupResult")
 				assert.Equal(t, "success", result)
 				assert.Equal(t, "GROUP_SUCCESS", msg.Type)
 				atomic.AddInt32(&successReceived, 1)
 			}
 			if flowType == types.Out && nodeId == "failureResult" {
-				t.Errorf("不应该走失败路径，但是收到了: %s", msg.Metadata.GetValue("groupResult"))
+				t.Errorf("You shouldn't have taken the path of failure, but you have received: %s", msg.Metadata.GetValue("groupResult"))
 			}
 		}
 
@@ -1957,7 +1957,7 @@ func TestGroupActionNodeIntegration(t *testing.T) {
 			assert.Nil(t, err)
 		}))
 
-		// 等待处理完成
+		// Wait for processing to complete
 		time.Sleep(time.Millisecond * 200)
 
 		assert.Equal(t, int32(1), atomic.LoadInt32(&successReceived), "应该收到1个成功结果")
@@ -1965,7 +1965,7 @@ func TestGroupActionNodeIntegration(t *testing.T) {
 	})
 
 	t.Run("GroupAction Modified MatchNum Case", func(t *testing.T) {
-		// 修改规则链配置：要求3个Success（但只有2个能成功）
+		// Modifying the rule chain configuration: requires 3 Successes (but only 2 succeeds)
 		modifiedRuleChain := strings.Replace(groupActionRuleChain, `"matchNum": 2`, `"matchNum": 3`, 1)
 		modifiedRuleChain = strings.Replace(modifiedRuleChain, `"test_group_action_chain"`, `"test_group_action_chain_modified"`, 1)
 
@@ -1975,14 +1975,14 @@ func TestGroupActionNodeIntegration(t *testing.T) {
 		config := NewConfig()
 		config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			if flowType == types.Out && nodeId == "failureResult" {
-				// 应该走失败路径，因为只有2个节点成功但要求3个
+				// You should take the failed path, because only 2 nodes succeed but require 3
 				result := msg.Metadata.GetValue("groupResult")
 				assert.Equal(t, "failure", result)
 				assert.Equal(t, "GROUP_FAILURE", msg.Type)
 				atomic.AddInt32(&failureReceived, 1)
 			}
 			if flowType == types.Out && nodeId == "successResult" {
-				t.Errorf("不应该走成功路径，但是收到了: %s", msg.Metadata.GetValue("groupResult"))
+				t.Errorf("You shouldn't have taken the path to success, but you did: %s", msg.Metadata.GetValue("groupResult"))
 			}
 		}
 
@@ -2000,7 +2000,7 @@ func TestGroupActionNodeIntegration(t *testing.T) {
 			assert.Nil(t, err)
 		}))
 
-		// 等待处理完成
+		// Wait for processing to complete
 		time.Sleep(time.Millisecond * 200)
 
 		assert.Equal(t, int32(1), atomic.LoadInt32(&failureReceived), "应该收到1个失败结果")
@@ -2008,7 +2008,7 @@ func TestGroupActionNodeIntegration(t *testing.T) {
 	})
 
 	t.Run("GroupAction Concurrent Safety", func(t *testing.T) {
-		// 并发安全测试：同时发送多个消息
+		// Concurrent security testing: Send multiple messages simultaneously
 		var successCount, failureCount int32
 
 		config := NewConfig()
@@ -2026,7 +2026,7 @@ func TestGroupActionNodeIntegration(t *testing.T) {
 		assert.Nil(t, err)
 		defer Del(chainId)
 
-		// 并发发送多个消息
+		// Send multiple messages concurrently
 		var wg sync.WaitGroup
 		concurrentCount := 50
 
@@ -2045,12 +2045,12 @@ func TestGroupActionNodeIntegration(t *testing.T) {
 		}
 
 		wg.Wait()
-		time.Sleep(time.Millisecond * 500) // 等待所有处理完成
+		time.Sleep(time.Millisecond * 500) // Wait for all processing to be completed
 
-		//t.Logf("并发测试结果: Success=%d, Failure=%d, Expected=%d",
+		//t.Logf("Concurrent test results: Success = %d, Failure = %d, Expected = %d",
 		//	atomic.LoadInt32(&successCount), atomic.LoadInt32(&failureCount), concurrentCount)
 
-		// 验证：应该都是成功的，因为温度和湿度节点都会成功(满足matchNum=2)
+		// Verification: It should all succeed because temperature and humidity nodes will succeed (matchNum=2)
 		assert.Equal(t, int32(concurrentCount), atomic.LoadInt32(&successCount), "所有消息都应该成功处理")
 		assert.Equal(t, int32(0), atomic.LoadInt32(&failureCount), "不应该有失败的消息")
 	})

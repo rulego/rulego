@@ -1,7 +1,7 @@
-// Package services 定义服务接口和容器键名常量。
+// Package services defines service interfaces and container keyname constants.
 package services
 
-// 容器中的服务键名常量。
+// Service keyname constants in containers.
 // Service key constants for container lookups.
 const (
 	KeyRuleCatalog        = "module.rule.catalog"

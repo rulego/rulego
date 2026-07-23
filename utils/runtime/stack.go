@@ -36,7 +36,7 @@ import (
 	"strings"
 )
 
-// Stack 获取堆栈信息
+// Stack retrieves stack information
 func Stack() string {
 	var pc = make([]uintptr, 20)
 	n := runtime.Callers(3, pc)

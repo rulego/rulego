@@ -30,13 +30,13 @@ import (
 // Ensuring DefaultRuleContext implements types.RuleContext interface.
 var _ types.RuleContext = (*DefaultRuleContext)(nil)
 
-// GetEnv 获取环境变量和元数据
+// GetEnv retrieves environment variables and metadata
 func (ctx *DefaultRuleContext) getEnv(msg types.RuleMsg, useMetadata bool, nodeIds ...string) map[string]interface{} {
-	// 预分配合适大小的map，减少扩容开销
-	capacity := 9 // 基础字段数量：id, ts, data, msgType, dataType, msg, metadata
+	// Pre-partitioning combined with appropriately sized maps reduces expansion costs
+	capacity := 9 // Basic field count: id, ts, data, msgType, dataType, msg, metadata
 	if msg.Metadata != nil && useMetadata {
-		// 估算metadata的键值对数量
-		capacity += 8 // 常见metadata数量的估计值
+		// Estimate the number of key-value pairs in metadata
+		capacity += 8 // Estimates of common metadata quantities
 	}
 
 	evn := make(map[string]interface{}, capacity)
@@ -48,14 +48,14 @@ func (ctx *DefaultRuleContext) getEnv(msg types.RuleMsg, useMetadata bool, nodeI
 		evn[types.Vars] = ctx.ruleChainCtx.vars
 	}
 
-	// 设置基础字段
+	// Set up the basic field
 	evn[types.IdKey] = msg.Id
 	evn[types.TsKey] = msg.Ts
 	evn[types.DataKey] = msg.GetData()
 	evn[types.MsgTypeKey] = msg.Type
 	evn[types.DataTypeKey] = msg.DataType
 
-	// 优化JSON数据处理
+	// Optimized JSON data processing
 	if msg.DataType == types.JSON {
 		if jsonData, err := msg.GetJsonData(); err == nil {
 			evn[types.MsgKey] = jsonData
@@ -66,10 +66,10 @@ func (ctx *DefaultRuleContext) getEnv(msg types.RuleMsg, useMetadata bool, nodeI
 		evn[types.MsgKey] = msg.GetData()
 	}
 
-	// 处理metadata - 使用零拷贝ForEach优化
+	// Processing metadata - optimized with zero-copy ForEach
 	if msg.Metadata != nil {
 		if useMetadata {
-			// 使用零拷贝ForEach将metadata键值对添加到环境变量中
+			// Use zero copy ForEach to add metadata key-value pairs to environment variables
 			msg.Metadata.ForEach(func(k, v string) bool {
 				evn[k] = v
 				return true // continue iteration
@@ -81,27 +81,27 @@ func (ctx *DefaultRuleContext) getEnv(msg types.RuleMsg, useMetadata bool, nodeI
 	return evn
 }
 
-// GetEnv 获取环境变量和元数据，支持跨节点取值
-// msg: 当前消息
-// useMetadata: 是否包含metadata
-// 返回包含跨节点数据的上下文map，格式为 nodeId.msg.xx 和 nodeId.metadata.xx
+// GetEnv retrieves environment variables and metadata, supporting cross-node values
+// msg: Current news
+// useMetadata: Whether metadata is included
+// Returns a context map containing cross-node data, formatted as nodeId.msg.xx and nodeId.metadata.xx
 func (ctx *DefaultRuleContext) GetEnv(msg types.RuleMsg, useMetadata bool) map[string]interface{} {
-	// 获取基础环境变量和metadata
+	// Obtain basic environment variables and metadata
 	baseContext := ctx.getEnv(msg, useMetadata)
 
 	if ctx.nodeOutputCache == nil {
 		return baseContext
 	}
 
-	// 确定需要访问的节点ID列表
+	// Determine the list of node IDs to be accessed
 	var targetNodeIds []string
-	// 自动获取当前节点的依赖节点ID列表
+	// Automatically retrieves the list of dependent node IDs for the current node
 	if ctx.ruleChainCtx != nil {
 		currentNodeId := ctx.GetSelfId()
 		targetNodeIds = ctx.ruleChainCtx.GetNodeDependencies(currentNodeId)
 	}
 
-	// 为每个节点ID添加跨节点数据
+	// Add cross-node data for each node ID
 	for _, nodeId := range targetNodeIds {
 		if nodeMsg, found := ctx.nodeOutputCache.GetNodeRuleMsg(nodeId); found {
 			baseContext[nodeId] = ctx.getEnv(nodeMsg, false)
@@ -199,12 +199,12 @@ func (c *ContextObserver) checkAndTrigger() {
 		for joinNodeId, item := range c.nodeDoneEvent {
 			if c.checkNodesDone(item.lcaNodeId) {
 				delete(c.nodeDoneEvent, joinNodeId)
-				// 获取消息列表并触发回调
+				// Retrieve the message list and trigger a callback
 				msgList := c.nodeInMsgList[joinNodeId]
 				if msgList == nil {
 					msgList = []types.WrapperMsg{}
 				}
-				// 直接执行回调，保持原有的同步行为
+				// Directly executes callbacks to maintain the original synchronization behavior
 				item.callback(msgList)
 			}
 		}
@@ -213,7 +213,7 @@ func (c *ContextObserver) checkAndTrigger() {
 
 // joinNodeCallback represents a callback function for when a join node completes.
 type joinNodeCallback struct {
-	lcaNodeId  string //joinNodeId 节点最近共同祖先节点
+	lcaNodeId  string //joinNodeId node is the most recent common ancestor node
 	joinNodeId string
 	callback   func([]types.WrapperMsg)
 }
@@ -258,7 +258,7 @@ type DefaultRuleContext struct {
 	afterAspects []types.AfterAspect
 	// Runtime snapshot for debugging and logging.
 	runSnapshot *RunSnapshot
-	// Observer for join nodes - 延迟初始化
+	// Observer for join nodes - Delayed initialization
 	observer *ContextObserver
 	// first node relationType
 	relationTypes []string
@@ -267,20 +267,20 @@ type DefaultRuleContext struct {
 	// IN or OUT err
 	err        error
 	chainCache types.Cache
-	// nodeOutputCache 节点输出缓存，用于跨节点取值
+	// nodeOutputCache node output cache, used to retrieve values across nodes
 	nodeOutputCache *NodeOutputCache
-	//该链是否有结束节点
+	//Does the chain have termination nodes?
 	hasEndNode bool
-	// restoreNodeInfo 恢复执行节点信息
+	// restoreNodeInfo restores the execution node information
 	restoreNodeInfo *RestoreNodeInfo
-	// debugModeOverride 运行时按消息覆盖调试模式，优先级高于链/节点 DSL 配置
-	// 0=继承链或节点配置, 1=强制开启, -1=强制关闭
+	// debugModeOverride runtime debug according to message override mode, with priority above chain/node DSL configuration
+	// 0 = inheritance chain or node configuration, 1 = forced open, -1 = forced close
 	debugModeOverride int32
 }
 
-// RestoreNodeInfo 恢复执行节点信息
+// RestoreNodeInfo restores executable node information
 type RestoreNodeInfo struct {
-	// NodeRequests 恢复执行节点请求列表
+	// NodeRequests Restore the list of executed node requests
 	NodeRequests []types.NodeRequest
 }
 
@@ -292,7 +292,7 @@ func (ctx *DefaultRuleContext) ChainCache() types.Cache {
 	return ctx.chainCache
 }
 
-// GetNodeOutputCache 获取节点输出缓存
+// GetNodeOutputCache Obtains the node's output cache
 // GetNodeOutputCache returns the node output cache
 func (ctx *DefaultRuleContext) GetNodeOutputCache() *NodeOutputCache {
 	return ctx.nodeOutputCache
@@ -458,7 +458,7 @@ func (r *RunSnapshot) onRuleChainCompleted(ctx types.RuleContext) {
 }
 
 // NewNextNodeRuleContext creates a new instance of RuleContext for the next node in the rule engine.
-// 预定义常用关系类型的单例 slice，避免重复分配
+// Predefine commonly used relationship types in singleton slice to avoid duplicate allocation
 // Pre-defined singleton slices for common relation types to avoid repeated allocations
 var (
 	successRelationTypes = []string{types.Success}
@@ -467,40 +467,40 @@ var (
 	falseRelationTypes   = []string{types.False}
 )
 
-// NewNextNodeRuleContext 创建下一个节点的规则上下文
+// NewNextNodeRuleContext creates the rule context for the next node
 // NewNextNodeRuleContext creates a rule context for the next node
 func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *DefaultRuleContext {
 	// Create a new context directly instead of using object pool to avoid data races
-	// 但是复用不可变的共享状态以减少内存开销
+	// However, it reuses immutable shared states to reduce memory overhead
 	nextCtx := &DefaultRuleContext{
-		config:        ctx.config,       // 共享配置，不可变
-		ruleChainCtx:  ctx.ruleChainCtx, // 共享规则链上下文
+		config:        ctx.config,       // Shared configuration, immutable
+		ruleChainCtx:  ctx.ruleChainCtx, // Shared rule chain context
 		from:          ctx.self,
 		self:          nextNode,
-		pool:          ctx.pool, // 共享协程池
+		pool:          ctx.pool, // Shared coroutine pool
 		onEnd:         ctx.onEnd,
-		ruleChainPool: ctx.ruleChainPool, // 共享规则链池
-		context:       ctx.context,       // 直接复用context，避免调用GetContext()
+		ruleChainPool: ctx.ruleChainPool, // Shared rule chain pool
+		context:       ctx.context,       // Directly reuse context to avoid calling GetContext()
 		parentRuleCtx: ctx,
 		skipTellNext:  ctx.skipTellNext,
 
-		// 共享切面列表，它们在运行时不会改变
+		// Shared faceted lists do not change at runtime
 		aroundAspects: ctx.aroundAspects,
 		beforeAspects: ctx.beforeAspects,
 		afterAspects:  ctx.afterAspects,
 
-		// 共享运行时状态
+		// Shared runtime state
 		runSnapshot: ctx.runSnapshot,
-		// 子context共享observer
-		observer:        ctx.observer, // 共享observer实例
+		// Subcontexts share observers
+		observer:        ctx.observer, // Shared observer instances
 		err:             ctx.err,
-		chainCache:      ctx.chainCache,      // 共享缓存
-		nodeOutputCache: ctx.nodeOutputCache, // 共享节点输出缓存
+		chainCache:      ctx.chainCache,      // Shared cache
+		nodeOutputCache: ctx.nodeOutputCache, // Shared node output cache
 
 		relationTypes: make([]string, 1),
 		hasEndNode:    ctx.hasEndNode,
 	}
-	// 继承 debugModeOverride（1=强制开启, -1=强制关闭, 0=使用节点默认值）
+	// Inherit debugModeOverride (1=ForceEnabled, -1=ForceClose, 0=Use node default values)
 	if v := atomic.LoadInt32(&ctx.debugModeOverride); v != 0 {
 		atomic.StoreInt32(&nextCtx.debugModeOverride, v)
 	}
@@ -541,19 +541,19 @@ func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgL
 		errStr = ctx.GetErr().Error()
 	}
 	if ctx.observer.addInMsg(selfNodeId, fromId, msg, errStr) {
-		//通知当前节点至共同祖先这分支链已经执行完。
+		//Notify the current node to the common ancestor that this branch chain has completed execution.
 		if ctx.parentRuleCtx != nil {
 			ctx.parentRuleCtx.childDoneWithoutCallback()
 		}
 		return false
 	} else {
-		//通知当前节点至共同祖先这分支链已经执行完。
+		//Notify the current node to the common ancestor that this branch chain has completed execution.
 		if ctx.parentRuleCtx != nil {
 			ctx.parentRuleCtx.childDoneWithoutCallback()
 		}
 		lcaNodeId := ""
 		if ctx.ruleChainCtx != nil && ctx.self != nil {
-			// 获取LCA节点
+			// Obtain LCA nodes
 			if lcaNode, ok := ctx.ruleChainCtx.GetLCA(ctx.self.GetNodeId()); ok {
 				lcaNodeId = lcaNode.Id
 			}
@@ -562,10 +562,10 @@ func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgL
 		ctx.observer.registerNodeDoneEvent(selfNodeId, lcaNodeId, func(inMsgList []types.WrapperMsg) {
 			callback(inMsgList)
 		})
-		// 注意：不再调用 executedNode(fromId)
-		// LCA节点应该通过 childDoneWithoutCallback 流程在 waitingCount 归零时被标记为完成
-		// 而不是在这里立即标记。否则当 fork 节点直接连接到 join 节点时，
-		// fork 会在所有子节点完成前就被标记为完成，导致 join 过早触发回调。
+		// Note: Do not call executedNode(fromId)
+		// LCA nodes should be marked as completed when the waitingCount zeros through the childDoneWithoutCallback process
+		// Instead of marking it right away here. Otherwise, when the fork node connects directly to the join node,
+		// Forks are marked as complete before all child nodes finish, causing join to trigger callbacks too early.
 		return true
 	}
 }
@@ -622,12 +622,12 @@ func (ctx *DefaultRuleContext) SubmitTack(task func()) {
 
 func (ctx *DefaultRuleContext) SubmitTask(task func()) {
 	if ctx.pool != nil {
-		// 在提交任务前捕获需要的值，避免并发访问
+		// Capture the required values before submitting tasks, avoiding concurrent access
 		logger := ctx.config.Logger
 		if err := ctx.pool.Submit(task); err != nil {
 			logger.Printf("SubmitTask error:%s, fallback to goroutine", err)
-			// 如果工作池提交失败，回退到直接创建goroutine
-			// 这确保任务不会丢失，避免计数器不匹配导致的死锁
+			// If the working pool fails to commit, it falls back to directly creating a goroutine
+			// This ensures tasks are not lost and avoids deadlocks caused by counter mismatches
 			go task()
 		}
 	} else {
@@ -635,13 +635,13 @@ func (ctx *DefaultRuleContext) SubmitTask(task func()) {
 	}
 }
 
-// TellFlow 执行子规则链，ruleChainId 规则链ID
-// onEndFunc 子规则链链分支执行完的回调，并返回该链执行结果，如果同时触发多个分支链，则会调用多次
-// onAllNodeCompleted 所以节点执行完触发，无结果返回
-// 如果找不到规则链，并把消息通过`Failure`关系发送到下一个节点
+// TellFlow executes subchain rules, ruleChainId, rule chainID
+// The callback after the onEndFunc sub-rule chain branch is executed and returns the execution result of that chain. If multiple branch chains are triggered simultaneously, it will be called multiple times
+// onAllNodeCompleted So the node is triggered after execution, but returns with no result
+// If the rule chain cannot be found, the message is sent to the next node through a `Failure` relationship
 func (ctx *DefaultRuleContext) TellFlow(ruleChainId string, msg types.RuleMsg, opts ...types.RuleContextOption) {
 	if e, ok := ctx.GetRuleChainPool().Get(ruleChainId); ok {
-		// 继承父链调试模式：父链调试时子链自动进入调试，使子链节点也产生调试日志
+		// Inheriting parent chain debugging mode: During parent chain debugging, the subchain automatically enters debugging, causing subchain nodes to also generate debug logs
 		if ctx.IsDebugMode() {
 			opts = append([]types.RuleContextOption{types.WithDebugMode(true)}, opts...)
 		}
@@ -651,9 +651,9 @@ func (ctx *DefaultRuleContext) TellFlow(ruleChainId string, msg types.RuleMsg, o
 	}
 }
 
-// TellNode 从指定节点开始执行，如果 skipTellNext=true 则只执行当前节点，不通知下一个节点。
-// onEnd 查看获得最终执行结果
-// onAllNodeCompleted 所以节点执行完触发，无结果返回
+// TellNode starts executing from the specified node. If skipTellNext=true, only the current node is executed, and the next node is not notified.
+// onEnd View to obtain the final execution result
+// onAllNodeCompleted So the node is triggered after execution, but returns with no result
 func (ctx *DefaultRuleContext) TellNode(chanCtx context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc, onAllNodeCompleted func()) {
 	startId := types.RuleNodeId{Id: nodeId}
 	if nodeCtx, ok := ctx.ruleChainCtx.GetNodeById(startId); ok {
@@ -662,7 +662,7 @@ func (ctx *DefaultRuleContext) TellNode(chanCtx context.Context, nodeId string, 
 		//Whether to only execute the current node
 		rootCtxCopy.skipTellNext = skipTellNext
 		if skipTellNext {
-			//如果只执行一个节点，则肯定没有结束节点（它本身就是结束节点）
+			//If only one node is executed, there definitely is no termination node (it itself is termination)
 			rootCtxCopy.hasEndNode = false
 		} else if ctx.ruleChainCtx != nil {
 			rootCtxCopy.hasEndNode = ctx.ruleChainCtx.HasEndDescendant(startId)
@@ -716,12 +716,12 @@ func (ctx *DefaultRuleContext) tellOtherChainNode(chanCtx context.Context, ruleC
 	}
 }
 
-// SetRuleChainPool 设置子规则链池
+// SetRuleChainPool sets up the sub-rule chain pool
 func (ctx *DefaultRuleContext) SetRuleChainPool(ruleChainPool types.RuleEnginePool) {
 	ctx.ruleChainPool = ruleChainPool
 }
 
-// GetRuleChainPool 获取子规则链池
+// GetRuleChainPool obtains the sub-rule chain pool
 func (ctx *DefaultRuleContext) GetRuleChainPool() types.RuleEnginePool {
 	if ctx.ruleChainPool == nil {
 		return DefaultPool
@@ -730,7 +730,7 @@ func (ctx *DefaultRuleContext) GetRuleChainPool() types.RuleEnginePool {
 	}
 }
 
-// SetOnAllNodeCompleted 设置所有节点执行完回调
+// SetOnAllNodeCompleted sets the callback after all nodes have executed
 func (ctx *DefaultRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) {
 	ctx.onAllNodeCompleted = onAllNodeCompleted
 }
@@ -739,7 +739,7 @@ func (ctx *DefaultRuleContext) HasEndNode() bool {
 	return ctx.hasEndNode
 }
 
-// DoOnEnd  结束规则链分支执行，触发 OnEnd 回调函数
+// DoOnEnd ends the execution of the rule chain branch, triggering the OnEnd callback function
 func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationType string) {
 	configOnEnd := ctx.config.OnEnd
 	contextOnEnd := ctx.onEnd
@@ -748,9 +748,9 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 
 	var msgToUse types.RuleMsg
 	if needsCopy {
-		// 拷贝msg
+		// Copy MSG
 		msgToUse = msg.Copy()
-		// 确保Metadata不为nil，避免空指针异常
+		// Ensure the metadata is not nil, and avoid empty pointer exceptions
 		if msgToUse.Metadata == nil {
 			msgToUse.SetMetadata(types.NewMetadata())
 		}
@@ -758,18 +758,18 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 		msgToUse = msg
 	}
 
-	// 如果配置了结束节点，只有结束节点才能触发回调；如果没有配置结束节点，所有节点都可以触发
+	// If a termination node is configured, only the termination node can trigger the callback; If no terminal node is configured, all nodes can be triggered
 	isEndNode := ctx.self != nil && ctx.self.Type() == types.NodeTypeEnd
 	if configOnEnd != nil || contextOnEnd != nil {
 		if relationType == types.Stream {
-			// 是否触发回调
+			// Whether a callback has been triggered
 			shouldTrigger := ctx.ruleChainCtx == nil || !ctx.HasEndNode() || isEndNode || (ctx.config.OnEndWithFailure && relationType == types.Failure)
-			//全局回调
-			//通过`Config.OnEnd`设置
+			//A global pullback
+			//Set it through `Config.OnEnd`
 			if configOnEnd != nil && shouldTrigger {
 				configOnEnd(ctx, msgToUse, err, relationType)
 			}
-			// types.withOnEnd 设置的回调
+			// types.withOnEnd settings
 			if contextOnEnd != nil && shouldTrigger {
 				contextOnEnd(ctx, msgToUse, err, relationType)
 			}
@@ -778,14 +778,14 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 			}
 		} else {
 			ctx.SubmitTask(func() {
-				// 是否触发回调
+				// Whether a callback has been triggered
 				shouldTrigger := ctx.ruleChainCtx == nil || !ctx.HasEndNode() || isEndNode || (ctx.config.OnEndWithFailure && relationType == types.Failure)
-				//全局回调
-				//通过`Config.OnEnd`设置
+				//A global pullback
+				//Set it through `Config.OnEnd`
 				if configOnEnd != nil && shouldTrigger {
 					configOnEnd(ctx, msgToUse, err, relationType)
 				}
-				// types.withOnEnd 设置的回调
+				// types.withOnEnd settings
 				if contextOnEnd != nil && shouldTrigger {
 					contextOnEnd(ctx, msgToUse, err, relationType)
 				}
@@ -797,7 +797,7 @@ func (ctx *DefaultRuleContext) DoOnEnd(msg types.RuleMsg, err error, relationTyp
 		ctx.childDone()
 	}
 	if isEndNode {
-		// 执行AfterAop
+		// Execute AfterAop
 		msg = ctx.executeAfterAop(msg, err, relationType)
 	}
 }
@@ -838,25 +838,25 @@ func (ctx *DefaultRuleContext) GetCallbackFunc(functionName string) interface{} 
 }
 
 func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-	// 在方法开始时就缓存runSnapshot引用，避免并发竞态条件
+	// Cache runSnapshot references at the start of the method to avoid concurrent race conditions
 	runSnapshot := ctx.runSnapshot
 
-	// 智能拷贝优化：只有在真正需要时才拷贝消息
+	// Smart copy optimization: Messages are only copied when truly needed
 	needsAsyncDebug := ctx.IsDebugMode() && ctx.config.OnDebug != nil
 	needsSnapshotDebug := ctx.IsDebugMode() && runSnapshot != nil && runSnapshot.onDebugCustomFunc != nil
 	needsSnapshot := runSnapshot != nil && runSnapshot.needCollectRunSnapshot()
 
-	// 只有在真正需要拷贝时才创建副本
+	// Copies are only created when a copy is truly needed
 	var msgCopy types.RuleMsg
 	if needsAsyncDebug || needsSnapshotDebug || needsSnapshot {
 		msgCopy = msg.Copy()
 	}
 
 	if ctx.IsDebugMode() {
-		// 在提交异步任务前捕获需要的值，避免并发访问
+		// Capture the required values before submitting asynchronous tasks, avoiding concurrent access
 		onDebugFunc := ctx.config.OnDebug
 
-		//异步记录日志
+		//Asynchronously log logs
 		if needsAsyncDebug || needsSnapshotDebug {
 			ctx.SubmitTask(func() {
 				if onDebugFunc != nil {
@@ -869,22 +869,22 @@ func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, node
 		}
 	}
 	if runSnapshot != nil {
-		//记录快照
+		//Record snapshots
 		runSnapshot.collectRunSnapshot(ctx, flowType, nodeId, msgCopy, relationType, err)
 	}
 
 }
 
-// SetExecuteNodes 设置执行节点
-// 可以设置单个或多个节点，用于恢复执行或指定起始节点
+// SetExecuteNodes sets the execution node
+// You can set up one or more nodes to resume execution or specify the starting node
 func (ctx *DefaultRuleContext) SetExecuteNodes(nodes ...types.NodeRequest) {
 	if len(nodes) == 1 {
-		// 检查是否是搜索模式或者包含关系类型
-		// 如果 RelationTypes 不为 nil，则视为查找子节点模式
+		// Check whether it is a search pattern or includes relation type
+		// If RelationTypes is not nil, it is considered to be Lookup Child Node mode
 		// If RelationTypes is not nil, it is considered as finding child nodes mode.
 		if nodes[0].RelationTypes == nil {
 			nodeId := nodes[0].NodeId
-			// 执行当前节点模式
+			// Execute the current node mode
 			ctx.isFirst = true
 			ctx.relationTypes = nil
 			if node, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
@@ -892,7 +892,7 @@ func (ctx *DefaultRuleContext) SetExecuteNodes(nodes ...types.NodeRequest) {
 			} else {
 				ctx.err = fmt.Errorf("SetExecuteNodes node id=%s not found", nodeId)
 			}
-			// 清空 restoreNodeInfo，确保使用 TellNext 路径
+			// Empty restoreNodeInfo to ensure the TellNext path is used
 			ctx.restoreNodeInfo = nil
 			return
 		}
@@ -903,7 +903,7 @@ func (ctx *DefaultRuleContext) SetExecuteNodes(nodes ...types.NodeRequest) {
 	}
 }
 
-// GetRelationTypes 获取当前输入节点执行关系
+// GetRelationTypes retrieves the current input node execution relationship
 func (ctx *DefaultRuleContext) GetRelationTypes() []string {
 	return ctx.relationTypes
 }
@@ -916,7 +916,7 @@ func (ctx *DefaultRuleContext) GetErr() error {
 	return ctx.err
 }
 
-// IsDebugMode 检查是否调试模式。debugModeOverride: 1=开启, -1=关闭, 0=使用节点默认值
+// IsDebugMode checks whether the mode is being debugged. debugModeOverride: 1=On, -1=Off, 0=Use node default values
 func (ctx *DefaultRuleContext) IsDebugMode() bool {
 	v := atomic.LoadInt32(&ctx.debugModeOverride)
 	if v == 1 {
@@ -928,7 +928,7 @@ func (ctx *DefaultRuleContext) IsDebugMode() bool {
 	return ctx.Self() != nil && ctx.Self().IsDebugMode()
 }
 
-// SetDebugMode 设置 per-message 的调试模式覆盖
+// SetDebugMode sets the debug mode override for per-message
 func (ctx *DefaultRuleContext) SetDebugMode(debugMode bool) {
 	if debugMode {
 		atomic.StoreInt32(&ctx.debugModeOverride, 1)
@@ -945,19 +945,19 @@ func (ctx *DefaultRuleContext) SetSkipTellNext(skip bool) {
 	}
 }
 
-// 增加一个待执行子节点
+// Add a child node to be executed
 func (ctx *DefaultRuleContext) childReady(msg types.RuleMsg, relationType string) {
 	if relationType != types.Stream || (relationType == types.Stream && msg.GetMetadata().Has(types.KeyStreamStart)) {
 		atomic.AddInt32(&ctx.waitingCount, 1)
 	}
 }
 
-// 减少一个待执行子节点
-// 如果返回数量0，表示该分支链条已经都执行完成，递归父节点，直到所有节点都处理完，则触发onAllNodeCompleted事件。
+// Reduces one pending child node
+// If the return count is 0, it means the branch chain has completed execution and returns to the parent node until all nodes have processed it, triggering the onAllNodeCompleted event.
 func (ctx *DefaultRuleContext) childDone() {
 	if atomic.AddInt32(&ctx.waitingCount, -1) <= 0 {
 		if atomic.CompareAndSwapInt32(&ctx.onAllNodeCompletedDone, 0, 1) {
-			// 在进行任何异步操作前捕获需要的值，避免并发问题
+			// Capture the required values before any asynchronous operation to avoid concurrency issues
 			parentRuleCtx := ctx.parentRuleCtx
 			selfId := ctx.GetSelfId()
 			var parentSelfId string
@@ -967,17 +967,17 @@ func (ctx *DefaultRuleContext) childDone() {
 			observer := ctx.observer
 			onAllNodeCompleted := ctx.onAllNodeCompleted
 
-			//该节点已经执行完成，通知父节点
+			//The node has completed execution, notify the parent node
 			if parentRuleCtx != nil {
 				parentRuleCtx.childDone()
 			}
 
-			// 只有在observer存在时才记录节点执行完成（通常是join节点场景）
+			// Node execution completion is only recorded when the observer exists (usually in the join node scenario)
 			if observer != nil && (parentRuleCtx == nil || selfId != parentSelfId) {
-				//记录当前节点执行完成
+				//Records the completion of execution on the current node
 				observer.executedNode(selfId)
 			}
-			//完成回调
+			//The pullback was completed
 			if onAllNodeCompleted != nil {
 				onAllNodeCompleted()
 			}
@@ -985,20 +985,20 @@ func (ctx *DefaultRuleContext) childDone() {
 	}
 }
 
-// childDoneWithoutCallback 通知父节点有一个子节点执行完成，但不触发 onAllNodeCompleted 回调事件
+// childDoneWithoutCallback notifies the parent node that a child node has completed execution, but does not trigger the onAllNodeCompleted callback event
 //
-// 与 childDone() 方法的区别：
-// 1. childDone(): 子节点执行完成时会触发 onAllNodeCompleted 回调，适用于正常节点执行完成场景
-// 2. childDoneWithoutCallback(): 子节点执行完成时不触发回调，专用于聚合多条分支链数据场景
+// Differences from the childDone() method:
+// 1. childDone(): When a child node finishes execution, the onAllNodeCompleted callback is triggered, suitable for normal node completion scenarios
+// 2. childDoneWithoutCallback(): No callback is triggered upon child node execution, dedicated for aggregating data from multiple branch chains
 //
-// 使用场景：
-// - 配合 TellCollect 方法使用，查询该节点的父节点共同祖先是否所有分支到当前聚合节点都已经执行完成
-// - 用于多分支汇聚场景的状态跟踪，避免过早触发完成事件
+// Usage scenarios:
+// - Used together with the TellCollect method, querying whether the common ancestor of the parent node of the node has completed all branches up to the current aggregated node
+// - Status tracking for multi-branch aggregation scenarios, avoiding premature triggering of completion events
 func (ctx *DefaultRuleContext) childDoneWithoutCallback() {
 	if atomic.AddInt32(&ctx.waitingCount, -1) <= 0 {
 		//if atomic.CompareAndSwapInt32(&ctx.onAllNodeCompletedDone, 0, 1) {
 
-		// 在进行任何异步操作前捕获需要的值，避免并发问题
+		// Capture the required values before any asynchronous operation to avoid concurrency issues
 		parentRuleCtx := ctx.parentRuleCtx
 		selfId := ctx.GetSelfId()
 		var parentSelfId string
@@ -1007,20 +1007,20 @@ func (ctx *DefaultRuleContext) childDoneWithoutCallback() {
 		}
 		observer := ctx.observer
 
-		//有子节点执行完成，通知父节点
+		//When a child node completes execution, notify the parent node
 		if parentRuleCtx != nil {
 			parentRuleCtx.childDoneWithoutCallback()
 		}
 
-		// 只有在observer存在时才记录节点执行完成（通常是join节点场景）
+		// Node execution completion is only recorded when the observer exists (usually in the join node scenario)
 		if observer != nil && (parentRuleCtx == nil || selfId != parentSelfId) {
-			//记录当前节点执行完成
+			//Records the completion of execution on the current node
 			observer.executedNode(selfId)
 		}
 	}
 }
 
-// getNextNodes 获取当前节点指定关系的子节点
+// getNextNodes gets the child node of the current node's specified relationship
 func (ctx *DefaultRuleContext) getNextNodes(relationType string) ([]types.NodeCtx, bool) {
 	if ctx.ruleChainCtx == nil || ctx.self == nil {
 		return nil, false
@@ -1028,15 +1028,15 @@ func (ctx *DefaultRuleContext) getNextNodes(relationType string) ([]types.NodeCt
 	return ctx.ruleChainCtx.GetNextNodes(ctx.self.GetNodeId(), relationType)
 }
 
-// tellSelf 执行自身节点
+// tellSelf executes its own node
 func (ctx *DefaultRuleContext) tellSelf(msg types.RuleMsg, err error, relationTypes ...string) {
 	var relationType string
 	if len(relationTypes) > 0 {
 		relationType = relationTypes[0]
 	}
 	if ctx.self != nil {
-		// 异步执行需要拷贝确保线程安全
-		// 注意：不能简单根据节点类型优化，因为其他并发分支可能修改消息
+		// Asynchronous execution requires copying to ensure thread safety
+		// Note: You cannot simply optimize based on node type, as other concurrent branches may modify messages
 		msgCopy := msg.Copy()
 		if relationType == types.Stream {
 			ctx.tellNext(msgCopy, ctx.self, relationType)
@@ -1050,13 +1050,13 @@ func (ctx *DefaultRuleContext) tellSelf(msg types.RuleMsg, err error, relationTy
 	}
 }
 
-// tellNext 通知执行子节点，如果是当前第一个节点则执行当前节点
+// tellNext notifies the executing child node; if it is the first node currently, it executes the current node
 func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes ...string) {
 	ctx.tellOrElse(msg, err, "", relationTypes...)
 }
 
-// tellNext 通知执行子节点，如果是当前第一个节点则执行当前节点
-// 如果找不到relationTypes对应的节点，而且defaultRelationType非默认值，则通过defaultRelationType查找节点
+// tellNext notifies the executing child node; if it is the first node currently, it executes the current node
+// If the node corresponding to relationTypes cannot be found and defaultRelationType is not a default value, use defaultRelation Type to find the node
 func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultRelationType string, relationTypes ...string) {
 	ctx.out = msg
 	ctx.err = err
@@ -1064,45 +1064,45 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 		ctx.tellSelf(msg, err, relationTypes...)
 	} else {
 		if relationTypes == nil {
-			//找不到子节点，则执行结束回调
+			//If no child node is found, the execution ends, and the callback ends
 			ctx.DoOnEnd(msg, err, "")
 		} else {
 
 			relationTypeLen := len(relationTypes)
 
 			for _, relationType := range relationTypes {
-				//创建局部副本，避免闭包捕获循环变量导致数据竞争
+				//Create local replicas to avoid data contention caused by closure capture loop variables
 				rt := relationType
-				//执行After aop
+				//Execute After Aop
 				msg = ctx.executeAfterAop(msg, err, rt)
 				var ok = false
 				var nodes []types.NodeCtx
-				//根据relationType查找子节点列表
+				//Find the list of child nodes based on relationType
 				nodes, ok = ctx.getNextNodes(rt)
-				//根据默认关系查找节点
+				//Find nodes based on default relationships
 				if defaultRelationType != "" && (!ok || len(nodes) == 0) && !ctx.skipTellNext {
 					nodes, ok = ctx.getNextNodes(defaultRelationType)
 				}
 				if ok && !ctx.skipTellNext {
-					// 只有多个子节点或者并行多个关系时才需要拷贝
+					// Copying is only needed when there are multiple child nodes or multiple relationships in parallel
 					needsCopy := len(nodes) > 1 || relationTypeLen > 0
 					for _, item := range nodes {
 						tmp := item
-						//增加一个待执行的子节点
+						//Add a child node to be executed
 						ctx.childReady(msg, rt)
 
 						var msgToPass types.RuleMsg
 						if needsCopy {
-							//除1个节点和并行多个关系外的其他节点创建拷贝
+							//Except for one node and multiple parallel relationships, all nodes create copies
 							msgToPass = msg.Copy()
 						} else {
-							//唯一节点可以直接使用原消息
+							//The unique node can directly use the original message
 							msgToPass = msg
 						}
 
-						//通知执行子节点
+						//Notify the execution child node
 						if rt == types.Stream {
-							//为了保证流块的顺序
+							//To ensure the order of the flow blocks,
 							ctx.tellNext(msgToPass, tmp, rt)
 						} else {
 							ctx.SubmitTask(func() {
@@ -1111,9 +1111,9 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 						}
 					}
 				} else {
-					//调用DoOnEnd 会调用 childDone()对waitingCount会减1，所以childReady和childDone成对出现
+					//Calling DoOnEnd will reduce childDone() by 1 to the waitingCount, so childReady and childDone appear as a pair
 					ctx.childReady(msg, relationType)
-					//找不到子节点，则执行结束回调
+					//If no child node is found, the execution ends, and the callback ends
 					ctx.DoOnEnd(msg, err, relationType)
 				}
 			}
@@ -1121,8 +1121,8 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 	}
 }
 
-// 执行环绕aop
-// 返回值true: 继续执行下一个节点，否则不执行
+// Perform Surround AOP
+// Return true: Continue executing the next node; otherwise, it will not be executed
 func (ctx *DefaultRuleContext) executeAroundAop(msg types.RuleMsg, relationType string) bool {
 	// before aop
 	for _, aop := range ctx.beforeAspects {
@@ -1132,8 +1132,8 @@ func (ctx *DefaultRuleContext) executeAroundAop(msg types.RuleMsg, relationType 
 	}
 
 	tellNext := true
-	//是否已经执行了tellNext逻辑
-	//如果 AroundAspect 已经执行了tellNext逻辑，则引擎不再执行tellNext逻辑
+	//Has tellNext logic already been executed?
+	//If AroundAspect has already executed tellNext logic, the engine will no longer execute tellNext logic
 	showTellNext := false
 	for _, aop := range ctx.aroundAspects {
 		if aop.PointCut(ctx, msg, relationType) {
@@ -1146,7 +1146,7 @@ func (ctx *DefaultRuleContext) executeAroundAop(msg types.RuleMsg, relationType 
 	return tellNext
 }
 
-// 执行After aop
+// Execute After Aop
 func (ctx *DefaultRuleContext) executeAfterAop(msg types.RuleMsg, err error, relationType string) types.RuleMsg {
 	// after aop
 	for _, aop := range ctx.afterAspects {
@@ -1157,56 +1157,56 @@ func (ctx *DefaultRuleContext) executeAfterAop(msg types.RuleMsg, err error, rel
 	return msg
 }
 
-// 执行下一个节点
+// Execute the next node
 func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCtx, relationType string) {
 
 	defer func() {
-		//捕捉异常
+		//Capture anomalies
 		if e := recover(); e != nil {
-			//执行After aop
+			//Execute After Aop
 			msg = ctx.executeAfterAop(msg, fmt.Errorf("%v", e), relationType)
 			ctx.childDone()
 		}
 	}()
 
-	// 统一检查上下文是否已取消（优雅停机）
+	// Unified context check whether it has been canceled (elegant shutdown)
 	// Unified check for context cancellation (graceful shutdown)
 	if ctx.GetContext() != nil {
 		select {
 		case <-ctx.GetContext().Done():
-			// 上下文已取消，停止处理并通知失败
+			// The context has been canceled, processing stopped, and a failure was notified
 			// Context cancelled, stop processing and notify failure
-			// 使用DoOnEnd确保正确触发结束回调和活跃消息计数减少
-			// DoOnEnd内部会调用childDone()，所以这里不需要再次调用
+			// Use DoOnEnd to ensure proper triggering of end callbacks and reduction in active message counts
+			// DoOnEnd internally calls childDone(), so there is no need to call it again here
 			ctx.DoOnEnd(msg, fmt.Errorf("processing cancelled: %w", ctx.GetContext().Err()), types.Failure)
 			return
 		default:
-			// 上下文正常，继续处理
+			// The context is normal, so continue processing
 			// Context is normal, continue processing
 		}
 	}
 
-	// 在执行下一个节点之前，存储当前节点的输出到缓存
+	// Before executing the next node, the output of the current node is stored in the cache
 	// Store current node output to cache before executing next node
 	ctx.StoreNodeOutput(ctx.GetSelfId(), msg)
 
 	nextCtx := ctx.NewNextNodeRuleContext(nextNode)
 
-	//环绕aop
+	//Surrounding AOP
 	if !nextCtx.executeAroundAop(msg, relationType) {
-		// 如果AroundAspect阻止了执行，需要调用childDone来平衡之前的childReady
+		// If AroundAspect blocks execution, childDone needs to be called to balance the previous childReady
 		ctx.childDone()
 		return
 	}
-	// AroundAop 已经执行节点OnMsg逻辑，不在执行下面的逻辑
+	// AroundAop has already executed node OnMsg logic and is not executing the following logic
 	ctx.setRelationType(nextCtx, relationType)
 	nextNode.OnMsg(nextCtx, msg)
 }
 
-// setRelationType 优化关系类型的赋值，使用预定义的单例或复用已分配的 slice
+// setRelationType optimizes the assignment of the relationship type using predefined singletons or reusing allocated slice
 // setRelationType optimizes relation type assignment using predefined singletons or reusing allocated slices
 func (ctx *DefaultRuleContext) setRelationType(nextCtx *DefaultRuleContext, relationType string) {
-	// 对于常用的关系类型，使用预定义的单例 slice 以避免内存分配
+	// For common relationship types, use predefined singleton slice to avoid memory allocation
 	// For common relation types, use predefined singleton slices to avoid memory allocation
 	switch relationType {
 	case types.Success:
@@ -1218,7 +1218,7 @@ func (ctx *DefaultRuleContext) setRelationType(nextCtx *DefaultRuleContext, rela
 	case types.False:
 		nextCtx.relationTypes = falseRelationTypes
 	default:
-		// 对于自定义关系类型，复用已分配的 slice
+		// For custom relationship types, reuse the allocated slice
 		// For custom relation types, reuse the pre-allocated slice
 		nextCtx.relationTypes[0] = relationType
 	}
@@ -1232,8 +1232,8 @@ func (ctx *DefaultRuleContext) setRelationType(nextCtx *DefaultRuleContext, rela
 // 2. Manually calling chainCtx.AddNodeDependency(currentNodeId, targetNodeId)
 // 3. Node configuration contains references to other nodes. e.g. ${nodeId.msg.xx} (auto-detected)
 func (ctx *DefaultRuleContext) GetNodeRuleMsg(nodeId string) (types.RuleMsg, bool) {
-	// 从节点输出缓存中获取目标节点的RuleMsg
-	// 只有建立了依赖关系的节点输出才会被缓存
+	// Retrieves the target node's RuleMsg from the node output cache
+	// Only node outputs with established dependencies will be cached
 	// Retrieve target node's RuleMsg from node output cache
 	// Only outputs from nodes with established dependencies are cached
 	if ruleMsg, ok := ctx.nodeOutputCache.GetNodeRuleMsg(nodeId); ok {
@@ -1246,13 +1246,13 @@ func (ctx *DefaultRuleContext) GetNodeRuleMsg(nodeId string) (types.RuleMsg, boo
 	return types.RuleMsg{}, false
 }
 
-// StoreNodeOutput 存储节点输出到缓存中，用于跨节点取值
-// 只有在以下情况下才会进行缓存：
-// 1. 配置中启用了节点输出缓存 (EnableNodeOutputCache = true)
-// 2. 或者已检测到跨节点取值用法 (通过EnableCrossNodeAccess()启用)
-// 参数:
-//   - nodeId: 节点ID
-//   - msg: 规则消息
+// StoreNodeOutput: Store nodes and output them to the cache, used to retrieve values across nodes
+// Caching is only performed under the following circumstances:
+// 1. Node Output Cache is enabled in the configuration (EnableNodeOutputCache = true)
+// 2. Or cross-node value retrieval usage has been detected (enabled via EnableCrossNodeAccess())
+// Parameters:
+//   - nodeId: Node ID
+//   - msg: Rule message
 func (ctx *DefaultRuleContext) StoreNodeOutput(nodeId string, msg types.RuleMsg) {
 	ctx.nodeOutputCache.StoreNodeOutput(nodeId, msg)
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/rulego/rulego/utils/json"
 )
 
-// makeOnCompleted 根据不同 store 创建 WithOnRuleChainCompleted 回调
+// makeOnCompleted creates a WithOnRuleChainCompleted callback based on different stores
 func makeOnCompleted(s store.RunLogStore) types.RuleContextOption {
 	return types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
 		snapshot.Id = time.Now().Format("20060102150405000") + "_" + snapshot.Id
@@ -33,7 +33,7 @@ func nopOnCompleted() types.RuleContextOption {
 	return types.WithOnRuleChainCompleted(func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {})
 }
 
-// benchEngine 测试规则引擎在指定日志回调下的性能
+// benchEngine tests the performance of the rule engine under specified log callbacks
 func benchEngine(b *testing.B, name string, chainDSL string, opts ...types.RuleContextOption) {
 	config := rulego.NewConfig()
 	engine, err := rulego.New("bench_"+name, []byte(chainDSL), rulego.WithConfig(config))
@@ -56,7 +56,7 @@ func benchEngine(b *testing.B, name string, chainDSL string, opts ...types.RuleC
 }
 
 func BenchmarkEngineWithLog(b *testing.B) {
-	// === 简单规则链（1 节点）===
+	// === Simple Rule Chain (1 node) ===
 
 	b.Run("SimpleChain/NoLog", func(b *testing.B) {
 		benchEngine(b, "simple_nolog", simpleChainDSL)
@@ -84,7 +84,7 @@ func BenchmarkEngineWithLog(b *testing.B) {
 		benchEngine(b, "simple_jsonl", simpleChainDSL, makeOnCompleted(js))
 	})
 
-	// === 多节点规则链（10 节点）===
+	// === Multi-node rule chain (10 nodes) ===
 
 	b.Run("MultiNode/NoLog", func(b *testing.B) {
 		benchEngine(b, "multi_nolog", multiNodeChainDSL)
@@ -102,7 +102,7 @@ func BenchmarkEngineWithLog(b *testing.B) {
 		benchEngine(b, "multi_jsonl", multiNodeChainDSL, makeOnCompleted(js))
 	})
 
-	// === Nop Store 对比 ===
+	// === Nop Store Comparison ===
 
 	b.Run("SimpleChain/NopStore", func(b *testing.B) {
 		benchEngine(b, "simple_nopstore", simpleChainDSL, makeOnCompleted(nopstore.NopRunLogStore{}))

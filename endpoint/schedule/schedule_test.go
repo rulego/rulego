@@ -17,7 +17,7 @@ import (
 
 var testdataFolder = "../../testdata/rule"
 
-// 测试请求/响应消息
+// Test request/response messages
 func TestMessage(t *testing.T) {
 	t.Run("Request", func(t *testing.T) {
 		var request = &RequestMessage{}
@@ -56,7 +56,7 @@ func TestScheduleEndPoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	config := engine.NewConfig(types.WithDefaultPool())
-	//注册规则链
+	//Register the rule chain
 	_, _ = engine.New("default", buf, engine.WithConfig(config))
 
 	schedule := New(config)
@@ -82,7 +82,7 @@ func TestScheduleEndPoint(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, Type, scheduleEndpoint.Type())
 
-	////创建schedule endpoint服务
+	//Create a Schedule Endpoint service
 	//scheduleEndpoint, err := registry.New(Type, config, nil)
 
 	_, err = scheduleEndpoint.AddRouter(nil)
@@ -90,35 +90,35 @@ func TestScheduleEndPoint(t *testing.T) {
 	err = scheduleEndpoint.RemoveRouter("aa")
 	assert.Equal(t, "aa it is an illegal routing id", err.Error())
 
-	//每隔1秒执行
+	//Execute every 1 second
 	var router1Count = int64(0)
 	router1 := impl.NewRouter().From("*/1 * * * * *").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.In.GetMsg().Type = "TEST_MSG_TYPE1"
 		atomic.AddInt64(&router1Count, 1)
-		//fmt.Println(time.Now().Local().Local().String(), "router1 执行...")
-		//业务逻辑，例如读取文件、定时去拉取一些数据交给规则链处理
+		//fmt.Println(time.Now().Local().Local().String(), "router1 Execution...")
+		//Business logic, such as reading files or regularly pulling data to hand over to the rule chain
 
 		return true
-	}). //指定交给哪个规则链ID处理
+	}). //Specify which rule chain ID to handle the process
 		To("chain:default").End()
 
 	routeId1, err := scheduleEndpoint.AddRouter(router1)
 
-	//启动任务
+	//Launch the mission
 	err = scheduleEndpoint.Start()
 
-	//每隔5秒执行
+	//Execute every 5 seconds
 	var router2Count = int64(0)
 	router2 := impl.NewRouter().From("*/5 * * * * *").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.In.GetMsg().Type = "TEST_MSG_TYPE2"
 		atomic.AddInt64(&router2Count, 1)
-		//fmt.Println(time.Now().Local().Local().String(), "router2 执行...")
-		//业务逻辑，例如读取文件
+		//fmt.Println(time.Now().Local().Local().String(), "router2 Execution...")
+		//Business logic, such as reading files
 
 		return true
 	}).To("chain:default").End()
 
-	//测试定时器已经启动，是否允许继续添加任务
+	//The test timer has started; whether further tasks are allowed to be added
 	routeId2, err := scheduleEndpoint.AddRouter(router2)
 
 	time.Sleep(15 * time.Second)
@@ -126,7 +126,7 @@ func TestScheduleEndPoint(t *testing.T) {
 	assert.True(t, math.Abs(float64(atomic.LoadInt64(&router1Count))-float64(15)) <= float64(1))
 	assert.True(t, math.Abs(float64(atomic.LoadInt64(&router2Count))-float64(3)) <= float64(1))
 
-	//删除某个任务
+	//Delete a task
 	_ = scheduleEndpoint.RemoveRouter(routeId1)
 	_ = scheduleEndpoint.RemoveRouter(routeId2)
 
@@ -137,8 +137,8 @@ func TestScheduleEndPoint(t *testing.T) {
 	router3 := impl.NewRouter().From("*/3 * * * * *").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.In.GetMsg().Type = "TEST_MSG_TYPE2"
 		atomic.AddInt64(&router3Count, 1)
-		//fmt.Println(time.Now().Local().Local().String(), "router3 执行...")
-		//业务逻辑，例如读取文件
+		//fmt.Println(time.Now().Local().Local().String(), "router3 Execution...")
+		//Business logic, such as reading files
 
 		return true
 	}).To("chain:default").End()

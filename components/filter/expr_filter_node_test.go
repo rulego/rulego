@@ -161,41 +161,41 @@ func TestExprFilterNode(t *testing.T) {
 		time.Sleep(time.Millisecond * 20)
 	})
 
-	// 测试节点依赖表达式语法 ${node1.msg.xx}
+	// Test node dependency expression syntax ${node1.msg.xx}
 	// Test node dependency expression syntax ${node1.msg.xx}
 	t.Run("NodeDependencyExpression", func(t *testing.T) {
-		// 测试初始化包含节点依赖的表达式
+		// Test initialization includes expressions dependent on nodes
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"expr": "${node1.msg.temperature} > 50",
 		}, Registry)
 		assert.Nil(t, err)
 
-		// 测试混合表达式：既有节点依赖又有当前消息字段
+		// Test hybrid expressions: have both node dependencies and current message fields
 		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"expr": "${node1.msg.temperature} > 50 && msg.humidity > 20",
 		}, Registry)
 		assert.Nil(t, err)
 
-		// 测试嵌套节点依赖
+		// Test nested node dependencies
 		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"expr": "${node1.msg.sensor.temperature} > ${node2.msg.threshold}",
 		}, Registry)
 		assert.Nil(t, err)
 
-		// 测试元数据中的节点依赖
+		// Test node dependencies in metadata
 		node4, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"expr": "${node1.metadata.deviceType} == 'sensor'",
 		}, Registry)
 		assert.Nil(t, err)
 
-		// 验证节点创建成功
+		// Verification node creation successful
 		assert.NotNil(t, node)
 		assert.NotNil(t, node2)
 		assert.NotNil(t, node3)
 		assert.NotNil(t, node4)
 	})
 
-	// 测试不带 ${} 的表达式仍然正常工作
+	// Tests that expressions without ${} still work properly
 	// Test expressions without ${} still work normally
 	t.Run("TraditionalExpression", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
@@ -225,16 +225,16 @@ func TestExprFilterNode(t *testing.T) {
 		test.NodeOnMsgWithChildren(t, nodeList[0].Node, nodeList[0].MsgList, nodeList[0].ChildrenNodes, nodeList[0].Callback)
 	})
 
-	// 测试无效的节点依赖表达式
+	// Test invalid node dependencies on expressions
 	// Test invalid node dependency expressions
 	t.Run("InvalidNodeDependencyExpression", func(t *testing.T) {
-		// 测试语法错误的表达式
+		// Test expressions for grammatical errors
 		_, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"expr": "${node1.msg.temperature >",
 		}, Registry)
 		assert.NotNil(t, err)
 
-		// 测试不完整的节点依赖语法
+		// Test for incomplete node dependencies
 		_, err2 := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"expr": "${node1.msg.temperature",
 		}, Registry)

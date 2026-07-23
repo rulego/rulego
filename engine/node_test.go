@@ -55,7 +55,7 @@ func TestNodeCtx(t *testing.T) {
 
 	t.Run("notSupportThisFunc", func(t *testing.T) {
 		defer func() {
-			//捕捉异常
+			//Capture anomalies
 			if e := recover(); e != nil {
 				assert.Equal(t, "not support this func", fmt.Sprintf("%v", e))
 			}
@@ -125,11 +125,11 @@ func TestNodeCtx(t *testing.T) {
 
 }
 
-// TestNodeConcurrentAccess 测试节点并发访问和重载的安全性
+// TestNodeConcurrentAccess Security for concurrent access and overload on test nodes
 func TestNodeConcurrentAccess(t *testing.T) {
 	config := NewConfig(types.WithDefaultPool())
 
-	// 创建测试节点定义
+	// Create test node definitions
 	nodeDef := &types.RuleNode{
 		Id:            "test_node",
 		Type:          "log",
@@ -137,7 +137,7 @@ func TestNodeConcurrentAccess(t *testing.T) {
 		Configuration: make(types.Configuration),
 	}
 
-	// 初始化节点
+	// Initialize the node
 	nodeCtx, err := InitRuleNodeCtx(config, nil, nil, nodeDef)
 	assert.Nil(t, err)
 	assert.NotNil(t, nodeCtx)
@@ -145,7 +145,7 @@ func TestNodeConcurrentAccess(t *testing.T) {
 	var wg sync.WaitGroup
 	var errors int64
 
-	// 模拟高频的OnMsg调用
+	// Simulates high-frequency OnMsg calls
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func() {
@@ -158,7 +158,7 @@ func TestNodeConcurrentAccess(t *testing.T) {
 						}
 					}()
 
-					// 模拟频繁的节点访问
+					// Simulates frequent node access
 					nodeCtx.Config()
 					nodeCtx.IsDebugMode()
 					nodeCtx.GetNodeId()
@@ -168,14 +168,14 @@ func TestNodeConcurrentAccess(t *testing.T) {
 		}()
 	}
 
-	// 模拟偶尔的重载操作
+	// Simulates occasional heavy load operations
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
-			time.Sleep(time.Millisecond * 10) // 稍微延迟一下
+			time.Sleep(time.Millisecond * 10) // A slight delay
 
-			// 创建新的节点定义
+			// Create new node definitions
 			newDef := types.RuleNode{
 				Id:            "test_node",
 				Type:          "log",
@@ -192,6 +192,6 @@ func TestNodeConcurrentAccess(t *testing.T) {
 
 	wg.Wait()
 
-	// 验证没有出现错误
+	// No errors occurred during verification
 	assert.Equal(t, int64(0), atomic.LoadInt64(&errors))
 }

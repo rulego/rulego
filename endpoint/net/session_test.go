@@ -25,14 +25,14 @@ import (
 	"github.com/rulego/rulego/engine"
 )
 
-// TestEndpointNetSessionExtraction 端到端验证 endpoint/net 的 session 维护：
-// 设备 TCP 连入 → 首帧提取 deviceId 改写 Key → 第二帧保持 → 断开注销。
-// 不启动规则链（routers 空），只验证 session 提取/寻址（在 DoProcess 之前完成）。
+// TestEndpointNetSessionExtraction end-to-end verification of endpoint/net session maintenance:
+// Device TCP connection → first frame extracts deviceId rewriting Key → second frame holds → disconnect and log out.
+// No rule chain is started (routers are empty), only session extraction/addressing is verified (completed before DoProcess).
 func TestEndpointNetSessionExtraction(t *testing.T) {
 	ep := &Net{}
 	cfg := types.Configuration{
 		"protocol":   "tcp",
-		"server":     ":0", // 随机端口
+		"server":     ":0", // Random port
 		"sessionKey": "${msg.deviceId}",
 	}
 	if err := ep.Init(engine.NewConfig(), cfg); err != nil {
@@ -43,24 +43,24 @@ func TestEndpointNetSessionExtraction(t *testing.T) {
 	}
 	defer ep.Destroy()
 
-	// 取实际监听地址（随机端口）
+	// Take the actual listening address (random port)
 	ep.mu.RLock()
 	addr := ep.listener.Addr().String()
 	ep.mu.RUnlock()
 
-	// 模拟设备 TCP 连入
+	// Simulating TCP connection to the device
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
 
-	// 首帧 {"deviceId":"DEV_001"}（line 模式，以 \n 结束一帧）
+	// First frame {"deviceId":"DEV_001"} (line mode, ends one frame with \n)
 	if _, err := conn.Write([]byte(`{"deviceId":"DEV_001"}` + "\n")); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(300 * time.Millisecond)
 
-	// 验证：session 已注册，Key 改写为 DEV_001，已 resolved
+	// Verification: session is registered, Key rewritten to DEV_001, resolved
 	sessions := ep.Lookup("DEV_001")
 	if len(sessions) != 1 {
 		t.Fatalf("after frame1: Lookup(DEV_001) = %d, want 1", len(sessions))
@@ -69,7 +69,7 @@ func TestEndpointNetSessionExtraction(t *testing.T) {
 		t.Fatal("session should be resolved after first frame")
 	}
 
-	// 第二帧 {"temp":26}（无 deviceId）：keyResolved=true，Key 应保持 DEV_001
+	// Second frame {"temp":26} (no deviceId): keyResolved=true, Key should remain DEV_001
 	if _, err := conn.Write([]byte(`{"temp":26}` + "\n")); err != nil {
 		t.Fatal(err)
 	}
@@ -78,12 +78,12 @@ func TestEndpointNetSessionExtraction(t *testing.T) {
 		t.Fatalf("after frame2: Key = %q, want DEV_001 (should not change)", sessions[0].Key())
 	}
 
-	// 按 deviceId 寻址：Lookup 应命中，Sender 可发送（验证 Sender 通道连通）
+	// Addressing by deviceId: Lookup should hit, Sender can send (verifying Sender channel connectivity)
 	if got := ep.Lookup("DEV_001"); len(got) != 1 {
 		t.Fatalf("addressing lookup = %d, want 1", len(got))
 	}
 
-	// 设备断开 → session 注销
+	// Device disconnected→ session logs out
 	if err := conn.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -93,13 +93,13 @@ func TestEndpointNetSessionExtraction(t *testing.T) {
 	}
 }
 
-// TestEndpointNetSessionDefaultKey 验证不配 sessionKey 时，Key 默认为 RemoteAddr（IP 寻址）
+// TestEndpointNetSessionDefaultKey When verification does not match a sessionKey, the default Key is RemoteAddr (IP addressing)
 func TestEndpointNetSessionDefaultKey(t *testing.T) {
 	ep := &Net{}
 	cfg := types.Configuration{
 		"protocol": "tcp",
 		"server":   ":0",
-		// 不配 sessionKey → 默认 RemoteAddr
+		// Does not include sessionKey → default is RemoteAddr
 	}
 	if err := ep.Init(engine.NewConfig(), cfg); err != nil {
 		t.Fatalf("Init: %v", err)
@@ -124,12 +124,12 @@ func TestEndpointNetSessionDefaultKey(t *testing.T) {
 	}
 	time.Sleep(300 * time.Millisecond)
 
-	// 默认 Key = RemoteAddr（完整 host:port）；精确 Lookup 命中
+	// Default Key = RemoteAddr(full host:port); Accurate lookup accuracy
 	fullAddr := conn.LocalAddr().String()
 	if got := ep.Lookup(fullAddr); len(got) != 1 {
 		t.Fatalf("Lookup by full RemoteAddr %q = %d, want 1", fullAddr, len(got))
 	}
-	// 按 IP（host 段）不再命中：已去除 IP 段匹配，寻址需配 sessionKey 提取稳定标识
+	// No more hits by IP (host segment): IP segment matching has been removed; addressing requires sessionKey to extract stable identifiers
 	host, _, _ := net.SplitHostPort(fullAddr)
 	if got := ep.Lookup(host); len(got) != 0 {
 		t.Fatalf("Lookup by IP %q = %d, want 0 (IP-segment match removed; configure sessionKey for addressing)", host, len(got))

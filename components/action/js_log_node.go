@@ -16,7 +16,7 @@
 
 package action
 
-//规则链节点配置示例：
+//Example of rule chain node configuration:
 //{
 //        "id": "s2",
 //        "type": "log",
@@ -38,53 +38,53 @@ import (
 )
 
 const (
-	// JsLogFuncName JavaScript函数名
+	// JsLogFuncName: JavaScript function name
 	JsLogFuncName = "ToString"
 
-	// JsLogFuncTemplate JavaScript函数模板
+	// JsLogFuncTemplate JavaScript function template
 	JsLogFuncTemplate = "function ToString(msg, metadata, msgType, dataType) { %s }"
 )
 
-// JsLogReturnFormatErr JavaScript脚本必须返回字符串
+// The JsLogReturnFormatErr JavaScript script must return a string
 var JsLogReturnFormatErr = errors.New("return the value is not a string")
 
-// init 注册LogNode组件
+// init registers the LogNode component
 func init() {
 	Registry.Add(&LogNode{})
 }
 
-// LogNodeConfiguration LogNode配置结构
+// LogNodeConfiguration: LogNode configuration structure
 type LogNodeConfiguration struct {
 	// JsScript is the JavaScript script for formatting log messages.
 	// Must return a string. Parameters: msg, metadata, msgType, dataType.
 	JsScript string `json:"jsScript" label:"Log Script" desc:"JavaScript script to format log message. Must return a string. Params: msg, metadata, msgType, dataType" required:"true"`
 }
 
-// LogNode 使用JavaScript格式化并记录消息的日志节点
+// LogNode is a log node formatted with JavaScript and records messages
 type LogNode struct {
-	// Config 节点配置
+	// Config defines the node configuration
 	Config LogNodeConfiguration
 
-	// jsEngine JavaScript执行引擎
+	// jsEngine JavaScript execution engine
 	jsEngine types.JsEngine
 
-	// logger 日志记录器
+	// Logger
 	logger types.Logger
 }
 
-// Type 返回组件类型
+// Type returns the component type
 func (x *LogNode) Type() string {
 	return "log"
 }
 
-// New 创建新实例
+// New creates an instance
 func (x *LogNode) New() types.Node {
 	return &LogNode{Config: LogNodeConfiguration{
 		JsScript: `return 'Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);`,
 	}}
 }
 
-// Init 初始化节点
+// Init initializes the node
 func (x *LogNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
@@ -95,9 +95,9 @@ func (x *LogNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	return err
 }
 
-// OnMsg 处理消息，执行JavaScript脚本格式化并记录日志
+// OnMsg handles messages, executes JavaScript scripts to format them, and logs
 func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	// 准备传递给JS脚本的数据
+	// Prepare data to be passed to the JS script
 	data := base.NodeUtils.GetDataByType(msg, true)
 
 	var metadataValues map[string]string
@@ -107,13 +107,13 @@ func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		metadataValues = make(map[string]string)
 	}
 
-	// 执行JavaScript脚本
+	// Execute JavaScript scripts
 	out, err := x.jsEngine.Execute(ctx, JsLogFuncName, data, metadataValues, msg.Type, msg.DataType)
 	if err != nil {
 		ctx.TellFailure(msg, err)
 	} else {
 		if formatData, ok := out.(string); ok {
-			x.logger.Printf(formatData)
+			x.logger.Printf("%s", formatData)
 			ctx.TellSuccess(msg)
 		} else {
 			ctx.TellFailure(msg, JsLogReturnFormatErr)
@@ -121,7 +121,7 @@ func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 }
 
-// Destroy 清理资源
+// Destroy to clean up resources
 func (x *LogNode) Destroy() {
 	x.jsEngine.Stop()
 }

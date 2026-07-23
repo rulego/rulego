@@ -1,6 +1,6 @@
 # RuleGo Server MCP Documentation
 
-[中文](mcp_zh.md)
+[Chinese](mcp_zh.md)
 
 RuleGo Server includes a built-in MCP (Model Context Protocol) service that allows AI agents to generate, modify, and manage rule chains through natural language.
 

@@ -23,18 +23,18 @@ import (
 )
 
 // Component kind constants define the different types of components in the RuleGo ecosystem.
-// 组件类型常量定义了 RuleGo 生态系统中不同类型的组件。
+// Component type constants define different types of components in the RuleGo ecosystem.
 const (
 	// ComponentKindDynamic represents a dynamic component that can be loaded at runtime
-	// ComponentKindDynamic 表示可以在运行时加载的动态组件
+	// ComponentKindDynamic represents dynamic components that can be loaded at runtime
 	ComponentKindDynamic string = "dc"
 
 	// ComponentKindNative represents a native component that is built into the system
-	// ComponentKindNative 表示内置在系统中的原生组件
+	// ComponentKindNative refers to native components built into the system
 	ComponentKindNative string = "nc"
 
 	// ComponentKindEndpoint represents an endpoint component for input/output operations
-	// ComponentKindEndpoint 表示用于输入/输出操作的端点组件
+	// ComponentKindEndpoint represents the endpoint component used for input/output operations
 	ComponentKindEndpoint string = "ec"
 )
 
@@ -42,11 +42,11 @@ const (
 // metadata for visual configuration tools such as Label, Description, and RelationTypes.
 // If not implemented, conventional rules are used to provide visual form definitions.
 //
-// ComponentDefGetter 是组件可以实现的可选接口，用于为可视化配置工具提供元数据，
-// 如标签、描述和关系类型。如果未实现，则使用约定规则提供可视化表单定义。
+// ComponentDefGetter is an optional interface that components can implement, used to provide metadata for the visualization configuration tool,
+// Such as tags, descriptions, and relationship types. If not implemented, a visual form definition is provided using convention rules.
 //
 // Example implementation:
-// 实现示例：
+// Implementation example:
 //
 //	func (n *MyNode) Def() ComponentForm {
 //		return ComponentForm{
@@ -58,43 +58,43 @@ const (
 //	}
 type ComponentDefGetter interface {
 	// Def returns the component form definition for visual configuration
-	// Def 返回用于可视化配置的组件表单定义
+	// def returns the component form definition used for visualizing the configuration
 	Def() ComponentForm
 }
 
 // CategoryGetter is an optional interface that components can implement to provide
 // category information for organizing components in visual tools.
 //
-// CategoryGetter 是组件可以实现的可选接口，用于提供分类信息，
-// 在可视化工具中组织组件。
+// CategoryGetter is an optional interface that components can implement to provide classification information,
+// Organize components within visualization tools.
 type CategoryGetter interface {
 	// Category returns the category name for this component
-	// Category 返回此组件的类别名称
+	// Category returns the category name of this component
 	Category() string
 }
 
 // DescGetter is an optional interface that components can implement to provide
 // a description of the component's functionality.
 //
-// DescGetter 是组件可以实现的可选接口，用于提供组件功能的描述。
+// DescGetter is an optional interface that components can implement, used to provide descriptions of component functionality.
 type DescGetter interface {
 	// Desc returns a description of the component
-	// Desc 返回组件的描述
+	// Desc returns the description of the component
 	Desc() string
 }
 
 // ComponentFormList represents a collection of component forms indexed by component type.
 // It provides methods for managing and querying component configurations.
 //
-// ComponentFormList 表示按组件类型索引的组件表单集合。
-// 它提供了管理和查询组件配置的方法。
+// ComponentFormList represents a collection of component forms indexed by component type.
+// It provides methods for managing and querying component configurations.
 type ComponentFormList map[string]ComponentForm
 
 // GetComponent retrieves a component form by its type name.
 // Returns the component form and a boolean indicating whether it was found.
 //
-// GetComponent 通过类型名称检索组件表单。
-// 返回组件表单和表示是否找到的布尔值。
+// GetComponent retrieves component forms by type name.
+// Returns the component form and indicates whether the boolean value was found.
 func (c ComponentFormList) GetComponent(name string) (ComponentForm, bool) {
 	for _, item := range c {
 		if item.Type == name {
@@ -107,23 +107,23 @@ func (c ComponentFormList) GetComponent(name string) (ComponentForm, bool) {
 // Values returns all component forms sorted by category and then by type.
 // This provides a consistent ordering for UI display purposes.
 //
-// Values 返回按类别然后按类型排序的所有组件表单。
-// 这为 UI 显示提供了一致的排序。
+// Values returns all component forms sorted by category and then by type.
+// This provides consistent sorting for UI display.
 func (c ComponentFormList) Values() []ComponentForm {
 	var values []ComponentForm
 	for _, item := range c {
 		values = append(values, item)
 	}
 	// Sort by category first, then by type
-	// 先按类别排序，再按类型排序
+	// Sort by category first, then by type
 	sort.Slice(values, func(i, j int) bool {
 		// If categories are different, sort by category
-		// 如果类别不同，按类别排序
+		// If the categories are different, sort by category
 		if values[i].Category != values[j].Category {
 			return values[i].Category < values[j].Category
 		}
 		// Otherwise, sort by type
-		// 否则，按类型排序
+		// Otherwise, sort by type
 		return values[i].Type < values[j].Type
 	})
 	return values
@@ -132,19 +132,19 @@ func (c ComponentFormList) Values() []ComponentForm {
 // GetByPage returns component forms with pagination support.
 // Returns the forms for the specified page, total count, and any error.
 //
-// GetByPage 返回带分页支持的组件表单。
-// 返回指定页面的表单、总数和任何错误。
+// GetByPage returns component forms with pagination support.
+// Returns the form, total number, and any errors on the specified page.
 //
 // Parameters:
-// 参数：
-//   - page: Page number (1-based)  页码（从1开始）
-//   - pageSize: Number of items per page  每页项目数
+// Parameters:
+//   - page: Page number (1-based)
+//   - pageSize: Number of items per page
 //
 // Returns:
-// 返回：
-//   - []ComponentForm: The component forms for the requested page  请求页面的组件表单
-//   - int: Total number of available forms  可用表单的总数
-//   - error: Any error that occurred  发生的任何错误
+// Returns:
+//   - []ComponentForm: The component forms for the requested page
+//   - int: Total number of available forms
+//   - error: Any error that occurred
 func (c ComponentFormList) GetByPage(page, pageSize int) ([]ComponentForm, int, error) {
 	if page < 1 || pageSize < 1 {
 		return nil, 0, fmt.Errorf("invalid page or pageSize")
@@ -173,15 +173,15 @@ func (c ComponentFormList) GetByPage(page, pageSize int) ([]ComponentForm, int, 
 // ComponentFormFieldList represents a list of component form fields.
 // It provides methods for managing and querying field configurations.
 //
-// ComponentFormFieldList 表示组件表单字段列表。
-// 它提供了管理和查询字段配置的方法。
+// ComponentFormFieldList represents the list of form fields for components.
+// It provides methods for managing and querying field configurations.
 type ComponentFormFieldList []ComponentFormField
 
 // GetField retrieves a field by its name.
 // Returns the field and a boolean indicating whether it was found.
 //
-// GetField 通过名称检索字段。
-// 返回字段和表示是否找到的布尔值。
+// GetField retrieves fields by name.
+// Returns fields and indicates whether the boolean value was found.
 func (c ComponentFormFieldList) GetField(name string) (ComponentFormField, bool) {
 	for _, field := range c {
 		if field.Name == name {
@@ -194,184 +194,184 @@ func (c ComponentFormFieldList) GetField(name string) (ComponentFormField, bool)
 // ComponentForm represents the metadata and configuration structure for a component.
 // It is used by visual configuration tools to generate appropriate UI forms.
 //
-// ComponentForm 表示组件的元数据和配置结构。
-// 它被可视化配置工具用来生成适当的 UI 表单。
+// ComponentForm represents the metadata and configuration structure of the component.
+// It is used by the visualization configuration tool to generate appropriate UI forms.
 type ComponentForm struct {
 	// Type is the unique identifier for the component type
-	// Type 是组件类型的唯一标识符
+	// Type is the unique identifier for the component type
 	Type string `json:"type"`
 
 	// Category is the classification category for organizing components
-	// Category 是用于组织组件的分类类别
+	// Category is a subcategory used to organize components
 	Category string `json:"category"`
 
 	// Fields contains the configuration fields extracted from the component's Config struct
-	// Fields 包含从组件的 Config 结构体中提取的配置字段
+	// Fields contain configuration fields extracted from the component's Config structure
 	Fields ComponentFormFieldList `json:"fields"`
 
 	// Label is the display name for the component (reserved for future use)
-	// Label 是组件的显示名称（保留供将来使用）
+	// Label is the displayed name of the component (reserved for future use)
 	Label string `json:"label"`
 
 	// Desc is the description of the component (reserved for future use)
-	// Desc 是组件的描述（保留供将来使用）
+	// Desc is a description of a component (reserved for future use)
 	Desc string `json:"desc"`
 
 	// Icon is the icon identifier for the component (defaults to type if empty)
-	// Icon 是组件的图标标识符（如果为空则默认为类型）
+	// Icon is the component's icon identifier (if empty, default is type).
 	Icon string `json:"icon"`
 
 	// RelationTypes defines the possible connection names to the next node.
 	// For filter nodes, defaults to: True/False/Failure
 	// For other nodes, defaults to: Success/Failure
 	// If nil, users can define custom relationship types
-	// RelationTypes 定义与下一个节点的可能连接名称。
-	// 对于过滤器节点，默认为：True/False/Failure
-	// 对于其他节点，默认为：Success/Failure
-	// 如果为 nil，用户可以定义自定义关系类型
+	// RelationTypes defines possible connection names to the next node.
+	// For filter nodes, the default is: True/False/Failure
+	// For other nodes, the default is: Success/Failure
+	// If it is nil, users can define custom relationship types
 	RelationTypes *[]string `json:"relationTypes"`
 
 	// Disabled indicates whether the component should be hidden in the editor
-	// Disabled 表示组件是否应在编辑器中隐藏
+	// Disabled indicates whether the component should be hidden in the editor
 	Disabled bool `json:"disabled"`
 
 	// Version is the version of the component
-	// Version 是组件的版本
+	// Version is the version of a component
 	Version string `json:"version"`
 
 	// ComponentKind indicates the type of component: dc (dynamic), nc (native), ec (endpoint)
-	// ComponentKind 表示组件类型：dc（动态）、nc（原生）、ec（端点）
+	// ComponentKind indicates component type: dc (dynamic), nc (native), ec (endpoint)
 	ComponentKind string `json:"componentKind"`
 
 	// RouterForm contains router configuration metadata for endpoint components.
 	// Only endpoint components have this field. It describes how to configure
 	// the endpoint's router (from.path meaning, whether hide=true for default router, etc.).
-	// RouterForm 包含 endpoint 组件的路由配置元数据。
-	// 仅 endpoint 组件有此字段，描述如何配置 endpoint 的路由。
+	// The RouterForm contains routing configuration metadata for the endpoint component.
+	// Only the endpoint component has this field, which describes how to configure the routing of the endpoint.
 	RouterForm *RouterForm `json:"router,omitempty"`
 }
 
 // RouterForm describes the router configuration for an endpoint component.
 // Compatible with the frontend endpoint.js router structure.
 //
-// RouterForm 描述 endpoint 组件的路由配置。
+// RouterForm describes the routing configuration of the endpoint component.
 type RouterForm struct {
 	// Hide indicates whether the endpoint uses a default router.
 	// When true, the agent should auto-generate router with from.path="*".
-	// Hide 表示 endpoint 是否使用默认路由。
-	// 为 true 时，智能体应自动生成 from.path="*" 的路由。
+	// Hide indicates whether the endpoint uses the default route.
+	// If true, the agent should automatically generate routes with from.path="*".
 	Hide bool `json:"hide,omitempty"`
 
 	// From provides metadata about the router source configuration.
-	// From 提供路由源配置的元数据。
+	// From provides metadata for routing source configurations.
 	From *RouterFormField `json:"from,omitempty"`
 
 	// To provides metadata about the router target configuration.
-	// To 提供路由目标配置的元数据。
+	// To provide metadata configured for routing targets.
 	To *RouterFormField `json:"to,omitempty"`
 
 	// Params provides metadata about the router `params` field.
 	// nil means the router takes no params.
-	// Params 提供路由 `params` 字段的元数据。
-	// 为 nil 表示路由不接受 params。
+	// `params` provide metadata for routing the 'params' field.
+	// nil means the route does not accept params.
 	Params *ComponentFormField `json:"params,omitempty"`
 
 	// DefaultValue provides default router entries.
-	// DefaultValue 提供默认路由条目。
+	// DefaultValue provides default routing entries.
 	DefaultValue []map[string]interface{} `json:"defaultValue,omitempty"`
 }
 
 // RouterFormField describes the fields in a router's from/to configuration.
-// RouterFormField 描述路由 from/to 配置中的字段。
+// RouterFormField describes the field in the routing from/to configuration.
 type RouterFormField struct {
 	// Path describes the path/topic/expression field metadata.
-	// Path 描述路径/主题/表达式字段的元数据。
+	// Path describes metadata for path/topic/expression fields.
 	Path ComponentFormField `json:"path"`
 
 	// Processors describes the processors field metadata.
-	// Processors 描述处理器字段的元数据。
+	// Processors describes metadata of the processor field.
 	Processors *RouterProcessorsField `json:"processors,omitempty"`
 }
 
 // RouterProcessorsField describes the processors selector configuration.
-// RouterProcessorsField 描述处理器选择器配置。
+// RouterProcessorsField describes the processor selector configuration.
 type RouterProcessorsField struct {
 	// Hide indicates whether to hide the processors selector.
-	// Hide 表示是否隐藏处理器选择器。
+	// hide indicates whether the processor selector is hidden.
 	Hide bool `json:"hide,omitempty"`
 }
 
 // ComponentFormField represents a single configuration field in a component form.
 // It contains metadata about the field type, validation rules, and UI presentation.
 //
-// ComponentFormField 表示组件表单中的单个配置字段。
-// 它包含有关字段类型、验证规则和 UI 表示的元数据。
+// ComponentFormField represents a single configuration field in the component form.
+// It contains metadata about field types, validation rules, and UI representations.
 type ComponentFormField struct {
 	// Name is the field name corresponding to the struct field
-	// Name 是对应于结构体字段的字段名称
+	// Name is the field name corresponding to the structure field
 	Name string `json:"name"`
 
 	// Type is the data type of the field (string, int, bool, etc.)
-	// Type 是字段的数据类型（string、int、bool 等）
+	// Type is the data type of a field (string, int, bool, etc.)
 	Type string `json:"type"`
 
 	// DefaultValue is the default value provided by the component's New() method
-	// DefaultValue 是组件的 New() 方法提供的默认值
+	// DefaultValue is the default value provided by the component's New() method
 	DefaultValue interface{} `json:"defaultValue"`
 
 	// Label is the display name for the field, extracted from the 'label' tag
-	// Label 是字段的显示名称，从 'label' 标签中提取
+	// Label is the display name of a field, extracted from the 'label' tag
 	Label string `json:"label"`
 
 	// Desc is the description of the field, extracted from the 'desc' tag
-	// Desc 是字段的描述，从 'desc' 标签中提取
+	// Desc is the description of a field, extracted from the 'desc' tag
 	Desc string `json:"desc"`
 
 	// Validate contains validation rules, extracted from the 'validate' tag
 	// Deprecated: Use Rules instead
-	// Validate 包含验证规则，从 'validate' 标签中提取
-	// 已废弃：使用 Rules 代替
+	// Validate contains validation rules extracted from the 'validate' tag
+	// Deprecated: Use Rules instead
 	Validate string `json:"validate"`
 
 	// Rules contains frontend validation rules
-	// Rules 包含前端验证规则
+	// Rules include frontend validation rules
 	// Example: [{"required": true, "message": "This field is required"}]
-	// 示例：[{"required": true, "message": "This field is required"}]
+	// Example: [{"required": true, "message": "This field is required"}]
 	Rules []map[string]interface{} `json:"rules"`
 
 	// Fields contains nested fields for complex objects
-	// Fields 包含复杂对象的嵌套字段
+	// Fields contain nested fields of complex objects
 	Fields ComponentFormFieldList `json:"fields"`
 
 	// Component contains UI component configuration for rendering
-	// Component 包含用于渲染的 UI 组件配置
+	// Component contains the UI component configuration used for rendering
 	// Example: {"type": "codeEditor", "language": "javascript"}
-	// 示例：{"type": "codeEditor", "language": "javascript"}
+	// Example: {"type": "codeEditor", "language": "javascript"}
 	Component map[string]interface{} `json:"component"`
 
 	// Required indicates whether the field is mandatory, extracted from the 'required' tag
-	// Required 表示字段是否为必填项，从 'required' 标签中提取
+	// Required indicates whether the field is required and is extracted from the 'required' tab
 	Required bool `json:"required"`
 
 	// Ref indicates the field's relationship to shared node pool:
 	// "primary" = the ref:// field (e.g., server, dsn)
 	// "shared" = provided by shared node (hidden when ref:// is selected, shown when creating shared node)
 	// "" = component-specific field (always shown in editor, hidden in shared node form)
-	// Ref 表示字段与共享节点池的关系：
-	// "primary" = ref:// 字段（如 server、dsn）
-	// "shared" = 由共享节点提供（编辑器中选了 ref:// 后隐藏，创建共享节点时显示）
-	// "" = 组件业务字段（编辑器中始终显示，创建共享节点时隐藏）
+	// Ref represents the relationship between the field and the shared node pool:
+	// "primary" = ref:// field (e.g., server, dsn)
+	// "shared" = provided by shared nodes (hide after selecting ref:// in the editor, show when creating shared nodes)
+	// "" = Component business field (always shown in the editor, hidden when creating shared nodes)
 	Ref string `json:"ref,omitempty"`
 }
 
 // SafeComponentSlice provides a thread-safe slice for storing Node components.
 // It uses mutex synchronization to ensure safe concurrent access.
 //
-// SafeComponentSlice 提供了用于存储 Node 组件的线程安全切片。
-// 它使用互斥锁同步来确保安全的并发访问。
+// SafeComponentSlice provides thread-safe slices for storing Node components.
+// It uses mutex synchronization to ensure secure concurrent access.
 type SafeComponentSlice struct {
 	// components holds the list of Node components
-	// components 保存 Node 组件列表
+	// components: Stores a list of Node components
 	components []Node
 	sync.Mutex
 }
@@ -379,8 +379,8 @@ type SafeComponentSlice struct {
 // Add safely appends one or more Node components to the slice.
 // This method is thread-safe and can be called concurrently.
 //
-// Add 安全地将一个或多个 Node 组件追加到切片中。
-// 此方法是线程安全的，可以并发调用。
+// Add securely appends one or more Node components to the slice.
+// This method is thread-safe and can be called concurrently.
 func (p *SafeComponentSlice) Add(nodes ...Node) {
 	p.Lock()
 	defer p.Unlock()
@@ -392,8 +392,8 @@ func (p *SafeComponentSlice) Add(nodes ...Node) {
 // Components returns a copy of the current component list.
 // This method is thread-safe and returns a snapshot of the components.
 //
-// Components 返回当前组件列表的副本。
-// 此方法是线程安全的，返回组件的快照。
+// Components returns a copy of the current component list.
+// This method is thread-safe and returns snapshots of components.
 func (p *SafeComponentSlice) Components() []Node {
 	p.Lock()
 	defer p.Unlock()

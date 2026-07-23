@@ -7,13 +7,13 @@ import (
 	"time"
 )
 
-// WithTimestamp 包含文件路径和解析出的时间戳
+// WithTimestamp contains the file path and the parsed timestamp
 type WithTimestamp struct {
 	Path      string
 	Timestamp time.Time
 }
 
-// SortFilesByTimestamp 解析文件列表中的时间戳，返回按时间戳排序的文件列表
+// SortFilesByTimestamp parses the timestamp in the file list and returns a list of files sorted by timestamps
 func SortFilesByTimestamp(files []string) []WithTimestamp {
 	var fileWithTimestamps []WithTimestamp
 	for _, file := range files {
@@ -23,20 +23,20 @@ func SortFilesByTimestamp(files []string) []WithTimestamp {
 		}
 		fileWithTimestamps = append(fileWithTimestamps, WithTimestamp{Path: file, Timestamp: timestamp})
 	}
-	// 使用 sort.Sort 进行排序
+	// Use sort.Sort to sort the order
 	sort.Sort(ByTimestamp(fileWithTimestamps))
 	return fileWithTimestamps
 }
 
-// 解析文件名中的时间戳
+// Parse timestamps in the filename
 func parseTimestampFromFilename(filename string) (time.Time, error) {
-	// 使用filepath.Base获取文件名
+	// Using filepath.Base to get the file name
 	lastPart := filepath.Base(filename)
 	timestampStr := strings.Split(lastPart, "_")[0]
 	return time.Parse("20060102150405000", timestampStr)
 }
 
-// ByTimestamp 实现 sort.Interface 接口
+// ByTimestamp implements sort.Interface
 type ByTimestamp []WithTimestamp
 
 func (f ByTimestamp) Len() int           { return len(f) }

@@ -30,9 +30,9 @@ import (
 	"github.com/rulego/rulego/test"
 )
 
-// 复用 net_node_push_test.go 的 miniPool / fakeRegistry / fakeSender
+// Reuse net_node_push_test.go's miniPool / fakeRegistry / fakeSender
 
-// TestWsNodeAddressing ref:// 寻址推送（WsNode 寻址分支 = 原 wsSend 逻辑）
+// TestWsNodeAddressing ref:// Addressing Push (WsNode addressing branch = original wsSend logic)
 func TestWsNodeAddressing(t *testing.T) {
 	sender := &fakeSender{}
 	reg := &fakeRegistry{sessions: map[string]*endpoint.Session{}}
@@ -68,7 +68,7 @@ func TestWsNodeAddressing(t *testing.T) {
 	}
 }
 
-// TestWsNodeBroadcast ref:// target=* 广播
+// TestWsNodeBroadcast ref:// target=* Broadcast
 func TestWsNodeBroadcast(t *testing.T) {
 	s1, s2 := &fakeSender{}, &fakeSender{}
 	reg := &fakeRegistry{sessions: map[string]*endpoint.Session{}}
@@ -102,7 +102,7 @@ func TestWsNodeBroadcast(t *testing.T) {
 	}
 }
 
-// TestWsNodeNoMatch ref:// 未命中 → TellFailure
+// TestWsNodeNoMatch ref:// Missed → TellFailure
 func TestWsNodeNoMatch(t *testing.T) {
 	reg := &fakeRegistry{sessions: map[string]*endpoint.Session{}}
 	reg.Add(endpoint.NewSession("DEV_001", &fakeSender{}))
@@ -131,11 +131,11 @@ func TestWsNodeNoMatch(t *testing.T) {
 	}
 }
 
-// TestWsNodeDialFailure 出站模式（server 非 ref://）：dial 无效地址失败 → TellFailure
+// TestWsNodeDialFailure Outbound mode (server not ref://):d ial Invalid address failure → TellFailure
 func TestWsNodeDialFailure(t *testing.T) {
 	cfg := types.NewConfig()
 	node := &WsNode{}
-	// ws://127.0.0.1:1 端口通常连接被拒（快速失败）。NodeClientInitNow 默认 false，Init 不立即 dial
+	// ws://127.0.0.1:1 ports are usually denied connections (fast failure). NodeClientInitNow defaults to false, and Init does not dial immediately
 	if err := node.Init(cfg, types.Configuration{"server": "ws://127.0.0.1:1"}); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestWsNodeDialFailure(t *testing.T) {
 	}
 }
 
-// newWsTestServer 起一个真实 ws server，把收到的消息塞进 received
+// newWsTestServer creates a real WS server and inserts the received message into the received server
 func newWsTestServer(received chan<- []byte) *httptest.Server {
 	upgrader := websocket.Upgrader{}
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -204,7 +204,7 @@ func wsMustRecv(t *testing.T, ch <-chan []byte) []byte {
 	}
 }
 
-// TestWsNodeDialSend 出站拨号真实 ws server：dial + 发送 text/binary → server 收到
+// TestWsNodeDialSend Outbound dial-up real ws server: dial + send text/binary → server received
 func TestWsNodeDialSend(t *testing.T) {
 	received := make(chan []byte, 4)
 	srv := newWsTestServer(received)
@@ -215,26 +215,26 @@ func TestWsNodeDialSend(t *testing.T) {
 	node := &WsNode{}
 	if err := node.Init(cfg, types.Configuration{
 		"server":            wsURL,
-		"heartbeatInterval": 0, // 禁用心跳，专注验证发送主路径
+		"heartbeatInterval": 0, // Disable heartbeats and focus on verifying the main transmission path
 	}); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	defer node.Destroy()
 
-	// text 帧
+	// text frame
 	wsSendOk(t, node, "HELLO", types.TEXT)
 	if got := wsMustRecv(t, received); string(got) != "HELLO" {
 		t.Fatalf("text: server got %q, want HELLO", got)
 	}
 
-	// binary 帧（DataType=BINARY 触发 BinaryMessage）
+	// binary frame (DataType=BINARY triggers BinaryMessage)
 	wsSendOk(t, node, "BIN", types.BINARY)
 	if got := wsMustRecv(t, received); string(got) != "BIN" {
 		t.Fatalf("binary: server got %q, want BIN", got)
 	}
 }
 
-// TestWsNodeDialHandshake 验证出站拨号带上 Headers 与 Subprotocol 到达 server 端
+// TestWsNodeDialHandshake verifies outbound dial-up with headers and subprotocol to reach the server side
 func TestWsNodeDialHandshake(t *testing.T) {
 	gotAuth := make(chan string, 1)
 	gotSub := make(chan string, 1)
@@ -246,7 +246,7 @@ func TestWsNodeDialHandshake(t *testing.T) {
 		}
 		gotAuth <- r.Header.Get("Authorization")
 		gotSub <- c.Subprotocol()
-		_, _, _ = c.ReadMessage() // 等 WsNode 发一帧后关闭
+		_, _, _ = c.ReadMessage() // Wait for WsNode to send one frame and then close it
 		_ = c.Close()
 	}))
 	defer srv.Close()
@@ -284,8 +284,8 @@ func TestWsNodeDialHandshake(t *testing.T) {
 	}
 }
 
-// TestWsNodeHeartbeat 开启心跳：多次发送跨越多个心跳周期，验证心跳定时器与业务发送并发无 race、不丢消息。
-// 用于 -race 下检验 timerMu 对 heartbeatTimer 字段读写的保护。
+// TestWsNodeHeartbeat enables heartbeat: multiple transmissions spanning multiple heartbeat cycles to verify that the heartbeat timer and business transmission are concurrent without race or message loss.
+// Used to check timerMu's protection against reading and writing heartbeatTimer fields under -race.
 func TestWsNodeHeartbeat(t *testing.T) {
 	received := make(chan []byte, 10)
 	srv := newWsTestServer(received)
@@ -296,18 +296,18 @@ func TestWsNodeHeartbeat(t *testing.T) {
 	node := &WsNode{}
 	if err := node.Init(cfg, types.Configuration{
 		"server":            wsURL,
-		"heartbeatInterval": 1, // 1秒心跳
+		"heartbeatInterval": 1, // 1 second of heartbeat
 	}); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	defer node.Destroy()
 
-	// 发 3 条，间隔 0.5s，跨越至少 1 个心跳周期，让 onPing 与业务发送并发
+	// Send 3 messages at 0.5-second intervals, spanning at least one heartbeat cycle, allowing onPing to send concurrent messages with the service
 	for i := 0; i < 3; i++ {
 		wsSendOk(t, node, fmt.Sprintf("m%d", i), types.TEXT)
 		time.Sleep(500 * time.Millisecond)
 	}
-	time.Sleep(2 * time.Second) // 再让心跳跑几轮
+	time.Sleep(2 * time.Second) // Let your heart race a few more times
 
 	for i := 0; i < 3; i++ {
 		got := wsMustRecv(t, received)

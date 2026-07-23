@@ -19,7 +19,7 @@ import (
 	"github.com/rulego/rulego/server/services"
 )
 
-// getAuthenticator 从 Container 获取认证器，未注册时返回默认实现
+// getAuthenticator retrieves the authenticator from the container and returns the default implementation when not registered
 func getAuthenticator(c *app.Container, cfg *config.Config) services.Authenticator {
 	if auth, err := app.GetAs[services.Authenticator](c, services.KeyAuthenticator); err == nil {
 		return auth
@@ -27,7 +27,7 @@ func getAuthenticator(c *app.Container, cfg *config.Config) services.Authenticat
 	return user.NewDefaultAuthenticator(cfg)
 }
 
-// getAuthorizer 从 Container 获取授权器，未注册时返回默认实现
+// getAuthorizer obtains the authorizer from the Container; returns the default implementation when not registered
 func getAuthorizer(c *app.Container) services.Authorizer {
 	if authz, err := app.GetAs[services.Authorizer](c, services.KeyAuthorizer); err == nil {
 		return authz
@@ -37,7 +37,7 @@ func getAuthorizer(c *app.Container) services.Authorizer {
 
 const apiVersion = "v1"
 
-// Server REST 端点服务，持有容器和配置引用
+// Server REST endpoint service, holding container and configuration references
 type Server struct {
 	container       *app.Container
 	config          *config.Config
@@ -45,7 +45,7 @@ type Server struct {
 	systemNodePool  *node_pool.NodePool
 }
 
-// NewServer 创建 REST 端点服务
+// NewServer creates REST endpoint services
 func NewServer(container *app.Container, cfg *config.Config, logger types.Logger) *Server {
 	systemRulegoCfg := rulego.NewConfig(types.WithDefaultPool(), types.WithLogger(logger))
 	systemNodePool := node_pool.NewNodePool(systemRulegoCfg)
@@ -59,27 +59,27 @@ func NewServer(container *app.Container, cfg *config.Config, logger types.Logger
 	}
 }
 
-// GetSystemRulegoConfig 获取系统 RuleGo 配置
+// GetSystemRulegoConfig Obtains the system RuleGo configuration
 func (s *Server) GetSystemRulegoConfig() types.Config {
 	return s.systemRulegoCfg
 }
 
-// GetSystemNodePool 获取系统节点池
+// GetSystemNodePool Retrieves the system node pool
 func (s *Server) GetSystemNodePool() *node_pool.NodePool {
 	return s.systemNodePool
 }
 
-// Container 返回服务容器
+// Container returns a service container
 func (s *Server) Container() *app.Container {
 	return s.container
 }
 
-// SetContainer 设置服务容器
+// SetContainer sets up the service container
 func (s *Server) SetContainer(c *app.Container) {
 	s.container = c
 }
 
-// basePath 返回配置的基础路径前缀
+// basePath returns the base path prefix of the configuration
 func (s *Server) basePath() string {
 	if s.config != nil {
 		return strings.TrimRight(s.config.BasePath, "/")
@@ -87,12 +87,12 @@ func (s *Server) basePath() string {
 	return ""
 }
 
-// apiBasePath 返回 API 基础路径
+// apiBasePath returns the API base path
 func (s *Server) apiBasePath() string {
 	return s.basePath() + constants.PathApi + apiVersion
 }
 
-// NewRestEndpoint 创建 REST 端点并注册所有路由
+// NewRestEndpoint creates a REST endpoint and registers all routes
 func (s *Server) NewRestEndpoint() (endpointApi.HttpEndpoint, error) {
 	ep, err := endpoint.Registry.New(
 		rest.Type,
@@ -116,7 +116,7 @@ func (s *Server) NewRestEndpoint() (endpointApi.HttpEndpoint, error) {
 	return s.initRestEndpoint(restEndpoint)
 }
 
-// NewStandardRestEndpoint 显式创建标准 net/http REST 端点，不走注册表
+// NewStandardRestEndpoint explicitly creates a standard net/http REST endpoint without going through the registry
 func (s *Server) NewStandardRestEndpoint() (endpointApi.HttpEndpoint, error) {
 	ep := &rest.Rest{}
 	if err := ep.Init(s.systemRulegoCfg, types.Configuration{
@@ -131,11 +131,11 @@ func (s *Server) NewStandardRestEndpoint() (endpointApi.HttpEndpoint, error) {
 	return s.initRestEndpoint(ep)
 }
 
-// initRestEndpoint 初始化 REST 端点路由
+// initRestEndpoint initializes REST endpoint routing
 func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.HttpEndpoint, error) {
-	// 全局拦截器：设置 Content-Type + panic recovery
+	// Global Interceptor: Set Content-Type + panic recovery
 	ep.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		// panic recovery，防止单个请求 panic 导致整个进程崩溃
+		// Panic recovery, preventing a single request from panicking and causing the entire process to crash
 		defer func() {
 			if r := recover(); r != nil {
 				exchange.Out.SetStatusCode(http.StatusInternalServerError)
@@ -151,13 +151,13 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 		return true
 	})
 
-	// 健康检查
+	// Health checkup
 	ep.GET(endpoint.NewRouter().From(s.basePath() + constants.PathHealth).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		exchange.Out.SetBody([]byte("OK"))
 		return false
 	}).End())
 
-	// 根路径重定向
+	// Root path redirect
 	ep.GET(endpoint.NewRouter().From(s.basePath() + "/").Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		r, ok1 := exchange.In.(*rest.RequestMessage)
 		w, ok2 := exchange.Out.(*rest.ResponseMessage)
@@ -167,10 +167,10 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 		return false
 	}).End())
 
-	// 登录
+	// Log in
 	ep.POST(s.loginRoute())
 
-	// 注册各模块路由
+	// Register routes for each module
 	s.registerRuleRoutes(ep)
 	s.registerNodeRoutes(ep)
 	s.registerComponentRoutes(ep)
@@ -182,12 +182,12 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 	s.registerMarketplaceRoutes(ep)
 	s.registerMCPRoutes(ep)
 
-	// 静态资源映射
+	// Static resource mapping
 	if s.config.ResourceMapping != "" {
 		ep.RegisterStaticFiles(s.config.ResourceMapping)
 	}
 
-	// 把默认HTTP服务设置成共享节点
+	// Set the default HTTP service to a shared node
 	if s.config.ShareHttpServer {
 		_, _ = node_pool.DefaultNodePool.AddNode(ep)
 	}
@@ -196,15 +196,15 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 	return ep, nil
 }
 
-// maxBodyBytes 返回配置的最大请求体字节数
+// maxBodyBytes returns the maximum requested body byte number configured for the configuration
 func (s *Server) maxBodyBytes() int64 {
 	if s.config == nil || s.config.MaxBodySize <= 0 {
-		return 10 << 20 // 默认 10MB
+		return 10 << 20 // Default is 10MB
 	}
 	return int64(s.config.MaxBodySize) << 20
 }
 
-// validateId 校验路径参数 ID，防止路径遍历
+// validateId verifies the path parameter ID to prevent path traversal
 func validateId(id string) bool {
 	if id == "" || len(id) > 256 {
 		return false
@@ -212,7 +212,7 @@ func validateId(id string) bool {
 	return !strings.ContainsAny(id, "/\\.")
 }
 
-// safeInternalError 记录完整错误到日志，返回通用消息给客户端
+// safeInternalError records the complete error in the log and returns a general message to the client
 func (s *Server) safeInternalError(exchange *endpointApi.Exchange, err error, logger types.Logger) {
 	if logger != nil {
 		logger.Errorf("internal error: %v", err)
@@ -221,7 +221,7 @@ func (s *Server) safeInternalError(exchange *endpointApi.Exchange, err error, lo
 	exchange.Out.SetBody([]byte(`{"error":"internal server error"}`))
 }
 
-// formatError 格式化错误响应，隐藏内部细节
+// formatError formatting error responses to hide internal details
 func formatError(code int, publicMsg string) []byte {
 	return []byte(fmt.Sprintf(`{"error":%q}`, publicMsg))
 }

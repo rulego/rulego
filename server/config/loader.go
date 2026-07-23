@@ -8,11 +8,11 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-// envPattern 匹配 ${ENV_VAR} 或 ${ENV_VAR:-default} 格式
+// envPattern matches the ${ENV_VAR} or ${ENV_VAR:-default} format
 var envPattern = regexp.MustCompile(`\$\{([^}:]+)(?::-([^}]*))?\}`)
 
-// expandEnv 替换字符串中的 ${ENV_VAR} 为环境变量值。
-// 支持 ${VAR:-default} 语法，环境变量未设置时使用默认值。
+// expandEnv replaces ${ENV_VAR} in the string as the environment variable value.
+// Supports the ${VAR:-default} syntax; the default value is used when the environment variable is not set.
 func expandEnv(s string) string {
 	return envPattern.ReplaceAllStringFunc(s, func(match string) string {
 		sub := envPattern.FindStringSubmatch(match)
@@ -25,7 +25,7 @@ func expandEnv(s string) string {
 	})
 }
 
-// trimQuotes 去除字符串首尾的双引号，支持 `"value"` 和 `value` 两种写法
+// trimQuotes removes surrounding double quotes and supports both `"value"` and `value` forms
 func trimQuotes(s string) string {
 	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
 		return s[1 : len(s)-1]
@@ -33,7 +33,7 @@ func trimQuotes(s string) string {
 	return s
 }
 
-// expandProperties 对 map 中所有值执行环境变量替换并去除首尾引号
+// expandProperties: Performs environment variable replacements on all values in the map and removes quotes
 func expandProperties(m map[string]string) {
 	for k, v := range m {
 		v = expandEnv(v)
@@ -41,8 +41,8 @@ func expandProperties(m map[string]string) {
 	}
 }
 
-// Load 从 INI 文件加载配置，INI 文件中的值覆盖 cfg 中的已有值。
-// 调用方可先用 DefaultConfig() 初始化 cfg 以获取默认值。
+// Load loads the configuration from the INI file, and the values in the INI file override existing values in the cfg.
+// You can first use DefaultConfig() to initialize the cfg to get the default value.
 func Load(path string, cfg *Config) error {
 	file, err := ini.Load(path)
 	if err != nil {
@@ -53,14 +53,14 @@ func Load(path string, cfg *Config) error {
 		return fmt.Errorf("map config: %w", err)
 	}
 
-	// MapTo 无法自动映射 types.Properties，需要手动加载
+	// MapTo cannot automatically map types.Properties, which need to be loaded manually
 	if section, err := file.GetSection("global"); err == nil {
 		cfg.Global = section.KeysHash()
 	}
 	if section, err := file.GetSection("users"); err == nil {
 		cfg.Users = section.KeysHash()
 	}
-	// 加载 MCP 分组配置
+	// Load MCP packet configuration
 	if section, err := file.GetSection("mcp.groups"); err == nil {
 		if cfg.MCP.Groups == nil {
 			cfg.MCP.Groups = make(map[string]string)
@@ -70,11 +70,11 @@ func Load(path string, cfg *Config) error {
 		}
 	}
 
-	// 环境变量替换：支持 ${ENV_VAR} 和 ${ENV_VAR:-default} 语法
+	// Environment variable replacement: supports ${ENV_VAR} and ${ENV_VAR:-default} syntax
 	expandProperties(cfg.Global)
 	expandProperties(cfg.Users)
 
-	// JWT 密钥支持环境变量
+	// JWT keys support environment variables
 	cfg.JwtSecretKey = trimQuotes(expandEnv(cfg.JwtSecretKey))
 	cfg.SkillPath = trimQuotes(expandEnv(cfg.SkillPath))
 

@@ -23,10 +23,10 @@ import (
 	"time"
 )
 
-// 测试数据库操作组件dbClient
-// dbClient支持对数据库的增、删、修改、查
-// dbClient组件查询的数据可以继续使用其它组件对数据进行处理，
-// 例如：使用`jsTransform`组件对数据进行处理、把从数据库查询数据通过`restApiCall`组件和其他系统集成
+// Test database operation component dbClient
+// dbClient supports adding, deleting, modifying, and querying databases
+// The data queried by dbClient components can continue to be processed using other components,
+// For example: using the `jsTransform` component to process data, or integrating database query data with other systems through the `restApiCall` component
 func main() {
 
 	config := rulego.NewConfig()
@@ -40,7 +40,7 @@ func main() {
 	metaData.PutValue("name", "test01")
 	metaData.PutValue("updateAge", "21")
 
-	//加载规则链
+	//Load the rule chain
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile), rulego.WithConfig(config))
 	if err != nil {
 		log.Fatal(err)

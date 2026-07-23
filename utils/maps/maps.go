@@ -83,18 +83,17 @@ func Map2Struct(input interface{}, output interface{}) error {
 	return nil
 }
 
-
-// Get 获取map或struct中的字段，支持嵌套结构获取，例如fieldName.subFieldName.xx
-// 支持的类型：map[string]interface{}、map[string]string、结构体（通过反射访问字段）
-// 字段匹配优先级：JSON tag > 字段名（不区分大小写）
-// 如果字段不存在，返回nil
+// Get to get fields in map or struct, supporting nested structures such as fieldName.subFieldName.xx
+// Supported types: map[string]interface{}, map[string]string, structs (access fields via reflection)
+// Field matching priority: JSON tag > Field name (case-insensitive)
+// If the field does not exist, return nil
 func Get(input interface{}, fieldName string) interface{} {
-	// 按照"."分割fieldName
+	// According to the "." Split fieldName
 	fields := strings.Split(fieldName, ".")
 	var result interface{}
 	result = input
 
-	// 遍历每个子字段
+	// Traverse each subfield
 	for i, field := range fields {
 		switch v := result.(type) {
 		case map[string]interface{}:
@@ -107,9 +106,9 @@ func Get(input interface{}, fieldName string) interface{} {
 			if val, ok := v[field]; ok {
 				result = val
 			} else {
-				// Fallback: 尝试用剩余部分作为完整 key 查找（支持扁平存储的多级 key）
-				// 例如：map 中存储了 "llm.providers.default.base_url"，访问 "llm.providers.default.base_url" 时
-				// 先尝试嵌套访问 map["llm"]["providers"]...，失败后 fallback 到 map["llm.providers.default.base_url"]
+				// Fallback: Try to use the remaining part as the full key lookup (supports multi-level keys for flat storage)
+				// For example: "llm.providers.default.base_url" is stored in the map, and when accessing "llm.providers.default.base_url"
+				// First, try nested access to map["llm"]["providers"]..., and if failed, fallback to map["llm.providers.default.base_url"]
 				remainingKey := strings.Join(fields[i:], ".")
 				if val, ok := v[remainingKey]; ok {
 					return val
@@ -117,7 +116,7 @@ func Get(input interface{}, fieldName string) interface{} {
 				return nil
 			}
 		default:
-			// 尝试通过反射访问结构体字段
+			// Try to access the structure field by reflecting
 			val := getStructField(result, field)
 			if val == nil {
 				return nil
@@ -128,15 +127,15 @@ func Get(input interface{}, fieldName string) interface{} {
 	return result
 }
 
-// getStructField 通过反射获取结构体字段值
-// 支持 JSON tag 和字段名匹配（不区分大小写）
+// getStructField obtains the structure field value by reflecting
+// Supports matching JSON tags with field names (case-insensitive)
 func getStructField(obj interface{}, fieldName string) interface{} {
 	if obj == nil {
 		return nil
 	}
 
 	val := reflect.ValueOf(obj)
-	// 处理指针类型
+	// Handles pointer types
 	if val.Kind() == reflect.Ptr {
 		if val.IsNil() {
 			return nil
@@ -144,22 +143,22 @@ func getStructField(obj interface{}, fieldName string) interface{} {
 		val = val.Elem()
 	}
 
-	// 只处理结构体类型
+	// Only handle structure types
 	if val.Kind() != reflect.Struct {
 		return nil
 	}
 
 	typ := val.Type()
 
-	// 优先匹配 JSON tag，然后匹配字段名（不区分大小写）
+	// Prioritize matching JSON tags, then match field names (case-insensitive)
 	fieldNameLower := strings.ToLower(fieldName)
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 
-		// 检查 JSON tag
+		// Check the JSON tag
 		jsonTag := field.Tag.Get("json")
 		if jsonTag != "" {
-			// 处理 json:"name,omitempty" 格式
+			// Handle the json:"name,omitempty" format
 			jsonName := strings.Split(jsonTag, ",")[0]
 			if jsonName == fieldName || jsonName == fieldNameLower {
 				fieldVal := val.Field(i)
@@ -169,7 +168,7 @@ func getStructField(obj interface{}, fieldName string) interface{} {
 			}
 		}
 
-		// 检查字段名（不区分大小写）
+		// Check field names (case-insensitive)
 		if strings.ToLower(field.Name) == fieldNameLower {
 			fieldVal := val.Field(i)
 			if fieldVal.CanInterface() {

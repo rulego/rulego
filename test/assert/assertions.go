@@ -26,7 +26,7 @@ import (
 	"testing"
 )
 
-// assertMutex 全局互斥锁，用于保护testing.T的并发访问
+// assertMutex Global mutex, used to protect testing.T concurrent access
 var assertMutex sync.Mutex
 
 // CallerInfo This function is inspired by:

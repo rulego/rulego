@@ -25,7 +25,7 @@ var (
 	clientTestServer = ":16336"
 )
 
-// 测试客户端请求/响应消息
+// Test client request/response messages
 func TestNetClientMessage(t *testing.T) {
 	t.Run("ClientRequest", func(t *testing.T) {
 		var request = &ClientRequestMessage{}
@@ -37,7 +37,7 @@ func TestNetClientMessage(t *testing.T) {
 	})
 }
 
-// 测试客户端类型和默认值
+// Test client types and default values
 func TestNetClientType(t *testing.T) {
 	config := types.NewConfig()
 	client := &NetClient{}
@@ -48,7 +48,7 @@ func TestNetClientType(t *testing.T) {
 	assert.Equal(t, ClientType, client.Type())
 	assert.Equal(t, "127.0.0.1:9999", client.Id())
 
-	// 验证默认值
+	// Verify the default value
 	defaultClient := client.New().(*NetClient)
 	assert.Equal(t, ProtocolTCP, defaultClient.Config.Protocol)
 	assert.Equal(t, 5, defaultClient.Config.ConnectTimeout)
@@ -56,7 +56,7 @@ func TestNetClientType(t *testing.T) {
 	assert.Equal(t, "line", defaultClient.Config.PacketMode)
 }
 
-// 测试路由管理
+// Test routing management
 func TestNetClientRouter(t *testing.T) {
 	config := types.NewConfig()
 	client := &NetClient{}
@@ -65,49 +65,49 @@ func TestNetClientRouter(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	// 添加nil路由
+	// Add nil routing
 	_, err = client.AddRouter(nil)
 	assert.Equal(t, "router can not nil", err.Error())
 
-	// 添加路由
+	// Add routes
 	router := impl.NewRouter().SetId("r1").From("").End()
 	routerId, err := client.AddRouter(router)
 	assert.Nil(t, err)
 	assert.Equal(t, "r1", routerId)
 
-	// 重复路由
+	// Repeat routing
 	router = impl.NewRouter().SetId("r1").From("").End()
 	_, err = client.AddRouter(router)
 	assert.NotNil(t, err)
 
-	// 删除路由
+	// Delete the route
 	err = client.RemoveRouter("r1")
 	assert.Nil(t, err)
 	err = client.RemoveRouter("r1")
 	assert.Equal(t, "router: r1 not found", err.Error())
 
-	// 错误正则表达式
+	// Erroneous regular expression
 	router = impl.NewRouter().From("[a-z{1,5}").End()
 	_, err = client.AddRouter(router)
 	assert.NotNil(t, err)
 }
 
-// 测试TCP客户端连接到服务端并接收数据
+// Test TCP client to connect to the server and receive data
 func TestNetClientTCP(t *testing.T) {
 	stop := make(chan struct{})
 
-	// 启动模拟TCP服务端
+	// Start the analog TCP server
 	go startTCPEchoServer(t, stop)
 	time.Sleep(time.Millisecond * 200)
 
-	// 创建客户端
+	// Create a client
 	config := engine.NewConfig(types.WithDefaultPool())
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&ClientConfig{
 		Protocol:          "tcp",
 		Server:            "127.0.0.1" + clientTestServer,
 		ConnectTimeout:    5,
-		ReconnectInterval: 0, // 测试中不重连
+		ReconnectInterval: 0, // No reconnection during testing
 		PacketMode:        "line",
 	}, &nodeConfig)
 
@@ -117,7 +117,7 @@ func TestNetClientTCP(t *testing.T) {
 
 	var receiveCount int32
 
-	// 添加路由
+	// Add routes
 	router := impl.NewRouter().From("").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		data := string(exchange.In.Body())
 		from := exchange.In.From()
@@ -130,12 +130,12 @@ func TestNetClientTCP(t *testing.T) {
 	_, err = client.AddRouter(router)
 	assert.Nil(t, err)
 
-	// 启动客户端
+	// Start the client
 	err = client.Start()
 	assert.Nil(t, err)
 	time.Sleep(time.Millisecond * 200)
 
-	// 等待接收数据
+	// Waiting to receive data
 	time.Sleep(time.Second * 2)
 
 	client.Destroy()
@@ -145,14 +145,14 @@ func TestNetClientTCP(t *testing.T) {
 	assert.True(t, count > 0, fmt.Sprintf("expected receiveCount > 0, got %d", count))
 }
 
-// 测试TCP客户端发送数据到服务端
+// Test TCP client to send data to the server
 func TestNetClientTCPSend(t *testing.T) {
 	stop := make(chan struct{})
 
 	var serverReceived string
 	var serverMu sync.Mutex
 
-	// 启动TCP服务端
+	// Start the TCP server
 	go func() {
 		ln, err := net.Listen("tcp", ":16337")
 		if err != nil {
@@ -185,7 +185,7 @@ func TestNetClientTCPSend(t *testing.T) {
 		serverReceived = string(buf[:n])
 		serverMu.Unlock()
 
-		// 回显
+		// Hui Xian
 		conn.Write(buf[:n])
 		close(done)
 		time.Sleep(time.Second)
@@ -193,7 +193,7 @@ func TestNetClientTCPSend(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 200)
 
-	// 创建客户端
+	// Create a client
 	config := engine.NewConfig()
 	client := &NetClient{}
 	err := client.Init(config, types.Configuration{
@@ -210,7 +210,7 @@ func TestNetClientTCPSend(t *testing.T) {
 	assert.Nil(t, err)
 	time.Sleep(time.Millisecond * 200)
 
-	// 通过Send方法发送数据
+	// Send data via the Send method
 	err = client.Send([]byte("hello from client\n"))
 	assert.Nil(t, err)
 
@@ -224,20 +224,20 @@ func TestNetClientTCPSend(t *testing.T) {
 	serverMu.Unlock()
 }
 
-// 测试客户端配置
+// Test client configuration
 func TestNetClientConfig(t *testing.T) {
 	config := engine.NewConfig()
 
-	// 通过Configuration初始化
+	// Initialize via Configuration
 	client := &NetClient{}
 	err := client.Init(config, types.Configuration{
-		"server":           "192.168.1.100:8080",
-		"protocol":         "tcp",
-		"connectTimeout":   10,
-		"readTimeout":      30,
+		"server":            "192.168.1.100:8080",
+		"protocol":          "tcp",
+		"connectTimeout":    10,
+		"readTimeout":       30,
 		"reconnectInterval": 3,
-		"packetMode":       "line",
-		"encode":           "hex",
+		"packetMode":        "line",
+		"encode":            "hex",
 	})
 	assert.Nil(t, err)
 	assert.Equal(t, "192.168.1.100:8080", client.Config.Server)
@@ -249,12 +249,12 @@ func TestNetClientConfig(t *testing.T) {
 	assert.Equal(t, "hex", client.Config.Encode)
 }
 
-// 测试连接失败
+// Test connection failed
 func TestNetClientConnectFail(t *testing.T) {
 	config := types.NewConfig()
 	client := &NetClient{}
 	err := client.Init(config, types.Configuration{
-		"server":         "127.0.0.1:19999", // 不存在的端口
+		"server":         "127.0.0.1:19999", // A port that doesn't exist
 		"connectTimeout": 1,
 	})
 	assert.Nil(t, err)
@@ -264,7 +264,7 @@ func TestNetClientConnectFail(t *testing.T) {
 	assert.True(t, strings.Contains(err.Error(), "connect"))
 }
 
-// 测试数据编码
+// Test data coding
 func TestNetClientEncode(t *testing.T) {
 	config := types.NewConfig()
 	client := &NetClient{}
@@ -277,7 +277,7 @@ func TestNetClientEncode(t *testing.T) {
 	data := []byte("hello")
 	encoded, dataType := encodeData(data, client.Config.Encode)
 	assert.Equal(t, types.TEXT, dataType)
-	// hex编码后长度翻倍
+	// After hex encoding, the length doubles
 	assert.Equal(t, len(data)*2, len(encoded))
 
 	client.Config.Encode = "base64"
@@ -290,11 +290,11 @@ func TestNetClientEncode(t *testing.T) {
 	assert.Equal(t, data, encoded)
 }
 
-// 测试带规则链的TCP客户端
+// Testing a TCP client with a rule chain
 func TestNetClientWithRuleChain(t *testing.T) {
 	stop := make(chan struct{})
 
-	// 启动TCP服务端发送JSON数据
+	// Start the TCP server to send JSON data
 	go startTCPJsonServer(t, stop)
 	time.Sleep(time.Millisecond * 200)
 
@@ -336,7 +336,7 @@ func TestNetClientWithRuleChain(t *testing.T) {
 	assert.True(t, count >= 2, fmt.Sprintf("expected processedCount >= 2, got %d", count))
 }
 
-// 测试路由匹配选项
+// Test routing matching options
 func TestNetClientRouterMatchOptions(t *testing.T) {
 	config := types.NewConfig()
 	client := &NetClient{}
@@ -345,7 +345,7 @@ func TestNetClientRouterMatchOptions(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	// 添加带匹配选项的路由
+	// Add routes with matching options
 	router := impl.NewRouter().From("").End()
 	opts := &RouterMatchOptions{
 		MinDataLength: 5,
@@ -355,9 +355,9 @@ func TestNetClientRouterMatchOptions(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-// ==================== 辅助函数 ====================
+// ==================== Auxiliary Function ====================
 
-// startTCPEchoServer 启动一个简单的TCP回显服务器，会主动推送数据
+// startTCPEchoServer starts a simple TCP echo server and will actively push data
 func startTCPEchoServer(t *testing.T, stop chan struct{}) {
 	ln, err := net.Listen("tcp", clientTestServer)
 	if err != nil {
@@ -381,7 +381,7 @@ func startTCPEchoServer(t *testing.T, stop chan struct{}) {
 	}
 	defer conn.Close()
 
-	// 服务端主动推送数据
+	// The server proactively pushes data
 	for i := 0; i < 3; i++ {
 		msg := fmt.Sprintf("echo: message %d\n", i+1)
 		_, err := conn.Write([]byte(msg))
@@ -391,11 +391,11 @@ func startTCPEchoServer(t *testing.T, stop chan struct{}) {
 		time.Sleep(time.Millisecond * 300)
 	}
 	close(done)
-	// 保持连接一段时间让客户端读取
+	// Maintain the connection for a period of time for the client to read
 	time.Sleep(time.Second)
 }
 
-// startTCPJsonServer 启动一个发送JSON数据的TCP服务器
+// startTCPJsonServer Starts a TCP server that sends JSON data
 func startTCPJsonServer(t *testing.T, stop chan struct{}) {
 	ln, err := net.Listen("tcp", ":16338")
 	if err != nil {
@@ -419,7 +419,7 @@ func startTCPJsonServer(t *testing.T, stop chan struct{}) {
 	}
 	defer conn.Close()
 
-	// 发送JSON传感器数据
+	// Send JSON sensor data
 	messages := []string{
 		`{"temperature":25.5,"humidity":60}`,
 		`{"temperature":26.1,"humidity":58}`,
@@ -436,7 +436,7 @@ func startTCPJsonServer(t *testing.T, stop chan struct{}) {
 	time.Sleep(time.Second)
 }
 
-// 测试客户端Close和Destroy
+// Test clients Close and Destroy
 func TestNetClientCloseDestroy(t *testing.T) {
 	config := types.NewConfig()
 	client := &NetClient{}
@@ -445,25 +445,25 @@ func TestNetClientCloseDestroy(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	// 未连接状态下Close不应报错
+	// Close should not give an error when not connected
 	err = client.Close()
 	assert.Nil(t, err)
 
-	// Destroy也不应报错
+	// Destroy should not report errors either
 	client.Destroy()
 }
 
-// 测试通过registry创建客户端
+// Test creates clients through the registry
 func TestNetClientRegistryCreate(t *testing.T) {
-	assert.Equal(t, true, true) // 占位，registry测试在集成测试中
+	assert.Equal(t, true, true) // Placeholders, registry tests are conducted in integration testing
 	_ = reflect.TypeOf(&NetClient{})
 }
 
-// ==================== 集成测试：完整规则链流程 ====================
+// ==================== Integration Testing: Complete Rule Chain Flow ====================
 
-// TestNetClientWithRuleChainIntegration 完整流程：TCP服务端 → 客户端连接 → 接收数据 → Router → 规则链 → 响应回写
+// Complete process of TestNetClientWithRuleChainIntegration: TCP server → client connection → Receive data → Router → Rule chain → Response feedback
 func TestNetClientWithRuleChainIntegration(t *testing.T) {
-	// 加载规则链
+	// Load the rule chain
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
 	if err != nil {
 		t.Fatal(err)
@@ -473,7 +473,7 @@ func TestNetClientWithRuleChainIntegration(t *testing.T) {
 
 	stop := make(chan struct{})
 
-	// 启动TCP服务端
+	// Start the TCP server
 	var serverReceivedResponse string
 	var serverMu sync.Mutex
 	go func() {
@@ -499,7 +499,7 @@ func TestNetClientWithRuleChainIntegration(t *testing.T) {
 		}
 		defer conn.Close()
 
-		// 发送JSON数据
+		// Send JSON data
 		for i := 0; i < 3; i++ {
 			msg := `{"test":"integration"}` + "\n"
 			_, err := conn.Write([]byte(msg))
@@ -509,7 +509,7 @@ func TestNetClientWithRuleChainIntegration(t *testing.T) {
 			time.Sleep(time.Millisecond * 300)
 		}
 
-		// 读取客户端回写的响应
+		// Read the client's response written back
 		reader := bufio.NewReader(conn)
 		conn.SetReadDeadline(time.Now().Add(time.Second * 3))
 		line, err := reader.ReadString('\n')
@@ -523,7 +523,7 @@ func TestNetClientWithRuleChainIntegration(t *testing.T) {
 	}()
 	time.Sleep(time.Millisecond * 200)
 
-	// 创建客户端，Router → 规则链 → 响应回写
+	// Create a client, Router → rule chain, → response feedback
 	client := &NetClient{}
 	err = client.Init(config, types.Configuration{
 		"server":     "127.0.0.1:16339",
@@ -538,12 +538,12 @@ func TestNetClientWithRuleChainIntegration(t *testing.T) {
 		assert.True(t, strings.Contains(data, `"test"`), "expected JSON data, got: "+data)
 
 		msg := exchange.In.GetMsg()
-		msg.Type = "TEST_MSG_TYPE2" // 匹配规则链中 s4 分支
+		msg.Type = "TEST_MSG_TYPE2" // Match the s4 branch in the rule chain
 
 		atomic.AddInt32(&processedCount, 1)
 		return true
 	}).To("chain:default").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		// 规则链执行完毕后，回写响应到服务端
+		// After the rule chain completes execution, it writes back the response to the server
 		result := exchange.Out.GetMsg().GetData()
 		exchange.Out.SetBody([]byte("client response: " + result + "\n"))
 		return true
@@ -552,7 +552,7 @@ func TestNetClientWithRuleChainIntegration(t *testing.T) {
 	_, err = client.AddRouter(router)
 	assert.Nil(t, err)
 
-	// 添加全局拦截器
+	// Added a global interceptor
 	client.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		return true
 	})
@@ -568,20 +568,20 @@ func TestNetClientWithRuleChainIntegration(t *testing.T) {
 	count := atomic.LoadInt32(&processedCount)
 	assert.True(t, count >= 2, fmt.Sprintf("expected processedCount >= 2, got %d", count))
 
-	// 验证服务端收到响应回写
+	// The verification server writes back the response upon receipt
 	time.Sleep(time.Millisecond * 100)
 	serverMu.Lock()
 	assert.True(t, serverReceivedResponse != "", "expected server to receive response from client")
 	serverMu.Unlock()
 }
 
-// TestNetClientReconnect 测试断线重连
+// TestNetClientReconnect Test disconnection and reconnection
 func TestNetClientReconnect(t *testing.T) {
 	stop := make(chan struct{})
 
 	var connectCount int32
 
-	// 启动一个长期存活的TCP服务端，接受两次连接
+	// Start a long-lived TCP server and accept two connections
 	go func() {
 		ln, err := net.Listen("tcp", ":16340")
 		if err != nil {
@@ -601,7 +601,7 @@ func TestNetClientReconnect(t *testing.T) {
 				return
 			}
 			atomic.AddInt32(&connectCount, 1)
-			// 发送数据后关闭连接
+			// After sending data, close the connection
 			conn.Write([]byte(fmt.Sprintf("batch %d\n", i+1)))
 			time.Sleep(time.Millisecond * 300)
 			conn.Close()
@@ -616,7 +616,7 @@ func TestNetClientReconnect(t *testing.T) {
 		"server":            "127.0.0.1:16340",
 		"protocol":          "tcp",
 		"packetMode":        "line",
-		"reconnectInterval": 1, // 1秒后重连
+		"reconnectInterval": 1, // Reconnect after 1 second
 	})
 	assert.Nil(t, err)
 
@@ -630,7 +630,7 @@ func TestNetClientReconnect(t *testing.T) {
 	err = client.Start()
 	assert.Nil(t, err)
 
-	// 等待重连和接收数据
+	// Wait for reconnection and data reception
 	time.Sleep(time.Second * 5)
 
 	client.Destroy()
@@ -642,7 +642,7 @@ func TestNetClientReconnect(t *testing.T) {
 	assert.True(t, totalConnects >= 2, fmt.Sprintf("expected at least 2 connections, got %d", totalConnects))
 }
 
-// TestNetClientHeartbeat 测试心跳发送
+// TestNetClientHeartbeat tests heartbeat transmission
 func TestNetClientHeartbeat(t *testing.T) {
 	stop := make(chan struct{})
 
@@ -692,7 +692,7 @@ func TestNetClientHeartbeat(t *testing.T) {
 		"protocol":          "tcp",
 		"packetMode":        "line",
 		"reconnectInterval": 0,
-		"heartbeatInterval": 1, // 1秒发送心跳
+		"heartbeatInterval": 1, // Send a heartbeat every 1 second
 	})
 	assert.Nil(t, err)
 
@@ -712,7 +712,7 @@ func TestNetClientHeartbeat(t *testing.T) {
 	mu.Unlock()
 }
 
-// TestNetClientResponseWriteBack 测试通过 ResponseMessage.SetBody() 回写数据到服务端
+// TestNetClientResponseWriteBack The test writes data back to the server via ResponseMessage.SetBody().
 func TestNetClientResponseWriteBack(t *testing.T) {
 	stop := make(chan struct{})
 
@@ -742,10 +742,10 @@ func TestNetClientResponseWriteBack(t *testing.T) {
 		}
 		defer conn.Close()
 
-		// 发送一行数据
+		// Send a line of data
 		conn.Write([]byte("request data\n"))
 
-		// 读取客户端回写的响应
+		// Read the client's response written back
 		reader := bufio.NewReader(conn)
 		conn.SetReadDeadline(time.Now().Add(time.Second * 3))
 		line, err := reader.ReadString('\n')
@@ -769,9 +769,9 @@ func TestNetClientResponseWriteBack(t *testing.T) {
 	assert.Nil(t, err)
 
 	router := impl.NewRouter().From("").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		// 通过 ResponseMessage.SetBody() 回写数据到服务端
+		// Writes data back to the server via ResponseMessage.SetBody().
 		exchange.Out.SetBody([]byte("ack:" + string(exchange.In.Body()) + "\n"))
-		return false // 不需要继续处理
+		return false // No further processing is needed
 	}).End()
 
 	client.AddRouter(router)
@@ -788,11 +788,11 @@ func TestNetClientResponseWriteBack(t *testing.T) {
 	mu.Unlock()
 }
 
-// TestNetClientUDPIntegration 测试UDP客户端连接
+// TestNetClientUDPIntegration Tests UDP client connections
 func TestNetClientUDPIntegration(t *testing.T) {
 	stop := make(chan struct{})
 
-	// 启动UDP服务端
+	// Launch the UDP server
 	go func() {
 		addr, err := net.ResolveUDPAddr("udp", ":16343")
 		if err != nil {
@@ -817,7 +817,7 @@ func TestNetClientUDPIntegration(t *testing.T) {
 			if err != nil {
 				return
 			}
-			// 回显
+			// Hui Xian
 			conn.WriteToUDP(buf[:n], remoteAddr)
 		}
 	}()
@@ -845,7 +845,7 @@ func TestNetClientUDPIntegration(t *testing.T) {
 	err = client.Start()
 	assert.Nil(t, err)
 
-	// 通过 Send 发送数据（服务端会回显，客户端 readLoopUDP 接收）
+	// Send data via Send (server will echo, client readLoopUDP will receive)
 	err = client.Send([]byte("hello udp"))
 	assert.Nil(t, err)
 
@@ -858,7 +858,7 @@ func TestNetClientUDPIntegration(t *testing.T) {
 	assert.True(t, count > 0, fmt.Sprintf("expected receivedCount > 0, got %d", count))
 }
 
-// TestNetClientRegistryCreateEndpoint 通过Registry创建客户端端点
+// TestNetClientRegistryCreateEndpoint creates client endpoints through the Registry
 func TestNetClientRegistryCreateEndpoint(t *testing.T) {
 	stop := make(chan struct{})
 	go startTCPEchoServer(t, stop)
@@ -866,8 +866,8 @@ func TestNetClientRegistryCreateEndpoint(t *testing.T) {
 
 	config := engine.NewConfig(types.WithDefaultPool())
 
-	// 直接构造（因为测试中无法导入 endpoint 包使用 Registry）
-	// 验证 NetClient 实现了 endpoint.Endpoint 接口
+	// Direct construct (because the endpoint package cannot be imported during testing, so Registry is used)
+	// Verify that NetClient has implemented the endpoint.Endpoint interface
 	var _ endpoint.Endpoint = &NetClient{}
 
 	ep := &NetClient{}
@@ -903,7 +903,7 @@ func TestNetClientRegistryCreateEndpoint(t *testing.T) {
 	assert.True(t, count > 0, fmt.Sprintf("expected receiveCount > 0, got %d", count))
 }
 
-// TestNetClientHeartbeatCustomData 测试自定义心跳包内容（通过配置）
+// TestNetClientHeartbeatCustomData tests the contents of a custom heartbeat package (through configuration)
 func TestNetClientHeartbeatCustomData(t *testing.T) {
 	stop := make(chan struct{})
 
@@ -969,7 +969,7 @@ func TestNetClientHeartbeatCustomData(t *testing.T) {
 	mu.Unlock()
 }
 
-// TestNetClientHeartbeatHexData 测试十六进制格式的心跳包内容
+// TestNetClientHeartbeatHexData tests the contents of the heartbeat package in hexadecimal format
 func TestNetClientHeartbeatHexData(t *testing.T) {
 	stop := make(chan struct{})
 
@@ -1035,7 +1035,7 @@ func TestNetClientHeartbeatHexData(t *testing.T) {
 	mu.Unlock()
 }
 
-// TestNetClientHeartbeatCallback 测试通过OnHeartbeat回调自定义心跳
+// TestNetClientHeartbeatCallback tests custom heartbeats using OnHeartbeat callbacks
 func TestNetClientHeartbeatCallback(t *testing.T) {
 	stop := make(chan struct{})
 
@@ -1085,7 +1085,7 @@ func TestNetClientHeartbeatCallback(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	// 自定义心跳回调：发送带时间戳的心跳
+	// Custom heartbeat callback: sends heartbeats with timestamps
 	client.OnHeartbeat = func(conn net.Conn) error {
 		atomic.AddInt32(&callbackCalled, 1)
 		data := fmt.Sprintf("HB:%d\n", time.Now().Unix())

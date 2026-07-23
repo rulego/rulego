@@ -56,7 +56,7 @@ func TestForNode(t *testing.T) {
 	t.Run("OnMsg", func(t *testing.T) {
 		data1 := "{\"humidity\":90,\"temperature\":41}"
 		data2 := "{\"humidity\":70,\"temperature\":66}"
-		//测试函数
+		//Testing the function
 		action.Functions.Register("groupActionTest1", func(ctx types.RuleContext, msg types.RuleMsg) {
 			index := msg.Metadata.GetValue(KeyLoopIndex)
 			msg.Metadata.PutValue("add"+index, "value"+index)
@@ -350,35 +350,35 @@ func TestForNode(t *testing.T) {
 	})
 }
 
-// TestForNodeMetadataAccuracy 测试for节点metadata的准确性
+// TestForNodeMetadataAccuracy Tests the accuracy of the for-node metadata
 func TestForNodeMetadataAccuracy(t *testing.T) {
-	// 创建for节点
+	// Create a for node
 	node := &ForNode{}
 	config := types.NewConfig()
 	nodeConfig := types.Configuration{
 		"range": "msg.items",
-		"do":    "testNode", // 使用节点ID而不是表达式
-		"mode":  0,          // DoNotProcess模式
+		"do":    "testNode", // Use node IDs instead of expressions
+		"mode":  0,          // DoNotProcess mode
 	}
 	err := node.Init(config, nodeConfig)
 	assert.Nil(t, err)
 
-	// 创建测试消息
+	// Create test messages
 	testData := `{"items": ["item1", "item2", "item3"]}`
 	msg := types.NewMsg(0, "TEST_MSG", types.JSON, types.NewMetadata(), testData)
 	msg.Metadata.PutValue("original_key", "original_value")
 	msg.Metadata.PutValue("test_counter", "0")
 
-	// 用于收集所有回调结果
+	// Used to collect all callback results
 	var results []types.RuleMsg
 	var mu sync.Mutex
 
-	// 创建一个简单的子节点用于测试
+	// Create a simple child node for testing
 	testNode := &CommentNode{}
 	testNodeConfig := types.Configuration{"comment": "test"}
 	testNode.Init(config, testNodeConfig)
 
-	// 创建带子节点的规则上下文
+	// Create rule contexts with child nodes
 	childrenNodes := map[string]types.Node{
 		"testNode": testNode,
 	}
@@ -387,7 +387,7 @@ func TestForNodeMetadataAccuracy(t *testing.T) {
 		defer mu.Unlock()
 		results = append(results, msg)
 
-		// 验证metadata是否保持完整
+		// Verify that the metadata remains intact
 		metadata := msg.Metadata.Values()
 		assert.Equal(t, "original_value", metadata["original_key"])
 		assert.Equal(t, "0", metadata["test_counter"])
@@ -396,11 +396,11 @@ func TestForNodeMetadataAccuracy(t *testing.T) {
 		//t.Logf("Callback %d - Metadata: %v", len(results), metadata)
 	})
 
-	// 执行节点
+	// Execution node
 	node.OnMsg(ctx, msg)
 
-	// 等待执行完成，增加超时保护
-	maxWait := time.Millisecond * 1000 // 最大等待1秒
+	// Wait for execution to complete and add timeout protection
+	maxWait := time.Millisecond * 1000 // Maximum wait is 1 second
 	checkInterval := time.Millisecond * 50
 	waited := time.Duration(0)
 
@@ -413,25 +413,25 @@ func TestForNodeMetadataAccuracy(t *testing.T) {
 		mu.Unlock()
 
 		if resultCount > 0 {
-			break // 有结果了就退出等待
+			break // Once there was a result, he would withdraw and wait
 		}
 	}
 
-	// 验证结果
+	// Verify the results
 	mu.Lock()
 	resultCount := len(results)
 	if resultCount == 0 {
 		mu.Unlock()
 		t.Fatalf("No results received after waiting %v", maxWait)
 	}
-	finalMsg := results[0] // for节点在DoNotProcess模式下只返回一个最终结果
+	finalMsg := results[0] // In DoNotProcess mode, the for node returns only one final result
 	mu.Unlock()
 
-	// 在DoNotProcess模式下，for节点处理完所有元素后返回原始消息
+	// In DoNotProcess mode, the for node returns the original message after processing all elements
 	assert.Equal(t, 1, resultCount, "Expected 1 final result in DoNotProcess mode")
 	assert.Equal(t, testData, finalMsg.GetData(), "Expected original data to be preserved")
 
-	// 验证原始metadata保持完整
+	// Verify that the original metadata remains intact
 	finalMetadata := finalMsg.Metadata.Values()
 	assert.Equal(t, "original_value", finalMetadata["original_key"])
 	assert.Equal(t, "0", finalMetadata["test_counter"])
@@ -439,35 +439,35 @@ func TestForNodeMetadataAccuracy(t *testing.T) {
 	//t.Logf("TestForNodeMetadataAccuracy completed - verified metadata accuracy in for node")
 }
 
-// TestForNodeMetadataWithMergeMode 测试for节点在合并模式下的metadata准确性
+// TestForNodeMetadataWithMergeMode Tests the accuracy of metadata for nodes in merge mode
 func TestForNodeMetadataWithMergeMode(t *testing.T) {
-	// 创建for节点
+	// Create a for node
 	node := &ForNode{}
 	config := types.NewConfig()
 	nodeConfig := types.Configuration{
 		"range": "msg.items",
 		"do":    "transformNode",
-		"mode":  1, // MergeValues模式
+		"mode":  1, // MergeValues mode
 	}
 	err := node.Init(config, nodeConfig)
 	assert.Nil(t, err)
 
-	// 创建测试消息
+	// Create test messages
 	testData := `{"items": ["item1", "item2", "item3"]}`
 	msg := types.NewMsg(0, "TEST_MSG", types.JSON, types.NewMetadata(), testData)
 	msg.Metadata.PutValue("original_key", "original_value")
 	msg.Metadata.PutValue("process_count", "0")
 
-	// 用于收集所有回调结果
+	// Used to collect all callback results
 	var results []types.RuleMsg
 	var mu sync.Mutex
 
-	// 创建一个转换节点用于测试，它会修改数据并添加metadata
+	// Create a transformation node for testing, modify the data, and add metadata
 	transformNode := &CommentNode{}
 	transformNodeConfig := types.Configuration{"comment": "transform"}
 	transformNode.Init(config, transformNodeConfig)
 
-	// 创建带子节点的规则上下文
+	// Create rule contexts with child nodes
 	childrenNodes := map[string]types.Node{
 		"transformNode": transformNode,
 	}
@@ -476,24 +476,24 @@ func TestForNodeMetadataWithMergeMode(t *testing.T) {
 		defer mu.Unlock()
 		results = append(results, msg)
 
-		// 验证metadata是否保持完整
+		// Verify that the metadata remains intact
 		metadata := msg.Metadata.Values()
 		assert.Equal(t, "original_value", metadata["original_key"])
 		assert.Equal(t, "0", metadata["process_count"])
 
-		// 验证for循环的最终状态metadata（应该是最后一次迭代的值）
-		assert.Equal(t, "2", metadata["_loopIndex"])    // 最后一个索引是2
-		assert.Equal(t, "item3", metadata["_loopItem"]) // 最后一个项目是item3
+		// Verify the final state metadata of the for loop (which should be the value of the last iteration)
+		assert.Equal(t, "2", metadata["_loopIndex"])    // The last index is 2
+		assert.Equal(t, "item3", metadata["_loopItem"]) // The last item is item3
 
 		t.Logf("Final result - RelationType: %s, Data: %s", relationType, msg.GetData())
 		t.Logf("Final metadata: %v", metadata)
 	})
 
-	// 执行节点
+	// Execution node
 	node.OnMsg(ctx, msg)
 
-	// 等待执行完成，增加超时保护
-	maxWait := time.Millisecond * 1000 // 最大等待1秒
+	// Wait for execution to complete and add timeout protection
+	maxWait := time.Millisecond * 1000 // Maximum wait is 1 second
 	checkInterval := time.Millisecond * 50
 	waited := time.Duration(0)
 
@@ -506,11 +506,11 @@ func TestForNodeMetadataWithMergeMode(t *testing.T) {
 		mu.Unlock()
 
 		if resultCount > 0 {
-			break // 有结果了就退出等待
+			break // Once there was a result, he would withdraw and wait
 		}
 	}
 
-	// 验证结果
+	// Verify the results
 	mu.Lock()
 	resultCount := len(results)
 	if resultCount == 0 {
@@ -520,15 +520,15 @@ func TestForNodeMetadataWithMergeMode(t *testing.T) {
 	finalMsg := results[0]
 	mu.Unlock()
 
-	// 在MergeValues模式下，for节点处理完所有元素后返回合并结果
+	// In MergeValues mode, after processing all elements, the for node returns the merging result
 	assert.Equal(t, 1, resultCount, "Expected 1 final result in MergeValues mode")
 
-	// 验证原始metadata保持完整
+	// Verify that the original metadata remains intact
 	finalMetadata := finalMsg.Metadata.Values()
 	assert.Equal(t, "original_value", finalMetadata["original_key"])
 	assert.Equal(t, "0", finalMetadata["process_count"])
 
-	// 验证for循环metadata反映了最后一次迭代的状态
+	// Verify that the for loop metadata reflects the state of the last iteration
 	assert.Equal(t, "2", finalMetadata["_loopIndex"])
 	assert.Equal(t, "item3", finalMetadata["_loopItem"])
 

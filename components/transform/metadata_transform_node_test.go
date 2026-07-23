@@ -136,10 +136,10 @@ func TestMetadataTransformNode(t *testing.T) {
 		time.Sleep(time.Millisecond * 20)
 	})
 
-	// 测试节点依赖表达式语法 ${node1.msg.xx}
+	// Test node dependency expression syntax ${node1.msg.xx}
 	// Test node dependency expression syntax ${node1.msg.xx}
 	t.Run("NodeDependencyExpression", func(t *testing.T) {
-		// 测试基本节点依赖
+		// Test basic node dependencies
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"mapping": map[string]string{
 				"prevTemp":    "${node1.msg.temperature}",
@@ -149,7 +149,7 @@ func TestMetadataTransformNode(t *testing.T) {
 		}, Registry)
 		assert.Nil(t, err)
 
-		// 测试混合节点依赖和元数据
+		// Testing hybrid node dependencies and metadata
 		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"mapping": map[string]string{
 				"deviceInfo": "${node1.metadata.deviceType} + '_' + msg.sensorId",
@@ -158,7 +158,7 @@ func TestMetadataTransformNode(t *testing.T) {
 		}, Registry)
 		assert.Nil(t, err)
 
-		// 测试嵌套节点依赖
+		// Test nested node dependencies
 		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"mapping": map[string]string{
 				"sensor1Data": "${node1.msg.sensor.temperature}",
@@ -168,13 +168,13 @@ func TestMetadataTransformNode(t *testing.T) {
 		}, Registry)
 		assert.Nil(t, err)
 
-		// 验证节点创建成功
+		// Verification node creation successful
 		assert.NotNil(t, node1)
 		assert.NotNil(t, node2)
 		assert.NotNil(t, node3)
 	})
 
-	// 测试不带 ${} 的传统表达式仍然正常工作
+	// Testing traditional expressions without ${} still works fine
 	// Test traditional expressions without ${} still work normally
 	t.Run("TraditionalExpression", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
@@ -212,10 +212,10 @@ func TestMetadataTransformNode(t *testing.T) {
 		test.NodeOnMsgWithChildren(t, nodeList[0].Node, nodeList[0].MsgList, nodeList[0].ChildrenNodes, nodeList[0].Callback)
 	})
 
-	// 测试无效的节点依赖表达式
+	// Test invalid node dependencies on expressions
 	// Test invalid node dependency expressions
 	t.Run("InvalidNodeDependencyExpression", func(t *testing.T) {
-		// 测试语法错误的表达式
+		// Test expressions for grammatical errors
 		_, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"mapping": map[string]string{
 				"invalid": "${node1.msg.temperature +",
@@ -223,7 +223,7 @@ func TestMetadataTransformNode(t *testing.T) {
 		}, Registry)
 		assert.NotNil(t, err)
 
-		// 测试不完整的节点依赖表达式
+		// Test incomplete node dependency expressions
 		_, err2 := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"mapping": map[string]string{
 				"incomplete": "${node1.msg.temperature",
@@ -232,7 +232,7 @@ func TestMetadataTransformNode(t *testing.T) {
 		assert.NotNil(t, err2)
 	})
 
-	// 测试表达式计算
+	// Test expression calculation
 	// Test expression evaluation
 	t.Run("ExpressionEvaluation", func(t *testing.T) {
 		node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
@@ -270,7 +270,7 @@ func TestMetadataTransformNode(t *testing.T) {
 	})
 }
 
-// TestMetadataTransformNodeDestroy 测试销毁节点
+// TestMetadataTransformNodeDestroy tests the destroyed node
 // TestMetadataTransformNodeDestroy tests destroying the node.
 func TestMetadataTransformNodeDestroy(t *testing.T) {
 	var node MetadataTransformNode
@@ -282,6 +282,6 @@ func TestMetadataTransformNodeDestroy(t *testing.T) {
 	err := node.Init(types.NewConfig(), configuration)
 	assert.Nil(t, err)
 
-	// 调用 Destroy 方法不应该引发错误
+	// Calling the Destroy method should not trigger an error
 	node.Destroy()
 }

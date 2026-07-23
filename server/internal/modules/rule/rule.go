@@ -11,9 +11,9 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
-	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/internal/engine"
+	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
@@ -24,7 +24,7 @@ const (
 	Priority   = 30
 )
 
-// Module rule 业务模块
+// Module rule: Business module
 type Module struct {
 	cfg                *config.Config
 	logger             types.Logger
@@ -33,13 +33,13 @@ type Module struct {
 	listenersMu        sync.RWMutex
 }
 
-// New 创建 rule 模块
+// New creates the rule module
 func New() *Module {
 	return &Module{}
 }
 
-func (m *Module) Name() string     { return ModuleName }
-func (m *Module) Priority() int    { return Priority }
+func (m *Module) Name() string  { return ModuleName }
+func (m *Module) Priority() int { return Priority }
 
 func (m *Module) Init(ctx *app.ModuleContext) error {
 	m.cfg = ctx.Config
@@ -84,7 +84,7 @@ func (m *Module) getUserEngine(username string) (services.UserEngine, error) {
 	return m.engine.GetOrCreate(username)
 }
 
-// ChainCatalog 实现
+// ChainCatalog implementation
 
 func (m *Module) List(username, keywords string, root *bool, disabled *bool, category string, size, page int) ([]types.RuleChain, int, error) {
 	ue, err := m.getUserEngine(username)
@@ -110,7 +110,7 @@ func (m *Module) GetAsRuleChain(username, chainId string) (types.RuleChain, erro
 	return ue.RuleStore().GetAsRuleChain(username, chainId)
 }
 
-// ChainExecutor 实现
+// ChainExecutor implementation
 
 func (m *Module) Execute(username, chainId string, msg types.RuleMsg, opts ...types.RuleContextOption) error {
 	ue, err := m.getUserEngine(username)
@@ -121,8 +121,8 @@ func (m *Module) Execute(username, chainId string, msg types.RuleMsg, opts ...ty
 		e.OnMsg(msg, opts...)
 		return nil
 	}
-	// 当前用户 pool 未找到时，仅系统智能体允许回退到 DefaultUsername 的 pool 执行（避免访问他人私有链）
-	// 注：纯匿名免登陆请求 username 已是 DefaultUsername，不会进入此分支
+	// If the current user pool is not found, only the system agent allows rollback to the pool of DefaultUsername (avoiding access to others' private chains).
+	// Note: The purely anonymous, no-login request username is already DefaultUsername and will not enter this branch
 	if username != m.cfg.DefaultUsername {
 		defaultUe, err := m.getUserEngine(m.cfg.DefaultUsername)
 		if err != nil {
@@ -147,8 +147,8 @@ func (m *Module) ExecuteAndWait(username, chainId string, msg types.RuleMsg, opt
 		e.OnMsgAndWait(msg, opts...)
 		return nil
 	}
-	// 当前用户 pool 未找到时，仅系统智能体允许回退到 DefaultUsername 的 pool 执行（避免访问他人私有链）
-	// 注：纯匿名免登陆请求 username 已是 DefaultUsername，不会进入此分支
+	// If the current user pool is not found, only the system agent allows rollback to the pool of DefaultUsername (avoiding access to others' private chains).
+	// Note: The purely anonymous, no-login request username is already DefaultUsername and will not enter this branch
 	if username != m.cfg.DefaultUsername {
 		defaultUe, err := m.getUserEngine(m.cfg.DefaultUsername)
 		if err != nil {
@@ -164,7 +164,7 @@ func (m *Module) ExecuteAndWait(username, chainId string, msg types.RuleMsg, opt
 	return fmt.Errorf("chain not found: %s", chainId)
 }
 
-// RuleAdminService 实现
+// RuleAdminService implementation
 
 func (m *Module) SaveAndLoad(username, chainId string, def []byte) error {
 	ue, err := m.getUserEngine(username)
@@ -175,14 +175,14 @@ func (m *Module) SaveAndLoad(username, chainId string, def []byte) error {
 	if err := json.Unmarshal(def, &ruleChain); err != nil {
 		return err
 	}
-	// 保护服务端字段：禁止通过 SaveAndLoad 注入 systemAgent 标记
-	// （否则任意链可伪装为不可删除的系统智能体）。系统智能体仅由服务端
-	// 在 DefaultUsername 命名空间下部署（system_agents.go 经 markSystemAgent 标记）；
-	// 普通用户命名空间一律剥离该标记，杜绝越权伪装。
+	// Protect server fields: Prevent injecting the systemAgent tag via SaveAndLoad
+	// (Otherwise, any chain can disguise itself as an immutable system agent.) The system agent is only on the server side
+	// Deploy under the DefaultUsername namespace (system_agents.go is marked with markSystemAgent);
+	// Ordinary user namespaces must remove this marker to prevent unauthorized disguise.
 	if ue.Username() != m.cfg.DefaultUsername && ruleChain.RuleChain.AdditionalInfo != nil {
 		delete(ruleChain.RuleChain.AdditionalInfo, constants.KeySystemAgent)
 	}
-	// 系统智能体不更新最后操作规则链ID
+	// The system agent does not update the chain ID of the last operation rule
 	if !m.isSystemAgent(ruleChain) {
 		_ = ue.SaveSetting(constants.SettingKeyLatestChainId, chainId)
 	}
@@ -258,7 +258,7 @@ func (m *Module) Undeploy(username, chainId string) error {
 	return nil
 }
 
-// AddLifecycleListener 注册链生命周期监听器（线程安全），须在 App.Start() 之前调用。
+// AddLifecycleListener registers the chain lifecycle listener (thread safety) and must be called before App.Start().
 func (m *Module) AddLifecycleListener(listener services.ChainLifecycleListener) {
 	m.listenersMu.Lock()
 	defer m.listenersMu.Unlock()
@@ -285,7 +285,7 @@ func (m *Module) fireDeleted(username, chainId string, dsl []byte) {
 		func(l services.ChainLifecycleListener, e services.ChainLifecycleEvent) { l.OnDeleted(e) })
 }
 
-// broadcast 向所有监听器派发事件，单个监听器 panic 不影响其他。
+// Broadcast dispatches events to all listeners; a single monitor panic does not affect others.
 func (m *Module) broadcast(event services.ChainLifecycleEvent, invoke func(services.ChainLifecycleListener, services.ChainLifecycleEvent)) {
 	for _, l := range m.snapshotListeners() {
 		m.safeNotify(l, func(l services.ChainLifecycleListener) { invoke(l, event) })
@@ -300,7 +300,7 @@ func (m *Module) snapshotListeners() []services.ChainLifecycleListener {
 	return snapshot
 }
 
-// safeNotify 调用单个监听器，捕获 panic 避免影响其他监听器或主流程。
+// safeNotify calls a single listener to capture panic and avoid affecting other listeners or the main flow.
 func (m *Module) safeNotify(l services.ChainLifecycleListener, invoke func(services.ChainLifecycleListener)) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -336,7 +336,7 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 	if chainId == "" {
 		return errors.New("chainId is empty")
 	}
-	// 保护服务端字段：禁止通过基础信息注入 systemAgent 标记（否则任意链可伪装为不可删除的系统智能体）
+	// Protect server-side fields: Prevent injecting systemAgent tags through basic information (otherwise, any link can be disguised as an immutable system agent)
 	if baseInfo.AdditionalInfo != nil {
 		delete(baseInfo.AdditionalInfo, constants.KeySystemAgent)
 	}
@@ -348,7 +348,7 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 	ruleEngine, ok := ue.GetEngine(chainId)
 	if ok {
 		def := ruleEngine.RootRuleChainCtx().Definition()
-		// 保留原有 systemAgent 标记（系统智能体编辑后仍保持受保护），其余以提交的 additionalInfo 为准
+		// Keep the original systemAgent tag (the system agent remains protected after editing), and the rest should be based on the submitted additionalInfo
 		sysAgent, _ := def.RuleChain.GetAdditionalInfo(constants.KeySystemAgent)
 		def.RuleChain.AdditionalInfo = baseInfo.AdditionalInfo
 		if def.RuleChain.AdditionalInfo == nil {
@@ -449,7 +449,7 @@ func (m *Module) ComponentService(username string) services.UserEngine {
 	return ue
 }
 
-// EngineManager 返回引擎管理器
+// EngineManager returns to the engine manager
 func (m *Module) EngineManager() services.EngineManager {
 	return m.engine
 }
@@ -458,11 +458,10 @@ func (m *Module) MCPService(username string) interface{} {
 	return (*mcpServiceStub)(nil)
 }
 
-// mcpServiceStub 占位实现，由 with_ai 构建标签下的真实实现替换
+// mcpServiceStub placeholder implementation, replaced by the real implementation under the with_ai build tag
 type mcpServiceStub struct{}
 
 func (s *mcpServiceStub) Name() string { return "mcp (not enabled)" }
-
 
 func (m *Module) fillAdditionalInfo(ue services.UserEngine, def *types.RuleChain) {
 	if def.RuleChain.AdditionalInfo == nil {
@@ -485,10 +484,10 @@ func (m *Module) isSystemAgent(ruleChain types.RuleChain) bool {
 	return false
 }
 
-// isSystemAgentEngine 判断引擎对应的规则链是否为系统智能体。
-// 用于跨用户执行回退的鉴权：仅系统智能体（部署在 DefaultUsername 名下的共享链）
-// 允许被其他用户执行，避免访问 admin 的私有链。
-// 注：纯匿名免登陆请求 username 已是 DefaultUsername，不会进入调用此方法的回退分支。
+// isSystemAgentEngine determines whether the rule chain corresponding to the engine is a system agent.
+// Authentication for cross-user rollbacks: system agent only (shared chain deployed under DefaultUsername)
+// Allows other users to execute and avoids accessing admin's private chain.
+// Note: A purely anonymous, no-login request username is already DefaultUsername and will not enter the revert branch that calls this method.
 func (m *Module) isSystemAgentEngine(e types.RuleEngine) bool {
 	if e == nil {
 		return false

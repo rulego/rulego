@@ -12,7 +12,7 @@ import (
 	"github.com/rulego/rulego/server/internal/constants"
 )
 
-// getService 从容器获取服务，失败时写入 500 错误响应（不暴露内部细节）
+// getService fetchs services from the container and writes a 500 error response on failure (without exposing internal details)
 func getService[T any](s *Server, exchange *endpointApi.Exchange, name string) (T, bool) {
 	svc, err := app.GetAs[T](s.container, name)
 	if err != nil {
@@ -23,24 +23,24 @@ func getService[T any](s *Server, exchange *endpointApi.Exchange, name string) (
 	return svc, true
 }
 
-// writeError 写入错误响应
+// writeError Writes the error response
 func writeError(exchange *endpointApi.Exchange, code int, err error) {
 	exchange.Out.SetStatusCode(code)
 	exchange.Out.SetBody([]byte(fmt.Sprintf(`{"error":%q}`, err.Error())))
 }
 
-// writeBadRequest 写入 400 错误响应（客户端错误，可以暴露信息）
+// writeBadRequest writes 400 error responses (client errors, can expose information)
 func writeBadRequest(exchange *endpointApi.Exchange, err error) {
 	writeError(exchange, http.StatusBadRequest, err)
 }
 
-// writeInternalError 写入 500 错误响应（隐藏内部错误细节）
+// writeInternalError writes 500 error responses (hides internal error details)
 func writeInternalError(exchange *endpointApi.Exchange, err error) {
 	exchange.Out.SetStatusCode(http.StatusInternalServerError)
 	exchange.Out.SetBody([]byte(`{"error":"internal server error"}`))
 }
 
-// writeJSON 写入 JSON 响应，序列化失败时返回 500
+// writeJSON writes JSON responses, returns 500 when serialization fails
 func writeJSON(exchange *endpointApi.Exchange, v interface{}) {
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -50,7 +50,7 @@ func writeJSON(exchange *endpointApi.Exchange, v interface{}) {
 	exchange.Out.SetBody(b)
 }
 
-// intParam 从消息元数据获取整数参数
+// intParam retrieves integer parameters from message metadata
 func intParam(msg *types.RuleMsg, key string, defaultVal int) int {
 	if i, err := strconv.Atoi(msg.Metadata.GetValue(key)); err == nil {
 		return i
@@ -58,12 +58,12 @@ func intParam(msg *types.RuleMsg, key string, defaultVal int) int {
 	return defaultVal
 }
 
-// writeNoContent 写入 204 无内容响应
+// writeNoContent writes 204 but no content response
 func writeNoContent(exchange *endpointApi.Exchange) {
 	exchange.Out.SetStatusCode(204)
 }
 
-// writeListResult 写入分页列表响应
+// writeListResult writes the paged list response
 func writeListResult(exchange *endpointApi.Exchange, items interface{}, total, page, size int) {
 	writeJSON(exchange, map[string]interface{}{
 		"total": total,
@@ -73,12 +73,12 @@ func writeListResult(exchange *endpointApi.Exchange, items interface{}, total, p
 	})
 }
 
-// metadataUsername 从 exchange 获取用户名
+// metadataUsername Retrieves the username from the exchange
 func metadataUsername(exchange *endpointApi.Exchange) string {
 	return exchange.In.GetMsg().Metadata.GetValue(constants.KeyUsername)
 }
 
-// metadataValue 从 exchange 获取指定 key 的元数据值
+// metadataValue retrieves the metadata value of the specified key from the exchange
 func metadataValue(exchange *endpointApi.Exchange, key string) string {
 	return exchange.In.GetMsg().Metadata.GetValue(key)
 }

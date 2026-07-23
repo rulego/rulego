@@ -28,49 +28,49 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
-// MqttClientNode 为MQTT代理提供MQTT客户端功能以发布消息的外部组件
+// MqttClientNode provides the MQTT client functionality for the MQTT proxy as an external component for publishing messages
 // MqttClientNode provides MQTT client functionality for publishing messages to MQTT brokers.
 //
-// 核心算法：
+// Core algorithm:
 // Core Algorithm:
-// 1. 使用变量替换解析主题模板 - Parse topic template with variable substitution
-// 2. 建立MQTT连接并配置QoS参数 - Establish MQTT connection and configure QoS parameters
-// 3. 发布消息到指定主题 - Publish message to specified topic
-// 4. 支持自动重连和连接池管理 - Support automatic reconnection and connection pool management
+// 1. Use variables to replace parse topic templates - Parse topic template with variable substitution
+// 2. Establish MQTT connection and configure QoS parameters
+// 3. Publish message to specified topic - Publish message to specified topic
+// 4. Support for automatic reconnection and connection pool management - Support automatic reconnection and connection pool management
 //
-// 配置说明 - Configuration:
+// Configuration Description:
 //
 //	{
-//		"server": "127.0.0.1:1883",          // MQTT broker address  MQTT 代理地址
-//		"username": "user",                   // Authentication username  认证用户名
-//		"password": "pass",                   // Authentication password  认证密码
-//		"topic": "/device/${metadata.deviceId}",  // Publish topic with variable substitution  发布主题支持变量替换
-//		"qos": 1,                            // QoS level (0, 1, 2)  QoS 级别
-//		"maxReconnectInterval": 60,          // Reconnection interval in seconds  重连间隔（秒）
-//		"cleanSession": true,                // Clean session flag  清理会话标志
-//		"clientID": "rulegoClient",          // MQTT client identifier  MQTT 客户端标识符
-//		"caFile": "/path/to/ca.crt",         // CA certificate file for SSL/TLS  SSL/TLS 的 CA 证书文件
-//		"certFile": "/path/to/client.crt",   // Client certificate file  客户端证书文件
-//		"certKeyFile": "/path/to/client.key" // Client private key file  客户端私钥文件
+//		"server": "127.0.0.1:1883", // MQTT broker address MQTT proxy address
+//		"username": "user",                   // Authentication username
+//		"password": "pass",                   // Authentication password
+//		"topic": "/device/${metadata.deviceId}",  // Publish topic with variable substitution
+//		"qos": 1, // QoS level (0, 1, 2) QoS level
+//		"maxReconnectInterval": 60,          // Reconnection interval in seconds
+//		"cleanSession": true,                // Clean session flag
+//		"clientID": "rulegoClient", // MQTT client identifier MQTT client identifier
+//		"caFile": "/path/to/ca.crt", // CA certificate file for SSL/TLS SSL/TLS CA certificate file
+//		"certFile": "/path/to/client.crt",   // Client certificate file
+//		"certKeyFile": "/path/to/client.key" // Client private key file
 //	}
 //
-// 主题变量替换 - Topic variable substitution:
-//   - ${metadata.key}: 访问消息元数据 - Access message metadata
-//   - ${msg.key}: 访问消息负荷字段 - Access message payload fields
+// Topic variable substitution:
+//   - ${metadata.key}: Access message metadata
+//   - ${msg.key}: Access message payload fields
 //
-// QoS级别 - QoS levels:
-//   - 0: 最多一次投递（发送即忘）- At most once delivery (fire and forget)
-//   - 1: 至少一次投递（确认投递）- At least once delivery (acknowledged delivery)
-//   - 2: 恰好一次投递（保证投递）- Exactly once delivery (assured delivery)
+// QoS levels:
+//   - 0: At most once delivery (fire and forget)
+//   - 1: At least once delivery (acknowledged delivery)
+//   - 2: Exactly once delivery (assured delivery)
 //
-// 连接管理 - Connection management:
-//   - 指数退避自动重连直到最大间隔 - Automatic reconnection with exponential backoff up to maximum interval
-//   - SharedNode模式高效资源利用 - SharedNode pattern for efficient resource utilization
+// Connection management:
+//   - Automatic reconnection with exponential backoff up to maximum interval
+//   - SharedNode pattern for efficient resource utilization - SharedNode pattern for efficient resource utilization
 //
-// 使用示例 - Usage example:
+// Usage example:
 //
 //	// Publish sensor data with dynamic topic
-//	// 使用动态主题发布传感器数据
+//	Publish sensor data using dynamic themes
 //	{
 //		"id": "mqttPublish",
 //		"type": "mqttClient",
@@ -125,17 +125,17 @@ func (x *MqttClientNodeConfiguration) ToMqttConfig() mqtt.Config {
 
 type MqttClientNode struct {
 	base.SharedNode[*mqtt.Client]
-	//节点配置
+	//Node configuration
 	Config MqttClientNodeConfiguration
-	// topicTemplate 主题模板，用于解析动态主题
+	// topicTemplate, used to parse dynamic themes
 	// topicTemplate template for resolving dynamic topics
 	topicTemplate el.Template
-	// hasVar 标识模板是否包含变量
+	// hasVar identifies whether the template contains variables
 	// hasVar indicates whether the template contains variables
 	hasVar bool
 }
 
-// Type 组件类型
+// Type returns the component type
 func (x *MqttClientNode) Type() string {
 	return "mqttClient"
 }
@@ -149,16 +149,16 @@ func (x *MqttClientNode) New() types.Node {
 	}}
 }
 
-// Init 初始化
+// Init initializes the component
 func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	// 兼容旧 key
+	// Compatible with old keys
 	mqtt.NormalizeConfigKeys(configuration)
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
 		_ = x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow, func() (*mqtt.Client, error) {
 			return x.initClient()
 		}, func(client *mqtt.Client) error {
-			// 清理回调函数
+			// Cleanup callback function
 			return client.Close()
 		})
 		x.topicTemplate, err = el.NewTemplate(x.Config.Topic)
@@ -170,7 +170,7 @@ func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Confi
 	return err
 }
 
-// OnMsg 处理消息，使用变量替换解析主题并发布MQTT消息
+// OnMsg handles messages, uses variables to replace parsing topics, and publishes MQTT messages
 // OnMsg processes messages by parsing topic with variable substitution and publishing MQTT messages.
 func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var evn map[string]interface{}
@@ -190,12 +190,12 @@ func (x *MqttClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (x *MqttClientNode) Destroy() {
 	_ = x.SharedNode.Close()
 }
 
-// initClient 初始化客户端
+// initClient initializes the client
 func (x *MqttClientNode) initClient() (*mqtt.Client, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()

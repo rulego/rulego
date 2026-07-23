@@ -19,25 +19,25 @@
 // to share their instantiated connection resources (clients) with other components,
 // achieving the purpose of saving system resources.
 //
-// Package node_pool 提供共享节点资源管理，实现不同规则链和组件间的高效连接复用。
-// 它使网络连接类型的组件能够将其实例化的连接资源（客户端）与其他组件共享，
-// 达到节省系统资源的目的。
+// Package node_pool provides shared node resource management, enabling efficient connection and reuse between different rule chains and components.
+// It enables network-connected components to share their instantiated connection resources (clients) with other components,
+// This achieves the goal of saving system resources.
 //
 // Connection Reuse Scenarios:
-// 连接复用场景：
+// Connection multiplexing scenarios:
 //
 // Multiple components can reuse the same connection resources:
-// 多个组件可以复用相同的连接资源：
-//   - Multiple MQTT clients sharing the same MQTT connection  多个MQTT客户端共享同一个MQTT连接
-//   - Multiple database operations sharing the same database connection  多个数据库操作共享同一个数据库连接
-//   - Multiple HTTP endpoints sharing the same port  多个HTTP端点共享同一个端口
-//   - Message queue clients sharing connection pools  消息队列客户端共享连接池
+// Multiple components can reuse the same connection resources:
+//   - Multiple MQTT clients sharing the same MQTT connection
+//   - Multiple database operations sharing the same database connection
+//   - Multiple HTTP endpoints sharing the same port
+//   - Message queue clients sharing connection pools
 //
 // SharedNode Interface Requirement:
-// SharedNode 接口要求：
+// SharedNode interface requirements:
 //
 // Components that support connection sharing must implement the SharedNode interface:
-// 支持连接共享的组件必须实现 SharedNode 接口：
+// Components supporting connection sharing must implement the SharedNode interface:
 //
 //	type SharedNode interface {
 //		GetInstance() (interface{}, error)
@@ -45,18 +45,18 @@
 //	}
 //
 // Most officially provided network connection components support this pattern.
-// 大部分官方提供的网络连接组件都支持这种模式。
+// Most official network connection components support this mode.
 //
 // Usage Pattern:
-// 使用模式：
+// Usage mode:
 //
 //  1. Initialize shared resource nodes by loading a rule chain definition:
-//     通过加载规则链定义初始化共享资源节点：
+//     Initialize shared resource nodes by loading the rule chain and defining them:
 //
 //     node_pool.DefaultNodePool.Load(dsl []byte)
 //
 //  2. Reference shared resources using the ref://{resourceId} pattern:
-//     使用 ref://{resourceId} 模式引用共享资源：
+//     Use the ref://{resourceId} pattern to reference shared resources:
 //
 //     {
 //     "id": "node_2",
@@ -68,7 +68,7 @@
 //     }
 //
 // Node Pool Configuration Example:
-// 节点池配置示例：
+// Example of node pool configuration:
 //
 //	{
 //		"ruleChain": {
@@ -90,37 +90,37 @@
 //	}
 //
 // Difference from Node Reference:
-// 与节点引用的区别：
+// Differences from node references:
 //
 //   - Node Reference: Completely references the specified node instance, including all configurations
-//     节点引用：完全引用指定节点实例，包括节点所有配置
+//     Node reference: fully references the specified node instance, including all node configurations
 //
 //   - Shared Resource Node: Reuses the node's connection instance, but other configurations are independent
-//     共享资源节点：复用节点的连接实例，但是节点的其他配置是独立的
+//     Shared Resource Node: Reuses connection instances of nodes, but other configurations of nodes are independent
 //
 // For example, with MQTT client nodes:
-// 例如，对于MQTT客户端节点：
+// For example, for an MQTT client node:
 //   - Shared: Connection configuration (MQTT address, reconnection interval, etc.)
-//     共享：连接类配置（MQTT地址、重连间隔等）
+//     Sharing: Connection class configuration (MQTT address, reconnect interval, etc.)
 //   - Independent: Other configurations like publish topics for each node
-//     独立：其他配置如每个节点的发布主题
+//     Independent: Other configurations such as each node's release theme
 //
 // RuleGo-Server Integration:
-// RuleGo-Server 集成：
+// RuleGo-Server Integration:
 //
 // In RuleGo-Server, configure the node pool file in config.conf:
-// 在 RuleGo-Server 中，在 config.conf 中配置节点池文件：
+// In RuleGo-Server, configure the node pool file in config.conf:
 //
 //	node_pool_file=./node_pool.json
 //
 // Thread Safety:
-// 线程安全：
+// Thread safety:
 //
 // The node pool implementation is thread-safe and supports concurrent access
 // from multiple goroutines. All operations are protected by appropriate
 // synchronization mechanisms.
-// 节点池实现是线程安全的，支持多个 goroutine 的并发访问。
-// 所有操作都受适当的同步机制保护。
+// The node pool implementation is thread-safe and supports concurrent access to multiple goroutines.
+// All operations are protected by appropriate synchronization mechanisms.
 package node_pool
 
 import (
@@ -140,8 +140,8 @@ var (
 	// ErrNotImplemented is returned when a component does not implement the SharedNode interface.
 	// Only components implementing SharedNode can be added to the node pool for connection sharing.
 	//
-	// ErrNotImplemented 当组件未实现 SharedNode 接口时返回。
-	// 只有实现了 SharedNode 的组件才能添加到节点池中进行连接共享。
+	// ErrNotImplemented Returns when the component does not implement the SharedNode interface.
+	// Only components that implement SharedNode can be added to the node pool for connection sharing.
 	ErrNotImplemented = errors.New("not SharedNode")
 )
 var _ types.NodePool = (*NodePool)(nil)
@@ -151,19 +151,19 @@ var _ types.NodePool = (*NodePool)(nil)
 // across the entire application. Most applications can use this default instance
 // without creating custom node pools.
 //
-// DefaultNodePool 是全局默认组件资源池管理器。
-// 它为整个应用程序管理共享节点资源提供便捷的单例实例。
-// 大多数应用程序可以使用此默认实例，无需创建自定义节点池。
+// DefaultNodePool is the global default component resource pool manager.
+// It provides convenient singleton instances for managing shared node resources across the entire application.
+// Most applications can use this default instance without creating custom node pools.
 //
 // Usage:
-// 使用：
+// Usage:
 //
 //	// Load shared nodes from JSON configuration
-//	// 从JSON配置加载共享节点
+//	Load the shared node from JSON configuration
 //	DefaultNodePool.Load(jsonConfig)
 //
 //	// Get a shared connection instance
-//	// 获取共享连接实例
+//	Obtain the shared connection instance
 //	if instance, err := DefaultNodePool.GetInstance("local_mqtt_client"); err == nil {
 //	    // Use the shared MQTT client
 //	}
@@ -173,55 +173,55 @@ var DefaultNodePool = NewNodePool(engine.NewConfig())
 // and their connection resources. It enables efficient reuse of network connections and
 // other expensive resources across multiple rule chains and components.
 //
-// NodePool 是线程安全的组件资源池管理器，管理共享节点实例及其连接资源。
-// 它使网络连接和其他昂贵资源能够在多个规则链和组件间高效复用。
+// NodePool is a thread-safe component resource pool manager that manages shared node instances and their connection resources.
+// It enables network connections and other expensive resources to be efficiently reused across multiple rule chains and components.
 //
 // Key Features:
-// 主要功能：
-//   - Thread-safe concurrent access to shared resources  线程安全的共享资源并发访问
-//   - Support for both endpoint and rule node sharing  支持端点和规则节点的共享
-//   - Automatic resource lifecycle management  自动资源生命周期管理
-//   - JSON-based configuration loading  基于JSON的配置加载
-//   - Dynamic resource addition and removal  动态资源添加和删除
+// Main features:
+//   - Thread-safe concurrent access to shared resources
+//   - Support for both endpoint and rule node sharing
+//   - Automatic resource lifecycle management
+//   - JSON-based configuration loading
+//   - Dynamic resource addition and removal
 //
 // Resource Management:
-// 资源管理：
+// Resource Management:
 // The pool maintains a mapping of resource IDs to shared node contexts,
 // allowing components to reference shared resources by ID using the ref://{resourceId} pattern.
-// 池维护资源ID到共享节点上下文的映射，允许组件使用ref://{resourceId}模式通过ID引用共享资源。
+// The pool maintains the mapping of resource IDs to shared node contexts, allowing components to reference shared resources via ID using the ref://{resourceId} pattern.
 type NodePool struct {
 	// Config provides the rule engine configuration used for creating and managing shared nodes.
 	// This configuration determines how nodes are parsed, initialized, and managed.
 	//
-	// Config 提供用于创建和管理共享节点的规则引擎配置。
-	// 此配置决定节点如何解析、初始化和管理。
+	// Config provides a rule engine configuration for creating and managing shared nodes.
+	// This configuration determines how nodes are parsed, initialized, and managed.
 	Config types.Config
 	// entries is a thread-safe map storing shared node contexts.
 	// Key: resourceId (string) - unique identifier for the shared resource
 	// Value: *sharedNodeCtx - wrapper containing the shared node and its metadata
 	//
-	// entries 是存储共享节点上下文的线程安全映射。
-	// 键：resourceId (string) - 共享资源的唯一标识符
-	// 值：*sharedNodeCtx - 包含共享节点及其元数据的包装器
+	// entries are thread-safe mappings that store the context of shared nodes.
+	// Key: resourceId (string) - The unique identifier for shared resources
+	// Value: *sharedNodeCtx - A wrapper containing shared nodes and their metadata
 	entries sync.Map
 }
 
 // NewNodePool creates a new node pool instance with the specified configuration.
 // The configuration determines how nodes are parsed, initialized, and managed within the pool.
 //
-// NewNodePool 使用指定配置创建新的节点池实例。
-// 配置决定节点在池中如何解析、初始化和管理。
+// NewNodePool creates a new node pool instance using the specified configuration.
+// Configuration determines how nodes are parsed, initialized, and managed within the pool.
 //
 // Parameters:
-// 参数：
-//   - config: Rule engine configuration for node management  用于节点管理的规则引擎配置
+// Parameters:
+//   - config: Rule engine configuration for node management
 //
 // Returns:
-// 返回：
-//   - *NodePool: New node pool instance  新的节点池实例
+// Returns:
+//   - *NodePool: New node pool instance
 //
 // Usage:
-// 使用：
+// Usage:
 //
 //	config := engine.NewConfig()
 //	pool := NewNodePool(config)
@@ -235,21 +235,21 @@ func NewNodePool(config types.Config) *NodePool {
 // This is the primary method for initializing a node pool from configuration files.
 // The DSL should contain a rule chain definition with endpoints and nodes sections.
 //
-// Load 从JSON/DSL配置数据解析并加载共享节点定义。
-// 这是从配置文件初始化节点池的主要方法。
-// DSL应包含带有端点和节点部分的规则链定义。
+// Load: Configure data parsing from JSON/DSL and load the shared node definition.
+// This is the main method for initializing the node pool from the configuration file.
+// The DSL should include a rule chain definition with endpoints and node sections.
 //
 // Parameters:
-// 参数：
-//   - dsl: JSON configuration data defining the shared nodes  定义共享节点的JSON配置数据
+// Parameters:
+//   - dsl: JSON configuration data defining the shared nodes
 //
 // Returns:
-// 返回：
-//   - types.NodePool: The node pool instance (self) for method chaining  用于方法链的节点池实例（自身）
-//   - error: Parse or initialization error if any  解析或初始化错误（如果有）
+// Returns:
+//   - types.NodePool: The node pool instance (self) for method chaining
+//   - error: Parse or initialization error if any
 //
 // Configuration Format:
-// 配置格式：
+// Configuration format:
 //
 //	{
 //	    "ruleChain": {"id": "pool_id", "name": "Pool Name"},
@@ -260,11 +260,11 @@ func NewNodePool(config types.Config) *NodePool {
 //	}
 //
 // Error Conditions:
-// 错误条件：
-//   - Invalid JSON format  无效的JSON格式
-//   - Node type not found in registry  注册表中未找到节点类型
-//   - Duplicate node IDs  重复的节点ID
-//   - Component doesn't implement SharedNode interface  组件未实现SharedNode接口
+// False condition:
+//   - Invalid JSON format
+//   - Node type not found in registry
+//   - Duplicate node IDs
+//   - Component doesn't implement SharedNode interface
 func (n *NodePool) Load(dsl []byte) (types.NodePool, error) {
 	if def, err := n.Config.Parser.DecodeRuleChain(dsl); err != nil {
 		return nil, err
@@ -392,8 +392,8 @@ func (n *NodePool) GetInstance(id string) (interface{}, error) {
 	}
 }
 
-// Lookup 实现 types.ResourceLookup：转发 GetInstance，供 ref:// 统一解析。
-// 读路径走底层 entries sync.Map，无锁。
+// Lookup implements types.ResourceLookup: forwards GetInstance for unified parsing by ref://.
+// Read paths run through the lower entries sync.Map, unlocked.
 func (n *NodePool) Lookup(id string) (any, bool) {
 	v, err := n.GetInstance(id)
 	if err != nil {
@@ -475,7 +475,7 @@ func (n *sharedNodeCtx) GetInstance() (interface{}, error) {
 		}
 	}
 
-	// 使用读锁保护节点实例的访问
+	// Use a read lock to protect access to node instances
 	if n.RuleNodeCtx == nil {
 		return nil, fmt.Errorf("RuleNodeCtx is nil")
 	}
@@ -553,10 +553,10 @@ func (n *sharedNodeCtx) SharedNode() types.SharedNode {
 	return node.(types.SharedNode)
 }
 
-// ReloadSelf 重写ReloadSelf方法以确保线程安全的重新加载
+// RewriteSelf Rewrites the ReloadSelf method to ensure thread safety during reloading
 func (n *sharedNodeCtx) ReloadSelf(def []byte) error {
 	if n.Endpoint != nil {
-		// 对于endpoint类型，先检查是否是DynamicEndpoint接口
+		// For the endpoint type, first check whether it is a DynamicEndpoint interface
 		if dynamicEp, ok := n.Endpoint.(endpointApi.DynamicEndpoint); ok {
 			return dynamicEp.Reload(def)
 		}
@@ -565,7 +565,7 @@ func (n *sharedNodeCtx) ReloadSelf(def []byte) error {
 	if n.RuleNodeCtx == nil {
 		return fmt.Errorf("RuleNodeCtx is nil")
 	}
-	// 对于RuleNodeCtx类型，已经在RuleNodeCtx.ReloadSelf中处理了线程安全
+	// For the RuleNodeCtx type, thread safety has already been handled in RuleNodeCtx.ReloadSelf
 	return n.RuleNodeCtx.ReloadSelf(def)
 }
 

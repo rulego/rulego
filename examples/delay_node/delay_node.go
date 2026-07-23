@@ -27,7 +27,7 @@ import (
 
 var ruleEngine types.RuleEngine
 
-// 初始化规则引擎实例和配置
+// Initialize the rule engine instance and configuration
 func init() {
 	config := rulego.NewConfig()
 	//config.OnDebug = func(chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
@@ -40,7 +40,7 @@ func init() {
 	}
 }
 
-// 测试延迟组件
+// Testing latency components
 func main() {
 	//var i = 0
 	//for i < 20 {
@@ -54,7 +54,7 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	start := time.Now()
-	//第1条,走Success链
+	//Rule 1: Follow the Success chain
 	ruleEngine.OnMsg(msg1, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		fmt.Println("用时:" + time.Since(start).String())
 		useTime := time.Since(start)
@@ -68,7 +68,7 @@ func main() {
 	msg2 := types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":42}")
 
 	//fmt.Println("msg2 id=" + msg2.Id)
-	//第2条，因为队列已经满，走Failure链
+	//Rule 2: Since the queue is already full, go for the Failure chain
 	ruleEngine.OnMsg(msg2)
 
 	wg.Wait()

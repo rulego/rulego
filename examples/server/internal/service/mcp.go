@@ -36,7 +36,7 @@ import (
 	"sync"
 )
 
-// McpService 自定义组件服务
+// McpService custom component services
 type McpService struct {
 	username          string
 	config            config.Config
@@ -69,8 +69,8 @@ func (s *McpService) GetRuleConfig() types.Config {
 
 func (s *McpService) NewMCPServer() *server.MCPServer {
 	mcpServer := server.NewMCPServer(
-		"RuleGo MCP Server", // 服务器名称
-		"1.0.0",             // 服务器版本
+		"RuleGo MCP Server", // Server name
+		"1.0.0",             // Server version
 	)
 	return mcpServer
 }
@@ -98,11 +98,11 @@ func (s *McpService) Callbacks() types.Callbacks {
 }
 func (s *McpService) LoadTools() {
 	if s.mcpServer != nil {
-		// 从组件列表添加工具
+		// Add tools from the component list
 		if s.config.MCP.LoadComponentsAsTool {
 			s.LoadToolsFromComponents()
 		}
-		//if s.config.MCP.LoadChainsAsTool {//已经从Callbacks.OnNew 加载
+		//if s.config.MCP.LoadChainsAsTool {// Already loaded from Callbacks.OnNew
 		//	s.LoadToolsFromChains()
 		//}
 		if s.config.MCP.LoadApisAsTool {
@@ -127,7 +127,7 @@ func (s *McpService) DeleteTools(names ...string) {
 	s.mcpServer.DeleteTools(names...)
 }
 
-// LoadToolsFromComponents 从组件列表添加工具
+// LoadToolsFromComponents adds tools from the component list
 func (s *McpService) LoadToolsFromComponents() {
 	components := s.componentService.ComponentsRegistry().GetComponentForms()
 	for name, component := range components {
@@ -137,7 +137,7 @@ func (s *McpService) LoadToolsFromComponents() {
 	}
 }
 
-// CheckExclude 检查组件是否需要排除
+// CheckExclude Checks whether components need to be excluded
 func (s *McpService) CheckExclude(name string, isComponent bool) bool {
 	if isComponent {
 		for _, item := range strings.Split(s.config.MCP.ExcludeComponents, ",") {
@@ -155,7 +155,7 @@ func (s *McpService) CheckExclude(name string, isComponent bool) bool {
 	return false
 }
 
-// AddToolsFromComponent 从组件定义添加工具
+// AddToolsFromComponent: Adds tools from component definitions
 func (s *McpService) AddToolsFromComponent(name string, component types.ComponentForm) {
 	var toolOptions []mcp.ToolOption
 	for _, item := range component.Fields {
@@ -192,12 +192,12 @@ func (s *McpService) AddToolsFromComponent(name string, component types.Componen
 	if component.Desc != "" {
 		desc = component.Desc
 	}
-	toolOptions = append(toolOptions, mcp.WithDescription(desc)) // 工具描述
-	// 添加工具
-	tool := mcp.NewTool(name, // 工具名称
+	toolOptions = append(toolOptions, mcp.WithDescription(desc)) // Tool description
+	// Add tools
+	tool := mcp.NewTool(name, // Tool name
 		toolOptions...,
 	)
-	// 为工具添加处理器
+	// Add processors to the tool
 	s.mcpServer.AddTool(tool, s.componentToolHandler(name))
 }
 func (s *McpService) componentToolHandler(componentType string) func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -227,7 +227,7 @@ func (s *McpService) componentToolHandler(componentType string) func(ctx context
 	}
 }
 
-// LoadToolsFromChains 从规则链列表添加工具
+// LoadToolsFromChains Adds tools from the list of rule chains
 func (s *McpService) LoadToolsFromChains() {
 	s.Pool.Range(func(key, value any) bool {
 		if item, ok := value.(*engine.RuleEngine); ok {
@@ -253,7 +253,7 @@ func (s *McpService) AddToolsFromChain(id string, def types.RuleChain) {
 				tool = mcp.NewToolWithRawSchema(id, desc, schema)
 			}
 		} else {
-			//自动从所有节点中获取所有变量
+			//Automatically retrieves all variables from all nodes
 			vars := dsl.ParseVars(types.MsgKey, def)
 			if len(vars) > 0 {
 				var toolOptions []mcp.ToolOption
@@ -266,7 +266,7 @@ func (s *McpService) AddToolsFromChain(id string, def types.RuleChain) {
 				tool = mcp.NewTool(id, mcp.WithDescription(desc), mcp.WithObject(constants.KeyInMessage, mcp.Description("input message")))
 			}
 		}
-		// 为工具添加处理器
+		// Add processors to the tool
 		s.mcpServer.AddTool(tool, s.ruleChainToolHandler(id))
 	}
 }
@@ -302,17 +302,17 @@ func (s *McpService) ruleChainToolHandler(chainId string) func(ctx context.Conte
 }
 
 const (
-	// ToolNameSaveRuleChain 保存规则链
+	// ToolNameSaveRuleChain stores the rule chain
 	ToolNameSaveRuleChain = "saveRuleChain"
-	// ToolNameListRuleChain 列出规则链
+	// ToolNameListRuleChain lists the rule chain
 	ToolNameListRuleChain = "listRuleChain"
-	// ToolNameDeleteRuleChain 删除规则链
+	// ToolNameDeleteRuleChain Deletes the rule chain
 	ToolNameDeleteRuleChain = "deleteRuleChain"
-	// ToolNameExecuteRuleChain 执行规则链
+	// ToolNameExecuteRuleChain executes the rule chain
 	ToolNameExecuteRuleChain = "executeRuleChain"
 )
 
-// AddRuleApiTools 添加规则链工具
+// AddRuleApiTools Rule chain tool
 func (s *McpService) AddRuleApiTools() {
 	s.AddListRuleTool()
 	s.AddSaveRuleTool()
@@ -320,7 +320,7 @@ func (s *McpService) AddRuleApiTools() {
 	s.AddExecuteRuleTool()
 }
 
-// AddListRuleTool 添加列出规则链工具
+// AddListRuleTool Adds a list rule chain tool
 func (s *McpService) AddListRuleTool() {
 	tool := mcp.NewTool(ToolNameListRuleChain,
 		mcp.WithDescription("List RuleGo rule chain"),
@@ -370,7 +370,7 @@ func (s *McpService) AddListRuleTool() {
 	})
 }
 
-// AddSaveRuleTool 添加保存规则链工具
+// AddSaveRuleTool Adds a chain of saving rule chain tools
 func (s *McpService) AddSaveRuleTool() {
 	tool := mcp.NewTool(ToolNameSaveRuleChain,
 		mcp.WithDescription("Save or update RuleGo rule chain"),
@@ -398,7 +398,7 @@ func (s *McpService) AddSaveRuleTool() {
 	})
 }
 
-// AddDeleteRuleTool 添加删除规则链工具
+// AddDeleteRuleTool Chain of Add/Remove Rule Chain
 func (s *McpService) AddDeleteRuleTool() {
 	tool := mcp.NewTool(ToolNameDeleteRuleChain,
 		mcp.WithDescription("Delete RuleGo rule chain"),

@@ -16,7 +16,7 @@
 
 package transform
 
-//规则链节点配置示例：
+//Example of rule chain node configuration:
 //{
 //	"id": "s1",
 //	"type": "metadataTransform",
@@ -43,7 +43,7 @@ func init() {
 	Registry.Add(&MetadataTransformNode{})
 }
 
-// MetadataTransformNodeConfiguration 节点配置
+// MetadataTransformNodeConfiguration
 type MetadataTransformNodeConfiguration struct {
 	// Mapping is a field-to-expression map for metadata transformation.
 	Mapping map[string]string `json:"mapping" label:"Mapping" desc:"Field-to-expression map, e.g. {\"temperature\":\"msg.temperature\"}" required:"true"`
@@ -51,16 +51,16 @@ type MetadataTransformNodeConfiguration struct {
 	IsNew bool `json:"isNew" label:"Is New" desc:"true=create new metadata structure, false=update existing keys"`
 }
 
-// MetadataTransformNode 使用expr表达式转换或者创建新的元数据
-// 则把多个字段转换结果替换元数据对应key（如果isNew=true，则创建新的元数据结构体），转到下一个节点
-// 转换结构如下：
+// MetadataTransformNode uses expr expressions to transform or create new metadata
+// then convert multiple fields to replace the metadata corresponding keys (if isNew=true, create a new metadata struct), and proceed to the next node
+// The conversion structure is as follows:
 //
 //	{
 //	  fieldKey1:fieldValue1
 //	  fieldKey2:fieldValue2
 //	}
 //
-// fieldValue 可以使用 expr 从当前的msg或者metadata中获取值，例如:
+// fieldValue can be obtained using expr from the current msg or metadata, for example:
 //
 //	"configuration": {
 //		"mapping": {
@@ -70,20 +70,20 @@ type MetadataTransformNodeConfiguration struct {
 //		"productType": "metaData.productType",
 //	}
 //
-// 通过`id`变量访问消息id
-// 通过`ts`变量访问消息时间戳
-// 通过`data`变量访问消息原始数据
-// 通过`msg`变量访问转换后消息体，如果消息的dataType是json类型，可以通过 `msg.XX`方式访问msg的字段。例如:`msg.temperature > 50;`
-// 通过`metadata`变量访问消息元数据。例如 `metadata.customerName`
-// 通过`type`变量访问消息类型
-// 通过`dataType`变量访问数据类型
+// Access the message `id` via the 'id' variable
+// Access message timestamps via the `ts` variable
+// Access the original message `data` through the 'data' variable
+// Access the transformed message body via the `msg` variable. If the message's dataType is of JSON type, you can use `msg.XX` to access the msg field. For example: `msg.temperature > 50;` `
+// Access message `metadata` through the 'metadata' variable. For example, `metadata.customerName`
+// Access message `type`s via the 'type' variable
+// Access data types via the `dataType` variable
 type MetadataTransformNode struct {
-	//节点配置
-	Config         MetadataTransformNodeConfiguration
+	//Node configuration
+	Config          MetadataTransformNodeConfiguration
 	templateMapping map[string]el.Template
 }
 
-// Type 组件类型
+// Type returns the component type
 func (x *MetadataTransformNode) Type() string {
 	return "metadataTransform"
 }
@@ -96,9 +96,9 @@ func (x *MetadataTransformNode) New() types.Node {
 	}}
 }
 
-// Init 初始化
+// Init initializes the component
 func (x *MetadataTransformNode) Init(_ types.Config, configuration types.Configuration) error {
-	//删除默认配置
+	//Delete the default configuration
 	x.Config.Mapping = map[string]string{}
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
@@ -114,7 +114,7 @@ func (x *MetadataTransformNode) Init(_ types.Config, configuration types.Configu
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg processes a message
 func (x *MetadataTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	evn := base.NodeUtils.GetEvn(ctx, msg)
 	mapResult := make(map[string]string)
@@ -141,6 +141,6 @@ func (x *MetadataTransformNode) Desc() string {
 	return "Transform message metadata using expr-lang mapping. isNew=true replaces all metadata, false updates existing keys. Variables: id, ts, data, msg, metadata, type, dataType"
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (x *MetadataTransformNode) Destroy() {
 }

@@ -29,7 +29,7 @@ import (
 const (
 	// defaultNodeIdPrefix is the prefix used for auto-generated node IDs
 	// when no explicit ID is provided in the node definition.
-	// defaultNodeIdPrefix 是当节点定义中没有提供明确 ID 时用于自动生成节点 ID 的前缀。
+	// defaultNodeIdPrefix is a prefix used to automatically generate node IDs when no explicit ID is provided in the node definition.
 	defaultNodeIdPrefix = "node"
 )
 
@@ -37,79 +37,79 @@ const (
 // It acts as a wrapper around the actual node implementation, providing additional
 // context and metadata required for rule chain execution.
 //
-// RuleNodeCtx 表示规则引擎中节点组件的实例。
-// 它充当实际节点实现的包装器，提供规则链执行所需的额外上下文和元数据。
+// RuleNodeCtx represents an instance of a node component in the rule engine.
+// It acts as a wrapper for the actual node implementation, providing the additional context and metadata needed for the execution of the rule chain.
 //
 // Architecture:
-// 架构：
+// Structure:
 //
 //	RuleNodeCtx embeds the types.Node interface, allowing it to act as both
 //	a node wrapper and a node implementation. This design provides:
-//	RuleNodeCtx 嵌入 types.Node 接口，允许它既充当节点包装器又充当节点实现。
-//	此设计提供：
-//	- Direct access to node methods through interface embedding  通过接口嵌入直接访问节点方法
-//	- Additional context and configuration management  额外的上下文和配置管理
-//	- Thread-safe operations with mutex protection  使用互斥锁保护的线程安全操作
-//	- Hot reloading capabilities  热重载功能
+//	RuleNodeCtx embed types.Node interface, allowing it to act both as a node wrapper and as a node implementation.
+//	This design provides:
+//	- Direct access to node methods through interface embedding
+//	- Additional context and configuration management
+//	- Thread-safe operations with mutex protection
+//	- Hot reloading capabilities
 type RuleNodeCtx struct {
 	// types.Node is the embedded node implementation providing the core functionality.
 	// This embedding allows RuleNodeCtx to act as a node while adding wrapper capabilities.
-	// types.Node 是嵌入的节点实现，提供核心功能。
-	// 这种嵌入允许 RuleNodeCtx 在添加包装器功能的同时充当节点。
+	// types.Node is an embedded node implementation that provides core functionality.
+	// This embedding allows RuleNodeCtx to act as a node while adding wrapper functionality.
 	types.Node
 
 	// ChainCtx provides access to the parent rule chain context,
 	// enabling node-to-chain communication and access to shared resources.
-	// ChainCtx 提供对父规则链上下文的访问，支持节点到链的通信和对共享资源的访问。
+	// ChainCtx provides access to the parent rule chain context, supports node-to-chain communication, and access to shared resources.
 	ChainCtx *RuleChainCtx
 
 	// SelfDefinition contains the configuration and metadata for this specific node,
 	// including its type, ID, configuration parameters, and behavioral settings.
-	// SelfDefinition 包含此特定节点的配置和元数据，
-	// 包括其类型、ID、配置参数和行为设置。
+	// SelfDefinition contains the configuration and metadata of this specific node,
+	// Including its type, ID, configuration parameters, and behavior settings.
 	SelfDefinition *types.RuleNode
 
 	// config holds the global rule engine configuration,
 	// providing access to component registry, parsers, and global settings.
-	// config 保存全局规则引擎配置，提供对组件注册表、解析器和全局设置的访问。
+	// config stores global rule engine configurations and provides access to component registry, parsers, and global settings.
 	config types.Config
 
 	// aspects contains the list of AOP aspects applied to this node,
 	// enabling cross-cutting concerns like logging, validation, and metrics.
-	// aspects 包含应用于此节点的 AOP 切面列表，
-	// 支持如日志、验证和指标等横切关注点。
+	// aspects contains the AOP aspects applied to this node,
+	// Supports cross-cutting concerns such as logs, validation, and metrics.
 	aspects types.AspectList
 
 	// isInitNetResource indicates whether network resources should be initialized
 	// for this node. This flag is used for nodes that require network connectivity.
-	// isInitNetResource 指示是否应为此节点初始化网络资源。
-	// 此标志用于需要网络连接的节点。
+	// isInitNetResource indicates whether network resources should be initialized for this node.
+	// This flag is used for nodes that require network connectivity.
 	isInitNetResource bool
 
 	// sync.RWMutex provides thread-safe access to the node context,
 	// ensuring concurrent safety during hot reloads and message processing.
-	// sync.RWMutex 为节点上下文提供线程安全访问，
-	// 确保在热重载和消息处理期间的并发安全。
+	// sync.RWMutex provides thread-safe access to the node context,
+	// Ensure concurrency security during hot overloads and message processing.
 	sync.RWMutex
 }
 
 // InitRuleNodeCtx initializes a RuleNodeCtx with the given parameters.
 // This is the standard initialization function for regular nodes without network resources.
 //
-// InitRuleNodeCtx 使用给定参数初始化 RuleNodeCtx。
-// 这是不带网络资源的常规节点的标准初始化函数。
+// InitRuleNodeCtx initializes RuleNodeCtx using a given parameter.
+// This is the standard initialization function for regular nodes without network resources.
 //
 // Parameters:
-// 参数：
-//   - config: Global rule engine configuration  全局规则引擎配置
-//   - chainCtx: Parent rule chain context  父规则链上下文
-//   - aspects: List of AOP aspects to apply  要应用的 AOP 切面列表
-//   - selfDefinition: Node definition and configuration  节点定义和配置
+// Parameters:
+//   - config: Global rule engine configuration
+//   - chainCtx: Parent rule chain context
+//   - aspects: List of AOP aspects to apply
+//   - selfDefinition: Node definition and configuration
 //
 // Returns:
-// 返回：
-//   - *RuleNodeCtx: Initialized node context  已初始化的节点上下文
-//   - error: Initialization error if any  如果有的话，初始化错误
+// Returns:
+//   - *RuleNodeCtx: Initialized node context
+//   - error: Initialization error if any
 func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.AspectList, selfDefinition *types.RuleNode) (*RuleNodeCtx, error) {
 	return initRuleNodeCtx(config, chainCtx, aspects, selfDefinition, false)
 }
@@ -117,20 +117,20 @@ func InitRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 // InitNetResourceNodeCtx initializes a RuleNodeCtx with network resources.
 // This function is used for nodes that require network connectivity and resources.
 //
-// InitNetResourceNodeCtx 初始化带有网络资源的 RuleNodeCtx。
-// 此函数用于需要网络连接和资源的节点。
+// InitNetResourceNodeCtx initializes RuleNodeCtx with network resources.
+// This function is used for nodes that require network connectivity and resources.
 //
 // Parameters:
-// 参数：
-//   - config: Global rule engine configuration  全局规则引擎配置
-//   - chainCtx: Parent rule chain context  父规则链上下文
-//   - aspects: List of AOP aspects to apply  要应用的 AOP 切面列表
-//   - selfDefinition: Node definition and configuration  节点定义和配置
+// Parameters:
+//   - config: Global rule engine configuration
+//   - chainCtx: Parent rule chain context
+//   - aspects: List of AOP aspects to apply
+//   - selfDefinition: Node definition and configuration
 //
 // Returns:
-// 返回：
-//   - *RuleNodeCtx: Initialized node context with network resources  已初始化的带网络资源的节点上下文
-//   - error: Initialization error if any  如果有的话，初始化错误
+// Returns:
+//   - *RuleNodeCtx: Initialized node context with network resources
+//   - error: Initialization error if any
 func InitNetResourceNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.AspectList, selfDefinition *types.RuleNode) (*RuleNodeCtx, error) {
 	return initRuleNodeCtx(config, chainCtx, aspects, selfDefinition, true)
 }
@@ -139,37 +139,37 @@ func InitNetResourceNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects
 // It handles the complete node initialization process including component creation,
 // configuration processing, and aspect integration.
 //
-// initRuleNodeCtx 是 RuleNodeCtx 的核心初始化函数。
-// 它处理完整的节点初始化过程，包括组件创建、配置处理和切面集成。
+// initRuleNodeCtx is the core initialization function of RuleNodeCtx.
+// It handles the complete node initialization process, including component creation, configuration processing, and facet integration.
 //
 // Parameters:
-// 参数：
-//   - config: Global rule engine configuration  全局规则引擎配置
-//   - chainCtx: Parent rule chain context  父规则链上下文
-//   - aspects: List of AOP aspects to apply  要应用的 AOP 切面列表
-//   - selfDefinition: Node definition and configuration  节点定义和配置
-//   - isInitNetResource: Whether to initialize network resources  是否初始化网络资源
+// Parameters:
+//   - config: Global rule engine configuration
+//   - chainCtx: Parent rule chain context
+//   - aspects: List of AOP aspects to apply
+//   - selfDefinition: Node definition and configuration
+//   - isInitNetResource: Whether to initialize network resources
 //
 // Returns:
-// 返回：
-//   - *RuleNodeCtx: Initialized node context  已初始化的节点上下文
-//   - error: Initialization error if any  如果有的话，初始化错误
+// Returns:
+//   - *RuleNodeCtx: Initialized node context
+//   - error: Initialization error if any
 //
 // Initialization Process:
-// 初始化过程：
-//  1. Execute before-init aspects  执行初始化前切面
-//  2. Create node instance from component registry  从组件注册表创建节点实例
-//  3. Process configuration variables and templates  处理配置变量和模板
-//  4. Inject chain context and node definition  注入链上下文和节点定义
-//  5. Initialize the node with processed configuration  使用处理过的配置初始化节点
-//  6. Return wrapped node context  返回包装的节点上下文
+// Initialization process:
+//  1. Execute before-init aspects
+//  2. Create node instance from component registry
+//  3. Process configuration variables and templates
+//  4. Inject chain context and node definition
+//  5. Initialize the node with processed configuration
+//  6. Return wrapped node context
 //
 // Error Handling:
-// 错误处理：
-//   - Aspect execution failures  切面执行失败
-//   - Component creation errors  组件创建错误
-//   - Configuration processing failures  配置处理失败
-//   - Node initialization errors  节点初始化错误
+// Error handling:
+//   - Aspect execution failures
+//   - Component creation errors
+//   - Configuration processing failures
+//   - Node initialization errors
 func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.AspectList, selfDefinition *types.RuleNode, isInitNetResource bool) (*RuleNodeCtx, error) {
 	// Retrieve aspects for the engine.
 	_, nodeBeforeInitAspects, _, _, _ := aspects.GetEngineAspects()
@@ -209,18 +209,18 @@ func initRuleNodeCtx(config types.Config, chainCtx *RuleChainCtx, aspects types.
 			return &RuleNodeCtx{}, fmt.Errorf("nodeType:%s for id:%s init error:%s", selfDefinition.Type, selfDefinition.Id, err.Error())
 		} else {
 			// Parse and add node dependencies during initialization
-			// 在初始化时解析并添加节点依赖
+			// Parses and adds node dependencies during initialization
 			if chainCtx != nil {
 				referencedNodeIds := dsl.ExtractReferencedNodeIds(selfDefinition.Configuration)
 				for _, dependentNodeId := range referencedNodeIds {
 					// Only add dependencies for nodes that exist in the rule chain
-					// 只为规则链中存在的节点添加依赖
+					// Only adds dependencies for nodes present in the rule chain
 					if dsl.IsNodeIdDefined(*chainCtx.SelfDefinition, dependentNodeId) {
 						chainCtx.AddNodeDependency(selfDefinition.Id, dependentNodeId)
 					}
 				}
 			}
-			
+
 			// Return a RuleNodeCtx with the initialized node and provided context and definition.
 			return &RuleNodeCtx{
 				Node:              node,
@@ -273,25 +273,25 @@ func (rn *RuleNodeCtx) ReloadSelf(def []byte) error {
 // This method implements hot reloading for individual nodes, allowing dynamic
 // updates without stopping the entire rule chain.
 //
-// ReloadSelfFromDef 从 RuleNode 定义重新加载节点。
-// 此方法为单个节点实现热重载，允许在不停止整个规则链的情况下进行动态更新。
+// ReloadSelfFromDef Reloads the node from the RuleNode definition.
+// This method enables hot overloading for a single node, allowing dynamic updates without stopping the entire rule chain.
 //
 // Parameters:
-// 参数：
-//   - def: New node definition  新的节点定义
+// Parameters:
+//   - def: New node definition
 //
 // Returns:
-// 返回：
-//   - error: Reload error if any  如果有的话，重载错误
+// Returns:
+//   - error: Reload error if any
 func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
-	// 阶段1：快速读取当前配置（最小读锁时间）
+	// Stage 1: Quickly read the current configuration (minimum lock read time)
 	rn.RLock()
 	chainCtx := rn.ChainCtx
 	config := rn.config
 	isInitNetResource := rn.isInitNetResource
 	rn.RUnlock()
 
-	// 阶段2：在锁外执行耗时的新节点创建和初始化
+	// Stage 2: Create and initialize new nodes outside the lock, which is time-consuming
 	var newNodeCtx *RuleNodeCtx
 	var err error
 	if chainCtx == nil {
@@ -304,16 +304,16 @@ func (rn *RuleNodeCtx) ReloadSelfFromDef(def types.RuleNode) error {
 		return err
 	}
 
-	// 阶段3：快速原子替换（最小写锁时间）
+	// Stage 3: Fast atomic replacement (minimum write-lock time)
 	rn.Lock()
-	oldNode := rn.Node                            // 保存旧节点引用，锁外销毁
-	rn.Node = newNodeCtx.Node                     // 原子替换最关键的Node字段
-	rn.config = newNodeCtx.config                 // 更新配置
-	rn.aspects = newNodeCtx.aspects               // 更新切面
-	rn.SelfDefinition = newNodeCtx.SelfDefinition // 更新节点定义
+	oldNode := rn.Node                            // Save old node references and destroy them out of lock
+	rn.Node = newNodeCtx.Node                     // Atoms replace the most critical Node fields
+	rn.config = newNodeCtx.config                 // Update the configuration
+	rn.aspects = newNodeCtx.aspects               // Update the facet
+	rn.SelfDefinition = newNodeCtx.SelfDefinition // Update node definitions
 	rn.Unlock()
 
-	// 阶段4：锁外清理旧资源（避免在锁内执行耗时的清理操作）
+	// Stage 4: Cleaning old resources outside the lock (avoiding time-consuming cleaning operations inside the lock)
 	if oldNode != nil {
 		oldNode.Destroy()
 	}
@@ -342,20 +342,20 @@ func (rn *RuleNodeCtx) DSL() []byte {
 	return result
 }
 
-// OnMsg 提供并发安全的消息处理，保护内嵌Node访问
+// OnMsg provides concurrent secure message processing to protect embedded Node access
 // OnMsg provides concurrent-safe message processing with protected access to the embedded Node.
 // This method ensures thread safety during message processing by using read locks to protect
 // against concurrent modifications during hot reloads.
 //
-// OnMsg 提供并发安全的消息处理，通过使用读锁保护嵌入的 Node 访问。
-// 此方法通过使用读锁防止热重载期间的并发修改，确保消息处理期间的线程安全。
+// OnMsg provides concurrent secure message processing by using lock reads to protect embedded node access.
+// This method uses read locks to prevent concurrent modifications during hot overload, ensuring thread safety during message processing.
 //
 // Parameters:
-// 参数：
-//   - ctx: Rule context for message processing  用于消息处理的规则上下文
-//   - msg: Message to be processed  要处理的消息
+// Parameters:
+//   - ctx: Rule context for message processing
+//   - msg: Message to be processed
 func (rn *RuleNodeCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	// 使用读锁保护Node字段的访问，与ReloadSelfFromDef的写锁互斥
+	// Uses read lock to protect access to Node fields, mutually exclusively with write locks in ReloadSelfFromDef
 	rn.RLock()
 	node := rn.Node
 	rn.RUnlock()
@@ -368,12 +368,12 @@ func (rn *RuleNodeCtx) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 // Copy copies the contents of a new RuleNodeCtx into this one.
 // This method is used for updating node configuration during reloads.
 //
-// Copy 将新 RuleNodeCtx 的内容复制到当前实例中。
-// 此方法用于在重载期间更新节点配置。
+// Copy copies the contents of the new RuleNodeCtx to the current instance.
+// This method is used to update node configurations during overload.
 //
 // Parameters:
-// 参数：
-//   - newCtx: New node context to copy from  要复制的新节点上下文
+// Parameters:
+//   - newCtx: New node context to copy from
 func (rn *RuleNodeCtx) Copy(newCtx *RuleNodeCtx) {
 	rn.Lock()
 	defer rn.Unlock()
@@ -399,7 +399,7 @@ func processVariables(config types.Config, chainCtx *RuleChainCtx, configuration
 	if chainCtx != nil {
 		varsEnv = copyMap(chainCtx.vars)
 		decryptSecrets = copyMap(chainCtx.decryptSecrets)
-		// 注入规则链定义，支持通过 ${ruleChain.id} 等方式访问规则链属性
+		// Injecting rule chain definitions, supporting access to rule chain properties via ${ruleChain.id} and other methods
 		if chainCtx.SelfDefinition != nil {
 			ruleChainEnv = &chainCtx.SelfDefinition.RuleChain
 		}
@@ -411,7 +411,7 @@ func processVariables(config types.Config, chainCtx *RuleChainCtx, configuration
 		types.RuleChainKey: ruleChainEnv,
 	}
 
-	// 递归处理所有配置值
+	// Recurrent processing of all configuration values
 	for key, value := range configuration {
 		result[key] = processValueRecursive(env, value)
 	}
@@ -426,28 +426,28 @@ func processVariables(config types.Config, chainCtx *RuleChainCtx, configuration
 	return result, nil
 }
 
-	// processValueRecursive 递归处理配置值，替换模板变量
+// processValueRecursive reverses configuration values and replaces template variables
 func processValueRecursive(env map[string]interface{}, value interface{}) interface{} {
 	switch v := value.(type) {
 	case string:
 		return str.ExecuteTemplate(v, env)
 	case map[string]interface{}:
-		// 递归处理 map
+		// Recurrent processing map
 		subResult := make(map[string]interface{})
 		for k, subV := range v {
 			subResult[k] = processValueRecursive(env, subV)
-        }
-        return subResult
+		}
+		return subResult
 	case []interface{}:
-        // 递归处理 slice
-        resultList := make([]interface{}, len(v))
-        for i, item := range v {
-            resultList[i] = processValueRecursive(env, item)
-        }
-        return resultList
-    default:
-        return value
-    }
+		// Recurrent processing slice
+		resultList := make([]interface{}, len(v))
+		for i, item := range v {
+			resultList[i] = processValueRecursive(env, item)
+		}
+		return resultList
+	default:
+		return value
+	}
 }
 
 // copyMap creates a shallow copy of a string map.

@@ -4,37 +4,37 @@ type Event struct {
 	Type string `json:"Type"`
 }
 
-// DebugData 调试数据
-// OnDebug 回调函数提供的数据
+// DebugData debugging data
+// The data provided by the OnDebug callback function
 type DebugData struct {
-	//debug数据发生时间
+	//Debug data occurrence time
 	Ts int64 `json:"ts"`
-	//节点ID
+	//Node ID
 	NodeId string `json:"nodeId"`
-	//流向OUT/IN
+	//Flow to OUT/IN
 	FlowType string `json:"flowType"`
-	//消息类型
+	//Message type
 	MsgType string `json:"msgType"`
-	//消息ID
+	//Message ID
 	MsgId string `json:"msgId"`
-	//消息内容
+	//News content
 	Data string `json:"data"`
-	//消息元数据
+	//Message metadata
 	Metadata string `json:"metadata"`
-	//Err 错误
+	//Err is incorrect
 	Err string `json:"err"`
-	//关系
+	//Relationships
 	RelationType string `json:"relationType"`
 }
 
-// DebugDataPage 分页返回数据
+// DebugDataPage paginates to return data
 type DebugDataPage struct {
-	//每页多少条，默认读取所有
+	//How many entries per page is read by default
 	Size int `json:"PageSize"`
-	//当前第几页，默认读取所有
+	//Current page number, read all by default
 	Current int `json:"current"`
-	//总数
+	//Total
 	Total int `json:"total"`
-	//记录
+	//Record
 	Items []DebugData `json:"items"`
 }

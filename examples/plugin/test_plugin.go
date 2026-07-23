@@ -15,12 +15,12 @@ var (
 	shareValue = "shareValue"
 )
 
-// 测试插件，需要在linux运行
-// 先编译plugin.go
+// Test plugins need to run on Linux
+// First, compile plugin.go
 // go build -buildmode=plugin -o plugin.so plugin.go
 func main() {
 	_ = rulego.Registry.Unregister("test")
-	//注册插件组件
+	//Register plugin components
 	err := rulego.Registry.RegisterPlugin("test", "./plugin.so")
 	if err != nil {
 		log.Fatal(err)

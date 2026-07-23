@@ -14,15 +14,15 @@ const (
 	settingsFileName    = "settings.ini"
 )
 
-// SettingStore 基于 INI 文件的用户设置存储实现。
-// 每个用户目录下有一个 settings.ini 文件存储用户设置。
+// SettingStore is implemented based on user settings storage based on INI files.
+// Each user directory has a settings.ini file to store user settings.
 type SettingStore struct {
 	Config config.Config
 	fs     *FileStorage
 }
 
-// NewSettingStore 创建用户设置文件存储
-// namespace 为用户目录路径
+// NewSettingStore creates user settings file storage
+// namespace is the path to the user's directory
 func NewSettingStore(cfg config.Config, namespace string) (*SettingStore, error) {
 	fs, err := NewFileStorage(path.Join(namespace, settingsFileName))
 	if err != nil {
@@ -34,22 +34,22 @@ func NewSettingStore(cfg config.Config, namespace string) (*SettingStore, error)
 	}, nil
 }
 
-// Save 保存设置键值对
+// Save: Save the key-value pair
 func (d *SettingStore) Save(key, value string) error {
 	return d.fs.Save(settingsSectionName, key, value)
 }
 
-// Delete 删除设置
+// Delete the settings
 func (d *SettingStore) Delete(key string) error {
 	return d.fs.Delete(settingsSectionName, key)
 }
 
-// Get 获取设置值，自动去除空白字符
+// Get the set value and automatically remove whitespaces
 func (d *SettingStore) Get(key string) string {
 	return strings.TrimSpace(d.fs.Get(settingsSectionName, key))
 }
 
-// Setting 获取完整的用户设置结构体
+// Setting: Retrieves the complete user settings structure
 func (d *SettingStore) Setting() model.UserSetting {
 	var setting model.UserSetting
 	values := d.fs.GetAll(settingsSectionName)

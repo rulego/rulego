@@ -42,7 +42,7 @@ func (n *UpperNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if v != nil {
 		msg.Metadata.PutValue(shareKey, v.(string))
 	}
-	//增加新的共享数据
+	//Add new shared data
 	modifyCtx := context.WithValue(ctx.GetContext(), addShareKey, addShareValue)
 	ctx.SetContext(modifyCtx)
 	// Send the modified message to the next node

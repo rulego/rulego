@@ -11,8 +11,8 @@ import (
 func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
-	// GET /config/global - 获取全局配置
-	ep.GET(endpoint.NewRouter().From(base+"/config/global").Process(s.authWithPermission("config", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// GET /config/global - Get the global configuration
+	ep.GET(endpoint.NewRouter().From(base + "/config/global").Process(s.authWithPermission("config", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		configSvc, ok := getService[services.ConfigService](s, exchange, services.KeyConfigService)
 		if !ok {
 			return false
@@ -30,8 +30,8 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// POST /config/global - 更新全局配置
-	ep.POST(endpoint.NewRouter().From(base+"/config/global").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// POST /config/global - Update global configuration
+	ep.POST(endpoint.NewRouter().From(base + "/config/global").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		configSvc, ok := getService[services.ConfigService](s, exchange, services.KeyConfigService)
 		if !ok {
 			return false

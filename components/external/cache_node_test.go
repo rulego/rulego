@@ -74,20 +74,20 @@ func TestCacheGetNode(t *testing.T) {
 			"outputMode": 0,
 		}, Registry)
 
-		//合并到元数据
+		//Merged into metadata
 		node1, err := test.CreateAndInitNode("cacheGet", types.Configuration{
 			"keys":       []LevelKey{{CacheLevelChain, "testKey"}},
 			"outputMode": 0,
 		}, Registry)
 		assert.Nil(t, err)
 
-		//合并到消息负荷
+		//Merged into the message load
 		node2, err := test.CreateAndInitNode("cacheGet", types.Configuration{
 			"keys":       []LevelKey{{CacheLevelChain, "testKey"}},
 			"outputMode": 1,
 		}, Registry)
 		assert.Nil(t, err)
-		//新消息负荷
+		//New news burden
 		node3, err := test.CreateAndInitNode("cacheGet", types.Configuration{
 			"keys":       []LevelKey{{CacheLevelChain, "testKey"}},
 			"outputMode": 2,
@@ -262,26 +262,26 @@ func TestCacheGetNode(t *testing.T) {
 	})
 
 	t.Run("WhenKeyNotFoundFailure", func(t *testing.T) {
-		// whenKeyNotFound="failure"，Mode 0 全 miss 走失败链
+		// whenKeyNotFound="failure", Mode 0 all misses and goes through the chain of failure
 		node0, err := test.CreateAndInitNode("cacheGet", types.Configuration{
-			"keys":           []LevelKey{{CacheLevelChain, "missingKeyFailure0"}},
-			"outputMode":     0,
+			"keys":            []LevelKey{{CacheLevelChain, "missingKeyFailure0"}},
+			"outputMode":      0,
 			"whenKeyNotFound": WhenKeyNotFoundFailure,
 		}, Registry)
 		assert.Nil(t, err)
 
-		// whenKeyNotFound="failure"，Mode 1 全 miss 走失败链
+		// whenKeyNotFound="failure", Mode 1 misses all and goes through the chain of failure
 		node1, err := test.CreateAndInitNode("cacheGet", types.Configuration{
-			"keys":           []LevelKey{{CacheLevelChain, "missingKeyFailure1"}},
-			"outputMode":     1,
+			"keys":            []LevelKey{{CacheLevelChain, "missingKeyFailure1"}},
+			"outputMode":      1,
 			"whenKeyNotFound": WhenKeyNotFoundFailure,
 		}, Registry)
 		assert.Nil(t, err)
 
-		// whenKeyNotFound="failure"，Mode 2 全 miss 走失败链
+		// whenKeyNotFound="failure", Mode 2 misses all and goes through the chain of failure
 		node2, err := test.CreateAndInitNode("cacheGet", types.Configuration{
-			"keys":           []LevelKey{{CacheLevelChain, "missingKeyFailure2"}},
-			"outputMode":     2,
+			"keys":            []LevelKey{{CacheLevelChain, "missingKeyFailure2"}},
+			"outputMode":      2,
 			"whenKeyNotFound": WhenKeyNotFoundFailure,
 		}, Registry)
 		assert.Nil(t, err)
@@ -310,10 +310,10 @@ func TestCacheGetNode(t *testing.T) {
 	})
 
 	t.Run("WhenKeyNotFoundSuccess", func(t *testing.T) {
-		// whenKeyNotFound="success"，Mode 2 全 miss 走成功链
+		// whenKeyNotFound = "success", Mode 2 misses all successful chains
 		node2, err := test.CreateAndInitNode("cacheGet", types.Configuration{
-			"keys":           []LevelKey{{CacheLevelChain, "missingKeySuccess2"}},
-			"outputMode":     2,
+			"keys":            []LevelKey{{CacheLevelChain, "missingKeySuccess2"}},
+			"outputMode":      2,
 			"whenKeyNotFound": WhenKeyNotFoundSuccess,
 		}, Registry)
 		assert.Nil(t, err)
@@ -330,17 +330,17 @@ func TestCacheGetNode(t *testing.T) {
 	})
 
 	t.Run("WhenKeyNotFoundCaseInsensitive", func(t *testing.T) {
-		// 大小写不敏感："Failure" / "SUCCESS" 也能识别
+		// Case insensitivity: "Failure" / "SUCCESS" can also be recognized
 		nodeFailure, err := test.CreateAndInitNode("cacheGet", types.Configuration{
-			"keys":           []LevelKey{{CacheLevelChain, "missingKeyCiFailure"}},
-			"outputMode":     0,
+			"keys":            []LevelKey{{CacheLevelChain, "missingKeyCiFailure"}},
+			"outputMode":      0,
 			"whenKeyNotFound": "Failure",
 		}, Registry)
 		assert.Nil(t, err)
 
 		nodeSuccess, err := test.CreateAndInitNode("cacheGet", types.Configuration{
-			"keys":           []LevelKey{{CacheLevelChain, "missingKeyCiSuccess"}},
-			"outputMode":     2,
+			"keys":            []LevelKey{{CacheLevelChain, "missingKeyCiSuccess"}},
+			"outputMode":      2,
 			"whenKeyNotFound": "SUCCESS",
 		}, Registry)
 		assert.Nil(t, err)

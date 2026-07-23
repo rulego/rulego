@@ -26,7 +26,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// 为了避免循环导入，在测试中直接定义常量
+// To avoid looping imports, constants are defined directly in testing
 const (
 	Vars   = "vars"
 	MsgKey = "msg"

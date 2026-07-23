@@ -6,8 +6,8 @@ import "context"
 
 // startMonitoring starts monitoring parent contexts using AfterFunc for Go 1.21+.
 // This avoids creating a dedicated goroutine for waiting.
-// startMonitoring 启动监控父上下文，对于 Go 1.21+ 使用 AfterFunc。
-// 这避免了创建专用的等待协程。
+// startMonitoring: Starts monitoring the parent context, and for Go 1.21+, use AfterFunc.
+// This avoids creating dedicated wait-waiting coroutines.
 func (c *combinedCancelContext) startMonitoring() {
 	c.doneOnce.Do(func() {
 		// If either is already done, cancel immediately
@@ -28,7 +28,7 @@ func (c *combinedCancelContext) startMonitoring() {
 			c.setErr(c.userCtx.Err())
 			c.cancel()
 		})
-		
+
 		stopShutdown := context.AfterFunc(c.shutdownCtx, func() {
 			c.setErr(c.shutdownCtx.Err())
 			c.cancel()

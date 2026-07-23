@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-// 根据不同消息类型，路由到不同节点处理
+// Depending on the message type, route to different nodes for processing
 func main() {
 
 	config := rulego.NewConfig()
@@ -34,15 +34,15 @@ func main() {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 
-	//TEST_MSG_TYPE1 找到2条chains
+	//TEST_MSG_TYPE1 Find 2 chains
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsg(msg)
 
-	//TEST_MSG_TYPE2 找到1条chain
+	//TEST_MSG_TYPE2 Find 1 chain
 	msg = types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsg(msg)
 
-	//TEST_MSG_TYPE3 找到0条chain
+	//TEST_MSG_TYPE3 Found 0 chains
 	msg = types.NewMsg(0, "TEST_MSG_TYPE3", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsg(msg)
 

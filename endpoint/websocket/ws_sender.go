@@ -25,10 +25,10 @@ import (
 	"github.com/rulego/rulego/api/types/endpoint"
 )
 
-// wsSender 封装 *websocket.Conn，实现 endpoint.Sender。互斥锁保护 WriteMessage。
+// wsSender wrapper *websocket.Conn, implementing the endpoint.Sender. Mutex locks protect WriteMessage.
 type wsSender struct {
 	conn        *websocket.Conn
-	messageType int // 0 时默认 TextMessage
+	messageType int // 0, the default TextMessage is used
 	mu          sync.Mutex
 }
 
@@ -36,7 +36,7 @@ func (s *wsSender) Send(data []byte) error {
 	return s.SendWithType(data, s.messageType)
 }
 
-// SendWithType 加锁写一帧，指定消息类型。
+// SendWithType writes a lock to one frame and specifies the message type.
 func (s *wsSender) SendWithType(data []byte, messageType int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -50,7 +50,7 @@ func (s *wsSender) SendWithType(data []byte, messageType int) error {
 	return s.conn.WriteMessage(mt, data)
 }
 
-// Close 关闭连接，满足 io.Closer（TTL 扫描用）。
+// close to close the connection and satisfy io.Closer (for TTL scanning).
 func (s *wsSender) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

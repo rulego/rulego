@@ -33,7 +33,7 @@ func TestChainCtx(t *testing.T) {
 
 	t.Run("New", func(t *testing.T) {
 		defer func() {
-			//捕捉异常
+			//Capture anomalies
 			if e := recover(); e != nil {
 				assert.Equal(t, "not support this method", fmt.Sprintf("%s", e))
 			}
@@ -153,7 +153,7 @@ func TestGetLCA(t *testing.T) {
 	config := NewConfig()
 
 	t.Run("NodeNotExists", func(t *testing.T) {
-		// 测试节点不存在的情况
+		// There are no cases where the test node does not exist
 		ruleChainDef := types.RuleChain{}
 		ctx, _ := InitRuleChainCtx(config, nil, &ruleChainDef, nil)
 
@@ -164,7 +164,7 @@ func TestGetLCA(t *testing.T) {
 	})
 
 	t.Run("NoParents", func(t *testing.T) {
-		// 测试没有父节点的情况
+		// Test cases without a parent node
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "test_chain",
@@ -197,7 +197,7 @@ func TestGetLCA(t *testing.T) {
 	})
 
 	t.Run("SingleParent", func(t *testing.T) {
-		// 测试单个父节点的情况
+		// Test the situation of a single parent node
 		ruleChainFile := `{
 	"ruleChain": {
 		"id": "InVGNEN0NOnN",
@@ -319,7 +319,7 @@ func TestGetLCA(t *testing.T) {
 	})
 
 	t.Run("MultipleParents", func(t *testing.T) {
-		// 测试多个父节点的情况
+		// Test the situation of multiple parent nodes
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "test_chain",
@@ -388,7 +388,7 @@ func TestGetLCA(t *testing.T) {
 	})
 
 	t.Run("CacheFunctionality", func(t *testing.T) {
-		// 测试缓存功能
+		// Testing the caching function
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "test_chain",
@@ -452,18 +452,18 @@ func TestGetLCA(t *testing.T) {
 
 		childNodeId := types.RuleNodeId{Id: "child", Type: types.NODE}
 
-		// 第一次调用，应该计算并缓存结果
+		// The first call should compute and cache the result
 		lca1, found1 := ctx.GetLCA(childNodeId)
 		assert.True(t, found1)
 		assert.Equal(t, "root", lca1.Id)
 
-		// 第二次调用，应该从缓存中获取结果
+		// The second call should retrieve the result from the cache
 		lca2, found2 := ctx.GetLCA(childNodeId)
 		assert.True(t, found2)
 		assert.Equal(t, "root", lca2.Id)
 		assert.Equal(t, lca1, lca2)
 
-		// 验证缓存功能正常工作（通过多次调用验证一致性）
+		// Verify that the cache function works properly (verifying consistency through multiple calls)
 		for i := 0; i < 5; i++ {
 			lcaTest, foundTest := ctx.GetLCA(childNodeId)
 			assert.True(t, foundTest)
@@ -473,7 +473,7 @@ func TestGetLCA(t *testing.T) {
 	})
 
 	t.Run("ComplexHierarchy", func(t *testing.T) {
-		// 测试复杂层级结构
+		// Test complex hierarchies
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "test_chain",
@@ -577,7 +577,7 @@ func TestGetLCA(t *testing.T) {
 	})
 
 	t.Run("NoCommonAncestor", func(t *testing.T) {
-		// 测试没有共同祖先的情况
+		// Testing without a common ancestor
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "test_chain",
@@ -631,7 +631,7 @@ func TestGetLCA(t *testing.T) {
 	})
 
 	t.Run("SingleParentJoin", func(t *testing.T) {
-		// 测试单父节点Join的情况
+		// Test the situation of a single parent node join
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "singleParentJoin",
@@ -672,20 +672,20 @@ func TestGetLCA(t *testing.T) {
 		ctx, err := InitRuleChainCtx(config, nil, &def, nil)
 		assert.Nil(t, err)
 
-		// 测试 node_join 的 LCA
+		// Testing node_join LCA
 		joinNodeId := types.RuleNodeId{Id: "node_join", Type: types.NODE}
-		// 测试 GetLCA - 应该返回父节点 node_transform 本身
+		// Test GetLCA - should return the parent node node_transform itself
 		lca, hasLCA := ctx.GetLCA(joinNodeId)
 		assert.True(t, hasLCA)
 		assert.Equal(t, "node_transform", lca.Id)
 	})
 
 	t.Run("ConditionalBranchJoin", func(t *testing.T) {
-		// 测试条件分支Join的情况
-		// node_2 (switch) 有两个输出：Case1 -> node_6 -> node_4, Case2 -> node_4
-		// node_4 的 LCA 应该是 node_2
+		// Test the condition of branch joins
+		// node_2 (switch) has two outputs: Case1 -> node_6 -> node_4, Case2 -> node_4
+		// node_4's LCA should be node_2
 
-		// 从文件加载规则链配置
+		// Load the rule chain configuration from the file
 		ruleChainFile, err := os.ReadFile("../testdata/rule/test_conditional_branch_join.json")
 		assert.Nil(t, err)
 
@@ -697,7 +697,7 @@ func TestGetLCA(t *testing.T) {
 		assert.Nil(t, err)
 
 		joinNodeId := types.RuleNodeId{Id: "node_4", Type: types.NODE}
-		// 测试 node_4 的 LCA - 应该返回 node_2 - with debug output
+		// The LCA of the test node_4 should return node_2 with debug output
 		lca, hasLCA := ctx.GetLCA(joinNodeId)
 		assert.True(t, hasLCA)
 		assert.Equal(t, "node_2", lca.Id, "node_4 的 LCA 应该是 node_2，因为 node_2 是两个父节点路径的共同祖先")

@@ -24,7 +24,7 @@ import (
 )
 
 func TestAliasIntegration(t *testing.T) {
-	// 为测试组件注册别名
+	// Register aliases for test components
 	err := Registry.RegisterAlias("jsFilter", "js_filter", "javascriptFilter")
 	assert.Nil(t, err)
 
@@ -32,7 +32,7 @@ func TestAliasIntegration(t *testing.T) {
 	assert.Nil(t, err)
 
 	t.Run("ChainWithAliasNodeType", func(t *testing.T) {
-		// 使用别名作为节点类型创建规则链
+		// Create a rule chain using aliases as node types
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "test_alias_chain",
@@ -74,28 +74,28 @@ func TestAliasIntegration(t *testing.T) {
 		def, err := jsonParser.DecodeRuleChain([]byte(ruleChainFile))
 		assert.Nil(t, err)
 
-		// 使用别名创建规则链上下文
+		// Create a rule chain context using aliases
 		ruleChainCtx, err := InitRuleChainCtx(config, nil, &def, nil)
 		assert.Nil(t, err)
 		assert.NotNil(t, ruleChainCtx)
 
-		// 验证节点被正确创建（使用别名）
+		// Validator nodes are correctly created (using aliases)
 		node1Ctx := ruleChainCtx.nodes[types.RuleNodeId{Id: "node1"}]
 		assert.NotNil(t, node1Ctx)
-		// SelfDefinition 保留原始配置中的类型名
+		// SelfDefinition retains the type name from the original configuration
 		assert.Equal(t, "js_filter", node1Ctx.(*RuleNodeCtx).SelfDefinition.Type)
 
 		node2Ctx := ruleChainCtx.nodes[types.RuleNodeId{Id: "node2"}]
 		assert.NotNil(t, node2Ctx)
 		assert.Equal(t, "js_transform", node2Ctx.(*RuleNodeCtx).SelfDefinition.Type)
 
-		// 验证底层节点实例是正确的主类型
+		// Verify that the underlying node instance is the correct master type
 		assert.Equal(t, "jsFilter", node1Ctx.Type())
 		assert.Equal(t, "jsTransform", node2Ctx.Type())
 	})
 
 	t.Run("ChainWithMultipleAliases", func(t *testing.T) {
-		// 测试同一个规则链中使用不同别名
+		// Test using different aliases within the same rule chain
 		ruleChainFile := `{
 			"ruleChain": {
 				"id": "test_multi_alias",
@@ -143,34 +143,34 @@ func TestAliasIntegration(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotNil(t, ruleChainCtx)
 
-		// 所有节点都应该被正确创建
+		// All nodes should be created correctly
 		assert.NotNil(t, ruleChainCtx.nodes[types.RuleNodeId{Id: "filter1"}])
 		assert.NotNil(t, ruleChainCtx.nodes[types.RuleNodeId{Id: "filter2"}])
 		assert.NotNil(t, ruleChainCtx.nodes[types.RuleNodeId{Id: "filter3"}])
 
-		// 验证所有节点都是正确的主类型
+		// Verify that all nodes are of the correct primary type
 		assert.Equal(t, "jsFilter", ruleChainCtx.nodes[types.RuleNodeId{Id: "filter1"}].Type())
 		assert.Equal(t, "jsFilter", ruleChainCtx.nodes[types.RuleNodeId{Id: "filter2"}].Type())
 		assert.Equal(t, "jsFilter", ruleChainCtx.nodes[types.RuleNodeId{Id: "filter3"}].Type())
 	})
 
 	t.Run("NodeWithAlias", func(t *testing.T) {
-		// 单独测试使用别名创建节点
+		// Separate tests using aliases to create nodes
 		selfDefinition := types.RuleNode{
 			Id:   "test_node",
-			Type: "js_filter", // 使用别名
+			Type: "js_filter", // Use aliases
 		}
 		ctx, err := InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
 		assert.Nil(t, err)
 		assert.NotNil(t, ctx)
-		// SelfDefinition 保留原始配置
+		// SelfDefinition retains the original configuration
 		assert.Equal(t, "js_filter", ctx.SelfDefinition.Type)
-		// 但底层节点是正确的主类型
+		// But the underlying node is the correct primary type
 		assert.Equal(t, "jsFilter", ctx.Type())
 	})
 
 	t.Run("NewNodeWithAlias", func(t *testing.T) {
-		// 测试通过别名创建新节点实例
+		// Test creating new node instances using aliases
 		node, err := Registry.NewNode("js_filter")
 		assert.Nil(t, err)
 		assert.NotNil(t, node)
@@ -183,11 +183,11 @@ func TestAliasIntegration(t *testing.T) {
 	})
 
 	t.Run("UnregisterAliasAffectsChain", func(t *testing.T) {
-		// 创建一个临时别名
+		// Create a temporary alias
 		err := Registry.RegisterAlias("log", "logAlias")
 		assert.Nil(t, err)
 
-		// 使用别名创建节点应该成功
+		// Creating nodes with aliases should be successful
 		selfDefinition := types.RuleNode{
 			Id:   "log_node",
 			Type: "logAlias",
@@ -196,16 +196,16 @@ func TestAliasIntegration(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotNil(t, ctx)
 
-		// 删除别名
+		// Delete aliases
 		err = Registry.Unregister("logAlias")
 		assert.Nil(t, err)
 
-		// 使用已删除的别名创建节点应该失败
+		// Creating a node with a deleted alias should fail
 		_, err = InitRuleNodeCtx(NewConfig(), nil, nil, &selfDefinition)
 		assert.NotNil(t, err)
 	})
 
-	// 清理：删除测试别名
+	// Cleanup: Delete test aliases
 	defer func() {
 		Registry.Unregister("js_filter")
 		Registry.Unregister("javascriptFilter")

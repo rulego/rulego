@@ -30,61 +30,61 @@ import (
 	"syscall"
 )
 
-// 使用router开发web应用
+// Develop web applications using routers
 func main() {
 	config := rulego.NewConfig(types.WithDefaultPool())
-	//注册规则链
+	//Register the rule chain
 	_, _ = rulego.New("default", []byte(chainJsonFile), rulego.WithConfig(config))
 
-	//启动http接收服务
+	//Start the HTTP reception service
 	restEndpoint := &rest.Rest{Config: rest.Config{Server: ":9090"}, RuleConfig: config}
-	//添加全局拦截器
+	//Added a global interceptor
 	restEndpoint.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		//模拟鉴权
+		//Simulated authentication
 		userId := exchange.In.Headers().Get("userId")
 		if userId == "blacklist" {
-			//不允许访问
+			//Access is not permitted
 			return false
 		}
-		//权限校验逻辑
+		//Permission validation logic
 		return true
 	})
-	//路由1
+	//Route 1
 	router1 := endpoint.NewRouter().From("/api/v1/user/:id").Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		id := exchange.In.GetMsg().Metadata.GetValue("id")
-		//模拟查询数据库
+		//Simulated query database
 		user := struct {
 			Id   string
 			Name string
 		}{Id: id, Name: "test"}
 		body, _ := json.Marshal(user)
-		//响应结果
+		//Response results
 		exchange.Out.SetBody(body)
 		return true
 	}).End()
 
-	//注册路由,Get 方法
+	//Register a route and get a method
 	restEndpoint.GET(router1)
 
-	//路由2 采用配置方式调用规则链
+	//Route 2 calls the rule chain using configuration methods
 	router2 := endpoint.NewRouter().From("/api/v1/userEvent").To("chain:default").End()
 
-	//路由3 采用配置方式调用规则链,to路径带变量
+	//Route 3 calls the rule chain using configuration mode, with the to path with variables
 	router3 := endpoint.NewRouter().From("/api/v1/msg2Chain2/:msgType").Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		//获取消息类型
+		//Get message types
 		msg.Type = msg.Metadata.GetValue("msgType")
 
-		//从header获取用户ID
+		//Obtain the user ID from the header
 		userId := exchange.In.Headers().Get("userId")
 		if userId == "" {
 			userId = "default"
 		}
-		//把userId存放在msg元数据
+		//Store userId in the msg metadata
 		msg.Metadata.PutValue("userId", userId)
 		return true
 	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		//响应给客户端
+		//Respond to the client
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.SetBody([]byte("ok"))
 		return true
@@ -94,19 +94,19 @@ func main() {
 		return true
 	}).End()
 
-	//路由4 直接调用node组件方式
+	//Routing 4: Direct call to node components
 	router4 := endpoint.NewRouter().From("/api/v1/msgToComponent1/:msgType").Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		//获取消息类型
+		//Get message types
 		msg.Type = msg.Metadata.GetValue("msgType")
 		return true
 	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		//响应给客户端
+		//Respond to the client
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.SetBody([]byte("ok"))
 		return true
 	}).ToComponent(func() types.Node {
-		//定义日志组件，处理数据
+		//Define log components and process data
 		var configuration = make(types.Configuration)
 		configuration["jsScript"] = `
 		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
@@ -116,14 +116,14 @@ func main() {
 		return logNode
 	}()).End()
 
-	//路由5 采用配置方式调用node组件
+	//Route 5 calls node components using configuration methods
 	router5 := endpoint.NewRouter().From("/api/v1/msgToComponent2/:msgType").Transform(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
-		//获取消息类型
+		//Get message types
 		msg.Type = msg.Metadata.GetValue("msgType")
 		return true
 	}).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
-		//响应给客户端
+		//Respond to the client
 		exchange.Out.Headers().Set("Content-Type", "application/json")
 		exchange.Out.SetBody([]byte("ok"))
 		return true
@@ -131,13 +131,13 @@ func main() {
 		return 'log::Incoming message:\n' + JSON.stringify(msg) + '\nIncoming metadata:\n' + JSON.stringify(metadata);
         `}).End()
 
-	//注册路由，POST方式
+	//Register routing and POST methods
 	restEndpoint.POST(router2, router3, router4, router5)
-	//并启动服务
+	//And launch the service
 	_ = restEndpoint.Start()
 
 	sigs := make(chan os.Signal, 1)
-	// 监听系统信号，包括中断信号和终止信号
+	// Monitor system signals, including interrupt and termination signals
 	signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	select {

@@ -4,5 +4,5 @@ package main
 
 import "github.com/rulego/rulego/server/app"
 
-// registerAiSecurityHook 无 AI 组件时的空实现
+// registerAiSecurityHook is an empty implementation without AI components
 func registerAiSecurityHook(_ *app.App) {}

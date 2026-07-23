@@ -16,7 +16,7 @@
 
 package common
 
-//节点复用节点，示例：
+//Node reuse nodes, example:
 //{
 //        "id": "s1",
 //        "type": "ref",
@@ -33,13 +33,13 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
-// init 注册RefNode组件
+// init registers the RefNode component
 // init registers the RefNode component with the default registry.
 func init() {
 	Registry.Add(&RefNode{})
 }
 
-// RefNodeConfiguration RefNode配置结构
+// RefNodeConfiguration RefNode configuration structure
 // RefNodeConfiguration defines the configuration structure for the RefNode component.
 type RefNodeConfiguration struct {
 	// TargetId is the target node ID to reference.
@@ -49,72 +49,72 @@ type RefNodeConfiguration struct {
 	TellChain bool `json:"tellChain" label:"Tell Chain" desc:"true=execute entire chain from target, false=execute target node only"`
 }
 
-// RefNode 引用并执行来自相同或不同规则链的节点的流控制组件
+// RefNode refers to and executes the flow control component from nodes in the same or different rule chains
 // RefNode is a flow control component that references and executes nodes from the same or different rule chains.
 //
-// 核心算法：
+// Core algorithm:
 // Core Algorithm:
-// 1. 解析目标ID以确定链和节点 - Parse target ID to determine chain and node
-// 2. 使用当前消息执行引用的节点 - Execute referenced node with current message
-// 3. 使用原始输出关系转发结果 - Forward result with original output relation
+// 1. Parse target ID to determine chain and node - Parse target ID to determine chain and node
+// 2. Execute referenced node with current message
+// 3. Forward result with original output relation - Forward result with original output relation
 //
-// 目标ID格式 - Target ID formats:
+// Target ID formats:
 //
-// 本地节点引用 - Local node reference:
-//   - 格式：{nodeId} - Format: {nodeId}
-//   - 示例："validatorNode" - Example: "validatorNode"
-//   - 引用同一规则链内的节点 - References a node within the same rule chain
+// Local node reference:
+//   - Format: {nodeId} - Format: {nodeId}
+//   - Example: "validatorNode" - Example: "validatorNode"
+//   - References a node within the same rule chain
 //
-// 外部链节点引用 - External chain node reference:
-//   - 格式：{chainId}:{nodeId} - Format: {chainId}:{nodeId}
-//   - 示例："validation_chain:emailValidator" - Example: "validation_chain:emailValidator"
-//   - 引用来自不同规则链的节点 - References a node from a different rule chain
+// External chain node reference:
+//   - Format: {chainId}:{nodeId} - Format: {chainId}:{nodeId}
+//   - Example: "validation_chain:emailValidator" - Example: "validation_chain:emailValidator"
+//   - References a node from a different rule chain
 //
-// 配置示例 - Configuration examples:
+// Configuration examples:
 //
-// 本地节点引用 - Local node reference:
+// Local node reference:
 //
 //	{
 //	  "targetId": "dataValidator"
 //	}
 //
-// 外部链节点引用 - External chain node reference:
+// External chain node reference:
 //
 //	{
 //	  "targetId": "common_validators:emailCheck"
 //	}
 //
-// 使用场景 - Use cases:
-//   - 跨多个链的共享验证逻辑 - Shared validation logic across multiple chains
-//   - 通用工具节点重用 - Common utility node reuse
-//   - 模块化规则链架构 - Modular rule chain architecture
+// Use cases:
+//   - Shared validation logic across multiple chains
+//   - Common utility node reuse
+//   - Modular rule chain architecture
 type RefNode struct {
-	// Config 节点配置，包括目标节点规范
+	// Config node configuration, including the target node specification
 	// Config holds the node configuration including target node specification
 	Config RefNodeConfiguration
 
-	// chainId 存储外部引用的已解析链ID（本地为空）
+	// chainId stores the externally referenced resolved chain ID (natively empty)
 	// chainId stores the parsed chain ID for external references (empty for local)
 	chainId string
 
-	// nodeId 存储要引用的已解析节点ID
+	// nodeId stores the resolved node ID to be referenced
 	// nodeId stores the parsed node ID to reference
 	nodeId string
 }
 
-// Type 返回组件类型
+// Type returns the component type
 // Type returns the component type identifier.
 func (x *RefNode) Type() string {
 	return "ref"
 }
 
-// New 创建新实例
+// New creates an instance
 // New creates a new instance.
 func (x *RefNode) New() types.Node {
 	return &RefNode{}
 }
 
-// Init 初始化组件，解析目标ID以提取链和节点标识符
+// Init initializes components and parses target IDs to extract chain and node identifiers
 // Init initializes the component.
 func (x *RefNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
@@ -144,7 +144,7 @@ func (x *RefNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	return nil
 }
 
-// OnMsg 处理消息，通过执行引用的节点来处理传入消息
+// OnMsg processes messages by executing the referenced nodes to handle incoming messages
 // OnMsg processes incoming messages by executing the referenced node.
 func (x *RefNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	ctx.TellChainNode(ctx.GetContext(), x.chainId, x.nodeId, msg, !x.Config.TellChain, func(newCtx types.RuleContext, newMsg types.RuleMsg, err error, relationType string) {
@@ -156,7 +156,7 @@ func (x *RefNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}, nil)
 }
 
-// Destroy 清理资源
+// Destroy to clean up resources
 // Destroy cleans up resources.
 func (x *RefNode) Destroy() {
 }

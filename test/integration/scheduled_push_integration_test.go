@@ -29,19 +29,19 @@ import (
 	"github.com/rulego/rulego/node_pool"
 )
 
-// TestNetScheduledAutoPush 规则链自动定时推送集成测试。
+// TestNetScheduledAutoPush Rules chain automatically and schedules integrated testing.
 //
-// 验证「规则链自动发送数据到客户端」：加载一条 root 规则链，内嵌 endpoint/schedule（每 1 秒触发）
-// + jsTransform（透传业务 deviceId）+ NetNode（ref:// 按 ${deviceId} 业务ID寻址推送）。
-// 设备 TCP 连入 endpoint/net 上报 deviceId 后，全程**不手动触发任何节点**，
-// 断言设备自动收到多次定时推送。
+// Verifying "Rule chain automatically sends data to the client": Load a root rule chain with embedded endpoint/schedule (triggered every 1 second)
+// + jsTransform (transparent service deviceId) + NetNode (ref:// push addressed by ${deviceId} service ID).
+// After the device TCP connects to endpoint/net and reports the deviceId, it does not manually trigger any nodes throughout the process,
+// Asserts that the device automatically receives multiple scheduled pushes.
 //
-// 与 session_push_integration_test 的区别：那个用 test.NodeOnMsg 手动调 NetNode.OnMsg（节点级）；
-// 本测试由 endpoint/schedule 定时驱动规则链自动流转，覆盖「定时主动推送」端到端链路（规则链级）。
+// Difference from session_push_integration_test: The one uses test.NodeOnMsg manually tunes NetNode.OnMsg (node-level);
+// This test is driven by endpoint/scheduled, timed rule chain automatic circulation, covering the "scheduled proactive push" end-to-end link (rule chain level).
 func TestNetScheduledAutoPush(t *testing.T) {
 	config := rulego.NewConfig()
 
-	// ① endpoint/net：接收设备连接，sessionKey=${msg.deviceId} 提取业务 deviceId
+	// (1) endpoint/net: Receives device connection, sessionKey=${msg.deviceId} extracts the business deviceId
 	ep := &netep.Net{}
 	if err := ep.Init(config, types.Configuration{
 		"protocol":   "tcp",
@@ -55,15 +55,15 @@ func TestNetScheduledAutoPush(t *testing.T) {
 	}
 	defer ep.Destroy()
 
-	// ② 注册到独立 NodePool，作为 NetNode ref:// 的寻址目标
+	// (2) Register in an independent NodePool as the addressing target for NetNode ref://
 	pool := node_pool.NewNodePool(config)
 	if _, err := pool.AddNode(ep); err != nil {
 		t.Fatalf("AddNode: %v", err)
 	}
 	config.NodePool = pool
 
-	// ③ 加载 root 规则链：schedule 每 1 秒 → jsTransform 透传业务 deviceId → NetNode ref://${deviceId}
-	//    endpoint/schedule 内嵌在 root 链，由 EndpointAspect 自动 Start（rulego 包 init 注册该 aspect）
+	// (3) Load root rule chain: schedule every 1 second → jsTransform transparent-transmitting service deviceId → NetNode ref://${deviceId}
+	//    endpoint/schedule is embedded in the root chain and automatically started by EndpointAspect (the rulego package init registers the aspect)
 	chain := fmt.Sprintf(`{
   "ruleChain": {"id": "test_sched_push", "name": "scheduled auto push", "root": true},
   "metadata": {
@@ -89,7 +89,7 @@ func TestNetScheduledAutoPush(t *testing.T) {
 	}
 	defer rulego.Del("test_sched_push")
 
-	// ④ 设备连入并上报业务 deviceId（触发 sessionKey 提取，session 绑定到 DEV_001）
+	// (4) The device connects and reports the business deviceId (triggers sessionKey extraction, binding the session to DEV_001)
 	conn, err := net.Dial("tcp", ep.Addr())
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
@@ -100,7 +100,7 @@ func TestNetScheduledAutoPush(t *testing.T) {
 	}
 	time.Sleep(500 * time.Millisecond)
 
-	// ⑤ 断言：不手动触发任何节点，设备自动收到多次定时推送
+	// (5) Assertion: No nodes are manually triggered; the device automatically receives multiple scheduled push notifications
 	count := 0
 	for i := 0; i < 3; i++ {
 		if err := conn.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {

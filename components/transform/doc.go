@@ -18,75 +18,75 @@
 // Transform nodes modify, convert, and restructure message data as it flows through rule chains,
 // enabling data processing and format conversion.
 //
-// Package transform 为 RuleGo 规则引擎提供转换节点组件。
-// 转换节点在消息流经规则链时修改、转换和重构消息数据，启用数据处理和格式转换。
+// Package transform provides conversion node components for the RuleGo rule engine.
+// Transformation nodes modify, transform, and reconstruct message data as messages flow through the rule chain, enabling data processing and format conversion.
 //
 // Transform nodes are responsible for:
-// 转换节点负责：
+// Transition nodes are responsible for:
 //
-// • Modifying message content and structure  修改消息内容和结构
-// • Converting between different data formats  在不同数据格式之间转换
-// • Enriching messages with additional data  用附加数据丰富消息
-// • Applying business rules and transformations  应用业务规则和转换
-// • Processing metadata and message properties  处理元数据和消息属性
+// • Modifying message content and structure
+// • Converting between different data formats
+// • Enriching messages with additional data
+// • Applying business rules and transformations
+// • Processing metadata and message properties
 //
 // Available Transform Components:
-// 可用的转换组件：
+// Available conversion components:
 //
 //   - JsTransformNode: JavaScript-based data transformation with full scripting capabilities
-//     基于 JavaScript 的数据转换，具有完整的脚本功能
+//     JavaScript-based data conversion with full scripting capabilities
 //   - ExprTransformNode: Expression-based field transformation using expression language
-//     使用表达式语言进行基于表达式的字段转换
+//     Use expression language for expression-based field conversion
 //   - TemplateNode: Template-based message formatting and data restructuring
-//     基于模板的消息格式化和数据重构
+//     Template-based message formatting and data refactoring
 //   - MetadataTransformNode: Message metadata modification and manipulation
-//     消息元数据修改和操作
+//     Message metadata modification and operation
 //
 // Component Categories by Function:
-// 按功能分类的组件：
+// Components classified by function:
 //
 // Script-Based Transformation:
-// 基于脚本的转换：
+// Script-based conversion:
 //   - JsTransformNode: Full JavaScript transformation with access to built-in functions
-//     完整的 JavaScript 转换，可访问内置函数
+//     Complete JavaScript conversion with access to built-in functions
 //   - ExprTransformNode: Expression language for simple field transformations
-//     表达式语言，用于简单的字段转换
+//     Expression language, used for simple field conversions
 //
 // Template and Formatting:
-// 模板和格式化：
+// Templates and formatting:
 //   - TemplateNode: Apply templates for structured data formatting
-//     应用模板进行结构化数据格式化
+//     Templates are used for structured data formatting
 //
 // Metadata Processing:
-// 元数据处理：
+// Metadata Processing:
 //   - MetadataTransformNode: Transform and manipulate message metadata
-//     转换和操作消息元数据
+//     Transform and manipulate message metadata
 //
 // Transform Output Relations:
-// 转换输出关系：
+// Conversion output relationships:
 //
 // Transform nodes typically produce two types of outputs:
-// 转换节点通常产生两种类型的输出：
-//   - "Success": Transformation completed successfully  转换成功完成
-//   - "Failure": Error occurred during transformation  转换期间发生错误
+// Conversion nodes typically produce two types of outputs:
+//   - "Success": Transformation completed successfully
+//   - "Failure": Error occurred during transformation
 //
 // JavaScript Engine Support:
-// JavaScript 引擎支持：
+// JavaScript engine supports:
 //
 // JavaScript-based components support ECMAScript 5.1+ with partial ES6 features:
-// 基于 JavaScript 的组件支持 ECMAScript 5.1+ 和部分 ES6 特性：
+// JavaScript-based components support ECMAScript 5.1+ and some ES6 features:
 //   - Built-in variables: msg, metadata, msgType, dataType
-//     内置变量：msg、metadata、msgType、dataType
+//     Built-in variables: msg, metadata, msgType, dataType
 //   - Built-in functions: $ctx.ChainCache(), $ctx.GlobalCache(), global.*, vars.*
-//     内置函数：$ctx.ChainCache()、$ctx.GlobalCache()、global.*、vars.*
+//     Built-in function: $ctx.ChainCache(), $ctx.GlobalCache(), global.*, vars.*
 //   - Modern syntax: async/await, Promise, let/const, arrow functions
-//     现代语法：async/await、Promise、let/const、箭头函数
+//     Modern syntax: async/await, Promise, let/const, arrow function
 //
 // Registration:
-// 注册：
+// Registration:
 //
 // All components are automatically registered during package initialization:
-// 所有组件在包初始化期间自动注册：
+// All components are automatically registered during package initialization:
 //
 //	func init() {
 //		Registry.Add(&JsTransformNode{})
@@ -96,10 +96,10 @@
 //	}
 //
 // Usage Examples:
-// 使用示例：
+// Example:
 //
 //	// JavaScript transformation
-//	// JavaScript 转换
+//	JavaScript conversion
 //	{
 //		"id": "jsTransform",
 //		"type": "jsTransform",
@@ -109,7 +109,7 @@
 //	}
 //
 //	// Expression transformation
-//	// 表达式转换
+//	Expression conversion
 //	{
 //		"id": "exprTransform",
 //		"type": "exprTransform",
@@ -119,7 +119,7 @@
 //	}
 //
 //	// Template formatting
-//	// 模板格式化
+//	Template formatting
 //	{
 //		"id": "templateFormat",
 //		"type": "template",
@@ -129,7 +129,7 @@
 //	}
 //
 //	// Metadata transformation
-//	// 元数据转换
+//	Metadata transformation
 //	{
 //		"id": "metadataTransform",
 //		"type": "metadataTransform",
@@ -142,31 +142,31 @@
 //	}
 //
 // Extended Component Libraries:
-// 扩展组件库：
+// Extended component library:
 //
 // RuleGo provides additional component libraries for specialized use cases:
-// RuleGo 为专门用例提供额外的组件库：
+// RuleGo provides additional component libraries for specialized use cases:
 //
 //   - rulego-components: Additional extension components for general use
-//     rulego-components：通用扩展组件
+//     rulego-components: General-purpose extension components
 //     https://github.com/rulego/rulego-components
 //
 //   - rulego-components-ai: AI scenario components for machine learning integration
-//     rulego-components-ai：机器学习集成的 AI 场景组件
+//     rulego-components-ai: AI scenario components integrated with machine learning
 //     https://github.com/rulego/rulego-components-ai
 //
 //   - rulego-components-ci: CI/CD scenario components for DevOps workflows
-//     rulego-components-ci：DevOps 工作流的 CI/CD 场景组件
+//     rulego-components-ci: CI/CD scene component for DevOps workflows
 //     https://github.com/rulego/rulego-components-ci
 //
 //   - rulego-components-iot: IoT scenario components for device connectivity
-//     rulego-components-iot：设备连接的 IoT 场景组件
+//     rulego-components-iot: IoT scenario components connected to devices
 //     https://github.com/rulego/rulego-components-iot
 //
 //   - rulego-components-etl: ETL scenario components for data processing
-//     rulego-components-etl：数据处理的 ETL 场景组件
+//     rulego-components-etl: ETL scenario component for data processing
 //     https://github.com/rulego/rulego-components-etl
 //
 // For detailed documentation on individual components, see their respective source files.
-// 有关各个组件的详细文档，请参见其各自的源文件。
+// For detailed documentation of each component, please refer to their respective source files.
 package transform

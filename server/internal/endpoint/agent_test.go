@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// assistantRuleChainDocument 是测试用的规则链文档结构
+// assistantRuleChainDocument is a rule chain document structure for testing
 type assistantRuleChainDocument struct {
 	RuleChain struct {
 		ID string `json:"id"`

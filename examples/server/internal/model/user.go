@@ -1,11 +1,11 @@
 package model
 
-// User 用户
+// User
 type User struct {
-	// 用户名
+	// Username
 	Username string `json:"username"`
-	// 密码
+	// Password
 	Password string `json:"password"`
-	// 访问Key
+	// Access Key
 	ApiKey string `json:"apiKey"`
 }

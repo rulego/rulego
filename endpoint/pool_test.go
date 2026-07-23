@@ -201,7 +201,7 @@ func TestFactory(t *testing.T) {
 	assert.Equal(t, rest.Type, ep3.Type())
 }
 
-// SendMsg 发送消息到rest服务器
+// SendMsg sends a message to the rest server
 func sendMsg(t *testing.T, url, method string, msg types.RuleMsg, ctx types.RuleContext) types.Node {
 	node := &external.RestApiCallNode{}
 	var configuration = make(types.Configuration)
@@ -212,7 +212,7 @@ func sendMsg(t *testing.T, url, method string, msg types.RuleMsg, ctx types.Rule
 	if err != nil {
 		t.Fatal(err)
 	}
-	//发送消息
+	//Send the message
 	node.OnMsg(ctx, msg)
 	return node
 }

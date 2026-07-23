@@ -1,6 +1,6 @@
 package model
 
-// Skill 技能结构
+// Skill: Skill structure
 type Skill struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`

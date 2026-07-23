@@ -282,7 +282,7 @@ func ToStringE(input interface{}) (string, error) {
 	case error:
 		return v.Error(), nil
 	case map[interface{}]interface{}:
-		// 转换为 map[string]interface{}
+		// Convert to map[string]interface{}
 		convertedInput := make(map[string]interface{})
 		for k, value := range v {
 			convertedInput[fmt.Sprintf("%v", k)] = value
@@ -301,7 +301,7 @@ func ToStringE(input interface{}) (string, error) {
 	}
 }
 
-// ConvertIntToTime 将整数时间戳转换为 time.Time
+// ConvertIntToTime converts integer timestamps to time.Time
 func ConvertIntToTime(timestampInt int64, timeUnit time.Duration) time.Time {
 	switch timeUnit {
 	case time.Second:
@@ -313,6 +313,6 @@ func ConvertIntToTime(timestampInt int64, timeUnit time.Duration) time.Time {
 	case time.Nanosecond:
 		return time.Unix(0, timestampInt)
 	default:
-		return time.Unix(timestampInt, 0) // 默认按秒处理
+		return time.Unix(timestampInt, 0) // Default processing is done by second
 	}
 }

@@ -40,9 +40,9 @@ const (
 )
 
 var (
-	//是否是查询版本
+	//Is it a query version?
 	ver bool
-	//配置文件
+	//Profile file
 	configFile string
 )
 
@@ -90,7 +90,7 @@ func main() {
 
 	log.Printf("Get Converter Info: %s \n", str.GetConverterInfo())
 
-	//初始化用户名、密码、apiKey之间的映射
+	//Initialize the mapping between username, password, and apiKey
 	c.InitUserMap()
 	log.Printf("use config file=%s \n", configFile)
 
@@ -99,18 +99,18 @@ func main() {
 	} else {
 		log.Printf("loadNodePool file=%s \n", c.NodePoolFile)
 	}
-	//初始化rulego配置
+	//Initialize the rulego configuration
 	router.InitRulegoConfig()
-	//创建http服务
+	//Create an HTTP service
 	ep, err := router.NewRestServe(c)
 	if err != nil {
 		log.Fatal("error:", err)
 	}
-	//启动http服务
+	//Start the HTTP service
 	if err := ep.Start(); err != nil {
 		log.Fatal("error:", err)
 	}
-	//创建websocket服务
+	//Create a WebSocket service
 	if restEp, ok := ep.(endpointApi.HttpEndpoint); ok {
 		wsEp, err := router.NewWebsocketServe(c, restEp)
 		if err != nil {
@@ -120,13 +120,13 @@ func main() {
 			log.Fatal("websocket start error:", err)
 		}
 	}
-	//初始化服务
+	//Initialize the service
 	if err := service.Setup(c); err != nil {
 		log.Fatal("setup service error:", err)
 	}
 
 	sigs := make(chan os.Signal, 1)
-	// 监听系统信号，包括中断信号和终止信号
+	// Monitor system signals, including interrupt and termination signals
 	signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	select {
@@ -139,7 +139,7 @@ func main() {
 	}
 }
 
-// 初始化日志记录器
+// Initialize the log recorder
 func initLogger(c config.Config) *log.Logger {
 	if c.LogFile == "" {
 		return log.New(os.Stdout, "", log.LstdFlags)

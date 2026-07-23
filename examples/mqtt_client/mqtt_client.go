@@ -26,8 +26,8 @@ import (
 	"time"
 )
 
-// 数据经过js转换后，增加deviceId变量，然后往主题 topic: /device/msg/${deviceId}发送处理后msg数据
-// 其中${deviceId}为元数据的变量
+// After the data is converted in JS, add the deviceId variable, then send the processed msg data to the topic topic: /device/msg/${deviceId}
+// where ${deviceId} is the metadata variable
 func main() {
 
 	config := rulego.NewConfig()
@@ -35,7 +35,7 @@ func main() {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 
-	//js处理后，并调用http推送
+	//After processing in JS, it calls HTTP to push the message
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile), rulego.WithConfig(config))
 	if err != nil {
 		log.Fatal(err)
@@ -47,7 +47,7 @@ func main() {
 			msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":"+strconv.Itoa(index)+"}")
 			ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 				fmt.Println("msg处理结果=====")
-				//得到规则链处理结果
+				//Obtain the result of the rule chain processing
 				fmt.Println(msg, err)
 			}))
 		}(i)
@@ -57,23 +57,23 @@ func main() {
 
 	time.Sleep(time.Second * 1)
 
-	//更新规则链节点配置，mqtt连接错误
+	//Updated rule chain node configuration, mqtt connection error
 	updateChain := strings.Replace(chainJsonFile, "127.0.0.1:1883", "127.0.0.1:1885", -1)
 
 	err = ruleEngine.ReloadSelf([]byte(updateChain), rulego.WithConfig(config))
 
-	//更新失败
+	//Update failed
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	//继续使用之前的规则链发送
+	//Continue sending with the previous rule chain
 	for i <= 10 {
 		go func(index int) {
 			msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":"+strconv.Itoa(index)+"}")
 			ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 				fmt.Println("msg处理结果=====")
-				//得到规则链处理结果
+				//Obtain the result of the rule chain processing
 				fmt.Println(msg, err)
 			}))
 		}(i)

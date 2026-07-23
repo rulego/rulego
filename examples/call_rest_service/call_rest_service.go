@@ -24,8 +24,8 @@ import (
 	"time"
 )
 
-// js处理后，并调用http服务对数据进行增加处理，并得到响应结果，后继续处理http响应的body数据
-// 如果http请求失败记录日志
+// After processing in JS, the HTTP service is called to add the data, and the response result is obtained, after which the body data for the HTTP response is processed
+// If HTTP requests fail, log them
 func main() {
 
 	config := rulego.NewConfig()
@@ -33,7 +33,7 @@ func main() {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 
-	//js处理后，并调用http 服务对数据进行处理，并得到响应结果，后继续处理
+	//After processing in JS, it calls the HTTP service to process the data, receives the response result, and then continues processing
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile), rulego.WithConfig(config))
 	if err != nil {
 		log.Fatal(err)
@@ -43,7 +43,7 @@ func main() {
 
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		fmt.Println("msg处理结果=====")
-		//得到规则链处理结果
+		//Obtain the result of the rule chain processing
 		fmt.Println(msg, err)
 	}))
 

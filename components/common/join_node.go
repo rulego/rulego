@@ -34,13 +34,13 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// init 注册JoinNode组件
+// init registers the JoinNode component
 // init registers the JoinNode component with the default registry.
 func init() {
 	Registry.Add(&JoinNode{})
 }
 
-// JoinNodeConfiguration JoinNode配置结构
+// JoinNodeConfiguration JoinNode configuration structure
 type JoinNodeConfiguration struct {
 	// Timeout is the execution timeout in seconds. 0=no limit.
 	Timeout int `json:"timeout" label:"Timeout" desc:"Timeout waiting for all branches in seconds, 0=no limit"`
@@ -48,48 +48,48 @@ type JoinNodeConfiguration struct {
 	MergeToMap bool `json:"mergeToMap" label:"Merge to Map" desc:"true=merge all branch outputs into {branchName: result} map, false=use last message"`
 }
 
-// JoinNode 合并多个异步节点执行结果的动作组件
+// JoinNode is an action component that merges multiple asynchronous nodes to execute results
 // JoinNode is an action component that merges results from multiple asynchronous node executions.
 //
-// 核心算法：
+// Core algorithm:
 // Core Algorithm:
-// 1. 等待所有并行分支完成执行 - Wait for all parallel branches to complete
-// 2. 收集来自所有分支的消息 - Collect messages from all branches
-// 3. 合并所有分支的元数据 - Merge metadata from all branches
-// 4. 将收集的结果合并为JSON数组 - Combine collected results into JSON array
-// 5. 通过Success关系发送合并结果 - Send merged results via Success relation
+// 1. Wait for all parallel branches to complete execution - Wait for all parallel branches to complete
+// 2. Collect messages from all branches
+// 3. Merge metadata from all branches
+// 4. Merge collected results into a JSON array - Combine collected results into a JSON array
+// 5. Send merged results via Success relation
 //
-// 工作流模式 - Workflow pattern:
-//   - Fork -> [BranchA, BranchB, BranchC] -> Join -> 继续 - Fork -> [Parallel Processing] -> Join -> Continue
+// Workflow pattern - Workflow pattern:
+//   - Fork -> [BranchA, BranchB, BranchC] -> Join -> Continue - Fork -> [Parallel Processing] -> Join -> Continue
 //
-// 超时处理 - Timeout handling:
-//   - 可配置超时防止无限等待 - Configurable timeout prevents indefinite waiting
-//   - 超时时通过Failure关系路由 - Route via Failure relation on timeout
+// Timeout handling:
+//   - Configurable timeout prevents indefinite waiting
+//   - Route via Failure relation on timeout - Route via Failure relation on timeout
 type JoinNode struct {
-	// Config 节点配置
+	// Config defines the node configuration
 	// Config holds the node configuration including timeout settings
 	Config JoinNodeConfiguration
 }
 
-// Type 返回组件类型
+// Type returns the component type
 // Type returns the component type identifier.
 func (x *JoinNode) Type() string {
 	return "join"
 }
 
-// New 创建新实例
+// New creates an instance
 // New creates a new instance.
 func (x *JoinNode) New() types.Node {
 	return &JoinNode{Config: JoinNodeConfiguration{}}
 }
 
-// Init 初始化组件
+// Init initializes the component
 // Init initializes the component.
 func (x *JoinNode) Init(_ types.Config, configuration types.Configuration) error {
 	return maps.Map2Struct(configuration, &x.Config)
 }
 
-// OnMsg 处理消息，收集并合并来自并行分支的结果
+// OnMsg processes messages, collects and merges results from parallel branches
 // OnMsg processes incoming messages by collecting results from parallel branches and merging them.
 func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	c := make(chan struct{}, 1)
@@ -106,7 +106,7 @@ func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 	var err error
 	ok := ctx.TellCollect(msg, func(msgList []types.WrapperMsg) {
-		// 检查context是否已被取消
+		// Check if the context has been canceled
 		select {
 		case <-chanCtx.Done():
 			return
@@ -143,7 +143,7 @@ func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		}
 		select {
 		case c <- struct{}{}:
-		default: // 防止阻塞
+		default: // Prevents blockages
 		}
 	})
 	if ok {
@@ -165,6 +165,6 @@ func (x *JoinNode) Desc() string {
 	return "Wait for all fork branches to complete and merge results. mergeToMap=true creates {branchName: result} map. Routes to Success/Failure"
 }
 
-// Destroy 清理资源
+// Destroy to clean up resources
 func (x *JoinNode) Destroy() {
 }

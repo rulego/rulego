@@ -18,36 +18,36 @@
 // It enables creating MQTT clients that can subscribe to topics and process incoming MQTT messages,
 // routing them to appropriate rule chains or components for business logic processing.
 //
-// Package mqtt 为 RuleGo 框架提供 MQTT 端点实现。
-// 它支持创建 MQTT 客户端，可以订阅主题并处理传入的 MQTT 消息，
-// 将它们路由到适当的规则链或组件进行业务逻辑处理。
+// Package mqtt provides an MQTT endpoint implementation for the RuleGo framework.
+// It supports the creation of MQTT clients, can subscribe to topics, and handle incoming MQTT messages,
+// Routing them to appropriate rule chains or components for business logic processing.
 //
-// Key Features / 主要特性：
+// # Key Features
 //
-// • MQTT Client Management: Complete MQTT client lifecycle management  MQTT 客户端管理：完整的 MQTT 客户端生命周期管理
-// • Topic Subscription: Dynamic topic subscription and message routing  主题订阅：动态主题订阅和消息路由
-// • QoS Support: All MQTT Quality of Service levels (0, 1, 2)  QoS 支持：所有 MQTT 服务质量级别
-// • Message Publishing: Response message publishing capabilities  消息发布：响应消息发布功能
-// • Connection Management: Automatic reconnection and connection pooling  连接管理：自动重连和连接池
-// • Topic Filtering: Pattern-based topic matching and routing  主题过滤：基于模式的主题匹配和路由
+// • MQTT Client Management: Complete MQTT client lifecycle management
+// • Topic Subscription: Dynamic topic subscription and message routing
+// • QoS Support: All MQTT Quality of Service levels (0, 1, 2) QoS Support: All MQTT Quality of Service levels
+// • Message Publishing: Response message publishing capabilities
+// • Connection Management: Automatic reconnection and connection pooling
+// • Topic Filtering: Pattern-based topic matching and routing
 //
-// Architecture / 架构：
+// # Architecture
 //
 // The MQTT endpoint follows a subscription-based processing model:
-// MQTT 端点遵循基于订阅的处理模型：
+// MQTT endpoints follow a subscription-based processing model:
 //
-// 1. MQTT Message → RequestMessage conversion  MQTT 消息 → RequestMessage 转换
-// 2. Topic routing to appropriate rule chains  主题路由到适当的规则链
-// 3. RequestMessage → Rule Chain/Component processing  RequestMessage → 规则链/组件处理
-// 4. Processing Result → ResponseMessage  处理结果 → ResponseMessage
-// 5. ResponseMessage → MQTT Publish (optional)  ResponseMessage → MQTT 发布（可选）
+// 1. MQTT Message → RequestMessage conversion MQTT message → RequestMessage conversion
+// 2. Topic routing to appropriate rule chains
+// 3. RequestMessage → Rule Chain/Component Processing RequestMessage → Rule chain/component processing
+// 4. Processing Result → ResponseMessage
+// 5. ResponseMessage → MQTT Publish (optional) ResponseMessage → MQTT Publish (optional)
 //
-// Initialization Methods / 初始化方法：
+// # Initialization Methods
 //
 // The MQTT endpoint supports two initialization approaches:
-// MQTT 端点支持两种初始化方法：
+// MQTT endpoints support two initialization methods:
 //
-// 1. Registry-based Initialization / 基于注册表的初始化：
+// 1. Registry-based Initialization
 //
 //	import "github.com/rulego/rulego/endpoint"
 //
@@ -59,14 +59,14 @@
 //	}
 //
 //	// Create endpoint through registry
-//	// 通过注册表创建端点
+//	Create endpoints through the registry
 //	endpoint, err := endpoint.Registry.New(mqtt.Type, ruleConfig, config)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //
 //	// Add router and start
-//	// 添加路由器并启动
+//	Add the router and start it
 //	router := endpoint.NewRouter().
 //	    From("sensors/temperature/+").
 //	    To("chain:temperatureProcessing")
@@ -74,7 +74,7 @@
 //	endpoint.AddRouter(router)
 //	endpoint.Start()
 //
-// 2. Dynamic DSL Initialization / 动态 DSL 初始化：
+// 2. Dynamic DSL Initialization
 //
 //	dslConfig := `{
 //	  "id": "mqtt-endpoint",
@@ -100,7 +100,7 @@
 //	}`
 //
 //	// Create endpoint from DSL
-//	// 从 DSL 创建端点
+//	Create endpoints from DSL
 //	endpoint, err := endpoint.NewFromDsl([]byte(dslConfig))
 //	if err != nil {
 //	    log.Fatal(err)
@@ -108,7 +108,7 @@
 //
 //	endpoint.Start()
 //
-// Direct Instantiation (for advanced scenarios) / 直接实例化（高级场景）：
+// Direct Instantiation (for advanced scenarios)
 //
 //	config := mqtt.Config{
 //	    Server: "127.0.0.1:1883",
@@ -127,22 +127,22 @@
 //	endpoint.AddRouter(router)
 //	endpoint.Start()
 //
-// Topic Pattern Matching / 主题模式匹配：
+// # Topic Pattern Matching
 //
 // The endpoint supports MQTT standard topic patterns:
-// 端点支持 MQTT 标准主题模式：
+// Endpoints support MQTT standard theme mode:
 //
-// • Exact match: "sensors/temperature"  精确匹配
-// • Single-level wildcard: "sensors/+/status"  单级通配符
-// • Multi-level wildcard: "sensors/#"  多级通配符
+// • Exact match: "sensors/temperature"
+// • Single-level wildcard: "sensors/+/status"
+// • Multi-level wildcard: "sensors/#"
 //
-// Response Publishing / 响应发布：
+// # Response Publishing
 //
 // Response messages can be published by setting metadata:
-// 可以通过设置元数据来发布响应消息：
+// You can publish response messages by setting metadata:
 //
-// • responseTopic: Target topic for response  响应的目标主题
-// • responseQos: QoS level for response  响应的 QoS 级别
+// • responseTopic: Target topic for response
+// • responseQos: QoS level for response
 package mqtt
 
 import (
@@ -168,64 +168,64 @@ import (
 
 // Type defines the component type identifier for the MQTT endpoint.
 // This identifier is used for component registration and DSL configuration.
-// Type 定义 MQTT 端点的组件类型标识符。
-// 此标识符用于组件注册和 DSL 配置。
+// Type defines the component type identifier for the MQTT endpoint.
+// This identifier is used for component registration and DSL configuration.
 const Type = types.EndpointTypePrefix + "mqtt"
 
 // Metadata keys used for MQTT-specific information in RuleMsg metadata.
 // These constants provide standardized access to MQTT message properties.
-// 用于 RuleMsg 元数据中 MQTT 特定信息的元数据键。
-// 这些常量提供对 MQTT 消息属性的标准化访问。
+// Metadata keys for MQTT-specific information in RuleMsg metadata.
+// These constants provide standardized access to MQTT message attributes.
 const (
 	// KeyRequestTopic stores the original MQTT topic in message metadata
-	// KeyRequestTopic 在消息元数据中存储原始 MQTT 主题
+	// KeyRequestTopic stores the original MQTT topic in the message metadata
 	KeyRequestTopic = "topic"
 
 	// KeyResponseTopic specifies the topic for publishing response messages
-	// KeyResponseTopic 指定发布响应消息的主题
+	// KeyResponseTopic specifies the subject for which the response message will be published
 	KeyResponseTopic = "responseTopic"
 
 	// KeyResponseQos specifies the QoS level for publishing response messages
-	// KeyResponseQos 指定发布响应消息的 QoS 级别
+	// KeyResponseQos specifies the QoS level for publishing response messages
 	KeyResponseQos = "responseQos"
 )
 
 // Endpoint is an alias for Mqtt to provide consistent naming with other endpoints.
 // This allows users to reference the component using the standard Endpoint name.
-// Endpoint 是 Mqtt 的别名，提供与其他端点一致的命名。
-// 这允许用户使用标准的 Endpoint 名称引用组件。
+// Endpoint is an alias for MQTT, providing consistent naming with other endpoints.
+// This allows users to reference components using standard Endpoint names.
 type Endpoint = Mqtt
 
 // RequestMessage represents an incoming MQTT message in the RuleGo processing pipeline.
 // It encapsulates all the necessary information from an MQTT message and provides methods
 // to access message data, topic information, and convert the message into a RuleMsg.
 //
-// RequestMessage 表示 RuleGo 处理管道中的传入 MQTT 消息。
-// 它封装了 MQTT 消息的所有必要信息，并提供方法来访问消息数据、主题信息，
-// 并将消息转换为 RuleMsg。
+// RequestMessage means RuleGo handles incoming MQTT messages in the pipeline.
+// It encapsulates all the necessary information for MQTT messages and provides methods to access message data and subject information,
+// and convert the message into RuleMsg.
 //
-// Key Features / 主要特性：
-// • MQTT Message Wrapping: Provides unified access to MQTT message properties  MQTT 消息包装：提供对 MQTT 消息属性的统一访问
-// • Topic Information: Access to MQTT topic and routing information  主题信息：访问 MQTT 主题和路由信息
-// • Payload Access: Efficient access to message payload data  载荷访问：高效访问消息载荷数据
-// • Metadata Integration: Seamless integration with RuleGo's metadata system  元数据集成：与 RuleGo 元数据系统无缝集成
-// • JSON Data Type: Automatic JSON data type assignment for rule processing  JSON 数据类型：规则处理的自动 JSON 数据类型分配
+// Key Features
+// • MQTT Message Wrapping: Provides unified access to MQTT message properties
+// • Topic Information: Access to MQTT topic and routing information
+// • Payload Access: Efficient access to message payload data
+// • Metadata Integration: Seamless integration with RuleGo's metadata system
+// • JSON Data Type: Automatic JSON data type assignment for rule processing
 //
-// Message Flow / 消息流：
-// 1. MQTT message received from broker  从代理接收 MQTT 消息
-// 2. RequestMessage created with message context  使用消息上下文创建 RequestMessage
-// 3. Topic information extracted and stored  提取并存储主题信息
-// 4. Converted to RuleMsg for rule chain processing  转换为 RuleMsg 进行规则链处理
+// Message Flow
+// 1. MQTT message received from broker
+// 2. RequestMessage created with message context
+// 3. Topic information extracted and stored
+// 4. Converted to RuleMsg for rule chain processing
 type RequestMessage struct {
-	//HTTP 风格的头部映射，存储 MQTT 特定信息  HTTP-style headers map storing MQTT-specific information  头部映射
+	//HTTP-style headers map storing MQTT-specific information
 	headers textproto.MIMEHeader
-	//原始 MQTT 消息对象  Original MQTT message object  原始 MQTT 消息
+	//Original MQTT message object
 	request paho.Message
-	//消息载荷数据，延迟读取以优化性能  Message payload data, lazily loaded for performance  消息载荷数据
+	//Message payload data, lazily loaded for performance
 	body []byte
-	//转换后的规则消息，缓存以避免重复转换  Converted rule message, cached to avoid re-conversion  转换后的规则消息
+	//Converted rule message, cached to avoid re-conversion
 	msg *types.RuleMsg
-	//处理过程中的错误信息  Error information during processing  处理错误信息
+	//Error information during processing
 	err error
 }
 
@@ -233,12 +233,12 @@ type RequestMessage struct {
 // The payload is extracted from the MQTT message on first access and cached for performance.
 // This method provides efficient access to the message content.
 //
-// Body 返回 MQTT 消息载荷作为字节切片。
-// 首次访问时从 MQTT 消息中提取载荷并缓存以提高性能。
-// 此方法提供对消息内容的高效访问。
+// Body returns the MQTT message payload as a byte slice.
+// Extract payloads from MQTT messages on the first visit and cache them to improve performance.
+// This method provides efficient access to the content of the message.
 //
-// Returns / 返回：
-// • []byte: MQTT message payload content  MQTT 消息载荷内容
+// Returns
+// • []byte: MQTT message payload content
 func (r *RequestMessage) Body() []byte {
 	if r.body == nil && r.request != nil {
 		r.body = r.request.Payload()
@@ -250,15 +250,15 @@ func (r *RequestMessage) Body() []byte {
 // The headers include the original MQTT topic and other relevant metadata.
 // This provides a standardized way to access MQTT message properties.
 //
-// Headers 返回包含 MQTT 特定信息的 HTTP 风格头部。
-// 头部包括原始 MQTT 主题和其他相关元数据。
-// 这提供了访问 MQTT 消息属性的标准化方式。
+// Headers return an HTTP-style header containing MQTT-specific information.
+// The header includes the original MQTT theme and other related metadata.
+// This provides a standardized way to access MQTT message attributes.
 //
-// Returns / 返回：
-// • textproto.MIMEHeader: Headers map with MQTT information  包含 MQTT 信息的头部映射
+// Returns
+// • textproto.MIMEHeader: Headers map with MQTT information
 //
-// Header Contents / 头部内容：
-// • topic: Original MQTT topic name  原始 MQTT 主题名称
+// Header Contents
+// • topic: Original MQTT topic name
 func (r *RequestMessage) Headers() textproto.MIMEHeader {
 	if r.headers == nil {
 		r.headers = make(map[string][]string)
@@ -272,11 +272,11 @@ func (r *RequestMessage) Headers() textproto.MIMEHeader {
 // From returns the MQTT topic name for this message.
 // This is used for routing and logging purposes in the RuleGo framework.
 //
-// From 返回此消息的 MQTT 主题名称。
-// 这在 RuleGo 框架中用于路由和日志记录目的。
+// From Return the MQTT subject name for this message.
+// This is used in the RuleGo framework for routing and logging purposes.
 //
-// Returns / 返回：
-// • string: MQTT topic name, empty string if no request  MQTT 主题名称，如果没有请求则为空字符串
+// Returns
+// • string: MQTT topic name, empty string if no request MQTT topic name; if no request is made, it is an empty string
 func (r *RequestMessage) From() string {
 	if r.request == nil {
 		return ""
@@ -287,14 +287,14 @@ func (r *RequestMessage) From() string {
 // GetParam returns an empty string as MQTT messages do not support URL-style parameters.
 // This method exists to satisfy the Message interface but is not applicable for MQTT.
 //
-// GetParam 返回空字符串，因为 MQTT 消息不支持 URL 风格的参数。
-// 此方法存在是为了满足 Message 接口，但不适用于 MQTT。
+// GetParam returns an empty string because MQTT messages do not support URL-style parameters.
+// This method exists to satisfy the Message interface, but it is not suitable for MQTT.
 //
-// Parameters / 参数：
-// • key: Parameter name (ignored in MQTT context)  参数名称（在 MQTT 上下文中被忽略）
+// Parameters
+// • key: Parameter name (ignored in MQTT context)
 //
-// Returns / 返回：
-// • string: Always returns empty string  总是返回空字符串
+// Returns
+// • string: Always returns empty string
 func (r *RequestMessage) GetParam(key string) string {
 	return ""
 }
@@ -302,11 +302,11 @@ func (r *RequestMessage) GetParam(key string) string {
 // SetMsg sets the RuleMsg for this MQTT request message.
 // This is typically used during message processing to cache the converted message.
 //
-// SetMsg 为此 MQTT 请求消息设置 RuleMsg。
-// 这通常在消息处理期间用于缓存转换后的消息。
+// SetMsg sets RuleMsg for this MQTT request message.
+// This is usually used during message processing to cache the transformed messages.
 //
-// Parameters / 参数：
-// • msg: The rule message to associate with this request  要与此请求关联的规则消息
+// Parameters
+// • msg: The rule message to associate with this request
 func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
 	r.msg = msg
 }
@@ -315,18 +315,18 @@ func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
 // The conversion includes automatic JSON data type assignment and metadata population.
 // The MQTT topic is automatically added to the message metadata for routing purposes.
 //
-// GetMsg 将 MQTT 消息转换为 RuleMsg 以进行规则链处理。
-// 转换包括自动 JSON 数据类型分配和元数据填充。
-// MQTT 主题自动添加到消息元数据中用于路由目的。
+// GetMsg converts MQTT messages into RuleMsg for rule chain processing.
+// Conversion includes automatic JSON data type assignment and metadata filling.
+// MQTT topics are automatically added to message metadata for routing purposes.
 //
-// Returns / 返回：
-// • *types.RuleMsg: Converted rule message ready for processing  转换后的规则消息，可供处理
+// Returns
+// • *types.RuleMsg: Converted rule message ready for processing
 //
-// Conversion Details / 转换详情：
-// • Data Type: Always set to JSON for flexible processing  数据类型：总是设置为 JSON 以便灵活处理
-// • Source: Set to MQTT topic name  来源：设置为 MQTT 主题名称
-// • Payload: MQTT message payload as string  载荷：MQTT 消息载荷作为字符串
-// • Metadata: Includes original topic information  元数据：包含原始主题信息
+// Conversion Details
+// • Data Type: Always set to JSON for flexible processing
+// • Source: Set to MQTT topic name
+// • Payload: MQTT message payload as string
+// • Metadata: Includes original topic information
 func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	if r.msg == nil {
 		ruleMsg := types.NewMsg(0, r.From(), types.JSON, types.NewMetadata(), string(r.Body()))
@@ -339,22 +339,22 @@ func (r *RequestMessage) GetMsg() *types.RuleMsg {
 // SetStatusCode is a no-op for MQTT request messages as status codes are not applicable.
 // This method exists to satisfy the Message interface.
 //
-// SetStatusCode 对于 MQTT 请求消息是无操作，因为状态码不适用。
-// 此方法存在是为了满足 Message 接口。
+// SetStatusCode is non-operative for MQTT request messages because status codes do not apply.
+// This method exists to satisfy the Message interface.
 //
-// Parameters / 参数：
-// • statusCode: Status code (ignored in MQTT context)  状态码（在 MQTT 上下文中被忽略）
+// Parameters
+// • statusCode: Status code (ignored in MQTT context)
 func (r *RequestMessage) SetStatusCode(statusCode int) {
 }
 
 // SetBody sets the message payload content.
 // This is typically used for testing or message transformation scenarios.
 //
-// SetBody 设置消息载荷内容。
-// 这通常用于测试或消息转换场景。
+// SetBody sets the message payload content.
+// This is usually used for testing or message conversion scenarios.
 //
-// Parameters / 参数：
-// • body: Message payload content to set  要设置的消息载荷内容
+// Parameters
+// • body: Message payload content to set
 func (r *RequestMessage) SetBody(body []byte) {
 	r.body = body
 }
@@ -362,11 +362,11 @@ func (r *RequestMessage) SetBody(body []byte) {
 // SetError sets an error associated with this MQTT request message.
 // This is used to track errors during message processing.
 //
-// SetError 设置与此 MQTT 请求消息关联的错误。
-// 用于跟踪消息处理期间的错误。
+// SetError sets the error associated with this MQTT request message.
+// Used to track errors during message processing.
 //
-// Parameters / 参数：
-// • err: Error to associate with this message  要与此消息关联的错误
+// Parameters
+// • err: Error to associate with this message
 func (r *RequestMessage) SetError(err error) {
 	r.err = err
 }
@@ -374,11 +374,11 @@ func (r *RequestMessage) SetError(err error) {
 // GetError returns any error associated with this MQTT request message.
 // This is useful for error handling and debugging.
 //
-// GetError 返回与此 MQTT 请求消息关联的任何错误。
-// 这对于错误处理和调试很有用。
+// GetError returns any error associated with this MQTT request message.
+// This is useful for error handling and debugging.
 //
-// Returns / 返回：
-// • error: Associated error, nil if no error  关联的错误，如果没有错误则为 nil
+// Returns
+// • error: Associated error, nil if no error
 func (r *RequestMessage) GetError() error {
 	return r.err
 }
@@ -386,11 +386,11 @@ func (r *RequestMessage) GetError() error {
 // Request returns the underlying MQTT message object.
 // This provides direct access to the original paho.Message for advanced scenarios.
 //
-// Request 返回底层的 MQTT 消息对象。
-// 这为高级场景提供对原始 paho.Message 的直接访问。
+// Request returns the underlying MQTT message object.
+// This provides direct access to the original paho.Message for advanced scenarios.
 //
-// Returns / 返回：
-// • paho.Message: Original MQTT message object  原始 MQTT 消息对象
+// Returns
+// • paho.Message: Original MQTT message object
 func (r *RequestMessage) Request() paho.Message {
 	return r.request
 }
@@ -399,37 +399,37 @@ func (r *RequestMessage) Request() paho.Message {
 // It handles the conversion of rule processing results back into MQTT publish operations,
 // including topic selection, QoS configuration, and message content publishing.
 //
-// ResponseMessage 表示 RuleGo 处理管道中的传出 MQTT 消息。
-// 它处理规则处理结果转换回 MQTT 发布操作，包括主题选择、QoS 配置和消息内容发布。
+// ResponseMessage means RuleGo handles outgoing MQTT messages in the pipeline.
+// It handles the conversion of rule processing results back into MQTT publishing operations, including topic selection, QoS configuration, and message content publishing.
 //
-// Key Features / 主要特性：
-// • Automatic Publishing: Response content is automatically published to MQTT broker  自动发布：响应内容自动发布到 MQTT 代理
-// • Topic Configuration: Response topic can be configured via metadata  主题配置：可通过元数据配置响应主题
-// • QoS Control: Quality of Service level can be specified for published messages  QoS 控制：可为发布的消息指定服务质量级别
-// • Metadata Integration: Uses RuleGo metadata for publishing configuration  元数据集成：使用 RuleGo 元数据进行发布配置
-// • Error Handling: Built-in error tracking for publishing operations  错误处理：发布操作的内置错误跟踪
+// Key Features
+// • Automatic Publishing: Response content is automatically published to MQTT broker
+// • Topic Configuration: Response topic can be configured via metadata
+// • QoS Control: Quality of Service level can be specified for published messages QoS Control: Specifies a Service Level for published messages
+// • Metadata Integration: Uses RuleGo metadata for publishing configuration
+// • Error Handling: Built-in error tracking for publishing operations
 //
-// Publishing Behavior / 发布行为：
+// Publishing Behavior
 // When SetBody() is called, the message is automatically published to the MQTT broker
 // using the topic and QoS specified in metadata or headers.
-// 调用 SetBody() 时，消息会自动发布到 MQTT 代理，
-// 使用元数据或头部中指定的主题和 QoS。
+// When SetBody() is called, the message is automatically published to the MQTT proxy,
+// Use metadata or topics specified in the header and QoS.
 //
-// Configuration via Metadata / 通过元数据配置：
-// • responseTopic: Target topic for publishing  发布的目标主题
-// • responseQos: QoS level for publishing (0, 1, or 2)  发布的 QoS 级别
+// Configuration via Metadata
+// • responseTopic: Target topic for publishing
+// • responseQos: QoS level for publishing (0, 1, or 2)
 type ResponseMessage struct {
-	//HTTP 风格的头部映射，存储 MQTT 响应配置  HTTP-style headers map storing MQTT response configuration  头部映射
+	//HTTP-style headers mapping storing MQTT response configuration
 	headers textproto.MIMEHeader
-	//原始请求消息，用于上下文信息  Original request message for context information  原始请求消息
+	//Original request message for context information
 	request paho.Message
-	//MQTT 客户端，用于发布响应消息  MQTT client for publishing response messages  MQTT 客户端
+	//MQTT client for publishing response messages MQTT client
 	response paho.Client
-	//响应消息体数据  Response message body data  响应消息体
+	//Response message body data
 	body []byte
-	//处理结果的规则消息  Rule message with processing results  处理结果的规则消息
+	//Rule message with processing results
 	msg *types.RuleMsg
-	//响应处理过程中的错误  Error during response processing  响应处理错误
+	//Error during response processing
 	err error
 }
 
@@ -451,7 +451,7 @@ func (r *ResponseMessage) From() string {
 	return r.request.Topic()
 }
 
-// GetParam 不提供获取参数
+// GetParam does not provide acquisition parameters
 func (r *ResponseMessage) GetParam(key string) string {
 	return ""
 }
@@ -466,7 +466,7 @@ func (r *ResponseMessage) GetMsg() *types.RuleMsg {
 func (r *ResponseMessage) SetStatusCode(statusCode int) {
 }
 
-// 从msg.Metadata或者响应头获取
+// From msg.Metadata or response header access
 func (r *ResponseMessage) getMetadataValue(metadataName, headerName string) string {
 	var v string
 	if r.GetMsg() != nil {
@@ -510,89 +510,89 @@ func (r *ResponseMessage) Response() paho.Client {
 // It provides a complete MQTT client solution with topic subscription, message processing,
 // and integration with RuleGo's rule chains and components.
 //
-// Mqtt 表示 RuleGo 框架的 MQTT 端点实现。
-// 它提供完整的 MQTT 客户端解决方案，具有主题订阅、消息处理以及与 RuleGo 规则链和组件的集成。
+// Mqtt represents the MQTT endpoint implementation of the RuleGo framework.
+// It offers a complete MQTT client solution with topic subscriptions, message processing, and integration with RuleGo rule chains and components.
 //
-// Architecture / 架构：
+// # Architecture
 //
 // The MQTT endpoint follows a publish-subscribe messaging pattern:
-// MQTT 端点遵循发布-订阅消息传递模式：
+// MQTT endpoints follow a publish-subscribe messaging model:
 //
-// 1. MQTT Client Layer: Handles low-level MQTT protocol operations  MQTT 客户端层：处理低级 MQTT 协议操作
-// 2. Topic Subscription Layer: Manages topic subscriptions and message routing  主题订阅层：管理主题订阅和消息路由
-// 3. Message Processing Layer: Converts MQTT messages to RuleMsg format  消息处理层：将 MQTT 消息转换为 RuleMsg 格式
-// 4. Rule Engine Integration: Executes business logic on received messages  规则引擎集成：对接收的消息执行业务逻辑
+// 1. MQTT Client Layer: Handles low-level MQTT protocol operations
+// 2. Topic Subscription Layer: Manages topic subscriptions and message routing
+// 3. Message Processing Layer: Converts MQTT messages to RuleMsg format
+// 4. Rule Engine Integration: Executes business logic on received messages
 //
-// Key Features / 主要特性：
+// # Key Features
 //
-// • MQTT Client Management: Complete client lifecycle with connection management  MQTT 客户端管理：完整的客户端生命周期和连接管理
-// • Topic Subscription: Dynamic topic subscription with wildcard support  主题订阅：支持通配符的动态主题订阅
-// • Connection Sharing: Multiple endpoint instances can share the same client  连接共享：多个端点实例可以共享同一客户端
-// • Automatic Reconnection: Built-in reconnection logic for reliability  自动重连：内置重连逻辑以确保可靠性
-// • QoS Support: All MQTT Quality of Service levels (0, 1, 2)  QoS 支持：所有 MQTT 服务质量级别
-// • Message Publishing: Response message publishing capabilities  消息发布：响应消息发布功能
-// • Topic Pattern Matching: Support for MQTT topic wildcards (+ and #)  主题模式匹配：支持 MQTT 主题通配符
+// • MQTT Client Management: Complete client lifecycle and connection management
+// • Topic Subscription: Dynamic topic subscription with wildcard support
+// • Connection Sharing: Multiple endpoint instances can share the same client
+// • Automatic Reconnection: Built-in reconnection logic for reliability
+// • QoS Support: All MQTT Quality of Service levels (0, 1, 2) QoS Support: All MQTT Quality of Service levels
+// • Message Publishing: Response message publishing capabilities
+// • Topic Pattern Matching: Support for MQTT topic wildcards (+ and #)
 //
-// Connection Management / 连接管理：
+// # Connection Management
 //
 // The endpoint uses shared connections to optimize resource usage:
-// 端点使用共享连接来优化资源使用：
+// Endpoints use shared connections to optimize resource usage:
 //
-// • Single connection per server address  每个服务器地址单一连接
-// • Automatic connection establishment and maintenance  自动连接建立和维护
-// • Graceful connection shutdown on endpoint destruction  端点销毁时优雅的连接关闭
+// • Single connection per server address
+// • Automatic connection establishment and maintenance
+// • Graceful connection shutdown on endpoint destruction
 //
-// Topic Subscription / 主题订阅：
+// # Topic Subscription
 //
 // Supports MQTT standard topic patterns:
-// 支持 MQTT 标准主题模式：
+// Supports MQTT standard theme mode:
 //
-// • Exact topics: "sensors/temperature"  精确主题
-// • Single-level wildcards: "sensors/+/status"  单级通配符
-// • Multi-level wildcards: "sensors/#"  多级通配符
+// • Exact topics: "sensors/temperature"
+// • Single-level wildcards: "sensors/+/status"
+// • Multi-level wildcards: "sensors/#"
 //
-// Thread Safety / 线程安全：
+// # Thread Safety
 //
 // The MQTT endpoint is designed for concurrent operations:
-// MQTT 端点设计用于并发操作：
+// MQTT endpoints are designed for concurrent operations:
 //
-// • Route management operations are thread-safe  路由管理操作是线程安全的
-// • Message handling supports concurrent processing  消息处理支持并发处理
-// • Connection operations are protected for concurrent access  连接操作受保护以支持并发访问
+// • Route management operations are thread-safe
+// • Message handling supports concurrent processing
+// • Connection operations are protected for concurrent access
 //
-// Performance Considerations / 性能考虑：
+// # Performance Considerations
 //
-// • Shared client connections reduce resource overhead  共享客户端连接减少资源开销
-// • Efficient topic matching algorithms  高效的主题匹配算法
-// • Configurable connection parameters for optimization  可配置的连接参数用于优化
-// • Non-blocking message processing  非阻塞消息处理
+// • Shared client connections reduce resource overhead
+// • Efficient topic matching algorithms
+// • Configurable connection parameters for optimization
+// • Non-blocking message processing
 type Mqtt struct {
 	// BaseEndpoint provides common endpoint functionality
-	// BaseEndpoint 提供通用端点功能
+	// BaseEndpoint provides universal endpoint functionality
 	impl.BaseEndpoint
 
 	// SharedNode enables client sharing between multiple endpoint instances
-	// SharedNode 启用多个端点实例之间的客户端共享
+	// SharedNode enables client sharing among multiple endpoint instances
 	base.SharedNode[*mqtt.Client]
 
 	// GracefulShutdown provides graceful shutdown capabilities
-	// GracefulShutdown 提供优雅停机功能
+	// GracefulShutdown offers an elegant shutdown function
 	base.GracefulShutdown
 
 	// RuleConfig provides access to the rule engine configuration
-	// RuleConfig 提供对规则引擎配置的访问
+	// RuleConfig provides access to the rule engine configuration
 	RuleConfig types.Config
 
 	// Config contains the MQTT client configuration settings
-	// Config 包含 MQTT 客户端配置设置
+	// Config contains MQTT client configuration settings
 	Config mqtt.Config
 
 	// started indicates whether the MQTT client has been started and is subscribing
-	// started 指示 MQTT 客户端是否已启动并正在订阅
+	// 'started' indicates whether the MQTT client is starting and subscribed
 	started bool
 }
 
-// Type 组件类型
+// Type returns the component type
 func (x *Mqtt) Type() string {
 	return Type
 }
@@ -626,16 +626,16 @@ func (x *Mqtt) New() types.Node {
 	}}
 }
 
-// Init 初始化
+// Init initializes the component
 func (x *Mqtt) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	// 兼容旧 key
+	// Compatible with old keys
 	mqtt.NormalizeConfigKeys(configuration)
 	var v, ok = configuration["maxReconnectInterval"]
 	if !ok {
 		v, ok = configuration["MaxReconnectInterval"]
 	}
 	if v != nil {
-		// 兼容默认秒方式
+		// Compatible with default second mode
 		if num := cast.ToInt64(v); num != 0 {
 			configuration["maxReconnectInterval"] = fmt.Sprintf("%ds", num)
 		}
@@ -643,7 +643,7 @@ func (x *Mqtt) Init(ruleConfig types.Config, configuration types.Configuration) 
 	err := maps.Map2Struct(configuration, &x.Config)
 	x.RuleConfig = ruleConfig
 
-	// 初始化优雅停机功能 - 使用合理的默认超时(10秒)
+	// Initialize the elegant downtime function - use reasonable default timeout (10 seconds)
 	x.GracefulShutdown.InitGracefulShutdown(x.RuleConfig.Logger, 10*time.Second)
 
 	_ = x.SharedNode.InitWithClose(x.RuleConfig, x.Type(), x.Config.Server, true, func() (*mqtt.Client, error) {
@@ -657,7 +657,7 @@ func (x *Mqtt) Init(ruleConfig types.Config, configuration types.Configuration) 
 	return err
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (x *Mqtt) Destroy() {
 	x.GracefulShutdown.GracefulStop(func() {
 		_ = x.Close()
@@ -665,7 +665,7 @@ func (x *Mqtt) Destroy() {
 }
 
 // GracefulStop provides graceful shutdown for the MQTT endpoint
-// GracefulStop 为 MQTT 端点提供优雅停机
+// GracefulStop provides elegant downtime for MQTT endpoints
 func (x *Mqtt) GracefulStop() {
 	x.GracefulShutdown.GracefulStop(func() {
 		_ = x.Close()
@@ -673,7 +673,7 @@ func (x *Mqtt) GracefulStop() {
 }
 
 func (x *Mqtt) Close() error {
-	// SharedNode 会通过 InitWithClose 中的清理函数来管理客户端的关闭
+	// SharedNode manages client shutdowns through the cleanup function in InitWithClose
 	// SharedNode manages client closure through the cleanup function in InitWithClose
 	return x.SharedNode.Close()
 }
@@ -688,7 +688,7 @@ func (x *Mqtt) AddRouter(router endpoint.Router, params ...interface{}) (string,
 	}
 	x.CheckAndSetRouterId(router)
 	x.saveRouter(router)
-	//服务已经启动
+	//The service has already started
 	if x.started {
 		if form := router.GetFrom(); form != nil {
 			client, err := x.SharedNode.GetSafely()
@@ -746,7 +746,7 @@ func (x *Mqtt) Start() error {
 	return nil
 }
 
-// 存储路由
+// Store the route
 func (x *Mqtt) saveRouter(routers ...endpoint.Router) {
 	x.Lock()
 	defer x.Unlock()
@@ -758,7 +758,7 @@ func (x *Mqtt) saveRouter(routers ...endpoint.Router) {
 	}
 }
 
-// 从存储器中删除路由
+// Delete the route from memory
 func (x *Mqtt) deleteRouter(id string) endpoint.Router {
 	x.Lock()
 	defer x.Unlock()
@@ -774,19 +774,19 @@ func (x *Mqtt) deleteRouter(id string) endpoint.Router {
 func (x *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Message) {
 	return func(c paho.Client, data paho.Message) {
 		defer func() {
-			//捕捉异常
+			//Capture anomalies
 			if e := recover(); e != nil {
 				x.Printf("mqtt endpoint handler err :\n%v", runtime.Stack())
 			}
 		}()
 
-		// 检查是否正在停机
+		// Check if the machine is being shut down
 		if err := x.GracefulShutdown.CheckShutdownSignal(); err != nil {
 			x.Printf("MQTT message ignored due to shutdown: %v", err)
 			return
 		}
 
-		// 增加活跃操作计数
+		// Increase the count of active operations
 		x.GracefulShutdown.IncrementActiveOperations()
 		defer x.GracefulShutdown.DecrementActiveOperations()
 
@@ -799,7 +799,7 @@ func (x *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Mes
 				response: c,
 			}}
 
-		// 使用停机上下文处理消息
+		// Handle messages using a downtime context
 		x.DoProcess(x.GracefulShutdown.GetShutdownContext(), router, exchange)
 	}
 }
@@ -810,7 +810,7 @@ func (x *Mqtt) Printf(format string, v ...interface{}) {
 	}
 }
 
-// initClient 初始化客户端
+// initClient initializes the client
 func (x *Mqtt) initClient() (*mqtt.Client, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 4*time.Second)
 	defer cancel()

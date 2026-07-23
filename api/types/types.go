@@ -15,86 +15,86 @@
  */
 
 // Package types defines the core interfaces, data structures, and contracts for the RuleGo rule engine framework.
-// 包 types 定义了 RuleGo 规则引擎框架的核心接口、数据结构和契约。
+// Package types define the core interfaces, data structures, and contracts of the RuleGo rules engine framework.
 //
 // This package serves as the foundation for the entire RuleGo ecosystem, providing:
-// 该包是整个 RuleGo 生态系统的基础，提供：
+// This package forms the foundation of the entire RuleGo ecosystem, providing:
 //
 //   - Core interfaces for components, nodes, and rule engines
-//     组件、节点和规则引擎的核心接口
+//     Core interfaces for components, nodes, and rule engines
 //   - Message structures for data flow between nodes
-//     节点间数据流转的消息结构
+//     Message structure for data flow between nodes
 //   - Configuration and context types for rule execution
-//     规则执行的配置和上下文类型
+//     Configuration and context type for rule execution
 //   - Aspect-oriented programming (AOP) support
-//     面向切面编程（AOP）支持
+//     Face-to-face programming (AOP) support
 //   - Plugin and component registry mechanisms
-//     插件和组件注册机制
+//     Plugin and component registration mechanisms
 //
 // # Extension Component Libraries
-// # 扩展组件库生态
+// # Expanding the component library ecosystem
 //
 // RuleGo provides a complete ecosystem of extension component libraries:
-// RuleGo 提供完整的扩展组件库生态系统：
+// RuleGo offers a complete ecosystem of extended component libraries:
 //
 //  1. rulego-components (https://github.com/rulego/rulego-components)
 //     Core extension components including Kafka, Redis, RabbitMQ, NATS, gRPC, FastHTTP
-//     核心扩展组件，包含 Kafka、Redis、RabbitMQ、NATS、gRPC、FastHTTP 等通用端点和处理组件
+//     Core extension components, including general endpoints and processing components such as Kafka, Redis, RabbitMQ, NATS, gRPC, FastHTTP, and others
 //
 //  2. rulego-components-ai (https://github.com/rulego/rulego-components-ai)
 //     AI scenario components for intelligent inference, model invocation, data preprocessing
-//     AI 场景组件库，包含智能推理、模型调用、数据预处理等 AI 相关端点和组件
+//     AI scenario component library includes AI-related endpoints and components such as intelligent inference, model calls, and data preprocessing
 //
 //  3. rulego-components-ci (https://github.com/rulego/rulego-components-ci)
 //     CI/CD scenario components for code repositories, build tools, deployment platforms
-//     CI/CD 场景组件库，包含代码仓库、构建工具、部署平台集成等 DevOps 相关组件
+//     CI/CD scenario component libraries, including code warehouses, build tools, deployment platform integrations, and other DevOps-related components
 //
 //  4. rulego-components-iot (https://github.com/rulego/rulego-components-iot)
 //     IoT scenario components for device connectivity, protocol conversion, data acquisition
-//     IoT 场景组件库，包含设备连接、协议转换、数据采集等物联网相关组件
+//     IoT scenario component library, including IoT-related components such as device connection, protocol conversion, and data collection
 //
 //  5. rulego-components-etl (https://github.com/rulego/rulego-components-etl)
 //     ETL scenario components for database connections, file processing, data cleansing
-//     ETL 场景组件库，包含数据库连接、文件处理、数据清洗等数据处理组件
+//     ETL scenario component library includes data processing components such as database connections, file processing, and data cleaning
 //
 // These extension libraries provide modular architecture, specialized solutions, unified API interfaces,
 // and support on-demand selection and seamless integration.
-// 这些扩展库提供模块化架构、专用解决方案、统一 API 接口，支持按需选择和无缝集成。
+// These expansion libraries offer modular architectures, dedicated solutions, and unified API interfaces, supporting on-demand selection and seamless integration.
 //
 // # Key Components
-// # 关键组件
+// # Key components
 //
 //   - Node: Interface for implementing rule engine components
-//     Node：实现规则引擎组件的接口
+//     Node: The interface for implementing rule engine components
 //   - RuleMsg: Core message structure for data flow
-//     RuleMsg：数据流转的核心消息结构
+//     RuleMsg: The core message structure for data flow
 //   - RuleContext: Execution context for message processing
-//     RuleContext：消息处理的执行上下文
+//     RuleContext: The execution context for message processing
 //   - RuleEngine: Main engine interface for rule execution
-//     RuleEngine：规则执行的主引擎接口
+//     RuleEngine: The main engine interface for rule execution
 //   - ComponentRegistry: Component registration and management
-//     ComponentRegistry：组件注册和管理
+//     ComponentRegistry: Registers and manages components
 //
 // # Architecture Overview
-// # 架构概览
+// # Architecture Overview
 //
 // The RuleGo framework follows a modular, component-based architecture:
-// RuleGo 框架遵循模块化、基于组件的架构：
+// The RuleGo framework follows a modular, component-based architecture:
 //
 //  1. Messages flow through a chain of interconnected nodes
-//     消息通过互连节点链进行流转
+//     Messages flow through interconnected node chains
 //  2. Each node implements specific business logic or transformation
-//     每个节点实现特定的业务逻辑或转换
+//     Each node implements specific business logic or transformations
 //  3. Relationships between nodes define the message routing
-//     节点间的关系定义消息路由
+//     The relationships between nodes define message routing
 //  4. AOP aspects provide cross-cutting concerns like monitoring
-//     AOP 切面提供监控等横切关注点
+//     The AOP aspect provides monitoring and other cross-sectional points of concern
 //
 // # Example Usage
-// # 使用示例
+// # Usage examples
 //
 //	// Implement a custom node component
-//	// 实现自定义节点组件
+//	Implement custom node components
 //	type MyNode struct{}
 //
 //	func (n *MyNode) Type() string { return "myNode" }
@@ -102,17 +102,17 @@
 //	func (n *MyNode) Init(config types.Config, configuration types.Configuration) error { return nil }
 //	func (n *MyNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 //		// Process message and forward to next nodes
-//		// 处理消息并转发到下一个节点
+//		Processes messages and forwards them to the next node
 //		ctx.TellSuccess(msg)
 //	}
 //	func (n *MyNode) Destroy() {}
 //
 //	// Register the component
-//	// 注册组件
+//	Register the components
 //	registry.Register(&MyNode{})
 //
 //	// Use in rule chain DSL
-//	// 在规则链 DSL 中使用
+//	Used in Rule Chain DSL
 //	{
 //		"ruleChain": {
 //			"nodes": [
@@ -126,7 +126,7 @@
 //	}
 //
 // For detailed usage examples and documentation, see the RuleGo main package and extension libraries.
-// 详细的使用示例和文档，请参见 RuleGo 主包和扩展库。
+// For detailed usage examples and documentation, please refer to the RuleGo main package and extension library.
 package types
 
 import (
@@ -134,18 +134,18 @@ import (
 )
 
 // Relation types define the connections between nodes. These are common relations that can be customized.
-// 关系类型定义节点之间的连接。这些是可以自定义的常见关系。
+// Relationship types define connections between nodes. These are common relationships that can be customized.
 //
 // These constants represent the standard relationship types used to route messages between nodes:
-// 这些常量表示用于在节点间路由消息的标准关系类型：
+// These constants represent the standard relationship types used to route messages between nodes:
 //   - Success: Message processed successfully, continue to success path
-//     Success：消息处理成功，继续成功路径
+//     Success: Message processing successful, continue the success path
 //   - Failure: Message processing failed, route to error handling
-//     Failure：消息处理失败，路由到错误处理
+//     Failure: Message processing failure, routing to error handling
 //   - True/False: Boolean logic routing for filter and condition nodes
-//     True/False：用于过滤器和条件节点的布尔逻辑路由
+//     True/False: Boolean logic routing for filters and condition nodes
 //   - Stream: Streaming data flow for real-time data processing
-//     Stream：用于实时数据处理的流式数据流
+//     Stream: A streaming data stream used for real-time data processing
 const (
 	Success = "Success"
 	Failure = "Failure"
@@ -155,53 +155,53 @@ const (
 )
 
 // Flow direction types indicate the direction of message flow into and out of nodes.
-// 流向类型表示消息流入和流出节点的方向。
+// The flow type indicates the direction in which messages flow in and out of nodes.
 //
 // These constants are used for debugging, monitoring, and AOP aspects to track message flow:
-// 这些常量用于调试、监控和 AOP 切面来跟踪消息流：
+// These constants are used for debugging, monitoring, and AOP sections to track message flows:
 const (
-	In  = "IN"  // Represents a message flowing into a node. 表示消息流入节点
-	Out = "OUT" // Represents a message flowing out of a node. 表示消息流出节点
-	Log = "Log" // Used for logging purposes. 用于日志记录目的
+	In  = "IN"  // Represents a message flowing into a node. Indicates the message flowing into nodes
+	Out = "OUT" // Represents a message flowing out of a node. Indicates the message outflow node
+	Log = "Log" // Used for logging purposes. Used for logging purposes
 )
 
 // Script types define the scripting languages supported for script execution within nodes.
-// 脚本类型定义节点内脚本执行支持的脚本语言。
+// Script types define the scripting languages supported for script execution within the node.
 //
 // These constants are used by script-enabled components to specify the execution engine:
-// 这些常量由支持脚本的组件用来指定执行引擎：
+// These constants are used by components that support scripts to specify the execution engine:
 const (
-	AllScript = ""       // All script match. 匹配所有脚本类型
-	Js        = "Js"     // Represents JavaScript scripting language. 表示 JavaScript 脚本语言
-	Lua       = "Lua"    // Represents Lua scripting language. 表示 Lua 脚本语言
-	Python    = "Python" // Represents Python scripting language. 表示 Python 脚本语言
-	AiTool    = "AiTool" // Represents AI Tool. 表示 AI 工具
+	AllScript = ""       // All script match. Matches all script types
+	Js        = "Js"     // Represents JavaScript scripting language. Represents the JavaScript scripting language
+	Lua       = "Lua"    // Represents Lua scripting language. Represents the Lua scripting language
+	Python    = "Python" // Represents Python scripting language. Represents the Python scripting language
+	AiTool    = "AiTool" // Represents AI Tool. Refers to AI tools
 )
 
 // OnEndFunc is a callback function type that is executed when a branch of the rule chain completes.
-// OnEndFunc 是规则链分支完成时执行的回调函数类型。
+// OnEndFunc is a callback function type executed when a rule chain branch completes.
 //
 // This callback provides detailed information about the execution result:
-// 此回调提供执行结果的详细信息：
+// This callback provides detailed information about the execution results:
 //   - ctx: The rule context containing execution state
-//     ctx：包含执行状态的规则上下文
+//     ctx: Contains the rule context of the execution state
 //   - msg: The final message after processing
-//     msg：处理后的最终消息
+//     msg: The final message after processing
 //   - err: Any error that occurred during processing
-//     err：处理过程中发生的任何错误
+//     err: Any errors that occur during processing
 //   - relationType: The relationship type that led to this endpoint
-//     relationType：导致此端点的关系类型
+//     relationType: The type of relationship that causes this endpoint
 type OnEndFunc = func(ctx RuleContext, msg RuleMsg, err error, relationType string)
 
 // Configuration is a type for component configurations, represented as a map with string keys and interface{} values.
-// Configuration 是组件配置的类型，表示为具有字符串键和 interface{} 值的映射。
+// Configuration is a type of component configuration, represented as a mapping with string keys and interface{} values.
 //
 // This flexible configuration format allows components to define their own configuration schema
 // while providing type safety through validation during component initialization.
-// 这种灵活的配置格式允许组件定义自己的配置模式，同时通过组件初始化期间的验证提供类型安全性。
+// This flexible configuration format allows components to define their own configuration patterns while providing type safety through validation during component initialization.
 //
 // Example:
-// 示例：
+// Example:
 //
 //	config := Configuration{
 //	    "timeout": 30,
@@ -212,18 +212,18 @@ type OnEndFunc = func(ctx RuleContext, msg RuleMsg, err error, relationType stri
 type Configuration map[string]interface{}
 
 // Copy creates a shallow copy of the Configuration.
-// Copy 创建 Configuration 的浅拷贝。
+// Copy: Create a shallow copy of the Configuration.
 //
 // This method creates a new Configuration map and copies all key-value pairs from the original.
 // Note that this is a shallow copy - if values are pointers or reference types,
 // they will still reference the same underlying data.
-// 此方法创建一个新的 Configuration 映射并从原始映射复制所有键值对。
-// 注意这是浅拷贝 - 如果值是指针或引用类型，它们仍将引用相同的底层数据。
+// This method creates a new Configuration mapping and copies all key-value pairs from the original map.
+// Note that this is a shallow copy—if the value is a pointer or reference type, they will still reference the same underlying data.
 //
 // Returns:
-// 返回值：
+// Returns:
 //   - Configuration: A new Configuration containing copies of all key-value pairs
-//     Configuration：包含所有键值对副本的新 Configuration
+//     Configuration: A new configuration containing all key-value pair replicas
 func (c Configuration) Copy() Configuration {
 	if c == nil {
 		return nil
@@ -236,36 +236,36 @@ func (c Configuration) Copy() Configuration {
 }
 
 // ComponentType is an enum for component types: rule nodes or sub-rule chains.
-// ComponentType 是组件类型的枚举：规则节点或子规则链。
+// ComponentType is an enumeration of component types: rule nodes or subrule chains.
 //
 // This type distinguishes between different kinds of components in the rule chain:
-// 此类型区分规则链中不同种类的组件：
+// This type distinguishes different types of components in the rule chain:
 type ComponentType int
 
 const (
-	NODE     ComponentType = iota // NODE represents a rule node component. NODE 表示规则节点组件
-	CHAIN                         // CHAIN represents a sub-rule chain component. CHAIN 表示子规则链组件
-	ENDPOINT                      // ENDPOINT represents an endpoint component. ENDPOINT 表示端点组件
+	NODE     ComponentType = iota // NODE represents a rule node component. NODE stands for Rule Node component
+	CHAIN                         // CHAIN represents a sub-rule chain component. CHAIN represents the sub-rule chain component
+	ENDPOINT                      // ENDPOINT represents an endpoint component. ENDPOINT stands for Endpoint Component
 )
 
 // PluginRegistry is an interface for providing node components via Go plugins.
-// PluginRegistry 是通过 Go 插件提供节点组件的接口。
+// PluginRegistry provides an interface for node components via Go plugins.
 //
 // This interface enables dynamic loading of components at runtime, allowing for modular architecture
 // and third-party component distribution. Plugins are compiled as .so files and loaded dynamically.
-// 此接口支持在运行时动态加载组件，允许模块化架构和第三方组件分发。插件编译为 .so 文件并动态加载。
+// This interface supports dynamic component loading at runtime, allowing modular architectures and third-party component distribution. The plugin compiles the file into a.so file and loads it dynamically.
 //
 // Implementation Guidelines:
-// 实现指南：
+// Implementation Guide:
 //  1. Plugin must export a variable named "Plugins" implementing this interface
-//     插件必须导出名为 "Plugins" 的变量实现此接口
+//     Plugins must export a variable named "Plugins" to implement this interface
 //  2. Init() should handle plugin initialization and resource setup
-//     Init() 应处理插件初始化和资源设置
+//     Init() should handle plugin initialization and resource settings
 //  3. Components() should return all components provided by the plugin
-//     Components() 应返回插件提供的所有组件
+//     Components() should return all components provided by the plugin
 //
 // Example:
-// 示例：
+// Example:
 //
 //	package main
 //	var Plugins MyPlugins // Plugin entry point
@@ -285,136 +285,136 @@ const (
 //	// rulego.Registry.RegisterPlugin("test", "./plugin.so") // Register the plugin with the default RuleGo registry
 type PluginRegistry interface {
 	// Init initializes the plugin.
-	// Init 初始化插件。
+	// Init initialization plugin.
 	Init() error
 	// Components returns a list of components provided by the plugin.
-	// Components 返回插件提供的组件列表。
+	// Components returns a list of components provided by the plugin.
 	Components() []Node
 }
 
 // ComponentRegistry is an interface for registering node components.
-// ComponentRegistry 是注册节点组件的接口。
+// ComponentRegistry is the interface for registering node components.
 //
 // This registry manages the lifecycle of components and provides factory methods for component creation.
 // It supports both static registration (compile-time) and dynamic registration (runtime via plugins).
-// 此注册表管理组件的生命周期并提供组件创建的工厂方法。
-// 它支持静态注册（编译时）和动态注册（通过插件的运行时）。
+// This registry manages the lifecycle of components and provides factory methods for component creation.
+// It supports static registration (compile time) and dynamic registration (runtime via plugins).
 //
 // Thread Safety:
-// 线程安全性：
+// Thread safety:
 // Implementations should be thread-safe to support concurrent registration and component creation
 // in multi-threaded environments.
-// 实现应该是线程安全的，以支持多线程环境中的并发注册和组件创建。
+// The implementation should be thread-safe to support concurrent registration and component creation in multithreaded environments.
 //
 // Usage Pattern:
-// 使用模式：
+// Usage mode:
 //  1. Register components during application startup
-//     在应用程序启动期间注册组件
+//     Register components during application startup
 //  2. Use NewNode() to create component instances for rule chains
-//     使用 NewNode() 为规则链创建组件实例
+//     Use NewNode() to create component instances for the rule chain
 //  3. Retrieve component metadata for UI configuration
 //
 // ComponentRegistry is the interface for managing rule engine components with isolation and discovery capabilities.
-// ComponentRegistry 是管理规则引擎组件的接口，具备隔离和发现功能。
+// ComponentRegistry is the interface for managing rule engine components, featuring isolation and discovery capabilities.
 //
-// 核心职责 - Core Responsibilities:
-// 1. 组件生命周期管理 - Component lifecycle management
-// 2. 命名空间隔离 - Namespace isolation
-// 3. 动态加载与卸载 - Dynamic loading and unloading
-// 4. 可视化配置支持 - Visual configuration support
+// Core Responsibilities:
+// 1. Component lifecycle management - Component lifecycle management
+// 2. Namespace isolation - Namespace isolation
+// 3. Dynamic loading and unloading
+// 4. Visual configuration support
 //
-// 隔离特性 - Isolation Features:
-//   - 独立组件空间：每个注册表维护独立的组件集合 - Independent component space: each registry maintains separate component collections
-//   - 类型命名空间：支持"domain/type"格式防止冲突 - Type namespaces: supports "domain/type" format to prevent conflicts
-//   - 多租户支持：不同业务域使用隔离的组件注册表 - Multi-tenant support: different business domains use isolated component registries
-//   - 版本管理：同一组件类型的多版本并存 - Version management: multiple versions of the same component type can coexist
+// Isolation Features:
+//   - Independent component space: Each registry maintains separate component collections
+//   - Type namespaces: Supports "domain/type" format to prevent conflicts
+//   - Multi-tenant support: Different business domains use isolated component registries
+//   - Version management: multiple versions of the same component type can coexist
 //
-// 组件发现 - Component Discovery:
-//   - GetComponents(): 获取所有可用组件列表 - Get list of all available components
-//   - GetComponentForms(): 获取组件配置表单，支持UI工具 - Get component configuration forms for UI tools
-//   - NewNode(): 通过类型名称实例化组件 - Instantiate components by type name
-//   - 自动组件分类和元数据提取 - Automatic component categorization and metadata extraction
+// Component Discovery:
+//   - GetComponents(): Get a list of all available components
+//   - GetComponentForms(): Retrieves component configuration forms, supports UI tools - Get component configuration forms for UI tools
+//   - NewNode(): Instantiate components by type name
+//   - Automatic component categorization and metadata extraction
 //
-// 使用模式 - Usage Patterns:
+// Usage Patterns:
 //
-//	// 基础注册 - Basic registration
+//	Basic Registration - Basic registration
 //	registry.Register(&MyCustomNode{})
 //
-//	// 命名空间注册 - Namespace registration
+//	Namespace registration
 //	registry.Register(&MyNode{}) // Type() returns "mycompany/processor"
 //
-//	// 插件动态加载 - Plugin dynamic loading
+//	Plugin dynamic loading
 //	registry.RegisterPlugin("businessPlugin", "./plugins/business.so")
 //
-//	// 获取可用组件 - Get available components
+//	Get available components
 //	components := registry.GetComponents()
 //	for typeName, node := range components {
 //		fmt.Printf("Available: %s\n", typeName)
 //	}
 type ComponentRegistry interface {
 	// Register adds a new component. If `node.Type()` already exists, it returns an 'already exists' error.
-	// Register 添加新组件。如果 `node.Type()` 已存在，返回"已存在"错误。
+	// Register to add new components. If `node.Type()` already exists, returning an error "Existed".
 	Register(node Node) error
 	// RegisterPlugin loads and registers a component from an external .so file using the plugin mechanism.
 	// If `name` already exists or the component list provided by the plugin `node.Type()` exists, it returns an 'already exists' error.
-	// RegisterPlugin 使用插件机制从外部 .so 文件加载并注册组件。
-	// 如果 `name` 已存在或插件提供的组件列表 `node.Type()` 存在，返回"已存在"错误。
+	// RegisterPlugin uses a plugin mechanism to load and register components from external.so files.
+	// If `name` already exists or the plugin provides a list of components called `node.Type()` exists, returning an "Existent" error.
 	RegisterPlugin(name string, file string) error
 	// Unregister removes a component or a batch of components by plugin name.
-	// Unregister 通过插件名称删除组件或批量组件。
+	// Unregister deletes components or batch components by plugin name.
 	Unregister(componentType string) error
 	// NewNode creates a new instance of a node by nodeType.
-	// NewNode 通过 nodeType 创建节点的新实例。
+	// NewNode creates a new instance of a node using nodeType.
 	NewNode(nodeType string) (Node, error)
 	// GetComponents retrieves a complete list of all registered components in this registry instance.
-	// GetComponents 检索此注册表实例中所有已注册组件的完整列表。
+	// GetComponents retrieves the complete list of all registered components in this registry instance.
 	//
 	// This method provides component discovery capabilities for:
-	// 此方法为以下场景提供组件发现功能：
-	//   - Runtime component enumeration and validation  运行时组件枚举和验证
-	//   - UI tools displaying available component types  UI工具显示可用的组件类型
-	//   - Dynamic rule chain composition and validation  动态规则链组合和验证
-	//   - Component inventory management and auditing  组件清单管理和审计
+	// This method provides component discovery capabilities for the following scenarios:
+	//   - Runtime component enumeration and validation
+	//   - UI tools displaying available component types
+	//   - Dynamic rule chain composition and validation
+	//   - Component inventory management and auditing
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - map[string]Node: Map of component type names to component instances
-	//     map[string]Node：组件类型名称到组件实例的映射
+	//     map[string]Node: Mapping the component type name to the component instance
 	//
 	// The returned map contains:
-	// 返回的映射包含：
+	// The returned mapping includes:
 	//   - Key: Component type identifier (e.g., "jsTransform", "mycompany/processor")
-	//     Key：组件类型标识符（例如，"jsTransform"、"mycompany/processor"）
+	//     Key: Component type identifier (e.g., "jsTransform", "mycompany/processor")
 	//   - Value: Component prototype instance for metadata access
-	//     Value：用于元数据访问的组件原型实例
+	//     Value: Component prototype instances used for metadata access
 	//
 	// Note: The returned instances are prototypes for metadata only.
 	// Use NewNode() to create working instances for rule chains.
-	// 注意：返回的实例是仅用于元数据的原型。
-	// 使用 NewNode() 为规则链创建工作实例。
+	// Note: The returned instances are prototypes used only for metadata.
+	// Use NewNode() to create a working instance for the rule chain.
 	GetComponents() map[string]Node
 
 	// GetComponentForms retrieves configuration forms for all registered components, enabling visual configuration tools.
-	// GetComponentForms 检索所有已注册组件的配置表单，支持可视化配置工具。
+	// GetComponentForms retrieves configuration forms for all registered components and supports visual configuration tools.
 	//
 	// This method supports visual rule chain builders by providing:
-	// 此方法通过提供以下内容支持可视化规则链构建器：
-	//   - Component configuration schemas and form definitions  组件配置架构和表单定义
-	//   - Input validation rules and constraints  输入验证规则和约束
-	//   - UI rendering hints and component categorization  UI渲染提示和组件分类
-	//   - Documentation and help text for each component  每个组件的文档和帮助文本
+	// This method supports the visual rule chain builder by providing the following:
+	//   - Component configuration schemas and form definitions
+	//   - Input validation rules and constraints
+	//   - UI rendering hints and component categorization
+	//   - Documentation and help text for each component
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - ComponentFormList: Structured metadata for UI configuration tools
-	//     ComponentFormList：UI配置工具的结构化元数据
+	//     ComponentFormList: Structured metadata for UI configuration tools
 	//
 	// The returned forms enable:
-	// 返回的表单支持：
-	//   - Drag-and-drop rule chain editors  拖放式规则链编辑器
-	//   - Dynamic configuration forms generation  动态配置表单生成
-	//   - Real-time configuration validation  实时配置验证
-	//   - Component documentation integration  组件文档集成
+	// The returned form supports:
+	//   - Drag-and-drop rule chain editors
+	//   - Dynamic configuration forms generation
+	//   - Real-time configuration validation
+	//   - Component documentation integration
 	GetComponentForms() ComponentFormList
 }
 
@@ -422,104 +422,104 @@ type ComponentRegistry interface {
 // It defines the fundamental contract for all components in the RuleGo ecosystem,
 // encapsulating business logic or common functionality that can be invoked through rule chain configurations.
 //
-// Node 是规则引擎节点组件的核心接口。
-// 它定义了 RuleGo 生态系统中所有组件的基本契约，
-// 封装可通过规则链配置调用的业务逻辑或通用功能。
+// Node is the core interface of the rule engine node components.
+// It defines the fundamental contracts for all components within the RuleGo ecosystem,
+// Encapsulation can be configured through the rule chain to configure the business logic or general functions called.
 //
 // Architecture Overview:
-// 架构概述：
+// Architecture Overview:
 //
 //	The Node interface represents the atomic unit of computation in RuleGo rule chains.
 //	Each component encapsulates specific functionality and can be connected to other
 //	components to form complex processing workflows. Components are stateless by design,
 //	with each rule chain instance receiving its own component instance for data isolation.
 //
-//	Node 接口表示 RuleGo 规则链中的原子计算单元。每个组件封装特定功能，
-//	可以连接到其他组件以形成复杂的处理工作流。组件在设计上是无状态的，
-//	每个规则链实例都会收到自己的组件实例以实现数据隔离。
+//	The Node interface represents the atomic computing unit in the RuleGo rule chain. Each component encapsulates specific functions,
+//	It can connect to other components to form complex processing workflows. Components are stateless by design,
+//	Each instance of the rule chain receives its own component instance to achieve data isolation.
 //
 // Component Categories:
-// 组件类别：
+// Module categories:
 //   - Filter components: Data filtering and routing based on conditions
-//     过滤器组件：基于条件的数据过滤和路由
+//     Filter Components: Condition-based data filtering and routing
 //   - Transform components: Data transformation and enrichment
-//     转换器组件：数据转换和丰富
+//     Converter components: Data conversion and enrichment
 //   - Action components: Business logic execution and external service integration
-//     动作组件：业务逻辑执行和外部服务集成
+//     Action components: business logic execution and external service integration
 //   - Flow components: Control flow and rule chain orchestration
-//     流程组件：控制流和规则链编排
+//     Process components: control flow and rule chain orchestration
 //   - External components: Integration with external systems and protocols
-//     外部组件：与外部系统和协议的集成
+//     External components: integration with external systems and protocols
 //
 // Lifecycle Management:
-// 生命周期管理：
+// Lifecycle Management:
 //
 //  1. Registration: Components are registered with the ComponentRegistry
-//     注册：组件通过 ComponentRegistry 注册
+//     Registration: Components are registered through the ComponentRegistry
 //  2. Instantiation: New() creates isolated instances for each rule chain
-//     实例化：New() 为每个规则链创建隔离的实例
+//     Instantiation: New() creates isolated instances for each rule chain
 //  3. Initialization: Init() configures the component with specific parameters
-//     初始化：Init() 使用特定参数配置组件
+//     Initialization: Init() uses specific parameters to configure components
 //  4. Execution: OnMsg() processes incoming messages
-//     执行：OnMsg() 处理传入消息
+//     Execute: OnMsg() to handle incoming messages
 //  5. Cleanup: Destroy() releases resources when no longer needed
-//     清理：Destroy() 在不再需要时释放资源
+//     Cleanup: Destroy() releases resources when no longer needed
 //
 // Optional Interface Extensions:
-// 可选接口扩展：
+// Optional Interface Expansion:
 //
 //	Components can implement additional interfaces for enhanced functionality:
-//	组件可以实现额外接口以增强功能：
+//	Components can implement additional interfaces to enhance functionality:
 //	- ComponentDefGetter: Provides metadata for visual configuration tools
-//	  ComponentDefGetter：为可视化配置工具提供元数据
+//	  ComponentDefGetter: Provides metadata for the visualization configuration tool
 //	- CategoryGetter: Defines component categorization for UI organization
-//	  CategoryGetter：定义组件分类以便 UI 组织
+//	  CategoryGetter: Defines component categories to organize the UI
 //	- DescGetter: Supplies component descriptions and documentation
-//	  DescGetter：提供组件描述和文档
+//	  DescGetter: Provides component descriptions and documentation
 //
 // Thread Safety Considerations:
-// 线程安全考虑：
+// Thread safety considerations:
 //
 //   - Each rule chain receives its own component instance (data isolation)
-//     每个规则链都会收到自己的组件实例（数据隔离）
+//     Each rule chain receives its own component instance (data isolation)
 //   - OnMsg() may be called concurrently from multiple goroutines
-//     OnMsg() 可能从多个 goroutine 并发调用
+//     OnMsg() may be called concurrently from multiple goroutines
 //   - Components should avoid shared mutable state without proper synchronization
-//     组件应避免在没有适当同步的情况下共享可变状态
+//     Components should avoid sharing variable states without proper synchronization
 //   - Use NodePool for expensive resource sharing across multiple instances
-//     使用 NodePool 在多个实例间共享昂贵资源
+//     Use NodePool to share expensive resources across multiple instances
 //
 // Best Practices:
-// 最佳实践：
+// Best Practices:
 //   - Keep components stateless for better scalability
-//     保持组件无状态以获得更好的可扩展性
+//     Keep components stateless for better scalability
 //   - Use meaningful type names with namespace prefixes (e.g., "myCompany/dataProcessor")
-//     使用有意义的类型名称和命名空间前缀（例如，"myCompany/dataProcessor"）
+//     Use meaningful type names and namespace prefixes (e.g., "myCompany/dataProcessor")
 //   - Implement proper error handling and resource cleanup
-//     实现适当的错误处理和资源清理
+//     Achieve proper error handling and resource cleanup
 //   - Consider implementing optional interfaces for better tooling support
-//     考虑实现可选接口以获得更好的工具支持
+//     Consider implementing optional interfaces for better tool support
 //   - Use configuration validation in Init() to catch errors early
-//     在 Init() 中使用配置验证以尽早捕获错误
+//     Use configuration validation in Init() to catch errors early
 //
 // Registration Example:
-// 注册示例：
+// Registration example:
 //
 //	// Register a custom component
-//	// 注册自定义组件
+//	Register custom components
 //	rulego.Registry.Register(&MyCustomNode{})
 //
 //	// Register from plugin
-//	// 从插件注册
+//	Register from the plugin
 //	rulego.Registry.RegisterPlugin("myPlugin", "./plugin.so")
 //
 // Implementation Reference:
-// 实现参考：
+// Implementation reference:
 //
 //	Standard implementations can be found in the `components` package.
 //	Extension components are available in separate repositories:
-//	标准实现可在 `components` 包中找到。
-//	扩展组件可在单独的仓库中获得：
+//	The standard implementation can be found in the `components` package.
+//	Expansion components are available in separate warehouses:
 //	- github.com/rulego/rulego-components
 //	- github.com/rulego/rulego-components-ai
 //	- github.com/rulego/rulego-components-iot
@@ -530,333 +530,333 @@ type Node interface {
 	// This method ensures data isolation between different rule chain instances,
 	// preventing state sharing and potential race conditions.
 	//
-	// New 为每个规则链创建组件的新实例。
-	// 此方法确保不同规则链实例之间的数据隔离，
-	// 防止状态共享和潜在的竞态条件。
+	// New: Create a new instance of the component for each rule chain.
+	// This method ensures data isolation between different rule chain instances,
+	// Prevent state sharing and potential race conditions.
 	//
 	// Design Pattern:
-	// 设计模式：
+	// Design Pattern:
 	//	This follows the Prototype pattern, where the registered component
 	//	serves as a template for creating new instances. Each instance
 	//	maintains its own state and configuration.
 	//
-	//	这遵循原型模式，注册的组件作为创建新实例的模板。
-	//	每个实例维护自己的状态和配置。
+	//	This follows the prototype pattern, where registered components serve as templates for creating new instances.
+	//	Each instance maintains its own state and configuration.
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - Node: A new component instance ready for initialization
-	//     Node：准备好初始化的新组件实例
+	//     Node: Ready to initialize the new component instance
 	//
 	// Implementation Notes:
-	// 实现注意事项：
+	// Implementation Notes:
 	//   - Return a new instance of the same type, not a copy of existing data
-	//     返回相同类型的新实例，而不是现有数据的副本
+	//     Returns a new instance of the same type, rather than a copy of existing data
 	//   - Initialize only default values, detailed configuration happens in Init()
-	//     仅初始化默认值，详细配置在 Init() 中进行
+	//     Only initialize the default value; detailed configuration is done in Init().
 	//   - Avoid expensive operations that should be deferred to Init()
-	//     避免应该延迟到 Init() 的昂贵操作
+	//     Avoid expensive operations that should be delayed until Init().
 	New() Node
 
 	// Type returns the unique component type identifier.
 	// This identifier is used for component lookup, registration, and rule chain configuration.
 	//
-	// Type 返回唯一的组件类型标识符。
-	// 此标识符用于组件查找、注册和规则链配置。
+	// Type returns a unique component type identifier.
+	// This identifier is used for component lookup, registration, and rule chain configuration.
 	//
 	// Naming Convention:
-	// 命名约定：
+	// Naming Agreement:
 	//	It is recommended to use forward slashes (/) to distinguish namespaces
 	//	and prevent type name conflicts between different component libraries.
 	//
-	//	建议使用正斜杠 (/) 来区分命名空间，防止不同组件库之间的类型名称冲突。
+	//	It is recommended to use a positive slash (/) to distinguish namespaces and prevent type name conflicts between different component libraries.
 	//
 	// Examples:
-	// 示例：
+	// Example:
 	//   - Standard components: "jsTransform", "httpClient", "delay"
-	//     标准组件："jsTransform"、"httpClient"、"delay"
+	//     Standard components: "jsTransform", "httpClient", "delay"
 	//   - Company-specific: "myCompany/dataProcessor", "acme/validator"
-	//     公司特定："myCompany/dataProcessor"、"acme/validator"
+	//     Company specific: "myCompany/dataProcessor", "acme/validator"
 	//   - Protocol-specific: "mqtt/publish", "kafka/consumer"
-	//     协议特定："mqtt/publish"、"kafka/consumer"
+	//     Protocol specific: "mqtt/publish", "kafka/consumer"
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - string: Unique component type identifier
-	//     string：唯一的组件类型标识符
+	//     string: Unique component type identifier
 	//
 	// Requirements:
-	// 要求：
+	// Requirements:
 	//   - Must be unique across all registered components
-	//     在所有已注册组件中必须唯一
+	//     It must be unique among all registered components
 	//   - Should be descriptive and self-explanatory
-	//     应该是描述性和自解释的
+	//     It should be descriptive and self-explanatory
 	//   - Should remain stable across component versions
-	//     应该在组件版本间保持稳定
+	//     Stability should be maintained between component versions
 	Type() string
 
 	// Init initializes the component with configuration parameters and rule engine context.
 	// This method is called once during rule chain initialization and should perform
 	// all necessary setup operations including parameter validation and resource allocation.
 	//
-	// Init 使用配置参数和规则引擎上下文初始化组件。
-	// 此方法在规则链初始化期间调用一次，应执行所有必要的设置操作，
-	// 包括参数验证和资源分配。
+	// Init uses configuration parameters and rules engine context to initialize components.
+	// This method is called once during the rule chain initialization and should perform all necessary configuration operations,
+	// This includes parameter validation and resource allocation.
 	//
 	// Initialization Responsibilities:
-	// 初始化职责：
+	// Initialization Responsibilities:
 	//   - Parse and validate component configuration
-	//     解析和验证组件配置
+	//     Parsing and verifying component configurations
 	//   - Initialize external clients (HTTP, database, message queue)
-	//     初始化外部客户端（HTTP、数据库、消息队列）
+	//     Initialize external clients (HTTP, database, message queue)
 	//   - Set up internal state and caches
-	//     设置内部状态和缓存
+	//     Set internal state and cache
 	//   - Validate required dependencies and resources
-	//     验证所需的依赖项和资源
+	//     Verify the dependencies and resources required
 	//   - Register with external services if needed
-	//     如需要，向外部服务注册
+	//     If needed, register with external services
 	//
 	// Configuration Processing:
-	// 配置处理：
+	// Configuration Processing:
 	//	The configuration parameter contains the component-specific settings
 	//	extracted from the rule chain DSL. Use the maps.Map2Struct utility
 	//	to convert the configuration map to your component's configuration struct.
 	//
-	//	配置参数包含从规则链 DSL 中提取的组件特定设置。
-	//	使用 maps.Map2Struct 工具将配置映射转换为组件的配置结构体。
+	//	Configuration parameters include component-specific settings extracted from the rule chain DSL.
+	//	Use the maps.Map2Struct tool to convert configuration mappings into component configuration structures.
 	//
 	// Error Handling:
-	// 错误处理：
+	// Error handling:
 	//	Return an error if initialization fails. This will prevent the rule chain
 	//	from starting and provide early feedback about configuration issues.
 	//
-	//	如果初始化失败，返回错误。这将阻止规则链启动并提供关于配置问题的早期反馈。
+	//	If initialization fails, an error is returned. This will prevent the rule chain from launching and provide early feedback on configuration issues.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - ruleConfig: Global rule engine configuration and shared resources
-	//     ruleConfig：全局规则引擎配置和共享资源
+	//     ruleConfig: Global rules engine configuration and resource sharing
 	//   - configuration: Component-specific configuration from the rule chain DSL
-	//     configuration：来自规则链 DSL 的组件特定配置
+	//     configuration: Component-specific configuration from the rule chain DSL
 	//
 	// Returns:
-	// 返回：
+	// Returns:
 	//   - error: Initialization error, or nil if successful
-	//     error：初始化错误，成功时为 nil
+	//     error: Initialization error, on successful it is nil
 	Init(ruleConfig Config, configuration Configuration) error
 
 	// OnMsg processes incoming messages and implements the component's core functionality.
 	// This method is the heart of the component and will be called for each message
 	// that flows through this node in the rule chain.
 	//
-	// OnMsg 处理传入消息并实现组件的核心功能。
-	// 此方法是组件的核心，将为流经规则链中此节点的每条消息调用。
+	// OnMsg handles incoming messages and implements the core functions of components.
+	// This method is the core of the component and will be called for every message passing through this node in the rule chain.
 	//
 	// Message Processing Contract:
-	// 消息处理契约：
+	// Message Processing Contract:
 	//
 	//	After processing the message, the component MUST call one of the following
 	//	methods to continue the rule chain execution, otherwise the chain will hang:
 	//
-	//	处理消息后，组件必须调用以下方法之一来继续规则链执行，否则链将挂起：
+	//	After processing the message, the component must call one of the following methods to continue the execution of the rule chain; otherwise, the chain will be suspended:
 	//	- ctx.TellSuccess(msg): Forward message via "Success" relationship
-	//	  ctx.TellSuccess(msg)：通过"Success"关系转发消息
+	//	  ctx.TellSuccess (msg): Forwards messages through the "Success" relationship
 	//	- ctx.TellFailure(msg, err): Forward message via "Failure" relationship
-	//	  ctx.TellFailure(msg, err)：通过"Failure"关系转发消息
+	//	  ctx.TellFailure(msg, err): Forwards messages through the "Failure" relationship
 	//	- ctx.TellNext(msg, relationTypes...): Forward via specific relationship types
-	//	  ctx.TellNext(msg, relationTypes...)：通过特定关系类型转发
+	//	  ctx.TellNext(msg, relationTypes...): Forwarded through specific relationship types
 	//	- ctx.DoOnEnd(msg, err, relationType): End this chain branch
-	//	  ctx.DoOnEnd(msg, err, relationType)：结束此链分支
+	//	  ctx.DoOnEnd(msg, err, relationType): Ends this chain branch
 	//
 	// Message Modification:
-	// 消息修改：
+	// Message Modification:
 	//	Components can modify message content, metadata, or type before forwarding.
 	//	Use message copy methods when modifications might affect parallel processing branches.
 	//
-	//	组件可以在转发前修改消息内容、元数据或类型。
-	//	当修改可能影响并行处理分支时，使用消息复制方法。
+	//	Components can modify message content, metadata, or type before forwarding.
+	//	When modifications may affect parallel branches, use the message replication method.
 	//
 	// Asynchronous Processing:
-	// 异步处理：
+	// Asynchronous processing:
 	//	For long-running operations, use ctx.SubmitTask() to execute work in background
 	//	goroutines while ensuring proper chain continuation.
 	//
-	//	对于长时间运行的操作，使用 ctx.SubmitTask() 在后台 goroutine 中执行工作，
-	//	同时确保适当的链继续。
+	//	For long-term operation, use ctx.SubmitTask() executes work in the backend goroutine,
+	//	At the same time, ensure proper chain continuation.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - ctx: Rule context providing message routing and utility functions
-	//     ctx：提供消息路由和工具函数的规则上下文
+	//     ctx: Provides message routing and the rule context for utility functions
 	//   - msg: The message to be processed by this component
-	//     msg：此组件要处理的消息
+	//     msg: The message this component will handle
 	OnMsg(ctx RuleContext, msg RuleMsg)
 
 	// Destroy releases any resources held by the component when it's no longer needed.
 	// This method is called during rule chain shutdown, component updates, or engine destruction.
 	//
-	// Destroy 在不再需要组件时释放组件持有的任何资源。
-	// 此方法在规则链关闭、组件更新或引擎销毁期间调用。
+	// Destroy releases any resources held by a component when it is no longer needed.
+	// This method is called during rule chain closures, component updates, or engine destruction.
 	//
 	// Cleanup Responsibilities:
-	// 清理职责：
+	// Cleanup responsibilities:
 	//   - Close external connections (HTTP clients, database connections)
-	//     关闭外部连接（HTTP 客户端、数据库连接）
+	//     Disable external connections (HTTP client, database connection)
 	//   - Release file handles and network resources
-	//     释放文件句柄和网络资源
+	//     Release file handles and network resources
 	//   - Cancel background goroutines and timers
-	//     取消后台 goroutine 和定时器
+	//     Disable background goroutines and timers
 	//   - Clear internal caches and temporary data
-	//     清除内部缓存和临时数据
+	//     Clear internal caches and temporary data
 	//   - Unregister from external services
-	//     从外部服务注销
+	//     Deregistered from external services
 	//
 	// Graceful Shutdown:
-	// 优雅关闭：
+	// Graceful Close:
 	//	The rule engine ensures that no new messages are sent to OnMsg()
 	//	when Destroy() is called. Components can safely clean up resources
 	//	without worrying about concurrent access from OnMsg().
 	//
-	//	规则引擎确保在调用 Destroy() 时不会向 OnMsg() 发送新消息。
-	//	组件可以安全地清理资源，而无需担心来自 OnMsg() 的并发访问。
+	//	The rule engine ensures that no new message is sent to OnMsg() when Destroy() is called.
+	//	Components can safely clean resources without worrying about concurrent access from OnMsg().
 	//
 	// Error Handling:
-	// 错误处理：
+	// Error handling:
 	//	This method should not panic. Log any cleanup errors but don't fail
 	//	the entire shutdown process for individual component cleanup failures.
 	//
-	//	此方法不应崩溃。记录任何清理错误，但不要因个别组件清理失败而导致整个关闭过程失败。
+	//	This method should not collapse. Record any cleanup errors, but do not let individual component cleanup failures cause the entire shutdown process to fail.
 	//
 	// Implementation Notes:
-	// 实现注意事项：
+	// Implementation Notes:
 	//   - This method may be called multiple times, implement idempotent cleanup
-	//     此方法可能被多次调用，实现幂等清理
+	//     This method may be called multiple times to achieve idempotent cleanup
 	//   - Use timeout contexts for cleanup operations to prevent hanging
-	//     为清理操作使用超时上下文以防止挂起
+	//     Use timeout context to prevent suspension during cleanup operations
 	//   - Consider implementing a cleanup timeout to avoid blocking shutdown
-	//     考虑实现清理超时以避免阻塞关闭
+	//     Consider implementing a clearing timeout to avoid blocking shutdowns
 	Destroy()
 }
 
 // NodeCtx is the context for instantiating rule nodes.
-// NodeCtx 是实例化规则节点的上下文。
+// NodeCtx is the context for instantiating rule nodes.
 //
 // NodeCtx extends the basic Node interface with additional context-aware functionality,
 // providing access to configuration, debug information, and node management capabilities.
-// NodeCtx 扩展了基本的 Node 接口，增加了上下文感知功能，
-// 提供对配置、调试信息和节点管理功能的访问。
+// NodeCtx extends the basic Node interface and adds context-aware features,
+// Provides access to configuration, debugging information, and node management functions.
 //
 // This interface serves as a wrapper around Node instances within the rule engine,
 // enabling advanced features like hot reloading, debugging, and hierarchical node access.
-// 此接口在规则引擎内充当 Node 实例的包装器，
-// 启用热重载、调试和分层节点访问等高级功能。
+// This interface acts as a wrapper for Node instances within the rule engine,
+// Enable advanced features such as hot reloading, debugging, and layered node access.
 //
 // Key Features:
-// 关键特性：
+// Key features:
 //   - Configuration management and hot reloading
-//     配置管理和热重载
+//     Configuration management and thermal heavy loading
 //   - Debug mode control for development and monitoring
-//     开发和监控的调试模式控制
+//     Development and monitoring of debugging mode control
 //   - Node identification and metadata access
-//     节点标识和元数据访问
+//     Node identification and metadata access
 //   - DSL (Domain Specific Language) configuration access
-//     DSL（领域特定语言）配置访问
+//     DSL (Domain-Specific Language) configuration access
 type NodeCtx interface {
 	Node
 	Config() Config
 	// IsDebugMode checks if the node is in debug mode.
 	// True: When messages flow in and out of the node, the config.OnDebug callback function is called; otherwise, it is not.
-	// IsDebugMode 检查节点是否处于调试模式。
-	// True：当消息流入和流出节点时，调用 config.OnDebug 回调函数；否则不调用。
+	// IsDebugMode checks whether the node is in debug mode.
+	// True: When messages flow into and out of nodes, call config.OnDebug callback function; Otherwise, it will not be recalled.
 	IsDebugMode() bool
 	// GetNodeId retrieves the component ID.
-	// GetNodeId 检索组件 ID。
+	// GetNodeId retrieves the component ID.
 	GetNodeId() RuleNodeId
 	// ReloadSelf refreshes the configuration of the component.
-	// ReloadSelf 刷新组件的配置。
+	// ReloadSelf refreshes component configuration.
 	//
 	// This method enables hot reloading of component configuration without restarting the entire rule chain.
 	// The def parameter should contain the new configuration in the same format as the original DSL.
-	// 此方法启用组件配置的热重载，无需重启整个规则链。
-	// def 参数应包含与原始 DSL 相同格式的新配置。
+	// This method enables hot overloading of component configurations without restarting the entire rule chain.
+	// The def parameter should include a new configuration in the same format as the original DSL.
 	ReloadSelf(def []byte) error
 	// GetNodeById retrieves the configuration of a specified ID component in a sub-rule chain.
 	// If it is a node type, this method is not supported.
-	// GetNodeById 检索子规则链中指定 ID 组件的配置。
-	// 如果是节点类型，则不支持此方法。
+	// GetNodeById retrieves the configuration of the specified ID component in the subrule chain.
+	// If it is a node type, this method is not supported.
 	GetNodeById(nodeId RuleNodeId) (NodeCtx, bool)
 	// DSL returns the configuration DSL of the node.
-	// DSL 返回节点的配置 DSL。
+	// DSL returns the node's configuration DSL.
 	//
 	// The returned byte slice contains the Domain Specific Language definition
 	// used to configure this node, typically in JSON format.
-	// 返回的字节片段包含用于配置此节点的领域特定语言定义，通常为 JSON 格式。
+	// The returned byte fragment contains domain-specific language definitions used to configure this node, usually in JSON format.
 	DSL() []byte
 }
 
 // ChainCtx represents the context for rule chain management and execution.
-// ChainCtx 表示规则链管理和执行的上下文。
+// ChainCtx represents the context for managing and executing rules in chains.
 //
 // ChainCtx extends NodeCtx with capabilities specific to managing entire rule chains,
 // including child node management, rule chain definitions, and engine pool access.
-// ChainCtx 扩展了 NodeCtx，增加了管理整个规则链的特定功能，
-// 包括子节点管理、规则链定义和引擎池访问。
+// ChainCtx extends NodeCtx, adding specific functions for managing the entire rule chain,
+// Including subnode management, rule chain definition, and engine pool access.
 //
 // This interface is used for rule chain instances that contain multiple interconnected nodes,
 // providing hierarchical management and advanced configuration capabilities.
-// 此接口用于包含多个互连节点的规则链实例，
-// 提供分层管理和高级配置功能。
+// This interface is used for rule chain instances containing multiple interconnected nodes,
+// Provides layered management and advanced configuration features.
 //
 // Key Responsibilities:
-// 主要职责：
+// Main Responsibilities:
 //   - Child node lifecycle management
-//     子节点生命周期管理
+//     Subnode lifecycle management
 //   - Rule chain definition and metadata access
-//     规则链定义和元数据访问
+//     Rule chain definition and metadata access
 //   - Engine pool integration for resource management
-//     引擎池集成用于资源管理
+//     Engine pool integration is used for resource management
 //   - Hierarchical configuration updates
-//     分层配置更新
+//     Layered configuration updates
 type ChainCtx interface {
 	NodeCtx
 	// ReloadChild refreshes the configuration of a specified ID component in a sub-rule chain.
 	// If it is a node type, this method is not supported.
-	// ReloadChild 刷新子规则链中指定 ID 组件的配置。
-	// 如果是节点类型，则不支持此方法。
+	// ReloadChild refreshes the configuration of the specified ID component in the subrule chain.
+	// If it is a node type, this method is not supported.
 	//
 	// This method enables fine-grained hot reloading of individual nodes within a rule chain
 	// without affecting other nodes or the overall chain structure.
-	// 此方法启用规则链内单个节点的细粒度热重载，
-	// 不影响其他节点或整体链结构。
+	// This method enables fine-grained hot overloading of individual nodes within the rule chain,
+	// It does not affect other nodes or the overall chain structure.
 	ReloadChild(nodeId RuleNodeId, def []byte) error
 	// Definition returns the definition of the rule chain.
-	// Definition 返回规则链的定义。
+	// Definition Returns the definition of the rule chain.
 	//
 	// The returned RuleChain contains the complete structural definition,
 	// including all nodes, connections, and metadata.
-	// 返回的 RuleChain 包含完整的结构定义，
-	// 包括所有节点、连接和元数据。
+	// The returned RuleChain contains the complete structural definition,
+	// Includes all nodes, connections, and metadata.
 	Definition() *RuleChain
 	// GetRuleEnginePool retrieves the rule engine pool.
-	// GetRuleEnginePool 检索规则引擎池。
+	// GetRuleEnginePool retrieves the rule engine pool.
 	//
 	// The engine pool manages multiple rule engine instances for load balancing
 	// and resource optimization in high-concurrency scenarios.
-	// 引擎池管理多个规则引擎实例，用于高并发场景中的负载均衡
-	// 和资源优化。
+	// The engine pool manages multiple rule engine instances for load balancing in high-concurrency scenarios
+	// and resource optimization.
 	GetRuleEnginePool() RuleEnginePool
 	// AddNodeDependency adds a dependency relationship between nodes.
-	// AddNodeDependency 添加节点之间的依赖关系。
+	// AddNodeDependency Adds dependencies between nodes.
 	//
 	// This method allows dynamic addition of node dependencies for runtime
 	// dependency management and cache optimization.
-	// 此方法允许动态添加节点依赖关系，用于运行时
-	// 依赖管理和缓存优化。
+	// This method allows dynamic addition of node dependencies for runtime
+	// Dependency management and caching optimization.
 	AddNodeDependency(nodeId string, dependentNodeId string)
-	// Resources 返回本链资源目录的只读视图，供 ref:// 同链解析（消费方 NetNode 等只读 Lookup）。
+	// Resources returns a read-only view of the chain's resource directory for ref:// same-chain parsing (such as the consumer's NetNode and other read-only lookups).
 	Resources() ResourceLookup
-	// EndpointRegistry 返回可写资源目录（Register/Unregister），仅资源生产方
-	// （EndpointAspect 等）使用；消费方不应通过它写入（接口隔离 ISP）。
+	// EndpointRegistry returns a writable resource directory (Register/Unregister), only the resource producer
+	// (EndpointAspect etc.) is used; The consumer should not write through it (interface isolation ISP).
 	EndpointRegistry() ResourceRegistry
 }
 
@@ -1110,7 +1110,7 @@ func WithStartNode(nodeIds ...string) RuleContextOption {
 	}
 }
 
-// WithTellNext 设置通过指定节点Id，查找下一个或者多个执行节点。用于恢复规则链执行链路
+// WithTellNext is set to find the next or more execution nodes by specifying the node ID. Used to restore the rule chain execution link
 // WithTellNext sets the next or multiple execution nodes by specifying the node ID.
 // It is used to restore the execution path of the rule chain.
 func WithTellNext(fromNodeId string, relationTypes ...string) RuleContextOption {
@@ -1131,87 +1131,87 @@ func WithRestoreNodes(nodes ...NodeRequest) RuleContextOption {
 }
 
 // JsEngine is a JavaScript script engine interface.
-// JsEngine 是 JavaScript 脚本引擎接口。
+// JsEngine is the JavaScript scripting engine interface.
 //
 // This interface provides an abstraction layer for JavaScript execution within RuleGo components,
 // enabling dynamic script execution for data transformation, filtering, and business logic.
-// 此接口为 RuleGo 组件内的 JavaScript 执行提供抽象层，
-// 启用数据转换、过滤和业务逻辑的动态脚本执行。
+// This interface provides an abstraction layer for JavaScript execution within RuleGo components,
+// Enable dynamic scripting for data transformation, filtering, and business logic.
 //
 // The JavaScript engine supports:
-// JavaScript 引擎支持：
+// JavaScript engine supports:
 //   - Function execution with parameter passing
-//     带参数传递的函数执行
+//     Function execution with parameter passing
 //   - Access to RuleContext for message processing
-//     访问 RuleContext 进行消息处理
+//     Access RuleContext for message processing
 //   - Resource management and cleanup
-//     资源管理和清理
+//     Resource management and cleanup
 type JsEngine interface {
 	// Execute runs a specified function in the JS script, which is initialized when the JsEngine instance is created.
 	// ctx is the message chain context.
 	// functionName is the name of the function to execute.
 	// argumentList is the list of arguments for the function.
-	// Execute 运行 JS 脚本中的指定函数，该脚本在创建 JsEngine 实例时初始化。
-	// ctx 是消息链上下文。
-	// functionName 是要执行的函数名称。
-	// argumentList 是函数的参数列表。
+	// Execute runs the specified function in the JS script, which is initialized when creating the JsEngine instance.
+	// ctx is the context of the message chain.
+	// functionName is the name of the function to execute.
+	// argumentList is a list of function parameters.
 	Execute(ctx RuleContext, functionName string, argumentList ...interface{}) (interface{}, error)
 	// Stop releases the resources of the JS engine.
-	// Stop 释放 JS 引擎的资源。
+	// Stop releasing JS engine resources.
 	//
 	// This method should be called when the engine is no longer needed to prevent memory leaks
 	// and ensure proper cleanup of JavaScript contexts and associated resources.
-	// 当不再需要引擎时应调用此方法，以防止内存泄漏并确保正确清理 JavaScript 上下文和相关资源。
+	// This method should be called when the engine is no longer needed to prevent memory leaks and ensure proper cleanup of JavaScript context and related resources.
 	Stop()
 }
 
 // Parser is an interface for parsing rule chain definition files (DSL).
 // The default implementation uses JSON. If other formats are used to define rule chains, this interface can be implemented.
 // Then register it with the rule engine like this: `rulego.NewConfig(WithParser(&MyParser{})`
-// Parser 是解析规则链定义文件（DSL）的接口。
-// 默认实现使用 JSON。如果使用其他格式定义规则链，可以实现此接口。
-// 然后像这样将其注册到规则引擎：`rulego.NewConfig(WithParser(&MyParser{})`
+// Parser is an interface for parsing rule chain definition files (DSLs).
+// By default, JSON is used. If you define the rule chain in another format, you can implement this interface.
+// Then register it into the rules engine like this: `rulego.NewConfig(WithParser(&MyParser{})`
 //
 // This interface enables support for multiple DSL formats, allowing users to define rule chains
 // using their preferred configuration language (JSON, YAML, XML, etc.).
-// 此接口启用对多种 DSL 格式的支持，允许用户使用他们首选的配置语言（JSON、YAML、XML 等）定义规则链。
+// This interface enables support for multiple DSL formats, allowing users to define rule chains using their preferred configuration languages (JSON, YAML, XML, etc.).
 type Parser interface {
 	// DecodeRuleChain parses a rule chain structure from a description file.
-	// DecodeRuleChain 从描述文件解析规则链结构。
+	// DecodeRuleChain parses the rule chain structure from the descriptor.
 	DecodeRuleChain(rootRuleChain []byte) (RuleChain, error)
 	// DecodeRuleNode parses a rule node structure from a description file.
-	// DecodeRuleNode 从描述文件解析规则节点结构。
+	// DecodeRuleNode parses the rule node structure from the description file.
 	DecodeRuleNode(rootRuleChain []byte) (RuleNode, error)
 	// EncodeRuleChain converts a rule chain structure into a description file.
-	// EncodeRuleChain 将规则链结构转换为描述文件。
+	// EncodeRuleChain converts the rule chain structure into a description file.
 	EncodeRuleChain(def interface{}) ([]byte, error)
 	// EncodeRuleNode converts a rule node structure into a description file.
-	// EncodeRuleNode 将规则节点结构转换为描述文件。
+	// EncodeRuleNode converts the rule node structure into a description file.
 	EncodeRuleNode(def interface{}) ([]byte, error)
 }
 
 // Pool is an interface for a coroutine pool.
-// Pool 是协程池的接口。
+// Pool is the interface for coroutine pools.
 //
 // This interface provides an abstraction for managing goroutine pools to control concurrency
 // and resource usage in high-throughput scenarios. It enables efficient task scheduling
 // and prevents resource exhaustion in concurrent message processing.
-// 此接口提供管理协程池的抽象，以控制高吞吐量场景中的并发性和资源使用。
-// 它启用高效的任务调度并防止并发消息处理中的资源耗尽。
+// This interface provides an abstraction for managing coroutine pools to control concurrency and resource usage in high-throughput scenarios.
+// It enables efficient task scheduling and prevents resource exhaustion in concurrent message processing.
 //
 // Implementation Characteristics:
-// 实现特性：
+// Implementation features:
 //   - Fixed or dynamic pool sizing based on load
-//     基于负载的固定或动态池大小
+//     Fixed or dynamic pool size based on load
 //   - Task queue management for pending operations
-//     待处理操作的任务队列管理
+//     Task queue management for pending operations
 //   - Graceful shutdown and resource cleanup
-//     优雅关闭和资源清理
+//     Gracefully close and clear resources
 //   - Load balancing across available workers
-//     在可用工作器间进行负载均衡
+//     Load balancing is performed among available workers
 //
 // Usage Pattern:
-// 使用模式：
+// Usage mode:
 //
 //	pool := NewWorkerPool(maxWorkers)
 //	defer pool.Release()
@@ -1224,221 +1224,221 @@ type Parser interface {
 type Pool interface {
 	// Submit submits a task to the coroutine pool.
 	// Returns an error if the coroutine pool is full.
-	// Submit 向协程池提交任务。
-	// 如果协程池已满，返回错误。
+	// Submit the task to the coroutine pool.
+	// If the coroutine pool is full, an error is returned.
 	Submit(task func()) error
 	// Release releases the resources of the pool.
-	// Release 释放池的资源。
+	// Release: Release: Releases pool resources.
 	//
 	// This method should be called during application shutdown to ensure
 	// all pending tasks are completed and resources are properly cleaned up.
-	// 此方法应在应用程序关闭期间调用，以确保所有待处理任务完成并正确清理资源。
+	// This method should be called during application shutdown to ensure all pending tasks are completed and resources are properly cleaned up.
 	Release()
 }
 
 // EmptyRuleNodeId is an empty node ID.
-// EmptyRuleNodeId 是空的节点 ID。
+// EmptyRuleNodeId is an empty node ID.
 //
 // This constant represents an uninitialized or invalid node identifier,
 // commonly used for comparison and validation purposes.
-// 此常量表示未初始化或无效的节点标识符，
-// 通常用于比较和验证目的。
+// This constant represents node identifiers that are not initialized or are invalid,
+// It is usually used for comparison and verification purposes.
 var EmptyRuleNodeId = RuleNodeId{}
 
 // RuleNodeId is a type definition for component IDs.
-// RuleNodeId 是组件 ID 的类型定义。
+// RuleNodeId is the type definition of the component ID.
 //
 // This structure uniquely identifies components within the RuleGo framework,
 // combining both identification and type information for proper routing and management.
-// 此结构在 RuleGo 框架内唯一标识组件，
-// 结合标识和类型信息以实现正确的路由和管理。
+// This structure uniquely identifies components within the RuleGo framework,
+// Combining identification and type information to achieve proper routing and management.
 //
 // The combination of Id and Type allows the framework to:
-// Id 和 Type 的组合允许框架：
+// The combination of Id and Type allows the following frameworks:
 //   - Distinguish between different component categories
-//     区分不同的组件类别
+//     Distinguish between different component categories
 //   - Route messages to appropriate handlers
-//     将消息路由到适当的处理程序
+//     Routing messages to appropriate handlers
 //   - Manage component lifecycles effectively
-//     有效管理组件生命周期
+//     Effectively manage the component lifecycle
 //   - Support hierarchical node structures
-//     支持分层节点结构
+//     Supports layered node structure
 type RuleNodeId struct {
 	// Id is the node ID.
-	// Id 是节点 ID。
+	// Id is the node ID.
 	//
 	// This should be unique within the scope of a rule chain or engine instance.
-	// 这在规则链或引擎实例的范围内应该是唯一的。
+	// This should be unique within the scope of the rule chain or engine instance.
 	Id string
 	// Type is the component type, either a node or a sub-rule chain.
-	// Type 是组件类型，可以是节点或子规则链。
+	// Type is the component type, which can be a node or a sub-rule chain.
 	//
 	// This field determines how the component is processed and managed by the engine.
-	// 此字段决定组件如何被引擎处理和管理。
+	// This field determines how components are processed and managed by the engine.
 	Type ComponentType
 }
 
 // RuleNodeRelation defines the relationship between nodes.
-// RuleNodeRelation 定义节点间的关系。
+// RuleNodeRelation defines the relationships between nodes.
 //
 // This structure represents the directed connections between components in a rule chain,
 // enabling message flow and execution path determination. Relations form the backbone
 // of rule chain topology and determine how messages are routed through the system.
-// 此结构表示规则链中组件间的有向连接，
-// 启用消息流和执行路径确定。关系构成规则链拓扑的骨干，
-// 并决定消息如何通过系统路由。
+// This structure represents the directed connections between components in the rule chain,
+// Enable message stream and execution path determination. Relations form the backbone of the rule chain topology,
+// And decide how messages are routed through the system.
 //
 // Key Characteristics:
-// 关键特性：
+// Key features:
 //   - Directed relationships (from InId to OutId)
-//     有向关系（从 InId 到 OutId）
+//     Directed Relations (from InId to OutId)
 //   - Conditional routing based on RelationType
-//     基于 RelationType 的条件路由
+//     Conditional routing based on RelationType
 //   - Support for multiple output paths per node
-//     支持每个节点的多个输出路径
+//     Supports multiple output paths per node
 //   - Dynamic relationship evaluation during runtime
-//     运行时的动态关系评估
+//     Dynamic relationship evaluation at runtime
 type RuleNodeRelation struct {
 	// InId is the incoming component ID.
-	// InId 是传入组件 ID。
+	// InId is the input component ID.
 	//
 	// This represents the source node from which messages originate.
-	// 这表示消息来源的源节点。
+	// This indicates the source node of the source.
 	InId RuleNodeId
 	// OutId is the outgoing component ID.
-	// OutId 是传出组件 ID。
+	// OutId is the outgoing component ID.
 	//
 	// This represents the destination node to which messages are routed.
-	// 这表示消息路由到的目标节点。
+	// This indicates the message is routed to the target node.
 	OutId RuleNodeId
 	// RelationType is the type of relationship, such as True, False, Success, Failure, or other custom types.
-	// RelationType 是关系类型，如 True、False、Success、Failure 或其他自定义类型。
+	// RelationType is a relationship type, such as True, False, Success, Failure, or other custom types.
 	//
 	// This field determines the condition under which messages flow from InId to OutId.
 	// Custom relationship types enable domain-specific routing logic.
-	// 此字段决定消息从 InId 流向 OutId 的条件。
-	// 自定义关系类型启用领域特定的路由逻辑。
+	// This field determines the conditions under which messages flow from InId to OutId.
+	// Custom relationship types enable domain-specific routing logic.
 	RelationType string
 }
 
 // ScriptFuncSeparator is the delimiter for script function names.
-// ScriptFuncSeparator 是脚本函数名称的分隔符。
+// ScriptFuncSeparator is the separator for script function names.
 //
 // This constant is used to separate script type from function name in composite identifiers,
 // enabling support for multiple script engines and function namespacing.
-// 此常量用于在复合标识符中分离脚本类型和函数名称，
-// 启用对多个脚本引擎和函数命名空间的支持。
+// This constant is used to separate script types and function names in composite identifiers,
+// Enable support for multiple script engines and function namespaces.
 //
 // Usage pattern: "scriptType#functionName"
-// 使用模式："scriptType#functionName"
+// Usage mode: "scriptType#functionName"
 // Example: "Js#processData" or "Lua#filterMessage"
-// 示例："Js#processData" 或 "Lua#filterMessage"
+// Example: "Js#processData" or "Lua#filterMessage"
 const ScriptFuncSeparator = "#"
 
 // Script is used to register native functions or custom functions defined in Go.
-// Script 用于注册在 Go 中定义的原生函数或自定义函数。
+// Scripts are used to register native or custom functions defined in Go.
 //
 // This structure provides a flexible mechanism for extending RuleGo with custom logic,
 // supporting both traditional scripting languages and native Go functions.
-// 此结构提供了使用自定义逻辑扩展 RuleGo 的灵活机制，
-// 支持传统脚本语言和原生 Go 函数。
+// This structure provides a flexible mechanism for extending RuleGo using custom logic,
+// Supports both traditional scripting languages and native Go functions.
 //
 // Script Registration Patterns:
-// 脚本注册模式：
+// Script registration mode:
 //  1. JavaScript/Lua script content as string
-//     JavaScript/Lua 脚本内容作为字符串
+//     JavaScript/Lua script content as a string
 //  2. Go function references for direct execution
-//     Go 函数引用用于直接执行
+//     Go function references are used for direct execution
 //  3. Plugin-based script loading for dynamic functionality
-//     基于插件的脚本加载用于动态功能
+//     Plugin-based script loading is used for dynamic functionality
 //
 // Type-Content Mapping:
-// 类型-内容映射：
+// Type-Content Mapping:
 //   - "Js": JavaScript source code (string)
-//     "Js"：JavaScript 源代码（字符串）
+//     "Js": JavaScript source code (string)
 //   - "Lua": Lua source code (string)
-//     "Lua"：Lua 源代码（字符串）
+//     "Lua": Lua source code (string)
 //   - "Go": Go function reference (func interface{})
-//     "Go"：Go 函数引用（func interface{}）
+//     "Go": Go function reference (func interface{})
 type Script struct {
 	// Type is the script type, default is Js.
-	// Type 是脚本类型，默认为 Js。
+	// Type is the script type, default is JS.
 	//
 	// Supported types include predefined constants (Js, Lua, Python) and custom types.
-	// 支持的类型包括预定义常量（Js、Lua、Python）和自定义类型。
+	// Supported types include predefined constants (Js, Lua, Python) and custom types.
 	Type string
 	// Content is the script content or custom function.
-	// Content 是脚本内容或自定义函数。
+	// Content refers to script content or custom functions.
 	//
 	// The content type varies based on the script Type:
-	// 内容类型根据脚本 Type 而变化：
+	// Content types vary depending on the script type:
 	//   - String: Script source code for interpreted languages
-	//     String：解释语言的脚本源代码
+	//     String: Script source code for the language
 	//   - Function: Go function reference for native execution
-	//     Function：原生执行的 Go 函数引用
+	//     Function: A native Go function reference
 	//   - []byte: Compiled bytecode for optimized execution
-	//     []byte：优化执行的编译字节码
+	//     []byte: Optimizes the bytecode for compile execution
 	Content interface{}
 }
 
 // Callbacks is a set of callback functions for pool events.
-// Callbacks 是池事件的回调函数集。
+// Callbacks are a set of callback functions for pool events.
 //
 // This structure provides event-driven notifications for rule chain and component lifecycle events,
 // enabling monitoring, logging, and integration with external systems.
-// 此结构为规则链和组件生命周期事件提供事件驱动的通知，
-// 启用监控、日志记录和与外部系统的集成。
+// This structure provides event-driven notifications for rule chains and component lifecycle events,
+// Enable monitoring, logging, and integration with external systems.
 //
 // Event Lifecycle:
-// 事件生命周期：
+// Event Lifecycle:
 //  1. OnNew: Triggered when new rule chains are created
-//     OnNew：创建新规则链时触发
+//     OnNew: Triggered when creating a new rule chain
 //  2. OnUpdated: Triggered when existing components are modified
-//     OnUpdated：修改现有组件时触发
+//     OnUpdated: Triggers when modifying existing components
 //  3. OnDeleted: Triggered when components are removed
-//     OnDeleted：删除组件时触发
+//     OnDeleted: Triggered when deleting a component
 //
 // Use Cases:
-// 使用案例：
+// Use Cases:
 //   - Audit logging for configuration changes
-//     配置更改的审计日志
+//     Configure the audit log of the change
 //   - Cache invalidation for updated components
-//     更新组件的缓存失效
+//     Cache failure of update components
 //   - Metrics collection for monitoring systems
-//     监控系统的指标收集
+//     Monitoring system metrics collection
 //   - External system synchronization
-//     外部系统同步
+//     External system synchronization
 type Callbacks struct {
 	// OnNew is called when a new rule chain is created.
-	// OnNew 在创建新规则链时调用。
+	// OnNew is called when creating a new chain of rules.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - chainId: Unique identifier of the new rule chain
-	//     chainId：新规则链的唯一标识符
+	//     chainId: The unique identifier for the new rule chain
 	//   - dsl: Complete DSL definition of the rule chain
-	//     dsl：规则链的完整 DSL 定义
+	//     dsl: The complete DSL definition of the rule chain
 	OnNew func(chainId string, dsl []byte)
 
 	// OnUpdated is called when an existing component is updated.
-	// OnUpdated 在更新现有组件时调用。
+	// OnUpdated is called when updating existing components.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - chainId: Identifier of the parent rule chain
-	//     chainId：父规则链的标识符
+	//     chainId: The identifier of the parent rule chain
 	//   - nodeId: Identifier of the updated component
-	//     nodeId：更新组件的标识符
+	//     nodeId: The identifier for the updated component
 	//   - dsl: Updated DSL definition of the component
-	//     dsl：组件的更新 DSL 定义
+	//     dsl: Component update DSL definition
 	OnUpdated func(chainId, nodeId string, dsl []byte)
 
 	// OnDeleted is called when a component or rule chain is deleted.
-	// OnDeleted 在删除组件或规则链时调用。
+	// OnDeleted is called when deleting components or rule chains.
 	//
 	// Parameters:
-	// 参数：
+	// Parameters:
 	//   - id: Identifier of the deleted entity (chain or node)
-	//     id：被删除实体的标识符（链或节点）
+	//     id: The identifier of the deleted entity (chain or node)
 	OnDeleted func(id string)
 }

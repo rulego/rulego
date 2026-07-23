@@ -26,13 +26,13 @@ import (
 	"github.com/rulego/rulego/test"
 )
 
-// TestNetOut net 出站集成测试：
-// NetNode 作为 TCP 客户端拨号连远端 server → 发送数据 → server 收到。
-// 与 session_push_integration_test（入站寻址推送）对应，本测试验证出站直发主路径。
+// TestNetOut net outbound integration testing:
+// NetNode acts as a TCP client dial-up to connect to the remote server→ sending data → server receives.
+// Corresponding to session_push_integration_test (Inbound Addressing Push), this test verifies the main outbound direct dispatch path.
 func TestNetOut(t *testing.T) {
 	config := types.NewConfig()
 
-	// ① 起一个 TCP server，读到数据塞 chan
+	// (1) Start a TCP server and read data and plug the chan
 	received := make(chan []byte, 4)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -41,19 +41,19 @@ func TestNetOut(t *testing.T) {
 	t.Cleanup(func() { _ = ln.Close() })
 	go serveTCPAccept(ln, received)
 
-	// ② NetNode dial 该 server
+	// (2) NetNode dial for this server
 	node := &external.NetNode{}
 	if err := node.Init(config, types.Configuration{
 		"protocol":          "tcp",
 		"server":            ln.Addr().String(),
 		"connectTimeout":    5,
-		"heartbeatInterval": 0, // 禁用心跳，专注验证出站发送
+		"heartbeatInterval": 0, // Disable heartbeat, focus on verifying outbound sending
 	}); err != nil {
 		t.Fatalf("Init: %v", err)
 	}
 	defer node.Destroy()
 
-	// ③ 发送文本（NetNode 非 binary 会自动追加 \n 结束符）
+	// (3) Send text (NetNode will automatically add a \n terminator if not binary)
 	done := make(chan error, 1)
 	test.NodeOnMsg(t, node, []test.Msg{{Data: "PING", DataType: types.TEXT}}, func(m types.RuleMsg, rel string, err error) {
 		done <- err
@@ -67,7 +67,7 @@ func TestNetOut(t *testing.T) {
 		t.Fatal("timeout OnMsg")
 	}
 
-	// ④ server 收到 "PING\n"
+	// (4) server receives "PING\n"
 	select {
 	case got := <-received:
 		if string(got) != "PING\n" {
@@ -78,7 +78,7 @@ func TestNetOut(t *testing.T) {
 	}
 }
 
-// serveTCPAccept 接受连接，每条连接读到的数据塞 received
+// serveTCPAccept accepts connections, and each connection receives data from the data block
 func serveTCPAccept(ln net.Listener, received chan<- []byte) {
 	for {
 		conn, err := ln.Accept()

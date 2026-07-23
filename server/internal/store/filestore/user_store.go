@@ -12,14 +12,14 @@ const (
 	usersFileName    = "users.ini"
 )
 
-// UserStore 基于 INI 文件的用户存储实现。
-// 用户数据存储在 {data_dir}/users.ini 中。
+// UserStore is a user storage implementation based on INI files.
+// User data is stored in {data_dir}/users.ini.
 type UserStore struct {
 	Config config.Config
 	fs     *FileStorage
 }
 
-// NewUserStore 创建用户文件存储
+// NewUserStore creates user file storage
 func NewUserStore(cfg config.Config) (*UserStore, error) {
 	fs, err := NewFileStorage(path.Join(cfg.DataDir, usersFileName))
 	if err != nil {
@@ -31,12 +31,12 @@ func NewUserStore(cfg config.Config) (*UserStore, error) {
 	}, nil
 }
 
-// CreateUser 创建用户，将用户名和密码写入 INI 文件
+// CreateUser creates a user and writes the username and password into the INI file
 func (d *UserStore) CreateUser(user model.User) error {
 	return d.fs.Save(usersSectionName, user.Username, user.Password)
 }
 
-// ValidatePassword 验证用户名和密码是否匹配
+// ValidatePassword verifies whether the username and password match
 func (d *UserStore) ValidatePassword(username, password string) bool {
 	if v := d.fs.Get(usersSectionName, username); v == "" {
 		return false
@@ -45,12 +45,12 @@ func (d *UserStore) ValidatePassword(username, password string) bool {
 	}
 }
 
-// Delete 删除用户
+// Delete: Remove the user
 func (d *UserStore) Delete(username string) error {
 	return d.fs.Delete(usersSectionName, username)
 }
 
-// List 列出所有用户
+// List lists all users
 func (d *UserStore) List() []model.User {
 	var users []model.User
 	values := d.fs.GetAll(usersSectionName)

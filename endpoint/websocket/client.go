@@ -34,45 +34,45 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
-// ClientType WebSocket客户端组件类型
+// ClientType WebSocket client component type
 const ClientType = types.EndpointTypePrefix + "ws_client"
 
-// ClientEndpoint 别名
+// ClientEndpoint alias
 type ClientEndpoint = WsClient
 
-// WsClientConfig WebSocket客户端配置
+// WsClientConfig WebSocket client configuration
 type WsClientConfig struct {
-	// WebSocket服务器地址，格式 ws://host:port/path 或 wss://host:port/path
+	// WebSocket server address, formatted as ws://host:port/path or wss://host:port/path
 	Server string `json:"server" label:"Server URL" desc:"WebSocket server URL, format: ws://host:port/path or wss://host:port/path" required:"true"`
 
-	// 连接时携带的自定义Header
+	// Custom header carried when connecting
 	Headers map[string]string `json:"headers" label:"Headers" desc:"Custom headers to send during connection"`
 
-	// 断线重连间隔，单位为秒，默认5，0表示不重连
+	// Disconnection interval, measured in seconds, default 5.0 means no reconnection
 	ReconnectInterval int `json:"reconnectInterval" label:"Reconnect Interval" desc:"Reconnect interval in seconds, default 5, 0 means no reconnect"`
 
-	// 心跳发送间隔，单位为秒，0表示不发送
+	// Heartbeat sending interval, measured in seconds, 0 means no transmission
 	// Heartbeat send interval in seconds, 0 means no heartbeat
-	// 默认发送WebSocket Ping帧；如果设置了HeartbeatData，则发送TextMessage
+	// By default, WebSocket Ping frames are sent; If HeartbeatData is set, a TextMessage is sent
 	// Default sends WebSocket Ping frame; if HeartbeatData is set, sends TextMessage instead
 	HeartbeatInterval int `json:"heartbeatInterval" label:"Heartbeat Interval" desc:"Heartbeat send interval in seconds, 0 means no heartbeat"`
 
-	// 心跳包内容，仅在HeartbeatInterval > 0时生效
+	// Heartbeat Pack content, effective only at HeartbeatInterval > 0
 	// Heartbeat packet content, only effective when HeartbeatInterval > 0
-	// 空字符串(默认): 发送WebSocket协议级Ping帧
+	// Null string (default): Transmits WebSocket protocol-level ping frames
 	// Empty string (default): sends WebSocket protocol-level Ping frame
-	// 非空字符串: 通过TextMessage发送自定义心跳内容
+	// Non-empty string: Send custom heartbeat content via TextMessage
 	// Non-empty string: sends custom heartbeat content via TextMessage
 	HeartbeatData string `json:"heartbeatData" label:"Heartbeat Data" desc:"Heartbeat packet content. Empty: send Ping frame. Non-empty: send custom text message"`
 
-	// 是否接收TextMessage，默认true
+	// Whether to receive TextMessages is true by default
 	AllowText bool `json:"allowText" label:"Allow Text" desc:"Allow receiving TextMessage, default true"`
 
-	// 是否接收BinaryMessage，默认true
+	// Whether to receive BinaryMessage is true by default
 	AllowBinary bool `json:"allowBinary" label:"Allow Binary" desc:"Allow receiving BinaryMessage, default true"`
 }
 
-// WsClientRequestMessage WebSocket客户端请求消息
+// WsClientRequestMessage: WebSocket client request message
 type WsClientRequestMessage struct {
 	headers     textproto.MIMEHeader
 	messageType int
@@ -134,7 +134,7 @@ func (r *WsClientRequestMessage) GetError() error {
 	return r.err
 }
 
-// WsClientResponseMessage WebSocket客户端响应消息，用于发送数据到服务端
+// WsClientResponseMessage: WebSocket client response messages, used to send data to the server
 type WsClientResponseMessage struct {
 	headers     textproto.MIMEHeader
 	messageType int
@@ -216,7 +216,7 @@ func (r *WsClientResponseMessage) GetError() error {
 	return r.err
 }
 
-// WsClient WebSocket客户端端点，连接到远程WebSocket服务器并接收数据
+// WsClient WebSocket client endpoint connects to a remote WebSocket server and receives data
 type WsClient struct {
 	impl.BaseEndpoint
 	Config     WsClientConfig
@@ -227,23 +227,23 @@ type WsClient struct {
 	mu         sync.RWMutex
 	writeMu    sync.Mutex
 	OnEvent    func(event string, params ...interface{})
-	// OnDial 在每次建立连接前调用，可用于动态设置鉴权Header
+	// OnDial is called before each connection is established and can be used to dynamically set the authentication header
 	// Called before each connection attempt, can be used to dynamically set auth headers
-	// 参数 header: 已包含配置中的静态Headers，可就地修改
+	// Parameter header: Includes the configured static headers and can be modified locally
 	OnDial func(header http.Header) error
-	// OnHeartbeat 自定义心跳发送回调，覆盖默认的心跳发送逻辑
+	// OnHeartbeat customizes heartbeat send callbacks to override the default heartbeat sending logic
 	// Custom heartbeat send callback, overrides the default heartbeat logic
-	// 如果设置了此回调，HeartbeatData配置将被忽略，完全由回调决定发送内容
+	// If this callback is set, the HeartbeatData configuration will be ignored, and the content sent will be determined entirely by the callback
 	// If this callback is set, HeartbeatData config is ignored, the callback fully controls what to send
 	//
-	// 参数 / Parameters:
-	//   - conn: 当前WebSocket连接 / Current WebSocket connection
-	// 返回值 / Returns:
-	//   - error: 非nil时停止心跳协程 / Non-nil stops the heartbeat goroutine
+	// Parameters / Parameters:
+	//   - conn: Current WebSocket connection / Current WebSocket connection
+	// Returns:
+	//   - error: Non-nil stops the heartbeat goroutine
 	OnHeartbeat func(conn *websocket.Conn) error
 }
 
-// Type 组件类型
+// Type returns the component type
 func (c *WsClient) Type() string {
 	return ClientType
 }
@@ -271,7 +271,7 @@ func (c *WsClient) Def() types.ComponentForm {
 	}
 }
 
-// New 创建默认实例
+// New creates the default instance
 func (c *WsClient) New() types.Node {
 	return &WsClient{
 		Config: WsClientConfig{
@@ -282,18 +282,18 @@ func (c *WsClient) New() types.Node {
 	}
 }
 
-// Init 初始化
+// Init initializes the component
 func (c *WsClient) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	if err := maps.Map2Struct(configuration, &c.Config); err != nil {
 		return err
 	}
-	// 设置默认值（Map2Struct 使用 ZeroFields:true，会覆盖为零值）
+	// Set the default value (Map2Struct uses ZeroFields:true to overwrite the zero value)
 	if c.Config.ReconnectInterval <= 0 {
 		c.Config.ReconnectInterval = 5
 	}
-	// AllowText/AllowBinary 默认应该为true，仅当配置中明确设为false时才为false
-	// 由于ZeroFields，未配置时会变成false，需要通过检查配置原始值来判断
-	// 简单处理：如果配置中没有明确设置，则默认true
+	// AllowText/AllowBinary should be true by default, only false if explicitly set to false in the configuration
+	// Because of ZeroFields, it will appear false when not configured. You need to check the original configuration value to determine this
+	// Simple handling: If there is no explicit setting in the configuration, default is true
 	if configuration != nil {
 		if _, ok := configuration["allowText"]; !ok {
 			c.Config.AllowText = true
@@ -310,12 +310,12 @@ func (c *WsClient) Init(ruleConfig types.Config, configuration types.Configurati
 	return nil
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (c *WsClient) Destroy() {
 	_ = c.Close()
 }
 
-// Close 关闭连接
+// Close Close closes the connection
 func (c *WsClient) Close() error {
 	atomic.StoreInt32(&c.closed, 1)
 	c.mu.Lock()
@@ -332,12 +332,12 @@ func (c *WsClient) Close() error {
 	return nil
 }
 
-// Id 返回服务器地址作为标识
+// Id returns the server address as an identifier
 func (c *WsClient) Id() string {
 	return c.Config.Server
 }
 
-// AddRouter 添加路由
+// AddRouter adds a route
 func (c *WsClient) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
@@ -355,7 +355,7 @@ func (c *WsClient) AddRouter(router endpoint.Router, params ...interface{}) (str
 	return router.GetId(), nil
 }
 
-// RemoveRouter 移除路由
+// RemoveRouter removes the route
 func (c *WsClient) RemoveRouter(routerId string, params ...interface{}) error {
 	c.Lock()
 	defer c.Unlock()
@@ -369,15 +369,14 @@ func (c *WsClient) RemoveRouter(routerId string, params ...interface{}) error {
 	return nil
 }
 
-// Printf 日志输出
+// Printf log output
 
-
-// Start 连接到远程WebSocket服务器
+// Start connects to a remote WebSocket server
 func (c *WsClient) Start() error {
 	return c.connect()
 }
 
-// connect 建立连接并开始读取数据
+// connect: establish a connection and start reading data
 func (c *WsClient) connect() error {
 	header := http.Header{}
 	for k, v := range c.Config.Headers {
@@ -414,7 +413,7 @@ func (c *WsClient) connect() error {
 	return nil
 }
 
-// readLoop 读取循环
+// readLoop reads the loop
 func (c *WsClient) readLoop(conn *websocket.Conn) {
 	defer func() {
 		_ = conn.Close()
@@ -438,7 +437,7 @@ func (c *WsClient) readLoop(conn *websocket.Conn) {
 			return
 		}
 
-		// 过滤消息类型
+		// Filter message types
 		if mt == websocket.TextMessage && !c.Config.AllowText {
 			continue
 		}
@@ -483,7 +482,7 @@ func (c *WsClient) readLoop(conn *websocket.Conn) {
 	}
 }
 
-// heartbeatLoop 心跳发送
+// heartbeatLoop Heartbeat sends
 func (c *WsClient) heartbeatLoop(conn *websocket.Conn) {
 	ticker := time.NewTicker(time.Duration(c.Config.HeartbeatInterval) * time.Second)
 	defer ticker.Stop()
@@ -515,7 +514,7 @@ func (c *WsClient) heartbeatLoop(conn *websocket.Conn) {
 	}
 }
 
-// tryReconnect 尝试重连
+// tryReconnect attempts to reconnect
 func (c *WsClient) tryReconnect() {
 	if c.Config.ReconnectInterval <= 0 {
 		return
@@ -544,7 +543,7 @@ func (c *WsClient) tryReconnect() {
 	}
 }
 
-// Send 发送文本数据到服务器
+// Send: Send text data to the server
 func (c *WsClient) Send(data []byte) error {
 	c.mu.RLock()
 	conn := c.conn
@@ -557,7 +556,7 @@ func (c *WsClient) Send(data []byte) error {
 	return conn.WriteMessage(websocket.TextMessage, data)
 }
 
-// SendBinary 发送二进制数据到服务器
+// SendBinary sends binary data to the server
 func (c *WsClient) SendBinary(data []byte) error {
 	c.mu.RLock()
 	conn := c.conn

@@ -12,20 +12,20 @@ import (
 	"github.com/rulego/rulego/utils/fs"
 )
 
-// FileStoreProvider 基于 files 的默认 StoreProvider 实现。
-// 内置 per-user 缓存，避免重复创建 Store 实例。
+// FileStoreProvider is a default StoreProvider implementation based on files.
+// Built-in per-user cache prevents duplicate Store instance creation.
 type FileStoreProvider struct {
 	cfg    config.Config
 	logger types.Logger
 
-	ruleStoreMu      sync.RWMutex
-	ruleStoreCache   map[string]store.RuleStore
-	settingStoreMu   sync.RWMutex
-	settingStoreCache map[string]store.SettingStore
-	componentStoreMu  sync.RWMutex
+	ruleStoreMu         sync.RWMutex
+	ruleStoreCache      map[string]store.RuleStore
+	settingStoreMu      sync.RWMutex
+	settingStoreCache   map[string]store.SettingStore
+	componentStoreMu    sync.RWMutex
 	componentStoreCache map[string]store.ComponentStore
-	nodePoolStoreMu   sync.RWMutex
-	nodePoolStoreCache map[string]store.NodePoolStore
+	nodePoolStoreMu     sync.RWMutex
+	nodePoolStoreCache  map[string]store.NodePoolStore
 
 	userStoreOnce sync.Once
 	userStore     store.UserStore
@@ -34,13 +34,13 @@ type FileStoreProvider struct {
 	runLogStore store.RunLogStore
 }
 
-// NewFileStoreProvider 创建文件存储 Provider
+// NewFileStoreProvider creates a file storage provider
 func NewFileStoreProvider(cfg config.Config, logger types.Logger) *FileStoreProvider {
 	return &FileStoreProvider{
-		cfg:                cfg,
-		logger:             logger,
-		ruleStoreCache:     make(map[string]store.RuleStore),
-		settingStoreCache:  make(map[string]store.SettingStore),
+		cfg:                 cfg,
+		logger:              logger,
+		ruleStoreCache:      make(map[string]store.RuleStore),
+		settingStoreCache:   make(map[string]store.SettingStore),
 		componentStoreCache: make(map[string]store.ComponentStore),
 		nodePoolStoreCache:  make(map[string]store.NodePoolStore),
 	}
@@ -141,7 +141,7 @@ func (p *FileStoreProvider) GetUserStore() (store.UserStore, error) {
 	return p.userStore, p.userStoreErr
 }
 
-// SetRunLogStore 设置外部注入的 RunLogStore
+// SetRunLogStore sets the externally injected RunLogStore
 func (p *FileStoreProvider) SetRunLogStore(s store.RunLogStore) {
 	p.runLogStore = s
 }
@@ -153,7 +153,7 @@ func (p *FileStoreProvider) GetRunLogStore() (store.RunLogStore, error) {
 	return nil, fmt.Errorf("run log store not configured")
 }
 
-// Close 关闭可关闭的 RunLogStore（如 BBolt）
+// Close: Close Closing RunLogStore that can be closed (such as BBolt)
 func (p *FileStoreProvider) Close() {
 	if p.runLogStore != nil {
 		if c, ok := p.runLogStore.(interface{ Close() error }); ok {

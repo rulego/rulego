@@ -30,14 +30,14 @@ import (
 	"time"
 )
 
-// 分隔符
+// Separator
 const splitUserSep = ","
 
 func init() {
 	Registry.Add(&SendEmailNode{})
 }
 
-// Email 邮件消息体
+// Email
 type Email struct {
 	From    string `json:"from" label:"From" desc:"Sender email address" required:"true"`
 	To      string `json:"to" label:"To" desc:"Recipient email addresses, comma-separated for multiple" required:"true"`
@@ -47,76 +47,76 @@ type Email struct {
 	Body    string `json:"body" label:"Body" desc:"Email body content, supports ${metadata.key} and ${msg.key} substitution" required:"true"`
 }
 
-// EmailTemplates 邮件模板结构体，统一管理所有邮件字段的模板
+// EmailTemplates: An email template structure that centrally manages templates for all email fields
 type EmailTemplates struct {
-	// fromTemplate 发件人模板
-	fromTemplate    el.Template
-	// toTemplate 收件人模板
-	toTemplate      el.Template
-	// ccTemplate 抄送人模板
-	ccTemplate      el.Template
-	// bccTemplate 密送人模板
-	bccTemplate     el.Template
-	// subjectTemplate 主题模板
+	// fromTemplate sender template
+	fromTemplate el.Template
+	// toTemplate recipient template
+	toTemplate el.Template
+	// ccTemplate CC Person Template
+	ccTemplate el.Template
+	// bccTemplate: Secret sending person
+	bccTemplate el.Template
+	// subjectTemplate theme template
 	subjectTemplate el.Template
-	// bodyTemplate 正文模板
-	bodyTemplate    el.Template
-	// hasVar 标识模板是否包含变量
-	hasVar          bool
+	// bodyTemplate body template
+	bodyTemplate el.Template
+	// hasVar identifies whether the template contains variables
+	hasVar bool
 }
 
-// initTemplates 初始化邮件模板
+// initTemplates initializes the email template
 // Initialize email templates
-// initTemplates 初始化所有邮件字段的模板
+// initTemplates initializes templates for all mail fields
 func (x *SendEmailNode) initTemplates() error {
 	var err error
-	
-	// 创建发件人模板
+
+	// Create a sender template
 	if x.templates.fromTemplate, err = el.NewTemplate(x.Config.Email.From); err != nil {
 		return err
 	}
-	
-	// 创建收件人模板
+
+	// Create recipient templates
 	if x.templates.toTemplate, err = el.NewTemplate(x.Config.Email.To); err != nil {
 		return err
 	}
-	
-	// 创建抄送人模板
+
+	// Create a CC person-to-copy template
 	if x.templates.ccTemplate, err = el.NewTemplate(x.Config.Email.Cc); err != nil {
 		return err
 	}
-	
-	// 创建密送人模板
+
+	// Create a secret sender template
 	if x.templates.bccTemplate, err = el.NewTemplate(x.Config.Email.Bcc); err != nil {
 		return err
 	}
-	
-	// 创建主题模板
+
+	// Create a theme template
 	if x.templates.subjectTemplate, err = el.NewTemplate(x.Config.Email.Subject); err != nil {
 		return err
 	}
 
-	// 创建正文模板
+	// Create a body template for the main text
 	if x.templates.bodyTemplate, err = el.NewTemplate(x.Config.Email.Body); err != nil {
 		return err
 	}
 
-	// 检查是否包含变量
-	x.templates.hasVar = x.templates.fromTemplate.HasVar() || x.templates.toTemplate.HasVar() || 
-						 x.templates.ccTemplate.HasVar() || x.templates.bccTemplate.HasVar() ||
-						 x.templates.subjectTemplate.HasVar() || x.templates.bodyTemplate.HasVar()
+	// Check if variables are included
+	x.templates.hasVar = x.templates.fromTemplate.HasVar() || x.templates.toTemplate.HasVar() ||
+		x.templates.ccTemplate.HasVar() || x.templates.bccTemplate.HasVar() ||
+		x.templates.subjectTemplate.HasVar() || x.templates.bodyTemplate.HasVar()
 	return nil
 }
 
-// createEmailMsg 创建邮件消息内容
+// createEmailMsg creates email message content
 func (x *SendEmailNode) createEmailMsg(ctx types.RuleContext, ruleMsg types.RuleMsg) ([]byte, []string) {
 	var from, to, cc, bcc, subject, body string
 	var evn map[string]interface{}
 	if x.templates.hasVar {
 		evn = base.NodeUtils.GetEvnAndMetadata(ctx, ruleMsg)
 	}
-	
-	// 执行模板渲染
+
+	// Perform template rendering
 	from = x.templates.fromTemplate.ExecuteAsString(evn)
 	to = x.templates.toTemplate.ExecuteAsString(evn)
 	cc = x.templates.ccTemplate.ExecuteAsString(evn)
@@ -125,7 +125,7 @@ func (x *SendEmailNode) createEmailMsg(ctx types.RuleContext, ruleMsg types.Rule
 	body = x.templates.bodyTemplate.ExecuteAsString(evn)
 
 	toList := strings.Split(to, splitUserSep)
-	// 将所有的收件人、抄送和密送合并为一个切片
+	// Merge all recipients, cc, and secret mail into a single slice
 	sendTo := toList
 
 	var ccList, bccList []string
@@ -138,7 +138,7 @@ func (x *SendEmailNode) createEmailMsg(ctx types.RuleContext, ruleMsg types.Rule
 		sendTo = append(sendTo, bccList...)
 	}
 
-	// 创建一个邮件消息，符合RFC 822标准
+	// Create an email message that complies with RFC 822 standards
 	msg := []byte("To: " + to + "\r\n" +
 		"From: " + from + "\r\n" +
 		"Subject: " + subject + "\r\n" +
@@ -152,13 +152,13 @@ func (x *SendEmailNode) createEmailMsg(ctx types.RuleContext, ruleMsg types.Rule
 
 func (x *SendEmailNode) SendEmail(ctx types.RuleContext, ruleMsg types.RuleMsg, addr string, auth smtp.Auth, connectTimeout time.Duration) error {
 	msg, sendTo := x.createEmailMsg(ctx, ruleMsg)
-	// 获取渲染后的发件人地址
+	// Get the sender address after rendering
 	var evn map[string]interface{}
 	if x.templates.hasVar {
 		evn = base.NodeUtils.GetEvnAndMetadata(ctx, ruleMsg)
 	}
 	from := x.templates.fromTemplate.ExecuteAsString(evn)
-	// 调用SendMail函数发送邮件
+	// Call the SendMail function to send an email
 	return smtp.SendMail(addr, auth, from, sendTo, msg)
 }
 
@@ -193,7 +193,7 @@ func (x *SendEmailNode) SendEmailWithTls(ctx types.RuleContext, ruleMsg types.Ru
 	}
 
 	// To && From
-	// 获取渲染后的发件人地址
+	// Get the sender address after rendering
 	var evn map[string]interface{}
 	if x.templates.hasVar {
 		evn = base.NodeUtils.GetEvnAndMetadata(ctx, ruleMsg)
@@ -226,7 +226,7 @@ func (x *SendEmailNode) SendEmailWithTls(ctx types.RuleContext, ruleMsg types.Ru
 	return c.Quit()
 }
 
-// SendEmailConfiguration 配置
+// SendEmailConfiguration configuration
 type SendEmailConfiguration struct {
 	SmtpHost       string `json:"smtpHost" label:"SMTP Host" desc:"SMTP server address" required:"true"`
 	SmtpPort       int    `json:"smtpPort" label:"SMTP Port" desc:"SMTP server port, default 25"`
@@ -237,19 +237,19 @@ type SendEmailConfiguration struct {
 	ConnectTimeout int    `json:"connectTimeout" label:"Connect Timeout (s)" desc:"SMTP connection timeout in seconds"`
 }
 
-// SendEmailNode 通过SMTP服务器发送邮消息
-// 如果请求成功，发送消息到`Success`链, 否则发到`Failure`链，
+// SendEmailNode sends mail messages through the SMTP server
+// If the request succeeds, send the message to the `Success` chain; otherwise, send it to the `Failure` chain.
 type SendEmailNode struct {
-	//节点配置
+	//Node configuration
 	Config                 SendEmailConfiguration
 	ConnectTimeoutDuration time.Duration
 	smtpAddr               string
 	smtpAuth               smtp.Auth
-	// templates 邮件模板管理器
-	templates              EmailTemplates
+	// templates: Email template manager
+	templates EmailTemplates
 }
 
-// Type 组件类型
+// Type returns the component type
 func (x *SendEmailNode) Type() string {
 	return "sendEmail"
 }
@@ -262,20 +262,20 @@ func (x *SendEmailNode) New() types.Node {
 	}
 }
 
-// Init 初始化
+// Init initializes the component
 func (x *SendEmailNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
 		if x.Config.Email.To == "" {
 			return errors.New("to address can not empty")
 		}
-		// 初始化邮件模板
+		// Initialize email templates
 		err = x.initTemplates()
 		if err != nil {
 			return err
 		}
 		x.smtpAddr = fmt.Sprintf("%s:%d", x.Config.SmtpHost, x.Config.SmtpPort)
-		// 创建一个PLAIN认证
+		// Create a PLAIN certification
 		x.smtpAuth = smtp.PlainAuth("", x.Config.Username, x.Config.Password, x.Config.SmtpHost)
 		if x.Config.ConnectTimeout <= 0 {
 			x.Config.ConnectTimeout = 10
@@ -285,7 +285,7 @@ func (x *SendEmailNode) Init(ruleConfig types.Config, configuration types.Config
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg processes a message
 func (x *SendEmailNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var err error
 	if x.Config.EnableTls {
@@ -301,7 +301,7 @@ func (x *SendEmailNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (x *SendEmailNode) Destroy() {
 }
 

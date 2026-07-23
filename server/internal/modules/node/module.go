@@ -1,4 +1,4 @@
-// Package node 合并管理动态组件和共享节点池，提供组件安装、卸载和节点池 CRUD 能力。
+// Package node merges and manages dynamic components and shared node pools, providing component installation, uninstallation, and node pool CRUD capabilities.
 package node
 
 import (
@@ -27,7 +27,7 @@ const (
 	Priority   = 35
 )
 
-// Module node 业务模块，负责组件和共享节点池的管理。
+// Module node: Business module, responsible for managing the component and shared node pool.
 type Module struct {
 	cfg           *config.Config
 	logger        types.Logger
@@ -36,7 +36,7 @@ type Module struct {
 	container     *app.Container
 }
 
-// New 创建 node 模块
+// New to create the node module
 func New() *Module {
 	return &Module{}
 }
@@ -87,7 +87,7 @@ func (m *Module) Start(_ context.Context) error {
 	return nil
 }
 
-// initUserPool 为用户初始化节点池：先加载全局池，再加载用户私有池
+// initUserPool initializes the node pool for users: first load the global pool, then load the user's private pool
 func (m *Module) initUserPool(username string, globalData []byte) {
 	ue, err := m.engineMgr.GetOrCreate(username)
 	if err != nil {
@@ -110,9 +110,9 @@ func (m *Module) initUserPool(username string, globalData []byte) {
 		svc.UserComponentService.LoadComponents()
 	}
 }
-func (m *Module) Stop(_ context.Context) error  { return nil }
+func (m *Module) Stop(_ context.Context) error { return nil }
 
-// getUserService 获取用户级节点服务
+// getUserService obtains user-level node services
 func (m *Module) getUserService(username string) (*UserNodeService, error) {
 	ue, err := m.engineMgr.GetOrCreate(username)
 	if err != nil {
@@ -130,7 +130,7 @@ func (m *Module) getUserService(username string) (*UserNodeService, error) {
 	return m.ForUser(username, ue.RuleConfig(), pool, mcpSvc)
 }
 
-// NodeService 实现
+// NodeService implementation
 
 func (m *Module) ListComponents(username, keywords string, size, page int) ([]types.RuleChain, int, error) {
 	svc, err := m.getUserService(username)
@@ -228,7 +228,7 @@ func (m *Module) GetNodePoolDefs(username string) (map[string][]*types.RuleNode,
 	return svc.UserNodePoolService.GetPool().GetAllDef()
 }
 
-// ForUser 为指定用户创建组件和节点池服务实例
+// ForUser creates component and node pool service instances for specified users
 func (m *Module) ForUser(username string, ruleConfig types.Config, pool *node_pool.NodePool, mcpSvc services.McpToolService) (*UserNodeService, error) {
 	componentStore, err := m.storeProvider.GetComponentStore(username)
 	if err != nil {
@@ -238,7 +238,7 @@ func (m *Module) ForUser(username string, ruleConfig types.Config, pool *node_po
 	if err != nil {
 		return nil, err
 	}
-	// 开启 share_http_server 时，主 HTTP server 会被注入用户池；其 id（=config.Server）标记为系统只读节点。
+	// When share_http_server is enabled, the main HTTP server is injected into the user pool; Its id(=config.Server) is marked as a system read-only node.
 	systemNodeId := ""
 	if m.cfg.ShareHttpServer {
 		systemNodeId = m.cfg.Server
@@ -259,13 +259,13 @@ func (m *Module) ForUser(username string, ruleConfig types.Config, pool *node_po
 	}, nil
 }
 
-// UserNodeService 用户级节点服务，组合了组件和节点池能力
+// UserNodeService: A user-level node service that combines component and node pool capabilities
 type UserNodeService struct {
 	*UserComponentService
 	*UserNodePoolService
 }
 
-// UserComponentService 用户级组件服务（从原 component 模块合并）
+// UserComponentService User-level component service (merged from original component modules)
 type UserComponentService struct {
 	username   string
 	config     *config.Config
@@ -356,17 +356,17 @@ func (s *UserComponentService) Uninstall(nodeType string) error {
 	return s.store.Delete(s.username, nodeType)
 }
 
-// UserNodePoolService 用户级共享节点池服务（从原 nodepool 模块合并）。
-// 注意：开启 share_http_server 后，主 HTTP server 端点会被注入用户池作为「系统只读节点」
-//（id = config.Server）。该节点禁止改/删/持久化，相关写操作（SaveNode/SaveEndpoint/Delete/saveState）
-// 均通过 isSystemNode 拦截。未来新增任何 node_pool 写操作必须同步加此保护，否则会拉垮共享 server。
+// UserNodePoolService: User-level shared node pool service (merged from the original nodepool module).
+// Note: After enabling share_http_server, the main HTTP server endpoint will be injected into the user pool as a "system read-only node"
+// (id = config.Server). This node prohibits modification/deletion/persistence, related write operations (SaveNode/SaveEndpoint/Delete/saveState)
+// All intercepted via isSystemNode. Any new node_pool write operations in the future must be protected simultaneously, otherwise the shared server will be compromised.
 type UserNodePoolService struct {
 	store        store.NodePoolStore
 	nodePool     *node_pool.NodePool
-	systemNodeId string // 系统注入的只读节点 id（如主 HTTP server 的 :9090）；非空时该 id 不可改/删/持久化
+	systemNodeId string // The system injects the read-only node id (e.g., the main HTTP server's:9090); If not null, the ID cannot be changed, deleted, or persisted
 }
 
-// isSystemNode 判断给定 id 是否为系统注入的只读节点。
+// isSystemNode determines whether the given id is a read-only node injected by the system.
 func (s *UserNodePoolService) isSystemNode(id string) bool {
 	return s.systemNodeId != "" && id == s.systemNodeId
 }
@@ -516,7 +516,7 @@ func (s *UserNodePoolService) saveState() error {
 
 	for _, ctx := range all {
 		if s.isSystemNode(ctx.GetNodeId().Id) {
-			continue // 系统节点不持久化（避免重启重建实例与主 server 抢端口）
+			continue // System nodes are not persistently maintained (to avoid restarting and rebuilding instances and the main server to compete for ports)
 		}
 		raw := ctx.DSL()
 		if _, ok := ctx.GetNode().(endpointApi.Endpoint); ok {

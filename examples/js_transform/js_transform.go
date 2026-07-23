@@ -24,7 +24,7 @@ import (
 	"time"
 )
 
-// js处理msg payload和元数据
+// JS handles MSG payload and metadata
 func main() {
 
 	config := rulego.NewConfig()
@@ -32,7 +32,7 @@ func main() {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 
-	//js处理
+	//JS processing
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile1), rulego.WithConfig(config))
 	if err != nil {
 		log.Fatal(err)
@@ -42,11 +42,11 @@ func main() {
 
 	ruleEngine.OnMsg(msg1, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		fmt.Println("msg1处理结果=====")
-		//得到规则链处理结果
+		//Obtain the result of the rule chain processing
 		fmt.Println(msg, err)
 	}))
 
-	//js处理后，并调用http推送
+	//After processing in JS, it calls HTTP to push the message
 	ruleEngine2, err := rulego.New("rule02", []byte(chainJsonFile2), rulego.WithConfig(config))
 	if err != nil {
 		log.Fatal(err)
@@ -55,8 +55,8 @@ func main() {
 	msg2 := types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":30}")
 	ruleEngine2.OnMsg(msg2, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
 		fmt.Println("msg2处理结果=====")
-		//得到规则链处理结果
-		//因为推送的url:http://192.168.136.26:9099/api/msg 是无效url，所以会返回超时错误
+		//Obtain the result of the rule chain processing
+		//Because the pushed url:http://192.168.136.26:9099/api/msg is an invalid URL, it will return a timeout error
 		fmt.Println(msg, err)
 	}))
 

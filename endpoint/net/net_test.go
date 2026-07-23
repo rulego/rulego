@@ -26,7 +26,7 @@ import (
 
 var (
 	testdataFolder   = "../../testdata/rule"
-	testServer       = ":16335" // 使用一个不太可能冲突的端口号
+	testServer       = ":16335" // Use a port number that is less likely to conflict
 	testConfigServer = "127.0.0.1:8889"
 	msgContent1      = "{\"test\":\"AA\"}"
 	msgContent2      = "{\"test\":\"BB\"}"
@@ -35,7 +35,7 @@ var (
 	msgContent5      = "{\"test\":\"FF\"}"
 )
 
-// 测试请求/响应消息
+// Test request/response messages
 func TestNetMessage(t *testing.T) {
 	t.Run("Request", func(t *testing.T) {
 		var request = &RequestMessage{}
@@ -53,7 +53,7 @@ func TestRouterId(t *testing.T) {
 	_ = maps.Map2Struct(&Config{
 		Protocol: "tcp",
 		Server:   testConfigServer,
-		//1秒超时
+		//Timeout of 1 second
 		ReadTimeout: 1,
 	}, &nodeConfig)
 	var ep = &Net{}
@@ -82,11 +82,11 @@ func TestNetEndpoint(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
-	//启动服务
+	//Start the server
 	go startServer(t, stop, &wg)
-	//等待服务器启动完毕
+	//Wait for the server to start up
 	time.Sleep(time.Millisecond * 200)
-	//启动客户端
+	//Start the client
 	node := createNetClient(t)
 	config := types.NewConfig()
 	ctx := test.NewRuleContext(config, func(msg types.RuleMsg, relationType string, err2 error) {
@@ -95,12 +95,12 @@ func TestNetEndpoint(t *testing.T) {
 			t.Logf("Client callback error: %v", err2)
 		}
 	})
-	//发送消息
+	//Send the message
 	metaData := types.BuildMetadata(make(map[string]string))
 
 	msg1 := ctx.NewMsg("TEST_MSG_TYPE_AA", metaData, msgContent1)
 	node.OnMsg(ctx, msg1)
-	time.Sleep(time.Millisecond * 100) // 添加延迟
+	time.Sleep(time.Millisecond * 100) // Add delay
 
 	msg2 := ctx.NewMsg("TEST_MSG_TYPE_BB", metaData, msgContent2)
 	node.OnMsg(ctx, msg2)
@@ -110,33 +110,33 @@ func TestNetEndpoint(t *testing.T) {
 	node.OnMsg(ctx, msg3)
 	time.Sleep(time.Millisecond * 100)
 
-	//因为服务器与\n或者\t\n分割，这里会收到2条消息
+	//Because the server is split from \n or \t\n, two messages will be received here
 	msg4 := ctx.NewMsg("TEST_MSG_TYPE_DD", metaData, msgContent4+"\n"+msgContent5)
 	node.OnMsg(ctx, msg4)
 	time.Sleep(time.Millisecond * 100)
 
-	//ping消息
+	//Ping messages
 	msg5 := ctx.NewMsg(PingData, metaData, PingData)
 	node.OnMsg(ctx, msg5)
 	time.Sleep(time.Millisecond * 100)
 
-	//等待所有消息处理完毕
+	//Wait for all messages to be processed
 	time.Sleep(time.Second * 2)
-	//销毁并 断开连接
+	//Destroy and disconnect
 	node.Destroy()
-	//停止服务器
+	//Stop the server
 	stop <- struct{}{}
 	wg.Wait()
 }
 
 func TestNetEndpointConfig(t *testing.T) {
 	config := engine.NewConfig(types.WithDefaultPool())
-	//创建tpc endpoint服务
+	//Create TPC Endpoint services
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Protocol: "tcp",
 		Server:   testConfigServer,
-		//1秒超时
+		//Timeout of 1 second
 		ReadTimeout: 1,
 	}, &nodeConfig)
 	var epStarted = &Net{}
@@ -152,7 +152,7 @@ func TestNetEndpointConfig(t *testing.T) {
 	nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Server: testConfigServer,
-		//1秒超时
+		//Timeout of 1 second
 		ReadTimeout: 1,
 	}, &nodeConfig)
 	var netEndpoint = &Net{}
@@ -160,7 +160,7 @@ func TestNetEndpointConfig(t *testing.T) {
 
 	assert.Equal(t, "tcp", netEndpoint.Config.Protocol)
 
-	//启动失败，端口已经占用
+	//Boot failed, and the port was already occupied
 	err = netEndpoint.Start()
 	assert.NotNil(t, err)
 
@@ -168,7 +168,7 @@ func TestNetEndpointConfig(t *testing.T) {
 
 	err = netEndpoint.Init(types.NewConfig(), types.Configuration{
 		"server": testConfigServer,
-		//1秒超时
+		//Timeout of 1 second
 		"readTimeout": 1,
 	})
 	assert.Equal(t, "tcp", netEndpoint.Config.Protocol)
@@ -184,19 +184,19 @@ func TestNetEndpointConfig(t *testing.T) {
 	routerId, err := ep.AddRouter(router)
 	assert.Nil(t, err)
 
-	//重复
+	//Repeat
 	router = impl.NewRouter().From("^{.*").End()
 	_, err = ep.AddRouter(router)
 	assert.Equal(t, "duplicate router ^{.*", err.Error())
 
-	//删除路由
+	//Delete the route
 	_ = ep.RemoveRouter(routerId)
 
 	router = impl.NewRouter().From("^{.*").End()
 	_, err = ep.AddRouter(router)
 	assert.Nil(t, err)
 
-	//错误的表达式
+	//Incorrect expression
 	router = impl.NewRouter().From("[a-z{1,5}").End()
 	_, err = ep.AddRouter(router)
 	assert.NotNil(t, err)
@@ -225,14 +225,14 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		t.Fatal(err)
 	}
 	config := engine.NewConfig(types.WithDefaultPool())
-	//注册规则链
+	//Register the rule chain
 	_, _ = engine.New("default", buf, engine.WithConfig(config))
 
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Protocol: "tcp",
 		Server:   testServer,
-		//1秒超时
+		//Timeout of 1 second
 		ReadTimeout: 1,
 	}, &nodeConfig)
 
@@ -243,23 +243,23 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		Config: Config{
 			Protocol:      "tcp",
 			ReadTimeout:   60,
-			Server:        ":6335", // 使用实际的默认值，而不是测试端口
+			Server:        ":6335", // Use the actual default value instead of the test port
 			PacketMode:    "line",
-			PacketSize:    2,      // 实际默认值
-			Encode:        "none", // 实际默认值
+			PacketSize:    2,      // Actual default values
+			Encode:        "none", // Actual default values
 			MaxPacketSize: 65536,
 			SessionTTL:    DefaultSessionTTL,
 		},
 	}, ep.New()))
 
-	//添加全局拦截器
+	//Added a global interceptor
 	ep.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		//权限校验逻辑
+		//Permission validation logic
 		return true
 	})
 	var router1Count = int32(0)
 	var router2Count = int32(0)
-	//匹配所有消息，转发到该路由处理
+	//Matches all messages and forwards them to the route for processing
 	router1 := impl.NewRouter().From("").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		from := exchange.In.From()
 
@@ -271,7 +271,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		exchange.In.GetMsg().Type = "TEST_MSG_TYPE2"
 		receiveData := exchange.In.GetMsg().GetData()
 
-		// 排除ping消息
+		// Excluding ping messages
 		if receiveData == "ping" {
 			return true
 		}
@@ -291,12 +291,12 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 			assert.Equal(t, exchange.Out.From(), exchange.Out.Headers().Get(RemoteAddrKey))
 			v := exchange.Out.GetMsg().Metadata.GetValue("addFrom")
 			assert.True(t, v != "")
-			//发送响应
+			//Send a response
 			exchange.Out.SetBody([]byte("response"))
 			return true
 		}).End()
 
-	//匹配与{开头的消息，转发到该路由处理
+	//Matches messages starting with { and forwards them to the route for processing
 	router2 := impl.NewRouter().From("^{.*").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.In.GetMsg().Type = "TEST_MSG_TYPE2"
 		receiveData := exchange.In.GetMsg().GetData()
@@ -307,7 +307,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		return true
 	}).To("chain:default").End()
 
-	//注册路由
+	//Register the route
 	_, err = ep.AddRouter(router1)
 	if err != nil {
 		t.Fatal(err)
@@ -316,19 +316,19 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//启动服务
+	//Start the server
 	err = ep.Start()
 
 	assert.Nil(t, err)
 	<-stop
-	// 确保资源被正确清理
+	// Ensure resources are properly cleared
 	ep.Destroy()
 	assert.Equal(t, int32(5), atomic.LoadInt32(&router1Count))
 	assert.Equal(t, int32(4), atomic.LoadInt32(&router2Count))
 	wg.Done()
 }
 
-// 测试数据包分割器创建
+// Test the packet splitter creation
 func TestCreatePacketSplitter(t *testing.T) {
 	ep := &Net{}
 
@@ -419,44 +419,44 @@ func TestCreatePacketSplitter(t *testing.T) {
 	})
 }
 
-// 测试固定长度数据包分割
+// Testing fixed-length packet segmentation
 func TestFixedLengthEndpoint(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
 
-	// 启动固定长度服务器
+	// Start a fixed-length server
 	go startFixedLengthServer(t, stop, &wg)
 	time.Sleep(time.Millisecond * 200)
 
-	// 创建TCP客户端连接到服务器
+	// Create a TCP client to connect to the server
 	conn, err := net.Dial("tcp", ":8090")
 	assert.Nil(t, err)
 	defer conn.Close()
 
-	// 创建16字节的测试数据包
-	// 前4字节：设备ID (1001)
-	// 接下来4字节：命令 (1)
-	// 后8字节：数据负载
+	// Create a 16-byte test packet
+	// First 4 bytes: Device ID (1001)
+	// Next 4 bytes: Command (1)
+	// Last 8 bytes: Data load
 	testData := make([]byte, 16)
-	// 设备ID: 1001 = 0x03E9 (big-endian)
+	// Device ID: 1001 = 0x03E9 (big-endian)
 	testData[0], testData[1], testData[2], testData[3] = 0x00, 0x00, 0x03, 0xE9
-	// 命令: 1 (big-endian)
+	// Command: 1 (big-endian)
 	testData[4], testData[5], testData[6], testData[7] = 0x00, 0x00, 0x00, 0x01
-	// 数据负载
+	// Data load
 	copy(testData[8:], []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08})
 
-	// 发送数据到服务器
+	// Send data to the server
 	_, err = conn.Write(testData)
 	assert.Nil(t, err)
 
-	// 读取服务器响应（期望16字节响应）
+	// Read server response (expected to be 16 bytes of response)
 	response := make([]byte, 16)
 	_, err = conn.Read(response)
 	assert.Nil(t, err)
 
-	// 验证响应
-	// 状态码应该是成功 (0x00000000)
+	// Verify the response
+	// The status code should be Success (0x00000000)
 	assert.Equal(t, byte(0x00), response[0])
 	assert.Equal(t, byte(0x00), response[1])
 	assert.Equal(t, byte(0x00), response[2])
@@ -467,89 +467,89 @@ func TestFixedLengthEndpoint(t *testing.T) {
 	wg.Wait()
 }
 
-// 测试长度前缀数据包分割
+// Test length prefix packet segmentation
 func TestLengthPrefixEndpoint(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
 
-	// 启动长度前缀服务器
+	// Start the length prefix server
 	go startLengthPrefixServer(t, stop, &wg)
 	time.Sleep(time.Millisecond * 200)
 
-	// 创建TCP客户端连接到服务器
+	// Create a TCP client to connect to the server
 	conn, err := net.Dial("tcp", ":8091")
 	assert.Nil(t, err)
 	defer conn.Close()
 
-	// 测试心跳消息: 长度(2字节) + 消息类型(1字节)
-	heartbeatData := []byte{0x00, 0x01, 0x10} // 长度1 + 心跳类型0x10
+	// Test heartbeat message: Length (2 bytes) + Message type (1 byte)
+	heartbeatData := []byte{0x00, 0x01, 0x10} // Length 1 + heart rate type 0x10
 	_, err = conn.Write(heartbeatData)
 	assert.Nil(t, err)
 
-	// 读取心跳响应: 长度(2字节) + 状态(1字节) + 时间戳(4字节)
+	// Read heartbeat response: length (2 bytes) + status (1 byte) + timestamp (4 bytes)
 	heartbeatResponse := make([]byte, 7)
 	_, err = conn.Read(heartbeatResponse)
 	assert.Nil(t, err)
-	assert.Equal(t, byte(0x00), heartbeatResponse[0]) // 长度高字节
-	assert.Equal(t, byte(0x05), heartbeatResponse[1]) // 长度低字节 (5字节数据)
-	assert.Equal(t, byte(0x00), heartbeatResponse[2]) // 成功状态
+	assert.Equal(t, byte(0x00), heartbeatResponse[0]) // Length is high bytes
+	assert.Equal(t, byte(0x05), heartbeatResponse[1]) // Low Length (5 bytes of data)
+	assert.Equal(t, byte(0x00), heartbeatResponse[2]) // Successful status
 
-	// 测试数据上传消息: 长度(2字节) + 消息类型(1字节) + 传感器ID(2字节) + 温度值(4字节)
-	dataUploadMsg := []byte{0x00, 0x07, 0x20, 0x12, 0x34, 0x00, 0x00, 0x00, 0x1A} // 长度7 + 类型0x20 + 传感器ID 0x1234 + 温度26
+	// Test data upload message: length (2 bytes) + message type (1 byte) + sensor ID (2 bytes) + temperature value (4 bytes)
+	dataUploadMsg := []byte{0x00, 0x07, 0x20, 0x12, 0x34, 0x00, 0x00, 0x00, 0x1A} // Length 7 + Type 0x20 + Sensor ID 0x1234 + Temperature 26
 	_, err = conn.Write(dataUploadMsg)
 	assert.Nil(t, err)
 
-	// 读取数据上传响应: 长度(2字节) + 状态(1字节) + 传感器ID回显(2字节)
+	// Read data upload response: Length (2 bytes) + Status (1 byte) + Sensor ID Echo (2 bytes)
 	uploadResponse := make([]byte, 5)
 	_, err = conn.Read(uploadResponse)
 	assert.Nil(t, err)
-	assert.Equal(t, byte(0x00), uploadResponse[0]) // 长度高字节
-	assert.Equal(t, byte(0x03), uploadResponse[1]) // 长度低字节 (3字节数据)
-	assert.Equal(t, byte(0x00), uploadResponse[2]) // 成功状态
-	assert.Equal(t, byte(0x12), uploadResponse[3]) // 传感器ID回显高字节
-	assert.Equal(t, byte(0x34), uploadResponse[4]) // 传感器ID回显低字节
+	assert.Equal(t, byte(0x00), uploadResponse[0]) // Length is high bytes
+	assert.Equal(t, byte(0x03), uploadResponse[1]) // Low Length Bytes (3 bytes of data)
+	assert.Equal(t, byte(0x00), uploadResponse[2]) // Successful status
+	assert.Equal(t, byte(0x12), uploadResponse[3]) // Sensor ID echo high bytes
+	assert.Equal(t, byte(0x34), uploadResponse[4]) // Sensor ID echoes at low bytes
 
-	// 测试未知消息类型
-	unknownMsg := []byte{0x00, 0x02, 0xFF, 0x99} // 长度2 + 未知类型0xFF
+	// Test unknown message types
+	unknownMsg := []byte{0x00, 0x02, 0xFF, 0x99} // Length 2 + Unknown type 0xFF
 	_, err = conn.Write(unknownMsg)
 	assert.Nil(t, err)
 
-	// 读取错误响应
+	// Read error responses
 	errorResponse := make([]byte, 4)
 	_, err = conn.Read(errorResponse)
 	assert.Nil(t, err)
-	assert.Equal(t, byte(0x00), errorResponse[0]) // 长度高字节
-	assert.Equal(t, byte(0x02), errorResponse[1]) // 长度低字节 (2字节数据)
-	assert.Equal(t, byte(0xFF), errorResponse[2]) // 错误状态
-	assert.Equal(t, byte(0x04), errorResponse[3]) // 错误码
+	assert.Equal(t, byte(0x00), errorResponse[0]) // Length is high bytes
+	assert.Equal(t, byte(0x02), errorResponse[1]) // Low Length Bytes (2 bytes of data)
+	assert.Equal(t, byte(0xFF), errorResponse[2]) // Error status
+	assert.Equal(t, byte(0x04), errorResponse[3]) // Error code
 
 	time.Sleep(time.Millisecond * 100)
 	stop <- struct{}{}
 	wg.Wait()
 }
 
-// 测试自定义分隔符数据包分割
+// Test custom separator packet splitting
 func TestDelimiterEndpoint(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
 
-	// 启动分隔符服务器
+	// Start the delimiter server
 	go startDelimiterServer(t, stop, &wg)
 	time.Sleep(time.Millisecond * 200)
 
-	// 创建TCP客户端连接到服务器
+	// Create a TCP client to connect to the server
 	conn, err := net.Dial("tcp", ":8092")
 	assert.Nil(t, err)
 	defer conn.Close()
 
-	// 测试AT命令
+	// Test the AT command
 	atCommand := "AT+INFO\r\n"
 	_, err = conn.Write([]byte(atCommand))
 	assert.Nil(t, err)
 
-	// 读取AT命令响应
+	// Read the AT command response
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
 	assert.Nil(t, err)
@@ -557,46 +557,46 @@ func TestDelimiterEndpoint(t *testing.T) {
 	assert.True(t, strings.Contains(response, "OK"))
 	assert.True(t, strings.Contains(response, "Device: RuleGo-Test"))
 
-	// 测试传感器数据命令
+	// Test sensor data commands
 	sensorCommand := "SENSOR,TEMP,01,25.6\r\n"
 	_, err = conn.Write([]byte(sensorCommand))
 	assert.Nil(t, err)
 
-	// 读取传感器响应
+	// Read the sensor response
 	n, err = conn.Read(buffer)
 	assert.Nil(t, err)
 	response = string(buffer[:n])
 	assert.True(t, strings.Contains(response, "ACK,TEMP,01,OK"))
 
-	// 测试Modbus ASCII命令
+	// Test the Modbus ASCII command
 	modbusCommand := ":010300010001FA\r\n"
 	_, err = conn.Write([]byte(modbusCommand))
 	assert.Nil(t, err)
 
-	// 读取Modbus响应
+	// Read the Modbus response
 	n, err = conn.Read(buffer)
 	assert.Nil(t, err)
 	response = string(buffer[:n])
 	assert.True(t, strings.Contains(response, ":01030401020304FF"))
 
-	// 测试无效格式命令
+	// Test the invalid format command
 	invalidCommand := "INVALID_FORMAT\r\n"
 	_, err = conn.Write([]byte(invalidCommand))
 	assert.Nil(t, err)
 
-	// 读取错误响应
+	// Read error responses
 	n, err = conn.Read(buffer)
 	assert.Nil(t, err)
 	response = string(buffer[:n])
 	assert.True(t, strings.Contains(response, "ERROR"))
 	assert.True(t, strings.Contains(response, "Unknown command"))
 
-	// 测试无效传感器数据格式
+	// Test invalid sensor data formats
 	invalidSensor := "SENSOR,TEMP\r\n"
 	_, err = conn.Write([]byte(invalidSensor))
 	assert.Nil(t, err)
 
-	// 读取无效传感器响应
+	// Read the response of an invalid sensor
 	n, err = conn.Read(buffer)
 	assert.Nil(t, err)
 	response = string(buffer[:n])
@@ -607,19 +607,19 @@ func TestDelimiterEndpoint(t *testing.T) {
 	wg.Wait()
 }
 
-// 测试配置默认值
+// Test the default settings
 func TestConfigDefaults(t *testing.T) {
 	ep := &Net{}
 	config := types.NewConfig()
 
-	// 测试默认配置
+	// Test the default configuration
 	err := ep.Init(config, types.Configuration{})
 	assert.Nil(t, err)
 	assert.Equal(t, "tcp", ep.Config.Protocol)
 	assert.Equal(t, "line", ep.Config.PacketMode)
 	assert.Equal(t, 65536, ep.Config.MaxPacketSize)
 
-	// 测试部分配置
+	// Test the configuration
 	err = ep.Init(config, types.Configuration{
 		"packetMode": "fixed",
 		"packetSize": 20,
@@ -627,13 +627,13 @@ func TestConfigDefaults(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "fixed", ep.Config.PacketMode)
 	assert.Equal(t, 20, ep.Config.PacketSize)
-	assert.Equal(t, 65536, ep.Config.MaxPacketSize) // 默认值
+	assert.Equal(t, 65536, ep.Config.MaxPacketSize) // Default values
 }
 
-// 测试并发安全性 - 简化版本
+// Testing Concurrency Security - Simplified Version
 func TestPacketSplitterConcurrency(t *testing.T) {
-	// 简化的并发测试，只测试基本功能
-	// 测试多个分割器同时创建
+	// Simplified concurrency testing tests only basic functions
+	// Test multiple splitters created simultaneously
 	var wg sync.WaitGroup
 	results := make(chan error, 10)
 
@@ -641,7 +641,7 @@ func TestPacketSplitterConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// 每个 goroutine 使用独立的配置，避免数据竞争
+			// Each goroutine uses an independent configuration to avoid data contention
 			config := Config{PacketMode: "line"}
 			_, err := CreatePacketSplitter(config)
 			results <- err
@@ -651,13 +651,13 @@ func TestPacketSplitterConcurrency(t *testing.T) {
 	wg.Wait()
 	close(results)
 
-	// 验证所有分割器创建成功
+	// Verify that all splitters were successfully created
 	for err := range results {
 		assert.Nil(t, err)
 	}
 }
 
-// 辅助函数：启动固定长度服务器
+// Auxiliary function: Start a fixed-length server
 func startFixedLengthServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	config := engine.NewConfig(types.WithDefaultPool())
 
@@ -674,27 +674,27 @@ func startFixedLengthServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup
 	err := ep.Init(config, nodeConfig)
 	assert.Nil(t, err)
 
-	// 添加路由处理固定长度数据
+	// Add routing to handle fixed-length data
 	router := impl.NewRouter().From(".*").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		dataStr := exchange.In.GetMsg().GetData()
 		data := []byte(dataStr)
-		// 验证接收到16字节数据
+		// Verify receipt of 16 bytes of data
 		assert.Equal(t, 16, len(data))
 
-		// 解析数据（修正字节序解析）
+		// Parsing data (correcting byte order parsing)
 		deviceId := uint32(data[0])<<24 | uint32(data[1])<<16 | uint32(data[2])<<8 | uint32(data[3])
 		command := uint32(data[4])<<24 | uint32(data[5])<<16 | uint32(data[6])<<8 | uint32(data[7])
 
 		assert.Equal(t, uint32(1001), deviceId)
 		assert.Equal(t, uint32(1), command)
 
-		// 发送16字节响应
+		// Send a 16-byte response
 		response := make([]byte, 16)
-		// 状态码：成功
+		// Status code: Success
 		response[0], response[1], response[2], response[3] = 0x00, 0x00, 0x00, 0x00
-		// 设备ID回显
+		// Device ID Echo
 		copy(response[4:8], data[0:4])
-		// 其他数据
+		// Other data
 		copy(response[8:], []byte{0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0})
 
 		exchange.Out.SetBody(response)
@@ -712,7 +712,7 @@ func startFixedLengthServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup
 	wg.Done()
 }
 
-// 辅助函数：启动长度前缀服务器
+// Auxiliary function: Starts the length prefix server
 func startLengthPrefixServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	config := engine.NewConfig(types.WithDefaultPool())
 
@@ -729,40 +729,40 @@ func startLengthPrefixServer(t *testing.T, stop chan struct{}, wg *sync.WaitGrou
 	err := ep.Init(config, nodeConfig)
 	assert.Nil(t, err)
 
-	// 添加路由处理长度前缀数据
+	// Add route processing length prefix data
 	router := impl.NewRouter().From(".*").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		data := exchange.In.GetMsg().GetBytes()
 
-		// 验证长度前缀
+		// Verify length prefixes
 		assert.True(t, len(data) >= 3)
 		dataLength := uint16(data[0])<<8 | uint16(data[1])
 		messageType := data[2]
 
-		expectedLength := int(dataLength) + 2 // 数据长度 + 长度前缀
+		expectedLength := int(dataLength) + 2 // Data length + length prefix
 		assert.Equal(t, expectedLength, len(data))
 
 		var response []byte
 		switch messageType {
 		case 0x10: // HEARTBEAT
-			// 响应：长度(2字节) + 状态(1字节) + 时间戳(4字节)
+			// Response: Length (2 bytes) + Status (1 byte) + Timestamp (4 bytes)
 			timestamp := uint32(time.Now().Unix())
 			response = []byte{
-				0x00, 0x05, // 长度5字节
-				0x00, // 成功状态
+				0x00, 0x05, // Length: 5 bytes
+				0x00, // Successful status
 				byte(timestamp >> 24), byte(timestamp >> 16), byte(timestamp >> 8), byte(timestamp),
 			}
 		case 0x20: // DATA_UPLOAD
-			// 响应：长度(2字节) + 状态(1字节) + 传感器ID回显(2字节)
+			// Response: Length (2 bytes) + Status (1 byte) + Sensor ID Echo (2 bytes)
 			if len(data) >= 7 {
 				response = []byte{
-					0x00, 0x03, // 长度3字节
-					0x00,             // 成功状态
-					data[3], data[4], // 传感器ID回显
+					0x00, 0x03, // Length: 3 bytes
+					0x00,             // Successful status
+					data[3], data[4], // Sensor ID Echo
 				}
 			}
 		default:
-			// 未知消息类型
-			response = []byte{0x00, 0x02, 0xFF, 0x04} // 错误响应
+			// Unknown message type
+			response = []byte{0x00, 0x02, 0xFF, 0x04} // Wrong response
 		}
 
 		exchange.Out.SetBody(response)
@@ -780,7 +780,7 @@ func startLengthPrefixServer(t *testing.T, stop chan struct{}, wg *sync.WaitGrou
 	wg.Done()
 }
 
-// 辅助函数：启动自定义分隔符服务器
+// Auxiliary function: Starts a custom delimiter server
 func startDelimiterServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	config := engine.NewConfig(types.WithDefaultPool())
 
@@ -797,20 +797,20 @@ func startDelimiterServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) 
 	err := ep.Init(config, nodeConfig)
 	assert.Nil(t, err)
 
-	// 添加路由处理分隔符数据
+	// Add routing processing separator data
 	router := impl.NewRouter().From(".*").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		command := exchange.In.GetMsg().GetData()
 		var response string
 
 		if strings.HasPrefix(command, "AT+") {
-			// AT命令处理
+			// AT command processing
 			if strings.Contains(command, "INFO") {
 				response = "OK\r\nDevice: RuleGo-Test\r\nVersion: 1.0.0\r\n"
 			} else {
 				response = "ERROR\r\nUnknown AT command\r\n"
 			}
 		} else if strings.HasPrefix(command, "SENSOR,") {
-			// CSV命令处理
+			// CSV command processing
 			parts := strings.Split(command, ",")
 			if len(parts) >= 4 {
 				response = fmt.Sprintf("ACK,%s,%s,OK\r\n", parts[1], parts[2])
@@ -818,8 +818,8 @@ func startDelimiterServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) 
 				response = "NAK,INVALID_FORMAT\r\n"
 			}
 		} else if strings.HasPrefix(command, ":") {
-			// Modbus ASCII处理
-			response = ":01030401020304FF\r\n" // 模拟响应
+			// Modbus ASCII processing
+			response = ":01030401020304FF\r\n" // Analog response
 		} else {
 			response = "ERROR\r\nUnknown command\r\n"
 		}
@@ -839,7 +839,7 @@ func startDelimiterServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) 
 	wg.Done()
 }
 
-// 辅助函数：启动并发测试服务器
+// Auxiliary function: Starts the concurrent test server
 func startConcurrentServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	config := engine.NewConfig(types.WithDefaultPool())
 
@@ -848,7 +848,7 @@ func startConcurrentServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup)
 		"protocol":    "tcp",
 		"server":      ":8093",
 		"readTimeout": 10,
-		"packetMode":  "line", // 使用默认行分割模式
+		"packetMode":  "line", // Use the default row splitting mode
 	}
 
 	err := ep.Init(config, nodeConfig)
@@ -856,16 +856,16 @@ func startConcurrentServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup)
 
 	var messageCount int32
 
-	// 添加路由处理并发消息
+	// Add routing processing and concurrent messages
 	router := impl.NewRouter().From(".*").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		atomic.AddInt32(&messageCount, 1)
 
-		// 简单的JSON解析验证
+		// Simple JSON parsing verification
 		data := exchange.In.GetMsg().GetData()
 		assert.True(t, strings.Contains(data, "client"))
 		assert.True(t, strings.Contains(data, "message"))
 
-		// 发送确认响应
+		// Send a confirmation response
 		response := fmt.Sprintf("{\"ack\":true,\"received\":\"%s\"}\n", data)
 		exchange.Out.SetBody([]byte(response))
 		return true
@@ -879,8 +879,8 @@ func startConcurrentServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup)
 
 	<-stop
 
-	// 验证接收到期望数量的消息
-	expectedMessages := int32(50) // 10个客户端 * 5条消息
+	// Verify the expected number of messages received
+	expectedMessages := int32(50) // 10 clients * 5 messages
 	actualMessages := atomic.LoadInt32(&messageCount)
 	assert.Equal(t, expectedMessages, actualMessages)
 
@@ -888,7 +888,7 @@ func startConcurrentServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup)
 	wg.Done()
 }
 
-// 测试路由匹配选项功能
+// Test the routing matching option feature
 func TestRouterMatchOptions(t *testing.T) {
 	config := types.NewConfig()
 	var nodeConfig = make(types.Configuration)
@@ -908,12 +908,12 @@ func TestRouterMatchOptions(t *testing.T) {
 		routerId, err := ep.AddRouter(router)
 		assert.Nil(t, err)
 
-		// 验证路由被正确添加
+		// Verify that the route has been correctly added
 		ep.Lock()
 		routerObj := ep.routers[routerId]
 		ep.Unlock()
 		assert.NotNil(t, routerObj)
-		assert.Nil(t, routerObj.matchOptions) // 默认没有匹配选项
+		assert.Nil(t, routerObj.matchOptions) // There is no matching option by default
 	})
 
 	t.Run("原始数据匹配", func(t *testing.T) {
@@ -924,7 +924,7 @@ func TestRouterMatchOptions(t *testing.T) {
 		routerId, err := ep.AddRouter(router, options)
 		assert.Nil(t, err)
 
-		// 验证路由选项被正确设置
+		// Verify that routing options are set correctly
 		ep.Lock()
 		routerObj := ep.routers[routerId]
 		ep.Unlock()
@@ -940,7 +940,7 @@ func TestRouterMatchOptions(t *testing.T) {
 		routerId, err := ep.AddRouter(router, options)
 		assert.Nil(t, err)
 
-		// 验证路由选项被正确设置
+		// Verify that routing options are set correctly
 		ep.Lock()
 		routerObj := ep.routers[routerId]
 		ep.Unlock()
@@ -953,11 +953,11 @@ func TestRouterMatchOptions(t *testing.T) {
 			MinDataLength: 10,
 			MaxDataLength: 100,
 		}
-		router := impl.NewRouter().From("length.*").End() // 使用不同的正则避免重复
+		router := impl.NewRouter().From("length.*").End() // Use different regexiform to avoid duplication
 		routerId, err := ep.AddRouter(router, options)
 		assert.Nil(t, err)
 
-		// 验证路由选项被正确设置
+		// Verify that routing options are set correctly
 		ep.Lock()
 		routerObj := ep.routers[routerId]
 		ep.Unlock()
@@ -977,7 +977,7 @@ func TestRouterMatchOptions(t *testing.T) {
 		routerId, err := ep.AddRouter(router, options)
 		assert.Nil(t, err)
 
-		// 验证所有选项被正确设置
+		// Verify that all options are correctly set
 		ep.Lock()
 		routerObj := ep.routers[routerId]
 		ep.Unlock()
@@ -989,14 +989,14 @@ func TestRouterMatchOptions(t *testing.T) {
 	})
 }
 
-// 测试TCP处理器的路由匹配逻辑
+// Test the TCP processor's routing matching logic
 func TestTcpHandlerRouteMatching(t *testing.T) {
 	_ = &Net{}
 
-	// 创建测试路由
+	// Create test routes
 	router1 := &RegexpRouter{
-		regexp:       nil, // 匹配所有
-		matchOptions: nil, // 默认行为
+		regexp:       nil, // Match all
+		matchOptions: nil, // Default behavior
 	}
 
 	router2 := &RegexpRouter{
@@ -1023,43 +1023,43 @@ func TestTcpHandlerRouteMatching(t *testing.T) {
 			},
 		}
 
-		// 测试默认匹配（无选项）
+		// Test default match (no options)
 		result := router1.Match(rawData, encodedData, exchange)
-		assert.True(t, result) // 无正则表达式，应该匹配所有
+		assert.True(t, result) // No regular expression, should match all of them
 	})
 
 	t.Run("原始数据匹配", func(t *testing.T) {
 		rawData := []byte("test data")
-		encodedData := []byte("encoded test data") // 编码后的数据
+		encodedData := []byte("encoded test data") // Encoded data
 		exchange := &endpoint.Exchange{
 			In: &RequestMessage{
 				body: encodedData,
 			},
 		}
 
-		// 测试原始数据匹配
+		// Test raw data matching
 		result := router2.Match(rawData, encodedData, exchange)
-		assert.True(t, result) // 原始数据包含"test"
+		assert.True(t, result) // The raw data contains "test"
 	})
 
 	t.Run("数据长度过滤", func(t *testing.T) {
-		// 数据太短
+		// The data is too short
 		shortData := []byte("short")
 		exchange1 := &endpoint.Exchange{
 			In: &RequestMessage{body: shortData},
 		}
 		result1 := router3.Match(shortData, shortData, exchange1)
-		assert.False(t, result1) // 长度5 < 最小长度10
+		assert.False(t, result1) // Length 5 < minimum length 10
 
-		// 数据长度合适
+		// The data length is appropriate
 		validData := []byte("this is valid data for testing")
 		exchange2 := &endpoint.Exchange{
 			In: &RequestMessage{body: validData},
 		}
 		result2 := router3.Match(validData, validData, exchange2)
-		assert.True(t, result2) // 长度在范围内
+		assert.True(t, result2) // The length is within the range
 
-		// 数据太长
+		// The data is too long
 		longData := make([]byte, 100)
 		for i := range longData {
 			longData[i] = 'a'
@@ -1068,15 +1068,15 @@ func TestTcpHandlerRouteMatching(t *testing.T) {
 			In: &RequestMessage{body: longData},
 		}
 		result3 := router3.Match(longData, longData, exchange3)
-		assert.False(t, result3) // 长度100 > 最大长度50
+		assert.False(t, result3) // Length 100 > maximum length 50
 	})
 }
 
-// 测试UDP处理器的路由匹配逻辑
+// Test the routing matching logic of the UDP processor
 func TestUdpHandlerRouteMatching(t *testing.T) {
 	_ = &Net{}
 
-	// 创建测试路由，测试数据类型过滤
+	// Create test routes and filter test data types
 	router := &RegexpRouter{
 		regexp: regexp.MustCompile(".*"),
 		matchOptions: &RouterMatchOptions{
@@ -1087,77 +1087,77 @@ func TestUdpHandlerRouteMatching(t *testing.T) {
 	t.Run("数据类型过滤", func(t *testing.T) {
 		jsonData := []byte(`{"key": "value"}`)
 
-		// 创建JSON类型的消息
+		// Create a message of JSON type
 		exchange := &endpoint.Exchange{
 			In: &RequestMessage{
 				body: jsonData,
 			},
 		}
-		// 设置消息类型为JSON
+		// Set the message type to JSON
 		msg := types.NewMsg(0, "", types.JSON, types.NewMetadata(), string(jsonData))
 		exchange.In.SetMsg(&msg)
 
 		result := router.Match(jsonData, jsonData, exchange)
-		assert.True(t, result) // JSON类型匹配
+		assert.True(t, result) // JSON type matching
 
-		// 测试不匹配的类型
+		// Test for types of mismatches
 		textMsg := types.NewMsg(0, "", types.TEXT, types.NewMetadata(), "plain text")
 		exchange.In.SetMsg(&textMsg)
 
 		result2 := router.Match(jsonData, jsonData, exchange)
-		assert.False(t, result2) // TEXT类型不匹配JSON过滤器
+		assert.False(t, result2) // The TEXT type does not match the JSON filter
 	})
 }
 
-// 测试UDP端点
+// Test UDP endpoints
 func TestUDPEndpoint(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
 
-	// 启动UDP服务器
+	// Start the UDP server
 	go startUDPServer(t, stop, &wg)
 	time.Sleep(time.Millisecond * 200)
 
-	// 创建UDP客户端连接到服务器
+	// Create a UDP client to connect to the server
 	conn, err := net.Dial("udp", ":8094")
 	assert.Nil(t, err)
 	defer conn.Close()
 
-	// 发送UDP消息
+	// Send UDP messages
 	message1 := "Hello UDP Server"
 	_, err = conn.Write([]byte(message1))
 	assert.Nil(t, err)
 
-	// 读取UDP响应
+	// Read UDP responses
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
 	assert.Nil(t, err)
 	response := string(buffer[:n])
 	assert.True(t, strings.Contains(response, "UDP received: Hello UDP Server"))
 
-	// 发送JSON格式UDP消息
+	// Send a JSON-format UDP message
 	jsonMsg := `{"type":"sensor","data":{"temperature":25.5,"humidity":60}}`
 	_, err = conn.Write([]byte(jsonMsg))
 	assert.Nil(t, err)
 
-	// 读取JSON响应
+	// Read JSON response
 	n, err = conn.Read(buffer)
 	assert.Nil(t, err)
 	response = string(buffer[:n])
 	assert.True(t, strings.Contains(response, `"status":"received"`))
 	assert.True(t, strings.Contains(response, `"type":"json"`))
 
-	// 发送心跳消息 (应该被过滤不响应)
+	// Sending heartbeat messages (should be filtered and not responded)
 	_, err = conn.Write([]byte(PingData))
 	assert.Nil(t, err)
 
-	// 心跳消息不应该有响应，所以我们发送另一条消息来确认服务器还在工作
+	// Heartbeat messages shouldn't respond, so we send another message to confirm the server is still working
 	testMsg := "test after ping"
 	_, err = conn.Write([]byte(testMsg))
 	assert.Nil(t, err)
 
-	// 读取测试消息响应
+	// Read test message responses
 	n, err = conn.Read(buffer)
 	assert.Nil(t, err)
 	response = string(buffer[:n])
@@ -1168,14 +1168,14 @@ func TestUDPEndpoint(t *testing.T) {
 	wg.Wait()
 }
 
-// 测试编码功能
+// Test coding function
 func TestEncodeFeatures(t *testing.T) {
 	ep := &Net{}
 
 	t.Run("十六进制编码", func(t *testing.T) {
 		ep.Config = Config{Encode: "hex"}
 		input := []byte("Hello")
-		expected := []byte("48656c6c6f") // 修正为小写，与Go标准库hex.Encode输出一致
+		expected := []byte("48656c6c6f") // Corrected to lowercase, matching the output of the Go standard library hex.Encode
 		result, dataType := encodeData(input, ep.Config.Encode)
 		assert.Equal(t, string(expected), string(result))
 		assert.Equal(t, types.TEXT, dataType)
@@ -1186,9 +1186,9 @@ func TestEncodeFeatures(t *testing.T) {
 		input := []byte("Hello World")
 		result, dataType := encodeData(input, ep.Config.Encode)
 		assert.Equal(t, types.TEXT, dataType)
-		// 验证结果是有效的Base64
+		// The verification result is valid Base64
 		assert.True(t, len(result) > 0)
-		// 简单验证Base64字符集
+		// Simply verify the Base64 character set
 		for _, b := range result {
 			isValidBase64 := (b >= 'A' && b <= 'Z') ||
 				(b >= 'a' && b <= 'z') ||
@@ -1203,7 +1203,7 @@ func TestEncodeFeatures(t *testing.T) {
 		input := []byte("Hello")
 		result, dataType := encodeData(input, ep.Config.Encode)
 		assert.Equal(t, string(input), string(result))
-		assert.Equal(t, types.BINARY, dataType) // 默认为二进制
+		assert.Equal(t, types.BINARY, dataType) // Defaults to binary
 	})
 
 	t.Run("未知编码类型", func(t *testing.T) {
@@ -1211,18 +1211,18 @@ func TestEncodeFeatures(t *testing.T) {
 		input := []byte("Hello")
 		result, dataType := encodeData(input, ep.Config.Encode)
 		assert.Equal(t, string(input), string(result))
-		assert.Equal(t, types.BINARY, dataType) // 默认为二进制
+		assert.Equal(t, types.BINARY, dataType) // Defaults to binary
 	})
 }
 
-// 测试数据包分割器错误处理
+// Test packet splitter error handling
 func TestPacketSplitterErrorHandling(t *testing.T) {
 	ep := &Net{}
 
 	t.Run("分隔符解析错误", func(t *testing.T) {
 		ep.Config = Config{
 			PacketMode: "delimiter",
-			Delimiter:  "0xZZ", // 无效的十六进制
+			Delimiter:  "0xZZ", // Invalid hexadecimal
 		}
 		_, err := CreatePacketSplitter(ep.Config)
 		assert.NotNil(t, err)
@@ -1236,8 +1236,8 @@ func TestPacketSplitterErrorHandling(t *testing.T) {
 			MaxPacketSize: 10,
 		}
 
-		// 模拟一个包长度超过限制的数据
-		reader := strings.NewReader("\x00\x20test") // 长度32 > 最大10
+		// Simulate data for a package that exceeds the limit
+		reader := strings.NewReader("\x00\x20test") // Length: 32 >, maximum 10
 		bufReader := bufio.NewReader(reader)
 		_, err := splitter.ReadPacket(bufReader)
 		assert.NotNil(t, err)
@@ -1252,8 +1252,8 @@ func TestPacketSplitterErrorHandling(t *testing.T) {
 			MaxPacketSize:  1024,
 		}
 
-		// 模拟长度小于前缀大小的数据
-		reader := strings.NewReader("\x00\x01") // 长度1 < 前缀大小2
+		// Simulate data with a length less than the size of the prefix
+		reader := strings.NewReader("\x00\x01") // Length 1 < Prefix size 2
 		bufReader := bufio.NewReader(reader)
 		_, err := splitter.ReadPacket(bufReader)
 		assert.NotNil(t, err)
@@ -1261,65 +1261,65 @@ func TestPacketSplitterErrorHandling(t *testing.T) {
 	})
 }
 
-// 测试响应消息的JSON处理
+// JSON handling of test response messages
 func TestResponseMessageJSONHandling(t *testing.T) {
 	response := &ResponseMessage{}
 
 	t.Run("JSON消息自动添加换行符", func(t *testing.T) {
-		// 模拟JSON消息
+		// Simulates JSON messages
 		jsonMsg := types.NewMsg(0, "", types.JSON, types.NewMetadata(), `{"test":"data"}`)
 		response.SetMsg(&jsonMsg)
 
-		// 设置不带换行符的JSON数据
+		// Set JSON data without line breaks
 		jsonData := []byte(`{"response":"ok"}`)
 		response.SetBody(jsonData)
 
-		// 验证是否自动添加了换行符
+		// Verify whether line breaks have been added automatically
 		body := response.Body()
 		assert.True(t, strings.HasSuffix(string(body), LineBreak))
 	})
 
 	t.Run("非JSON消息不添加换行符", func(t *testing.T) {
-		// 模拟TEXT消息
+		// Simulated TEXT messages
 		textMsg := types.NewMsg(0, "", types.TEXT, types.NewMetadata(), "test data")
 		response.SetMsg(&textMsg)
 
-		// 设置普通文本数据
+		// Set up ordinary text data
 		textData := []byte("simple response")
 		response.SetBody(textData)
 
-		// 验证没有自动添加换行符
+		// Verify that no line breaks are added automatically
 		body := response.Body()
 		assert.Equal(t, "simple response", string(body))
 	})
 
 	t.Run("已有换行符的JSON不重复添加", func(t *testing.T) {
-		// 模拟JSON消息
+		// Simulates JSON messages
 		jsonMsg := types.NewMsg(0, "", types.JSON, types.NewMetadata(), `{"test":"data"}`)
 		response.SetMsg(&jsonMsg)
 
-		// 设置已带换行符的JSON数据
+		// Set JSON data with line breaks
 		jsonData := []byte(`{"response":"ok"}` + LineBreak)
 		response.SetBody(jsonData)
 
-		// 验证换行符数量正确
+		// Verify the number of line breaks is correct
 		body := response.Body()
 		lineBreakCount := strings.Count(string(body), LineBreak)
 		assert.Equal(t, 1, lineBreakCount)
 	})
 }
 
-// 测试并发读写安全性
+// Testing concurrent read/write security
 func TestConcurrentSafety(t *testing.T) {
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 
-	// 启动并发安全测试服务器
+	// Start the concurrent security test server
 	wg.Add(1)
 	go startConcurrentServer(t, stop, &wg)
 	time.Sleep(time.Millisecond * 200)
 
-	// 启动多个客户端进行并发测试
+	// Launch multiple clients for concurrent testing
 	clientCount := 10
 	messagesPerClient := 5
 
@@ -1329,7 +1329,7 @@ func TestConcurrentSafety(t *testing.T) {
 		go func(clientId int) {
 			defer clientWg.Done()
 
-			// 创建TCP客户端连接
+			// Create a TCP client connection
 			conn, err := net.Dial("tcp", ":8093")
 			if err != nil {
 				t.Logf("Client %d failed to connect: %v", clientId, err)
@@ -1345,7 +1345,7 @@ func TestConcurrentSafety(t *testing.T) {
 					continue
 				}
 
-				// 读取响应
+				// Read the response
 				buffer := make([]byte, 1024)
 				n, err := conn.Read(buffer)
 				if err != nil {
@@ -1368,7 +1368,7 @@ func TestConcurrentSafety(t *testing.T) {
 	wg.Wait()
 }
 
-// 测试边界条件
+// Test boundary conditions
 func TestBoundaryConditions(t *testing.T) {
 	config := types.NewConfig()
 
@@ -1377,7 +1377,7 @@ func TestBoundaryConditions(t *testing.T) {
 		err := ep.Init(config, types.Configuration{})
 		assert.Nil(t, err)
 		assert.Equal(t, "tcp", ep.Config.Protocol)
-		// 空配置时Server字段为空字符串，不是默认值
+		// When configured null, the Server field is an empty string, not the default value
 		assert.Equal(t, "", ep.Config.Server)
 		assert.Equal(t, 0, ep.Config.ReadTimeout)
 	})
@@ -1385,7 +1385,7 @@ func TestBoundaryConditions(t *testing.T) {
 	t.Run("最小配置", func(t *testing.T) {
 		ep := &Net{}
 		err := ep.Init(config, types.Configuration{
-			"server": ":0", // 使用随机端口
+			"server": ":0", // Use random ports
 		})
 		assert.Nil(t, err)
 		assert.Equal(t, ":0", ep.Config.Server)
@@ -1416,21 +1416,21 @@ func TestBoundaryConditions(t *testing.T) {
 	})
 }
 
-// 测试连接管理
+// Test connection management
 func TestConnectionManagement(t *testing.T) {
 	config := types.NewConfig()
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{
 		Protocol:    "tcp",
 		Server:      "127.0.0.1:8898",
-		ReadTimeout: 1, // 短超时用于快速测试
+		ReadTimeout: 1, // Short timeouts are used for rapid testing
 	}, &nodeConfig)
 
 	var ep = &Net{}
 	err := ep.Init(config, nodeConfig)
 	assert.Nil(t, err)
 
-	// 添加一个简单路由
+	// Add a simple route
 	router := impl.NewRouter().From(".*").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		exchange.Out.SetBody([]byte("connected"))
 		return true
@@ -1443,18 +1443,18 @@ func TestConnectionManagement(t *testing.T) {
 		err = ep.Start()
 		assert.Nil(t, err)
 
-		// 验证服务器ID
+		// Verify the server ID
 		assert.Equal(t, "127.0.0.1:8898", ep.Id())
 
-		// 关闭服务
+		// Service shutdown
 		err = ep.Close()
 		assert.Nil(t, err)
 
-		// 重复关闭应该不出错
+		// Repeated closures should not be a mistake
 		err = ep.Close()
 		assert.Nil(t, err)
 
-		// 销毁
+		// Destruction
 		ep.Destroy()
 	})
 
@@ -1473,9 +1473,9 @@ func TestConnectionManagement(t *testing.T) {
 	})
 }
 
-// 测试不同数据包分割模式的路由
+// Testing routes with different packet splitting modes
 func TestPacketModeRouting(t *testing.T) {
-	// 测试固定长度模式的路由
+	// Test fixed-length mode routing
 	t.Run("固定长度模式路由", func(t *testing.T) {
 		ep := &Net{}
 		ep.Config = Config{
@@ -1483,7 +1483,7 @@ func TestPacketModeRouting(t *testing.T) {
 			PacketSize: 8,
 		}
 
-		// 创建针对固定长度数据的路由
+		// Create routes for fixed-length data
 		options := &RouterMatchOptions{
 			MinDataLength: 8,
 			MaxDataLength: 8,
@@ -1492,7 +1492,7 @@ func TestPacketModeRouting(t *testing.T) {
 		routerId, err := ep.AddRouter(router, options)
 		assert.Nil(t, err)
 
-		// 验证路由设置
+		// Verify routing settings
 		ep.Lock()
 		routerObj := ep.routers[routerId]
 		ep.Unlock()
@@ -1502,7 +1502,7 @@ func TestPacketModeRouting(t *testing.T) {
 		assert.Equal(t, 8, routerObj.matchOptions.MaxDataLength)
 	})
 
-	// 测试长度前缀模式的路由
+	// Testing the route for length prefix mode
 	t.Run("长度前缀模式路由", func(t *testing.T) {
 		ep := &Net{}
 		ep.Config = Config{
@@ -1510,16 +1510,16 @@ func TestPacketModeRouting(t *testing.T) {
 			PacketSize: 2,
 		}
 
-		// 创建考虑长度前缀的路由
+		// Create routes that consider length prefixes
 		options := &RouterMatchOptions{
-			MatchRawData:  true, // 匹配包含长度前缀的完整数据
-			MinDataLength: 3,    // 最小2字节前缀+1字节数据
+			MatchRawData:  true, // Match complete data containing length prefixes
+			MinDataLength: 3,    // Minimum 2-byte prefix + 1-byte data
 		}
 		router := impl.NewRouter().From(".*").End()
 		routerId, err := ep.AddRouter(router, options)
 		assert.Nil(t, err)
 
-		// 验证路由设置
+		// Verify routing settings
 		ep.Lock()
 		routerObj := ep.routers[routerId]
 		ep.Unlock()
@@ -1529,7 +1529,7 @@ func TestPacketModeRouting(t *testing.T) {
 		assert.Equal(t, 3, routerObj.matchOptions.MinDataLength)
 	})
 
-	// 测试分隔符模式的路由
+	// Test the routing of delimiter patterns
 	t.Run("分隔符模式路由", func(t *testing.T) {
 		ep := &Net{}
 		ep.Config = Config{
@@ -1537,15 +1537,15 @@ func TestPacketModeRouting(t *testing.T) {
 			Delimiter:  "END",
 		}
 
-		// 创建匹配不包含分隔符的数据的路由
+		// Create routes that match data without delimiters
 		options := &RouterMatchOptions{
-			MatchRawData: true, // 匹配去除分隔符后的原始数据
+			MatchRawData: true, // Match the original data after delimiter removal
 		}
-		router := impl.NewRouter().From("^[^E]*$").End() // 不包含E字符的数据（简化正则）
+		router := impl.NewRouter().From("^[^E]*$").End() // Data without the E character (simplified regex)
 		routerId, err := ep.AddRouter(router, options)
 		assert.Nil(t, err)
 
-		// 验证路由设置
+		// Verify routing settings
 		ep.Lock()
 		routerObj := ep.routers[routerId]
 		ep.Unlock()
@@ -1555,20 +1555,20 @@ func TestPacketModeRouting(t *testing.T) {
 	})
 }
 
-// 测试编码数据的路由匹配
+// Test the route matching of encoded data
 func TestEncodedDataRouting(t *testing.T) {
 
 	t.Run("十六进制编码路由", func(t *testing.T) {
-		// 测试十六进制编码数据的路由
+		// Testing the routing of hexadecimal-encoded data
 		router := &RegexpRouter{
-			regexp: regexp.MustCompile("^[0-9A-Fa-f]+$"), // 匹配十六进制字符
+			regexp: regexp.MustCompile("^[0-9A-Fa-f]+$"), // Matches hexadecimal characters
 			matchOptions: &RouterMatchOptions{
-				MatchRawData: false, // 匹配编码后的数据
+				MatchRawData: false, // Match the encoded data
 			},
 		}
 
 		rawData := []byte{0x48, 0x65, 0x6C, 0x6C, 0x6F} // "Hello"
-		// 模拟十六进制编码
+		// Analog hexadecimal encoding
 		encodedData := []byte("48656C6C6F")
 
 		exchange := &endpoint.Exchange{
@@ -1576,20 +1576,20 @@ func TestEncodedDataRouting(t *testing.T) {
 		}
 
 		result := router.Match(rawData, encodedData, exchange)
-		assert.True(t, result) // 编码后的数据是十六进制
+		assert.True(t, result) // The encoded data is hexadecimal
 	})
 
 	t.Run("Base64编码路由", func(t *testing.T) {
-		// 测试Base64编码数据的路由
+		// Test the routing of Base64-encoded data
 		router := &RegexpRouter{
-			regexp: regexp.MustCompile("^[A-Za-z0-9+/]+=*$"), // 匹配Base64字符
+			regexp: regexp.MustCompile("^[A-Za-z0-9+/]+=*$"), // Match Base64 characters
 			matchOptions: &RouterMatchOptions{
-				MatchRawData: false, // 匹配编码后的数据
+				MatchRawData: false, // Match the encoded data
 			},
 		}
 
 		rawData := []byte("Hello World")
-		// 模拟Base64编码
+		// Analog Base64 encoding
 		encodedData := []byte("SGVsbG8gV29ybGQ=")
 
 		exchange := &endpoint.Exchange{
@@ -1597,31 +1597,31 @@ func TestEncodedDataRouting(t *testing.T) {
 		}
 
 		result := router.Match(rawData, encodedData, exchange)
-		assert.True(t, result) // 编码后的数据是Base64
+		assert.True(t, result) // The encoded data is Base64
 	})
 
 	t.Run("原始二进制数据路由", func(t *testing.T) {
-		// 测试原始二进制数据的路由
+		// Testing the routing of raw binary data
 		router := &RegexpRouter{
-			regexp: regexp.MustCompile("^\x48\x65\x6C"), // 匹配二进制模式"Hel"
+			regexp: regexp.MustCompile("^\x48\x65\x6C"), // Matching binary mode "Hel"
 			matchOptions: &RouterMatchOptions{
-				MatchRawData: true, // 匹配原始数据
+				MatchRawData: true, // Match raw data
 			},
 		}
 
 		rawData := []byte{0x48, 0x65, 0x6C, 0x6C, 0x6F} // "Hello"
-		encodedData := []byte("48656C6C6F")             // 十六进制编码
+		encodedData := []byte("48656C6C6F")             // Hexadecimal code
 
 		exchange := &endpoint.Exchange{
 			In: &RequestMessage{body: encodedData},
 		}
 
 		result := router.Match(rawData, encodedData, exchange)
-		assert.True(t, result) // 原始数据以"Hel"开头
+		assert.True(t, result) // Original data starts with "Hel"."
 	})
 }
 
-// 测试路由优先级和多路由匹配
+// Test route priority and multi-route matching
 func TestMultipleRouterMatching(t *testing.T) {
 	config := types.NewConfig()
 	var nodeConfig = make(types.Configuration)
@@ -1636,12 +1636,12 @@ func TestMultipleRouterMatching(t *testing.T) {
 	assert.Nil(t, err)
 
 	t.Run("多个路由同时匹配", func(t *testing.T) {
-		// 添加通用路由
+		// Add a universal route
 		generalRouter := impl.NewRouter().From(".*").End()
 		_, err := ep.AddRouter(generalRouter)
 		assert.Nil(t, err)
 
-		// 添加特定路由
+		// Add specific routes
 		specificOptions := &RouterMatchOptions{
 			DataTypeFilter: "JSON",
 			MinDataLength:  10,
@@ -1650,7 +1650,7 @@ func TestMultipleRouterMatching(t *testing.T) {
 		_, err = ep.AddRouter(specificRouter, specificOptions)
 		assert.Nil(t, err)
 
-		// 添加长度限制路由
+		// Add length-limited routes
 		lengthOptions := &RouterMatchOptions{
 			MaxDataLength: 100,
 		}
@@ -1658,7 +1658,7 @@ func TestMultipleRouterMatching(t *testing.T) {
 		_, err = ep.AddRouter(lengthRouter, lengthOptions)
 		assert.Nil(t, err)
 
-		// 验证所有路由都被添加
+		// Verify that all routes have been added
 		ep.Lock()
 		routerCount := len(ep.routers)
 		ep.Unlock()
@@ -1666,12 +1666,12 @@ func TestMultipleRouterMatching(t *testing.T) {
 	})
 
 	t.Run("路由条件互斥", func(t *testing.T) {
-		// 清空现有路由
+		// Clear existing routes
 		ep.Lock()
 		ep.routers = make(map[string]*RegexpRouter)
 		ep.Unlock()
 
-		// 添加只匹配短数据的路由
+		// Add routes that only match short data
 		shortOptions := &RouterMatchOptions{
 			MaxDataLength: 10,
 		}
@@ -1679,7 +1679,7 @@ func TestMultipleRouterMatching(t *testing.T) {
 		_, err := ep.AddRouter(shortRouter, shortOptions)
 		assert.Nil(t, err)
 
-		// 添加只匹配长数据的路由
+		// Add routes that only match long data
 		longOptions := &RouterMatchOptions{
 			MinDataLength: 20,
 		}
@@ -1687,7 +1687,7 @@ func TestMultipleRouterMatching(t *testing.T) {
 		_, err = ep.AddRouter(longRouter, longOptions)
 		assert.Nil(t, err)
 
-		// 验证互斥路由被添加
+		// Verification mutex routing is added
 		ep.Lock()
 		routerCount := len(ep.routers)
 		ep.Unlock()
@@ -1695,7 +1695,7 @@ func TestMultipleRouterMatching(t *testing.T) {
 	})
 }
 
-// 测试路由错误处理
+// Test routing error handling
 func TestRouterErrorHandling(t *testing.T) {
 	config := types.NewConfig()
 	var nodeConfig = make(types.Configuration)
@@ -1709,9 +1709,9 @@ func TestRouterErrorHandling(t *testing.T) {
 	assert.Nil(t, err)
 
 	t.Run("无效的正则表达式", func(t *testing.T) {
-		router := impl.NewRouter().From("[a-z{1,5}").End() // 无效的正则
+		router := impl.NewRouter().From("[a-z{1,5}").End() // Invalid regularity
 		_, err := ep.AddRouter(router)
-		assert.NotNil(t, err) // 应该返回错误
+		assert.NotNil(t, err) // Errors should be returned
 	})
 
 	t.Run("重复路由ID", func(t *testing.T) {
@@ -1721,7 +1721,7 @@ func TestRouterErrorHandling(t *testing.T) {
 
 		router2 := impl.NewRouter().SetId("duplicate").From("test2").End()
 		_, err = ep.AddRouter(router2)
-		assert.NotNil(t, err) // 应该返回重复错误
+		assert.NotNil(t, err) // Repeated errors should be returned
 		assert.True(t, strings.Contains(err.Error(), "duplicate router"))
 	})
 
@@ -1732,7 +1732,7 @@ func TestRouterErrorHandling(t *testing.T) {
 	})
 }
 
-// 测试特殊匹配功能
+// Test special matching features
 func TestSpecialMatching(t *testing.T) {
 	config := types.NewConfig()
 	var nodeConfig = make(types.Configuration)
@@ -1750,12 +1750,12 @@ func TestSpecialMatching(t *testing.T) {
 		routerId, err := ep.AddRouter(router)
 		assert.Nil(t, err)
 
-		// 验证路由被正确添加
+		// Verify that the route has been correctly added
 		ep.Lock()
 		routerObj := ep.routers[routerId]
 		ep.Unlock()
 		assert.NotNil(t, routerObj)
-		assert.Nil(t, routerObj.regexp) // 空字符串不会编译正则表达式
+		assert.Nil(t, routerObj.regexp) // Empty strings do not compile regular expressions
 	})
 
 	t.Run("星号匹配所有", func(t *testing.T) {
@@ -1763,12 +1763,12 @@ func TestSpecialMatching(t *testing.T) {
 		routerId, err := ep.AddRouter(router)
 		assert.Nil(t, err)
 
-		// 验证路由被正确添加
+		// Verify that the route has been correctly added
 		ep.Lock()
 		routerObj := ep.routers[routerId]
 		ep.Unlock()
 		assert.NotNil(t, routerObj)
-		// "*" 会被编译为正则表达式，但在匹配时会被特殊处理
+		// "*" is compiled as a regular expression, but is specially handled when matching
 	})
 
 	t.Run("点星匹配所有", func(t *testing.T) {
@@ -1776,16 +1776,16 @@ func TestSpecialMatching(t *testing.T) {
 		routerId, err := ep.AddRouter(router)
 		assert.Nil(t, err)
 
-		// 验证路由被正确添加
+		// Verify that the route has been correctly added
 		ep.Lock()
 		routerObj := ep.routers[routerId]
 		ep.Unlock()
 		assert.NotNil(t, routerObj)
-		assert.Nil(t, routerObj.regexp) // ".*" 是特殊匹配所有的情况，regexp应该为nil
+		assert.Nil(t, routerObj.regexp) // ".*" is a special match in all cases; regexp should be nil
 	})
 }
 
-// 辅助函数：启动UDP服务器
+// Auxiliary function: Starts the UDP server
 func startUDPServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	config := engine.NewConfig(types.WithDefaultPool())
 
@@ -1802,20 +1802,20 @@ func startUDPServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 
 	var messageCount int32
 
-	// 添加路由处理UDP数据
+	// Add routing to handle UDP data
 	router := impl.NewRouter().From(".*").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
 		data := exchange.In.GetMsg().GetData()
 		atomic.AddInt32(&messageCount, 1)
 
-		// 验证消息不是心跳
+		// Verification messages are not heartbeats
 		assert.NotEqual(t, PingData, data)
 
 		var response string
 		if strings.HasPrefix(data, "{") {
-			// JSON消息
+			// JSON news
 			response = `{"status":"received","type":"json"}`
 		} else {
-			// 普通文本消息
+			// Ordinary text messages
 			response = fmt.Sprintf("UDP received: %s", data)
 		}
 
@@ -1831,25 +1831,25 @@ func startUDPServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 
 	<-stop
 
-	// 验证接收到预期数量的消息（排除ping消息，实际会收到3条消息）
+	// Verify the expected number of messages received (excluding ping messages, you will actually receive 3 messages)
 	actualMessages := atomic.LoadInt32(&messageCount)
-	assert.True(t, actualMessages >= 2) // 至少应该收到2条消息
+	assert.True(t, actualMessages >= 2) // At least two messages should be received
 
 	ep.Destroy()
 	wg.Done()
 }
 
-// 测试处理器的数据类型转换功能
+// Test the processor's data type conversion function
 func TestProcessorDataTypeConversion(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
 
-	// 启动测试服务器
+	// Start the test server
 	go startProcessorTestServer(t, stop, &wg)
 	time.Sleep(time.Millisecond * 200)
 
-	// 创建客户端
+	// Create a client
 	config := types.NewConfig()
 	client := createNetClientNode(t, config, "tcp", "localhost:9200")
 
@@ -1865,31 +1865,31 @@ func TestProcessorDataTypeConversion(t *testing.T) {
 		}
 	})
 
-	// 测试JSON数据转换
+	// Test JSON data conversion
 	jsonData := `{"test":"data"}` + "\n"
 	metaData := types.NewMetadata()
 	metaData.PutValue("processor", "setJsonDataType")
 	msg1 := types.NewMsg(0, "TEST_JSON", types.BINARY, metaData, jsonData)
 	client.OnMsg(ctx, msg1)
 
-	// 测试文本数据转换
+	// Test text data conversion
 	textData := "Hello World\n"
 	metaData2 := types.NewMetadata()
 	metaData2.PutValue("processor", "setTextDataType")
 	msg2 := types.NewMsg(0, "TEST_TEXT", types.BINARY, metaData2, textData)
 	client.OnMsg(ctx, msg2)
 
-	// 测试二进制数据转换
+	// Test binary data conversion
 	binaryData := string([]byte{0x01, 0x02, 0x03, 0x04}) + "\n"
 	metaData3 := types.NewMetadata()
 	metaData3.PutValue("processor", "setBinaryDataType")
 	msg3 := types.NewMsg(0, "TEST_BINARY", types.TEXT, metaData3, binaryData)
 	client.OnMsg(ctx, msg3)
 
-	// 等待响应
+	// Waiting for a response
 	time.Sleep(time.Millisecond * 500)
 
-	// 验证结果
+	// Verify the results
 	responseMutex.Lock()
 	assert.True(t, len(responseReceived) >= 1, "应该收到至少一个响应")
 	responseMutex.Unlock()
@@ -1898,9 +1898,9 @@ func TestProcessorDataTypeConversion(t *testing.T) {
 	wg.Wait()
 }
 
-// 创建net客户端节点
+// Create a.NET client node
 func createNetClientNode(t *testing.T, config types.Config, protocol, server string) types.Node {
-	// 注册NET客户端组件
+	// Register the.NET client component
 	components := engine.Registry.GetComponents()
 	if _, exists := components["net"]; !exists {
 		_ = engine.Registry.Register(&external.NetNode{})
@@ -1913,7 +1913,7 @@ func createNetClientNode(t *testing.T, config types.Config, protocol, server str
 		"protocol":          protocol,
 		"server":            server,
 		"connectTimeout":    10,
-		"heartbeatInterval": 0, // 禁用心跳
+		"heartbeatInterval": 0, // Avoid heartbeats
 	}
 
 	err = node.Init(config, configuration)
@@ -1922,7 +1922,7 @@ func createNetClientNode(t *testing.T, config types.Config, protocol, server str
 	return node
 }
 
-// 启动处理器测试服务器
+// Start the processor test server
 func startProcessorTestServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	config := engine.NewConfig(types.WithDefaultPool())
 
@@ -1937,31 +1937,31 @@ func startProcessorTestServer(t *testing.T, stop chan struct{}, wg *sync.WaitGro
 	err := ep.Init(config, nodeConfig)
 	assert.Nil(t, err)
 
-	// 添加路由使用处理器转换数据类型
+	// Add routing using processors to transform data types
 	router := impl.NewRouter().From(".*").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		// 根据metadata中的processor字段选择处理器
+		// Select the processor based on the processor field in the metadata
 		processorName := exchange.In.GetMsg().Metadata.GetValue("processor")
 
-		// 应用对应的处理器
+		// Apply the corresponding processor
 		switch processorName {
 		case "setJsonDataType":
-			// 使用内置的JSON数据类型处理器
+			// Uses a built-in JSON data type processor
 			if proc, exists := processor.InBuiltins.Get("setJsonDataType"); exists {
 				proc(router, exchange)
 			}
 		case "setTextDataType":
-			// 使用内置的文本数据类型处理器
+			// Uses a built-in text data type processor
 			if proc, exists := processor.InBuiltins.Get("setTextDataType"); exists {
 				proc(router, exchange)
 			}
 		case "setBinaryDataType":
-			// 使用内置的二进制数据类型处理器
+			// Uses a built-in binary data type processor
 			if proc, exists := processor.InBuiltins.Get("setBinaryDataType"); exists {
 				proc(router, exchange)
 			}
 		}
 
-		// 验证数据类型转换是否成功
+		// Verify whether data type conversion is successful
 		msg := exchange.In.GetMsg()
 		var response string
 		switch processorName {

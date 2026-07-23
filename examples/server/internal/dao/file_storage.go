@@ -19,7 +19,7 @@ func NewFileStorage(filename string) (*FileStorage, error) {
 	return &FileStorage{filename: filename, file: file}, nil
 }
 
-// GetSection 获取分区
+// GetSection to get the partition
 func (d *FileStorage) GetSection(sectionName string) (*ini.Section, error) {
 	return d.file.GetSection(sectionName)
 }
@@ -42,23 +42,23 @@ func (d *FileStorage) GetAll(sectionName string) map[string]string {
 	return values
 }
 
-// Save 保存单个值
+// Save saves a single value
 func (d *FileStorage) Save(sectionName, key, value string) error {
-	section := d.file.Section(sectionName) // 如果分区不存在，将会创建一个新的分区
+	section := d.file.Section(sectionName) // If the partition does not exist, a new partition will be created
 	section.Key(key).SetValue(value)
 	return d.SaveToFile()
 }
 
-// SaveList 保存多个值
+// SaveList stores multiple values
 func (d *FileStorage) SaveList(sectionName string, values map[string]string) error {
-	section := d.file.Section(sectionName) // 如果分区不存在，将会创建一个新的分区
+	section := d.file.Section(sectionName) // If the partition does not exist, a new partition will be created
 	for key, value := range values {
 		section.Key(key).SetValue(value)
 	}
 	return d.SaveToFile()
 }
 
-// Delete 删除
+// Delete
 func (d *FileStorage) Delete(sectionName string, keys ...string) error {
 	if !d.file.HasSection(sectionName) {
 		return nil
@@ -70,7 +70,7 @@ func (d *FileStorage) Delete(sectionName string, keys ...string) error {
 	return d.SaveToFile()
 }
 
-// SaveToFile 保存
+// SaveToFile saves
 func (d *FileStorage) SaveToFile() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -80,7 +80,7 @@ func (d *FileStorage) SaveToFile() error {
 //var FileStorageManager =NewFileStorageManager()
 
 type FileStorageManager struct {
-	// 文件存储 key=路径
+	// File storage key=path
 	manager map[string]*FileStorage
 	lock    sync.RWMutex
 }

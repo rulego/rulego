@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	// 注册串口组件选项
+	// Register the serial port component option
 	getSerialPorts := func() interface{} {
 		serialPortsList, _ := serial.GetPortsList()
 		return map[string]interface{}{

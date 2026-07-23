@@ -65,7 +65,7 @@ func TestJsFilterNode(t *testing.T) {
 		var nodeList = []types.Node{node1, node2, node3}
 
 		for _, node := range nodeList {
-			// 在测试循环开始前捕获配置，避免在回调中并发访问
+			// Capture configurations before the test loop starts to avoid concurrent access during callbacks
 			jsScript := node.(*JsFilterNode).Config.JsScript
 
 			metaData := types.BuildMetadata(make(map[string]string))
@@ -107,12 +107,12 @@ func TestJsFilterNode(t *testing.T) {
 	})
 }
 
-// TestJsFilterNodeDataType 测试dataType参数传递
+// TestJsFilterNodeDataType tests the passing of dataType parameters
 func TestJsFilterNodeDataType(t *testing.T) {
 	config := types.NewConfig()
 
 	t.Run("DataTypeParameter", func(t *testing.T) {
-		// 创建不同数据类型的测试消息
+		// Create test messages for different data types
 		testCases := []struct {
 			dataType   types.DataType
 			script     string
@@ -121,7 +121,7 @@ func TestJsFilterNodeDataType(t *testing.T) {
 			{types.JSON, "return String(dataType) === 'JSON';", true},
 			{types.TEXT, "return String(dataType) === 'TEXT';", true},
 			{types.BINARY, "return String(dataType) === 'BINARY';", true},
-			{types.JSON, "return String(dataType) === 'TEXT';", false}, // 错误匹配
+			{types.JSON, "return String(dataType) === 'TEXT';", false}, // Mismatch
 		}
 
 		for _, tc := range testCases {
@@ -136,7 +136,7 @@ func TestJsFilterNodeDataType(t *testing.T) {
 				metadata := types.BuildMetadata(make(map[string]string))
 				testMsg := types.NewMsg(0, "TEST", tc.dataType, metadata, "test data")
 
-				// 使用回调收集结果
+				// Collect results using callbacks
 				var resultRelationType string
 				var resultErr error
 
@@ -145,10 +145,10 @@ func TestJsFilterNodeDataType(t *testing.T) {
 					resultErr = err
 				})
 
-				// 处理消息
+				// Process the message
 				node.OnMsg(ctx, testMsg)
 
-				// 验证结果
+				// Verify the results
 				assert.Nil(t, resultErr)
 				if tc.expectTrue {
 					assert.Equal(t, types.True, resultRelationType)
@@ -160,13 +160,13 @@ func TestJsFilterNodeDataType(t *testing.T) {
 	})
 }
 
-// TestJsFilterNodeDataTypeDebug 调试dataType参数
+// TestJsFilterNodeDataTypeDebug debug the dataType parameter
 func TestJsFilterNodeDataTypeDebug(t *testing.T) {
 	config := types.NewConfig()
 
 	node := &JsFilterNode{}
 	err := node.Init(config, types.Configuration{
-		"jsScript": "return String(dataType) === 'JSON';", // 转换为字符串后检查
+		"jsScript": "return String(dataType) === 'JSON';", // Convert to string and then check
 	})
 	assert.Nil(t, err)
 	defer node.Destroy()
@@ -188,18 +188,18 @@ func TestJsFilterNodeDataTypeDebug(t *testing.T) {
 	t.Logf("Result relation type: %s", resultRelationType)
 }
 
-// TestJsFilterNodeBinaryData 测试jsFilter组件的二进制数据处理
+// TestJsFilterNodeBinaryData tests the binary data processing of the jsFilter component
 func TestJsFilterNodeBinaryData(t *testing.T) {
 	config := types.NewConfig()
 
 	t.Run("BinaryDataBasic", func(t *testing.T) {
-		// 基础二进制数据过滤
+		// Basic binary data filtering
 		node := &JsFilterNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 检查是否为二进制数据且长度大于4字节
+				// Check whether this is binary data longer than 4 bytes
 				if (String(dataType) === 'BINARY' && msg.length > 4) {
-					// 检查前两个字节是否为特定值
+					// Check whether the first two bytes have the expected values
 					return msg[0] === 0xAA && msg[1] === 0xBB;
 				}
 				return false;
@@ -256,16 +256,16 @@ func TestJsFilterNodeBinaryData(t *testing.T) {
 	})
 
 	t.Run("DeviceFunctionCodeFilter", func(t *testing.T) {
-		// 设备功能码过滤：模拟设备数据格式 [设备ID(2字节)] + [功能码(2字节)] + [数据]
+		// Device function code filtering: simulates device data format [Device ID (2 bytes)] + [Function Code (2 bytes)] + [Data]
 		node := &JsFilterNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 设备数据格式：[设备ID(2字节)] + [功能码(2字节)] + [数据长度(2字节)] + [数据内容]
+				// Device data format: [device ID (2 bytes)] + [function code (2 bytes)] + [data length (2 bytes)] + [data]
 				if (String(dataType) === 'BINARY' && msg.length >= 6) {
-					// 提取功能码 (第3-4字节，索引2-3)
-					var functionCode = (msg[2] << 8) | msg[3]; // 大端序
+					// Extract the function code (bytes 3-4, indexes 2-3)
+					var functionCode = (msg[2] << 8) | msg[3]; // Big-endian
 					
-					// 过滤特定功能码：0x0001(读取传感器) 或 0x0002(读取状态)
+					// Accept specific function codes: 0x0001 (read sensor) or 0x0002 (read status)
 					return functionCode === 0x0001 || functionCode === 0x0002;
 				}
 				return false;
@@ -276,23 +276,23 @@ func TestJsFilterNodeBinaryData(t *testing.T) {
 
 		testCases := []struct {
 			name         string
-			deviceID     uint16 // 设备ID
-			functionCode uint16 // 功能码
-			data         []byte // 附加数据
-			expectTrue   bool   // 期望结果
+			deviceID     uint16 // Device ID
+			functionCode uint16 // Function code
+			data         []byte // Additional data
+			expectTrue   bool   // Expected results
 		}{
 			{
 				name:         "Read sensor data (0x0001)",
 				deviceID:     0x1234,
 				functionCode: 0x0001,
-				data:         []byte{0x00, 0x04, 0x25, 0x30, 0x00, 0x64}, // 长度4 + 温度湿度数据
+				data:         []byte{0x00, 0x04, 0x25, 0x30, 0x00, 0x64}, // Length 4 + temperature and humidity data
 				expectTrue:   true,
 			},
 			{
 				name:         "Read status (0x0002)",
 				deviceID:     0x5678,
 				functionCode: 0x0002,
-				data:         []byte{0x00, 0x02, 0x01, 0x00}, // 长度2 + 状态数据
+				data:         []byte{0x00, 0x02, 0x01, 0x00}, // Length 2 + status data
 				expectTrue:   true,
 			},
 			{
@@ -313,16 +313,16 @@ func TestJsFilterNodeBinaryData(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				// 构造设备数据包
+				// Construct device data packets
 				deviceData := make([]byte, 0, 6+len(tc.data))
 
-				// 添加设备ID (大端序)
+				// Add device ID (large-end sequence)
 				deviceData = append(deviceData, byte(tc.deviceID>>8), byte(tc.deviceID&0xFF))
 
-				// 添加功能码 (大端序)
+				// Add function code (large endpoint)
 				deviceData = append(deviceData, byte(tc.functionCode>>8), byte(tc.functionCode&0xFF))
 
-				// 添加附加数据
+				// Add additional data
 				deviceData = append(deviceData, tc.data...)
 
 				metadata := types.BuildMetadata(make(map[string]string))
@@ -349,16 +349,16 @@ func TestJsFilterNodeBinaryData(t *testing.T) {
 	})
 }
 
-// TestJsFilterNodeJSONArraySupport 测试JavaScript过滤器对JSON数组的支持
+// TestJsFilterNodeJSONArraySupport Tests JavaScript filters' support for JSON arrays
 func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 	config := types.NewConfig()
 
-	// 测试1: JSON数组长度过滤
+	// Test 1: JSON array length filtering
 	t.Run("ArrayLengthFilter", func(t *testing.T) {
 		node := &JsFilterNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 过滤数组长度大于2的消息
+				// Accept messages whose array length is greater than 2
 				if (Array.isArray(msg)) {
 					return msg.length > 2;
 				}
@@ -368,7 +368,7 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 创建长度为3的数组（应该通过过滤）
+		// Create an array of length 3 (should be filtered)
 		metadata1 := types.BuildMetadata(make(map[string]string))
 		arrayData1 := `["apple", "banana", "cherry"]`
 		testMsg1 := types.NewMsg(0, "ARRAY_TEST", types.JSON, metadata1, arrayData1)
@@ -383,11 +383,11 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(ctx1, testMsg1)
 
-		// 验证结果：长度3应该通过
+		// Verification result: length 3 should pass
 		assert.Nil(t, err1)
 		assert.Equal(t, types.True, result1)
 
-		// 创建长度为1的数组（应该被过滤掉）
+		// Create an array of length 1 (which should be filtered)
 		metadata2 := types.BuildMetadata(make(map[string]string))
 		arrayData2 := `["single"]`
 		testMsg2 := types.NewMsg(0, "ARRAY_TEST", types.JSON, metadata2, arrayData2)
@@ -402,17 +402,17 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(ctx2, testMsg2)
 
-		// 验证结果：长度1应该被过滤
+		// Verification result: length 1 should be filtered
 		assert.Nil(t, err2)
 		assert.Equal(t, types.False, result2)
 	})
 
-	// 测试2: JSON数组内容过滤
+	// Test 2: JSON array content filtering
 	t.Run("ArrayContentFilter", func(t *testing.T) {
 		node := &JsFilterNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 检查数组是否包含特定值
+				// Check whether the array contains a specific value
 				if (Array.isArray(msg)) {
 					for (var i = 0; i < msg.length; i++) {
 						if (msg[i] === "target") {
@@ -426,7 +426,7 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 创建包含"target"的数组
+		// Create an array containing "target"
 		metadata1 := types.BuildMetadata(make(map[string]string))
 		arrayData1 := `["apple", "target", "cherry"]`
 		testMsg1 := types.NewMsg(0, "CONTENT_TEST", types.JSON, metadata1, arrayData1)
@@ -441,11 +441,11 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(ctx1, testMsg1)
 
-		// 验证结果：包含target应该通过
+		// Verification result: including target should pass
 		assert.Nil(t, err1)
 		assert.Equal(t, types.True, result1)
 
-		// 创建不包含"target"的数组
+		// Create an array that does not contain "target"
 		metadata2 := types.BuildMetadata(make(map[string]string))
 		arrayData2 := `["apple", "banana", "cherry"]`
 		testMsg2 := types.NewMsg(0, "CONTENT_TEST", types.JSON, metadata2, arrayData2)
@@ -460,17 +460,17 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(ctx2, testMsg2)
 
-		// 验证结果：不包含target应该被过滤
+		// Validation result: Targets not included should be filtered
 		assert.Nil(t, err2)
 		assert.Equal(t, types.False, result2)
 	})
 
-	// 测试3: 数字数组数值过滤
+	// Test 3: Numeric filtering of digital arrays
 	t.Run("NumericArrayFilter", func(t *testing.T) {
 		node := &JsFilterNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 检查数组中是否有大于50的数值
+				// Check whether the array contains a value greater than 50
 				if (Array.isArray(msg)) {
 					for (var i = 0; i < msg.length; i++) {
 						if (typeof msg[i] === 'number' && msg[i] > 50) {
@@ -484,7 +484,7 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 创建包含大于50数值的数组
+		// Create an array containing values greater than 50
 		metadata1 := types.BuildMetadata(make(map[string]string))
 		arrayData1 := `[10, 30, 75, 20]`
 		testMsg1 := types.NewMsg(0, "NUMERIC_TEST", types.JSON, metadata1, arrayData1)
@@ -499,11 +499,11 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(ctx1, testMsg1)
 
-		// 验证结果：包含75应该通过
+		// Verification result: 75 should be accepted
 		assert.Nil(t, err1)
 		assert.Equal(t, types.True, result1)
 
-		// 创建没有大于50数值的数组
+		// Create arrays with no values greater than 50
 		metadata2 := types.BuildMetadata(make(map[string]string))
 		arrayData2 := `[10, 30, 45, 20]`
 		testMsg2 := types.NewMsg(0, "NUMERIC_TEST", types.JSON, metadata2, arrayData2)
@@ -518,23 +518,23 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(ctx2, testMsg2)
 
-		// 验证结果：都不大于50应该被过滤
+		// Verification result: None greater than 50 should be filtered
 		assert.Nil(t, err2)
 		assert.Equal(t, types.False, result2)
 	})
 
-	// 测试4: 混合类型过滤（数组 vs 对象）
+	// Test 4: Mixed Type Filtering (Array vs. Object)
 	t.Run("MixedTypeFilter", func(t *testing.T) {
 		node := &JsFilterNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 根据数据类型和结构进行过滤
+				// Filter based on the data type and structure
 				if (String(dataType) === 'JSON') {
 					if (Array.isArray(msg)) {
-						// 数组：检查长度
+						// Array: check its length
 						return msg.length >= 2;
 					} else if (typeof msg === 'object') {
-						// 对象：检查是否有temperature字段且值大于25
+						// Object: check for a temperature field whose value is greater than 25
 						return msg.temperature && msg.temperature > 25;
 					}
 				}
@@ -544,7 +544,7 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 测试JSON数组（长度>=2）
+		// Test JSON array (length>=2)
 		arrayMetadata := types.BuildMetadata(make(map[string]string))
 		arrayData := `["item1", "item2", "item3"]`
 		arrayMsg := types.NewMsg(0, "MIXED_TEST", types.JSON, arrayMetadata, arrayData)
@@ -559,11 +559,11 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(arrayCtx, arrayMsg)
 
-		// 验证数组过滤结果
+		// Verify array filtering results
 		assert.Nil(t, arrayErr)
 		assert.Equal(t, types.True, arrayResult)
 
-		// 测试JSON对象（temperature > 25）
+		// Test JSON object (temperature > 25)
 		objectMetadata := types.BuildMetadata(make(map[string]string))
 		objectData := `{"name": "sensor", "temperature": 30}`
 		objectMsg := types.NewMsg(0, "MIXED_TEST", types.JSON, objectMetadata, objectData)
@@ -578,11 +578,11 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(objectCtx, objectMsg)
 
-		// 验证对象过滤结果
+		// Verify the object filtering results
 		assert.Nil(t, objectErr)
 		assert.Equal(t, types.True, objectResult)
 
-		// 测试JSON对象（temperature <= 25）
+		// Test JSON object (temperature < = 25)
 		lowTempMetadata := types.BuildMetadata(make(map[string]string))
 		lowTempData := `{"name": "sensor", "temperature": 20}`
 		lowTempMsg := types.NewMsg(0, "MIXED_TEST", types.JSON, lowTempMetadata, lowTempData)
@@ -597,17 +597,17 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(lowTempCtx, lowTempMsg)
 
-		// 验证低温对象被过滤
+		// Verify that low-temperature objects are filtered
 		assert.Nil(t, lowTempErr)
 		assert.Equal(t, types.False, lowTempResult)
 	})
 
-	// 测试5: 嵌套数组过滤
+	// Test 5: Nested array filtering
 	t.Run("NestedArrayFilter", func(t *testing.T) {
 		node := &JsFilterNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 检查嵌套数组中是否有子数组的和大于10
+				// Check whether a nested array contains a child array whose sum is greater than 10
 				if (Array.isArray(msg)) {
 					for (var i = 0; i < msg.length; i++) {
 						var item = msg[i];
@@ -630,9 +630,9 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 创建包含和大于10的子数组的嵌套数组
+		// Create nested arrays containing and more than 10 subarrays
 		metadata1 := types.BuildMetadata(make(map[string]string))
-		nestedData1 := `[[1, 2], [5, 8], [2, 3]]` // 第二个子数组和为13
+		nestedData1 := `[[1, 2], [5, 8], [2, 3]]` // The sum of the second subarray is 13
 		testMsg1 := types.NewMsg(0, "NESTED_TEST", types.JSON, metadata1, nestedData1)
 
 		var result1 string
@@ -645,13 +645,13 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(ctx1, testMsg1)
 
-		// 验证结果：有子数组和大于10应该通过
+		// Verification result: If there are subarrays greater than 10, it should pass
 		assert.Nil(t, err1)
 		assert.Equal(t, types.True, result1)
 
-		// 创建所有子数组和都小于等于10的嵌套数组
+		// Create nested arrays where the sum of all subarrays is less than or equal to 10
 		metadata2 := types.BuildMetadata(make(map[string]string))
-		nestedData2 := `[[1, 2], [3, 4], [2, 3]]` // 所有子数组和都≤10
+		nestedData2 := `[[1, 2], [3, 4], [2, 3]]` // All subarray sums ≤ 10
 		testMsg2 := types.NewMsg(0, "NESTED_TEST", types.JSON, metadata2, nestedData2)
 
 		var result2 string
@@ -664,7 +664,7 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 
 		node.OnMsg(ctx2, testMsg2)
 
-		// 验证结果：没有子数组和大于10应该被过滤
+		// Verification result: No subarrays and values greater than 10 should be filtered
 		assert.Nil(t, err2)
 		assert.Equal(t, types.False, result2)
 	})

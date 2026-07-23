@@ -21,7 +21,7 @@ import (
 
 const lineSeparator = '\n'
 
-// RunLogStore 基于 JSON Lines 文件的运行日志存储，每个 chainId 一个文件。
+// RunLogStore is a runtime log storage based on JSON Lines files, with one file per chainId.
 type RunLogStore struct {
 	cfg    config.Config
 	logger types.Logger
@@ -55,7 +55,7 @@ func (s *RunLogStore) userDir(username string) string {
 	return filepath.Join(s.cfg.DataDir, constants.DirWorkflows, username, constants.DirWorkflowsRun)
 }
 
-// Save 保存运行日志（仅 append 写入，不做清理，清理由后台 goroutine 负责）
+// Save saves the runtime log (only writes to the append, no cleanup, clearing is handled by the backend goroutine)
 func (s *RunLogStore) Save(username string, event model.Event) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -80,7 +80,7 @@ func (s *RunLogStore) Save(username string, event model.Event) error {
 	return err
 }
 
-// List 列出运行日志，支持按 chainId、时间范围过滤和分页
+// List displays runtime logs, supports filtering by chainId, time range, and pagination
 func (s *RunLogStore) List(username, chainId string, startTime, endTime time.Time, size, page int) ([]model.Event, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -148,7 +148,7 @@ func (s *RunLogStore) listAll(username string, startTime, endTime time.Time, siz
 	return allEvents[start:end], total, nil
 }
 
-// Get 获取单条运行日志
+// Get a single runtime log
 func (s *RunLogStore) Get(username, logId string) (model.Event, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -177,7 +177,7 @@ func (s *RunLogStore) Get(username, logId string) (model.Event, error) {
 	return model.Event{}, nil
 }
 
-// Delete 删除运行日志
+// Delete: Deletes the runtime log
 func (s *RunLogStore) Delete(username, logId string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -207,7 +207,7 @@ func (s *RunLogStore) Delete(username, logId string) error {
 	return nil
 }
 
-// DeleteByChainId 删除指定规则链的所有运行日志
+// DeleteByChainId deletes all runtime logs of the specified rule chain
 func (s *RunLogStore) DeleteByChainId(username, chainId string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -216,7 +216,7 @@ func (s *RunLogStore) DeleteByChainId(username, chainId string) error {
 	return os.Remove(fp)
 }
 
-// readFile 读取 jsonl 文件中的所有事件（倒序返回）
+// readFile reads all events in the jsonl file (returning in reverse order)
 func (s *RunLogStore) readFile(fp string) ([]model.Event, error) {
 	f, err := os.Open(fp)
 	if err != nil {
@@ -239,14 +239,14 @@ func (s *RunLogStore) readFile(fp string) ([]model.Event, error) {
 		events = append(events, event)
 	}
 
-	// 倒序（最新的在前）
+	// Reverse order (newest comes first)
 	for i, j := 0, len(events)-1; i < j; i, j = i+1, j-1 {
 		events[i], events[j] = events[j], events[i]
 	}
 	return events, scanner.Err()
 }
 
-// writeFile 重写 jsonl 文件
+// writeFile rewrites the JSONL file
 func (s *RunLogStore) writeFile(fp string, events []model.Event) error {
 	if len(events) == 0 {
 		return os.Remove(fp)
@@ -268,7 +268,7 @@ func (s *RunLogStore) writeFile(fp string, events []model.Event) error {
 	return nil
 }
 
-// retentionLoop 后台定期清理：按天数和按条数
+// retentionLoop backend regular cleaning: by number of days and by number of entries
 func (s *RunLogStore) retentionLoop() {
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
@@ -283,7 +283,7 @@ func (s *RunLogStore) retentionLoop() {
 	}
 }
 
-// cleanExpired 后台清理过期和超量数据，全程加写锁保证一致
+// cleanExpired: Clears expired and excess data in the backend, with a write lock throughout to ensure consistency
 func (s *RunLogStore) cleanExpired() {
 	maxDays := s.cfg.RunLogRetentionDays
 	maxCount := s.cfg.RunLogRetentionCount

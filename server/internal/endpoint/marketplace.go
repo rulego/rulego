@@ -16,13 +16,13 @@ import (
 func (s *Server) registerMarketplaceRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
-	// GET /marketplace/components - 获取市场组件
-	ep.GET(endpoint.NewRouter().From(base+"/marketplace/components").Process(s.authWithPermission("marketplace", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// GET /marketplace/components - Get marketplace components
+	ep.GET(endpoint.NewRouter().From(base + "/marketplace/components").Process(s.authWithPermission("marketplace", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		marketplaceSvc, ok := getService[*marketplace.Module](s, exchange, services.KeyMarketplaceService)
 		if !ok {
 			return false
 		}
-		// 注入 NodeService 用于本地组件获取
+		// Inject NodeService for local component acquisition
 		if nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService); ok {
 			marketplaceSvc.SetNodeService(nodeSvc)
 		}
@@ -41,7 +41,7 @@ func (s *Server) registerMarketplaceRoutes(ep endpointApi.HttpEndpoint) {
 			return true
 		}
 
-		// checkMy：标记已安装和可升级组件
+		// checkMy: Tags installed and upgradeable components
 		checkMyStr := msg.Metadata.GetValue("checkMy")
 		if b, _ := strconv.ParseBool(checkMyStr); b {
 			s.markInstalled(exchange, result.Items)
@@ -51,13 +51,13 @@ func (s *Server) registerMarketplaceRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// GET /marketplace/chains - 获取市场规则链
-	ep.GET(endpoint.NewRouter().From(base+"/marketplace/chains").Process(s.authWithPermission("marketplace", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// GET /marketplace/chains - Get the marketplace rule chain
+	ep.GET(endpoint.NewRouter().From(base + "/marketplace/chains").Process(s.authWithPermission("marketplace", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		marketplaceSvc, ok := getService[*marketplace.Module](s, exchange, services.KeyMarketplaceService)
 		if !ok {
 			return false
 		}
-		// 注入 NodeService 用于本地组件获取
+		// Inject NodeService for local component acquisition
 		if nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService); ok {
 			marketplaceSvc.SetNodeService(nodeSvc)
 		}
@@ -86,7 +86,7 @@ func (s *Server) registerMarketplaceRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 }
 
-// markInstalled 在市场组件列表上标记 installed/upgraded 状态
+// markInstalled marks the installed/upgraded status on the list of market components
 func (s *Server) markInstalled(exchange *endpointApi.Exchange, items []interface{}) {
 	nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 	if !ok {
@@ -102,7 +102,7 @@ func (s *Server) markInstalled(exchange *endpointApi.Exchange, items []interface
 		installedMap[f.Type] = f
 	}
 	for i, item := range items {
-		// 将 types.RuleChain 结构体转为 map，以便原地修改 additionalInfo
+		// Convert types.RuleChain structures to map to modify additionalInfo in place
 		if _, ok := item.(types.RuleChain); ok {
 			data, err := json.Marshal(item)
 			if err != nil {

@@ -5,17 +5,17 @@ import (
 	"sync"
 )
 
-// DebugDataStore 基于内存的调试数据存储
-// 每个节点保留固定条数，最旧的数据会被自动删除
+// DebugDataStore is a memory-based debug data store
+// Each node retains a fixed number of entries, and the oldest data is automatically deleted
 type DebugDataStore struct {
-	// chainData 规则链ID -> 节点调试数据
+	// chainData rules: chainID -> node debug data
 	chainData map[string]*nodeDebugData
-	// maxSize 每个节点允许的最大数量
+	// maxSize: The maximum number allowed per node
 	maxSize int
 	mu      sync.RWMutex
 }
 
-// NewDebugDataStore 创建调试数据存储
+// NewDebugDataStore creates debug data storage
 func NewDebugDataStore(maxSize int) *DebugDataStore {
 	if maxSize <= 0 {
 		maxSize = 60
@@ -26,7 +26,7 @@ func NewDebugDataStore(maxSize int) *DebugDataStore {
 	}
 }
 
-// Add 添加调试数据
+// Add debug data
 func (s *DebugDataStore) Add(chainId, nodeId string, data map[string]interface{}) {
 	s.mu.Lock()
 	nodes, ok := s.chainData[chainId]
@@ -38,7 +38,7 @@ func (s *DebugDataStore) Add(chainId, nodeId string, data map[string]interface{}
 	nodes.Add(nodeId, data)
 }
 
-// GetPage 获取指定节点的调试数据（分页）
+// GetPage retrieves debug data for specified nodes (pagination)
 func (s *DebugDataStore) GetPage(chainId, nodeId string, page, size int) map[string]interface{} {
 	s.mu.RLock()
 	nodes, ok := s.chainData[chainId]
@@ -49,7 +49,7 @@ func (s *DebugDataStore) GetPage(chainId, nodeId string, page, size int) map[str
 	return nodes.GetPage(nodeId, page, size)
 }
 
-// Clear 清空指定规则链的调试数据
+// Clear: Clears the debug data of the specified rule chain
 func (s *DebugDataStore) Clear(chainId string) {
 	s.mu.Lock()
 	delete(s.chainData, chainId)
@@ -65,7 +65,7 @@ func emptyPage(page, size int) map[string]interface{} {
 	}
 }
 
-// nodeDebugData 节点调试数据
+// nodeDebugData node debug data
 type nodeDebugData struct {
 	data    map[string]*fixedQueue
 	maxSize int
@@ -99,7 +99,7 @@ func (d *nodeDebugData) GetPage(nodeId string, page, size int) map[string]interf
 	}
 
 	items := q.Items()
-	// 按 ts 降序排序
+	// Sort by ts descending order
 	sort.Slice(items, func(i, j int) bool {
 		tsI, _ := items[i]["ts"].(int64)
 		tsJ, _ := items[j]["ts"].(int64)
@@ -135,7 +135,7 @@ func (d *nodeDebugData) GetPage(nodeId string, page, size int) map[string]interf
 	}
 }
 
-// fixedQueue 固定大小的队列
+// fixedQueue A fixed-size queue
 type fixedQueue struct {
 	items   []map[string]interface{}
 	maxSize int

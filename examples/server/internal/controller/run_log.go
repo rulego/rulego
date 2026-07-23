@@ -16,7 +16,7 @@ var Log = &log{}
 type log struct {
 }
 
-// GetDebugLogs 创建获取节点调试数据路由
+// GetDebugLogs creates a route to obtain node debug data
 func (c *log) GetDebugLogs(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()

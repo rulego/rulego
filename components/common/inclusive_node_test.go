@@ -28,7 +28,7 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// TestInclusiveNode 验证包容分支组件的行为：多匹配、单匹配、默认分支与失败场景
+// TestInclusiveNode verifies the behavior of the inclusion branch component: multiple match, single match, default branch, and failure scenario
 func TestInclusiveNode(t *testing.T) {
 	var targetNodeType = "inclusive"
 
@@ -141,7 +141,7 @@ func TestInclusiveNode(t *testing.T) {
 		}
 
 		wg.Wait()
-		assert.Equal(t, 1, seen["case1"]) // 多匹配应路由到 case1
-		assert.Equal(t, 1, seen["case3"]) // 多匹配应路由到 case3
+		assert.Equal(t, 1, seen["case1"]) // Multi-match should be routed to case1
+		assert.Equal(t, 1, seen["case3"]) // Multi-match should be routed to case3
 	})
 }

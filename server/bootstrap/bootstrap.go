@@ -1,5 +1,5 @@
-// Package bootstrap 提供默认组装方案，将 App、Modules、Store、Transport 组合在一起。
-// 公开包，外部可直接使用 DefaultModules() 获取默认模块列表，并通过 app.WithModuleOverride 替换特定模块。
+// Package bootstrap provides a default assembly plan, combining App, Modules, Store, and Transport together.
+// Public packages. Externally, you can directly use DefaultModules() to obtain the default module list, and through the app.WithModuleOverride replaces a specific module.
 package bootstrap
 
 import (
@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/rulego/rulego/server/app"
+	srvEndpoint "github.com/rulego/rulego/server/internal/endpoint"
+	"github.com/rulego/rulego/server/internal/engine"
 	"github.com/rulego/rulego/server/internal/modules/locale"
 	"github.com/rulego/rulego/server/internal/modules/marketplace"
 	"github.com/rulego/rulego/server/internal/modules/mcp"
@@ -19,13 +21,11 @@ import (
 	"github.com/rulego/rulego/server/internal/modules/skill"
 	"github.com/rulego/rulego/server/internal/modules/system"
 	"github.com/rulego/rulego/server/internal/modules/user"
-	srvEndpoint "github.com/rulego/rulego/server/internal/endpoint"
-	"github.com/rulego/rulego/server/internal/engine"
 	"github.com/rulego/rulego/server/services"
 )
 
-// DefaultModules 返回默认业务模块列表。
-// 可与 app.WithModuleOverride 配合使用，替换特定模块。
+// DefaultModules returns a list of default business modules.
+// Can be connected with the app.WithModuleOverride is used together to replace specific modules.
 func DefaultModules() []app.Module {
 	return []app.Module{
 		user.New(),
@@ -40,8 +40,8 @@ func DefaultModules() []app.Module {
 	}
 }
 
-// DefaultApp 创建一个使用默认配置的应用实例。
-// 等价于 app.New(app.WithConfigFile(configFile), app.WithModules(bootstrap.DefaultModules()...))。
+// DefaultApp creates an application instance using the default configuration.
+// Equivalent to an app.New(app.WithConfigFile(configFile), app.WithModules(bootstrap.DefaultModules()...)).
 func DefaultApp(configFile string) *app.App {
 	return app.New(
 		app.WithConfigFile(configFile),
@@ -49,7 +49,7 @@ func DefaultApp(configFile string) *app.App {
 	)
 }
 
-// Run 初始化并启动应用，包括 endpoint 传输层，然后阻塞等待信号。
+// Run initializes and starts the application, including the endpoint transport layer, then blocks the waiting signal.
 func Run(application *app.App) error {
 	app.RegisterDefaultStoresHook(application)
 
@@ -69,14 +69,14 @@ func Run(application *app.App) error {
 		return err
 	}
 
-	// 创建 WebSocket 端点，共享 HTTP 服务
+	// Create WebSocket endpoints to share HTTP services
 	wsEp, err := srv.NewWebsocketEndpoint(restEp)
 	if err != nil {
 		return err
 	}
 
-	// 开启 share_http_server 时，把主 HTTP 端点注入引擎管理器，
-	// 使每个用户池可通过 ref://<config.Server> 复用主 HTTP server。
+	// When share_http_server is enabled, the main HTTP endpoint is injected into the engine manager,
+	// Allows each user pool to reuse the main HTTP server via ref://<config.Server>
 	if cfg.ShareHttpServer {
 		if mgr, err := app.GetAs[services.EngineManager](application.Container(), services.KeyEngineManager); err == nil {
 			if concrete, ok := mgr.(*engine.Manager); ok {
@@ -93,7 +93,7 @@ func Run(application *app.App) error {
 		return err
 	}
 	typesLogger.Infof("RuleGo-Server started on %s", cfg.Server)
-	// 启动 WebSocket 端点
+	// Start the WebSocket endpoint
 	if err := wsEp.Start(); err != nil {
 		return err
 	}

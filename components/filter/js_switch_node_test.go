@@ -77,7 +77,7 @@ func TestJsSwitchNode(t *testing.T) {
 		var nodeList = []types.Node{node1, node2, node3}
 
 		for _, node := range nodeList {
-			// 在测试循环开始前捕获配置，避免在回调中并发访问
+			// Capture configurations before the test loop starts to avoid concurrent access during callbacks
 			jsScript := node.(*JsSwitchNode).Config.JsScript
 
 			metaData := types.BuildMetadata(make(map[string]string))
@@ -110,12 +110,12 @@ func TestJsSwitchNode(t *testing.T) {
 	})
 }
 
-// TestJsSwitchNodeDataType 测试dataType参数传递
+// TestJsSwitchNodeDataType tests passing dataType parameters
 func TestJsSwitchNodeDataType(t *testing.T) {
 	config := types.NewConfig()
 
 	t.Run("DataTypeParameter", func(t *testing.T) {
-		// 创建不同数据类型的测试消息
+		// Create test messages for different data types
 		testCases := []struct {
 			dataType types.DataType
 			expected string
@@ -129,7 +129,7 @@ func TestJsSwitchNodeDataType(t *testing.T) {
 			t.Run(string(tc.dataType), func(t *testing.T) {
 				node := &JsSwitchNode{}
 				err := node.Init(config, types.Configuration{
-					"jsScript": "return [String(dataType)];", // 转换为字符串后返回作为路由
+					"jsScript": "return [String(dataType)];", // After converting to a string, it returns as a route
 				})
 				assert.Nil(t, err)
 				defer node.Destroy()
@@ -137,7 +137,7 @@ func TestJsSwitchNodeDataType(t *testing.T) {
 				metadata := types.BuildMetadata(make(map[string]string))
 				testMsg := types.NewMsg(0, "TEST", tc.dataType, metadata, "test data")
 
-				// 使用回调收集结果
+				// Collect results using callbacks
 				var resultRelationType string
 				var resultErr error
 
@@ -146,27 +146,27 @@ func TestJsSwitchNodeDataType(t *testing.T) {
 					resultErr = err
 				})
 
-				// 处理消息
+				// Process the message
 				node.OnMsg(ctx, testMsg)
 
-				// 验证结果
+				// Verify the results
 				assert.Nil(t, resultErr)
-				assert.Equal(t, tc.expected, resultRelationType) // 路由类型应该等于dataType
+				assert.Equal(t, tc.expected, resultRelationType) // The routing type should equal dataType
 			})
 		}
 	})
 }
 
-// TestJsSwitchNodeJSONArraySupport 测试JavaScript开关组件对JSON数组的支持
+// TestJsSwitchNodeJSONArraySupport Tests JavaScript switch component support for JSON arrays
 func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 	config := types.NewConfig()
 
-	// 测试1: 基于JSON数组长度的路由
+	// Test 1: Routing based on JSON array length
 	t.Run("ArrayLengthSwitch", func(t *testing.T) {
 		node := &JsSwitchNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 根据数组长度决定路由路径
+				// Select the route based on the array length
 				if (Array.isArray(msg)) {
 					if (msg.length <= 2) {
 						return ['small_array'];
@@ -225,16 +225,16 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 		}
 	})
 
-	// 测试2: 基于JSON数组内容的多路由
+	// Test 2: Multi-routing based on JSON array content
 	t.Run("ArrayContentMultiSwitch", func(t *testing.T) {
 		node := &JsSwitchNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 根据数组内容决定多个路由路径
+				// Select multiple routes based on the array contents
 				var routes = [];
 				
 				if (Array.isArray(msg)) {
-					// 检查是否包含数字
+					// Check whether the array contains a number
 					var hasNumber = false;
 					var hasString = false;
 					var hasObject = false;
@@ -260,7 +260,7 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 测试混合类型数组
+		// Test the mixed type array
 		metadata := types.BuildMetadata(make(map[string]string))
 		mixedArrayData := `[42, "hello", {"key": "value"}]`
 		testMsg := types.NewMsg(0, "MIXED_SWITCH", types.JSON, metadata, mixedArrayData)
@@ -279,7 +279,7 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 		node.OnMsg(ctx, testMsg)
 
 		assert.Nil(t, resultErr)
-		// 手动检查路由是否包含期望的值
+		// Manually check whether the route contains the expected value
 		hasNumbers := false
 		hasStrings := false
 		hasObjects := false
@@ -298,12 +298,12 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 		assert.Equal(t, 3, len(routes))
 	})
 
-	// 测试3: 数字数组范围路由
+	// Test 3: Digital array range routing
 	t.Run("NumericArrayRangeSwitch", func(t *testing.T) {
 		node := &JsSwitchNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 根据数字数组的数值范围进行路由
+				// Route based on the numeric array's value range
 				if (Array.isArray(msg)) {
 					var routes = [];
 					var hasLow = false;    // < 50
@@ -334,7 +334,7 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 测试包含不同范围数值的数组
+		// Testing arrays containing values of different ranges
 		metadata := types.BuildMetadata(make(map[string]string))
 		numericArrayData := `[25, 75, 150, 10, 200]`
 		testMsg := types.NewMsg(0, "NUMERIC_SWITCH", types.JSON, metadata, numericArrayData)
@@ -353,7 +353,7 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 		node.OnMsg(ctx, testMsg)
 
 		assert.Nil(t, resultErr)
-		// 手动检查数值范围路由
+		// Manually check the numerical range of the route
 		hasLow := false
 		hasMedium := false
 		hasHigh := false
@@ -372,12 +372,12 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 		assert.Equal(t, 3, len(routes))
 	})
 
-	// 测试4: 嵌套数组结构路由
+	// Test 4: Nested array structure routing
 	t.Run("NestedArrayStructureSwitch", func(t *testing.T) {
 		node := &JsSwitchNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 分析嵌套数组结构并路由
+				// Analyze the nested array structure and route it
 				if (Array.isArray(msg)) {
 					var routes = [];
 					var maxDepth = 0;
@@ -396,7 +396,7 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 					
 					analyzeArray(msg, 1);
 					
-					// 根据分析结果路由
+					// Route based on the analysis result
 					routes.push('depth_' + maxDepth);
 					
 					if (totalElements <= 5) {
@@ -415,7 +415,7 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err)
 		defer node.Destroy()
 
-		// 测试嵌套数组
+		// Test nested arrays
 		metadata := types.BuildMetadata(make(map[string]string))
 		nestedArrayData := `[[1, 2], [3, [4, 5]], [6, 7, 8]]`
 		testMsg := types.NewMsg(0, "NESTED_SWITCH", types.JSON, metadata, nestedArrayData)
@@ -434,7 +434,7 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 		node.OnMsg(ctx, testMsg)
 
 		assert.Nil(t, resultErr)
-		// 手动检查嵌套数组路由
+		// Manually check the nested array routes
 		hasDepth3 := false
 		hasMediumData := false
 		for _, route := range routes {
@@ -444,24 +444,24 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 				hasMediumData = true
 			}
 		}
-		assert.True(t, hasDepth3, "Expected route 'depth_3' not found")         // 最大深度为3
-		assert.True(t, hasMediumData, "Expected route 'medium_data' not found") // 总元素数量在中等范围
+		assert.True(t, hasDepth3, "Expected route 'depth_3' not found")         // The maximum depth is 3
+		assert.True(t, hasMediumData, "Expected route 'medium_data' not found") // The total number of elements is in the medium range
 		assert.Equal(t, 2, len(routes))
 	})
 
-	// 测试5: 条件路由（数组 vs 对象）
+	// Test 5: Conditional Routing (Array vs. Object)
 	t.Run("ConditionalTypeSwitch", func(t *testing.T) {
 		node := &JsSwitchNode{}
 		err := node.Init(config, types.Configuration{
 			"jsScript": `
-				// 根据数据类型和条件进行路由
+				// Route based on the data type and conditions
 				var routes = [];
 				
 				if (String(dataType) === 'JSON') {
 					if (Array.isArray(msg)) {
 						routes.push('json_array');
 						
-						// 进一步分析数组
+						// Analyze the array further
 						if (msg.length === 0) {
 							routes.push('empty_array');
 						} else if (msg.every(function(item) { return typeof item === 'string'; })) {
@@ -474,7 +474,7 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 					} else if (typeof msg === 'object') {
 						routes.push('json_object');
 						
-						// 检查特定字段
+						// Check specific fields
 						if (msg.hasOwnProperty('temperature')) {
 							routes.push('sensor_data');
 						}
@@ -549,7 +549,7 @@ func TestJsSwitchNodeJSONArraySupport(t *testing.T) {
 				node.OnMsg(ctx, testMsg)
 
 				assert.Nil(t, resultErr)
-				// 手动检查所有期望的路由
+				// Manually check all expected routes
 				for _, expectedRoute := range tc.expectedRoutes {
 					found := false
 					for _, route := range routes {

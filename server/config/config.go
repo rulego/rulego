@@ -6,101 +6,101 @@ import (
 	"github.com/rulego/rulego/api/types"
 )
 
-// Config 应用配置，通过 INI 文件加载
+// Config application configuration, loaded via INI file
 type Config struct {
-	// ConfigFile 配置文件路径（非 INI 字段）
+	// ConfigFile configuration file path (not INI field)
 	ConfigFile string `ini:"-"`
-	// DataDir 数据目录
+	// DataDir data directory
 	DataDir string `ini:"data_dir"`
-	// LogFile 日志文件路径，为空则仅输出到控制台
+	// The LogFile log file path is empty; if it is empty, it is only output to the console
 	LogFile string `ini:"log_file"`
-	// LogLevel 日志级别：debug/info/warn/error，默认 info
+	// LogLevel: debug/info/warn/error, default info
 	LogLevel string `ini:"log_level"`
-	// LogMaxSize 单个日志文件最大大小（MB），默认 100
+	// LogMaxSize is the maximum size of a single log file (MB), with a default of 100
 	LogMaxSize int `ini:"log_max_size"`
-	// LogMaxBackups 保留的旧日志文件最大数量，默认 30
+	// LogMaxBackups can retain the maximum number of old log files, default 30
 	LogMaxBackups int `ini:"log_max_backups"`
-	// LogMaxAge 保留旧日志文件的最大天数，默认 7
+	// LogMaxAge retains the maximum number of days old log files are retained, default is 7
 	LogMaxAge int `ini:"log_max_age"`
-	// CmdWhiteList shell命令白名单，多个用逗号分隔
+	// CmdWhiteList shell command: whitelist multiple units separated by commas
 	CmdWhiteList string `ini:"cmd_white_list"`
-	// CmdMode shell命令安全模式：allow(白名单模式) 或 deny(黑名单模式)，默认 allow
+	// CmdMode shell command safe mode: allow (whitelist mode) or deny (blacklist mode), default is allow
 	CmdMode string `ini:"cmd_mode"`
-	// CmdDenyList shell命令黑名单，多个用逗号分隔
+	// CmdDenyList shell command blacklist, multiple separated by commas
 	CmdDenyList string `ini:"cmd_deny_list"`
-	// CmdDenyArgs 拒绝的命令参数模式，多个用逗号分隔
+	// CmdDenyArgs rejects command parameter mode, multiple separated by commas
 	CmdDenyArgs string `ini:"cmd_deny_args"`
-	// FilePathWhiteList 允许操作的文件路径白名单
+	// FilePathWhiteList allows the file path whitelist to operate
 	FilePathWhiteList string `ini:"file_path_white_list"`
-	// LoadLuaLibs 是否加载lua库
+	// LoadLuaLibs Whether to load the lua library
 	LoadLuaLibs string `ini:"load_lua_libs"`
-	// Server http服务器地址
+	// Server http server address
 	Server string `ini:"server"`
-	// BasePath API路由基础路径前缀，例如 /rulego。用于嵌入式模式避免路由冲突
+	// The BasePath API route the base path prefix, such as /rulego. Used in embedded modes to avoid routing conflicts
 	BasePath string `ini:"base_path"`
-	// DefaultUsername 默认用户名
+	// DefaultUsername The default username
 	DefaultUsername string `ini:"default_username"`
-	// Debug 是否把节点调试日志打印到日志文件
+	// Debug: Should node debug logs be printed to log files?
 	Debug bool `ini:"debug"`
-	// MaxNodeLogSize 最大节点日志大小
+	// MaxNodeLogSize: The maximum node log size
 	MaxNodeLogSize int `ini:"max_node_log_size"`
-	// ResourceMapping 静态文件路径映射
+	// ResourceMapping Static File Path Mapping
 	ResourceMapping string `ini:"resource_mapping"`
-	// Global 全局自定义配置
+	// Global custom configuration
 	Global types.Properties `ini:"global"`
-	// NodePoolFile 节点池文件
+	// NodePoolFile: Node pool file
 	NodePoolFile string `ini:"node_pool_file"`
-	// SaveRunLog 是否保存运行日志
+	// Does SaveRunLog save the runlog?
 	SaveRunLog bool `ini:"save_run_log"`
-	// RunLogStoreType 运行日志存储类型：bbolt（默认）或 file（JSON Lines）
+	// RunLogStoreType Runlog storage type: bbolt (default) or file (JSON Lines)
 	RunLogStoreType string `ini:"run_log_store_type"`
-	// RunLogRetentionCount 保留最近 N 条日志，0 表示不限制
+	// RunLogRetentionCount keeps the most recent N logs, and 0 means unlimited
 	RunLogRetentionCount int `ini:"run_log_retention_count"`
-	// RunLogRetentionDays 保留最近 N 天日志，0 表示不限制
+	// RunLogRetentionDays keeps logs from the most recent N days; 0 means there is no limit
 	RunLogRetentionDays int `ini:"run_log_retention_days"`
-	// ScriptMaxExecutionTime 脚本最大执行时间（毫秒）
+	// ScriptMaxExecutionTime Maximum script execution time (milliseconds)
 	ScriptMaxExecutionTime int `ini:"script_max_execution_time"`
-	// EndpointEnabled 是否启用endpoint
+	// EndpointEnabled Whether to enable Endpoint
 	EndpointEnabled *bool `ini:"endpoint_enabled"`
-	// SecretKey 密钥
+	// SecretKey key
 	SecretKey *string `ini:"secret_key"`
-	// EventBusChainId 核心规则链Id
+	// EventBusChainId Core rule Chain Id
 	EventBusChainId string `ini:"event_bus_chain_id"`
-	// CategoryFolderEnabled 是否按分类文件夹组织规则链
+	// CategoryFolderEnabled Whether to organize the rule chain by category folder
 	CategoryFolderEnabled *bool `ini:"category_folder_enabled"`
-	// RequireAuth api访问是否需要验证
+	// RequireAuth API access requires authentication
 	RequireAuth bool `ini:"require_auth"`
-	// JwtSecretKey jwt密钥
+	// JwtSecretKey jwt key
 	JwtSecretKey string `ini:"jwt_secret_key"`
-	// JwtExpireTime jwt过期时间（毫秒）
+	// JwtExpireTime: jwt expiration time (milliseconds)
 	JwtExpireTime int `ini:"jwt_expire_time"`
-	// JwtIssuer jwt签发者
+	// JwtIssuer jwt issuer
 	JwtIssuer string `ini:"jwt_issuer"`
-	// Users 用户列表
+	// Users list
 	Users types.Properties `ini:"users"`
-	// Pprof pprof配置
+	// Pprof pprof configuration
 	Pprof PprofConfig `ini:"pprof"`
-	// MarketplaceBaseUrl 组件市场根地址
+	// MarketplaceBaseUrl component market root address
 	MarketplaceBaseUrl string `ini:"marketplace_base_url"`
-	// ShareHttpServer 是否默认HTTP服务设置成共享节点
+	// Is ShareHttpServer set to a shared node by default for HTTP services?
 	ShareHttpServer bool `ini:"share_http_server"`
-	// AllowCors 是否允许跨域，默认 true（向后兼容）
+	// Does AllowCors allow cross-origin? Default is true (backward compatible)
 	AllowCors bool `ini:"allow_cors"`
-	// ReadTimeout HTTP 读超时（秒），默认 30
+	// ReadTimeout HTTP reads out (seconds), default is 30
 	ReadTimeout int `ini:"read_timeout"`
-	// WriteTimeout HTTP 写超时（秒），默认 300（AI 聊天需要较长超时）
+	// WriteTimeout HTTP writes out (seconds), default 300 (AI chat requires longer timeout)
 	WriteTimeout int `ini:"write_timeout"`
-	// MaxBodySize 请求体最大大小（MB），默认 10
+	// MaxBodySize requests the maximum size of the body (MB), default is 10
 	MaxBodySize int `ini:"max_body_size"`
-	// MCP MCP配置
+	// MCP MCP configuration
 	MCP MCPConfig `ini:"mcp"`
-	// AISecurity AI 工具安全策略配置
+	// AISecurity AI tool security policy configuration
 	AISecurity AISecurityConfig `ini:"ai_security"`
-	// SkillPath 技能存储路径
+	// SkillPath Skill storage path
 	SkillPath string `ini:"skill_path"`
-	// UserNamePasswordMap 用户名和密码映射（运行期生成）
+	// UserNamePasswordMap Username and password mapping (runtime generation)
 	UserNamePasswordMap types.Properties `ini:"-"`
-	// ApiKeyUserNameMap API key和用户名映射（运行期生成）
+	// ApiKeyUserNameMap API key and username mapping (runtime generation)
 	ApiKeyUserNameMap types.Properties `ini:"-"`
 }
 
@@ -115,43 +115,43 @@ func (c *Config) SyncDerivedGlobals() {
 	}
 }
 
-// PprofConfig pprof 配置
+// PprofConfig pprof configuration
 type PprofConfig struct {
 	Enable bool   `ini:"enable"`
 	Addr   string `ini:"addr"`
 }
 
-// MCPConfig MCP 配置
+// MCPConfig MCP configuration
 type MCPConfig struct {
 	Enable bool `ini:"enable"`
-	// Groups MCP 端点分组配置，key 为组名，value 为工具列表（逗号分隔）
-	// 支持语法：* 表示全部，-prefix* 表示排除，rules/components/chains 表示工具类别
+	// Groups MCP endpoint grouping, key is the group name, value is the tool list (comma-separated)
+	// Supported syntax: * means all, -prefix* means exclude, rules/components/chains indicates tool categories
 	Groups map[string]string `ini:"-"`
 }
 
-// AISecurityConfig AI 工具安全策略配置
+// AISecurityConfig AI tool security policy configuration
 type AISecurityConfig struct {
-	// Enable 是否启用工具安全拦截，默认 false
+	// Enable: Whether tool security blocking is enabled is false by default
 	Enable bool `ini:"enable"`
-	// Mode 拦截模式：deny（黑名单，命中则拦截）或 allow（白名单，不在列表则拦截）
+	// Mode: deny (blacklist, intercept if not on list) or allow (whitelist, intercept if not on list)
 	Mode string `ini:"mode"`
-	// DenyTools 黑名单模式下拦截的工具名称列表（逗号分隔，支持 * 通配符）
+	// List of tool names intercepted in DenyTools blacklist mode (comma-separatored, supports * wildcards)
 	DenyTools string `ini:"deny_tools"`
-	// AllowTools 白名单模式下允许的工具名称列表（逗号分隔，支持 * 通配符）
+	// List of tool names allowed in AllowTools whitelist mode (comma-separatored, supports * wildcards)
 	AllowTools string `ini:"allow_tools"`
-	// DeniedTypes 拦截的工具类型（逗号分隔）：builtin, mcp, rulechain, subagent
+	// DeniedTypes tool types for interception (comma separators): builtin, mcp, rulechain, subagent
 	DeniedTypes string `ini:"denied_types"`
-	// CmdDenyExtra bash 工具额外命令黑名单（逗号分隔，在工具自身安全检查之上追加）
+	// CmdDenyExtra bash tool extra command blacklist (comma-separated, added above the tool's own security check)
 	CmdDenyExtra string `ini:"cmd_deny_extra"`
-	// AllowPaths 文件路径白名单（逗号分隔），read/write/edit 工具只能访问这些路径及其子路径
-	// 为空则不限制。优先级低于 DenyPaths
+	// AllowPaths file path whitelist (comma-separatored), the read/write/edit tool can only access these paths and their sub-paths
+	// If it is empty, there are no restrictions. Lower priority than DenyPaths
 	AllowPaths string `ini:"allow_paths"`
-	// DenyPaths 文件路径黑名单（逗号分隔），禁止访问这些路径及其子路径
-	// 优先级高于 AllowPaths。适合保护部署目录等敏感路径
+	// DenyPaths file path blacklist (comma-separatored), prohibiting access to these paths and their sub-paths
+	// Priority is higher than AllowPaths. Suitable for protecting sensitive paths such as deployment directories
 	DenyPaths string `ini:"deny_paths"`
 }
 
-// InitUserMap 根据 Users 配置生成用户名-密码映射和 API Key-用户名映射
+// InitUserMap generates username-password mappings and API Key-username mappings based on the Users configuration
 func (c *Config) InitUserMap() {
 	if c.Users != nil {
 		c.UserNamePasswordMap = types.Properties{}
@@ -168,7 +168,7 @@ func (c *Config) InitUserMap() {
 	}
 }
 
-// CheckPassword 检查密码
+// CheckPassword: Check the password
 func (c *Config) CheckPassword(username, password string) bool {
 	if c.UserNamePasswordMap == nil {
 		return false
@@ -176,7 +176,7 @@ func (c *Config) CheckPassword(username, password string) bool {
 	return c.UserNamePasswordMap[username] == password
 }
 
-// GetUsernameByApiKey 通过ApiKey获取用户名
+// GetUsernameByApiKey Retrieves the username through the ApiKey
 func (c *Config) GetUsernameByApiKey(apikey string) string {
 	if c.ApiKeyUserNameMap == nil {
 		return ""
@@ -184,7 +184,7 @@ func (c *Config) GetUsernameByApiKey(apikey string) string {
 	return c.ApiKeyUserNameMap[apikey]
 }
 
-// GetApiKeyByUsername 通过用户名获取ApiKey
+// GetApiKeyByUsername Retrieves the ApiKey from the username
 func (c *Config) GetApiKeyByUsername(username string) string {
 	if c.UserNamePasswordMap == nil {
 		return ""
@@ -197,7 +197,7 @@ func (c *Config) GetApiKeyByUsername(username string) string {
 	return ""
 }
 
-// DefaultConfig 返回默认配置
+// DefaultConfig returns the default configuration
 func DefaultConfig() Config {
 	cfg := Config{
 		DataDir:           "./data",

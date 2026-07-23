@@ -8,17 +8,17 @@ import (
 	"unsafe"
 )
 
-// 包级变量，在init时决定转换策略
+// Package-level variables, which determine the conversion strategy at init
 var (
-	useUnsafeConversion bool                // 是否使用unsafe转换
-	conversionStrategy  string              // 转换策略描述
-	stringFromBytesFunc func([]byte) string // 字符串转换函数指针
-	bytesFromStringFunc func(string) []byte // 字节转换函数指针
+	useUnsafeConversion bool                // Whether to use unsafe conversions
+	conversionStrategy  string              // Description of the conversion strategy
+	stringFromBytesFunc func([]byte) string // String conversion function pointer
+	bytesFromStringFunc func(string) []byte // Byte conversion function pointer
 )
 
-// init在包初始化时决定最优的转换策略
+// init determines the optimal conversion strategy during packet initialization
 func init() {
-	// 检查平台是否适合使用unsafe转换
+	// Check if the platform is suitable for using Unsafe conversion
 	if isSafePlatform() {
 		useUnsafeConversion = true
 		conversionStrategy = "Classic unsafe (Go 1.18+)"
@@ -32,13 +32,13 @@ func init() {
 	}
 }
 
-// Go 1.18-1.19版本的实现，使用初始化时决定的策略
+// Implemented in Go versions 1.18-1.19, using the strategy determined at initialization
 func unsafeStringFromBytes_impl(b []byte) string {
 	if len(b) == 0 {
 		return ""
 	}
 
-	// 使用初始化时决定的转换函数
+	// Use the transformation function determined at initialization
 	return stringFromBytesFunc(b)
 }
 
@@ -47,19 +47,19 @@ func unsafeBytesFromString_impl(s string) []byte {
 		return nil
 	}
 
-	// 使用初始化时决定的转换函数
+	// Use the transformation function determined at initialization
 	return bytesFromStringFunc(s)
 }
 
-// === 具体的转换实现函数 ===
+// === Specific conversion implementation function ===
 
-// unsafe转换实现
+// Unsafe transformation implementation
 func unsafeStringFromBytesImpl(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
 func unsafeBytesFromStringImpl(s string) []byte {
-	// 使用reflect包安全地构造slice header
+	// Safely construct slice headers using the reflect package
 	sh := (*reflect.StringHeader)(unsafe.Pointer(&s))
 	bh := reflect.SliceHeader{
 		Data: sh.Data,
@@ -69,7 +69,7 @@ func unsafeBytesFromStringImpl(s string) []byte {
 	return *(*[]byte)(unsafe.Pointer(&bh))
 }
 
-// 安全转换实现
+// Secure conversion implementation
 func safeStringFromBytesImpl(b []byte) string {
 	return string(b)
 }
@@ -78,9 +78,9 @@ func safeBytesFromStringImpl(s string) []byte {
 	return []byte(s)
 }
 
-// === 平台检测函数（仅在init时调用一次）===
+// === Platform detection function (called only once when init) ===
 
-// 检查是否为安全的平台（适合使用unsafe转换）
+// Check if the platform is secure (suitable for using Unsafe conversion)
 func isSafePlatform() bool {
 	switch runtime.GOOS {
 	case "linux", "darwin", "windows":
@@ -92,7 +92,7 @@ func isSafePlatform() bool {
 	return false
 }
 
-// 实现信息（动态返回实际使用的策略）
+// Implementation information (dynamically returns the actual policy used)
 func getImplementationInfo() string {
 	return conversionStrategy
 }

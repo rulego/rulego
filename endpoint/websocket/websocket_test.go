@@ -24,7 +24,7 @@ var testdataFolder = "../../testdata/rule"
 var testServer = ":9090"
 var testConfigServer = ":9091"
 
-// 测试请求/响应消息
+// Test request/response messages
 func TestWebSocketMessage(t *testing.T) {
 	t.Run("Request", func(t *testing.T) {
 		var request = &RequestMessage{}
@@ -62,7 +62,7 @@ func TestRouterId(t *testing.T) {
 
 func TestWsEndpointConfig(t *testing.T) {
 	config := engine.NewConfig(types.WithDefaultPool())
-	//创建endpoint服务
+	//Create an endpoint service
 	var nodeConfig = make(types.Configuration)
 	_ = maps.Map2Struct(&Config{Config: rest.Config{Server: testConfigServer}}, &nodeConfig)
 	var wsStarted = &Endpoint{}
@@ -97,7 +97,7 @@ func TestWsEndpointConfig(t *testing.T) {
 	_, err = ep.AddRouter(router, "GET")
 	assert.NotNil(t, err)
 
-	//删除路由
+	//Delete the route
 	_ = ep.RemoveRouter(routerId)
 	_ = ep.RemoveRouter(routerId, "GET")
 
@@ -111,13 +111,13 @@ func TestWsEndpoint(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
-	//启动服务
+	//Start the server
 	go startServer(t, stop, &wg, false)
-	//等待服务器启动完毕
+	//Wait for the server to start up
 	time.Sleep(time.Millisecond * 200)
 
 	sendMsg(t, "ws://127.0.0.1"+testServer+"/api/v1/echo/TEST_MSG_TYPE1?aa=xx")
-	//停止服务器
+	//Stop the server
 	stop <- struct{}{}
 	time.Sleep(time.Millisecond * 200)
 	wg.Wait()
@@ -127,23 +127,23 @@ func TestMultiplexRestEndpoint(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	stop := make(chan struct{})
-	//启动服务
+	//Start the server
 	go startServer(t, stop, &wg, true)
-	//等待服务器启动完毕
+	//Wait for the server to start up
 	time.Sleep(time.Millisecond * 200)
 
 	sendMsg(t, "ws://127.0.0.1"+testServer+"/api/v1/echo/TEST_MSG_TYPE1?aa=xx")
 	time.Sleep(time.Millisecond * 200)
-	//停止服务器
+	//Stop the server
 	stop <- struct{}{}
 	time.Sleep(time.Millisecond * 200)
 	wg.Wait()
 }
 
-// 发送消息到rest服务器
+// Send a message to the REST server
 func sendMsg(t *testing.T, url string) {
 
-	// 连接WebSocket服务器
+	// Connect to the WebSocket server
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -153,13 +153,13 @@ func sendMsg(t *testing.T, url string) {
 		conn.Close()
 	}()
 
-	// 发送消息
+	// Send the message
 	err = conn.WriteMessage(websocket.BinaryMessage, []byte("Hello, world!"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// 读取消息
+	// Read the message
 	_, p, err := conn.ReadMessage()
 	if err != nil {
 		t.Fatal(err)
@@ -168,20 +168,20 @@ func sendMsg(t *testing.T, url string) {
 
 }
 
-// 启动服务
+// Start the server
 func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup, isMultiplex bool) {
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	config := engine.NewConfig(types.WithDefaultPool())
-	//注册规则链
+	//Register the rule chain
 	_, _ = engine.New("default", buf, engine.WithConfig(config))
 	var wsEndpoint endpoint.Endpoint
 	restEndpoint := &rest.Endpoint{
 		Config: rest.Config{Server: testServer},
 	}
-	//复用rest endpoint
+	//Resume using REST endpoint
 	if isMultiplex {
 		wsEndpoint = newWebsocketServe(t, restEndpoint)
 		if err := wsEndpoint.Start(); err != nil {
@@ -192,10 +192,10 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup, isMultipl
 	}
 
 	if isMultiplex {
-		//复用rest endpoint
+		//Resume using REST endpoint
 		_ = restEndpoint.Start()
 	} else {
-		//并启动服务
+		//And launch the service
 		_ = wsEndpoint.Start()
 	}
 	<-stop
@@ -224,14 +224,14 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 	if restEndpoint != nil {
 		wsEndpoint = &Websocket{Rest: restEndpoint, Config: Config{Config: rest.Config{AllowCors: true}}}
 	}
-	//添加全局拦截器
+	//Added a global interceptor
 	wsEndpoint.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		//权限校验逻辑
+		//Permission validation logic
 		return true
 	})
-	//路由1
+	//Route 1
 	router1 := impl.NewRouter().From("/api/v1/echo/:msgType").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-		//处理请求
+		//Processing requests
 		requestMessage, ok := exchange.In.(*RequestMessage)
 		if ok {
 			assert.True(t, ok)
@@ -252,17 +252,17 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 			assert.Equal(t, "xx", responseMessage.GetParam("aa"))
 
 			if requestMessage.request.Method != http.MethodGet {
-				//响应错误
+				//Response errors
 				exchange.Out.SetStatusCode(http.StatusMethodNotAllowed)
-				//不执行后续动作
+				//Do not perform subsequent actions
 				return false
 			} else {
-				//响应请求
+				//Responding to requests
 				exchange.Out.Headers().Set("Content-Type", "application/json")
 				exchange.Out.SetBody([]byte("ok"))
 				name := requestMessage.GetMsg().Metadata.GetValue("name")
 				if name == "break" {
-					//不执行后续动作
+					//Do not perform subsequent actions
 					return false
 				} else {
 					return true
@@ -285,7 +285,7 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 		return true
 	}).End()
 
-	//注册路由
+	//Register the route
 	wsEndpoint.AddRouter(router1)
 
 	assert.NotNil(t, wsEndpoint.Router())

@@ -16,7 +16,7 @@
 
 package transform
 
-//规则链节点配置示例：
+//Example of rule chain node configuration:
 //{
 //"id": "s1",
 //"type": "text/template",
@@ -37,34 +37,34 @@ import (
 	"text/template"
 )
 
-// TemplateName 默认模板名称
+// TemplateName The default template name
 const TemplateName = "template"
 
 func init() {
 	Registry.Add(&TemplateNode{})
 }
 
-// TemplateNodeConfiguration 节点配置
+// TemplateNodeConfiguration node configuration
 type TemplateNodeConfiguration struct {
 	// Template is the Go template content or file path (prefix with 'file:' to load from file).
 	Template string `json:"template" label:"Template" desc:"Go text/template content or 'file:/path/to/template'. Variables: .id, .ts, .data, .msg, .metadata, .type, .dataType" required:"true"`
 }
 
-// TemplateNode 使用 text/template 解析模板
-// 通过`.id`变量访问消息id
-// 通过`.ts`变量访问消息时间戳
-// 通过`.data`变量访问消息原始数据
-// 通过`.msg`变量访问转换后消息体，如果消息的dataType是json类型，可以通过 `msg.XX`方式访问msg的字段。例如:`msg.temperature > 50;`
-// 通过`.metadata`变量访问消息元数据。例如 `metadata.customerName`
-// 通过`.type`变量访问消息类型
-// 通过`.dataType`变量访问数据类型
+// TemplateNode parses templates using text/template
+// Access the message ID via the `.id` variable
+// Access message timestamps via the `.ts` variable
+// Access the original message data via the `.data` variable
+// Access the transformed message body via the `.msg` variable. If the message's dataType is of JSON type, you can use `msg.XX` to access the msg field. For example: `msg.temperature > 50;` `
+// Access message metadata through the `.metadata` variable. For example, `metadata.customerName`
+// Access message types via the `.type` variable
+// Access data types via the `.dataType` variable
 type TemplateNode struct {
 	Config         TemplateNodeConfiguration
 	templateEngine *template.Template
 	templateName   string
 }
 
-// Type 组件类型
+// Type returns the component type
 func (x *TemplateNode) Type() string {
 	return "text/template"
 }
@@ -83,25 +83,25 @@ func (x *TemplateNode) New() types.Node {
 	}
 }
 
-// Init 初始化
+// Init initializes the component
 func (x *TemplateNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
 		if strings.HasPrefix(x.Config.Template, "file:") {
-			// 从文件路径加载模板
+			// Load the template from the file path
 			filePath := strings.TrimPrefix(x.Config.Template, "file:")
 			x.templateName = filepath.Base(filePath)
 			x.templateEngine, err = template.New(x.templateName).Funcs(funcs.TemplateFunc.GetAll()).ParseFiles(filePath)
 		} else {
 			x.templateName = TemplateName
-			// 使用模板内容
+			// Use template content
 			x.templateEngine, err = template.New(x.templateName).Funcs(funcs.TemplateFunc.GetAll()).Parse(x.Config.Template)
 		}
 	}
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg processes a message
 func (x *TemplateNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var err error
 	evn := base.NodeUtils.GetEvn(ctx, msg)
@@ -121,6 +121,6 @@ func (x *TemplateNode) Desc() string {
 	return "Transform messages using Go text/template. Variables: .id, .ts, .data, .msg, .metadata, .type, .dataType. Supports 'file:' prefix for external templates. Routes to Success/Failure"
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (x *TemplateNode) Destroy() {
 }

@@ -9,7 +9,7 @@
 [![QQ-720103251](https://img.shields.io/badge/QQ-720103251-orange)](https://qm.qq.com/q/8RDaYcOry8)
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go?tab=readme-ov-file#iot-internet-of-things)
 
-English| [简体中文](README_ZH.md)
+English| [Chinese Simplified](README_ZH.md)
 
 [Official Website](https://rulego.cc) | [Docs](https://rulego.cc/en/pages/introduction/) | [Contribution Guide](CONTRIBUTION.md)
 

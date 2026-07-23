@@ -41,7 +41,7 @@ import (
 
 func main() {
 	// Load rule chain DSL configuration with embedded endpoint
-	// 加载包含嵌入式端点的规则链DSL配置
+	// Load the Rule Chain DSL configuration containing embedded endpoints
 	chainDSL, err := os.ReadFile("examples/mqtt_endpoint_example/server/chain_dsl.json")
 	if err != nil {
 		// Try current directory if server/ doesn't exist
@@ -52,7 +52,7 @@ func main() {
 	}
 
 	// Create rule engine configuration with debug callback
-	// 创建带调试回调的规则引擎配置
+	// Create a rule engine configuration with debugging callbacks
 	config := rulego.NewConfig(
 		types.WithDefaultPool(),
 		types.WithOnDebug(func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
@@ -76,7 +76,7 @@ func main() {
 	)
 
 	// Create rule chain with embedded endpoints from DSL
-	// 从DSL创建包含嵌入式端点的规则链
+	// Create a rule chain containing embedded endpoints from the DSL
 	ruleEngine, err := rulego.New("mqtt_data_processor", chainDSL, engine.WithConfig(config))
 	if err != nil {
 		log.Fatalf("Failed to create rule chain with endpoints: %v", err)
@@ -91,7 +91,7 @@ func main() {
 	fmt.Println("Press Ctrl+C to stop the server")
 
 	// Wait for interrupt signal to gracefully shutdown
-	// 等待中断信号以优雅关闭
+	// Wait for the interruption signal to turn off gracefully
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c

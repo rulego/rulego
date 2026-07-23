@@ -50,16 +50,16 @@ type WhileNodeConfiguration struct {
 // WhileNode provides a while-loop structure.
 // It executes the 'Do' node/chain repeatedly as long as the 'Condition' evaluates to true.
 //
-// WhileNode 提供 while 循环结构。
-// 只要 'Condition' 评估为真，它就会重复执行 'Do' 节点/链。
+// WhileNode provides a while loop structure.
+// As long as the 'Condition' assessment is true, it will repeatedly execute the 'Do' node/chain.
 //
 // Configuration:
-// 配置说明：
+// Configuration:
 //
 //	{
-//		"condition": "${msg.count} < 5", // Expression to check  检查表达式
-//		"do": "s3",                      // Target node ID or sub-chain  目标节点ID或子链
-//		"mode": 1                        // Processing mode: 0=DoNotProcess (default), 1=MergeValues, 2=ReplaceValues  处理模式
+//		"condition": "${msg.count} < 5", // Expression to check
+//		"do": "s3",                      // Target node ID or sub-chain
+//		"mode": 1                        // Processing mode: 0=DoNotProcess (default), 1=MergeValues, 2=ReplaceValues
 //	}
 type WhileNode struct {
 	// Config contains the node configuration.

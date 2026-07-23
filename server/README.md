@@ -1,6 +1,6 @@
 # RuleGo Server
 
-[Docs](https://rulego.cc/en/pages/rulego-server/) | [中文](README_ZH.md)
+[Docs](https://rulego.cc/en/pages/rulego-server/) | [Chinese](README_ZH.md)
 
 An application development scaffold based on RuleGo, for rapidly building AI agent, IoT, workflow and other applications.
 

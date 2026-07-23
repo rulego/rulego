@@ -1,4 +1,4 @@
-// Package mcp MCP 端点分组逻辑
+// Package MCP MCP endpoint packet logic
 package mcp
 
 import (
@@ -11,16 +11,16 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// MCPGroup MCP 工具分组
+// MCPGroup MCP tool grouping
 type MCPGroup struct {
 	Name        string
 	Description string
-	Tools       []string // 包含的工具列表，支持 * 和 -prefix* 语法
+	Tools       []string // Includes a list of tools that supports * and -prefix* syntax
 }
 
-// userMcpState 在 module.go 中定义，group 复用同一类型
+// userMcpState is defined in module.go, and group reuses the same type
 
-// initGroups 初始化分组配置
+// initGroups initializes the group configuration
 func (m *Module) initGroups() {
 	if m.cfg.MCP.Groups == nil {
 		return
@@ -34,7 +34,7 @@ func (m *Module) initGroups() {
 	}
 }
 
-// getOrCreateGroupState 获取或创建用户的分组 MCP 状态
+// getOrCreateGroupState Retrieves or creates the user's grouped MCP status
 func (m *Module) getOrCreateGroupState(username, groupName string) (*userMcpState, error) {
 	key := username + ":" + groupName
 
@@ -65,13 +65,13 @@ func (m *Module) getOrCreateGroupState(username, groupName string) (*userMcpStat
 	}
 	m.groupUsers[key] = state
 
-	// 加载该组的工具
+	// Tools for loading the group
 	m.loadGroupTools(state, username, groupName)
 
 	return state, nil
 }
 
-// HandleGroupMCP 处理分组 MCP StreamableHTTP 请求（GET/POST/DELETE）
+// HandleGroupMCP Handles Packet MCP StreamableHTTP Request (GET/POST/DELETE)
 func (m *Module) HandleGroupMCP(username, groupName string, w http.ResponseWriter, r *http.Request) error {
 	if !m.cfg.MCP.Enable {
 		w.WriteHeader(http.StatusNotImplemented)
@@ -95,7 +95,7 @@ func (m *Module) HandleGroupMCP(username, groupName string, w http.ResponseWrite
 	return nil
 }
 
-// isGroupExists 检查分组是否存在
+// isGroupExists checks whether a group exists
 func (m *Module) isGroupExists(groupName string) bool {
 	if groupName == "default" {
 		return true
@@ -104,33 +104,33 @@ func (m *Module) isGroupExists(groupName string) bool {
 	return ok
 }
 
-// loadGroupTools 加载分组工具
+// loadGroupTools Load grouping tools
 func (m *Module) loadGroupTools(state *userMcpState, username, groupName string) {
 	group, ok := m.groups[groupName]
 	if !ok {
 		return
 	}
 
-	// 解析工具过滤规则
+	// Parsing tool filtering rules
 	allowedTools, excludedPrefixes := parseToolFilter(group.Tools)
 
-	// 加载规则链管理 API
+	// Load the Rule Chain Management API
 	if containsToolType(allowedTools, "rules") || hasRuleApiTools(allowedTools) || len(allowedTools) == 0 {
 		m.addGroupRuleApiTools(state.mcpServer, username, allowedTools, excludedPrefixes)
 	}
 
-	// 加载组件工具
+	// Load component tool
 	if containsToolType(allowedTools, "components") || len(allowedTools) == 0 {
 		m.addGroupComponentTools(state.mcpServer, username, allowedTools, excludedPrefixes)
 	}
 
-	// 加载规则链工具
+	// Load the rule chain tool
 	if containsToolType(allowedTools, "chains") || len(allowedTools) == 0 {
 		m.addGroupChainTools(state.mcpServer, username, allowedTools, excludedPrefixes)
 	}
 }
 
-// addGroupRuleApiTools 添加分组的规则链管理 API 工具
+// addGroupRuleApiTools An API tool for managing the rule chain of groups for adding groups
 func (m *Module) addGroupRuleApiTools(mcpServer *mcpserver.MCPServer, username string, allowedTools map[string]bool, excludedPrefixes []string) {
 	ruleApiTools := []struct {
 		name    string
@@ -154,7 +154,7 @@ func (m *Module) addGroupRuleApiTools(mcpServer *mcpserver.MCPServer, username s
 	}
 }
 
-// addGroupComponentTools 添加分组的组件工具
+// addGroupComponentTools Tool for adding grouped components
 func (m *Module) addGroupComponentTools(mcpServer *mcpserver.MCPServer, username string, allowedTools map[string]bool, excludedPrefixes []string) {
 	ue, err := m.engineMgr.GetOrCreate(username)
 	if err != nil {
@@ -168,7 +168,7 @@ func (m *Module) addGroupComponentTools(mcpServer *mcpserver.MCPServer, username
 	}
 }
 
-// addGroupChainTools 添加分组的规则链工具
+// addGroupChainTools is a tool for adding a rulechain of packets
 func (m *Module) addGroupChainTools(mcpServer *mcpserver.MCPServer, username string, allowedTools map[string]bool, excludedPrefixes []string) {
 	ue, err := m.engineMgr.GetOrCreate(username)
 	if err != nil {
@@ -186,9 +186,9 @@ func (m *Module) addGroupChainTools(mcpServer *mcpserver.MCPServer, username str
 	})
 }
 
-// parseToolFilter 解析工具过滤规则
-// 返回：allowedTools（精确匹配的工具名），excludedPrefixes（排除的前缀）
-// 如果 tools 为空或只包含 "*"，返回 nil, nil 表示全部允许
+// parseToolFilter parsing tool filtering rules
+// Returns: allowedTools (exact matching tool name), excludedPrefixes (excluded prefixes)
+// If tools is empty or only contains "*", return nil, nil means all allowed
 func parseToolFilter(tools []string) (map[string]bool, []string) {
 	if len(tools) == 0 {
 		return nil, nil
@@ -210,27 +210,27 @@ func parseToolFilter(tools []string) (map[string]bool, []string) {
 		}
 
 		if strings.HasPrefix(tool, "-") {
-			// 排除规则
+			// Exclusion rule
 			pattern := tool[1:]
 			if strings.HasSuffix(pattern, "*") {
-				// 排除前缀
+				// Remove prefixes
 				excludedPrefixes = append(excludedPrefixes, pattern[:len(pattern)-1])
 			} else {
-				// 精确排除（转为前缀处理）
+				// Precise Exclusion (Conversion to Prefix Processing)
 				excludedPrefixes = append(excludedPrefixes, pattern)
 			}
 		} else {
-			// 包含规则
+			// Include rules
 			allowedTools[tool] = true
 		}
 	}
 
-	// 如果有通配符且没有指定具体工具，返回 nil 表示全部允许（但保留排除规则）
+	// If wildcards exist and no specific tool is specified, returning nil means all are allowed (but the exclusion rule is retained).
 	if hasWildcard && len(allowedTools) == 0 {
 		return nil, excludedPrefixes
 	}
 
-	// 如果没有指定任何规则，返回 nil 表示全部允许
+	// If no rules are specified, returning nil means all are allowed
 	if len(allowedTools) == 0 && len(excludedPrefixes) == 0 {
 		return nil, nil
 	}
@@ -238,25 +238,25 @@ func parseToolFilter(tools []string) (map[string]bool, []string) {
 	return allowedTools, excludedPrefixes
 }
 
-// isToolAllowed 检查工具是否允许
+// isToolAllowed checks whether the tool is allowed
 func isToolAllowed(toolName string, allowedTools map[string]bool, excludedPrefixes []string) bool {
-	// 检查是否被排除
+	// Check if it has been excluded
 	for _, prefix := range excludedPrefixes {
 		if strings.HasPrefix(toolName, prefix) {
 			return false
 		}
 	}
 
-	// 如果没有指定允许的工具，则全部允许
+	// If no tools are specified, all are allowed
 	if len(allowedTools) == 0 {
 		return true
 	}
 
-	// 检查是否在允许列表中
+	// Check if you are on the allowlist
 	return allowedTools[toolName]
 }
 
-// containsToolType 检查工具类型是否在允许列表中
+// containsToolType checks whether the tool type is on the allowlist
 func containsToolType(allowedTools map[string]bool, toolType string) bool {
 	if len(allowedTools) == 0 {
 		return true
@@ -264,7 +264,7 @@ func containsToolType(allowedTools map[string]bool, toolType string) bool {
 	return allowedTools[toolType]
 }
 
-// hasRuleApiTools 检查是否有任何规则链管理 API 工具在允许列表中
+// hasRuleApiTools checks whether any rule chain management API tools are on the allowlist
 func hasRuleApiTools(allowedTools map[string]bool) bool {
 	ruleApiNames := []string{
 		"list_rule_chains", "get_rule_chain", "preview_rule_chain",
@@ -281,7 +281,7 @@ func hasRuleApiTools(allowedTools map[string]bool) bool {
 	return false
 }
 
-// mcpContextWithValues 创建包含 MCP 相关值的 context
+// mcpContextWithValues creates a context containing MCP-related values
 func mcpContextWithValues(ctx context.Context, username, groupName string) context.Context {
 	ctx = context.WithValue(ctx, usernameKey, username)
 	ctx = context.WithValue(ctx, groupKey, groupName)

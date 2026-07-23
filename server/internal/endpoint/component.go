@@ -40,7 +40,7 @@ func (s *Server) registerComponentRoutes(ep endpointApi.HttpEndpoint) {
 			}
 		}
 
-		// 全局变量名（只含 key，不含值），供前端 ${global.xxx} 补全
+		// Global variable names (containing only key, excluding value), for frontend ${global.xxx} to complete
 		if s.config != nil && s.config.Global != nil {
 			globals := make([]string, 0, len(s.config.Global))
 			for k := range s.config.Global {

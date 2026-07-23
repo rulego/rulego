@@ -9,7 +9,7 @@ import (
 	"github.com/rulego/rulego/server/store"
 )
 
-// TestEvent 创建测试用 Event
+// TestEvent creates a test event
 func TestEvent(id, chainId string, t time.Time) model.Event {
 	return model.Event{
 		Id:        id,
@@ -21,7 +21,7 @@ func TestEvent(id, chainId string, t time.Time) model.Event {
 	}
 }
 
-// RunStoreTests 对 store.RunLogStore 实现运行通用测试
+// RunStoreTests for store.RunLogStore implements general testing
 func RunStoreTests(t *testing.T, s store.RunLogStore) {
 	t.Run("SaveAndGet", func(t *testing.T) { testSaveAndGet(t, s) })
 	t.Run("SaveAndList", func(t *testing.T) { testSaveAndList(t, s) })
@@ -207,7 +207,7 @@ func testConcurrentReadWrite(t *testing.T, s store.RunLogStore) {
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 
-	// 写入 goroutine
+	// Write to goroutine
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -218,7 +218,7 @@ func testConcurrentReadWrite(t *testing.T, s store.RunLogStore) {
 		stop <- struct{}{}
 	}()
 
-	// 读取 goroutine
+	// Read goroutine
 	wg.Add(1)
 	go func() {
 		defer wg.Done()

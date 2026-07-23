@@ -7,8 +7,8 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
-	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/model"
+	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
 	"github.com/rulego/rulego/utils/json"
 )
@@ -18,7 +18,7 @@ const (
 	Priority   = 45
 )
 
-// Module runlog 业务模块，负责运行日志的收集和查询。
+// Module runlog business module, responsible for collecting and querying runtime logs.
 type Module struct {
 	cfg    *config.Config
 	logger types.Logger
@@ -35,7 +35,7 @@ func (m *Module) Init(ctx *app.ModuleContext) error {
 	m.cfg = ctx.Config
 	m.logger = ctx.Logger
 
-	// 使用配置的 max_node_log_size 初始化调试数据存储
+	// Initialize the debug data store using the configured max_node_log_size
 	maxSize := m.cfg.MaxNodeLogSize
 	if maxSize <= 0 {
 		maxSize = 60
@@ -74,7 +74,7 @@ func (m *Module) initDefaultService(storeProvider store.StoreProvider) {
 
 var defaultRunLogService services.RunLogService
 
-// DefaultDebugDataStore 全局调试数据内存存储
+// DefaultDebugDataStore Global debugging of data memory storage
 var DefaultDebugDataStore = NewDebugDataStore(0)
 
 type runLogServiceImpl struct {

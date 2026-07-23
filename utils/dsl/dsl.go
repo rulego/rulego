@@ -26,7 +26,7 @@ import (
 
 const FieldNameScript = "script"
 
-// ParseCrossNodeDependencies 解析规则链中的跨节点依赖关系，返回每个节点依赖的节点ID列表（仅包含在规则链中定义的节点）
+// ParseCrossNodeDependencies parses cross-node dependencies in the rule chain and returns a list of node IDs for each node dependencies (only nodes defined in the rule chain)
 // ParseCrossNodeDependencies parses cross-node dependencies in the rule chain and returns dependent node IDs for each node (only includes nodes defined in the rule chain)
 func ParseCrossNodeDependencies(def types.RuleChain) map[string][]string {
 	dependencies := make(map[string][]string)
@@ -38,7 +38,7 @@ func ParseCrossNodeDependencies(def types.RuleChain) map[string][]string {
 			uniqueNodes := make([]string, 0, len(referencedNodes))
 			seen := make(map[string]bool)
 			for _, nodeId := range referencedNodes {
-				// 只添加在规则链中实际定义的节点ID
+				// Only add the node IDs actually defined in the rule chain
 				// Only add node IDs that are actually defined in the rule chain
 				if !seen[nodeId] && IsNodeIdDefined(def, nodeId) {
 					seen[nodeId] = true
@@ -54,7 +54,7 @@ func ParseCrossNodeDependencies(def types.RuleChain) map[string][]string {
 	return dependencies
 }
 
-// GetReferencedNodeIds 获取规则链中所有被引用且在规则链中定义的节点ID列表（去重）
+// GetReferencedNodeIds Retrieves a list of all node IDs referenced and defined in the rule chain (deduplication)
 // GetReferencedNodeIds gets all referenced node IDs that are defined in the rule chain (deduplicated)
 func GetReferencedNodeIds(def types.RuleChain) []string {
 	referencedNodeSet := make(map[string]bool)
@@ -62,7 +62,7 @@ func GetReferencedNodeIds(def types.RuleChain) []string {
 	for _, node := range def.Metadata.Nodes {
 		referencedNodes := ExtractReferencedNodeIds(node.Configuration)
 		for _, nodeId := range referencedNodes {
-			// 只添加在规则链中实际定义的节点ID
+			// Only add the node IDs actually defined in the rule chain
 			// Only add node IDs that are actually defined in the rule chain
 			if IsNodeIdDefined(def, nodeId) {
 				referencedNodeSet[nodeId] = true
@@ -79,7 +79,7 @@ func GetReferencedNodeIds(def types.RuleChain) []string {
 	return referencedNodeIds
 }
 
-// IsNodeIdDefined 检查给定的nodeId是否在规则链的节点定义中
+// IsNodeIdDefined checks whether a given nodeId is included in the node definition of the rule chain
 // IsNodeIdDefined checks if the given nodeId is defined in the rule chain nodes
 func IsNodeIdDefined(def types.RuleChain, nodeId string) bool {
 	for _, node := range def.Metadata.Nodes {
@@ -90,7 +90,7 @@ func IsNodeIdDefined(def types.RuleChain, nodeId string) bool {
 	return false
 }
 
-// ExtractReferencedNodeIds 从节点配置中提取被引用的节点ID列表（支持嵌套字段）
+// ExtractReferencedNodeIds Extract a list of referenced node IDs from the node configuration (supports nested fields)
 // ExtractReferencedNodeIds extracts referenced node IDs from node configuration (supports nested fields)
 func ExtractReferencedNodeIds(configuration types.Configuration) []string {
 	var nodeIds []string
@@ -103,12 +103,12 @@ func ExtractReferencedNodeIds(configuration types.Configuration) []string {
 	return nodeIds
 }
 
-// extractNodeIdsFromValue 递归提取任意类型值中的节点引用
+// extractNodeIdsFromValue Recursively extracts node references from any type of value
 // extractNodeIdsFromValue recursively extracts node references from values of any type
 func extractNodeIdsFromValue(value interface{}, uniqueNodeIds map[string]bool, nodeIds *[]string) {
 	switch v := value.(type) {
 	case string:
-		// 提取字符串中的节点引用，支持 ${nodeId.msg.xx} 和 nodeId.msg.xx 格式
+		// Extracts node references from strings, supporting ${nodeId.msg.xx} and nodeId.msg.xx formats
 		// Extract node references from string, supports ${nodeId.msg.xx} and nodeId.msg.xx formats
 		extractedNodes := ExtractNodeReferencesFromExpression(v)
 		for _, nodeId := range extractedNodes {
@@ -118,32 +118,32 @@ func extractNodeIdsFromValue(value interface{}, uniqueNodeIds map[string]bool, n
 			}
 		}
 	case map[string]interface{}:
-		// 递归处理map类型
+		// Recurrent processing of map types
 		// Recursively process map type
 		for _, mapValue := range v {
 			extractNodeIdsFromValue(mapValue, uniqueNodeIds, nodeIds)
 		}
 	case []interface{}:
-		// 递归处理slice类型
+		// Recursively handles slice types
 		// Recursively process slice type
 		for _, sliceValue := range v {
 			extractNodeIdsFromValue(sliceValue, uniqueNodeIds, nodeIds)
 		}
 	case types.Configuration:
-		// 递归处理Configuration类型
+		// Recursively handles the Configuration type
 		// Recursively process Configuration type
 		for _, configValue := range v {
 			extractNodeIdsFromValue(configValue, uniqueNodeIds, nodeIds)
 		}
-	// 对于其他类型（int, bool, float等），不包含节点引用，直接忽略
+	// For other types (int, bool, float, etc.), node references are not included and are directly ignored
 	// For other types (int, bool, float, etc.), no node references, ignore
 	default:
-		// 不处理其他类型
+		// No other types are dealt with
 		// Do not process other types
 	}
 }
 
-// BuiltinVars 内置变量列表，这些不应该被识别为节点ID
+// BuiltinVars lists built-in variables that should not be identified as node IDs
 // Built-in variables list, these should not be recognized as node IDs
 var BuiltinVars = map[string]bool{
 	"msg":      true,
@@ -160,16 +160,16 @@ var BuiltinVars = map[string]bool{
 	"false":    true,
 }
 
-// ExtractNodeReferencesFromExpression 从表达式内容中提取节点引用
+// ExtractNodeReferencesFromExpression extracts node references from the expression content
 // ExtractNodeReferencesFromExpression extracts node references from expression content
 func ExtractNodeReferencesFromExpression(expression string) []string {
 	var nodeIds []string
 	uniqueNodeIds := make(map[string]bool)
 
-	// 使用正则表达式来匹配节点引用
+	// Use regular expressions to match node references
 	// Use regex to match node references
-	// 匹配 nodeId.data, nodeId.msg, nodeId.metadata, nodeId.id, nodeId.ts, nodeId.dataType, nodeId.global, nodeId.vars 的模式，确保前面不是点号
-	// nodeId 支持字母、数字、下划线、中划线和斜杠
+	// Match the patterns nodeId.data, nodeId.msg, nodeId.metadata, nodeId.id, nodeId.ts, nodeId.dataType, nodeId.global, nodeId.vars, and make sure the preceding is not a dot number
+	// nodeId supports letters, numbers, underscores, centerlines, and slashes
 	// Match nodeId.data, nodeId.msg, nodeId.metadata, etc. patterns, ensuring not preceded by a dot
 	// nodeId supports letters, numbers, underscores, hyphens and slashes
 	nodeRefRegex := regexp.MustCompile(`(?:^|[^a-zA-Z0-9_./-])([a-zA-Z0-9_\-/]+)\.(data|msg|metadata|id|ts|dataType|global|vars)(?:[^a-zA-Z0-9_]|$)`)
@@ -178,7 +178,7 @@ func ExtractNodeReferencesFromExpression(expression string) []string {
 	for _, match := range matches {
 		if len(match) > 1 {
 			nodeId := match[1]
-			// 排除内置变量，只处理真正的跨节点引用
+			// Excluding built-in variables, only handling genuine cross-node references
 			// Exclude built-in variables, only process real cross-node references
 			if !BuiltinVars[nodeId] {
 				if !uniqueNodeIds[nodeId] {
@@ -192,7 +192,7 @@ func ExtractNodeReferencesFromExpression(expression string) []string {
 	return nodeIds
 }
 
-// ParseVars 解析规则链中的变量
+// ParseVars parses variables in the rule chain
 func ParseVars(varPrefix string, def types.RuleChain, includeNodeId ...string) []string {
 	var mergeVars = make(map[string]struct{})
 	includeNodeIdLen := len(includeNodeId)
@@ -204,10 +204,10 @@ func ParseVars(varPrefix string, def types.RuleChain, includeNodeId ...string) [
 			if strV, ok := fieldValue.(string); ok {
 				var vars []string
 				if strings.Contains(strings.ToLower(fieldName), FieldNameScript) {
-					//脚本通过 {varPrefix}.xx 方式解析
+					//The script is parsed using {varPrefix}.xx
 					vars = str.ParseVars(varPrefix, strV)
 				} else {
-					//通过 ${{varPrefix}.xx} 方式解析
+					//Parsing via ${{varPrefix}.xx}
 					vars = str.ParseVarsWithBraces(varPrefix, strV)
 				}
 				for _, v := range vars {
@@ -223,7 +223,7 @@ func ParseVars(varPrefix string, def types.RuleChain, includeNodeId ...string) [
 	return result
 }
 
-// IsFlowNode 判断是否是子规则链
+// IsFlowNode determines whether it is a sub-rule chain
 func IsFlowNode(def types.RuleChain, nodeId string) bool {
 	for _, node := range def.Metadata.Nodes {
 		if node.Id == nodeId && node.Type == "flow" {

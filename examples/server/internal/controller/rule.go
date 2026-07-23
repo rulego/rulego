@@ -20,7 +20,7 @@ var Rule = &rule{}
 type rule struct {
 }
 
-// Get 创建获取指定规则链路由
+// Get creates a route to obtain the specified rule chain
 func (c *rule) Get(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -40,7 +40,7 @@ func (c *rule) Get(url string) endpointApi.Router {
 	}).End()
 }
 
-// GetLatest 获取最近修改的规则链
+// GetLatest retrieves the most recently modified rule chain
 func (c *rule) GetLatest(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -59,7 +59,7 @@ func (c *rule) GetLatest(url string) endpointApi.Router {
 	}).End()
 }
 
-// Save 创建保存/更新指定规则链路由
+// Save creates a save/update specified rule for the link route
 func (c *rule) Save(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -80,7 +80,7 @@ func (c *rule) Save(url string) endpointApi.Router {
 	}).End()
 }
 
-// List 创建获取所有规则链路由
+// List creates to retrieve all rule chain routes
 func (c *rule) List(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		return c.list(false, exchange)
@@ -116,7 +116,7 @@ func (c *rule) list(getFromMarketplace bool, exchange *endpointApi.Exchange) boo
 	var hasGetFromMarket = false
 	var err error
 	if getFromMarketplace {
-		//从组件市场获取规则链
+		//Obtain the rule chain from the module market
 		if config.C.MarketplaceBaseUrl != "" {
 			componentList, err := GetComponentsFromMarketplace(config.C.MarketplaceBaseUrl+"/marketplace/chains", keywords, root, page, size)
 			if err != nil {
@@ -160,7 +160,7 @@ func (c *rule) list(getFromMarketplace bool, exchange *endpointApi.Exchange) boo
 	return true
 }
 
-// Delete 创建删除指定规则链路由
+// Delete creates and deletes the specified rule chain route
 func (c *rule) Delete(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -181,7 +181,7 @@ func (c *rule) Delete(url string) endpointApi.Router {
 	}).End()
 }
 
-// SaveBaseInfo 保存规则链扩展信息
+// SaveBaseInfo stores rule chain extension information
 func (c *rule) SaveBaseInfo(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -206,7 +206,7 @@ func (c *rule) SaveBaseInfo(url string) endpointApi.Router {
 	}).End()
 }
 
-// SaveConfiguration 保存规则链配置
+// SaveConfiguration Saves the rule chain configuration
 func (c *rule) SaveConfiguration(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -236,9 +236,9 @@ func (c *rule) transformMsg(router endpointApi.Router, exchange *endpointApi.Exc
 	if msgId != "" {
 		msg.Id = msgId
 	}
-	//获取消息类型
+	//Get message types
 	msg.Type = msg.Metadata.GetValue(constants.KeyMsgType)
-	//把http header放入消息元数据
+	//Put the HTTP header into the message metadata
 	if msg.Metadata.GetValue(constants.KeyHeadersToMetadata) == "true" {
 		headers := exchange.In.Headers()
 		for k := range headers {
@@ -247,15 +247,15 @@ func (c *rule) transformMsg(router endpointApi.Router, exchange *endpointApi.Exc
 	}
 	//if msg.Metadata.GetValue(constants.KeySetWorkDir)=="true"{
 	//	username := msg.Metadata.GetValue(constants.KeyUsername)
-	//	//设置工作目录
+	//	Set the work directory
 	//	var paths = []string{config.C.DataDir, constants.DirWorkflows, username, constants.DirWorkflowsRule}
 	//	msg.Metadata.PutValue(constants.KeyWorkDir, path.Join(paths...)
 	//}
 	return true
 }
 
-// Execute 处理请求，并转发到规则引擎，同步等待规则链执行结果返回给调用方
-// .To("chain:${id}") 这段逻辑相当于：
+// Execute processes the request and forwards it to the rule engine, synchronously waiting for the execution results of the rule chain to be returned to the caller
+// . The logic of To("chain:${id}") is equivalent to:
 //
 //	engine,err:=pool.Get(chainId)
 //	engine.OnMsgAndWait(msg)
@@ -274,11 +274,11 @@ func (c *rule) Execute(url string) endpointApi.Router {
 		}).To("chain:${id}").SetOpts(opts...).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		err := exchange.Out.GetError()
 		if err != nil {
-			//错误
+			//Wrong
 			exchange.Out.SetStatusCode(http.StatusBadRequest)
 			exchange.Out.SetBody([]byte(exchange.Out.GetError().Error()))
 		} else {
-			//把处理结果响应给客户端，http endpoint 必须增加 Wait()，否则无法正常响应
+			//Deliver the processing result to the client; the HTTP endpoint must add Wait(), otherwise it cannot respond properly
 			outMsg := exchange.Out.GetMsg()
 			exchange.Out.SetBody([]byte(outMsg.GetData()))
 		}
@@ -286,8 +286,8 @@ func (c *rule) Execute(url string) endpointApi.Router {
 	}).Wait().End()
 }
 
-// PostMsg 处理请求，并转发到规则引擎
-// .To("chain:${id}") 这段逻辑相当于：
+// PostMsg processes the request and forwards it to the rules engine
+// . The logic of To("chain:${id}") is equivalent to:
 //
 //	engine,err:=pool.Get(chainId)
 //	engine.OnMsg(msg)
@@ -314,7 +314,7 @@ func (c *rule) addWithOnRuleChainCompleted() types.RuleContextOption {
 	})
 }
 
-// Operate 部署/下架规则链
+// Operate: deploy/delist the rule chain
 func (c *rule) Operate(url string) endpointApi.Router {
 	return endpoint.NewRouter().From(url).Process(AuthProcess).Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()

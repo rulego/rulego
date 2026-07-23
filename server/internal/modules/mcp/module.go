@@ -1,42 +1,42 @@
-// Package mcp 实现 MCP（Model Context Protocol）端点和工具管理。
+// Package MCP implements MCP (Model Context Protocol) endpoint and tool management.
 //
-// # 概述
+// # Overview
 //
-// 本模块为 RuleGo 提供 MCP Server 能力，允许 AI 智能体通过标准化协议操控规则引擎。
-// 支持两种接入方式：
-//   - Streamable HTTP 远程接入：外部 AI 客户端（Claude Desktop、Cursor 等）通过 HTTP 连接
-//   - 进程内接入：RuleGo 内部 agent 节点通过 MCPToolProvider 接口直接调用
+// This module provides MCP Server capabilities for RuleGo, allowing AI agents to control the rule engine through standardized protocols.
+// Supports two access methods:
+//   - Streamable HTTP Remote Access: External AI clients (such as Claude Desktop, Cursor, etc.) connect via HTTP
+//   - In-process access: RuleGo's internal agent nodes are directly called through the MCPToolProvider interface
 //
-// # 配置
+// # Configuration
 //
-// MCP 功能通过 MCPConfig 配置（config.ini 或 JSON 配置）：
+// MCP functionality is configured via MCPConfig (config.ini or JSON configuration):
 //
 //	[mcp]
 //	enable = true
-//	默认端点固定加载管理 API 工具，组件和规则链工具通过分组配置加载。
+//	By default, endpoints are fixed to load management API tools, while component and rule chain tools load through grouped configurations.
 //
-// # HTTP 端点
+// # HTTP endpoint
 //
-// 默认组（包含该用户的全部工具）：
+// Default group (includes all tools for the user):
 //
-//	GET/POST/DELETE /api/v1/mcp/{apiKey}           # MCP StreamableHTTP 端点
+//	GET/POST/DELETE /api/v1/mcp/{apiKey} # MCP StreamableHTTP endpoint
 //
-// 分组（通过 MCPConfig.Groups 配置，控制工具子集）：
+// Grouping (configured via MCPConfig.Groups, controlling subset of tools):
 //
 //	GET/POST/DELETE /api/v1/mcp/{apiKey}/group/{groupName}
 //
-// # 分组配置
+// # Group configuration
 //
-// Groups 通过程序化配置（map[string]string），key 为组名，value 为工具列表。
-// 分组内没有内置默认分组，需要自行配置。
+// Groups are procedurally configured (map[string]string), with the key being the group name and the value being the tool list.
+// There are no built-in default groups within the group, so you need to configure them yourself.
 //
-// 语法：
-//   - 逗号分隔工具名
-//   - * 表示全部工具
-//   - -prefix* 表示排除前缀匹配的工具
-//   - rules = 管理 API 工具，components = 组件工具，chains = 规则链工具
+// Syntax:
+//   - Name of a comma separator
+//   - * indicates all tools
+//   - -prefix* indicates a tool to exclude prefix matches
+//   - rules = management API tool, components = component tool, chains = rule chain tool
 //
-// 示例：
+// Example:
 //
 //	Groups: map[string]string{
 //	  "readonly":  "rules,list_components,get_component_doc",
@@ -44,33 +44,33 @@
 //	  "no-delete": "*,-delete_rule_chain",
 //	}
 //
-// # MCP 工具清单
+// # MCP tool list
 //
-// 管理 API 工具（默认端点固定加载）：
+// Management API tools (default endpoint fixed loading):
 //
-//	工具名              | 作用
-//	list_rule_chains    | 列出/搜索规则链（支持分页、关键词过滤）
-//	get_rule_chain      | 获取规则链定义 JSON（供查看或修改）
-//	preview_rule_chain  | 预览规则链（校验+返回JSON，不保存）
-//	save_rule_chain     | 创建或更新规则链（含节点字段校验）
-//	delete_rule_chain   | 删除规则链
-//	operate_rule_chain  | 操作规则链（deploy/undeploy）
-//	execute_rule_chain  | 执行规则链并返回结果
-//	list_components     | 列出组件（含分类、字段、连接类型）
-//	get_component_doc   | 获取组件完整文档（支持批量查询）
+//	Tool name | Function
+//	list_rule_chains | List/search rule chain (supports pagination and keyword filtering)
+//	get_rule_chain | Obtain the rule chain definition JSON (for viewing or modification)
+//	preview_rule_chain | Preview the rule chain (check + return JSON, do not save)
+//	save_rule_chain | Create or update a rule chain (including node field validation)
+//	delete_rule_chain | Delete the rule chain
+//	operate_rule_chain | Operation Rule Chain (deploy/undeploy)
+//	execute_rule_chain | Execute the rule chain and return the result
+//	list_components | List components (including categories, fields, and join types)
+//	get_component_doc | Obtain complete component documentation (supports batch queries)
 //
-// 组件工具（通过分组配置加载）：
+// Component Tool (loaded via group configuration):
 //
-//	每个注册组件自动成为独立工具，工具名为组件类型名（如 jsFilter、restApiCall）。
-//	参数从组件的 ComponentForm.Fields 自动生成，包含字段名、类型、描述、默认值、必填标记。
+//	Each registered component automatically becomes a standalone tool, named after the component type (e.g., jsFilter, restApiCall).
+//	Parameters are automatically generated from the component's ComponentForm.Fields, including field name, type, description, default value, and required tags.
 //
-// 规则链工具（通过分组配置加载）：
+// Rule chain tool (loaded via group configuration):
 //
-//	每个已部署规则链自动成为独立工具，工具名为规则链 ID。
-//	参数来自规则链的 inputSchema 或 DSL 模板变量解析。
-//	规则链变更时通过 Callbacks 动态同步（OnNew/OnUpdated/OnDeleted）。
+//	Each deployed rule chain automatically becomes an independent tool, named Rule Chain ID.
+//	Parameters come from the inputSchema or DSL template variable parsing of the rule chain.
+//	When the rule chain changes, it is dynamically synchronized via callbacks (OnNew/OnUpdated/OnDeleted).
 //
-// # 外部客户端配置
+// # External client configuration
 //
 // Claude Desktop（claude_desktop_config.json）：
 //
@@ -82,7 +82,7 @@
 //	  }
 //	}
 //
-// 进程内 agent（规则链 JSON 配置）：
+// In-process agent (rule chain JSON configuration):
 //
 //	{
 //	  "type": "mcp",
@@ -92,14 +92,14 @@
 //	  }
 //	}
 //
-// tools 数组为过滤器：只列出的工具才会加载到大模型上下文。使用 "*" 加载全部。
+// Tools array as filter: Only the tools listed will be loaded into the large model context. Use "*" to load all.
 //
-// # MCPToolProvider 接口
+// # MCPToolProvider interface
 //
-// Module 实现了 types.MCPToolProvider 接口，供内部 agent 节点使用：
-//   - ListToolDefinitions() — 返回所有已注册工具的定义
-//   - CallTool(ctx, toolName, args) — 按名称调用工具
-//   - RegisterTool(username, name, desc, schema, handler) — 注册自定义工具
+// Module implements types.MCPToolProvider interface, for use by internal agent nodes:
+//   - ListToolDefinitions() — Returns definitions for all registered tools
+//   - CallTool(ctx, toolName, args) — Calls tools by name
+//   - RegisterTool(username, name, desc, schema, handler) — Register custom tools
 package mcp
 
 import (
@@ -135,13 +135,13 @@ const (
 	Priority   = 25
 )
 
-// userMcpState 每个用户的 MCP 状态
+// userMcpState The MCP status of each user
 type userMcpState struct {
 	mcpServer  *mcpserver.MCPServer
 	httpServer *mcpserver.StreamableHTTPServer
 }
 
-// Module mcp 业务模块，负责 MCP SSE/HTTP 端点和工具管理
+// Module mcp business module, responsible for managing MCP SSE/HTTP endpoints and tools
 type Module struct {
 	cfg       *config.Config
 	logger    types.Logger
@@ -154,13 +154,13 @@ type Module struct {
 
 	mu           sync.RWMutex
 	users        map[string]*userMcpState
-	groupUsers   map[string]*userMcpState              // 分组用户的 MCP 状态
-	groups       map[string]*MCPGroup                  // 分组定义
-	toolDefs     map[string]toolDefEntry               // 工具定义缓存（名称+schema，所有用户相同）
-	userToolDefs map[string]map[string]toolDefEntry    // 每个用户的工具 handler（username -> toolName -> entry）
+	groupUsers   map[string]*userMcpState           // MCP status of group users
+	groups       map[string]*MCPGroup               // Group definition
+	toolDefs     map[string]toolDefEntry            // Tool-defined cache (name + schema, same for all users)
+	userToolDefs map[string]map[string]toolDefEntry // Tool handler for each user(username -> toolName -> entry)
 }
 
-// New 创建 mcp 模块
+// New to create the MCP module
 func New() *Module {
 	return &Module{
 		users:        make(map[string]*userMcpState),
@@ -178,8 +178,8 @@ func (m *Module) Init(ctx *app.ModuleContext) error {
 	m.cfg = ctx.Config
 	m.logger = ctx.Logger
 	m.container = ctx.Container
-	// 服务解析延迟到 Start 阶段，因为 rule 模块的服务在 rule.Init() 中注册。
-	// 设置优先级 25 < rule(30)，保证 mcp.Start() 在 rule.Start() 之前执行。
+	// Service resolution is delayed until the Start phase, because the service in the rule module is in the rule.Init().
+	// Set priority 25< rule(30) to ensure mcp.Start() executes before rule.Start().
 	return ctx.Container.Register(services.KeyMcpService, services.McpService(m))
 }
 
@@ -187,7 +187,7 @@ func (m *Module) Start(ctx context.Context) error {
 	if m.cfg == nil || !m.cfg.MCP.Enable {
 		return nil
 	}
-	// 解析服务（rule.Init() 已注册）
+	// Parsing Service (rule.Init() registered)
 	engineMgr, err := app.GetAs[services.EngineManager](m.container, constants.SvcRuleEngineManager)
 	if err != nil {
 		return err
@@ -218,10 +218,10 @@ func (m *Module) Start(ctx context.Context) error {
 	}
 	m.nodeSvc = nodeSvc
 
-	// 初始化分组
+	// Initialize grouping
 	m.initGroups()
 
-	// 注册 MCPToolProvider 并加载工具
+	// Register MCPToolProvider and load the tool
 	for username := range m.cfg.Users {
 		m.loadUserTools(username)
 	}
@@ -235,8 +235,8 @@ func (m *Module) Start(ctx context.Context) error {
 	return nil
 }
 
-// generateGlobalVarsFile 生成全局变量名列表文件，供智能体提示词 include 引用。
-// 只包含变量名，不包含值，防止敏感信息泄露。
+// generateGlobalVarsFile generates a global variable name list file for the agent prompt to reference.
+// Only variable names are included, not values, preventing sensitive information leaks.
 func (m *Module) generateGlobalVarsFile() {
 	if m.cfg.Global == nil || len(m.cfg.Global) == 0 {
 		return
@@ -257,15 +257,15 @@ func (m *Module) generateGlobalVarsFile() {
 	_ = os.WriteFile(filepath.Join(dir, "global_vars.md"), []byte(sb.String()), 0644)
 }
 
-// loadUserTools 为指定用户加载工具并设置回调
+// loadUserTools loads tools for the specified user and sets callbacks
 func (m *Module) loadUserTools(username string) {
 	ue, err := m.engineMgr.GetOrCreate(username)
 	if err != nil {
 		return
 	}
-	// 注册 MCP ToolProvider 到 RuleConfig UDF，供内部 agent 使用。
-	// 使用 userMCPProvider 包装，确保 "self" 模式下 CallTool 注入正确的 username。
-	// Udf 是 map 类型（引用类型），直接写入对原始 Config 生效。
+	// Register MCP ToolProvider to RuleConfig UDF for internal agent use.
+	// Use userMCPProvider wrappers to ensure that CallTool in "self" mode injects the correct username.
+	// Udf is a map type (reference type) that is written directly to the original Config.
 	if m.cfg.MCP.Enable {
 		cfg := ue.RuleConfig()
 		if cfg.Udf == nil {
@@ -273,14 +273,14 @@ func (m *Module) loadUserTools(username string) {
 		}
 		cfg.Udf[types.MCPToolProviderKey] = &userMCPProvider{module: m, username: username}
 	}
-	// 设置规则链变更回调（始终设置，确保分组端点能动态同步）
+	// Set rule chain change callback (always set to ensure packet endpoints can synchronize dynamically)
 	ue.Pool().SetCallbacks(m.Callbacks(username))
-	// 加载工具
+	// Loading tools
 	m.LoadTools(username)
 }
 func (m *Module) Stop(_ context.Context) error { return nil }
 
-// getOrCreateState 获取或创建用户的 MCP 状态
+// getOrCreateState to obtain or create the user's MCP status
 func (m *Module) getOrCreateState(username string) (*userMcpState, error) {
 	m.mu.RLock()
 	state, ok := m.users[username]
@@ -309,7 +309,7 @@ func (m *Module) getOrCreateState(username string) (*userMcpState, error) {
 	return state, nil
 }
 
-// HandleMCP 处理 MCP StreamableHTTP 请求（GET/POST/DELETE）
+// HandleMCP Handles MCP StreamableHTTP Requests (GET/POST/DELETE)
 func (m *Module) HandleMCP(username string, w http.ResponseWriter, r *http.Request) error {
 	if !m.cfg.MCP.Enable {
 		w.WriteHeader(http.StatusNotImplemented)
@@ -325,7 +325,7 @@ func (m *Module) HandleMCP(username string, w http.ResponseWriter, r *http.Reque
 	return nil
 }
 
-// AddToolsFromComponent 从组件添加工具
+// AddToolsFromComponent: Adds tools from a component
 func (m *Module) AddToolsFromComponent(username, componentType string, def types.ComponentForm) {
 	if !m.cfg.MCP.Enable {
 		return
@@ -337,7 +337,7 @@ func (m *Module) AddToolsFromComponent(username, componentType string, def types
 	m.addToolsFromComponent(state.mcpServer, componentType, def)
 }
 
-// DeleteTools 删除工具
+// DeleteTools Removal tool
 func (m *Module) DeleteTools(username string, names ...string) {
 	if !m.cfg.MCP.Enable {
 		return
@@ -356,11 +356,11 @@ func (m *Module) DeleteTools(username string, names ...string) {
 		}
 		m.mu.Unlock()
 	}
-	// 同步删除分组 MCP Server 中的工具
+	// Synchronize the deletion of tools in the grouped MCP Server
 	m.syncDeleteToGroups(username, names...)
 }
 
-// LoadTools 加载用户的工具
+// LoadTools to load users' tools
 func (m *Module) LoadTools(username string) {
 	if !m.cfg.MCP.Enable {
 		return
@@ -370,11 +370,11 @@ func (m *Module) LoadTools(username string) {
 		return
 	}
 
-	// 默认端点固定加载管理 API 工具
+	// By default, endpoints are fixed to load management API tools
 	m.addRuleApiTools(state, username)
 }
 
-// AddToolsFromChain 从规则链定义添加工具
+// AddToolsFromChain Adds tools from the rule chain definition
 func (m *Module) AddToolsFromChain(username, chainId string, def types.RuleChain) {
 	if !m.cfg.MCP.Enable {
 		return
@@ -384,11 +384,11 @@ func (m *Module) AddToolsFromChain(username, chainId string, def types.RuleChain
 		return
 	}
 	m.addToolsFromChain(state.mcpServer, chainId, def)
-	// 同步添加到分组 MCP Server
+	// Synchronously add to the packet MCP Server
 	m.syncChainToGroups(username, chainId, def)
 }
 
-// Callbacks 返回规则链变更回调
+// Callbacks return a rule chain change callback
 func (m *Module) Callbacks(username string) types.Callbacks {
 	return types.Callbacks{
 		OnUpdated: func(chainId, nodeId string, dslData []byte) {
@@ -409,7 +409,7 @@ func (m *Module) Callbacks(username string) types.Callbacks {
 	}
 }
 
-// syncChainToGroups 将规则链工具变更同步到该用户的所有分组 MCP Server
+// syncChainToGroups synchronizes the rule chain tool changes to all packet MCP Server for that user
 func (m *Module) syncChainToGroups(username, chainId string, def types.RuleChain) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -430,7 +430,7 @@ func (m *Module) syncChainToGroups(username, chainId string, def types.RuleChain
 	}
 }
 
-// syncDeleteToGroups 将工具删除同步到该用户的所有分组 MCP Server
+// syncDeleteToGroups synchronizes the tool to delete all groups on the MCP Server for that user
 func (m *Module) syncDeleteToGroups(username string, names ...string) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -443,7 +443,7 @@ func (m *Module) syncDeleteToGroups(username string, names ...string) {
 	}
 }
 
-// addToolsFromComponent 从组件定义添加 MCP 工具
+// addToolsFromComponent: Adds MCP tools from component definitions
 func (m *Module) addToolsFromComponent(mcpServer *mcpserver.MCPServer, name string, component types.ComponentForm) {
 	var toolOptions []mcp.ToolOption
 	for _, item := range component.Fields {
@@ -485,10 +485,10 @@ func (m *Module) addToolsFromComponent(mcpServer *mcpserver.MCPServer, name stri
 	mcpServer.AddTool(tool, m.componentToolHandler(name))
 }
 
-// componentToolHandler 创建组件工具的处理函数
+// componentToolHandler creates the handler function for component tools
 func (m *Module) componentToolHandler(componentType string) func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// 从 context 获取 username（由 SSE handler 注入）
+		// Getting username from context (injected by SSE handler)
 		username := getUsernameFromCtx(ctx)
 		if username == "" {
 			return nil, errors.New("username not found in context")
@@ -499,7 +499,7 @@ func (m *Module) componentToolHandler(componentType string) func(ctx context.Con
 		}
 		ruleConfig := ue.RuleConfig()
 
-		// 校验智能体传入的参数是否都是组件定义中存在的字段
+		// Verify whether all parameters passed by the agent are fields present in the component definition
 		if warnMsg := m.validateComponentArgs(ruleConfig, componentType, request.GetArguments()); warnMsg != "" {
 			return mcp.NewToolResultText(warnMsg), nil
 		}
@@ -537,22 +537,22 @@ func (m *Module) componentToolHandler(componentType string) func(ctx context.Con
 	}
 }
 
-// validateComponentArgs 校验智能体传入的参数是否都是组件定义中存在的字段
-// 同时校验必填字段是否缺失
-// 如果存在不存在的字段或缺少必填字段，返回提示信息；否则返回空字符串
+// validateComponentArgs verifies whether all parameters passed in by the agent are fields present in the component definition
+// At the same time, check whether required fields are missing
+// If there are fields that do not exist or required fields are missing, a prompt message is returned; Otherwise, it returns an empty string
 func (m *Module) validateComponentArgs(ruleConfig types.Config, componentType string, args map[string]interface{}) string {
 	components := ruleConfig.ComponentsRegistry.GetComponentForms()
 	componentForm, ok := components[componentType]
 	if !ok {
 		return ""
 	}
-	// 收集组件定义中的所有字段
+	// Collect all fields in the component definition
 	validFields := make(map[string]bool)
 	for _, field := range componentForm.Fields {
 		validFields[field.Name] = true
 	}
 	var warnings []string
-	// 检查多余字段
+	// Check for redundant fields
 	var unknownFields []string
 	for key := range args {
 		if !validFields[key] {
@@ -562,7 +562,7 @@ func (m *Module) validateComponentArgs(ruleConfig types.Config, componentType st
 	if len(unknownFields) > 0 {
 		warnings = append(warnings, fmt.Sprintf("unknown fields: %v", unknownFields))
 	}
-	// 检查缺少的必填字段
+	// Check for missing required fields
 	var missingFields []string
 	for _, field := range componentForm.Fields {
 		if field.Required {
@@ -575,7 +575,7 @@ func (m *Module) validateComponentArgs(ruleConfig types.Config, componentType st
 		warnings = append(warnings, fmt.Sprintf("missing required fields: %v", missingFields))
 	}
 	if len(warnings) > 0 {
-		// 构建可用字段列表
+		// Build a list of available fields
 		var fieldDocs []string
 		for _, field := range componentForm.Fields {
 			suffix := ""
@@ -590,9 +590,9 @@ func (m *Module) validateComponentArgs(ruleConfig types.Config, componentType st
 	return ""
 }
 
-// validateRuleChainNodes 校验规则链中所有节点的配置字段
-// 同时校验必填字段是否缺失
-// 如果存在不存在的字段或缺少必填字段，返回提示信息；否则返回空字符串
+// validateRuleChainNodes validates the configuration fields of all nodes in the rule chain
+// At the same time, check whether required fields are missing
+// If there are fields that do not exist or required fields are missing, a prompt message is returned; Otherwise, it returns an empty string
 func (m *Module) validateRuleChainNodes(username string, chainData []byte) string {
 	ue, err := m.engineMgr.GetOrCreate(username)
 	if err != nil {
@@ -614,7 +614,7 @@ func (m *Module) validateRuleChainNodes(username string, chainData []byte) strin
 			validFields[field.Name] = true
 		}
 		var issues []string
-		// 检查多余字段
+		// Check for redundant fields
 		var unknownFields []string
 		for key := range node.Configuration {
 			if !validFields[key] {
@@ -624,7 +624,7 @@ func (m *Module) validateRuleChainNodes(username string, chainData []byte) strin
 		if len(unknownFields) > 0 {
 			issues = append(issues, fmt.Sprintf("unknown fields: %v", unknownFields))
 		}
-		// 检查缺少的必填字段
+		// Check for missing required fields
 		var missingFields []string
 		for _, field := range componentForm.Fields {
 			if field.Required {
@@ -637,7 +637,7 @@ func (m *Module) validateRuleChainNodes(username string, chainData []byte) strin
 			issues = append(issues, fmt.Sprintf("missing required fields: %v", missingFields))
 		}
 		if len(issues) > 0 {
-			// 构建可用字段列表
+			// Build a list of available fields
 			var fieldDocs []string
 			for _, field := range componentForm.Fields {
 				suffix := ""
@@ -656,7 +656,7 @@ func (m *Module) validateRuleChainNodes(username string, chainData []byte) strin
 	return ""
 }
 
-// loadToolsFromComponents 从组件列表添加工具
+// loadToolsFromComponents adds tools from the component list
 func (m *Module) loadToolsFromComponents(username string, state *userMcpState) {
 	ue, err := m.engineMgr.GetOrCreate(username)
 	if err != nil {
@@ -668,7 +668,7 @@ func (m *Module) loadToolsFromComponents(username string, state *userMcpState) {
 	}
 }
 
-// loadToolsFromChains 从规则链列表添加工具
+// loadToolsFromChains Adds tools from the list of rule chains
 func (m *Module) loadToolsFromChains(username string, state *userMcpState) {
 	ue, err := m.engineMgr.GetOrCreate(username)
 	if err != nil {
@@ -684,7 +684,7 @@ func (m *Module) loadToolsFromChains(username string, state *userMcpState) {
 	})
 }
 
-// addToolsFromChain 从规则链定义添加 MCP 工具
+// addToolsFromChain Adds MCP tools from the rule chain definition
 func (m *Module) addToolsFromChain(mcpServer *mcpserver.MCPServer, chainId string, def types.RuleChain) {
 	desc := def.RuleChain.Name
 	if v := str.ToString(def.RuleChain.AdditionalInfo["description"]); v != "" {
@@ -715,7 +715,7 @@ func (m *Module) addToolsFromChain(mcpServer *mcpserver.MCPServer, chainId strin
 	mcpServer.AddTool(tool, m.ruleChainToolHandler(chainId))
 }
 
-// ruleChainToolHandler 创建规则链工具的处理函数
+// ruleChainToolHandler creates the handler function for the rulechain tool
 func (m *Module) ruleChainToolHandler(chainId string) func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		username := getUsernameFromCtx(ctx)
@@ -754,10 +754,9 @@ func (m *Module) ruleChainToolHandler(chainId string) func(ctx context.Context, 
 	}
 }
 
-
 // --- Management API Tools ---
 
-// addRuleApiTools 添加规则链管理 API 工具
+// addRuleApiTools Adds a rule chain management API tool
 func (m *Module) addRuleApiTools(state *userMcpState, username string) {
 	m.addListRuleChainsTool(state.mcpServer, username)
 	m.addGetRuleChainTool(state.mcpServer, username)
@@ -857,7 +856,7 @@ func (m *Module) addSaveRuleChainTool(mcpServer *mcpserver.MCPServer, username s
 			return nil, err
 		}
 
-		// 校验节点配置中的字段是否都是组件定义中存在的字段
+		// Check whether all fields in the node configuration are those present in the component definition
 		if warnMsg := m.validateRuleChainNodes(username, b); warnMsg != "" {
 			return mcp.NewToolResultText(warnMsg), nil
 		}
@@ -889,12 +888,12 @@ func (m *Module) addPreviewRuleChainTool(mcpServer *mcpserver.MCPServer, usernam
 			return nil, err
 		}
 
-		// 校验节点配置中的字段是否都是组件定义中存在的字段
+		// Check whether all fields in the node configuration are those present in the component definition
 		if warnMsg := m.validateRuleChainNodes(username, b); warnMsg != "" {
 			return mcp.NewToolResultText(warnMsg), nil
 		}
 
-		// 不保存，直接返回校验通过的规则链 JSON
+		// It does not save; it directly returns the JSON rule chain that passed the checksum
 		var result map[string]interface{}
 		if err := json.Unmarshal(b, &result); err != nil {
 			return nil, err
@@ -1240,7 +1239,7 @@ func (m *Module) addListNodePoolTool(mcpServer *mcpserver.MCPServer, username st
 	})
 }
 
-// detectRefField 启发式检测配置中哪个字段是连接地址
+// detectRefField In the heuristic detection configuration, which field is the connection address
 func detectRefField(config map[string]interface{}) string {
 	for key, val := range config {
 		s := fmt.Sprintf("%v", val)
@@ -1257,17 +1256,17 @@ func detectRefField(config map[string]interface{}) string {
 }
 
 // ============================================
-// MCPToolProvider 接口实现
+// MCPToolProvider interface implementation
 // ============================================
 
-// toolDefEntry 本地缓存的工具定义
+// toolDefEntry Definition for local caching
 type toolDefEntry struct {
 	def     types.MCPToolDefinition
 	handler func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error)
 }
 
-// userMCPProvider 为特定用户包装 MCPToolProvider，在 CallTool 时注入 username 到 context。
-// 解决多个用户共享同一个 Module 时 toolDefs 全局覆盖的问题。
+// userMCPProvider wraps MCPToolProvider for specific users and injects username into context when CallTool.
+// Solves the issue of toolDefs global coverage when multiple users share the same module.
 type userMCPProvider struct {
 	module   *Module
 	username string
@@ -1278,7 +1277,7 @@ func (p *userMCPProvider) ListToolDefinitions() ([]types.MCPToolDefinition, erro
 }
 
 func (p *userMCPProvider) CallTool(ctx context.Context, toolName string, args map[string]interface{}) (string, error) {
-	// 优先使用 context 中的请求用户（多用户 chat 场景），否则使用绑定用户
+	// Prioritize using the requested user in context (multi-user chat scenario); otherwise, use bound users
 	username := p.username
 	if requestingUser := services.MCPRequestingUserFromContext(ctx); requestingUser != "" {
 		username = requestingUser
@@ -1287,8 +1286,8 @@ func (p *userMCPProvider) CallTool(ctx context.Context, toolName string, args ma
 	return p.module.CallTool(ctx, toolName, args)
 }
 
-// ListToolDefinitions 实现 types.MCPToolProvider 接口。
-// 从本地缓存收集所有已注册工具的定义。
+// ListToolDefinitions implementation types.MCPToolProvider interface.
+// Collect definitions for all registered tools from the local cache.
 func (m *Module) ListToolDefinitions() ([]types.MCPToolDefinition, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -1300,10 +1299,10 @@ func (m *Module) ListToolDefinitions() ([]types.MCPToolDefinition, error) {
 	return result, nil
 }
 
-// CallTool 实现 types.MCPToolProvider 接口。
-// 优先使用 context 中的 username 查找该用户的 handler，避免多用户闭包覆盖问题。
+// CallTool implements types.MCPToolProvider interface.
+// Prioritize using the username in context to find the user's handler to avoid multi-user closure coverage.
 func (m *Module) CallTool(ctx context.Context, toolName string, args map[string]interface{}) (string, error) {
-	// 优先从 context 获取 username，查找 per-user handler
+	// First, get the username from the context and look for the per-user handler
 	username := getUsernameFromCtx(ctx)
 
 	m.mu.RLock()
@@ -1314,7 +1313,7 @@ func (m *Module) CallTool(ctx context.Context, toolName string, args map[string]
 			entry, ok = userDefs[toolName]
 		}
 	}
-	// 回退到全局 toolDefs（兼容无 username 的调用场景）
+	// Revert to global toolDefs (compatible with usernameless call scenarios)
 	if !ok {
 		entry, ok = m.toolDefs[toolName]
 	}
@@ -1324,7 +1323,7 @@ func (m *Module) CallTool(ctx context.Context, toolName string, args map[string]
 		return "", fmt.Errorf("MCP tool not found: %s", toolName)
 	}
 
-	// 构造 mcp.CallToolRequest
+	// Structure mcp.CallToolRequest
 	request := mcp.CallToolRequest{}
 	request.Params.Name = toolName
 	request.Params.Arguments = args
@@ -1352,8 +1351,8 @@ func (m *Module) CallTool(ctx context.Context, toolName string, args map[string]
 	return strings.Join(contents, "\n"), nil
 }
 
-// RegisterTool 注册自定义 MCP 工具到指定用户的 MCP Server。
-// 工具同时注册到本地 toolDefs 缓存，MCPToolProvider 也能发现该工具。
+// RegisterTool registers a custom MCP tool to the specified user's MCP Server.
+// The tool is also registered in the local toolDefs cache, and MCPToolProvider can also discover the tool.
 func (m *Module) RegisterTool(username, name, description string, inputSchema []byte,
 	handler func(ctx context.Context, args map[string]interface{}) (string, error)) error {
 	if !m.cfg.MCP.Enable {
@@ -1364,7 +1363,7 @@ func (m *Module) RegisterTool(username, name, description string, inputSchema []
 		return err
 	}
 
-	// 构建 mcp.Tool
+	// Build mcp.Tool
 	var tool mcp.Tool
 	if len(inputSchema) > 0 {
 		tool = mcp.NewToolWithRawSchema(name, description, inputSchema)
@@ -1372,7 +1371,7 @@ func (m *Module) RegisterTool(username, name, description string, inputSchema []
 		tool = mcp.NewTool(name, mcp.WithDescription(description))
 	}
 
-	// 包装 handler 以适配 mcp.CallToolRequest 签名
+	// Packaged handler to fit mcp.CallToolRequest signs
 	mcpHandler := func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		result, err := handler(ctx, request.GetArguments())
 		if err != nil {
@@ -1385,8 +1384,8 @@ func (m *Module) RegisterTool(username, name, description string, inputSchema []
 	return nil
 }
 
-// registerMCPTool 注册工具到 MCP Server 和本地缓存。
-// username 用于 per-user handler 存储，防止多用户同名工具互相覆盖。
+// registerMCPTool Register the tool to MCP Server and local cache.
+// username is used for per-user handler storage, preventing multiple users with the same name from overlapping each other.
 func (m *Module) registerMCPTool(username string, mcpServer *mcpserver.MCPServer, tool mcp.Tool,
 	handler func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error)) {
 	mcpServer.AddTool(tool, handler)
@@ -1402,9 +1401,9 @@ func (m *Module) registerMCPTool(username string, mcpServer *mcpserver.MCPServer
 	}
 
 	m.mu.Lock()
-	// 工具定义（名称+schema）全局存储，所有用户相同
+	// Tool definitions (name + schema) are stored globally, with all users having the same data
 	m.toolDefs[tool.Name] = entry
-	// handler 按 username 存储，避免多用户闭包覆盖
+	// Handler is stored by username to avoid multi-user closure overriding
 	if m.userToolDefs[username] == nil {
 		m.userToolDefs[username] = make(map[string]toolDefEntry)
 	}
@@ -1418,7 +1417,7 @@ type contextKey string
 const usernameKey contextKey = "mcp_username"
 const groupKey contextKey = "mcp_group"
 
-// getUsernameFromCtx 从 context 获取 username
+// getUsernameFromCtx retrieves the username from the context
 func getUsernameFromCtx(ctx context.Context) string {
 	if v, ok := ctx.Value(usernameKey).(string); ok {
 		return v
@@ -1426,7 +1425,7 @@ func getUsernameFromCtx(ctx context.Context) string {
 	return ""
 }
 
-// getGroupFromCtx 从 context 获取 group
+// getGroupFromCtx retrieves the group from the context
 func getGroupFromCtx(ctx context.Context) string {
 	if v, ok := ctx.Value(groupKey).(string); ok {
 		return v

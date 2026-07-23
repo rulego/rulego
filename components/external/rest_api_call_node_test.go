@@ -30,9 +30,9 @@ import (
 )
 
 const (
-	// 代理测试开关
+	// Agent test switches
 	ENABLE_PROXY_TEST = false
-	// 代理配置
+	// Proxy configuration
 	PROXY_HOST        = "127.0.0.1"
 	HTTP_PROXY_PORT   = 10809
 	SOCKS5_PROXY_PORT = 10808
@@ -122,7 +122,7 @@ func TestRestApiCallNode(t *testing.T) {
 			},
 		}
 
-		// 使用 channel 收集结果，避免并发访问 t
+		// Use channels to collect results and avoid concurrent access to t
 		type result struct {
 			relationType string
 			statusCode   string
@@ -174,10 +174,10 @@ func TestRestApiCallNode(t *testing.T) {
 			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
 
-		// 等待所有回调完成
+		// Wait for all pullbacks to complete
 		time.Sleep(time.Millisecond * 500)
 
-		// 在主线程中断言
+		// Assert on the main thread
 		mu.Lock()
 		assert.Equal(t, 4, len(results))
 		for _, r := range results {
@@ -192,7 +192,7 @@ func TestRestApiCallNode(t *testing.T) {
 		mu.Unlock()
 	})
 
-	//SSE(Server-Sent Events)流式请求
+	//SSE (Server-Sent Events) streaming request
 	t.Run("SSEOnMsg", func(t *testing.T) {
 		sseServer := os.Getenv("TEST_SSE_SERVER")
 		if sseServer == "" {
@@ -256,22 +256,22 @@ func TestRestApiCallNode(t *testing.T) {
 		assert.True(t, done)
 	})
 
-	// 代理测试
+	// Proxy testing
 	t.Run("ProxyTest", func(t *testing.T) {
-		// 检查是否启用代理测试
+		// Check whether proxy testing is enabled
 		if !ENABLE_PROXY_TEST {
-			t.Skip("跳过代理测试，修改常量 ENABLE_PROXY_TEST 为 true 来启用")
+			t.Skip("Skip proxy testing and change constant ENABLE_PROXY_TEST to true to enable it")
 			return
 		}
 
-		// 创建测试服务器
+		// Create a test server
 		testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"message":"success"}`))
 		}))
 		defer testServer.Close()
 
-		// HTTP代理测试
+		// HTTP proxy testing
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"restEndpointUrlPattern": "https://rulego.cc",
 			"requestMethod":          "GET",
@@ -283,7 +283,7 @@ func TestRestApiCallNode(t *testing.T) {
 		assert.Nil(t, err)
 		defer node1.Destroy()
 
-		// 带认证的HTTP代理测试
+		// HTTP proxy testing with authentication
 		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"restEndpointUrlPattern": "https://rulego.cc",
 			"requestMethod":          "GET",
@@ -297,7 +297,7 @@ func TestRestApiCallNode(t *testing.T) {
 		assert.Nil(t, err)
 		defer node2.Destroy()
 
-		// SOCKS5代理测试
+		// SOCKS5 proxy test
 		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"restEndpointUrlPattern": "https://rulego.cc",
 			"requestMethod":          "GET",
@@ -309,7 +309,7 @@ func TestRestApiCallNode(t *testing.T) {
 		assert.Nil(t, err)
 		defer node3.Destroy()
 
-		// 系统代理测试
+		// System proxy testing
 		node4, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"restEndpointUrlPattern":   "https://rulego.cc",
 			"requestMethod":            "GET",
@@ -329,8 +329,8 @@ func TestRestApiCallNode(t *testing.T) {
 			},
 		}
 
-		// 注意：这些测试可能会失败，因为代理服务器可能不存在
-		// 这里主要测试代理配置是否正确解析和应用
+		// Note: These tests may fail because the proxy server may not exist
+		// Here, the main test is whether the proxy configuration is correctly parsed and applied
 		var nodeList = []test.NodeAndCallback{
 			{
 				Node:    node1,
@@ -368,9 +368,9 @@ func TestRestApiCallNode(t *testing.T) {
 		time.Sleep(time.Second * 3)
 	})
 
-	// 代理配置验证测试
+	// Proxy configuration verification test
 	t.Run("ProxyConfigurationValidation", func(t *testing.T) {
-		// 测试有效的代理配置
+		// Test effective proxy configurations
 		t.Run("ValidProxyConfig", func(t *testing.T) {
 			node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 				"restEndpointUrlPattern": "https://httpbin.org/get",
@@ -384,7 +384,7 @@ func TestRestApiCallNode(t *testing.T) {
 			defer node.Destroy()
 		})
 
-		// 测试有效的SOCKS5代理配置
+		// Test the effective SOCKS5 proxy configuration
 		t.Run("ValidSOCKS5ProxyConfig", func(t *testing.T) {
 			node, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 				"restEndpointUrlPattern": "https://httpbin.org/get",

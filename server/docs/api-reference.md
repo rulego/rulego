@@ -1,112 +1,112 @@
-# RuleGo Server API 文档
+# RuleGo Server API Documentation
 
-## 概述
+## Overview
 
-RuleGo Server 提供基于 REST 的 HTTP API，默认监听地址 `:9090`，API 基础路径为 `/api/v1`。
+RuleGo Server provides REST-based HTTP API, with the default listening address `:9090` and the API base path set to `/api/v1`.
 
-所有响应的 `Content-Type` 为 `application/json`（健康检查和静态资源除外）。
+The `Content-Type` for all responses was `application/json` (excluding health checks and static resources).
 
 ---
 
-## 认证
+## Authentication
 
-大部分 API 需要认证，支持两种方式：
+Most API require authentication and support two methods:
 
-### 方式一：JWT Token
+### Method One: JWT Token
 
-先调用 `POST /api/v1/login` 获取 token，然后在请求头中携带：
+First, call `POST /api/v1/login` to get token, then carry the following in the request header:
 
 ```
 Authorization: Bearer <jwt_token>
 ```
 
-也可通过 query 参数传递：`?token=<jwt_token>`
+It can also be passed via query parameters: `?token=<jwt_token>`
 
-### 方式二：API Key
+### Method Two: API Key
 
-在 `config.conf` 的 `users` 中为用户配置 API Key，然后通过请求头或 query 参数传递：
+Configure API Key for users in the `users` of `config.conf`, then pass it via request headers or query parameters:
 
 ```
 Authorization: Bearer <api_key>
 ```
 
-或：
+Or:
 
 ```
 X-API-Key: <api_key>
 ```
 
-### 免认证模式
+### Authentication-disabled Mode
 
-当 `config.conf` 中 `require_auth=false` 且请求未携带 `Authorization` 头时，系统使用 `default_username`（默认 `admin`）作为当前用户。
+When `require_auth=false` is in the `config.conf` and the request does not include the `Authorization` header, the system uses `default_username` (default `admin`) as the current user.
 
-### 认证失败响应
+### Authentication Failure Response
 
-| 状态码 | 响应体 | 说明 |
+| Status code | Response body | Note |
 |---|---|---|
-| 401 | `{"error":"unauthorized"}` | token 无效或已过期 |
-| 403 | `{"error":"forbidden"}` | 权限不足 |
+| 401 | `{"error":"unauthorized"}` | token Invalid or expired |
+| 403 | `{"error":"forbidden"}` | Insufficient permissions |
 
 ---
 
-## 通用约定
+## General Conventions
 
-### 路径参数 ID 校验
+### Path Parameters ID Validation
 
-所有 `:id` 路径参数均经过校验：不能为空、长度不超过 256 字符、不能包含 `/`、`\`、`.` 字符。校验失败返回 400。
+All `:id` path parameters are verified: must not be empty, must not exceed 256 characters, and cannot contain `/`, `\`, or `.` characters. Verification failed, returned 400.
 
-### 通用错误格式
+### Standard Error Format
 
-所有错误响应均为 JSON 格式：
+All error responses are in JSON format:
 
 ```json
 {"error": "错误描述信息"}
 ```
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 请求参数错误或业务处理失败 |
-| 401 | 未认证或认证失败 |
-| 403 | 权限不足 |
-| 404 | 资源不存在 |
-| 429 | 请求过于频繁 |
-| 500 | 服务器内部错误（不暴露内部细节） |
+| 400 | Incorrect request parameters or business processing failure |
+| 401 | Unauthenticated or authentication failed |
+| 403 | Insufficient permissions |
+| 404 | Resources do not exist |
+| 429 | Requests are too frequent |
+| 500 | Internal server errors (not exposing internal details) |
 
-> 注：500 错误统一返回 `{"error":"internal server error"}`，不泄露具体错误信息。
+> Note: 500 errors return a uniform `{"error":"internal server error"}`, without revealing specific error information.
 
 ---
 
-## 接口列表
+## Interface List
 
-### 1. 健康检查
+### 1. Health checkup
 
 ```
 GET /health
 ```
 
-无需认证。返回纯文本 `OK`，`Content-Type` 非 JSON。
+No authentication required. Returns plain text `OK`, `Content-Type` non-JSON.
 
 ---
 
-### 2. 根路径重定向
+### 2. Root path redirect
 
 ```
 GET /
 ```
 
-无需认证。302 重定向到 `/editor/`。
+No authentication required. 302 redirects to `/editor/`.
 
 ---
 
-### 3. 登录
+### 3. Log in
 
 ```
 POST /api/v1/login
 ```
 
-无需认证。有速率限制：同一 IP 每分钟最多 10 次。
+No authentication required. There is a rate limit: up to 10 times per minute per IP per minute for the same session.
 
-**请求体：**
+**Request body:**
 
 ```json
 {
@@ -115,7 +115,7 @@ POST /api/v1/login
 }
 ```
 
-**成功响应 (200)：**
+**Successful Responses (200):**
 
 ```json
 {
@@ -124,44 +124,44 @@ POST /api/v1/login
 }
 ```
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Note |
 |---|---|---|
 | token | string | JWT token |
-| expiresAt | int64 | 过期时间（Unix 时间戳，秒） |
+| expiresAt | int64 | Expiration time (Unix timestamp, seconds) |
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 响应体 | 说明 |
+| Status code | Response body | Note |
 |---|---|---|
-| 400 | `{"error":"<解析错误信息>"}` | 请求体 JSON 解析失败 |
-| 401 | `{"error":"invalid username or password"}` | 用户名或密码错误 |
-| 429 | `{"error":"too many login attempts, please try again later"}` | 登录尝试次数过多 |
-| 500 | `{"error":"internal server error"}` | Token 生成失败 |
+| 400 | `{"error":"<解析错误信息>"}` | Request body JSON parsing failed |
+| 401 | `{"error":"invalid username or password"}` | Incorrect username or password |
+| 429 | `{"error":"too many login attempts, please try again later"}` | Too many login attempts |
+| 500 | `{"error":"internal server error"}` | Token Generation failed |
 
 ---
 
-### 4. 规则链管理
+### 4. Rule chain management
 
-#### 4.1 获取规则链列表
+#### 4.1 Obtain the list of rule chains
 
 ```
 GET /api/v1/rules
 ```
 
-权限：`rule:read`
+Permission: `rule:read`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| keywords | string | "" | 按关键字筛选 |
-| root | bool | - | 按根链路状态筛选（`true`/`false`） |
-| disabled | bool | - | 按禁用状态筛选（`true`/`false`） |
-| category | string | "" | 按分类筛选 |
-| page | int | 1 | 页码 |
-| size | int | 20 | 每页数量 |
+| keywords | string | "" | Filter by keyword |
+| root | bool | - | Filter by root link state (`true` / `false`) |
+| disabled | bool | - | Filter by disabled status (`true` / `false`) |
+| category | string | "" | Filter by category |
+| page | int | 1 | Page number |
+| size | int | 20 | Number per page |
 
-**成功响应 (200)：**
+**Successful Responses (200):**
 
 ```json
 {
@@ -181,171 +181,171 @@ GET /api/v1/rules
 }
 ```
 
-**items 中对象字段（RuleChainMeta）：**
+**items Object field (RuleChainMeta):**
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Note |
 |---|---|---|
-| id | string | 规则链 ID |
-| name | string | 规则链名称 |
-| rootRuleId | string | 根规则 ID |
-| disabled | bool | 是否禁用 |
-| createTime | int64 | 创建时间（毫秒时间戳） |
-| updateTime | int64 | 更新时间（毫秒时间戳） |
+| id | string | Rule chain ID |
+| name | string | Rule chain name |
+| rootRuleId | string | Root rule ID |
+| disabled | bool | Whether disabled |
+| createTime | int64 | Creation time (millisecond timestamp) |
+| updateTime | int64 | Update time (millisecond timestamp) |
 
-#### 4.2 获取规则链 DSL
+#### 4.2 Obtaining the Rule Chain DSL
 
 ```
 GET /api/v1/rules/:id
 ```
 
-权限：`rule:read`
+Permission: `rule:read`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 规则链 ID |
+| id | string | Rule chain ID |
 
-**成功响应 (200)：** 返回规则链 DSL 的原始 JSON 字节。
+**Successful response (200):** returns the original JSON bytes of the rule chain DSL.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 规则链 ID 无效 |
-| 404 | 规则链不存在 |
+| 400 | Rule chain ID Invalid |
+| 404 | The rule chain does not exist |
 
-#### 4.3 新增/修改规则链
+#### 4.3 Add/Modify Rule Chains
 
 ```
 POST /api/v1/rules/:id
 ```
 
-权限：`rule:write`
+Permission: `rule:write`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 规则链 ID |
+| id | string | Rule chain ID |
 
-**请求体：** 规则链 DSL 的 JSON 定义（`types.RuleChain`）。
+**Request body:** JSON definition of the rule chain DSL (`types. RuleChain`).
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 200 | 保存并部署成功 |
-| 400 | 规则链 ID 无效或 DSL 无效 |
+| 200 | Save and deploy successfully |
+| 400 | Rule chain ID invalid or DSL invalid |
 
-#### 4.4 删除规则链
+#### 4.4 Delete the rule chain
 
 ```
 DELETE /api/v1/rules/:id
 ```
 
-权限：`rule:delete`
+Permission: `rule:delete`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 规则链 ID |
+| id | string | Rule chain ID |
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 204 | 删除成功，无响应体 |
-| 400 | 规则链 ID 无效或删除失败 |
+| 204 | Deleted successfully, no response body |
+| 400 | Rule chain ID Invalid or deletion failed |
 
-#### 4.5 部署/下线/设为主链
+#### 4.5 Deploy/Offline/Set as Main Chain
 
 ```
 POST /api/v1/rules/:id/operate/:type
 ```
 
-权限：`rule:operate`
+Permission: `rule:operate`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 规则链 ID |
-| type | string | 操作类型：`start` 部署，`stop` 下线，`set-to-main` 设为主规则链 |
+| id | string | Rule chain ID |
+| type | string | Operation type: `start` Deploy, `stop` Offline, `set-to-main` Set as the main rule chain |
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 200 | 操作成功 |
-| 400 | 规则链 ID 无效、未知操作类型或操作失败 |
+| 200 | Operation successful |
+| 400 | Rule chain ID Invalid, unknown operation type, or operation failure |
 
-#### 4.6 异步执行规则链
+#### 4.6 Asynchronous Execution of Rule Chains
 
 ```
 POST /api/v1/rules/:id/notify/:msgType
 ```
 
-权限：`rule:execute`
+Permission: `rule:execute`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 规则链 ID |
-| msgType | string | 消息类型（如 `JSON`、`TEXT`） |
+| id | string | Rule chain ID |
+| msgType | string | Message type (such as `JSON`, `TEXT`) |
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| _msgId | string | "" | 自定义消息 ID |
-| _headersToMetadata | bool | false | 设为 `true` 时将 HTTP 请求头注入消息 Metadata |
-| _fromNodeId | string | "" | 从指定节点开始执行（含该节点之后的路径） |
-| _onlyNodeId | string | "" | 仅执行指定节点（执行后停止，不向下游传播） |
+| _msgId | string | "" | Custom message ID |
+| _headersToMetadata | bool | false | When set to `true`, injects the HTTP request header into message Metadata |
+| _fromNodeId | string | "" | Starts executing from the specified node (including the path after that node) |
+| _onlyNodeId | string | "" | Only executes specified nodes (stops after execution, does not propagate downstream) |
 
-**请求体：** 任意字符串（消息数据载荷）。
+**Request body:** Any string (message data payload).
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 200 | 消息已异步发送 |
+| 200 | The message has been sent asynchronously |
 
-#### 4.7 获取最近修改的规则链
+#### 4.7 Get the most recently modified rule chain
 
 ```
 GET /api/v1/rules/:id/latest
 ```
 
-权限：`rule:read`
+Permission: `rule:read`
 
-获取当前用户最近一次保存的规则链 DSL。路径中的 `:id` 参数会被忽略（可使用任意值如 `_`）。
+Retrieves the most recent rule chain DSL saved by the current user. `:id` parameters in the path will be ignored (any value such as `_` can be used).
 
-**成功响应 (200)：** 规则链 DSL 的原始 JSON。
+**Successful Response (200):** Original JSON of the rule chain DSL.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 404 | 最近编辑的规则链不存在 |
+| 404 | The recently edited rule chain does not exist |
 
-#### 4.8 保存规则链基础信息
+#### 4.8 Save basic information of the rule chain
 
 ```
 POST /api/v1/rules/:id/base
 ```
 
-权限：`rule:write`
+Permission: `rule:write`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 规则链 ID |
+| id | string | Rule chain ID |
 
-**请求体（RuleChainBaseInfo）：**
+**Request body (RuleChainBaseInfo):**
 
 ```json
 {
@@ -357,119 +357,119 @@ POST /api/v1/rules/:id/base
 }
 ```
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 200 | 保存成功 |
-| 400 | 请求体格式错误或保存失败 |
+| 200 | Saved successfully |
+| 400 | Request body formatting error or save failure |
 
-#### 4.9 保存规则链配置
+#### 4.9 Save Rule Chain Configuration
 
 ```
 POST /api/v1/rules/:id/config/:varType
 ```
 
-权限：`rule:write`
+Permission: `rule:write`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 规则链 ID |
-| varType | string | 配置键名 |
+| id | string | Rule chain ID |
+| varType | string | Configure the key name |
 
-**请求体：** 配置值的 JSON 数据。
+**Request Body:** JSON data for configuration values.
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 200 | 保存成功 |
-| 400 | 请求体格式错误或保存失败 |
+| 200 | Saved successfully |
+| 400 | Request body formatting error or save failure |
 
-#### 4.10 同步执行规则链
+#### 4.10 Synchronous Execution of Rule Chains
 
 ```
 POST /api/v1/rules/:id/execute/:msgType
 ```
 
-权限：`rule:execute`
+Permission: `rule:execute`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 规则链 ID |
-| msgType | string | 消息类型 |
+| id | string | Rule chain ID |
+| msgType | string | Message type |
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| _msgId | string | "" | 自定义消息 ID |
-| _headersToMetadata | bool | false | 设为 `true` 时将 HTTP 请求头注入消息 Metadata |
-| _fromNodeId | string | "" | 从指定节点开始执行（含该节点之后的路径） |
-| _onlyNodeId | string | "" | 仅执行指定节点（执行后停止，不向下游传播） |
+| _msgId | string | "" | Custom message ID |
+| _headersToMetadata | bool | false | When set to `true`, injects the HTTP request header into message Metadata |
+| _fromNodeId | string | "" | Starts executing from the specified node (including the path after that node) |
+| _onlyNodeId | string | "" | Only executes specified nodes (stops after execution, does not propagate downstream) |
 
-**请求体：** 消息数据载荷。
+**Request body:** message data payload.
 
-**成功响应 (200)：** 规则链执行后的输出消息数据，`Content-Type: application/json`。
+**Successful Response (200):** Output message data after rule chain execution, `Content-Type: application/json`.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 执行失败，响应体为错误信息 |
+| 400 | Execution failed, response body is error message |
 
-#### 4.11 OpenAI 兼容接口
+#### 4.11 OpenAI Compatible interfaces
 
 ```
 POST /api/v1/rules/:id/v1/chat/completions
 ```
 
-权限：`rule:execute`
+Permission: `rule:execute`
 
-兼容 OpenAI Chat Completions API 格式，将请求转发到规则链处理。
+Compatible with OpenAI Chat Completions API format, forwarding requests to the rule chain for processing.
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 规则链 ID |
+| id | string | Rule chain ID |
 
-**请求体：** OpenAI 格式的 Chat Completion 请求。支持 `stream: true` 开启 SSE 流式响应。
+**Request body: Chat Completion request in** OpenAI format. Supports `stream: true` to enable SSE streaming response.
 
-**成功响应 (200)：** OpenAI 格式的响应（流式或非流式）。
+**Successful Response (200): Response in** OpenAI format (streaming or non-streaming).
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 请求体格式错误或执行失败 |
+| 400 | Request body formatting error or execution failure |
 
 ---
 
-### 5. 共享节点管理
+### 5. Shared node management
 
-#### 5.1 获取共享节点列表
+#### 5.1 Obtain the list of shared nodes
 
 ```
 GET /api/v1/shared-nodes
 ```
 
-权限：`component:read`
+Permission: `component:read`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| keywords | string | "" | 按关键字筛选 |
-| type | string | "" | 按类型筛选 |
-| page | int | 1 | 页码 |
-| size | int | 20 | 每页数量 |
+| keywords | string | "" | Filter by keyword |
+| type | string | "" | Filter by type |
+| page | int | 1 | Page number |
+| size | int | 20 | Number per page |
 
-**成功响应 (200)：**
+**Successful Responses (200):**
 
 ```json
 {
@@ -486,98 +486,98 @@ GET /api/v1/shared-nodes
 }
 ```
 
-#### 5.2 添加/更新共享节点
+#### 5.2 Add/Update Shared Nodes
 
 ```
 POST /api/v1/shared-nodes/:id/:type
 ```
 
-权限：`component:write`
+Permission: `component:write`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 节点 ID |
-| type | string | 组件类型 |
+| id | string | Node ID |
+| type | string | Component type |
 
-**请求体：** 节点定义 JSON。行为根据 `type` 参数不同而异：
-- `type=endpoint`：请求体解析为 `types.EndpointDsl`
-- 其他 type：请求体解析为 `types.RuleNode`
+**Request Body:** node defines JSON. Behavior varies depending on `type` parameters:
+- `type=endpoint`: The request body is parsed as `types.EndpointDsl`
+- Other type: The request body is parsed as `types.RuleNode`
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 200 | 保存成功 |
-| 400 | 请求格式错误或保存失败 |
+| 200 | Saved successfully |
+| 400 | Request format error or save failure |
 
-#### 5.3 获取共享节点
+#### 5.3 Obtaining Shared Nodes
 
 ```
 GET /api/v1/shared-nodes/:id/:type
 ```
 
-权限：`component:read`
+Permission: `component:read`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 节点 ID |
-| type | string | 组件类型 |
+| id | string | Node ID |
+| type | string | Component type |
 
-**成功响应 (200)：** 节点定义 JSON。
+**Successful Response (200):** node defined JSON.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 404 | 节点不存在 |
+| 404 | The node does not have |
 
-#### 5.4 删除共享节点
+#### 5.4 Deleting Shared Nodes
 
 ```
 DELETE /api/v1/shared-nodes/:id/:type
 ```
 
-权限：`component:delete`
+Permission: `component:delete`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 节点 ID |
-| type | string | 组件类型 |
+| id | string | Node ID |
+| type | string | Component type |
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 204 | 删除成功，无响应体 |
-| 400 | 删除失败 |
+| 204 | Deleted successfully, no response body |
+| 400 | Delete failed |
 
 ---
 
-### 6. 动态组件管理
+### 6. Dynamic component management
 
-#### 6.1 获取动态组件列表
+#### 6.1 Obtaining a Dynamic Component List
 
 ```
 GET /api/v1/dynamic-components
 ```
 
-权限：`component:read`
+Permission: `component:read`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| keywords | string | "" | 按关键字筛选 |
-| page | int | 1 | 页码 |
-| size | int | 20 | 每页数量 |
+| keywords | string | "" | Filter by keyword |
+| page | int | 1 | Page number |
+| size | int | 20 | Number per page |
 
-**成功响应 (200)：**
+**Successful Responses (200):**
 
 ```json
 {
@@ -595,85 +595,85 @@ GET /api/v1/dynamic-components
 }
 ```
 
-#### 6.2 获取动态组件 DSL
+#### 6.2 Obtaining Dynamic Component DSL
 
 ```
 GET /api/v1/dynamic-components/:id
 ```
 
-权限：`component:read`
+Permission: `component:read`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 组件类型 |
+| id | string | Component type |
 
-**成功响应 (200)：** 组件 DSL 的原始 JSON。
+**Successful Response (200):** original JSON of component DSL.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 404 | 组件不存在 |
+| 404 | The component does not exist |
 
-#### 6.3 安装/升级动态组件
+#### 6.3 Installing/Upgrading Dynamic Components
 
 ```
 POST /api/v1/dynamic-components/:id
 ```
 
-权限：`component:write`
+Permission: `component:write`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 组件类型 |
+| id | string | Component type |
 
-**请求体：** 组件 DSL 的 JSON 定义。
+**Request Body: The JSON definition of** component DSL.
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 200 | 安装/升级成功 |
-| 400 | DSL 无效或安装失败 |
+| 200 | Installation/Upgrade Successful |
+| 400 | DSL Invalid or installation failed |
 
-#### 6.4 卸载动态组件
+#### 6.4 Uninstalling Dynamic Components
 
 ```
 DELETE /api/v1/dynamic-components/:id
 ```
 
-权限：`component:delete`
+Permission: `component:delete`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 组件类型 |
+| id | string | Component type |
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 204 | 卸载成功，无响应体 |
-| 400 | 卸载失败 |
+| 204 | Uninstallation successful, no response body |
+| 400 | Uninstall failed |
 
 ---
 
-### 7. 组件注册表
+### 7. Component registry
 
-#### 7.1 获取已注册组件列表
+#### 7.1 Get the list of registered components
 
 ```
 GET /api/v1/components
 ```
 
-权限：`component:read`
+Permission: `component:read`
 
-**成功响应 (200)：**
+**Successful Responses (200):**
 
 ```json
 {
@@ -700,64 +700,64 @@ GET /api/v1/components
 }
 ```
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Note |
 |---|---|---|
-| endpoints | []ComponentForm | 已注册的 endpoint 组件表单列表 |
-| nodes | []ComponentForm | 已注册的节点组件表单列表（含动态组件） |
-| tools | null | 预留字段 |
-| builtins | object | 内置资源：处理器列表、节点池定义、全局变量名、AI 工具 |
-| skillPath | string | 技能文件存储路径 |
+| endpoints | []ComponentForm | List of registered endpoint component forms |
+| nodes | []ComponentForm | List of registered node component forms (including dynamic components) |
+| tools | null | Reserved field |
+| builtins | object | Built-in resources: processor list, node pool definitions, global variable names, AI tools |
+| skillPath | string | Skill file storage path |
 
 ---
 
-### 8. 系统配置
+### 8. System configuration
 
-#### 8.1 获取全局配置
+#### 8.1 Obtaining Global Configuration
 
 ```
 GET /api/v1/config/global
 ```
 
-权限：`config:read`
+Permission: `config:read`
 
-**成功响应 (200)：** 全局配置 JSON 对象。若未配置则返回 `{}`。
+**Successful Response (200):** Global configuration of JSON objects. If not configured, return `{}`.
 
-#### 8.2 更新全局配置
+#### 8.2 Global configuration update
 
 ```
 POST /api/v1/config/global
 ```
 
-权限：`config:write`
+Permission: `config:write`
 
-**请求体：** 全局配置 JSON 对象（`map[string]interface{}`）。
+**Request Body:** Global configuration of JSON object (`map[string]interface{}`).
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 200 | 更新成功 |
-| 400 | 请求体格式错误或更新失败 |
+| 200 | Update successful |
+| 400 | Request body formatting error or update failure |
 
 ---
 
-### 9. AI 助手管理
+### 9. AI Assistant management
 
-#### 9.1 获取助手系统提示词
+#### 9.1 Obtaining Assistant System Prompts
 
 ```
 GET /api/v1/system/agents/:id/prompt
 ```
 
-权限：`config:read`
+Permission: `config:read`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 助手 ID（如 `chainAssistant`，默认 `_assistant`） |
+| id | string | Assistant ID (e.g., `chainAssistant`, default `_assistant`) |
 
-**成功响应 (200)：**
+**Successful Responses (200):**
 
 ```json
 {
@@ -766,33 +766,33 @@ GET /api/v1/system/agents/:id/prompt
 }
 ```
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Note |
 |---|---|---|
-| agentId | string | 助手 ID |
-| content | string | 系统提示词内容 |
+| agentId | string | Assistant ID |
+| content | string | System prompt content |
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 助手 ID 无效 |
+| 400 | Assistant ID Invalid |
 | 404 | `{"error":"assistant prompt not found"}` |
 
-#### 9.2 更新助手系统提示词
+#### 9.2 Updated Assistant System Prompts
 
 ```
 POST /api/v1/system/agents/:id/prompt
 ```
 
-权限：`config:write`
+Permission: `config:write`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 助手 ID |
+| id | string | Assistant ID |
 
-**请求体（JSON）：**
+**Request body (JSON):**
 
 ```json
 {
@@ -800,7 +800,7 @@ POST /api/v1/system/agents/:id/prompt
 }
 ```
 
-**成功响应 (200)：**
+**Successful Responses (200):**
 
 ```json
 {
@@ -809,28 +809,28 @@ POST /api/v1/system/agents/:id/prompt
 }
 ```
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 助手 ID 无效或请求体格式错误 |
-| 500 | 写入或重载失败 |
+| 400 | Assistant ID Invalid or request body formatting error |
+| 500 | Write or reload failure |
 
-#### 9.3 获取助手模型配置
+#### 9.3 Obtaining Assistant Model Configuration
 
 ```
 GET /api/v1/system/agents/:id/model
 ```
 
-权限：`config:read`
+Permission: `config:read`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 助手 ID |
+| id | string | Assistant ID |
 
-**成功响应 (200)：**
+**Successful Responses (200):**
 
 ```json
 {
@@ -853,75 +853,75 @@ GET /api/v1/system/agents/:id/model
 }
 ```
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Note |
 |---|---|---|
-| agentId | string | 助手 ID |
-| model.provider | string | LLM 提供商 |
-| model.url | string | API 地址 |
-| model.key | string | API 密钥 |
-| model.model | string | 模型名称 |
-| model.maxStep | int | 最大执行步数 |
-| model.maxToolOutputLength | int | 工具输出最大长度（0 表示不限制） |
-| model.params | object | 模型参数 |
-| model.params.temperature | float64 | 温度 |
+| agentId | string | Assistant ID |
+| model.provider | string | LLM Provider |
+| model.url | string | API Address |
+| model.key | string | API Key |
+| model.model | string | Model Name |
+| model.maxStep | int | Maximum number of steps |
+| model.maxToolOutputLength | int | Tool output maximum length (0 means no limit) |
+| model.params | object | Model parameters |
+| model.params.temperature | float64 | Temperature |
 | model.params.topP | float64 | Top-P |
-| model.params.frequencyPenalty | float64 | 频率惩罚 |
-| model.params.presencePenalty | float64 | 存在惩罚 |
-| model.params.maxTokens | int | 最大输出 token 数 |
+| model.params.frequencyPenalty | float64 | Frequency penalty |
+| model.params.presencePenalty | float64 | There is a penalty |
+| model.params.maxTokens | int | Maximum output token number |
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 助手 ID 无效 |
+| 400 | Assistant ID Invalid |
 | 404 | `{"error":"assistant model config not found"}` |
 
-#### 9.4 更新助手模型配置
+#### 9.4 Updated the assistant model configuration
 
 ```
 POST /api/v1/system/agents/:id/model
 ```
 
-权限：`config:write`
+Permission: `config:write`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 助手 ID |
+| id | string | Assistant ID |
 
-**请求体：** 模型配置 JSON（结构与 9.3 中 `model` 字段一致）。
+**Request Body:** Model Configuration JSON (structure consistent with field `model` in 9.3).
 
-**成功响应 (200)：** 与 9.3 成功响应格式一致，返回更新后的完整配置。
+**Successful Response (200):** Consistent format with 9.3 successful response, returning the updated full configuration.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 助手 ID 无效或请求体格式错误 |
-| 500 | 写入或重载失败 |
+| 400 | Assistant ID Invalid or request body formatting error |
+| 500 | Write or reload failure |
 
 ---
 
-### 10. 技能管理
+### 10. Skills management
 
-#### 10.1 获取技能列表
+#### 10.1 Obtain the skill list
 
 ```
 GET /api/v1/skills
 ```
 
-权限：`skill:read`
+Permission: `skill:read`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| scope | string | "" | 作用域过滤（当前仅支持 `global`） |
-| page | int | 1 | 页码 |
-| size | int | 20 | 每页数量 |
+| scope | string | "" | Scope filtering (currently only supports `global`) |
+| page | int | 1 | Page number |
+| size | int | 20 | Number per page |
 
-**成功响应 (200)：**
+**Successful Responses (200):**
 
 ```json
 {
@@ -943,45 +943,45 @@ GET /api/v1/skills
 }
 ```
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Note |
 |---|---|---|
-| path | string | 技能存储根路径 |
-| total | int | 总数 |
-| page | int | 页码 |
-| size | int | 每页数量 |
-| items | []Skill | 技能列表 |
+| path | string | Skill storage root path |
+| total | int | Total |
+| page | int | Page number |
+| size | int | Number per page |
+| items | []Skill | Skill List |
 
-#### 10.2 获取技能详情
+#### 10.2 Obtain skill details
 
 ```
 GET /api/v1/skills/:id
 ```
 
-权限：`skill:read`
+Permission: `skill:read`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 技能名称 |
+| id | string | Skill Name |
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| scope | string | "" | 作用域 |
+| scope | string | "" | Scope |
 
-**成功响应 (200)：** 返回单个 `Skill` 对象（同 10.1 中 items 元素结构）。
+**Successful response (200):** returns a single `Skill` object (same items element structure as in 10.1).
 
-#### 10.3 创建技能
+#### 10.3 Creating Skills
 
 ```
 POST /api/v1/skills
 ```
 
-权限：`skill:write`
+Permission: `skill:write`
 
-**请求体：**
+**Request body:**
 
 ```json
 {
@@ -992,104 +992,104 @@ POST /api/v1/skills
 }
 ```
 
-**成功响应 (201)：** 返回创建的 `Skill` 对象。
+**Successful Response (201):** Returns the created `Skill` object.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 请求体格式错误、scope 无效，或创建失败 |
+| 400 | Request body formatting error, scope invalid, or failed creation |
 
-#### 10.4 更新技能
+#### 10.4 Skill Update
 
 ```
 PUT /api/v1/skills/:id
 ```
 
-权限：`skill:write`
+Permission: `skill:write`
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| id | string | 技能名称 |
+| id | string | Skill Name |
 
-**请求体：** 同创建技能（`name` 字段会被路径参数覆盖）。
+**Request body:** and create skills (`name` fields will be overwritten by path parameters).
 
-**成功响应 (200)：** 返回更新后的 `Skill` 对象。
+**Successful response (200):** Returns the updated `Skill` object.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 请求体格式错误、scope 无效，或更新失败 |
+| 400 | Incorrect request body formatting, invalid scope, or update failure |
 
-#### 10.5 删除技能
+#### 10.5 Removing skills
 
 ```
 DELETE /api/v1/skills/:id
 ```
 
-权限：`skill:delete`：** 无响应体。
+Permission: `skill:delete`: ** No response entity.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 技能 ID 无效、scope 无效，或删除失败 |
+| 400 | Skill ID invalid, scope invalid, or failed to remove |
 
-#### 10.6 上传技能
+#### 10.6 Upload Skills
 
 ```
 POST /api/v1/skills/upload
 ```
 
-权限：`skill:write`
+Permission: `skill:write`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| scope | string | "" | 作用域 |
+| scope | string | "" | Scope |
 
-**请求体：** `multipart/form-data` 格式，字段名为 `file`，包含技能归档文件（ZIP，最大 64MB）。
+**Request body:** `multipart/form-data` format, field name `file`, containing skill archive files (ZIP, maximum 64MB).
 
-**成功响应 (200)：** 返回导入的技能列表 `[]Skill`。
+**Successful Response (200):** Returns the list of imported skills `[]Skill`.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 无上传文件、格式错误，或导入失败 |
+| 400 | No file uploads, formatting errors, or import failures |
 
 ---
 
-### 11. 运行日志
+### 11. Runlog
 
-#### 11.1 获取运行日志
+#### 11.1 Get the Runtime Log
 
 ```
 GET /api/v1/logs/runs
 ```
 
-权限：`log:read`
+Permission: `log:read`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| id | string | "" | 按日志 ID 查询（传入时忽略其他参数，返回单条记录） |
-| chainId | string | "" | 按规则链 ID 筛选 |
-| startTime | int64 | - | 开始时间（毫秒时间戳） |
-| endTime | int64 | - | 结束时间（毫秒时间戳） |
-| page | int | 1 | 页码 |
-| size | int | 20 | 每页数量 |
+| id | string | "" | Query by log ID (ignore other parameters when passing, return a single record) |
+| chainId | string | "" | Filter by rule chain ID |
+| startTime | int64 | - | Start time (millisecond timestamp) |
+| endTime | int64 | - | End time (millisecond timestamp) |
+| page | int | 1 | Page number |
+| size | int | 20 | Number per page |
 
-**行为：**
-- 传入 `id`：返回单条日志 JSON 对象
-- 不传 `id`：返回分页列表
+**Behavior:**
+- Passing `id`: Returns a single log JSON object
+- Do not `id`: Return to paginated list
 
-**成功响应 — 单条 (200)：**
+**Successful responses — Single (200):**
 
 ```json
 {
@@ -1104,7 +1104,7 @@ GET /api/v1/logs/runs
 }
 ```
 
-**成功响应 — 列表 (200)：**
+**Successful responses — List (200):**
 
 ```json
 {
@@ -1126,68 +1126,68 @@ GET /api/v1/logs/runs
 }
 ```
 
-**Event 对象字段：**
+**Event Object field:**
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Note |
 |---|---|---|
-| id | string | 日志 ID |
-| chainId | string | 规则链 ID |
-| chainName | string | 规则链名称 |
-| startTs | int64 | 开始时间（毫秒时间戳） |
-| endTs | int64 | 结束时间（毫秒时间戳） |
-| success | bool | 是否执行成功 |
-| errorMsg | string | 错误信息（失败时有值） |
-| logs | object | 节点执行日志详情（可选） |
+| id | string | Log ID |
+| chainId | string | Rule chain ID |
+| chainName | string | Rule chain name |
+| startTs | int64 | Start time (millisecond timestamp) |
+| endTs | int64 | End time (millisecond timestamp) |
+| success | bool | Whether execution succeeded |
+| errorMsg | string | Error message (value on failure) |
+| logs | object | Node execution log details (optional) |
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 404 | 按ID查询时日志不存在 |
+| 404 | When querying ID, the log does not exist |
 
-#### 11.2 删除运行日志
+#### 11.2 Delete the Runlog
 
 ```
 DELETE /api/v1/logs/runs
 ```
 
-权限：`log:delete`
+Permission: `log:delete`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| id | string | "" | 按日志 ID 删除 |
-| chainId | string | "" | 按规则链 ID 删除（删除该链所有日志） |
+| id | string | "" | Delete |ID by log
+| chainId | string | "" | Delete by rule chain ID (delete all logs on that chain) |
 
-至少传入 `id` 或 `chainId` 之一。
+At least one of the `id` or `chainId` is introduced.
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 204 | 删除成功，无响应体 |
-| 400 | `chainId` 和 `id` 均未传入 |
-| 500 | 删除失败 |
+| 204 | Deleted successfully, no response body |
+| 400 | Neither `chainId` nor `id` is sent in |
+| 500 | Delete failed |
 
-#### 11.3 获取节点调试日志
+#### 11.3 Obtain Node Debug Logs
 
 ```
 GET /api/v1/logs/debug
 ```
 
-权限：`log:read`
+Permission: `log:read`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| chainId | string | "" | 规则链 ID |
-| nodeId | string | "" | 节点 ID |
-| page | int | 1 | 页码 |
-| size | int | 20 | 每页数量 |
+| chainId | string | "" | Rule chain ID |
+| nodeId | string | "" | Node ID |
+| page | int | 1 | Page number |
+| size | int | 20 | Number per page |
 
-**成功响应 (200)：**
+**Successful Responses (200):**
 
 ```json
 {
@@ -1208,22 +1208,22 @@ GET /api/v1/logs/debug
 }
 ```
 
-#### 11.4 WebSocket 实时调试
+#### 11.4 WebSocket Real-time Debugging
 
 ```
 WS /api/v1/logs/ws/:chainId/:clientId?token={jwtToken}
 ```
 
-需要认证（通过 query 参数 `token` 传递 JWT）。
+Authentication is required (passing JWT via query parameters `token`).
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| chainId | string | 规则链 ID |
-| clientId | string | 客户端唯一标识 |
+| chainId | string | Rule chain ID |
+| clientId | string | Client-side unique identifier |
 
-连接后，服务端实时推送节点调试数据，每条消息格式：
+After connection, the server pushes node debug data in real time. Each message format is:
 
 ```json
 {
@@ -1237,197 +1237,197 @@ WS /api/v1/logs/ws/:chainId/:clientId?token={jwtToken}
 }
 ```
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Note |
 |---|---|---|
-| chainId | string | 规则链 ID |
-| flowType | string | 流向：`In` 或 `Out` |
-| nodeId | string | 节点 ID |
-| relationType | string | 关系类型 |
-| err | string | 错误信息 |
-| msg | object | 消息内容 |
-| ts | int64 | 时间戳（毫秒） |
+| chainId | string | Rule chain ID |
+| flowType | string | Flow direction: `In` or `Out` |
+| nodeId | string | Node ID |
+| relationType | string | Relationship Type |
+| err | string | Error message |
+| msg | object | News content |
+| ts | int64 | Timestamp (milliseconds) |
 
 ---
 
-### 12. 国际化
+### 12. Internationalization
 
-#### 12.1 获取语言列表 / 语言包
+#### 12.1 Getting Language Lists / Language Packs
 
 ```
 GET /api/v1/locales
 ```
 
-权限：`locale:read`
+Permission: `locale:read`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| lang | string | "" | 语言代码（如 `en`、`zh_cn`） |
+| lang | string | "" | Language codes (such as `en`, `zh_cn`) |
 
-**行为：**
+**Behavior:**
 
-- 传入 `lang`：返回对应语言包的 JSON 对象。
-- 不传 `lang`：返回可用语言代码列表。
+- Pass in `lang`: Returns the JSON object for the corresponding language pack.
+- No `lang`: Returns a list of available language codes.
 
-**成功响应（不传 lang）：**
+**Successful response (without lang):**
 
 ```json
 ["en", "zh_cn"]
 ```
 
-#### 12.2 保存语言包
+#### 12.2 Saving Language Packs
 
 ```
 POST /api/v1/locales?lang={lang}
 ```
 
-权限：`locale:write`
+Permission: `locale:write`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| lang | string | "en" | 语言代码 |
+| lang | string | "en" | Language code |
 
-**请求体：** 语言包 JSON 对象。
+**Request Body:** language package JSON object.
 
-**响应：**
+**Response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 200 | 保存成功 |
-| 400 | 保存失败 |
+| 200 | Saved successfully |
+| 400 | Save failed |
 
 ---
 
-### 13. 组件市场
+### 13. Module market
 
-#### 13.1 获取市场组件列表
+#### 13.1 Obtaining the Market Component List
 
 ```
 GET /api/v1/marketplace/components
 ```
 
-权限：`marketplace:read`
+Permission: `marketplace:read`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| keywords | string | "" | 按关键字筛选 |
-| checkMy | bool | false | 设为 `true` 时标记已安装和可升级状态 |
-| page | int | 1 | 页码 |
-| size | int | 20 | 每页数量 |
+| keywords | string | "" | Filter by keyword |
+| checkMy | bool | false | When set to `true`, the installed and upgradeable status is marked as |
+| page | int | 1 | Page number |
+| size | int | 20 | Number per page |
 
-**成功响应 (200)：** 标准分页格式（`total`/`page`/`size`/`items`）。当 `checkMy=true` 时，`items` 中每个组件的 `ruleChain.additionalInfo` 会附加 `installed`（bool）和 `upgraded`（bool）字段。
+**Successful Responses (200):** Standard Pagination Format (`total` / `page` / `size` / `items`). When `checkMy=true`, the `ruleChain.additionalInfo` of each component in the `items` appends `installed` (bool) and `upgraded` (bool) fields.
 
-#### 13.2 获取市场规则链列表
+#### 13.2 Obtain the list of market rule chains
 
 ```
 GET /api/v1/marketplace/chains
 ```
 
-权限：`marketplace:read`
+Permission: `marketplace:read`
 
-**查询参数：**
+**Query parameters:**
 
-| 参数 | 类型 | 默认值 | 说明 |
+| Parameter | Type | Default value | Note |
 |---|---|---|---|
-| keywords | string | "" | 按关键字筛选 |
-| root | bool | - | 按根规则链筛选 |
-| page | int | 1 | 页码 |
-| size | int | 20 | 每页数量 |
+| keywords | string | "" | Filter by keyword |
+| root | bool | - | Filter by root rule chain |
+| page | int | 1 | Page number |
+| size | int | 20 | Number per page |
 
-**成功响应 (200)：** 标准分页格式（`total`/`page`/`size`/`items`）。
+**Successful Responses (200):** Standard Pagination Format (`total` / `page` / `size` / `items`).
 
 ---
 
 ### 14. MCP（Model Context Protocol）
 
-MCP 端点使用独立的 API Key 认证（通过路径参数、`Authorization` 头或 `X-API-Key` 头传递），不走标准 auth 中间件。
+MCP endpoints use independent API Key authentication (passed via path parameters, `Authorization` headers, or `X-API-Key` headers), without going through standard auth middleware.
 
-认证优先级：URL 路径参数 → `Authorization: Bearer` 头 → `X-API-Key` 头。
+Authentication priority: URL path parameters → `Authorization: Bearer` heads → `X-API-Key`.
 
-#### 14.1 MCP StreamableHTTP 端点
+#### 14.1 MCP StreamableHTTP endpoint
 
 ```
 GET/POST/DELETE /api/v1/mcp/:apiKey
 ```
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| apiKey | string | 用户的 API Key |
+| apiKey | string | User API Key |
 
-使用 MCP StreamableHTTP 传输协议。`POST` 发送 JSON-RPC 请求，`GET` 建立 SSE 事件流，`DELETE` 关闭会话。
+Use MCP StreamableHTTP transport protocol. `POST` Send JSON-RPC requests, `GET` establish SSE event streams, `DELETE` close sessions.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 401 | API Key 无效 |
-| 500 | MCP 处理失败 |
+| 401 | API Key Invalid |
+| 500 | MCP Failed handling |
 
-#### 14.2 MCP 分组 StreamableHTTP 端点
+#### 14.2 MCP Grouping StreamableHTTP Endpoints
 
 ```
 GET/POST/DELETE /api/v1/mcp/:apiKey/group/:group
 ```
 
-**路径参数：**
+**Path parameters:**
 
-| 参数 | 类型 | 说明 |
+| Parameter | Type | Note |
 |---|---|---|
-| apiKey | string | 用户的 API Key |
-| group | string | 工具分组名称 |
+| apiKey | string | User API Key |
+| group | string | Tool group name |
 
-按分组暴露 MCP 工具子集，传输协议与 14.1 一致。
+Exposing a subset of MCP tools by group, with transport protocols consistent with 14.1.
 
-**错误响应：**
+**Error response:**
 
-| 状态码 | 说明 |
+| Status code | Note |
 |---|---|
-| 400 | 分组名称为空 |
-| 401 | API Key 无效 |
-| 500 | MCP 处理失败 |
+| 400 | The group name is empty |
+| 401 | API Key Invalid |
+| 500 | MCP Failed handling |
 
 ---
 
-### 15. 静态资源
+### 15. Static resources
 
-| 路径 | 说明 |
+| Path | Note |
 |---|---|
-| `/editor/*` | 编辑器前端静态资源 |
-| `/images/*` | 图片资源 |
+| `/editor/*` | Editor front-end static resource |
+| `/images/*` | Image resources |
 
-路径映射通过 `config.conf` 的 `resource_mapping` 配置。
+Path mapping is configured through `config.conf`'s `resource_mapping`.
 
 ---
 
-## 配置参考
+## Configuration reference
 
-影响 API 行为的关键配置项（`config.conf`）：
+Key configuration items affecting API behavior (`config.conf`):
 
-| 配置项 | 默认值 | 说明 |
+| Configuration Item | Default value | Note |
 |---|---|---|
-| server | `:9090` | HTTP 监听地址 |
-| base_path | "" | API 路由前缀（嵌入模式使用） |
-| require_auth | false | 是否强制认证 |
-| default_username | `admin` | 免认证时的默认用户 |
-| jwt_secret_key | (内置) | JWT 签名密钥（建议通过环境变量 `JWT_SECRET_KEY` 设置） |
-| jwt_expire_time | `43200000` | JWT 过期时间（毫秒，默认 12 小时） |
-| jwt_issuer | `rulego.cc` | JWT 签发者 |
-| resource_mapping | (内置) | 静态文件路径映射 |
-| allow_cors | true | 是否允许跨域 |
-| read_timeout | 30 | HTTP 读超时（秒） |
-| write_timeout | 300 | HTTP 写超时（秒，AI 聊天需要较长超时） |
-| max_body_size | 10 | 请求体最大大小（MB） |
-| save_run_log | false | 是否保存运行日志 |
-| run_log_store_type | `bbolt` | 运行日志存储类型：`bbolt` 或 `file`（JSON Lines） |
-| pprof.enable | `false` | 是否启用 pprof |
-| pprof.addr | `0.0.0.0:6060` | pprof 服务地址 |
-| mcp.enable | `true` | 是否启用 MCP 服务 |
-| marketplace_base_url | - | 组件市场远程地址 |
-| skill_path | `./skills` | 技能文件存储路径 |
+| server | `:9090` | HTTP Listening address |
+| base_path | "" | API Route prefix (used in embed mode) |
+| require_auth | false | Whether authentication is required |
+| default_username | `admin` | Default user when authentication is disabled |
+| jwt_secret_key | (Built-in) | JWT Signature key (recommended to set via environment variable `JWT_SECRET_KEY`) |
+| jwt_expire_time | `43200000` | JWT Expiration time (milliseconds, default 12 hours) |
+| jwt_issuer | `rulego.cc` | JWT Issuer |
+| resource_mapping | (Built-in) | Static file path mapping |
+| allow_cors | true | Whether cross-origin |
+| read_timeout | 30 | HTTP Read timeout (seconds) |
+| write_timeout | 300 | HTTP Write timeout (seconds, AI chats require longer timeouts) |
+| max_body_size | 10 | Maximum size of the request body (MB) |
+| save_run_log | false | Do you want to save the runtime log? |
+| run_log_store_type | `bbolt` | Runtime log storage type: `bbolt` or `file` (JSON Lines) |
+| pprof.enable | `false` | Whether to enable pprof |
+| pprof.addr | `0.0.0.0:6060` | pprof Service Address |
+| mcp.enable | `true` | Whether to enable MCP service |
+| marketplace_base_url | - | Component market remote address |
+| skill_path | `./skills` | Skill file storage path |

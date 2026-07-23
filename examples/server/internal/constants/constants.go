@@ -1,13 +1,13 @@
 package constants
 
 const (
-	// DirWorkflows 工作流目录
+	// DirWorkflows workflow directory
 	DirWorkflows          = "workflows"
 	DirLocales            = "locales"
 	DirWorkflowsRun       = "runs"
 	DirWorkflowsRule      = "rules"
 	DirWorkflowsComponent = "components"
-	// FileNameIndex 索引文件名
+	// FileNameIndex indexes the filename
 	FileNameIndex = "index"
 )
 
@@ -29,31 +29,31 @@ const (
 	KeyDisabled        = "disabled"
 	KeyWebhookSecret   = "webhookSecret"
 	KeyIntegrationType = "integrationType"
-	// KeyWorkDir 工作目录
+	// KeyWorkDir work directory
 	KeyWorkDir = "workDir"
-	// KeyDefaultIntegrationChainId 应用集成规则链ID
+	// KeyDefaultIntegrationChainId applies the Integration Rule Chain ID
 	KeyDefaultIntegrationChainId = "$event_bus"
 	KeyUpdateTime                = "updateTime"
 	KeyHeadersToMetadata         = "headersToMetadata"
 	KeyInMessage                 = "inMessage"
 	KeyBody                      = "body"
 
-	// KeyFilePathWhitelist 文件路径白名单的配置键
+	// KeyFilePathWhitelist configuration key for the file path whitelist
 	KeyFilePathWhitelist = "filePathWhitelist"
 )
 
 const (
-	// OperateDeploy 部署
+	// OperateDeploy deploys the rule chain.
 	OperateDeploy = "start"
-	// OperateUndeploy 下架
+	// OperateUndeploy is taken down
 	OperateUndeploy = "stop"
-	// OperateSetToMain 设置成主规则链
+	// OperateSetToMain is set to the main rule chain
 	OperateSetToMain = "set-to-main"
 )
 const (
-	// SettingKeyLatestChainId 最新打开的规则链
+	// SettingKeyLatestChainId The latest opened rule chain
 	SettingKeyLatestChainId = "latestChainId"
-	// SettingKeyMainChainId 主规则链，server所有事件都会发送至此
+	// SettingKeyMainChainId is the main rule chain, and all server events are sent here
 	SettingKeyMainChainId = "mainChainId"
 )
 
@@ -65,7 +65,7 @@ const (
 	RuleChainFileSuffix = ".json"
 )
 const (
-	// AddiKeyMessage 记录规则链加载错误，扩展字段错误信息Key
+	// AddiKeyMessage records error loading of the rule chain, extension field error information Key
 	AddiKeyMessage = "message"
 )
 const (
@@ -73,7 +73,7 @@ const (
 	KeyBearer        = "Bearer "
 )
 
-// LoadLuaLibs 加载lua库key
+// LoadLuaLibs loads the lua library key
 const LoadLuaLibs = "load_lua_libs"
 
 //const (

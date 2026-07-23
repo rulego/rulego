@@ -27,13 +27,13 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// TestInclusiveBranchWithJoin 测试包容分支接不通的分支后增加join能不能顺利join和结束
+// TestInclusiveBranchWithJoin tests whether the inclusion branch can join smoothly and close after adding branches that cannot connect
 func TestInclusiveBranchWithJoin(t *testing.T) {
 	config := rulego.NewConfig()
 
-	// 测试1: 包容分支 - 分支1有1个节点，分支2有1个节点
-	// 场景: temperature=35 时，Case1 (20<=temp<=50) 和 Case2 (temp>50) 中只有 Case1 匹配
-	// Case2 分支不会执行，但join应该能够正常完成
+	// Test 1: Include branches - Branch 1 has 1 node, Branch 2 has 1 node
+	// Scenario: When temperature=35, only Case1 matches in Case1 (20<=temp<=50) and Case2 (temp>50).
+	// Case2: The branch will not execute, but the join should be able to complete normally
 	t.Run("InclusiveBranch_SingleNodePerBranch", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -115,7 +115,7 @@ func TestInclusiveBranchWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度35，只有Case1匹配，Case2不匹配
+		// Temperature 35, only Case1 matches, Case2 does not
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "INCLUSIVE_TEST", types.JSON, originalMetadata, `{"temperature":35}`)
 
@@ -132,7 +132,7 @@ func TestInclusiveBranchWithJoin(t *testing.T) {
 			resultRelationType = relationType
 		}))
 
-		// 等待处理完成
+		// Wait for processing to complete
 		done := make(chan struct{})
 		go func() {
 			wg.Wait()
@@ -141,21 +141,21 @@ func TestInclusiveBranchWithJoin(t *testing.T) {
 
 		select {
 		case <-done:
-			// 处理完成
+			// Processing complete
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时：join节点未能在规定时间内完成")
+			t.Fatal("Test timeout: join node fails to complete within the specified time")
 		}
 
-		// 验证结果
+		// Verify the results
 		assert.Nil(t, resultErr, "不应该有错误")
 		assert.Equal(t, types.Success, resultRelationType, "应该是Success关系")
 
-		// 验证只有分支1被处理
-		t.Logf("结果数据: %s", resultMsg.GetData())
-		t.Logf("结果关系类型: %s", resultRelationType)
+		// Only branch 1 is processed for verification
+		t.Logf("Result data: %s", resultMsg.GetData())
+		t.Logf("Result relationship type: %s", resultRelationType)
 	})
 
-	// 测试2: 包容分支 - 分支1有1个节点，分支2有2个节点
+	// Test 2: Include branches – Branch 1 has 1 node, Branch 2 has 2 nodes
 	t.Run("InclusiveBranch_MultipleNodesInBranch", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -250,7 +250,7 @@ func TestInclusiveBranchWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度35，只有Case1匹配，Case2不匹配
+		// Temperature 35, only Case1 matches, Case2 does not
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "INCLUSIVE_TEST", types.JSON, originalMetadata, `{"temperature":35}`)
 
@@ -267,7 +267,7 @@ func TestInclusiveBranchWithJoin(t *testing.T) {
 			resultRelationType = relationType
 		}))
 
-		// 等待处理完成
+		// Wait for processing to complete
 		done := make(chan struct{})
 		go func() {
 			wg.Wait()
@@ -276,21 +276,21 @@ func TestInclusiveBranchWithJoin(t *testing.T) {
 
 		select {
 		case <-done:
-			// 处理完成
+			// Processing complete
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时：join节点未能在规定时间内完成")
+			t.Fatal("Test timeout: join node fails to complete within the specified time")
 		}
 
-		// 验证结果
+		// Verify the results
 		assert.Nil(t, resultErr, "不应该有错误")
 		assert.Equal(t, types.Success, resultRelationType, "应该是Success关系")
 
-		// 验证只有分支1被处理
-		t.Logf("结果数据: %s", resultMsg.GetData())
-		t.Logf("结果关系类型: %s", resultRelationType)
+		// Only branch 1 is processed for verification
+		t.Logf("Result data: %s", resultMsg.GetData())
+		t.Logf("Result relationship type: %s", resultRelationType)
 	})
 
-	// 测试3: 包容分支 - 两个分支都匹配的情况
+	// Test 3: Inclusion of branches – a case where both branches match
 	t.Run("InclusiveBranch_BothBranchesMatch", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -372,7 +372,7 @@ func TestInclusiveBranchWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度35，Case1 (20<=temp<=50) 和 Case2 (temp>30) 都匹配
+		// Temperature 35, Case1 (20< = temp< = 50) and Case2 (temp> 30) both match
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "INCLUSIVE_TEST", types.JSON, originalMetadata, `{"temperature":35}`)
 
@@ -389,7 +389,7 @@ func TestInclusiveBranchWithJoin(t *testing.T) {
 			resultRelationType = relationType
 		}))
 
-		// 等待处理完成
+		// Wait for processing to complete
 		done := make(chan struct{})
 		go func() {
 			wg.Wait()
@@ -398,27 +398,27 @@ func TestInclusiveBranchWithJoin(t *testing.T) {
 
 		select {
 		case <-done:
-			// 处理完成
+			// Processing complete
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时：join节点未能在规定时间内完成")
+			t.Fatal("Test timeout: join node fails to complete within the specified time")
 		}
 
-		// 验证结果
+		// Verify the results
 		assert.Nil(t, resultErr, "不应该有错误")
 		assert.Equal(t, types.Success, resultRelationType, "应该是Success关系")
 
-		// 验证两个分支都被处理
-		t.Logf("结果数据: %s", resultMsg.GetData())
-		t.Logf("结果关系类型: %s", resultRelationType)
+		// Verify that both branches are processed
+		t.Logf("Result data: %s", resultMsg.GetData())
+		t.Logf("Result relationship type: %s", resultRelationType)
 	})
 }
 
-// TestSwitchBranchWithJoin 测试条件分支接不通的分支后增加join能不能顺利join和结束
+// TestSwitchBranchWithJoin Test Conditions Branch WithJoin Adds joins after branches that fail to connect, whether the join joins smoothly and closes
 func TestSwitchBranchWithJoin(t *testing.T) {
 	config := rulego.NewConfig()
 
-	// 测试1: 条件分支 - 分支1有1个节点，分支2有1个节点
-	// 场景: temperature=35 时，Case1 (20<=temp<=50) 匹配，Case2 (temp>50) 不匹配
+	// Test 1: Conditional branch - Branch 1 has 1 node, branch 2 has 1 node
+	// Scenario: When temperature=35, Case1 (20< = temp < = 50) matches, Case2 (temp > 50) does not match
 	t.Run("SwitchBranch_SingleNodePerBranch", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -500,7 +500,7 @@ func TestSwitchBranchWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度35，只有Case1匹配，Case2不匹配
+		// Temperature 35, only Case1 matches, Case2 does not
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "SWITCH_TEST", types.JSON, originalMetadata, `{"temperature":35}`)
 
@@ -517,7 +517,7 @@ func TestSwitchBranchWithJoin(t *testing.T) {
 			resultRelationType = relationType
 		}))
 
-		// 等待处理完成
+		// Wait for processing to complete
 		done := make(chan struct{})
 		go func() {
 			wg.Wait()
@@ -526,21 +526,21 @@ func TestSwitchBranchWithJoin(t *testing.T) {
 
 		select {
 		case <-done:
-			// 处理完成
+			// Processing complete
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时：join节点未能在规定时间内完成")
+			t.Fatal("Test timeout: join node fails to complete within the specified time")
 		}
 
-		// 验证结果
+		// Verify the results
 		assert.Nil(t, resultErr, "不应该有错误")
 		assert.Equal(t, types.Success, resultRelationType, "应该是Success关系")
 
-		// 验证只有分支1被处理
-		t.Logf("结果数据: %s", resultMsg.GetData())
-		t.Logf("结果关系类型: %s", resultRelationType)
+		// Only branch 1 is processed for verification
+		t.Logf("Result data: %s", resultMsg.GetData())
+		t.Logf("Result relationship type: %s", resultRelationType)
 	})
 
-	// 测试2: 条件分支 - 分支1有1个节点，分支2有2个节点
+	// Test 2: Conditional branch - Branch 1 has 1 node, Branch 2 has 2 nodes
 	t.Run("SwitchBranch_MultipleNodesInBranch", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -635,7 +635,7 @@ func TestSwitchBranchWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度35，只有Case1匹配，Case2不匹配
+		// Temperature 35, only Case1 matches, Case2 does not
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "SWITCH_TEST", types.JSON, originalMetadata, `{"temperature":35}`)
 
@@ -652,7 +652,7 @@ func TestSwitchBranchWithJoin(t *testing.T) {
 			resultRelationType = relationType
 		}))
 
-		// 等待处理完成
+		// Wait for processing to complete
 		done := make(chan struct{})
 		go func() {
 			wg.Wait()
@@ -661,21 +661,21 @@ func TestSwitchBranchWithJoin(t *testing.T) {
 
 		select {
 		case <-done:
-			// 处理完成
+			// Processing complete
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时：join节点未能在规定时间内完成")
+			t.Fatal("Test timeout: join node fails to complete within the specified time")
 		}
 
-		// 验证结果
+		// Verify the results
 		assert.Nil(t, resultErr, "不应该有错误")
 		assert.Equal(t, types.Success, resultRelationType, "应该是Success关系")
 
-		// 验证只有分支1被处理
-		t.Logf("结果数据: %s", resultMsg.GetData())
-		t.Logf("结果关系类型: %s", resultRelationType)
+		// Only branch 1 is processed for verification
+		t.Logf("Result data: %s", resultMsg.GetData())
+		t.Logf("Result relationship type: %s", resultRelationType)
 	})
 
-	// 测试3: 条件分支 - 温度60，Case2匹配
+	// Test 3: Conditional branch - temperature 60, Case2 matches
 	t.Run("SwitchBranch_Case2Match", func(t *testing.T) {
 		ruleChainDSL := `{
 			"ruleChain": {
@@ -770,7 +770,7 @@ func TestSwitchBranchWithJoin(t *testing.T) {
 		assert.Nil(t, err)
 		defer ruleEngine.Stop(context.Background())
 
-		// 温度60，只有Case2匹配，Case1不匹配
+		// Temperature 60°C, only Case2 matches, Case1 does not match
 		originalMetadata := types.BuildMetadata(make(map[string]string))
 		testMsg := types.NewMsg(0, "SWITCH_TEST", types.JSON, originalMetadata, `{"temperature":60}`)
 
@@ -787,7 +787,7 @@ func TestSwitchBranchWithJoin(t *testing.T) {
 			resultRelationType = relationType
 		}))
 
-		// 等待处理完成
+		// Wait for processing to complete
 		done := make(chan struct{})
 		go func() {
 			wg.Wait()
@@ -796,17 +796,17 @@ func TestSwitchBranchWithJoin(t *testing.T) {
 
 		select {
 		case <-done:
-			// 处理完成
+			// Processing complete
 		case <-time.After(10 * time.Second):
-			t.Fatal("测试超时：join节点未能在规定时间内完成")
+			t.Fatal("Test timeout: join node fails to complete within the specified time")
 		}
 
-		// 验证结果
+		// Verify the results
 		assert.Nil(t, resultErr, "不应该有错误")
 		assert.Equal(t, types.Success, resultRelationType, "应该是Success关系")
 
-		// 验证只有分支2被处理
-		t.Logf("结果数据: %s", resultMsg.GetData())
-		t.Logf("结果关系类型: %s", resultRelationType)
+		// Only branch 2 is processed for verification
+		t.Logf("Result data: %s", resultMsg.GetData())
+		t.Logf("Result relationship type: %s", resultRelationType)
 	})
 }

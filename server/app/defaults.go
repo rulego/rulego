@@ -15,8 +15,8 @@ import (
 	"github.com/rulego/rulego/server/store"
 )
 
-// RegisterDefaultStoresHook 注册 BeforeInit 钩子，在模块初始化前将默认的文件存储服务注入容器。
-// 如果用户已通过 WithStoreProvider 注入自定义 Provider，则跳过自动注册。
+// RegisterDefaultStoresHook registers the BeforeInit hook and injects the default file storage service into the container before module initialization.
+// If a user has already injected a custom Provider via WithStoreProvider, automatic registration is skipped.
 func RegisterDefaultStoresHook(application *App) {
 	application.AddHook(NewFuncHook("register-stores", BeforeInit, 0,
 		func(_ context.Context, appCtx *ModuleContext) error {
@@ -27,7 +27,7 @@ func RegisterDefaultStoresHook(application *App) {
 			}
 			logger := appCtx.Logger
 
-			// 如果用户通过 WithStoreProvider 注入了自定义 Provider，直接使用
+			// If users inject a custom Provider via WithStoreProvider, use it directly
 			if _, ok := appCtx.Container.Get("store.provider"); !ok {
 				provider := filestore.NewFileStoreProvider(*cfg, logger)
 				if err := appCtx.Container.Register("store.provider", store.StoreProvider(provider)); err != nil {
@@ -35,7 +35,7 @@ func RegisterDefaultStoresHook(application *App) {
 				}
 			}
 
-			// 注入 RunLogStore 实现
+			// Injection into RunLogStore implementation
 			provider, err := GetAs[store.StoreProvider](appCtx.Container, "store.provider")
 			if err == nil {
 				if fp, ok := provider.(*filestore.FileStoreProvider); ok {
@@ -46,7 +46,7 @@ func RegisterDefaultStoresHook(application *App) {
 						switch cfg.RunLogStoreType {
 						case "file":
 							runLogStore, err = jsonlstore.NewRunLogStore(*cfg, logger)
-						default: // "bbolt" 或空
+						default: // "bbolt" or empty
 							runLogStore, err = bboltstore.NewRunLogStore(*cfg, logger)
 						}
 						if err != nil {
@@ -56,7 +56,7 @@ func RegisterDefaultStoresHook(application *App) {
 					fp.SetRunLogStore(runLogStore)
 				}
 
-				// 从 Provider 获取 UserStore 注册到容器（兼容 user 模块）
+				// Obtain UserStore registration from Provider to container (compatible with user module)
 				if us, err := provider.GetUserStore(); err == nil {
 					if err := appCtx.Container.Register("store.user", store.UserStore(us)); err != nil {
 						return fmt.Errorf("register user store: %w", err)
@@ -68,7 +68,7 @@ func RegisterDefaultStoresHook(application *App) {
 	))
 }
 
-// StartPprof 按配置启动 pprof HTTP 端口，返回 *http.Server（未启用时返回 nil）。
+// StartPprof Starts the pprof HTTP port according to the configuration, returns *http.Server (returns nil when not enabled).
 func StartPprof(cfg *config.Config, logger types.Logger) *http.Server {
 	if cfg == nil || !cfg.Pprof.Enable {
 		return nil

@@ -80,7 +80,7 @@ func TestGroupFilterNode(t *testing.T) {
 
 	t.Run("OnMsg", func(t *testing.T) {
 
-		//测试函数
+		//Testing the function
 		action.Functions.Register("groupActionTest1", func(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.Metadata.PutValue("test1", time.Now().String())
 			msg.SetData(`{"addValue":"addFromTest1"}`)
@@ -259,7 +259,7 @@ func TestGroupFilterNode(t *testing.T) {
 	})
 
 	t.Run("MergeToMap", func(t *testing.T) {
-		//测试函数
+		//Testing the function
 		action.Functions.Register("groupActionTestJson1", func(ctx types.RuleContext, msg types.RuleMsg) {
 			msg.DataType = types.JSON
 			msg.SetData(`{"a": 1, "b": 2}`)
@@ -387,21 +387,21 @@ func TestGroupFilterNode(t *testing.T) {
 	})
 }
 
-// TestGroupActionConcurrencySafety 测试 GroupActionNode 的并发安全性
+// TestGroupActionConcurrencySafety Tests the concurrency security of GroupActionNode
 func TestGroupActionConcurrencySafety(t *testing.T) {
 	t.Run("Concurrent Match Count Race Condition", func(t *testing.T) {
-		// 注册测试用的函数
+		// Register a function for testing
 		action.Functions.Register("testConcurrentSuccess", func(ctx types.RuleContext, msg types.RuleMsg) {
-			time.Sleep(time.Millisecond * 1) // 模拟处理时间
+			time.Sleep(time.Millisecond * 1) // Simulated processing time
 			ctx.TellSuccess(msg)
 		})
 
 		action.Functions.Register("testConcurrentFailure", func(ctx types.RuleContext, msg types.RuleMsg) {
-			time.Sleep(time.Millisecond * 2) // 模拟处理时间
+			time.Sleep(time.Millisecond * 2) // Simulated processing time
 			ctx.TellFailure(msg, errors.New("test failure"))
 		})
 
-		// 创建 GroupActionNode，要求匹配2个Success
+		// Create a GroupActionNode, requiring matching two Successes
 		node, err := test.CreateAndInitNode("groupAction", types.Configuration{
 			"matchRelationType": types.Success,
 			"matchNum":          2,
@@ -409,7 +409,7 @@ func TestGroupActionConcurrencySafety(t *testing.T) {
 		}, Registry)
 		assert.Nil(t, err)
 
-		// 创建子节点
+		// Create child nodes
 		successNode1, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "testConcurrentSuccess",
 		}, action.Registry)
@@ -430,7 +430,7 @@ func TestGroupActionConcurrencySafety(t *testing.T) {
 			"failure2": failureNode2,
 		}
 
-		// 进行多次并发测试
+		// Multiple concurrent tests were conducted
 		iterations := 100
 		var successCount, failureCount int32
 
@@ -451,7 +451,7 @@ func TestGroupActionConcurrencySafety(t *testing.T) {
 				ChildrenNodes: childrenNodes,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
 					if relationType == types.Success {
-						// 有2个Success节点，应该满足matchNum=2的条件
+						// There are 2 Success nodes, which should satisfy the matchNum=2 condition
 						atomic.AddInt32(&successCount, 1)
 					} else {
 						atomic.AddInt32(&failureCount, 1)
@@ -462,11 +462,11 @@ func TestGroupActionConcurrencySafety(t *testing.T) {
 			test.NodeOnMsgWithChildren(t, nodeCallback.Node, nodeCallback.MsgList, nodeCallback.ChildrenNodes, nodeCallback.Callback)
 		}
 
-		// 等待所有测试完成
+		// Wait for all tests to be completed
 		time.Sleep(time.Millisecond * 200)
 
-		// 验证结果：应该都是Success，因为有2个Success节点满足matchNum=2
-		//t.Logf("并发测试结果: Success=%d, Failure=%d, Total=%d",
+		// Verification result: All should be Success because there are 2 Success nodes satisfying matchNum=2
+		//t.Logf("Concurrent test results: Success = %d, Failure = %d, Total = %d",
 		//	atomic.LoadInt32(&successCount), atomic.LoadInt32(&failureCount), iterations)
 
 		assert.Equal(t, int32(iterations), atomic.LoadInt32(&successCount), "所有测试应该返回Success")
@@ -474,15 +474,15 @@ func TestGroupActionConcurrencySafety(t *testing.T) {
 	})
 
 	t.Run("Concurrent Insufficient Match Race Condition", func(t *testing.T) {
-		// 创建 GroupActionNode，要求匹配3个Success（但只有2个Success节点）
+		// Create a GroupActionNode, requiring matching 3 Success Nodes (but only 2 Success Nodes)
 		node, err := test.CreateAndInitNode("groupAction", types.Configuration{
 			"matchRelationType": types.Success,
-			"matchNum":          3,                            // 要求3个Success
-			"nodeIds":           "success1,success2,failure1", // 只有2个Success
+			"matchNum":          3,                            // Requires 3 Successes
+			"nodeIds":           "success1,success2,failure1", // Only 2 successes
 		}, Registry)
 		assert.Nil(t, err)
 
-		// 创建子节点
+		// Create child nodes
 		successNode1, _ := test.CreateAndInitNode("functions", types.Configuration{
 			"functionName": "testConcurrentSuccess",
 		}, action.Registry)
@@ -499,7 +499,7 @@ func TestGroupActionConcurrencySafety(t *testing.T) {
 			"failure1": failureNode1,
 		}
 
-		// 进行多次并发测试
+		// Multiple concurrent tests were conducted
 		iterations := 100
 		var successCount, failureCount int32
 
@@ -522,7 +522,7 @@ func TestGroupActionConcurrencySafety(t *testing.T) {
 					if relationType == types.Success {
 						atomic.AddInt32(&successCount, 1)
 					} else {
-						// 只有2个Success节点，不满足matchNum=3，应该返回Failure
+						// There are only 2 Success nodes, and matchNum=3 is not met, so Failure should be returned
 						atomic.AddInt32(&failureCount, 1)
 					}
 				},
@@ -531,11 +531,11 @@ func TestGroupActionConcurrencySafety(t *testing.T) {
 			test.NodeOnMsgWithChildren(t, nodeCallback.Node, nodeCallback.MsgList, nodeCallback.ChildrenNodes, nodeCallback.Callback)
 		}
 
-		// 等待所有测试完成
+		// Wait for all tests to be completed
 		time.Sleep(time.Millisecond * 200)
 
-		// 验证结果：应该都是Failure，因为只有2个Success不满足matchNum=3
-		//t.Logf("不足匹配测试结果: Success=%d, Failure=%d, Total=%d",
+		// Verification result: It should all be Failures, because only 2 Successes do not satisfy matchNum=3
+		//t.Logf("Insufficient match test results: Success = %d, Failure = %d, Total = %d",
 		//	atomic.LoadInt32(&successCount), atomic.LoadInt32(&failureCount), iterations)
 
 		assert.Equal(t, int32(0), atomic.LoadInt32(&successCount), "不应该有Success结果")
@@ -543,23 +543,23 @@ func TestGroupActionConcurrencySafety(t *testing.T) {
 	})
 }
 
-// TestGroupActionNodeTimeoutRaceCondition 测试超时竞态条件修复
+// Fixes the TestGroupActionNodeTimeoutRaceCondition condition for testing timeouts
 func TestGroupActionNodeTimeoutRaceCondition(t *testing.T) {
-	t.Skip("暂时跳过复杂的超时测试，使用简化版本")
+	t.Skip("Skip the complex timeout test for now and use the simplified version")
 }
 
-// TestGroupActionNodeTimeoutSimple 简化的超时测试
+// TestGroupActionNodeTimeoutSimple simplifies timeout testing
 func TestGroupActionNodeTimeoutSimple(t *testing.T) {
-	// 获取初始goroutine数量
+	// Get the initial goroutine quantity
 	initialGoroutines := runtime.NumGoroutine()
 
-	// 创建一个简单的超时测试
+	// Create a simple timeout test
 	action.Functions.Register("timeoutTestFunc", func(ctx types.RuleContext, msg types.RuleMsg) {
-		// 模拟慢处理，但要检查context取消
-		for i := 0; i < 30; i++ { // 3秒总时间
+		// Simulates slow processing, but checks context cancellation
+		for i := 0; i < 30; i++ { // 3 seconds total time
 			select {
 			case <-ctx.GetContext().Done():
-				// context取消，直接返回
+				// context cancels and returns directly
 				return
 			default:
 				time.Sleep(100 * time.Millisecond)
@@ -573,19 +573,19 @@ func TestGroupActionNodeTimeoutSimple(t *testing.T) {
 		"matchRelationType": types.Success,
 		"matchNum":          1,
 		"nodeIds":           []string{"test1"},
-		"timeout":           1, // 1秒超时
+		"timeout":           1, // Timeout of 1 second
 	})
 	assert.Nil(t, err)
 
-	// 创建简单的测试context
+	// Create a simple test context
 	testCtx := test.NewExtendedTestRuleContextWithChannel()
-	// 设置节点处理器来模拟超时行为
+	// Set up the node processor to simulate timeout behavior
 	testCtx.SetNodeHandler("test1", func(msg types.RuleMsg) (string, error) {
-		// 模拟慢处理，但要检查context取消
-		for i := 0; i < 30; i++ { // 3秒总时间
+		// Simulates slow processing, but checks context cancellation
+		for i := 0; i < 30; i++ { // 3 seconds total time
 			select {
 			case <-testCtx.GetContext().Done():
-				// context取消，直接返回
+				// context cancels and returns directly
 				return "", testCtx.GetContext().Err()
 			default:
 				time.Sleep(100 * time.Millisecond)
@@ -596,33 +596,33 @@ func TestGroupActionNodeTimeoutSimple(t *testing.T) {
 
 	msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{}`)
 
-	// 执行测试
+	// Perform the test
 	start := time.Now()
 	node.OnMsg(testCtx, msg)
 	duration := time.Since(start)
 
-	// 验证超时按预期工作
+	// Verification timeouts work as expected
 	assert.True(t, duration >= 1*time.Second && duration < 1500*time.Millisecond,
 		"Expected timeout around 1 second, got %v", duration)
 
-	// 验证收到结果
+	// Verify the results received
 	select {
 	case result := <-testCtx.GetResultsChannel():
 		assert.Equal(t, "Failure", result.RelationType, "Should receive Failure on timeout")
 		assert.NotNil(t, result.Err, "Should receive timeout error")
-		t.Logf("收到预期的超时结果: %s, err: %v", result.RelationType, result.Err)
+		t.Logf("Received the expected timeout result: %s, err: %v", result.RelationType, result.Err)
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Should receive a result")
 	}
 
-	// 等待所有goroutine完成
+	// Wait for all goroutines to complete
 	time.Sleep(2 * time.Second)
 
-	// 强制GC
+	// Forced GC
 	runtime.GC()
 	time.Sleep(100 * time.Millisecond)
 
-	// 检查goroutine泄露
+	// Check for goroutine leaks
 	finalGoroutines := runtime.NumGoroutine()
 	goroutineIncrease := finalGoroutines - initialGoroutines
 
@@ -631,15 +631,15 @@ func TestGroupActionNodeTimeoutSimple(t *testing.T) {
 		goroutineIncrease, initialGoroutines, finalGoroutines)
 }
 
-// createSimpleTestContext 创建简单的测试上下文，现在使用 ExtendedTestRuleContext
-// 保持向后兼容性
+// createSimpleTestContext creates a simple test context, now using ExtendedTestRuleContext
+// Maintain backward compatibility
 func createSimpleTestContext(onEnd func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string)) *test.ExtendedTestRuleContext {
 	ctx := test.NewExtendedTestRuleContextWithChannel()
-	// 设置节点处理器来模拟超时行为
+	// Set up the node processor to simulate timeout behavior
 	ctx.SetNodeHandler("timeout", func(msg types.RuleMsg) (string, error) {
 		return "timeout", context.DeadlineExceeded
 	})
 	return ctx
 }
 
-// TestResult 现在使用 test 包中的定义
+// TestResult now uses the definition in the test package

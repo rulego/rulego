@@ -14,10 +14,10 @@ import (
 )
 
 var (
-	ruleStoreCache     = make(map[string]store.RuleStore)
-	ruleStoreLock      sync.RWMutex
-	settingStoreCache  = make(map[string]store.SettingStore)
-	settingStoreLock   sync.RWMutex
+	ruleStoreCache      = make(map[string]store.RuleStore)
+	ruleStoreLock       sync.RWMutex
+	settingStoreCache   = make(map[string]store.SettingStore)
+	settingStoreLock    sync.RWMutex
 	componentStoreCache = make(map[string]store.ComponentStore)
 	componentStoreLock  sync.RWMutex
 	nodePoolStoreCache  = make(map[string]store.NodePoolStore)
@@ -26,7 +26,7 @@ var (
 	runLogStoreOnce     sync.Once
 )
 
-// GetRuleStore 获取规则链存储实例（带缓存）
+// GetRuleStore Retrieves the rule chain storage instance (with cache)
 func GetRuleStore(cfg *config.Config, username string) (store.RuleStore, error) {
 	key := cfg.DataDir + ":" + username
 	ruleStoreLock.RLock()
@@ -50,7 +50,7 @@ func GetRuleStore(cfg *config.Config, username string) (store.RuleStore, error) 
 	return s, nil
 }
 
-// GetSettingStore 获取用户设置存储实例（带缓存）
+// GetSettingStore Retrieves user settings storage instances (with cache)
 func GetSettingStore(cfg *config.Config, username string) (store.SettingStore, error) {
 	key := cfg.DataDir + ":" + username
 	settingStoreLock.RLock()
@@ -74,7 +74,7 @@ func GetSettingStore(cfg *config.Config, username string) (store.SettingStore, e
 	return s, nil
 }
 
-// GetComponentStore 获取组件存储实例（带缓存）
+// GetComponentStore Retrieves component storage instances (with cache)
 func GetComponentStore(cfg *config.Config, username string) (store.ComponentStore, error) {
 	key := cfg.DataDir + ":" + username
 	componentStoreLock.RLock()
@@ -98,7 +98,7 @@ func GetComponentStore(cfg *config.Config, username string) (store.ComponentStor
 	return s, nil
 }
 
-// GetNodePoolStore 获取节点池存储实例（带缓存）
+// GetNodePoolStore Gets node pool storage instances (with cache)
 func GetNodePoolStore(cfg *config.Config, username string) (store.NodePoolStore, error) {
 	key := cfg.DataDir + ":" + username
 	nodePoolStoreLock.RLock()
@@ -119,12 +119,12 @@ func GetNodePoolStore(cfg *config.Config, username string) (store.NodePoolStore,
 	return s, nil
 }
 
-// SetRunLogStore 设置运行日志存储实例（由应用启动时注入）
+// SetRunLogStore sets the runtime log storage instance (injected at application startup)
 func SetRunLogStore(s store.RunLogStore) {
 	runLogStoreInstance = s
 }
 
-// GetRunLogStore 获取运行日志存储实例
+// GetRunLogStore retrieves the runtime log storage instance
 func GetRunLogStore() (store.RunLogStore, error) {
 	if runLogStoreInstance == nil {
 		return nil, fmt.Errorf("run log store not initialized")
@@ -132,12 +132,12 @@ func GetRunLogStore() (store.RunLogStore, error) {
 	return runLogStoreInstance, nil
 }
 
-// GetUserStore 获取用户存储实例（全局单例）
+// GetUserStore Retrieves user storage instances (global singletons)
 func GetUserStore(cfg *config.Config) (store.UserStore, error) {
 	return filestore.NewUserStore(*cfg)
 }
 
-// CleanUserCache 清除指定用户的存储缓存
+// CleanUserCache clears the storage cache of the specified user
 func CleanUserCache(cfg *config.Config, username string) {
 	key := cfg.DataDir + ":" + username
 	ruleStoreLock.Lock()
@@ -156,6 +156,6 @@ func CleanUserCache(cfg *config.Config, username string) {
 	delete(nodePoolStoreCache, key)
 	nodePoolStoreLock.Unlock()
 
-	// 删除用户数据目录
+	// Delete the user data directory
 	_ = os.RemoveAll(path.Join(cfg.DataDir, constants.DirWorkflows, username))
 }

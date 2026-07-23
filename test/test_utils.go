@@ -42,7 +42,7 @@ var (
 	content        = "application/json"
 )
 
-// CreateAndInitNode 创建并初始化一个节点实例
+// CreateAndInitNode creates and initializes a node instance
 func CreateAndInitNode(targetNodeType string, initConfig types.Configuration, registry *types.SafeComponentSlice) (types.Node, error) {
 	var nodeFactory types.Node
 	for _, component := range registry.Components() {
@@ -79,7 +79,7 @@ func InitNodeByConfig(config types.Config, targetNodeType string, initConfig typ
 	return node
 }
 
-// NodeNew 测试创建节点实例
+// NodeNew tests create node instances
 func NodeNew(t *testing.T, targetNodeType string, targetNode types.Node, defaultConfig types.Configuration, registry *types.SafeComponentSlice) {
 	var nodeFactory types.Node
 	for _, component := range registry.Components() {
@@ -110,7 +110,7 @@ func NodeNew(t *testing.T, targetNodeType string, targetNode types.Node, default
 
 }
 
-// NodeInit 测试初始化
+// NodeInit test initialization
 func NodeInit(t *testing.T, targetNodeType string, initConfig types.Configuration, expected types.Configuration, registry *types.SafeComponentSlice) {
 	node, err := CreateAndInitNode(targetNodeType, initConfig, registry)
 	assert.Nil(t, err)
@@ -143,16 +143,16 @@ type Msg struct {
 	DataType types.DataType
 	MsgType  string
 	Data     string
-	//发之后暂停间隔
+	//After the release, pause the interval
 	AfterSleep time.Duration
 }
 
-// NodeOnMsg 发送消息
+// NodeOnMsg sends messages
 func NodeOnMsg(t *testing.T, node types.Node, msgList []Msg, callback func(msg types.RuleMsg, relationType string, err error)) {
 	NodeOnMsgWithChildren(t, node, msgList, nil, callback)
 }
 
-// NodeOnMsgWithChildren 发送消息
+// NodeOnMsgWithChildren sends messages
 func NodeOnMsgWithChildren(t *testing.T, node types.Node, msgList []Msg, childrenNodes map[string]types.Node, callback func(msg types.RuleMsg, relationType string, err error)) {
 	config := types.NewConfig(types.WithCache(cache.DefaultCache))
 	NodeOnMsgWithChildrenAndConfig(t, config, node, msgList, childrenNodes, callback)
@@ -220,7 +220,7 @@ func (n *UpperNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if v != nil {
 		msg.Metadata.PutValue(shareKey, v.(string))
 	}
-	//增加新的共享数据
+	//Add new shared data
 	modifyCtx := context.WithValue(ctx.GetContext(), addShareKey, addShareValue)
 	ctx.SetContext(modifyCtx)
 	// Send the modified message to the next node

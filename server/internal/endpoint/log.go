@@ -16,8 +16,8 @@ import (
 func (s *Server) registerLogRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
-	// GET /logs/runs - 获取运行日志
-	ep.GET(endpoint.NewRouter().From(base+"/logs/runs").Process(s.authWithPermission("log", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// GET /logs/runs - Get the runlog
+	ep.GET(endpoint.NewRouter().From(base + "/logs/runs").Process(s.authWithPermission("log", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		runLogSvc, ok := getService[services.RunLogService](s, exchange, services.KeyRunLogService)
 		if !ok {
 			return false
@@ -60,8 +60,8 @@ func (s *Server) registerLogRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// DELETE /logs/runs - 删除运行日志
-	ep.DELETE(endpoint.NewRouter().From(base+"/logs/runs").Process(s.authWithPermission("log", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// DELETE /logs/runs - Deletes the runtime log
+	ep.DELETE(endpoint.NewRouter().From(base + "/logs/runs").Process(s.authWithPermission("log", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		runLogSvc, ok := getService[services.RunLogService](s, exchange, services.KeyRunLogService)
 		if !ok {
 			return false
@@ -89,8 +89,8 @@ func (s *Server) registerLogRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
-	// GET /logs/debug - 获取节点调试日志（从内存存储读取）
-	ep.GET(endpoint.NewRouter().From(base+"/logs/debug").Process(s.authWithPermission("log", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// GET /logs/debug - Retrieves node debug logs (read from memory)
+	ep.GET(endpoint.NewRouter().From(base + "/logs/debug").Process(s.authWithPermission("log", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		chainId := msg.Metadata.GetValue(constants.KeyChainId)
 		nodeId := msg.Metadata.GetValue(constants.KeyNodeId)

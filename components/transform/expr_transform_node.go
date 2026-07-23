@@ -16,7 +16,7 @@
 
 package transform
 
-//规则链节点配置示例：
+//Example of rule chain node configuration:
 //{
 //	"id": "s1",
 //	"type": "exprTransform",
@@ -45,7 +45,7 @@ func init() {
 	Registry.Add(&ExprTransformNode{})
 }
 
-// ExprTransformNodeConfiguration 节点配置
+// ExprTransformNodeConfiguration
 type ExprTransformNodeConfiguration struct {
 	// Expr is a single expression. Result replaces msg data. Takes priority over Mapping.
 	Expr string `json:"expr" label:"Expression" desc:"Single expression to transform msg. Result replaces msg data. Takes priority over mapping"`
@@ -53,18 +53,18 @@ type ExprTransformNodeConfiguration struct {
 	Mapping map[string]string `json:"mapping" label:"Mapping" desc:"Field-to-expression map, e.g. {\"name\":\"upper(msg.name)\"}. Used when expr is empty"`
 }
 
-// ExprTransformNode 使用expr表达式转换或者创建新的msg
-// 如果config.Expr有值，则把转换结果替换到msg 转到下一个节点
-// 如果config.Mapping有值，则把多个字段转换结果转换成json替换到msg 转到下一个节点
-// 如果Mapping和Expr同时存在，优先使用config.Expr
-// 多个字段转换msg结构如下：
+// ExprTransformNode uses expr expressions to convert or create new msg
+// If config.Expr has a value, replace the conversion result with msg and proceed to the next node
+// If config.Mapping has a value, then convert multiple fields into JSON and replace them with msg to the next node
+// If both Mapping and Expr exist together, prioritize using config.Expr
+// The structure of multiple field conversion msg is as follows:
 //
 //	{
 //	  fieldKey1:fieldValue1
 //	  fieldKey2:fieldValue2
 //	}
 //
-// fieldValue 可以使用 expr 从当前的msg或者metadata中获取值，例如:
+// fieldValue can be obtained using expr from the current msg or metadata, for example:
 //
 //	"configuration": {
 //		"mapping": {
@@ -74,21 +74,21 @@ type ExprTransformNodeConfiguration struct {
 //		"productType": "metaData.productType",
 //	}
 //
-// 通过`id`变量访问消息id
-// 通过`ts`变量访问消息时间戳
-// 通过`data`变量访问消息原始数据
-// 通过`msg`变量访问转换后消息体，如果消息的dataType是json类型，可以通过 `msg.XX`方式访问msg的字段。例如:`msg.temperature > 50;`
-// 通过`metadata`变量访问消息元数据。例如 `metadata.customerName`
-// 通过`type`变量访问消息类型
-// 通过`dataType`变量访问数据类型
+// Access the message `id` via the 'id' variable
+// Access message timestamps via the `ts` variable
+// Access the original message `data` through the 'data' variable
+// Access the transformed message body via the `msg` variable. If the message's dataType is of JSON type, you can use `msg.XX` to access the msg field. For example: `msg.temperature > 50;` `
+// Access message `metadata` through the 'metadata' variable. For example, `metadata.customerName`
+// Access message `type`s via the 'type' variable
+// Access data types via the `dataType` variable
 type ExprTransformNode struct {
-	//节点配置
-	Config         ExprTransformNodeConfiguration
-	exprTemplate   el.Template
+	//Node configuration
+	Config          ExprTransformNodeConfiguration
+	exprTemplate    el.Template
 	templateMapping map[string]el.Template
 }
 
-// Type 组件类型
+// Type returns the component type
 func (x *ExprTransformNode) Type() string {
 	return "exprTransform"
 }
@@ -97,7 +97,7 @@ func (x *ExprTransformNode) New() types.Node {
 	return &ExprTransformNode{Config: ExprTransformNodeConfiguration{}}
 }
 
-// Init 初始化
+// Init initializes the component
 func (x *ExprTransformNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
@@ -122,7 +122,7 @@ func (x *ExprTransformNode) Init(ruleConfig types.Config, configuration types.Co
 	return err
 }
 
-// OnMsg 处理消息
+// OnMsg processes a message
 func (x *ExprTransformNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	evn := base.NodeUtils.GetEvn(ctx, msg)
 	var result interface{}
@@ -161,6 +161,6 @@ func (x *ExprTransformNode) Desc() string {
 	return "Transform messages using expr-lang. Single expr replaces msg, or mapping creates multi-field JSON. Variables: id, ts, data, msg, metadata, type, dataType. Routes to Success/Failure"
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (x *ExprTransformNode) Destroy() {
 }

@@ -4,7 +4,7 @@ import (
 	"github.com/rulego/rulego/server/model"
 )
 
-// SkillService 技能服务接口
+// SkillService interface
 type SkillService interface {
 	ListSkills(username, scope string) ([]model.Skill, error)
 	GetSkill(username, name, scope string) (*model.Skill, error)

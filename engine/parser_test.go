@@ -39,14 +39,14 @@ func TestParser(t *testing.T) {
 
 	ctx := NewRuleContext(context.Background(), config, ruleChainCtx, nil, nil, nil, nil, nil)
 	ruleChainCtx.OnMsg(ctx, types.RuleMsg{})
-	//超过范围
+	//Beyond the scope
 	_, ok := ruleChainCtx.GetNodeByIndex(5)
 	assert.False(t, ok)
-	//错误
+	//Wrong
 	_, err = jsonParser.DecodeRuleChain([]byte("{"))
 	assert.NotNil(t, err)
 
-	//找不到组件的规则链测试
+	//Rule chain testing for components not found
 	notFoundComponent := strings.Replace(ruleChainFile, "\"type\": \"jsFilter\"", "\"type\": \"noFound\"", -1)
 	def, err = jsonParser.DecodeRuleChain([]byte(notFoundComponent))
 	_, err = InitRuleChainCtx(config, nil, &def, nil)

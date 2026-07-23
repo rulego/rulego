@@ -343,8 +343,8 @@ func (c *MemoryCache) deleteExpired() {
 // It prepends all keys in the underlying cache with a specified namespace for isolation
 // Suitable for scenarios requiring cache data separation between different businesses or modules
 type NamespaceCache struct {
-	Cache     types.Cache // 底层缓存实现
-	Namespace string      // 命名空间前缀
+	Cache     types.Cache // Underlying cache implementation
+	Namespace string      // Namespace prefix
 }
 
 // NewNamespaceCache creates a new namespace-based cache instance

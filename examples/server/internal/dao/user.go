@@ -31,7 +31,7 @@ func (d *UserDao) CreateUser(user model.User) error {
 	return d.fs.Save(UsersSectionName, user.Username, user.Password)
 }
 
-// ValidatePassword 验证密码
+// ValidatePassword: Verify the password
 func (d *UserDao) ValidatePassword(username, password string) bool {
 	if v := d.fs.Get(UsersSectionName, username); v == "" {
 		return false

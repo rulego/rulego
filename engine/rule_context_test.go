@@ -32,7 +32,7 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// TestCache 测试缓存
+// TestCache tests the cache
 func TestCache(t *testing.T) {
 	config := NewConfig()
 	ruleEngine, err := New(str.RandomStr(10), []byte(ruleChainFile), WithConfig(config))
@@ -79,11 +79,11 @@ func TestCache(t *testing.T) {
 	})
 
 	t.Run("SameKeyIsolation", func(t *testing.T) {
-		// 设置相同key到两个缓存
+		// Set the same key to two caches
 		globalCache.Set("same_key", "global_value", "1m")
 		chainCache.Set("same_key", "chain_value", "1m")
 
-		// 验证两个缓存的值互不影响
+		// Verify that the values of the two caches do not affect each other
 		val, err := globalCache.Get("same_key")
 		assert.Nil(t, err)
 		assert.Equal(t, "global_value", val)
@@ -91,7 +91,7 @@ func TestCache(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, "chain_value", val)
 
-		// 删除一个缓存的值，另一个不受影响
+		// Delete one cache value, and the other is unaffected
 		globalCache.Delete("same_key")
 		val, _ = globalCache.Get("same_key")
 		assert.Nil(t, val)
@@ -101,16 +101,16 @@ func TestCache(t *testing.T) {
 	})
 }
 
-// TestEndNodeBehavior 测试结束节点的行为
+// TestEndNodeBehavior tests the behavior of the terminated node
 func TestEndNodeBehavior(t *testing.T) {
 	config := NewConfig()
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
 
-	// 测试配置了结束节点的规则链，OnEnd只会调用一次
+	// The test configures the rule chain for ending nodes, and OnEnd is called only once
 	t.Run("WithEndNode", func(t *testing.T) {
-		// 创建包含结束节点的规则链
+		// Create a rule chain containing the end node
 		ruleChainWithEndNode := `{
 			"ruleChain": {
 				"id": "test_with_end_node",
@@ -182,13 +182,13 @@ func TestEndNodeBehavior(t *testing.T) {
 		}))
 
 		time.Sleep(time.Millisecond * 200)
-		// 配置了结束节点，即使有多个分支，OnEnd也只会调用一次
+		// If the termination node is configured, even if there are multiple branches, OnEnd will only be called once
 		assert.Equal(t, int32(1), atomic.LoadInt32(&onEndCallCount))
 	})
 
-	// 测试没有配置结束节点的规则链，OnEnd会调用多次
+	// The test does not configure the rule chain for the end node; OnEnd will be called multiple times
 	t.Run("WithoutEndNode", func(t *testing.T) {
-		// 创建不包含结束节点的规则链
+		// Create a rule chain that does not include the end node
 		ruleChainWithoutEndNode := `{
 			"ruleChain": {
 				"id": "test_without_end_node",
@@ -250,13 +250,13 @@ func TestEndNodeBehavior(t *testing.T) {
 		}))
 
 		time.Sleep(time.Millisecond * 200)
-		// 没有配置结束节点，每个分支结束时都会调用OnEnd，所以会调用2次
+		// No termination node is configured; OnEnd is called at the end of each branch, so it is called twice
 		assert.Equal(t, int32(2), atomic.LoadInt32(&onEndCallCount))
 	})
 }
 
 func TestOnEndWithFailure(t *testing.T) {
-	// 包含结束节点的规则链
+	// A rule chain containing the end node
 	ruleChainWithEndNode := `{
 		"ruleChain": {
 			"id": "test_on_end_failure",
@@ -483,12 +483,12 @@ func TestRuleContext(t *testing.T) {
 		assert.Equal(t, int32(0), atomic.LoadInt32(&count))
 	})
 	t.Run("WithDebugMode", func(t *testing.T) {
-		// ruleChainFile 已设置 debugMode=true，验证 WithDebugMode 的覆盖能力
+		// ruleChainFile is set to debugMode=true, verifying the coverage capability of WithDebugMode
 		ruleEngine, _ := New("TestRuleContext_WithDebugMode", []byte(ruleChainFile), WithConfig(config))
 		defer Del(ruleEngine.Id())
 
 		var debugCount = int32(0)
-		// 链级 debugMode=true，回调正常触发
+		// Chain-level debugMode=true, normal callback trigger
 		ruleEngine.OnMsg(msg, types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&debugCount, 1)
 		}))
@@ -496,7 +496,7 @@ func TestRuleContext(t *testing.T) {
 		assert.Equal(t, int32(4), atomic.LoadInt32(&debugCount))
 		atomic.StoreInt32(&debugCount, 0)
 
-		// WithDebugMode(true) 显式启用
+		// WithDebugMode(true) is explicitly enabled
 		ruleEngine.OnMsg(msg, types.WithDebugMode(true), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&debugCount, 1)
 		}))
@@ -504,7 +504,7 @@ func TestRuleContext(t *testing.T) {
 		assert.Equal(t, int32(4), atomic.LoadInt32(&debugCount))
 		atomic.StoreInt32(&debugCount, 0)
 
-		// WithDebugMode(false) 强制关闭 per-message 调试，覆盖链级 debugMode=true
+		// WithDebugMode(false) forcibly closes per-message debugging, overrides chain-level debugMode=true
 		ruleEngine.OnMsg(msg, types.WithDebugMode(false), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&debugCount, 1)
 		}))
@@ -516,7 +516,7 @@ func TestRuleContext(t *testing.T) {
 		defer Del(ruleEngine.Id())
 
 		var count = int32(0)
-		// WithStartNode("s1") 正常执行 s1 + s2
+		// WithStartNode("s1") executes s1 + s2 normally
 		ruleEngine.OnMsg(msg, types.WithStartNode("s1"), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&count, 1)
 		}))
@@ -524,25 +524,25 @@ func TestRuleContext(t *testing.T) {
 		assert.Equal(t, int32(4), atomic.LoadInt32(&count))
 		atomic.StoreInt32(&count, 0)
 
-		// WithStartNode("s1") + WithSkipTellNext()：仅执行 s1，不传播到 s2
+		// WithStartNode("s1") + WithSkipTellNext(): executes only s1, does not propagate to s2
 		ruleEngine.OnMsg(msg, types.WithStartNode("s1"), types.WithSkipTellNext(), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&count, 1)
 		}))
 		time.Sleep(time.Millisecond * 100)
-		// 仅 s1 的 IN+OUT = 2 次
+		// Only s1's IN+OUT = 2 times
 		assert.Equal(t, int32(2), atomic.LoadInt32(&count))
 		atomic.StoreInt32(&count, 0)
 
-		// WithStartNode("s2") + WithSkipTellNext()：仅执行 s2
+		// WithStartNode("s2") + WithSkipTellNext(): only executes s2
 		ruleEngine.OnMsg(msg, types.WithStartNode("s2"), types.WithSkipTellNext(), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&count, 1)
 		}))
 		time.Sleep(time.Millisecond * 100)
-		// 仅 s2 的 IN+OUT = 2 次
+		// Only s2 IN+OUT = 2 times
 		assert.Equal(t, int32(2), atomic.LoadInt32(&count))
 		atomic.StoreInt32(&count, 0)
 
-		// OnMsgAndWait 同样生效
+		// OnMsgAndWait also takes effect
 		ruleEngine.OnMsgAndWait(msg, types.WithStartNode("s2"), types.WithSkipTellNext(), types.WithOnNodeDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 			atomic.AddInt32(&count, 1)
 		}))
@@ -550,7 +550,7 @@ func TestRuleContext(t *testing.T) {
 		assert.Equal(t, int32(2), atomic.LoadInt32(&count))
 	})
 	t.Run("ContextCancellation", func(t *testing.T) {
-		// 测试 OnMsg context 取消
+		// Test OnMsg context canceled
 		ruleChainWithFunctions := `{
 			"ruleChain": {
 				"id": "test_context_cancellation",
@@ -574,34 +574,34 @@ func TestRuleContext(t *testing.T) {
 			}
 		}`
 
-		// 注册测试函数
+		// Register the test function
 		var contextCancelled int32
 		var functionExecuted int32
 		action.Functions.Register("testContextCancellation", func(ctx types.RuleContext, msg types.RuleMsg) {
 			atomic.StoreInt32(&functionExecuted, 1)
-			// 模拟一些处理时间，在处理过程中检查 context 是否被取消
-			// 由于新的实现不使用goroutine，我们需要轮询检查Err()方法
+			// Simulates some processing times and checks whether the context is canceled during processing
+			// Since the new implementation does not use goroutine, we need to poll to check the Err() method
 			done := make(chan struct{})
 			go func() {
 				time.Sleep(time.Millisecond * 50)
 				close(done)
 			}()
 
-			// 检查 context 是否被取消（使用Done() channel监听）
+			// Check if the context has been canceled (listen using the Done() channel)
 			if ctx.GetContext() != nil {
 				select {
 				case <-done:
-					// 处理完成，context 正常
+					// Processing complete, context normal
 					ctx.TellSuccess(msg)
 					return
 				case <-ctx.GetContext().Done():
-					// 收到取消信号
+					// A cancellation signal was received
 					atomic.StoreInt32(&contextCancelled, 1)
 					ctx.TellFailure(msg, ctx.GetContext().Err())
 					return
 				}
 			}
-			// 如果没有 context，直接成功
+			// If there is no context, it succeeds directly
 			<-done
 			ctx.TellSuccess(msg)
 		})
@@ -611,14 +611,14 @@ func TestRuleContext(t *testing.T) {
 		assert.Nil(t, err)
 		defer Del(ruleEngine.Id())
 
-		// 创建一个可取消的 context
+		// Create a cancelable context
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		// 启动一个 goroutine，在函数执行过程中取消 context
+		// Start a goroutine and cancel context during function execution
 		go func() {
-			time.Sleep(time.Millisecond * 10) // 等待函数开始执行
-			cancel()                          // 取消 context
+			time.Sleep(time.Millisecond * 10) // Wait for the function to start executing
+			cancel()                          // Cancel context
 		}()
 
 		var onEndCalled int32
@@ -631,19 +631,19 @@ func TestRuleContext(t *testing.T) {
 			endErrorMu.Unlock()
 		}))
 
-		// 等待处理完成
+		// Wait for processing to complete
 		time.Sleep(time.Millisecond * 200)
 
-		// 验证函数被执行了
+		// The verification function was executed
 		assert.Equal(t, int32(1), atomic.LoadInt32(&functionExecuted), "函数应该被执行")
 
-		// 验证收到了 context 取消信号
+		// Verification has received a context cancellation signal
 		assert.Equal(t, int32(1), atomic.LoadInt32(&contextCancelled), "应该检测到 context 取消")
 
-		// 验证 OnEnd 被调用
+		// Verify that OnEnd is called
 		assert.Equal(t, int32(1), atomic.LoadInt32(&onEndCalled), "OnEnd 应该被调用")
 
-		// 验证错误信息包含取消信息
+		// Verification error messages include cancellation messages
 		endErrorMu.Lock()
 		errValue := endError
 		endErrorMu.Unlock()

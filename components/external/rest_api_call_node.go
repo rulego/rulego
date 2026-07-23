@@ -42,86 +42,86 @@ func init() {
 	Registry.Add(&RestApiCallNode{})
 }
 
-// 存在到metadata key
+// exists in the metadata key
 const (
-	//StatusMetadataKey http响应状态，Metadata Key
+	//StatusMetadataKey http response status, Metadata Key
 	StatusMetadataKey = "status"
-	//StatusCodeMetadataKey http响应状态码，Metadata Key
+	//StatusCodeMetadataKey http response status code, Metadata Key
 	StatusCodeMetadataKey = "statusCode"
-	//ErrorBodyMetadataKey http响应错误信息，Metadata Key
+	//ErrorBodyMetadataKey http responds to error messages, Metadata Key
 	ErrorBodyMetadataKey = "errorBody"
-	//EventTypeMetadataKey sso事件类型Metadata Key：data/event/id/retry
+	//EventTypeMetadataKey sso Event Type: Metadata Key: data/event/id/retry
 	EventTypeMetadataKey = "eventType"
 	ContentTypeKey       = "Content-Type"
 	AcceptKey            = "Accept"
-	//EventStreamMime 流式响应类型
+	//EventStreamMime Stream response type
 	EventStreamMime = "text/event-stream"
 )
 
-// RestApiCallNodeConfiguration rest配置
+// RestApiCallNodeConfiguration rest
 type RestApiCallNodeConfiguration struct {
-	//RestEndpointUrlPattern HTTP URL地址,可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
+	//RestEndpointUrlPattern HTTP URL address, which can be replaced by reading variables from the metadata with ${metadata.key} or by reading variables from the message load with ${msg.key}
 	RestEndpointUrlPattern string `json:"restEndpointUrlPattern" label:"Request URL" desc:"HTTP request URL, supports ${msg.xxx}, ${metadata.xxx}, ${global.xxx} variable substitution" required:"true"`
-	//RequestMethod 请求方法，默认POST
+	//RequestMethod, default is POST
 	RequestMethod string `json:"requestMethod" label:"Request Method" desc:"HTTP method: GET/POST/PUT/DELETE/PATCH, default POST" component:"{\"type\":\"select\",\"options\":[{\"label\":\"GET\",\"value\":\"GET\"},{\"label\":\"POST\",\"value\":\"POST\"},{\"label\":\"PUT\",\"value\":\"PUT\"},{\"label\":\"DELETE\",\"value\":\"DELETE\"},{\"label\":\"PATCH\",\"value\":\"PATCH\"}]}"`
 	// Without request body
 	WithoutRequestBody bool `json:"withoutRequestBody" label:"No Request Body" desc:"Set to true to skip sending request body"`
-	//Headers 请求头,可以使用 ${metadata.key} 读取元数据中的变量或者使用 ${msg.key} 读取消息负荷中的变量进行替换
+	//Headers can be replaced by reading variables from the metadata with ${metadata.key} or by reading variables from the message load with ${msg.key}
 	Headers map[string]string `json:"headers" label:"Headers" desc:"HTTP header key-value pairs, e.g. {\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer ${global.token}\"}"`
-	// Body 请求body,支持metadata、msg取值构建body。如果空，则把消息符合传输到目标地址
+	// Body requests body, supporting metadata and msg value construction structures. If empty, the message is sent to the destination address
 	Body string `json:"body" label:"Body" desc:"Custom request body template, supports ${msg.xxx} variables. Defaults to msg JSON when empty"`
-	//ReadTimeoutMs 超时，单位毫秒，默认0:不限制
+	//ReadTimeoutMs timeout, unit: milliseconds, default 0: no limit
 	ReadTimeoutMs int `json:"readTimeoutMs" label:"Timeout (ms)" desc:"Request timeout in milliseconds, default 2000"`
-	//禁用证书验证
+	//Disable certificate verification
 	InsecureSkipVerify bool `json:"insecureSkipVerify" label:"Skip TLS Verify" desc:"Set to true to skip HTTPS certificate verification"`
-	//MaxParallelRequestsCount 连接池大小，默认200。0代表不限制
+	//MaxParallelRequestsCount Connection pool size, default 200. 0 means no restrictions
 	MaxParallelRequestsCount int `json:"maxParallelRequestsCount" label:"Max Parallel Requests" desc:"Connection pool size, default 200, 0 for unlimited"`
-	//EnableProxy 是否开启代理
+	//Whether EnableProxy is enabled
 	EnableProxy bool `json:"enableProxy" label:"Enable Proxy" desc:"Whether to enable proxy"`
-	//UseSystemProxyProperties 使用系统配置代理
+	//UseSystemProxyProperties uses a system configuration proxy
 	UseSystemProxyProperties bool `json:"useSystemProxyProperties" label:"Use System Proxy" desc:"Use system environment variable proxy settings"`
-	//ProxyScheme 代理协议
+	//ProxyScheme proxy protocol
 	ProxyScheme string `json:"proxyScheme" label:"Proxy Scheme" desc:"Proxy protocol: http/https/socks5"`
-	//ProxyHost 代理主机
+	//ProxyHost proxy host
 	ProxyHost string `json:"proxyHost" label:"Proxy Host" desc:"Proxy server address"`
-	//ProxyPort 代理端口
+	//ProxyPort proxy port
 	ProxyPort int `json:"proxyPort" label:"Proxy Port" desc:"Proxy server port"`
-	//ProxyUser 代理用户名
+	//ProxyUser proxy username
 	ProxyUser string `json:"proxyUser" label:"Proxy Username" desc:"Proxy authentication username"`
-	//ProxyPassword 代理密码
+	//ProxyPassword
 	ProxyPassword string `json:"proxyPassword" label:"Proxy Password" desc:"Proxy authentication password"`
 }
 
-// RestApiCallNode 用于进行外部API调用的HTTP/REST API客户端组件
+// RestApiCallNode is an HTTP/REST API client component used for external API calls
 // RestApiCallNode provides HTTP/REST API client functionality for making external API calls.
 //
-// 核心算法：
+// Core algorithm:
 // Core Algorithm:
-// 1. 使用变量替换解析URL、请求头和请求体 - Parse URL, headers, and body with variable substitution
-// 2. 根据配置构建HTTP请求（GET/POST/PUT/DELETE等）- Build HTTP request based on configuration
-// 3. 通过配置的代理（可选）发送请求 - Send request through configured proxy (optional)
-// 4. 处理响应：JSON、SSE流或普通文本 - Handle response: JSON, SSE stream, or plain text
-// 5. 根据HTTP状态码路由到Success/Failure关系 - Route to Success/Failure relation based on HTTP status code
+// 1. Parse URL, headers, and body with variable substitution using variables
+// 2. Build HTTP requests based on configuration (GET/POST/PUT/DELETE, etc.) - Build HTTP request based on configuration
+// 3. Send request through configured proxy (optional) - Send request through configured proxy (optional)
+// 4. Handle response: JSON, SSE stream, or plain text
+// 5. Route to Success/Failure relationship based on HTTP status code
 //
-// 变量替换 - Variable substitution:
-//   - ${metadata.key}: 从消息元数据获取值 - Access message metadata
-//   - ${msg.key}: 从消息负荷获取值 - Access message payload fields
+// Variable substitution:
+//   - ${metadata.key}: Retrieves value from message metadata - Access message metadata
+//   - ${msg.key}: Retrieve value from message load - Access message payload fields
 //
-// 支持的HTTP方法 - Supported HTTP methods:
+// Supported HTTP methods:
 //   - GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS
 //
-// 代理支持 - Proxy support:
-//   - 系统代理：HTTP_PROXY、HTTPS_PROXY环境变量 - System proxy via environment variables
-//   - 自定义代理：HTTP、HTTPS、SOCKS5协议 - Custom proxy with HTTP, HTTPS, SOCKS5 protocols
+// Proxy support:
+//   - System proxy: HTTP_PROXY. HTTPS_PROXY environment variables - System proxy via environment variables
+//   - Custom proxy: HTTP, HTTPS, SOCKS5 protocols - Custom proxy with HTTP, HTTPS, SOCKS5 protocols
 //
-// 响应处理 - Response handling:
+// Response handling:
 //   - HTTP 200: Success relation - Success relation
-//   - 非200: Failure relation, error details stored in metadata - Failure relation with error details in metadata
+//   - Non-200: Failure relation, error details stored in metadata - Failure relation with error details stored in metadata
 //   - SSE stream: process event data line by line - SSE streams: process event data line by line
 //
-// 配置示例 - Configuration examples:
+// Configuration examples:
 //
-//	// 基础POST请求 - Basic POST request
+//	Basic POST request - Basic POST request
 //	{
 //		"id": "apiCall1",
 //		"type": "restApiCall",
@@ -136,7 +136,7 @@ type RestApiCallNodeConfiguration struct {
 //		}
 //	}
 //
-//	// 带变量替换的GET请求 - GET request with variable substitution
+//	GET request with variable substitution - GET request with variable substitution
 //	{
 //		"id": "apiCall2",
 //		"type": "restApiCall",
@@ -150,7 +150,7 @@ type RestApiCallNodeConfiguration struct {
 //		}
 //	}
 //
-//	// 自定义请求体 - Custom request body
+//	Custom request body - Custom request body
 //	{
 //		"id": "apiCall3",
 //		"type": "restApiCall",
@@ -164,7 +164,7 @@ type RestApiCallNodeConfiguration struct {
 //		}
 //	}
 //
-//	// 代理配置 - Proxy configuration
+//	Proxy configuration - Proxy configuration
 //	{
 //		"id": "apiCall4",
 //		"type": "restApiCall",
@@ -180,7 +180,7 @@ type RestApiCallNodeConfiguration struct {
 //		}
 //	}
 //
-//	// SSE流式响应 - SSE streaming response
+//	SSE streaming response
 //	{
 //		"id": "apiCall5",
 //		"type": "restApiCall",
@@ -194,18 +194,18 @@ type RestApiCallNodeConfiguration struct {
 //		}
 //	}
 //
-// 使用场景 - Use cases:
-//   - 第三方API集成：调用外部服务API获取数据 - Third-party API integration: call external service APIs
-//   - 数据推送：向下游系统推送处理结果 - Data pushing: push processing results to downstream systems
-//   - 微服务通信：在微服务架构中进行服务间调用 - Microservice communication: inter-service calls
-//   - Webhook触发：触发外部系统的webhook接口 - Webhook triggering: trigger external webhook interfaces
-//   - 数据同步：与外部数据源进行数据同步 - Data synchronization: sync data with external sources
-//   - 认证服务：调用认证服务验证用户身份 - Authentication service: call auth services for user verification
-//   - 流式数据处理：处理SSE或长连接的实时数据流 - Streaming data: process SSE or long-connection real-time streams
+// Use cases:
+//   - Third-party API integration: Call external service APIs to obtain data
+//   - Data pushing: Pushing processing results to downstream systems
+//   - Microservice communication: inter-service calls in microservice architecture
+//   - Webhook triggering: triggers external system webhook interfaces
+//   - Data synchronization: Synchronize data with external sources
+//   - Authentication service: Call auth services for user verification
+//   - Streaming data processing: processes SSE or long-connection real-time streams
 type RestApiCallNode struct {
-	//节点配置
+	//Node configuration
 	Config RestApiCallNodeConfiguration
-	//httpClient http客户端
+	//httpClient: http client
 	httpClient *http.Client
 	template   *HTTPRequestTemplate
 }
@@ -218,7 +218,7 @@ type HTTPRequestTemplate struct {
 	HasVar          bool
 }
 
-// Type 组件类型
+// Type returns the component type
 func (x *RestApiCallNode) Type() string {
 	return "restApiCall"
 }
@@ -235,7 +235,7 @@ func (x *RestApiCallNode) New() types.Node {
 	return &RestApiCallNode{Config: config}
 }
 
-// Init 初始化
+// Init initializes the component
 func (x *RestApiCallNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
@@ -250,7 +250,7 @@ func (x *RestApiCallNode) Init(ruleConfig types.Config, configuration types.Conf
 	return err
 }
 
-// OnMsg 处理消息，发送HTTP请求并处理响应
+// OnMsg handles messages, sends HTTP requests, and handles responses
 // OnMsg processes messages by sending HTTP requests and handling responses.
 func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var evn map[string]interface{}
@@ -275,7 +275,7 @@ func (x *RestApiCallNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.TellFailure(msg, err)
 		return
 	}
-	//设置header
+	//Set the header
 	for key, value := range x.template.HeadersTemplate {
 		req.Header.Set(key.ExecuteAsString(evn), value.ExecuteAsString(evn))
 	}
@@ -323,31 +323,31 @@ func (x *RestApiCallNode) Desc() string {
 	return "Send HTTP requests to external APIs. Body defaults to msg JSON, response written back to msg. Supports ${msg.xxx}, ${metadata.xxx}, ${global.xxx} substitution. Routes to Success/Failure"
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (x *RestApiCallNode) Destroy() {
 }
 
-// NewHttpClient 创建http客户端
+// NewHttpClient creates an HTTP client
 func NewHttpClient(config RestApiCallNodeConfiguration) *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: config.InsecureSkipVerify}
 	transport.MaxConnsPerHost = config.MaxParallelRequestsCount
 
-	// 配置代理
+	// Configure the agent
 	if config.EnableProxy {
 		if config.UseSystemProxyProperties {
-			// 使用系统代理设置
+			// Use system proxy settings
 			if proxyURL := HttpUtils.GetSystemProxy(); proxyURL != nil {
 				transport.Proxy = http.ProxyURL(proxyURL)
 			}
 		} else {
-			// 使用自定义代理设置
+			// Use custom proxy settings
 			if proxyURL := HttpUtils.BuildProxyURL(config.ProxyScheme, config.ProxyHost, config.ProxyPort, config.ProxyUser, config.ProxyPassword); proxyURL != nil {
 				if config.ProxyScheme == "socks5" {
-					// SOCKS5代理需要特殊处理
+					// SOCKS5 proxies require special handling
 					transport.Dial = HttpUtils.CreateSOCKS5Dialer(proxyURL)
 				} else {
-					// HTTP/HTTPS代理
+					// HTTP/HTTPS proxy
 					transport.Proxy = http.ProxyURL(proxyURL)
 				}
 			}
@@ -358,25 +358,25 @@ func NewHttpClient(config RestApiCallNodeConfiguration) *http.Client {
 		Timeout: time.Duration(config.ReadTimeoutMs) * time.Millisecond}
 }
 
-// SSE 流式数据读取
+// SSE streaming data reading
 func readFromStream(ctx types.RuleContext, msg types.RuleMsg, resp *http.Response) {
 	HttpUtils.ReadFromStream(ctx, msg, resp)
 }
 
-// HttpUtils 全局HttpUtils实例
+// HttpUtils Global HttpUtils instance
 var HttpUtils = NewHttpUtils()
 
-// httpUtils HTTP相关工具函数集合
+// httpUtils: A collection of HTTP-related utility functions
 type httpUtils struct{}
 
-// NewHttpUtils 创建HttpUtils实例
+// NewHttpUtils creates an HttpUtils instance
 func NewHttpUtils() *httpUtils {
 	return &httpUtils{}
 }
 
-// GetSystemProxy 获取系统代理设置
+// GetSystemProxy to obtain the system proxy settings
 func (h *httpUtils) GetSystemProxy() *url.URL {
-	// 检查环境变量
+	// Check environmental variables
 	for _, env := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy"} {
 		if proxyStr := os.Getenv(env); proxyStr != "" {
 			if proxyURL, err := url.Parse(proxyStr); err == nil {
@@ -387,7 +387,7 @@ func (h *httpUtils) GetSystemProxy() *url.URL {
 	return nil
 }
 
-// BuildProxyURL 构建代理URL
+// BuildProxyURL: Build the proxy URL
 func (h *httpUtils) BuildProxyURL(scheme, host string, port int, user, password string) *url.URL {
 	if scheme == "" || host == "" || port == 0 {
 		return nil
@@ -404,7 +404,7 @@ func (h *httpUtils) BuildProxyURL(scheme, host string, port int, user, password 
 	return nil
 }
 
-// CreateSOCKS5Dialer 创建SOCKS5拨号器
+// CreateSOCKS5Dialer Creates a SOCKS5 dialer
 func (h *httpUtils) CreateSOCKS5Dialer(proxyURL *url.URL) func(network, addr string) (net.Conn, error) {
 	return func(network, addr string) (net.Conn, error) {
 		var auth *proxy.Auth
@@ -428,7 +428,7 @@ func (h *httpUtils) CreateSOCKS5Dialer(proxyURL *url.URL) func(network, addr str
 
 const base64Table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
-// Base64Encode 简单的base64编码（复用函数）
+// Base64Encode Simple base64 encoding (multiplex function)
 func (h *httpUtils) Base64Encode(s string) string {
 	data := []byte(s)
 	result := make([]byte, 0, (len(data)+2)/3*4)
@@ -454,23 +454,23 @@ func (h *httpUtils) Base64Encode(s string) string {
 	return string(result)
 }
 
-// ReadFromStream 从SSE流中读取数据
+// ReadFromStream reads data from an SSE stream
 func (h *httpUtils) ReadFromStream(ctx types.RuleContext, msg types.RuleMsg, resp *http.Response) {
 	defer resp.Body.Close()
-	// 从响应的Body中读取数据，使用bufio.Scanner按行读取
+	// Read data from the responsive Body using bufio.Scanner reads line by line
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
-		// 获取一行数据
+		// Retrieve a line of data
 		line := scanner.Text()
-		// 如果是空行，表示一个事件结束，继续读取下一个事件
+		// If it is a blank line, it means one event has ended and the next event is read
 		if line == "" {
 			continue
 		}
-		// 如果是注释行，忽略
+		// If it is a comment line, ignore it
 		if strings.HasPrefix(line, ":") {
 			continue
 		}
-		// 解析数据，根据不同的事件类型和数据内容进行处理
+		// Parse data and process it according to different event types and data content
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
 			continue
@@ -488,7 +488,7 @@ func (h *httpUtils) ReadFromStream(ctx types.RuleContext, msg types.RuleMsg, res
 
 func (h *httpUtils) BuildRequestTemplate(config *RestApiCallNodeConfiguration) (*HTTPRequestTemplate, error) {
 	reqTemplate := &HTTPRequestTemplate{}
-	//Server-Send Events 流式响应
+	//Server-Send Events streaming response
 	if strings.HasPrefix(config.Headers[AcceptKey], EventStreamMime) ||
 		strings.HasPrefix(config.Headers[ContentTypeKey], EventStreamMime) {
 		reqTemplate.IsStream = true

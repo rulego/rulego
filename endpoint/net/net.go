@@ -55,26 +55,26 @@ import (
 )
 
 const (
-	// Type 组件类型
+	// Type returns the component type
 	Type = types.EndpointTypePrefix + "net"
-	// RemoteAddrKey 远程地址键
+	// RemoteAddrKey Remote address key
 	RemoteAddrKey = "remoteAddr"
-	// PingData 心跳数据
+	// PingData heartbeat data
 	PingData = "ping"
-	// MatchAll 匹配所有数据
+	// MatchAll matches all data
 	MatchAll = "*"
-	// BufferSize 假设缓冲区大小为1024字节
+	// BufferSize assumes a buffer size of 1024 bytes
 	BufferSize = 1024
-	// LineBreak JSON消息行分隔符
+	// LineBreak JSON message line separator
 	LineBreak = "\n"
 
-	// DefaultMaxPacketSize 默认最大数据包大小(64KB)
+	// DefaultMaxPacketSizeDefault maximum packet size (64KB)
 	DefaultMaxPacketSize = 65536
 
-	// DefaultSessionTTL 默认 session 空闲 TTL（秒，30 分钟）。0=禁用。
+	// DefaultSessionTTL Default session idle TTL (seconds, 30 minutes). 0=Disabled.
 	DefaultSessionTTL = 1800
 
-	// 协议常量
+	// Protocol constant
 	ProtocolTCP        = "tcp"
 	ProtocolTCP4       = "tcp4"
 	ProtocolTCP6       = "tcp6"
@@ -84,29 +84,29 @@ const (
 	ProtocolUnix       = "unix"
 	ProtocolUnixPacket = "unixpacket"
 
-	// 编码模式常量
+	// Encoding mode constants
 	EncodeHex    = "hex"
 	EncodeBase64 = "base64"
-	// 数据类型解释（非编码：不改字节，只设 dataType 让下游按文本/JSON 处理）
+	// Data type explanation (non-encoded: do not change bytes, only set dataType to allow downstream to process as text/JSON)
 	EncodeText = "text"
 	EncodeJson = "json"
 
-	// 十六进制前缀常量
+	// Hexadecimal prefix constant
 	HexPrefix   = "0x"
 	HexPrefixUp = "0X"
 
-	// PacketMode解析用常量
+	// PacketMode uses constants for parsing
 	BigEndianSuffix      = "_be"
 	IncludesPrefixSuffix = "_inc"
 
-	// 特殊路由匹配常量
+	// Special route matching constants
 	RouteMatchDotStar = ".*"
 )
 
-// Endpoint 别名
+// Endpoint alias
 type Endpoint = Net
 
-// RequestMessage 请求消息
+// RequestMessage
 type RequestMessage struct {
 	headers  textproto.MIMEHeader
 	conn     net.Conn
@@ -114,7 +114,7 @@ type RequestMessage struct {
 	msg      *types.RuleMsg
 	err      error
 	from     string
-	dataType types.DataType // 添加数据类型字段
+	dataType types.DataType // Add a data type field
 }
 
 func (r *RequestMessage) Body() []byte {
@@ -131,7 +131,7 @@ func (r *RequestMessage) Headers() textproto.MIMEHeader {
 	return r.headers
 }
 
-// From 返回客户端Addr
+// From returns client Addr
 func (r RequestMessage) From() string {
 	return r.from
 }
@@ -147,57 +147,57 @@ func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
 // GetMsg returns the RuleMsg associated with this request.
 // If no message exists, creates a new one with the request data.
 //
-// GetMsg 返回与此请求关联的 RuleMsg。
-// 如果不存在消息，则使用请求数据创建新消息。
+// GetMsg returns the RuleMsg associated with this request.
+// If the message does not exist, a new message is created using the request data.
 //
 // Data Type Handling:
-// 数据类型处理：
+// Data type handling:
 //
 // By default, all network data is treated as BINARY type to preserve data integrity.
 // This ensures that binary protocols, raw sensor data, and any byte sequences are
 // handled correctly without character encoding issues.
 //
-// 默认情况下，所有网络数据都被视为 BINARY 类型以保持数据完整性。
-// 这确保二进制协议、原始传感器数据和任何字节序列都能正确处理，不会出现字符编码问题。
+// By default, all network data is considered BINARY type to maintain data integrity.
+// This ensures that binary protocols, raw sensor data, and any byte sequences are handled correctly without character encoding issues.
 //
 // Changing Data Type with Processors:
-// 使用处理器更改数据类型：
+// Change data type using the processor:
 //
 // The data type can be changed using built-in processors to optimize downstream
 // component processing. Use processors in router configuration:
-// 可以使用内置处理器更改数据类型以优化下游组件处理。在路由配置中使用处理器：
+// The built-in processor can be used to change data types to optimize downstream component processing. Using processors in routing configurations:
 //
 //	router := impl.NewRouter().From("").
 //	  Process("setJsonDataType").   // Changes to JSON type
 //	  To("chain:jsonProcessor").End()
 //
 // Available data type processors:
-// 可用的数据类型处理器：
+// Available data types processors:
 //   - setJsonDataType: For JSON protocols and REST APIs
-//     用于 JSON 协议和 REST API
+//     Used for JSON protocol and REST API
 //   - setTextDataType: For text-based protocols like HTTP, SMTP, etc.
-//     用于基于文本的协议，如 HTTP、SMTP 等
+//     Used for text-based protocols such as HTTP, SMTP, etc
 //   - setBinaryDataType: For binary protocols (default, explicit setting)
-//     用于二进制协议（默认，显式设置）
+//     Used for binary protocol (default, explicit settings)
 //
 // Protocol-Specific Recommendations:
-// 协议特定建议：
+// Protocol-specific recommendations:
 //   - IoT sensors: Keep BINARY for raw data integrity
-//     物联网传感器：保持 BINARY 以确保原始数据完整性
+//     IoT sensors: Maintain BINARY to ensure the integrity of raw data
 //   - JSON APIs: Use setJsonDataType processor
-//     JSON API：使用 setJsonDataType 处理器
+//     JSON API: uses the setJsonDataType processor
 //   - Text protocols: Use setTextDataType processor
-//     文本协议：使用 setTextDataType 处理器
+//     Text Protocol: Uses the setTextDataType processor
 func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	if r.msg == nil {
-		// 使用实际的数据类型，如果未设置则默认为BINARY（网络数据默认为二进制类型）
+		// Uses the actual data type; if not set, default is BINARY (network data defaults to binary type)
 		// Use the actual data type, default to BINARY if not set (network data defaults to binary type)
 		dataType := r.dataType
 		if dataType == "" {
 			dataType = types.BINARY
 		}
 
-		// 根据数据类型决定如何创建消息
+		// Decide how to create messages based on the data type
 		// Decide how to create the message based on data type
 		var ruleMsg types.RuleMsg
 		if dataType == types.BINARY {
@@ -210,7 +210,7 @@ func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	return r.msg
 }
 
-// SetStatusCode 不提供设置响应状态码
+// SetStatusCode does not provide a response status code
 func (r *RequestMessage) SetStatusCode(statusCode int) {
 }
 
@@ -230,7 +230,7 @@ func (r *RequestMessage) Conn() net.Conn {
 	return r.conn
 }
 
-// ResponseMessage 响应消息
+// ResponseMessage
 type ResponseMessage struct {
 	headers textproto.MIMEHeader
 	conn    net.Conn
@@ -289,7 +289,7 @@ func (r *ResponseMessage) SetBody(body []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.msg != nil && r.msg.GetDataType() == types.JSON {
-		// 检查JSON数据是否以换行符结尾，如果没有则添加
+		// Check if the JSON data ends with a line new; if not, add it
 		if len(body) > 0 && !strings.HasSuffix(string(body), LineBreak) {
 			body = append(body, LineBreak...)
 		}
@@ -328,56 +328,56 @@ func (r *ResponseMessage) GetError() error {
 	return r.err
 }
 
-// Config endpoint组件的配置
+// Config endpoint component configuration
 // Configuration for the NET endpoint component that creates TCP/UDP servers
 // for receiving and processing network messages through the RuleGo framework.
 //
-// Config NET端点组件的配置，用于创建 TCP/UDP 服务器
-// 通过 RuleGo 框架接收和处理网络消息。
+// Config.NET endpoint component configuration for creating TCP/UDP servers
+// Receive and process network messages through the RuleGo framework.
 //
 // Data Type Processing:
-// 数据类型处理：
+// Data type handling:
 //
 // By default, all incoming network data is treated as BINARY type. This can be
 // changed using built-in processors from the processor package:
-// 默认情况下，所有传入的网络数据都被视为 BINARY 类型。这可以通过
-// processor 包中的内置处理器进行更改：
+// By default, all incoming network data is considered BINARY type. This can be done
+// Changes to the built-in processor package include:
 //
 //   - processor.InBuiltins.Get("setJsonDataType"): Sets data type to JSON
-//     设置数据类型为 JSON
+//     Set the data type to JSON
 //   - processor.InBuiltins.Get("setTextDataType"): Sets data type to TEXT
-//     设置数据类型为 TEXT
+//     Set the data type to TEXT
 //   - processor.InBuiltins.Get("setBinaryDataType"): Sets data type to BINARY
-//     设置数据类型为 BINARY
+//     Set the data type to BINARY
 //
 // Packet Splitting Modes:
-// 数据包分割模式：
+// Packet splitting mode:
 //
 // The endpoint supports multiple packet splitting strategies to handle different
 // network protocols and data formats:
-// 端点支持多种数据包分割策略以处理不同的网络协议和数据格式：
+// Endpoints support multiple packet segmentation strategies to handle different network protocols and data formats:
 //
 //   - "line": Split by newline characters (\n or \r\n) - default mode
-//     按换行符分割（\n 或 \r\n）- 默认模式
+//     Split by line break (\n or \r\n) - default mode
 //   - "fixed": Split by fixed byte length
-//     按固定字节长度分割
+//     Split by fixed byte length
 //   - "delimiter": Split by custom delimiter (supports hex format)
-//     按自定义分隔符分割（支持十六进制格式）
+//     Splitting by custom separator (supports hexadecimal format)
 //   - "length_prefix_*": Split by length prefix with various endianness options
-//     按长度前缀分割，支持各种字节序选项
+//     Split by length prefix, supporting various byte order options
 //
 // Router Configuration Best Practices:
-// 路由配置最佳实践：
+// Best Practices for Route Configuration:
 //
 // It's recommended to use a single default router that matches all messages,
 // and handle routing logic within rule chains for better maintainability:
-// 建议使用匹配所有消息的单个默认路由，并在规则链中处理路由逻辑以获得更好的可维护性：
+// It is recommended to use a single default route that matches all messages and handle routing logic in the rule chain for better maintainability:
 //
 //	router := impl.NewRouter().From("").To("chain:main").End()
 //	ep.AddRouter(router)
 //
 // Advanced routing with processors can be configured like:
-// 可以配置带处理器的高级路由，如：
+// Advanced routers with processors can be configured, such as:
 //
 //	router := impl.NewRouter().From("").
 //		Process("setJsonDataType").
@@ -392,7 +392,7 @@ type Config struct {
 	// Read timeout for setting data read timeout in seconds, can be 0 for no timeout
 	ReadTimeout int `json:"readTimeout" label:"Read Timeout" desc:"Read timeout in seconds, 0 for no timeout"`
 
-	// Encode 数据编码/类型：hex/base64 编码字节为字符串；text/string 设 dataType=TEXT、json 设 dataType=JSON（不编码字节，便于 editor/下游可读）
+	// Encode Data Encoding/Type: hex/base64 Encoded bytes as strings; text/string set dataType=TEXT, json set dataType=JSON (does not encode bytes, making it easier for editors and downstream readability)
 	Encode string `json:"encode" label:"Encode" desc:"hex/base64 encode bytes to string; text/string set dataType=TEXT, json set dataType=JSON (keep bytes, readable)."`
 
 	// Packet splitting mode:
@@ -417,41 +417,41 @@ type Config struct {
 	// Maximum packet size to prevent malicious packets, default 64KB
 	MaxPacketSize int `json:"maxPacketSize" label:"Max Packet Size" desc:"Maximum packet size to prevent malicious packets, default 64KB"`
 
-	// SessionKey 声明 sessionKey 提取规则（rulego ${} 表达式，支持数组多候选）。留空 = 用 RemoteAddr。
-	// 例如：${msg.deviceId} / ${msg.header.sn} / ${hex(data[4:14])} / ${reFind("ID:([a-zA-Z0-9_]+)", data)}
-	// 注意：reFind 等含字符串参数的表达式必须用双引号（el 引擎不认单引号）；
-	//       正则避免用 \w（expr 字符串里是非法转义），改用 [a-zA-Z0-9_]
+	// SessionKey declares a sessionKey extraction rule (rulego ${} expression, supports array multiple candidates). Leave blank = Use RemoteAddr.
+	// For example: ${msg.deviceId} / ${msg.header.sn} / ${hex(data[4:14])} / ${reFind("ID:([a-zA-Z0-9_]+)", data)}
+	// Note: Expressions like reFind containing string parameters must be in double quotes (el engines do not recognize single quotes);
+	//       Avoid using \w (which is illegal escape in expr strings), and instead use [a-zA-Z0-9_]
 	SessionKey interface{} `json:"sessionKey"`
 
-	// SessionTTL 会话空闲 TTL（秒）。idle 超时则关连接促客户端重连重新提取 sessionKey。<=0 使用默认 1800（30 分钟）。
+	// SessionTTL session idle TTL (seconds). If idle times out, the connection is closed, prompting the client to reconnect and re-extract the sessionKey. <=0 uses the default 1800 (30 minutes).
 	SessionTTL int `json:"sessionTTL" label:"Session TTL" desc:"Session idle timeout in seconds, <=0 uses default 1800 (30min)"`
 }
 
-// RegexpRouter 正则表达式路由
+// RegexpRouter is a regular expression for routing
 type RegexpRouter struct {
-	//路由ID
+	//Route ID
 	id string
-	//路由
+	//Route
 	router endpoint.Router
-	//正则表达式
+	//Regular expression
 	regexp *regexp.Regexp
-	//路由匹配选项
+	//Route matching options
 	matchOptions *RouterMatchOptions
 }
 
-// RouterMatchOptions 路由匹配选项
+// RouterMatchOptions Route matching options
 type RouterMatchOptions struct {
-	// 匹配原始数据而非编码数据
+	// Match raw data rather than encoded data
 	MatchRawData bool `json:"matchRawData"`
-	// 数据类型过滤器：TEXT, BINARY, JSON 等
+	// Data type filters: TEXT, BINARY, JSON, etc
 	DataTypeFilter string `json:"dataTypeFilter"`
-	// 最小数据长度
+	// Minimum data length
 	MinDataLength int `json:"minDataLength"`
-	// 最大数据长度
+	// Maximum data length
 	MaxDataLength int `json:"maxDataLength"`
 }
 
-// Match 检查数据是否匹配路由规则
+// Match checks whether the data matches routing rules
 func (r *RegexpRouter) Match(rawData, encodedData []byte, exchange *endpoint.Exchange) bool {
 	opts := r.matchOptions
 	if opts == nil {
@@ -483,7 +483,7 @@ func (r *RegexpRouter) Match(rawData, encodedData []byte, exchange *endpoint.Exc
 	return r.regexp == nil || r.regexp.Match(dataToMatch)
 }
 
-// encodeData 对数据进行编码处理
+// encodeData encodes the data
 func encodeData(src []byte, encode string) ([]byte, types.DataType) {
 	switch strings.ToLower(encode) {
 	case EncodeHex:
@@ -495,57 +495,57 @@ func encodeData(src []byte, encode string) ([]byte, types.DataType) {
 		base64.StdEncoding.Encode(encoded, src)
 		return encoded, types.TEXT
 	case EncodeText, "string":
-		// 不编码字节，仅设 dataType=TEXT：data 按文本字符串解释（editor 调试 IN 可读 ASCII）
+		// No encoded bytes, only set dataType=TEXT:data interpreted by text string (editor debugging IN readable ASCII)
 		return src, types.TEXT
 	case EncodeJson:
-		// 不编码字节，仅设 dataType=JSON：data 按 JSON 解释（下游 jsTransform 可直接 parse）
+		// No byte encoded, only set dataType=JSON: data interpreted by JSON (downstream jsTransform can parse directly)
 		return src, types.JSON
 	default:
 		return src, types.BINARY
 	}
 }
 
-// Net net endpoint组件
-// 支持通过正则表达式把匹配的消息路由到指定路由
+// Net net endpoint component
+// Supports routing matching messages to specified routes via regular expressions
 //
-// 路由使用建议：
-// ⚠️  不建议使用多路由功能，推荐只添加一个默认路由（使用空字符串、"*" 或 ".*" 匹配所有消息）
-// ⚠️  将路由逻辑放在规则链中处理，这样更灵活且便于维护
-// ⚠️  多路由匹配功能在未来版本中可能会被弃用
+// Routing usage recommendations:
+// ⚠️ It is not recommended to use multi-routing functionality; it is recommended to add only one default route (using an empty string, "*" or ".*" to match all messages).
+// ⚠️ Routing logic is processed within the rule chain, making it more flexible and easier to maintain
+// ⚠️ The multi-route matching feature may be deprecated in future versions
 //
-// 推荐用法：
+// Recommended usage:
 //
 //	router := impl.NewRouter().From("").To("chain:main").End()
 //	ep.AddRouter(router)
 //
-// 不推荐用法：
+// Recommended usage:
 //
 //	router1 := impl.NewRouter().From("^sensor.*").To("chain:sensor").End()
 //	router2 := impl.NewRouter().From("^device.*").To("chain:device").End()
-//	// 应该在规则链中使用 msgTypeSwitch 或 jsFilter 等组件进行路由
+//	Components like msgTypeSwitch or jsFilter should be used in the rule chain for routing
 type Net struct {
-	// 嵌入endpoint.BaseEndpoint，继承其方法
+	// Embedding endpoint.BaseEndpoint inherits its method
 	impl.BaseEndpoint
-	// 配置
+	// Configuration
 	Config Config
-	// rulego配置
+	// rulego configuration
 	RuleConfig types.Config
-	// 服务器监听器对象
+	// Server listener object
 	listener net.Listener
 	// udp conn
 	udpConn *net.UDPConn
-	// 路由映射表
+	// Route mapping table
 	routers map[string]*RegexpRouter
-	closed  int32        // 使用int32类型支持原子操作，0表示未关闭，1表示已关闭
-	mu      sync.RWMutex // 保护listener和udpConn的并发访问
+	closed  int32        // Using the int32 type supports atomic operations; 0 means not closed, 1 means closed
+	mu      sync.RWMutex // Protect concurrent access between listeners and udpConn
 
-	// 嵌入会话注册表，支持按 Key 向已连接客户端主动推送
+	// Embedded session registry, supports proactive push to connected clients by key
 	impl.DefaultSessionRegistry
-	// sessionKey 提取器（Init 时构造），nil 时用 RemoteAddr
+	// sessionKey extractor (constructed when init), and RemoteAddr when nil is used
 	keyResolver *impl.SessionKeyResolver
 }
 
-// Type 组件类型
+// Type returns the component type
 func (ep *Net) Type() string {
 	return Type
 }
@@ -579,18 +579,18 @@ func (ep *Net) New() types.Node {
 			Protocol:      ProtocolTCP,
 			ReadTimeout:   60,
 			Server:        ":6335",
-			PacketMode:    PacketModeLine.String(), // 默认按行分割
+			PacketMode:    PacketModeLine.String(), // By default, it is divided by row
 			PacketSize:    2,
 			Encode:        "none",
-			MaxPacketSize: DefaultMaxPacketSize, // 默认64KB最大包大小
+			MaxPacketSize: DefaultMaxPacketSize, // The default maximum package size is 64KB
 			SessionTTL:    DefaultSessionTTL,
 		},
 	}
 }
 
-// Init 初始化
+// Init initializes the component
 func (ep *Net) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	// 将配置转换为EndpointConfiguration结构体
+	// Converts the configuration into the EndpointConfiguration structure
 	err := maps.Map2Struct(configuration, &ep.Config)
 	if ep.Config.Protocol == "" {
 		ep.Config.Protocol = ProtocolTCP
@@ -607,10 +607,10 @@ func (ep *Net) Init(ruleConfig types.Config, configuration types.Configuration) 
 	return err
 }
 
-// GetInstance 返回自身，满足 types.SharedNode，供 ref:// 从 NodePool 取 *Net 做会话寻址。
+// GetInstance returns itself, satisfying types.SharedNode, used by ref:// to fetch *Net from NodePool for session addressing.
 func (ep *Net) GetInstance() (interface{}, error) { return ep, nil }
 
-// Addr 返回实际监听地址（如 server=":0" 随机端口绑定后的真实地址）。未监听返回空串。
+// addr returns the actual listening address (e.g., server=":0" to the real address after random port binding). Returns empty strings without monitoring.
 func (ep *Net) Addr() string {
 	ep.mu.RLock()
 	defer ep.mu.RUnlock()
@@ -623,19 +623,19 @@ func (ep *Net) Addr() string {
 	return ""
 }
 
-// Destroy 销毁
+// Destroy releases resources
 func (ep *Net) Destroy() {
-	ep.StopSweeping() // 先停 TTL 扫描，防与 Clear 竞态
+	ep.StopSweeping() // Stop TTL scanning first to prevent race against Clear
 	_ = ep.Close()
-	ep.Clear() // 兜底清理 session registry
+	ep.Clear() // Bottom-line cleanup of session registry
 }
 
-// SendToTarget 实现 types.TargetSender：按 target 寻址发送 data。
-// target：IP / deviceId / *（广播）/ 空（广播）。
-// 返回 (成功数, 失败数, 首个错误)；未命中任何 session 返回 err。
+// SendToTarget implements types.TargetSender: Send data by target address.
+// target: IP / deviceId / *(broadcast) / empty (broadcast).
+// Return (number of successes, number of failures, first error); Missing any session returns err.
 //
-// 寻址走嵌入的 DefaultSessionRegistry.Lookup（sync.Map Range，无锁），
-// 零分配（复用入参 data）。供 net 节点 ref:// 同链/共享池寻址推送复用。
+// Address the embedded DefaultSessionRegistry.Lookup (sync.Map Range, unlocked),
+// Zero allocation (reusing parameter data). Allows net nodes ref:// same-chain/shared pool addressing push push multiplex.
 func (ep *Net) SendToTarget(target string, data []byte) (sent, failed int, err error) {
 	sessions := ep.Lookup(target)
 	if len(sessions) == 0 {
@@ -656,7 +656,7 @@ func (ep *Net) SendToTarget(target string, data []byte) (sent, failed int, err e
 	return sent, failed, firstErr
 }
 
-// Close 关闭网络端点
+// Close: Close the network endpoint
 func (ep *Net) Close() error {
 	atomic.StoreInt32(&ep.closed, 1)
 
@@ -682,28 +682,28 @@ func (ep *Net) Id() string {
 	return ep.Config.Server
 }
 
-// AddRouter 添加路由规则
+// AddRouter adds routing rules
 //
-// ⚠️  不建议使用多个路由，推荐只添加一个默认路由匹配所有消息
-// ⚠️  路由表达式支持特殊值：空字符串("")、"*" 或 ".*" 将匹配所有数据
-// ⚠️  建议将复杂的路由逻辑放在规则链中处理
+// ⚠️ It is not recommended to use multiple routes; it is recommended to add only one default route to match all messages
+// ⚠️ Routing expressions support special values: empty strings (""), "*", or ".*" will match all data
+// ⚠️ It is recommended to place complex routing logic within the rule chain
 //
-// 参数：
-//   - router: 路由规则
-//   - params: 可选参数，第一个参数可以是 *RouterMatchOptions 用于高级匹配
+// Parameters:
+//   - router: routing rules
+//   - params: Optional parameters, the first can be *RouterMatchOptions for advanced matching
 //
-// 返回：
-//   - 路由ID和错误信息
+// Returns:
+//   - Routing ID and error messages
 func (ep *Net) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
 		return "", errors.New("router can not nil")
 	} else {
 		expr := router.GetFrom().ToString()
-		//允许空expr，表示匹配所有
+		//Allow empty expr, indicating matching all items
 		var regexpV *regexp.Regexp
-		// 特殊路由表达式不创建正则表达式，在matchesRouter中通过regexp==nil判断
+		// Special routing expressions do not create regular expressions; in matchesRouter, they are determined by regexp==nil
 		if expr != "" && expr != MatchAll && expr != RouteMatchDotStar {
-			//编译表达式
+			//Compiling expressions
 			if re, err := regexp.Compile(expr); err != nil {
 				return "", err
 			} else {
@@ -711,7 +711,7 @@ func (ep *Net) AddRouter(router endpoint.Router, params ...interface{}) (string,
 			}
 		}
 
-		// 解析路由匹配选项
+		// Parse routing matching options
 		var matchOptions *RouterMatchOptions
 		if len(params) > 0 {
 			if opts, ok := params[0].(*RouterMatchOptions); ok {
@@ -752,10 +752,10 @@ func (ep *Net) RemoveRouter(routerId string, params ...interface{}) error {
 	return nil
 }
 
-// Start 启动Net端点
+// Start the Net endpoint
 func (ep *Net) Start() error {
 	var err error
-	// 根据配置的协议和地址，创建一个服务器监听器
+	// Create a server listener based on the configured protocol and address
 	switch ep.Config.Protocol {
 
 	case ProtocolTCP, ProtocolTCP4, ProtocolTCP6, ProtocolUnix, ProtocolUnixPacket:
@@ -794,7 +794,7 @@ func (ep *Net) Start() error {
 	return nil
 }
 
-// listenUDP 启动UDP监听
+// listenUDP starts UDP monitoring
 func (ep *Net) listenUDP() error {
 	udpAddr, err := net.ResolveUDPAddr(ep.Config.Protocol, ep.Config.Server)
 	if err != nil {
@@ -813,15 +813,15 @@ func (ep *Net) listenUDP() error {
 }
 
 func (ep *Net) acceptTCPConnections() {
-	// 循环接受客户端的连接请求
+	// Loop to accept connection requests from clients
 	for {
-		// 检查是否已关闭，避免数据竞争
+		// Check if it is closed to avoid data contention
 		if atomic.LoadInt32(&ep.closed) == 1 {
 			ep.Printf("net endpoint stop")
 			return
 		}
 
-		// 获取监听器引用，避免在Close()过程中访问nil指针
+		// Retrieves listener references to avoid accessing nil pointers during the Close() process
 		ep.mu.RLock()
 		listener := ep.listener
 		ep.mu.RUnlock()
@@ -831,7 +831,7 @@ func (ep *Net) acceptTCPConnections() {
 			return
 		}
 
-		// 从监听器中获取一个客户端连接，返回连接对象和错误信息
+		// Obtain a client connection from the listener, returning the connection object and error information
 		conn, err := listener.Accept()
 		if err != nil {
 			if opError, ok := err.(*net.OpError); ok && opError.Err == net.ErrClosed {
@@ -839,26 +839,26 @@ func (ep *Net) acceptTCPConnections() {
 				return
 				//return endpoint.ErrServerStopped
 			} else {
-				ep.Printf("accept:", err)
+				ep.Printf("accept: %v", err)
 				continue
 			}
 		}
 
-		// 再次检查关闭状态，防止在Accept()期间被关闭
+		// Check the closed status again to prevent it from being closed during Accept().
 		if atomic.LoadInt32(&ep.closed) == 1 {
 			_ = conn.Close()
 			ep.Printf("net endpoint stop - closing accepted connection")
 			return
 		}
 
-		// 打印客户端连接的信息
+		// Print the client-side connection information
 		//ep.Printf("new connection from:", conn.RemoteAddr().String())
 		h := TcpHandler{
 			endpoint: ep,
 			conn:     conn,
 			config:   ep.Config,
 		}
-		// 启动一个协程处理客户端连接；submit 失败须关闭 conn 避免 fd 泄漏
+		// Start a coroutine to handle client connections; If submit fails, close conn to prevent FD leaks
 		if err := ep.submitTask(h.handler); err != nil {
 			_ = conn.Close()
 		}
@@ -887,32 +887,32 @@ func (ep *Net) handler(conn net.Conn) {
 
 type TcpHandler struct {
 	endpoint *Net
-	// 客户端连接对象
+	// Client connection to objects
 	conn net.Conn
-	// 创建一个读取超时定时器，用于设置读取数据的超时时间，可以为0表示不设置超时
+	// Create a read-out timer to set the timeout for reading data; 0 can indicate no timeout
 	readTimeoutTimer *time.Timer
-	//读取数据配置
+	//Read data configuration
 	config Config
-	// 数据包分割器
+	// Packet splitter
 	splitter PacketSplitter
-	// 当前连接的 session（连接建立时创建并注册到 registry）
+	// The session of the current connection (created and registered to the registry when the connection is established)
 	session *endpoint.Session
 }
 
 func (x *TcpHandler) handler() {
 	defer func() {
-		// 连接断开：注销 session（在 conn.Close 前，保证 registry 不残留已关闭连接）
+		// Disconnection: Cancel the session (before conn.Close, ensure the registry does not retain closed connections)
 		if x.session != nil {
 			x.endpoint.Remove(x.session.Key())
 		}
 		_ = x.conn.Close()
-		//捕捉异常
+		//Capture anomalies
 		if e := recover(); e != nil {
 			x.endpoint.Printf("net endpoint handler err :\n%v", runtime.Stack())
 		}
 	}()
 
-	// 连接建立：创建并注册 session（默认 Key=RemoteAddr）
+	// Connection establishment: Create and register a session (default Key = RemoteAddr)
 	from0 := ""
 	if x.conn.RemoteAddr() != nil {
 		from0 = x.conn.RemoteAddr().String()
@@ -920,7 +920,7 @@ func (x *TcpHandler) handler() {
 	x.session = endpoint.NewSession(from0, &connSender{conn: x.conn})
 	x.endpoint.Add(x.session)
 
-	// 创建数据包分割器
+	// Create a packet splitter
 	splitter, err := CreatePacketSplitter(x.endpoint.Config)
 	if err != nil {
 		x.endpoint.Printf("failed to create packet splitter: %v", err)
@@ -929,17 +929,17 @@ func (x *TcpHandler) handler() {
 	x.splitter = splitter
 
 	readTimeoutDuration := time.Duration(x.endpoint.Config.ReadTimeout+5) * time.Second
-	//读超时，断开连接
+	//Read timeout, disconnect the connection
 	x.readTimeoutTimer = time.AfterFunc(readTimeoutDuration, func() {
 		if x.endpoint.Config.ReadTimeout > 0 {
 			x.onDisconnect()
 		}
 	})
-	// 创建一个缓冲读取器，用于读取客户端发送的数据
+	// Create a buffer reader to read data sent by the client
 	reader := bufio.NewReader(x.conn)
-	// 循环读取客户端发送的数据
+	// Loop to read data sent by the client
 	for {
-		// 设置读取超时
+		// Set read timeout
 		if x.endpoint.Config.ReadTimeout > 0 {
 			err := x.conn.SetReadDeadline(time.Now().Add(readTimeoutDuration))
 			if err != nil {
@@ -948,7 +948,7 @@ func (x *TcpHandler) handler() {
 			}
 		}
 
-		// 使用数据包分割器读取数据
+		// Data is read using a packet splitter
 		data, err := x.splitter.ReadPacket(reader)
 
 		if err != nil && err.Error() != os.ErrDeadlineExceeded.Error() {
@@ -964,30 +964,30 @@ func (x *TcpHandler) handler() {
 				break
 			}
 		}
-		//重置读超时定时器
+		//Reset the read-out timer
 		if x.endpoint.Config.ReadTimeout > 0 {
 			x.readTimeoutTimer.Reset(readTimeoutDuration)
 		}
 		if x.session != nil {
-			x.session.Touch() // 每帧刷新 lastSeen（含心跳帧），TTL 保活
+			x.session.Touch() // Each frame refreshes lastSeen (including heartbeat frames), TTL is kept alive
 		}
 		if string(data) == PingData {
 			continue
 		}
-		// 编码处理
+		// Encoding processing
 		encodedMessage, dataType := encodeData(data, x.endpoint.Config.Encode)
 
 		from := ""
 		if x.conn.RemoteAddr() != nil {
 			from = x.conn.RemoteAddr().String()
 		}
-		// 创建一个交换对象，用于存储输入和输出的消息
+		// Create an exchange object to store input and output messages
 		exchange := &endpoint.Exchange{
 			In: &RequestMessage{
 				conn:     x.conn,
 				body:     encodedMessage,
 				from:     from,
-				dataType: dataType, // 设置正确的数据类型
+				dataType: dataType, // Set the correct data type
 			},
 			Out: &ResponseMessage{
 				log: func(format string, v ...interface{}) {
@@ -998,17 +998,17 @@ func (x *TcpHandler) handler() {
 			}}
 
 		msg := exchange.In.GetMsg()
-		// 把客户端连接的地址放到msg元数据中
+		// Place the client-side connection address into the MSG metadata
 		msg.Metadata.PutValue(RemoteAddrKey, from)
 
-		// sessionKey 提取：仅在未确定时执行（keyResolved 后跳过），用 SessionKeyResolver（rulego ${} 表达式）
+		// sessionKey extraction: only performed before determination (skipped after keyResolved), using SessionKeyResolver(rulego ${} expression)
 		if x.session != nil && !x.session.IsResolved() && x.endpoint.keyResolver != nil {
 			if key := x.endpoint.keyResolver.Resolve(*msg, data); key != "" {
-				x.endpoint.Rekey(x.session, key) // 原子改键：注销旧 Key + SetKey + 注册新 Key
+				x.endpoint.Rekey(x.session, key) // Atomic key change: Deregister the old Key + SetKey + register the new Key
 			}
 		}
 
-		// 匹配符合的路由，处理消息
+		// Matching the matching routes and processing messages
 		x.endpoint.RLock()
 		snapshot := make([]*RegexpRouter, 0, len(x.endpoint.routers))
 		for _, v := range x.endpoint.routers {
@@ -1032,20 +1032,20 @@ func (x *TcpHandler) onDisconnect() {
 		x.readTimeoutTimer.Stop()
 	}
 	if x.conn.RemoteAddr() != nil {
-		x.endpoint.Printf("onDisconnect:" + x.conn.RemoteAddr().String())
+		x.endpoint.Printf("onDisconnect: %s", x.conn.RemoteAddr().String())
 	}
 }
 
 type UDPHandler struct {
 	endpoint *Net
-	// 创建一个读取超时定时器，用于设置读取数据的超时时间，可以为0表示不设置超时
+	// Create a read-out timer to set the timeout for reading data; 0 can indicate no timeout
 	readTimeoutTimer *time.Timer
-	//读取数据配置
+	//Read data configuration
 	config Config
 }
 
 func (x *UDPHandler) handler() {
-	// UDP使用配置的最大包大小，但不小于原来的BufferSize
+	// UDP uses the maximum package size configured but not less than the original BufferSize
 	bufferSize := x.endpoint.Config.MaxPacketSize
 	if bufferSize < BufferSize {
 		bufferSize = BufferSize
@@ -1084,7 +1084,7 @@ func (x *UDPHandler) handler() {
 			continue
 		}
 
-		// 检查包大小限制
+		// Check the package size limits
 		if len(msgBuffer) > x.endpoint.Config.MaxPacketSize {
 			x.endpoint.Printf("UDP packet too large: %d > %d from %s", len(msgBuffer), x.endpoint.Config.MaxPacketSize, addr)
 			continue
@@ -1094,16 +1094,16 @@ func (x *UDPHandler) handler() {
 		if addr != nil {
 			from = addr.String()
 		}
-		// 编码处理
+		// Encoding processing
 		encodedMessage, dataType := encodeData(msgBuffer, x.endpoint.Config.Encode)
 
-		// 创建一个交换对象，用于存储输入和输出的消息
+		// Create an exchange object to store input and output messages
 		exchange := &endpoint.Exchange{
 			In: &RequestMessage{
 				conn:     x.endpoint.udpConn,
 				body:     encodedMessage,
 				from:     from,
-				dataType: dataType, // 设置正确的数据类型
+				dataType: dataType, // Set the correct data type
 			},
 			Out: &ResponseMessage{
 				log: func(format string, v ...interface{}) {
@@ -1115,10 +1115,10 @@ func (x *UDPHandler) handler() {
 			}}
 
 		msg := exchange.In.GetMsg()
-		// 把客户端连接的地址放到msg元数据中
+		// Place the client-side connection address into the MSG metadata
 		msg.Metadata.PutValue(RemoteAddrKey, from)
 
-		// 匹配符合的路由，处理消息
+		// Matching the matching routes and processing messages
 		x.endpoint.RLock()
 		snapshot := make([]*RegexpRouter, 0, len(x.endpoint.routers))
 		for _, v := range x.endpoint.routers {

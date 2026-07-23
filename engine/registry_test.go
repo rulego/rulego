@@ -63,42 +63,42 @@ func TestGetComponentsFields(t *testing.T) {
 }
 
 func TestCustomComponentRegistry(t *testing.T) {
-	// 创建默认和自定义注册表
+	// Create default and custom registry entries
 	defaultReg := new(RuleComponentRegistry)
 	customReg := new(RuleComponentRegistry)
 	compositeReg := NewCustomComponentRegistry(defaultReg, customReg)
 
-	// 初始化测试组件
+	// Initialize the test component
 	defaultNode := &NoConfigNode{}
 	customNode := &ConfigHasPtrNode{}
 
-	// 测试注册逻辑
+	// Test registration logic
 	t.Run("Register Components", func(t *testing.T) {
-		// 注册默认组件
+		// Register the default component
 		assert.Nil(t, defaultReg.Register(defaultNode))
-		// 注册自定义组件
+		// Register custom components
 		assert.Nil(t, compositeReg.Register(customNode))
 	})
 
 	t.Run("NewNode Fallback Logic", func(t *testing.T) {
-		// 测试获取自定义组件
+		// Test to obtain custom components
 		node, err := compositeReg.NewNode("test/configHasPtr")
 		assert.Nil(t, err)
 		assert.Equal(t, customNode.Type(), node.Type())
 
-		// 测试默认组件回退
+		// Test default component rollback
 		node, err = compositeReg.NewNode("test/noConfig")
 		assert.Nil(t, err)
 		assert.Equal(t, defaultNode.Type(), node.Type())
 
-		// 测试不存在的组件
+		// Testing components that don't exist
 		_, err = compositeReg.NewNode("invalid_type")
 		assert.NotNil(t, err)
 	})
 
 	t.Run("Component Merging", func(t *testing.T) {
 		components := compositeReg.GetComponents()
-		// 验证合并结果
+		// Verify the results of the merger
 		assert.Equal(t, 2, len(components))
 		_, ok := components["test/noConfig"]
 		assert.True(t, ok)
@@ -107,24 +107,24 @@ func TestCustomComponentRegistry(t *testing.T) {
 	})
 
 	t.Run("Unregister Custom", func(t *testing.T) {
-		// 卸载自定义组件
+		// Uninstall custom components
 		assert.Nil(t, compositeReg.Unregister("test/configHasPtr"))
 		_, err := compositeReg.NewNode("test/configHasPtr")
 		assert.NotNil(t, err)
 
-		// 默认组件应仍然存在
+		// The default component should still exist
 		_, err = compositeReg.NewNode("test/noConfig")
 		assert.Nil(t, err)
 	})
 
-	// 清理测试组件
+	// Clean up the test components
 	defer func() {
 		defaultReg.Unregister("test/noConfig")
 		customReg.Unregister("test/configHasPtr")
 	}()
 }
 
-//以下是测试组件
+//Here are the test components
 
 type BaseNode struct {
 }
@@ -139,7 +139,7 @@ func (n *BaseNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 func (n *BaseNode) Destroy() {
 }
 
-// 没配置节点
+// No nodes were configured
 type NoConfigNode struct {
 	BaseNode
 }
@@ -151,7 +151,7 @@ func (n *NoConfigNode) New() types.Node {
 	return &NoConfigNode{}
 }
 
-// 有指针配置
+// Equipped with pointers
 type ConfigHasPtrConfig struct {
 	Num *int
 	Url string
@@ -169,7 +169,7 @@ func (n *ConfigHasPtrNode) New() types.Node {
 	return &ConfigHasPtrNode{}
 }
 
-// config 大写
+// Capitalize config
 type ConfigHasPtrNode2 struct {
 	BaseNode
 	Config ConfigHasPtrConfig
@@ -182,7 +182,7 @@ func (n *ConfigHasPtrNode2) New() types.Node {
 	return &ConfigHasPtrNode2{}
 }
 
-// 有默认值配置
+// There are default configurations
 type DefaultValueConfig struct {
 	Num    int
 	Url    string `label:"服务器地址" desc:"broker服务器地址" validate:"required" `
@@ -231,7 +231,7 @@ func (n *DefaultValueNode) Def() types.ComponentForm {
 func TestRegisterAlias(t *testing.T) {
 	reg := new(RuleComponentRegistry)
 
-	// 注册一个测试组件
+	// Register a test component
 	node := &NoConfigNode{}
 	err := reg.Register(node)
 	assert.Nil(t, err)
@@ -240,7 +240,7 @@ func TestRegisterAlias(t *testing.T) {
 		err := reg.RegisterAlias("test/noConfig", "test/alias1")
 		assert.Nil(t, err)
 
-		// 通过别名应该能创建节点
+		// You should be able to create nodes using aliases
 		newNode, err := reg.NewNode("test/alias1")
 		assert.Nil(t, err)
 		assert.Equal(t, "test/noConfig", newNode.Type())
@@ -250,7 +250,7 @@ func TestRegisterAlias(t *testing.T) {
 		err := reg.RegisterAlias("test/noConfig", "test/alias2", "test/alias3")
 		assert.Nil(t, err)
 
-		// 通过所有别名都应该能创建节点
+		// Nodes should be able to be created using all aliases
 		for _, alias := range []string{"test/alias2", "test/alias3"} {
 			newNode, err := reg.NewNode(alias)
 			assert.Nil(t, err)
@@ -265,63 +265,63 @@ func TestRegisterAlias(t *testing.T) {
 	})
 
 	t.Run("Alias Conflicts With Existing", func(t *testing.T) {
-		// 注册另一个组件
+		// Register another component
 		otherNode := &ConfigHasPtrNode{}
 		err := reg.Register(otherNode)
 		assert.Nil(t, err)
 
-		// 尝试用已存在的组件名作为别名
+		// Try using an existing component name as an alias
 		err = reg.RegisterAlias("test/noConfig", "test/configHasPtr")
 		assert.NotNil(t, err)
 		assert.Equal(t, "alias conflicts with existing component: test/configHasPtr", err.Error())
 	})
 
 	t.Run("Unregister Alias Only Removes Alias", func(t *testing.T) {
-		// 注册别名
+		// Register aliases
 		err := reg.RegisterAlias("test/noConfig", "test/tempalias")
 		assert.Nil(t, err)
 
-		// 确认别名存在
+		// Confirm the existence of aliases
 		_, err = reg.NewNode("test/tempalias")
 		assert.Nil(t, err)
 
-		// 删除别名
+		// Delete aliases
 		err = reg.Unregister("test/tempalias")
 		assert.Nil(t, err)
 
-		// 别名应该不存在了
+		// Aliases probably don't exist anymore
 		_, err = reg.NewNode("test/tempalias")
 		assert.NotNil(t, err)
 
-		// 主组件应该还在
+		// The main components should still be there
 		_, err = reg.NewNode("test/noConfig")
 		assert.Nil(t, err)
 
-		// 其他别名应该还在
+		// Other aliases should still exist
 		_, err = reg.NewNode("test/alias1")
 		assert.Nil(t, err)
 	})
 
 	t.Run("Unregister Primary Removes All Aliases", func(t *testing.T) {
-		// 创建一个新的注册表测试
+		// Create a new registry test
 		reg2 := new(RuleComponentRegistry)
 		node2 := &NoConfigNode{}
 		err := reg2.Register(node2)
 		assert.Nil(t, err)
 
-		// 注册多个别名
+		// Register multiple aliases
 		err = reg2.RegisterAlias("test/noConfig", "test/a1", "test/a2", "test/a3")
 		assert.Nil(t, err)
 
-		// 删除主组件
+		// Delete the main component
 		err = reg2.Unregister("test/noConfig")
 		assert.Nil(t, err)
 
-		// 主组件应该不存在了
+		// The main component probably no longer exists
 		_, err = reg2.NewNode("test/noConfig")
 		assert.NotNil(t, err)
 
-		// 所有别名都应该不存在了
+		// All aliases should no longer exist
 		for _, alias := range []string{"test/a1", "test/a2", "test/a3"} {
 			_, err = reg2.NewNode(alias)
 			assert.NotNil(t, err)
@@ -330,14 +330,14 @@ func TestRegisterAlias(t *testing.T) {
 
 	t.Run("GetComponents Includes Aliases", func(t *testing.T) {
 		components := reg.GetComponents()
-		// 别名应该出现在 components map 中
+		// Alias should appear in the components map
 		_, ok := components["test/alias1"]
 		assert.True(t, ok)
 		_, ok = components["test/alias2"]
 		assert.True(t, ok)
 	})
 
-	// 清理
+	// Cleanup
 	defer func() {
 		reg.Unregister("test/noConfig")
 		reg.Unregister("test/configHasPtr")

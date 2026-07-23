@@ -16,7 +16,7 @@
 
 package filter
 
-//规则链节点配置示例：
+//Example of rule chain node configuration:
 //{
 //        "id": "s2",
 //        "type": "jsSwitch",
@@ -38,15 +38,15 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// JsSwitchReturnFormatErr JavaScript脚本必须返回数组
+// The JsSwitchReturnFormatErr JavaScript script must return an array
 var JsSwitchReturnFormatErr = errors.New("return the value is not an array")
 
-// init 注册JsSwitchNode组件
+// init registers the JsSwitchNode component
 func init() {
 	Registry.Add(&JsSwitchNode{})
 }
 
-// JsSwitchNodeConfiguration JsSwitchNode配置结构
+// JsSwitchNodeConfiguration
 type JsSwitchNodeConfiguration struct {
 	// JsScript JavaScript script to determine message routing paths
 	// Function parameters: msg, metadata, msgType, dataType
@@ -62,31 +62,31 @@ type JsSwitchNodeConfiguration struct {
 	JsScript string `json:"jsScript" label:"Switch Script" desc:"JavaScript script that returns an array of routing relation types. Example: return ['route1','route2'];" required:"true"`
 }
 
-// JsSwitchNode 使用JavaScript确定消息路由路径的开关节点
+// JsSwitchNode uses JavaScript to determine the switch node for message routing paths
 type JsSwitchNode struct {
-	// Config 节点配置
+	// Config defines the node configuration
 	Config JsSwitchNodeConfiguration
 
-	// jsEngine JavaScript执行引擎
+	// jsEngine JavaScript execution engine
 	jsEngine types.JsEngine
 
-	// defaultRelationType 默认关系类型
+	// defaultRelationType The default relationship type
 	defaultRelationType string
 }
 
-// Type 返回组件类型
+// Type returns the component type
 func (x *JsSwitchNode) Type() string {
 	return "jsSwitch"
 }
 
-// New 创建新实例
+// New creates an instance
 func (x *JsSwitchNode) New() types.Node {
 	return &JsSwitchNode{Config: JsSwitchNodeConfiguration{
 		JsScript: `return ['msgType1','msgType2'];`,
 	}}
 }
 
-// Init 初始化节点
+// Init initializes the node
 func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
@@ -101,9 +101,9 @@ func (x *JsSwitchNode) Init(ruleConfig types.Config, configuration types.Configu
 	return err
 }
 
-// OnMsg 处理消息，执行JavaScript脚本确定路由路径
+// OnMsg processes messages and executes JavaScript scripts to determine routing paths
 func (x *JsSwitchNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	// 准备传递给JS脚本的数据
+	// Prepare data to be passed to the JS script
 	data := base.NodeUtils.GetDataByType(msg, true)
 
 	out, err := x.jsEngine.Execute(ctx, "Switch", data, msg.Metadata.Values(), msg.Type, msg.DataType)
@@ -126,7 +126,7 @@ func (x *JsSwitchNode) Desc() string {
 	return "Use JavaScript to determine message routing paths. The script must return an array of relation type strings. Available variables: msg, metadata, msgType, dataType"
 }
 
-// Destroy 清理资源
+// Destroy to clean up resources
 func (x *JsSwitchNode) Destroy() {
 	x.jsEngine.Stop()
 }

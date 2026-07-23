@@ -25,7 +25,7 @@ func TestStoreFileSize(t *testing.T) {
 	bs.Close()
 	bboltSize := fileSize(bboltDir + "/runlog.db")
 	bboltPerRow := bboltSize / int64(count)
-	t.Logf("BBolt:   %d 条日志, 总大小=%s, 每条≈%s", count, formatSize(bboltSize), formatSize(bboltPerRow))
+	t.Logf("BBolt: %d logs, total size = %s, each entry ≈%s", count, formatSize(bboltSize), formatSize(bboltPerRow))
 
 	// JSON Lines
 	jsonlDir, _ := os.MkdirTemp("", "size-jsonl-*")
@@ -38,7 +38,7 @@ func TestStoreFileSize(t *testing.T) {
 	js.Close()
 	jsonlSize := fileSize(jsonlDir + "/workflows/user1/runs/bench-chain.jsonl")
 	jsonlPerRow := jsonlSize / int64(count)
-	t.Logf("Jsonl:   %d 条日志, 总大小=%s, 每条≈%s", count, formatSize(jsonlSize), formatSize(jsonlPerRow))
+	t.Logf("Jsonl: %d logs, total size = %s, each entry ≈%s", count, formatSize(jsonlSize), formatSize(jsonlPerRow))
 }
 
 func fileSize(path string) int64 {

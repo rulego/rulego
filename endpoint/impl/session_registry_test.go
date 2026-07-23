@@ -32,38 +32,38 @@ func TestDefaultSessionRegistry_AddRemoveLookup(t *testing.T) {
 	r.Add(s1)
 	r.Add(s2)
 	r.Add(s3)
-	r.Add(nil) // nil 容忍
+	r.Add(nil) // nil tolerated
 
-	// 精确匹配 Key
+	// Precisely match keys
 	if got := r.Lookup("DEV_001"); len(got) != 1 || got[0] != s3 {
 		t.Fatalf("exact lookup DEV_001 = %v, want [s3]", got)
 	}
-	// 精确匹配 IP:port（不再做 host 段匹配）
+	// Exact matching of IP:port (no longer matching the host segment)
 	if got := r.Lookup("192.168.1.10:1000"); len(got) != 1 || got[0] != s1 {
 		t.Fatalf("exact lookup 192.168.1.10:1000 = %v, want [s1]", got)
 	}
-	// 裸 IP 不再命中 host:port 连接（已去除 ipOf 隐式匹配）
+	// Bare IPs no longer hit host:port connections (implicit matching of ipOf removed)
 	if got := r.Lookup("192.168.1.10"); len(got) != 0 {
 		t.Fatalf("bare ip should not match host:port keys, got %d", len(got))
 	}
-	// 广播 *
+	// Broadcast *
 	if got := r.Lookup("*"); len(got) != 3 {
 		t.Fatalf("broadcast * = %d, want 3", len(got))
 	}
-	// 广播 空
+	// Broadcast empty
 	if got := r.Lookup(""); len(got) != 3 {
 		t.Fatalf("broadcast empty = %d, want 3", len(got))
 	}
-	// 无匹配
+	// No matching
 	if got := r.Lookup("UNKNOWN"); len(got) != 0 {
 		t.Fatalf("no-match = %d, want 0", len(got))
 	}
-	// Remove 后查不到
+	// After Removal, it cannot be found
 	r.Remove("DEV_001")
 	if got := r.Lookup("DEV_001"); len(got) != 0 {
 		t.Fatalf("after remove = %d, want 0", len(got))
 	}
-	// Remove 不存在的 key 不 panic
+	// Remove a nonexistent key and don't panic
 	r.Remove("NOT_EXIST")
 }
 
@@ -76,7 +76,7 @@ func TestSessionSetKey(t *testing.T) {
 	if s.Key() != "NEW" || !s.IsResolved() {
 		t.Fatalf("after SetKey: Key=%q resolved=%v", s.Key(), s.IsResolved())
 	}
-	// 空 key 被忽略（不清空、不误标记）
+	// Empty keys ignored (no clearing, no incorrect marking)
 	s.SetKey("")
 	if s.Key() != "NEW" || !s.IsResolved() {
 		t.Fatalf("empty key ignored: Key=%q resolved=%v", s.Key(), s.IsResolved())
@@ -98,15 +98,16 @@ func TestRekey(t *testing.T) {
 	if got := r.Lookup("OLD"); len(got) != 0 {
 		t.Fatalf("old key should be deregistered, got %d", len(got))
 	}
-	// Rekey 空 key 被忽略
+	// Rekey empty keys are ignored
 	r.Rekey(s, "")
 	if s.Key() != "NEW" {
 		t.Fatalf("Rekey empty should be ignored, got %q", s.Key())
 	}
-	// Rekey nil session 不 panic
+	// Rekey nil sessions don't panic
 	r.Rekey(nil, "X")
 }
-// closerSender 测试用 Sender，记录 Close 调用次数。
+
+// closerSender tests with a Sender and records the number of Close calls.
 type closerSender struct {
 	closed int
 }
@@ -114,7 +115,7 @@ type closerSender struct {
 func (s *closerSender) Send(data []byte) error { return nil }
 func (s *closerSender) Close() error           { s.closed++; return nil }
 
-// nonCloserSender 只实现 Send（非 io.Closer），验证 TTL sweep 的 graceful 降级。
+// nonCloserSender only implements Send (not io.Closer), verifying the graceful downgrade of TTL sweep.
 type nonCloserSender struct{}
 
 func (s *nonCloserSender) Send(data []byte) error { return nil }
@@ -178,9 +179,9 @@ func TestSweep_NonCloserSender(t *testing.T) {
 func TestStartSweeping_StopsCleanly(t *testing.T) {
 	r := &DefaultSessionRegistry{}
 	r.StartSweeping(10*time.Millisecond, 5*time.Millisecond)
-	r.StartSweeping(10*time.Millisecond, 5*time.Millisecond) // 重复 no-op
+	r.StartSweeping(10*time.Millisecond, 5*time.Millisecond) // Repeat the no-op
 	r.StopSweeping()
-	r.StopSweeping() // 幂等
+	r.StopSweeping() // Power equal
 }
 
 func TestStartSweeping_Disabled(t *testing.T) {
@@ -198,7 +199,8 @@ func TestSession_TouchUpdatesLastSeen(t *testing.T) {
 		t.Fatal("Touch should advance lastSeen")
 	}
 }
-// fakeSender 记录收到的数据帧，用于验证寻址推送
+
+// fakeSender records received data frames to verify addressed pushes
 type fakeSender struct {
 	received [][]byte
 }
@@ -210,20 +212,20 @@ func (f *fakeSender) Send(data []byte) error {
 	return nil
 }
 
-// TestSessionKeyExtractionFlow 模拟端到端 sessionKey 提取与寻址推送流程，
-// 不启动真实 TCP，验证 DefaultSessionRegistry + SessionKeyResolver + Session 三者协作。
+// TestSessionKeyExtractionFlow simulates end-to-end sessionKey extraction and addressing push processes,
+// Do not start real TCP; verify the collaboration between DefaultSessionRegistry + SessionKeyResolver + Session.
 //
-// 流程：
-//  1. 连接建立：session 初始 Key=RemoteAddr，未 resolved
-//  2. 首帧 {"deviceId":"DEV_001"}：提取 key → 注销旧 Key → SetKey → 注册新 Key
-//  3. 第二帧 {"temp":26}（无 deviceId）：IsResolved=true 跳过提取，Key 保持
-//  4. 业务按 deviceId 寻址推送：Lookup("DEV_001") → Send
-//  5. 广播：Lookup("*") → Send
+// Process:
+//  1. Connection established: session initial Key=RemoteAddr, not resolved
+//  2. First frame {"deviceId":"DEV_001"}: extract key → delete the old key → SetKey → register the new key
+//  3. Second frame {"temp":26} (no deviceId): IsResolved=true skips extraction, key retains
+//  4. Business pushes addressed by deviceId: Lookup("DEV_001") → Send
+//  5. Broadcast: Lookup("*") → Send
 func TestSessionKeyExtractionFlow(t *testing.T) {
 	registry := &DefaultSessionRegistry{}
 	resolver := NewSessionKeyResolver("${msg.deviceId}")
 
-	// ① 连接建立
+	// (1) Connection establishment
 	sender := &fakeSender{}
 	session := endpoint.NewSession("192.168.1.10:5000", sender)
 	registry.Add(session)
@@ -231,14 +233,14 @@ func TestSessionKeyExtractionFlow(t *testing.T) {
 		t.Fatal("new session should not be resolved")
 	}
 
-	// ② 首帧提取
+	// (2) First frame extraction
 	firstFrame := types.NewMsg(0, "", types.JSON, types.NewMetadata(), `{"deviceId":"DEV_001"}`)
 	if !session.IsResolved() {
 		key := resolver.Resolve(firstFrame, nil)
 		if key != "DEV_001" {
 			t.Fatalf("resolve got %q, want DEV_001", key)
 		}
-		registry.Rekey(session, key) // 原子改键：注销旧 Key + SetKey + 注册新 Key
+		registry.Rekey(session, key) // Atomic key change: Deregister the old Key + SetKey + register the new Key
 	}
 
 	if !session.IsResolved() {
@@ -254,12 +256,12 @@ func TestSessionKeyExtractionFlow(t *testing.T) {
 		t.Fatalf("old key should be deregistered, got %d", len(got))
 	}
 
-	// ③ 第二帧：IsResolved=true，handler 应跳过提取（这里不调用 Resolve）
+	// (3) Second frame: IsResolved=true, handler should skip extraction (Resolve is not called here)
 	if !session.IsResolved() {
 		t.Fatal("expected to skip extraction when resolved")
 	}
 
-	// ④ 按 deviceId 寻址推送
+	// (4) Push by deviceId addressing
 	targets := registry.Lookup("DEV_001")
 	if len(targets) != 1 {
 		t.Fatalf("lookup for push = %d, want 1", len(targets))
@@ -271,7 +273,7 @@ func TestSessionKeyExtractionFlow(t *testing.T) {
 		t.Fatalf("sender received %v, want [HELLO_DEVICE]", sender.received)
 	}
 
-	// ⑤ 广播
+	// (5) Broadcasting
 	for _, s := range registry.Lookup("*") {
 		if err := s.Sender.Send([]byte("BROADCAST")); err != nil {
 			t.Fatalf("broadcast send err: %v", err)
@@ -281,15 +283,15 @@ func TestSessionKeyExtractionFlow(t *testing.T) {
 		t.Fatalf("after broadcast received %v, want 2 frames", sender.received)
 	}
 
-	// ⑥ 设备断开：注销 session
+	// (6) Device disconnection: Cancel the session
 	registry.Remove(session.Key())
 	if got := registry.Lookup("DEV_001"); len(got) != 0 {
 		t.Fatalf("after disconnect should be removed, got %d", len(got))
 	}
 }
 
-// TestSessionKeyExtractionMultiCandidateFlow 验证多候选场景的提取流程
-// （私有 hex 协议设备：JSON 无字段时从字节提取）
+// TestSessionKeyExtractionMultiCandidateFlow verifies the extraction process for multiple candidate scenarios
+// (Private hex protocol device: extracting from bytes when JSON has no fields)
 func TestSessionKeyExtractionMultiCandidateFlow(t *testing.T) {
 	registry := &DefaultSessionRegistry{}
 	resolver := NewSessionKeyResolver([]string{"${msg.deviceId}", "${data[0:6]}"})
@@ -297,7 +299,7 @@ func TestSessionKeyExtractionMultiCandidateFlow(t *testing.T) {
 	session := endpoint.NewSession("10.0.0.1:9", &fakeSender{})
 	registry.Add(session)
 
-	// 私有协议帧：JSON 解析失败 / 无 deviceId → 回退 offset 取前 6 字节
+	// Private protocol frames: JSON parsing failed / no deviceId → revert offset to take the first 6 bytes
 	data := []byte("SN0001") // offset:0,len:6
 	key := resolver.Resolve(jsonMsg("{}"), data)
 	if key != "SN0001" {

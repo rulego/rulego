@@ -29,31 +29,31 @@ import (
 	"github.com/rulego/rulego/test/assert"
 )
 
-// MockToken 模拟Token
+// MockToken: Simulated token
 type MockToken struct {
 	err error
 }
 
-// Wait 模拟等待
+// Wait: Simulated waiting
 func (m *MockToken) Wait() bool {
 	return true
 }
 
-// WaitTimeout 模拟超时等待
+// WaitTimeout simulates a timeout wait
 func (m *MockToken) WaitTimeout(timeout time.Duration) bool {
 	return true
 }
 
-// Error 返回错误
+// Error returns an error
 func (m *MockToken) Error() error {
 	return m.err
 }
 
 // =============================================================================
-// 单元测试
+// Unit testing
 // =============================================================================
 
-// TestConfig_Validation 测试配置验证
+// TestConfig_Validation Test configuration verification
 func TestConfig_Validation(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -94,7 +94,7 @@ func TestConfig_Validation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 只测试基本的配置验证，不实际创建MQTT连接
+			// Only basic configuration verification is tested; no actual MQTT connection is created
 			if tt.config.Server == "" {
 				assert.True(t, tt.wantErr, "Empty server should cause error")
 				return
@@ -103,7 +103,7 @@ func TestConfig_Validation(t *testing.T) {
 				assert.True(t, tt.wantErr, "Empty client ID should cause error")
 				return
 			}
-			// 对于有效配置，我们假设它不会出错（避免实际连接）
+			// For effective configuration, we assume it won't go wrong (avoiding actual connections)
 			if !tt.wantErr {
 				assert.NotEqual(t, "", tt.config.Server)
 				assert.NotEqual(t, "", tt.config.ClientID)
@@ -112,37 +112,37 @@ func TestConfig_Validation(t *testing.T) {
 	}
 }
 
-// TestClient_ConnectionStatus 测试连接状态管理
+// TestClient_ConnectionStatus Test connection status management
 func TestClient_ConnectionStatus(t *testing.T) {
 	client := &Client{
 		isConnected: 0,
 	}
 
-	// 初始状态应该是未连接
+	// The initial state should be unconnected
 	assert.Equal(t, int32(0), atomic.LoadInt32(&client.isConnected))
 
-	// 模拟连接成功
+	// The simulated connection was successful
 	client.onConnected(nil)
 	assert.Equal(t, int32(1), atomic.LoadInt32(&client.isConnected))
 
-	// 模拟连接丢失
+	// Analog connection loss
 	client.onConnectionLost(nil, nil)
 	assert.Equal(t, int32(0), atomic.LoadInt32(&client.isConnected))
 }
 
-// TestClient_IsConnected 测试IsConnected方法
+// TestClient_IsConnected Test the IsConnected method
 func TestClient_IsConnected(t *testing.T) {
-	// 创建一个未连接的客户端
+	// Create an unconnected client
 	client := &Client{
 		isConnected: 0,
-		client:      nil, // 模拟未初始化的客户端
+		client:      nil, // Simulates uninitialized clients
 	}
 
-	// 测试未连接状态
+	// Test the disconnected state
 	assert.False(t, client.IsConnected())
 }
 
-// TestClient_Publish_NotConnected 测试未连接时发布
+// TestClient_Publish_NotConnected Tests are published when not connected
 func TestClient_Publish_NotConnected(t *testing.T) {
 	client := &Client{
 		isConnected: 0,
@@ -157,17 +157,17 @@ func TestClient_Publish_NotConnected(t *testing.T) {
 	}
 }
 
-// TestClient_RegisterHandler 测试注册处理器 - 跳过因为需要真实MQTT客户端
+// TestClient_RegisterHandler Test the registered processor - skip because a real MQTT client is required
 func TestClient_RegisterHandler(t *testing.T) {
 	t.Skip("RegisterHandler requires a real MQTT client connection")
 }
 
-// TestIs128Err 测试128错误检查 - 跳过因为is128Err函数签名不同
+// TestIs128Err Test128 Error Check - Skip because the is128Err function has a different signature
 func TestIs128Err(t *testing.T) {
 	t.Skip("is128Err function has different signature in actual implementation")
 }
 
-// TestNewTLSConfig 测试TLS配置创建
+// TestNewTLSConfig Tests TLS configuration creation
 func TestNewTLSConfig(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -216,7 +216,7 @@ func TestNewTLSConfig(t *testing.T) {
 	}
 }
 
-// TestClient_ConcurrentAccess 测试并发访问
+// TestClient_ConcurrentAccess Test for concurrent access
 func TestClient_ConcurrentAccess(t *testing.T) {
 	client := &Client{
 		msgHandlerMap: make(map[string]Handler),
@@ -229,7 +229,7 @@ func TestClient_ConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			topic := fmt.Sprintf("test/topic/%d", id)
 			handler := client.GetHandlerByUpTopic(topic)
-			// 由于没有注册处理器，应该返回空的Handler
+			// Since no processor is registered, the empty handler should be returned
 			assert.Equal(t, "", handler.Topic)
 		}(i)
 	}
@@ -237,10 +237,10 @@ func TestClient_ConcurrentAccess(t *testing.T) {
 }
 
 // =============================================================================
-// 真实环境测试 (需要本地MQTT Broker)
+// Real-world testing (requires a local MQTT Broker)
 // =============================================================================
 
-// TestReal_BasicConnection 测试基本连接功能
+// TestReal_BasicConnection Test basic connectivity functions
 func TestReal_BasicConnection(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping real MQTT test in short mode")
@@ -265,15 +265,15 @@ func TestReal_BasicConnection(t *testing.T) {
 	}
 	defer client.Close()
 
-	// 验证连接状态
+	// Verify connection status
 	assert.Equal(t, int32(1), atomic.LoadInt32(&client.isConnected))
 
-	// 等待一段时间确保连接稳定
+	// Wait a while to ensure a stable connection
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, int32(1), atomic.LoadInt32(&client.isConnected))
 }
 
-// TestReal_PublishOnly 测试不同QoS级别的发布
+// TestReal_PublishOnly Testing releases at different QoS levels
 func TestReal_PublishOnly(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping real MQTT test in short mode")
@@ -294,7 +294,7 @@ func TestReal_PublishOnly(t *testing.T) {
 	}
 	defer client.Close()
 
-	// 测试不同QoS级别的发布
+	// Test releases at different QoS levels
 	testCases := []struct {
 		qos     byte
 		topic   string
@@ -308,14 +308,14 @@ func TestReal_PublishOnly(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("QoS_%d", tc.qos), func(t *testing.T) {
 			err := client.Publish(tc.topic, tc.qos, []byte(tc.message))
-				if err != nil {
-					t.Errorf("Expected no error but got: %v", err)
-				}
+			if err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
 		})
 	}
 }
 
-// TestReal_PublishSubscribe 测试发布订阅功能
+// TestReal_PublishSubscribe Test publish-subscribe functionality
 func TestReal_PublishSubscribe(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping real MQTT test in short mode")
@@ -324,7 +324,7 @@ func TestReal_PublishSubscribe(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	// 创建发布者客户端
+	// Create a publisher client
 	pubConfig := Config{
 		Server:   "tcp://127.0.0.1:1883",
 		ClientID: "test-publisher",
@@ -336,7 +336,7 @@ func TestReal_PublishSubscribe(t *testing.T) {
 	}
 	defer publisher.Close()
 
-	// 创建订阅者客户端
+	// Create a subscriber client
 	subConfig := Config{
 		Server:   "tcp://127.0.0.1:1883",
 		ClientID: "test-subscriber",
@@ -347,12 +347,12 @@ func TestReal_PublishSubscribe(t *testing.T) {
 	}
 	defer subscriber.Close()
 
-	// 设置消息接收通道
+	// Set up the message receiving channel
 	messageReceived := make(chan string, 1)
 	testTopic := "test/pubsub"
 	testMessage := "Hello MQTT!"
 
-	// 注册订阅处理器
+	// Subscribe to the processor
 	handler := Handler{
 		Topic: testTopic,
 		Qos:   1,
@@ -363,16 +363,16 @@ func TestReal_PublishSubscribe(t *testing.T) {
 
 	subscriber.RegisterHandler(handler)
 
-	// 等待订阅生效
+	// Wait for the subscription to take effect
 	time.Sleep(1 * time.Second)
 
-	// 发布消息
+	// Release the news
 	err = publisher.Publish(testTopic, 1, []byte(testMessage))
 	if err != nil {
 		t.Fatalf("Failed to publish message: %v", err)
 	}
 
-	// 验证消息接收
+	// Verify message reception
 	select {
 	case receivedMsg := <-messageReceived:
 		assert.Equal(t, testMessage, receivedMsg)
@@ -381,7 +381,7 @@ func TestReal_PublishSubscribe(t *testing.T) {
 	}
 }
 
-// TestReal_ConnectionStatus 测试连接状态管理
+// TestReal_ConnectionStatus Test connection status management
 func TestReal_ConnectionStatus(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping real MQTT test in short mode")
@@ -404,21 +404,21 @@ func TestReal_ConnectionStatus(t *testing.T) {
 	}
 	defer client.Close()
 
-	// 验证初始连接状态
+	// Verify the initial connection status
 	assert.Equal(t, int32(1), atomic.LoadInt32(&client.isConnected))
 
-	// 测试发布功能
+	// Test the publishing function
 	err = client.Publish("test/status", 0, []byte("test message"))
 	if err != nil {
 		t.Errorf("Expected no error but got: %v", err)
 	}
 
-	// 注意：在真实环境中很难模拟连接丢失，这里主要测试正常状态
+	// Note: It is difficult to simulate connection loss in real environments; here we mainly test normal conditions
 	time.Sleep(2 * time.Second)
 	assert.Equal(t, int32(1), atomic.LoadInt32(&client.isConnected))
 }
 
-// TestReal_MultipleClients 测试多个客户端并发连接和发布
+// TestReal_MultipleClients Test multiple clients for concurrent connections and publishing
 func TestReal_MultipleClients(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping real MQTT test in short mode")
@@ -431,7 +431,7 @@ func TestReal_MultipleClients(t *testing.T) {
 	var clients []*Client
 	var wg sync.WaitGroup
 
-	// 创建多个客户端
+	// Create multiple clients
 	for i := 0; i < numClients; i++ {
 		config := Config{
 			Server:   "tcp://127.0.0.1:1883",
@@ -445,14 +445,14 @@ func TestReal_MultipleClients(t *testing.T) {
 		clients = append(clients, client)
 	}
 
-	// 确保所有客户端都关闭
+	// Make sure all clients are turned off
 	defer func() {
 		for _, client := range clients {
 			client.Close()
 		}
 	}()
 
-	// 并发发布消息
+	// A joint announcement was issued
 	for i, client := range clients {
 		wg.Add(1)
 		go func(id int, c *Client) {
@@ -469,7 +469,7 @@ func TestReal_MultipleClients(t *testing.T) {
 	wg.Wait()
 }
 
-// TestReal_PublishTimeout 测试发布超时
+// TestReal_PublishTimeout Test release timeout
 func TestReal_PublishTimeout(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping real MQTT test in short mode")
@@ -490,14 +490,14 @@ func TestReal_PublishTimeout(t *testing.T) {
 	}
 	defer client.Close()
 
-	// 正常发布应该成功
+	// A normal release should be successful
 	err = client.Publish("test/timeout", 1, []byte("test message"))
 	if err != nil {
 		t.Errorf("Expected no error but got: %v", err)
 	}
 }
 
-// TestReal_LargeMessage 测试大消息发布
+// TestReal_LargeMessage Big news test announcement
 func TestReal_LargeMessage(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping real MQTT test in short mode")
@@ -518,7 +518,7 @@ func TestReal_LargeMessage(t *testing.T) {
 	}
 	defer client.Close()
 
-	// 创建一个较大的消息 (10KB)
+	// Create a larger message (10KB)
 	largeMessage := make([]byte, 10*1024)
 	for i := range largeMessage {
 		largeMessage[i] = byte('A' + (i % 26))
@@ -530,18 +530,18 @@ func TestReal_LargeMessage(t *testing.T) {
 	}
 }
 
-// TestReal_AutoReconnect 测试自动重连功能
-// 使用单一客户端进行发布和订阅，用于手动验证断开重连
+// TestReal_AutoReconnect Test the automatic reconnection function
+// Publish and subscribe using a single client, for manual authentication of disconnection and reconnection
 //func TestReal_AutoReconnect(t *testing.T) {
 //	if testing.Short() {
 //		t.Skip("Skipping real MQTT test in short mode")
 //	}
 //
-//	// 使用较长的超时时间以便手动测试重连
+//	Longer timeouts are used to manually test reconnection
 //	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 //	defer cancel()
 //
-//	// 创建单一客户端，既用于发布也用于订阅
+//	Create a single client for both publishing and subscription
 //	clientConfig := Config{
 //		Server:               "tcp://127.0.0.1:1883",
 //		ClientID:             "test-client-reconnect",
@@ -558,23 +558,23 @@ func TestReal_LargeMessage(t *testing.T) {
 //	testTopic := "test/reconnect"
 //	messageCount := 0
 //
-//	// 注册订阅处理器，打印接收到的消息
+//	Register and subscribe to the processor to print received messages
 //	handler := Handler{
 //		Topic: testTopic,
 //		Qos:   1,
 //		Handle: func(c paho.Client, data paho.Message) {
 //			messageCount++
-//			t.Logf("[%s] 接收到消息 #%d: %s", time.Now().Format("15:04:05"), messageCount, string(data.Payload()))
+//			t.Logf("[%s] Received message #%d: %s", time.Now().Format("15:04:05"), messageCount, string(data.Payload()))
 //		},
 //	}
 //
 //	client.RegisterHandler(handler)
 //
-//	// 等待订阅生效
+//	Wait for the subscription to take effect
 //	time.Sleep(1 * time.Second)
-//	t.Log("开始每秒发布数据，请手动断开网络连接测试自动重连功能...")
+//	t.Log("Start publishing data per second. Please manually disconnect from the network to test the automatic reconnection function...")
 //
-//	// 创建定时器，每秒发布一次数据
+//	Create timers to publish data every second
 //	ticker := time.NewTicker(1 * time.Second)
 //	defer ticker.Stop()
 //
@@ -582,28 +582,28 @@ func TestReal_LargeMessage(t *testing.T) {
 //	for {
 //		select {
 //		case <-ctx.Done():
-//			t.Log("测试结束")
+//			t.Log("The test ended")
 //			return
 //		case <-ticker.C:
 //			publishCount++
 //			message := fmt.Sprintf("test message #%d - %s", publishCount, time.Now().Format("15:04:05"))
 //
-//			// 使用提供的IsConnected方法检查连接状态
+//			Use the provided IsConnected method to check the connection status
 //			connected := client.IsConnected()
 //
-//			t.Logf("[%s] 发布消息 #%d (client status: %v)",
+//			t.Logf("[%s] Release News #%d (client status: %v)",
 //				time.Now().Format("15:04:05"), publishCount, connected)
 //
 //			err := client.Publish(testTopic, 1, []byte(message))
 //			if err != nil {
-//				t.Logf("发布失败: %v", err)
+//				t.Logf("Release failure: %v", err)
 //			} else {
-//				t.Logf("发布成功: %s", message)
+//				t.Logf("Successful release: %s", message)
 //			}
 //
-//			// 测试30秒后自动结束
+//			The test will automatically end after 30 seconds
 //			if publishCount >= 30 {
-//				t.Log("已发布30条消息，测试结束")
+//				t.Log("30 messages have been posted, and the test is complete")
 //				return
 //			}
 //		}

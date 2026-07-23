@@ -38,90 +38,90 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
-// ClientType 客户端组件类型
+// ClientType is the type of client component
 const ClientType = types.EndpointTypePrefix + "net_client"
 
-// ClientEndpoint 别名
+// ClientEndpoint alias
 type ClientEndpoint = NetClient
 
-// ClientConfig NET客户端配置
-// 用于配置TCP/UDP客户端连接远程服务器的参数
+// ClientConfig NET client configuration
+// Used to configure the parameters for TCP/UDP clients to connect to remote servers
 // Configuration for TCP/UDP client to connect to a remote server
 type ClientConfig struct {
-	// 通信协议，支持以下值：
 	// Communication protocol, supports the following values:
-	// - "tcp"(默认): TCP IPv4/IPv6自适应 / TCP IPv4/IPv6 auto-detection
-	// - "tcp4": 仅TCP IPv4 / TCP IPv4 only
-	// - "tcp6": 仅TCP IPv6 / TCP IPv6 only
-	// - "udp": UDP IPv4/IPv6自适应 / UDP IPv4/IPv6 auto-detection
-	// - "udp4": 仅UDP IPv4 / UDP IPv4 only
-	// - "udp6": 仅UDP IPv6 / UDP IPv6 only
-	// - "unix": Unix域套接字 / Unix domain socket
-	// - "unixpacket": Unix域套接字(数据包模式) / Unix domain socket (packet mode)
+	// Communication protocol, supports the following values:
+	// - "tcp" (default): TCP IPv4/IPv6 adaptive / TCP IPv4/IPv6 auto-detection
+	// - "tcp4": TCP IPv4 only / TCP IPv4 only
+	// - "tcp6": TCP IPv6 only / TCP IPv6 only
+	// - "udp": UDP IPv4/IPv6 adaptive / UDP IPv4/IPv6 auto-detection
+	// - "udp4": UDP IPv4 only / UDP IPv4 only
+	// - "udp6": UDP IPv6 only / UDP IPv6 only
+	// - "unix": Unix domain socket / Unix domain socket
+	// - "unixpacket": Unix domain socket (packet mode) / Unix domain socket (packet mode)
 	Protocol string `json:"protocol" label:"Protocol" desc:"Network protocol: tcp, tcp4, tcp6, udp, udp4, udp6, unix, unixpacket. Default: tcp"`
 
-	// 远程服务器地址，格式为host:port
 	// Remote server address, format: host:port
-	// 示例 / Examples: "192.168.1.100:8080", "127.0.0.1:1883", "[::1]:8080"
+	// Remote server address, format: host:port
+	// Examples: "192.168.1.100:8080", "127.0.0.1:1883", "[::1]:8080"
 	Server string `json:"server" label:"Server Address" desc:"Remote server address, format: host:port" required:"true"`
 
-	// 连接超时时间，单位为秒，默认5
+	// Connection timeout, measured in seconds, default 5
 	// Connection timeout in seconds, default 5
 	ConnectTimeout int `json:"connectTimeout" label:"Connect Timeout" desc:"Connection timeout in seconds, default 5"`
 
-	// 读取超时时间，单位为秒，0表示不设置超时
+	// Read the timeout time, measured in seconds; 0 means no timeout is set
 	// Read timeout in seconds, 0 means no timeout
 	ReadTimeout int `json:"readTimeout" label:"Read Timeout" desc:"Read timeout in seconds, 0 means no timeout"`
 
-	// 断线重连间隔，单位为秒，默认5，0表示不重连
+	// Disconnection interval, measured in seconds, default 5.0 means no reconnection
 	// Reconnection interval in seconds, default 5, 0 means no reconnection
 	ReconnectInterval int `json:"reconnectInterval" label:"Reconnect Interval" desc:"Reconnection interval in seconds, default 5, 0 means no reconnect"`
 
-	// 数据编解码方式：
+	// Data encoding and decoding methods:
 	// Data encoding/decoding method:
-	// - "hex": 将接收到的二进制数据编码为十六进制字符串，消息数据类型为TEXT
-	// - "base64": 将接收到的二进制数据编码为Base64字符串，消息数据类型为TEXT
-	// - 其他值(默认): 保持原始二进制数据不变，消息数据类型为BINARY
+	// - "hex": Encodes the received binary data into a hexadecimal string, with the message data type as TEXT
+	// - "base64": Encodes the received binary data into a Base64 string, with the message data type as TEXT
+	// - Other values (default): Keeps the original binary data unchanged, and the message data type is BINARY
 	Encode string `json:"encode" label:"Encode" desc:"Data encoding: hex (hex string), base64 (base64 string), other (default binary)"`
 
-	// 数据包分割模式：
 	// Packet splitting mode:
-	// - "line"(默认): 按行分割，以\n或\r\n作为分隔符
-	// - "fixed": 固定长度分割，需配合PacketSize使用
-	// - "delimiter": 自定义分隔符分割，需配合Delimiter使用
-	// - "length_prefix_le": 长度前缀小端序，长度不包含前缀
-	// - "length_prefix_be": 长度前缀大端序，长度不包含前缀
-	// - "length_prefix_le_inc": 长度前缀小端序，长度包含前缀
-	// - "length_prefix_be_inc": 长度前缀大端序，长度包含前缀
+	// Packet splitting mode:
+	// - "line" (default): Splits by line, using \n or \r\n as the separator
+	// - "fixed": Fixed-length split, must be used with PacketSize
+	// - "delimiter": Custom separator split, must be used with Delimiter
+	// - "length_prefix_le": Length prefix small end order; length does not contain prefixes
+	// - "length_prefix_be": Length prefixes are large terminal order; length does not contain prefixes
+	// - "length_prefix_le_inc": Length prefix, small-end sequence, length contains the prefix
+	// - "length_prefix_be_inc": Length prefix large end order, length contains the prefix
 	PacketMode string `json:"packetMode" label:"Packet Mode" desc:"Packet splitting mode: line, fixed, delimiter, length_prefix_le, length_prefix_be, length_prefix_le_inc, length_prefix_be_inc"`
 
-	// 数据包大小配置（根据PacketMode含义不同）
+	// Packet size configuration (depending on the meaning of PacketMode)
 	// Packet size configuration (meaning varies by PacketMode)
-	// - fixed模式：固定数据包的字节数 / fixed mode: fixed packet byte count
-	// - length_prefix*模式：长度前缀的字节数（1-4字节）/ length_prefix* mode: length prefix byte count (1-4 bytes)
-	// - 其他模式：此字段无效 / other modes: this field is invalid
+	// - Fixed mode: Fixed packet byte count / Fixed mode: Fixed packet byte count
+	// - length_prefix* mode: number of bytes with length prefix (1-4 bytes) / length_prefix* mode: length prefix byte count (1-4 bytes)
+	// - Other modes: This field is invalid / Other modes: This field is invalid
 	PacketSize int `json:"packetSize" label:"Packet Size" desc:"Packet size configuration (meaning varies by PacketMode)"`
 
-	// 自定义分隔符，仅在PacketMode为"delimiter"时生效
+	// Custom delimiter, effective only when PacketMode is "delimiter"
 	// Custom delimiter, only effective when PacketMode is "delimiter"
-	// 支持普通字符串或十六进制格式（如"0x0D0A"表示\r\n）
+	// Supports standard strings or hexadecimal format (e.g., "0x0D0A" means \r\n)
 	Delimiter string `json:"delimiter" label:"Delimiter" desc:"Custom delimiter, only effective when PacketMode is delimiter. Supports hex format like 0x0D0A"`
 
-	// 最大数据包大小，防止恶意或异常的大数据包，默认64KB
+	// Maximum packet size to prevent malicious or abnormal large packets, default 64KB
 	// Maximum packet size to prevent malicious or abnormal large packets, default 64KB
 	MaxPacketSize int `json:"maxPacketSize" label:"Max Packet Size" desc:"Maximum packet size to prevent malicious packets, default 64KB"`
 
-	// 心跳发送间隔，单位为秒，0表示不发送心跳
+	// Heartbeat transmission interval, measured in seconds, 0 means no heartbeat is sent
 	// Heartbeat send interval in seconds, 0 means no heartbeat
 	HeartbeatInterval int `json:"heartbeatInterval" label:"Heartbeat Interval" desc:"Heartbeat send interval in seconds, 0 means no heartbeat"`
 
-	// 心跳包内容，仅在HeartbeatInterval > 0时生效
+	// Heartbeat Pack content, effective only at HeartbeatInterval > 0
 	// Heartbeat packet content, only effective when HeartbeatInterval > 0
-	// 支持普通字符串和十六进制格式（如"0x0D0A"表示\r\n），默认"ping\n"
+	// Supports standard strings and hexadecimal formats (such as "0x0D0A" representing \r\n), default "ping\n"
 	HeartbeatData string `json:"heartbeatData" label:"Heartbeat Data" desc:"Heartbeat packet content. Supports hex format like 0x0D0A. Default: ping\\n"`
 }
 
-// ClientRequestMessage 客户端请求消息
+// ClientRequestMessage
 type ClientRequestMessage struct {
 	headers  textproto.MIMEHeader
 	body     []byte
@@ -186,7 +186,7 @@ func (r *ClientRequestMessage) GetError() error {
 	return r.err
 }
 
-// ClientResponseMessage 客户端响应消息，用于通过连接发送数据到服务端
+// ClientResponseMessage: A client-side response message used to send data to the server via a connection
 type ClientResponseMessage struct {
 	headers textproto.MIMEHeader
 	conn    net.Conn
@@ -268,16 +268,16 @@ func (r *ClientResponseMessage) GetError() error {
 	return r.err
 }
 
-// NetClient NET客户端端点，作为主动连接方连接到远程TCP/UDP服务器并接收数据
+// The NetClient NET client endpoint acts as an active connector to connect to the remote TCP/UDP server and receive data
 // NetClient is a NET client endpoint that actively connects to a remote TCP/UDP server and receives data.
 //
-// 工作流程 / Workflow:
-//  1. 调用 Start() 连接到远程服务器 / Call Start() to connect to the remote server
-//  2. 通过路由规则处理接收到的数据 / Process received data through router rules
-//  3. 支持通过路由处理器向服务端发送响应数据 / Support sending response data to the server via router processors
-//  4. 连接断开时自动重连（如果配置了ReconnectInterval）/ Auto-reconnect on disconnection (if ReconnectInterval is configured)
+// Workflow:
+//  1. Call Start() to connect to the remote server
+//  2. Process received data through router rules
+//  3. Support sending response data to the server via router processors
+//  4. Auto-reconnect on disconnection (if ReconnectInterval is configured) / Auto-reconnect on disconnection (if ReconnectInterval is configured)
 //
-// 使用示例 / Usage example:
+// Usage example:
 //
 //	config := engine.NewConfig()
 //	client := &NetClient{}
@@ -288,40 +288,40 @@ func (r *ClientResponseMessage) GetError() error {
 //	    "reconnectInterval": 5,
 //	})
 //	router := impl.NewRouter().From("").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-//	    // 处理接收到的数据 / Process received data
+//	    Process received data
 //	    return true
 //	}).End()
 //	client.AddRouter(router)
 //	client.Start()
 type NetClient struct {
 	impl.BaseEndpoint
-	// Config 客户端配置 / Client configuration
+	// Config Client configuration
 	Config ClientConfig
-	// RuleConfig 规则引擎配置 / Rule engine configuration
+	// RuleConfig Rule engine configuration / Rule engine configuration
 	RuleConfig types.Config
 	conn       net.Conn
 	routers    map[string]*RegexpRouter
 	closed     int32
 	mu         sync.RWMutex
-	// OnEvent 连接状态事件回调函数
+	// OnEvent connection status event callback function
 	// Connection state event callback function
-	// 支持的事件 / Supported events:
-	//   - endpoint.EventConnect: 连接成功时触发，参数为 net.Conn / Triggered on successful connection, parameter is net.Conn
-	//   - endpoint.EventDisconnect: 连接断开时触发 / Triggered on disconnection
+	// Supported events:
+	//   - endpoint.EventConnect: Triggered when connection is successful, with the parameter net.Conn / Triggered on successful connection, parameter is net. Conn
+	//   - endpoint.EventDisconnect: Triggered on disconnection
 	OnEvent func(event string, params ...interface{})
-	// OnHeartbeat 自定义心跳发送回调，覆盖默认的心跳发送逻辑
+	// OnHeartbeat customizes heartbeat send callbacks to override the default heartbeat sending logic
 	// Custom heartbeat send callback, overrides the default heartbeat logic
-	// 如果设置了此回调，HeartbeatData配置将被忽略，完全由回调决定发送内容
+	// If this callback is set, the HeartbeatData configuration will be ignored, and the content sent will be determined entirely by the callback
 	// If this callback is set, HeartbeatData config is ignored, the callback fully controls what to send
 	//
-	// 参数 / Parameters:
-	//   - conn: 当前TCP/UDP连接 / Current TCP/UDP connection
-	// 返回值 / Returns:
-	//   - error: 非nil时停止心跳协程 / Non-nil stops the heartbeat goroutine
+	// Parameters / Parameters:
+	//   - conn: Current TCP/UDP connection / Current TCP/UDP connection
+	// Returns:
+	//   - error: Non-nil stops the heartbeat goroutine
 	OnHeartbeat func(conn net.Conn) error
 }
 
-// Type 返回组件类型标识 "endpoint/net_client"
+// Type returns component type identification "endpoint/net_client"
 // Returns the component type identifier "endpoint/net_client"
 func (c *NetClient) Type() string {
 	return ClientType
@@ -350,7 +350,7 @@ func (c *NetClient) Def() types.ComponentForm {
 	}
 }
 
-// New 创建默认配置的NetClient实例，用于组件注册表创建新实例
+// New creates a NetClient instance with the default configuration to create a new instance in the component registry
 // Creates a NetClient instance with default configuration, used by the component registry to create new instances
 func (c *NetClient) New() types.Node {
 	return &NetClient{
@@ -367,12 +367,12 @@ func (c *NetClient) New() types.Node {
 	}
 }
 
-// Init 使用规则引擎配置和组件配置初始化客户端
+// Init initializes the client using the rule engine configuration and component configuration
 // Initializes the client with rule engine configuration and component configuration
 //
-// 参数 / Parameters:
-//   - ruleConfig: 规则引擎配置 / Rule engine configuration
-//   - configuration: 组件配置键值对 / Component configuration key-value pairs
+// Parameters / Parameters:
+//   - ruleConfig: Rule engine configuration / Rule engine configuration
+//   - configuration: Component configuration key-value pairs
 func (c *NetClient) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	if err := maps.Map2Struct(configuration, &c.Config); err != nil {
 		return err
@@ -394,13 +394,13 @@ func (c *NetClient) Init(ruleConfig types.Config, configuration types.Configurat
 	return nil
 }
 
-// Destroy 销毁客户端，关闭连接并释放资源
+// Destroy: Destroy the client, close the connection, and release resources
 // Destroys the client, closes the connection and releases resources
 func (c *NetClient) Destroy() {
 	_ = c.Close()
 }
 
-// Close 关闭客户端连接，停止所有读取和心跳协程
+// Close: Close closes client connections, stops all reads and heartbeat coroutines
 // Closes the client connection, stops all reading and heartbeat goroutines
 func (c *NetClient) Close() error {
 	atomic.StoreInt32(&c.closed, 1)
@@ -414,23 +414,23 @@ func (c *NetClient) Close() error {
 	return nil
 }
 
-// Id 返回服务器地址作为端点唯一标识
+// Id: Returns the server address as a unique endpoint identifier
 // Returns the server address as the endpoint unique identifier
 func (c *NetClient) Id() string {
 	return c.Config.Server
 }
 
-// AddRouter 添加路由规则，用于匹配和处理接收到的数据
+// AddRouter adds routing rules to match and process received data
 // Adds a router rule for matching and processing received data
 //
-// 路由匹配逻辑 / Router matching logic:
-//   - 路由的From表达式作为正则表达式与接收到的数据进行匹配
+// Router matching logic:
+//   - The routing From expression matches the received data as a regular expression
 //     The router's From expression is used as a regex to match against received data
-//   - 空字符串""、"*"、".*" 匹配所有数据
+//   - The empty strings """*", ".*" match all data
 //     Empty string "", "*", ".*" match all data
 //
-// 可选参数 / Optional parameters:
-//   - *RouterMatchOptions: 路由匹配选项，支持数据长度过滤、数据类型过滤、原始数据匹配等
+// Optional parameters:
+//   - *RouterMatchOptions: Routing matching options, supporting data length filtering, data type filtering, raw data matching, etc
 //     *RouterMatchOptions: Router match options, supports data length filter, data type filter, raw data matching, etc
 func (c *NetClient) AddRouter(router endpoint.Router, params ...interface{}) (string, error) {
 	if router == nil {
@@ -470,7 +470,7 @@ func (c *NetClient) AddRouter(router endpoint.Router, params ...interface{}) (st
 	return router.GetId(), nil
 }
 
-// RemoveRouter 根据路由ID移除已注册的路由规则
+// RemoveRouter removes registered routing rules based on the routing ID
 // Removes a registered router rule by router ID
 func (c *NetClient) RemoveRouter(routerId string, params ...interface{}) error {
 	c.Lock()
@@ -485,20 +485,19 @@ func (c *NetClient) RemoveRouter(routerId string, params ...interface{}) error {
 	return nil
 }
 
-// Printf 输出日志到规则引擎的日志器
+// printf outputs logs to the logger of the rule engine
 // Outputs log messages to the rule engine's logger
 
-
-// Start 启动客户端，连接到远程服务器并开始接收数据
+// Start the client, connect to the remote server, and start receiving data
 // Starts the client, connects to the remote server and begins receiving data
-// 连接成功后，根据协议类型启动对应的读取循环协程（TCP使用流式读取，UDP使用数据报读取）
+// After a successful connection, the corresponding read loop coroutine is launched according to the protocol type (TCP uses streaming read, UDP uses datagram read).
 // After successful connection, starts the corresponding read loop goroutine based on protocol type
 // (TCP uses streaming read, UDP uses datagram read)
 func (c *NetClient) Start() error {
 	return c.connect()
 }
 
-// connect 建立连接并开始读取数据
+// connect: establish a connection and start reading data
 func (c *NetClient) connect() error {
 	conn, err := net.DialTimeout(c.Config.Protocol, c.Config.Server,
 		time.Duration(c.Config.ConnectTimeout)*time.Second)
@@ -516,7 +515,7 @@ func (c *NetClient) connect() error {
 		c.OnEvent(endpoint.EventConnect, c.conn)
 	}
 
-	// 只支持TCP协议的流式读取；UDP客户端使用不同的模式
+	// Only supports streaming reads for TCP protocol; UDP clients use different modes
 	switch c.Config.Protocol {
 	case ProtocolTCP, ProtocolTCP4, ProtocolTCP6, ProtocolUnix, ProtocolUnixPacket:
 		go c.readLoop(conn)
@@ -524,7 +523,7 @@ func (c *NetClient) connect() error {
 		go c.readLoopUDP(conn)
 	}
 
-	// 启动心跳
+	// Start your heartbeat
 	if c.Config.HeartbeatInterval > 0 {
 		go c.heartbeatLoop(conn)
 	}
@@ -532,7 +531,7 @@ func (c *NetClient) connect() error {
 	return nil
 }
 
-// readLoop TCP读取循环
+// readLoop TCP read loop
 func (c *NetClient) readLoop(conn net.Conn) {
 	defer func() {
 		_ = conn.Close()
@@ -622,7 +621,7 @@ func (c *NetClient) readLoop(conn net.Conn) {
 	}
 }
 
-// readLoopUDP UDP读取循环
+// readLoopUDP UDP read/loop
 func (c *NetClient) readLoopUDP(conn net.Conn) {
 	defer func() {
 		_ = conn.Close()
@@ -695,12 +694,12 @@ func (c *NetClient) readLoopUDP(conn net.Conn) {
 	}
 }
 
-// heartbeatLoop 心跳发送
+// heartbeatLoop Heartbeat sends
 func (c *NetClient) heartbeatLoop(conn net.Conn) {
 	ticker := time.NewTicker(time.Duration(c.Config.HeartbeatInterval) * time.Second)
 	defer ticker.Stop()
 
-	// 解析心跳数据：优先使用自定义回调，其次使用配置的HeartbeatData，最后使用默认值
+	// Parsing heartbeat data: prioritize using custom callbacks, then use the configured HeartbeatData, and finally use the default values
 	heartbeatData := c.resolveHeartbeatData()
 
 	for range ticker.C {
@@ -726,13 +725,13 @@ func (c *NetClient) heartbeatLoop(conn net.Conn) {
 	}
 }
 
-// resolveHeartbeatData 解析心跳数据内容
+// resolveHeartbeatData parses the heartbeat data content
 func (c *NetClient) resolveHeartbeatData() []byte {
 	data := c.Config.HeartbeatData
 	if data == "" {
 		return []byte(PingData + LineBreak)
 	}
-	// 支持十六进制格式，如 "0x0D0A"
+	// Supports hexadecimal formats, such as "0x0D0A"
 	decoded, err := decodeHexIfMatch(data)
 	if err == nil && decoded != nil {
 		return decoded
@@ -740,7 +739,7 @@ func (c *NetClient) resolveHeartbeatData() []byte {
 	return []byte(data)
 }
 
-// decodeHexIfMatch 如果字符串以"0x"开头，尝试解码为十六进制字节
+// decodeHexIfMatch If the string starts with "0x", try to decode it to hexadecimal bytes
 func decodeHexIfMatch(s string) ([]byte, error) {
 	if !strings.HasPrefix(s, "0x") && !strings.HasPrefix(s, "0X") {
 		return nil, nil
@@ -752,7 +751,7 @@ func decodeHexIfMatch(s string) ([]byte, error) {
 	return hex.DecodeString(hexStr)
 }
 
-// tryReconnect 尝试重连
+// tryReconnect attempts to reconnect
 func (c *NetClient) tryReconnect() {
 	if c.Config.ReconnectInterval <= 0 {
 		return
@@ -781,8 +780,7 @@ func (c *NetClient) tryReconnect() {
 	}
 }
 
-
-// isClosedConn 判断是否是连接关闭错误
+// isClosedConn checks whether it is a connection closure error
 func (c *NetClient) isClosedConn(err error) bool {
 	if err == io.EOF {
 		return true
@@ -796,9 +794,9 @@ func (c *NetClient) isClosedConn(err error) bool {
 		strings.Contains(err.Error(), "broken pipe")
 }
 
-// Send 通过当前连接发送原始字节数据到远程服务器
+// Send: sends raw byte data to the remote server through the current connection
 // Sends raw byte data to the remote server through the current connection
-// 注意：此方法不是线程安全的，避免与路由处理器的响应写入并发调用
+// Note: This method is not thread-safe and should avoid concurrent calls written to the routing processor's response
 // Note: This method is not thread-safe, avoid concurrent calls with router processor response writes
 func (c *NetClient) Send(data []byte) error {
 	c.mu.RLock()

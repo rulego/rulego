@@ -4,33 +4,33 @@ import (
 	"github.com/rulego/rulego/server/model"
 )
 
-// AuthService 用户认证服务接口
+// AuthService user authentication service interface
 type AuthService interface {
 	CheckPassword(username, password string) bool
 	GetUsernameByApiKey(apikey string) string
 	GetApiKeyByUsername(username string) string
 }
 
-// UserReader 用户信息读取接口
+// UserReader user information reading interface
 type UserReader interface {
 	List() []model.User
 }
 
-// Authenticator 认证接口，负责从请求中识别用户身份。
-// 默认实现使用 JWT + API Key 认证，嵌入模式可替换为外部认证（OAuth2、LDAP 等）。
+// The Authenticator authentication interface, responsible for identifying user identity from requests.
+// By default, authentication uses JWT + API Key, and embedding mode can be replaced with external authentication (OAuth2, LDAP, etc.).
 type Authenticator interface {
-	// Authenticate 从 authorization 头中识别用户，返回 UserContext。
-	// authorization 为 "Bearer xxx" 格式的原始值。
-	// 认证失败应返回 error。
+	// Authenticate identifies users from the authorization header and returns UserContext.
+	// authorization is the original value in the format "Bearer xxx".
+	// Authentication failure should return error.
 	Authenticate(authorization string) (*model.UserContext, error)
 }
 
-// Authorizer 授权接口，负责检查用户是否有权限执行操作。
-// 默认实现全部放行，嵌入模式可替换为外部 RBAC/ABAC 系统。
+// Authorizer is the authorization interface, responsible for checking whether users have permission to perform operations.
+// By default, all releases are implemented, and the embedded mode can be replaced with an external RBAC/ABAC system.
 type Authorizer interface {
-	// Authorize 检查用户是否有权限对指定资源执行操作。
-	// resource: 资源类型，如 "rule", "component", "config"
-	// action: 操作类型，如 "read", "write", "delete", "execute"
-	// 无权限应返回 error，有权限返回 nil。
+	// Authorize checks whether the user has permission to perform operations on the specified resource.
+	// resource: resource type, such as "rule", "component", "config"
+	// action: Operation type, such as "read", "write", "delete", "execute"
+	// If you have no permissions, return error; if you have permissions, return nil.
 	Authorize(user *model.UserContext, resource, action string) error
 }

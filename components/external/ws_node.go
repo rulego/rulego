@@ -30,57 +30,57 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
-// writeWait 单次写控制帧（ping）的超时
+// writeWait timeout for a single write control frame (ping).
 const writeWait = 10 * time.Second
 
-// reconnectDelay 拨号失败后的重试间隔
+// reconnectDelay The interval between retries after a failed dial-up
 const reconnectDelay = 5 * time.Second
 
 func init() {
 	Registry.Add(&WsNode{})
 }
 
-// WsNodeConfiguration ws 客户端节点配置
+// WsNodeConfiguration ws Client node configuration
 type WsNodeConfiguration struct {
-	// Server 直接填 ws://host:port 拨号出站；或 ref:// 指向 endpoint/ws 寻址推送
+	// Server: Simply enter ws://host:port to dial out the server; Or ref:// points to endpoint/ws addressed push
 	Server string `json:"server" label:"Server" desc:"ws://host:port 拨号发送；或 ref:// 指向 endpoint/ws 寻址推送" required:"true" ref:"primary"`
-	// Target 寻址目标，仅 server 为 ref:// 时生效。IP/deviceId/*（广播）；支持 ${metadata.xxx}
+	// Target: Addressed only when the server is ref://. IP/deviceId/* (Broadcast); Supports ${metadata.xxx}
 	Target string `json:"target" label:"Target" desc:"仅 ref:// 时生效。IP/deviceId/* (broadcast); supports ${metadata.xxx}"`
 
-	// 以下为出站客户端配置（仅 server 为 ws://wss:// 即拨号模式时生效，ref:// 模式忽略）
-	// Headers 握手时的 HTTP 请求头，如 Authorization
+	// Below are outbound client configurations (only server is set to ws://wss:// that is, effective in dial-up mode; ignored in ref:// mode)
+	// Headers: HTTP request headers during handshakes, such as Authorization
 	Headers map[string]string `json:"headers" label:"Headers" desc:"Handshake HTTP headers, e.g. Authorization"`
-	// Subprotocol Sec-WebSocket-Protocol 子协议（拨号模式），如 mqtt / ocpp1.6。留空不协商
+	// Subprotocol Sec-WebSocket-Protocol subprotocols (dial-up mode), such as mqtt / ocpp1.6. Leaving the space empty without negotiation
 	Subprotocol string `json:"subprotocol" label:"Subprotocol" desc:"Sec-WebSocket-Protocol, e.g. mqtt / ocpp1.6. Leave empty to skip"`
-	// ConnectTimeout 拨号握手超时（秒），0 用默认
+	// ConnectTimeout dial-up handshake timeout (seconds), 0 is the default
 	ConnectTimeout int `json:"connectTimeout" label:"Connect Timeout (s)" desc:"Dial handshake timeout in seconds, 0=default"`
-	// InsecureSkipVerify 跳过 TLS 证书验证（wss:// 自签证书场景），与 restApiCall 一致
+	// InsecureSkipVerify: Skips TLS certificate validation (wss:// self-visa document scenario), consistent with restApiCall
 	InsecureSkipVerify bool `json:"insecureSkipVerify" label:"Skip TLS Verify" desc:"Set to true to skip HTTPS certificate verification"`
-	// MessageType 发送的消息类型：text/binary（默认 text）
+	// MessageType Message type: text/binary (default)
 	MessageType string `json:"messageType" label:"Message Type" desc:"text or binary (default text)"`
-	// HeartbeatInterval 心跳间隔（秒）。>0 定期发 PingMessage 保活，连接断开自动重连；0=禁用心跳与重连
+	// HeartbeatInterval (seconds). >0 Regularly send PingMessages to keep them alive, automatically reconnect when disconnected; 0 = Heartbeat and reconnection disabled
 	HeartbeatInterval int `json:"heartbeatInterval" label:"Heartbeat Interval (s)" desc:"Heartbeat interval in seconds. 0=disable heartbeat and reconnect"`
 }
 
-// WsNode 是 WebSocket 客户端节点，对称 NetNode：出站拨号（ws://）+ ref:// 寻址推送（endpoint/ws）。
+// WsNode is a WebSocket client node, symmetrical to NetNode: outbound dial-up (ws://) + ref:// addressed push (endpoint/ws).
 type WsNode struct {
 	base.SharedNode[*websocket.Conn]
 	Config     WsNodeConfiguration
 	ruleConfig types.Config
-	// target 解析器（Init 时预编译模板），ref:// 模式使用
+	// target parser (a precompiled template when Init), used in ref:// mode
 	targetResolver *base.TargetResolver
 
-	// 以下仅出站模式（server 非 ref://）使用
-	// mu 保护业务 WriteMessage（gorilla 的 WriteMessage 不支持并发写；
-	//   WriteControl 可与 WriteMessage 并发，故 ping 不持此锁）
+	// The following are only for outbound mode (server is not ref://).
+	// mu protects business WriteMessage (Gorilla's WriteMessage does not support concurrent writes;
+	//   WriteControl can be sent concurrently with WriteMessage, so ping does not hold this lock)
 	mu sync.Mutex
-	// timerMu 保护 heartbeatTimer 字段读写（initConnect/onPing/tryReconnect/Destroy 可能并发访问）
+	// timerMu protects heartbeatTimer field read/write (initConnect/onPing/tryReconnect/Destroy may cause concurrent access)
 	timerMu        sync.Mutex
 	heartbeatTimer *time.Timer
 	heartbeatDur   time.Duration
-	disconnected   int32 // 0=正常 1=已断开待重连
-	reconnecting   int32 // CAS 防重连重入
-	closed         int32 // Destroy 后置 1，阻止重连/心跳
+	disconnected   int32 // 0 = Normal 1 = Disconnected and awaiting reconnection
+	reconnecting   int32 // CAS prevents reentry of heavy connections
+	closed         int32 // Destroy is set to 1 to prevent reconnection/heartbeat
 }
 
 func (x *WsNode) Type() string {
@@ -123,10 +123,10 @@ func (x *WsNode) setDefaultConfig() {
 	}
 }
 
-// initConnect 出站拨号：连远端 ws server，应用 Headers/Subprotocols/ConnectTimeout/InsecureSkipVerify。
-// 仅在 server 非 ref:// 时执行（ref:// 走 NodePool）。拨号成功后启动读循环与心跳。
+// initConnect outbound dial-up: Connect to the remote WS server, applying Headers/Subprotocols/ConnectTimeout/InsecureSkipVerify.
+// Execution only occurs when the server is not ref:// (ref:// run via NodePool). After dialing successfully, start reading loop and heartbeat.
 func (x *WsNode) initConnect() (*websocket.Conn, error) {
-	dialer := *websocket.DefaultDialer // 拷贝，避免污染全局
+	dialer := *websocket.DefaultDialer // Copying to avoid contaminating the entire situation
 	if x.Config.ConnectTimeout > 0 {
 		dialer.HandshakeTimeout = time.Duration(x.Config.ConnectTimeout) * time.Second
 	}
@@ -145,7 +145,7 @@ func (x *WsNode) initConnect() (*websocket.Conn, error) {
 		return nil, err
 	}
 	x.setDisconnected(false)
-	// 心跳开启且未销毁时才启动读循环：消费对端回的 pong，并在连接断开时触发重连
+	// The read loop only starts when the heartbeat is enabled and not destroyed: consumes the pong returned by the peer and triggers reconnection when the connection is disconnected
 	if x.heartbeatDur > 0 && atomic.LoadInt32(&x.closed) == 0 {
 		go x.readLoop(c)
 		x.resetHeartbeat(x.heartbeatDur)
@@ -153,12 +153,12 @@ func (x *WsNode) initConnect() (*websocket.Conn, error) {
 	return c, nil
 }
 
-// readLoop 持续读取以处理对端 pong 控制帧（WsNode 只发不收，业务消息丢弃）。读 error 触发重连。
+// readLoop continuously reads to process the peer pong control frame (WsNode sends but does not receive, discarding business messages). Read error to trigger reconnection.
 func (x *WsNode) readLoop(c *websocket.Conn) {
 	for {
 		if _, _, err := c.ReadMessage(); err != nil {
 			if atomic.LoadInt32(&x.closed) == 1 {
-				return // Destroy 触发的关闭，正常退出
+				return // Disable triggered by Destroy and exit normally
 			}
 			x.setDisconnected(true)
 			x.tryReconnect()
@@ -167,7 +167,7 @@ func (x *WsNode) readLoop(c *websocket.Conn) {
 	}
 }
 
-// OnMsg server 为 ref:// 时寻址推送，否则出站 WriteMessage。
+// OnMsg server pushes addressing at ref://, otherwise outbound WriteMessage.
 func (x *WsNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	data := msg.GetBytes()
 	if x.IsFromPool() {
@@ -177,7 +177,7 @@ func (x *WsNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	x.onWrite(ctx, msg, data)
 }
 
-// onWrite 出站：经 SharedNode 拿 ws 连接，加锁 WriteMessage 发送。
+// onWrite outbound: Connects via SharedNode with ws and locks WriteMessage to send.
 func (x *WsNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
 	conn, err := x.SharedNode.GetSafely()
 	if err != nil {
@@ -192,15 +192,15 @@ func (x *WsNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte) 
 	err = conn.WriteMessage(mt, data)
 	x.mu.Unlock()
 	if err != nil {
-		// 写失败：连接已坏
+		// Write failure: Connection is broken
 		if x.heartbeatDur > 0 {
-			// 开启心跳：标记断开并触发自动重连
+			// Activate heartbeat: mark disconnect and trigger automatic reconnection
 			if !x.isDisconnected() {
 				x.setDisconnected(true)
 				x.tryReconnect()
 			}
 		} else {
-			// 禁用心跳：重置 SharedNode 缓存，下次 GetSafely 重新拨号（自愈，不启动重连定时器）
+			// Disable heartbeat: Reset SharedNode cache, next time GetSafely redials (self-healing, does not start reconnection timer)
 			_ = x.SharedNode.Close()
 		}
 		ctx.TellFailure(msg, err)
@@ -209,11 +209,11 @@ func (x *WsNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte) 
 	ctx.TellSuccess(msg)
 }
 
-// onSendToEndpoint 寻址推送：resolveRefEndpoint(同链优先→NodePool) → TargetSender.SendToTarget。
-// 与 NetNode.onSendToEndpoint 同构，复用 SendToTarget 已封装的 Lookup+遍历+统计逻辑，避免行为分裂。
+// onSendToEndpoint addressing push: resolveRefEndpoint (same-chain priority→NodePool) → TargetSender.SendToTarget.
+// Isomorphic with NetNode.onSendToEndpoint and reuses SendToTarget's already encapsulated Lookup+ traversal + statistical logic to avoid behavioral splitting.
 func (x *WsNode) onSendToEndpoint(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
 	target := x.targetResolver.Resolve(ctx, msg)
-	// 表达式解析为空（非显式 *）不静默广播，避免配错变成全量推送
+	// Expression parsing is empty (non-explicit *) and does not broadcast silently to avoid mismatches and full push
 	if target == "" && !x.targetResolver.IsEmpty() && x.targetResolver.Literal() != "*" {
 		ctx.TellFailure(msg, fmt.Errorf("ws: target %q resolved to empty", x.targetResolver.Literal()))
 		return
@@ -239,7 +239,7 @@ func (x *WsNode) onSendToEndpoint(ctx types.RuleContext, msg types.RuleMsg, data
 	ctx.TellSuccess(msg)
 }
 
-// onPing 心跳：发 PingMessage 保活。已断开则改触发重连。
+// onPing heartbeat: Send a PingMessage to keep it alive. If disconnected, reconnect instead.
 func (x *WsNode) onPing() {
 	if x.IsFromPool() || atomic.LoadInt32(&x.closed) == 1 {
 		return
@@ -254,7 +254,7 @@ func (x *WsNode) onPing() {
 		x.tryReconnect()
 		return
 	}
-	// WriteControl 可与 WriteMessage 并发，无需持 mu
+	// WriteControl can be paralleled with WriteMessage without needing to hold mu
 	if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeWait)); err != nil {
 		x.Printf("ws ping failed: %v", err)
 		x.setDisconnected(true)
@@ -264,8 +264,8 @@ func (x *WsNode) onPing() {
 	x.resetHeartbeat(x.heartbeatDur)
 }
 
-// tryReconnect 关闭旧连接（重置 SharedNode 缓存）后重新拨号。
-// CAS 保证同一时刻只有一个重连在跑；拨号失败则延时由 onPing 重试。
+// tryReconnect closes the old connection (resets the SharedNode cache) and then redials.
+// CAS ensures that only one reconnection is running at any given time; If the dial fails, onPing will retry with a delay.
 func (x *WsNode) tryReconnect() {
 	if x.IsFromPool() || atomic.LoadInt32(&x.closed) == 1 {
 		return
@@ -274,19 +274,19 @@ func (x *WsNode) tryReconnect() {
 		return
 	}
 	defer atomic.StoreInt32(&x.reconnecting, 0)
-	// 二次检查 closed：CAS 通过后才 Destroy 的情况，避免销毁后还重新拨号
+	// Secondary check closed: Situations where CAS is passed before Destroy is done, to avoid redialing after destruction
 	if atomic.LoadInt32(&x.closed) == 1 {
 		return
 	}
 
-	// Close 触发 CloseFunc（conn.Close），旧 readLoop 随之 ReadMessage 失败退出；
-	// 同时重置 clientInitialized，使下一次 GetSafely 重新拨号
+	// Close triggers CloseFunc(conn.Close), causing the old readLoop to fail and exit the ReadMessage as a result;
+	// At the same time, reset clientInitialized to enable the next GetSafely redial
 	_ = x.SharedNode.Close()
 	if _, err := x.SharedNode.GetSafely(); err != nil {
-		// initConnect 拨号失败：延时后由 onPing 再次尝试
+		// initConnect dial-up failed: After a delay, onPing tries again
 		x.resetHeartbeat(reconnectDelay)
 	} else {
-		// 拨号成功：initConnect 内已 setDisconnected(false) 并启动新 readLoop
+		// Dial-up successful: initConnect has setDisconnected(false) and started a new readLoop
 		x.Printf("ws reconnected to %s", x.Config.Server)
 		x.resetHeartbeat(x.heartbeatDur)
 	}
@@ -298,7 +298,7 @@ func (x *WsNode) Destroy() {
 	_ = x.SharedNode.Close()
 }
 
-// resetHeartbeat 重置心跳定时器为指定间隔。
+// resetHeartbeat Reset the heartbeat timer to the specified interval.
 func (x *WsNode) resetHeartbeat(d time.Duration) {
 	x.timerMu.Lock()
 	defer x.timerMu.Unlock()
@@ -309,7 +309,7 @@ func (x *WsNode) resetHeartbeat(d time.Duration) {
 	}
 }
 
-// stopHeartbeat 停止心跳定时器（Destroy 调用）。
+// stopHeartbeat stops the heartbeat timer (Destroy call).
 func (x *WsNode) stopHeartbeat() {
 	x.timerMu.Lock()
 	defer x.timerMu.Unlock()

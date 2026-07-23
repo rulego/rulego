@@ -31,17 +31,17 @@ import (
 )
 
 func TestHttpAsyncDebugLog(t *testing.T) {
-	// 用于统计调试日志的计数器
+	// A counter used for tallying debug logs
 	var debugCount int64
 
-	// 记录调试日志的函数
+	// A function that records debugging logs
 	debugFunc := func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
 		atomic.AddInt64(&debugCount, 1)
 	}
-	// 重置计数器
+	// Reset the counter
 	atomic.StoreInt64(&debugCount, 0)
 
-	// 创建异步DSL配置
+	// Create an asynchronous DSL configuration
 	asyncDSL := `{
 			"ruleChain": {
 				"id": "http_async_debug_test",
@@ -89,47 +89,47 @@ func TestHttpAsyncDebugLog(t *testing.T) {
 			}
 		}`
 
-	// 创建规则引擎配置
+	// Create rule engine configurations
 	config := rulego.NewConfig(
 		types.WithDefaultPool(),
 		types.WithEndpointEnabled(true),
 		types.WithOnDebug(debugFunc),
 	)
 
-	// 创建规则引擎
+	// Create a rule engine
 	ruleEngine, err := rulego.New("http_async_debug_test", []byte(asyncDSL), types.WithConfig(config))
 	assert.Nil(t, err)
 	if ruleEngine == nil {
-		t.Fatal("创建规则引擎失败")
+		t.Fatal("Failure to create a rule engine")
 	}
-	// 等待服务启动
+	// Waiting for the service to start
 	time.Sleep(time.Second * 2)
-	// 清理资源
+	// Release resources
 	defer ruleEngine.Stop(context.Background())
-	// 测试异步请求（wait: false）
+	// Test asynchronous request (wait: false)
 	t.Run("AsyncRequest", func(t *testing.T) {
 
-		// 发送异步请求
+		// Send asynchronous requests
 		payload := `{"test": "async_data", "id": 1}`
 		resp, err := http.Post("http://localhost:9098/api/v1/async", "application/json", strings.NewReader(payload))
 		if err != nil {
-			t.Logf("异步请求失败: %v", err)
+			t.Logf("Asynchronous request failed: %v", err)
 		} else {
 			defer resp.Body.Close()
 		}
 
-		// 等待异步处理完成
+		// Wait for the asynchronous processing to complete
 		time.Sleep(time.Second * 1)
 
-		// 检查调试日志
+		// Check the debugging log
 		finalCount := atomic.LoadInt64(&debugCount)
 
-		// 验证是否有调试日志，1个node会产生两条（In/Out）
+		// Verify whether there is a debug log; one node generates two (In/Out) entries.
 		assert.Equal(t, int64(2), finalCount, "异步请求未产生预期的调试日志数量")
 
 	})
 
-	//测试RuleChainRunSnapshot解码
+	//Test the decoding of RuleChainRunSnapshot
 	t.Run("TestOnRuleChainCompleted", func(t *testing.T) {
 		ruleEngine.OnMsg(types.NewMsg(0, "TELEMETRY", types.JSON, types.NewMetadata(), "aaa"), types.WithOnRuleChainCompleted(
 			func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {

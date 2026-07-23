@@ -16,7 +16,7 @@
 
 package common
 
-//规则链节点配置示例：
+//Example of rule chain node configuration:
 //{
 //        "id": "s1",
 //        "type": "comment",
@@ -34,43 +34,43 @@ import (
 	"github.com/rulego/rulego/api/types"
 )
 
-// init 注册CommentNode组件
+// init registers the CommentNode component
 // init registers the CommentNode component with the default registry.
 func init() {
 	Registry.Add(&CommentNode{})
 }
 
-// CommentNodeConfiguration CommentNode配置结构
+// CommentNodeConfiguration CommentNode configuration structure
 // CommentNodeConfiguration defines the configuration structure for the CommentNode component.
 type CommentNodeConfiguration struct {
-	// 注释节点不需要配置字段
+	// Annotation nodes do not require field configuration
 	// No configuration fields required for comment nodes
 }
 
-// CommentNode 注释组件，用于规则链的可视化编辑器显示节点注释信息，不处理消息，直通传递消息
+// CommentNode comment component, used as a visual editor for rule chains to display node comment information, does not process messages, and passes messages directly
 // CommentNode is a visualization and documentation component that passes messages through unchanged.
 type CommentNode struct {
 }
 
-// Type 返回组件类型
+// Type returns the component type
 // Type returns the component type identifier.
 func (x *CommentNode) Type() string {
 	return "comment"
 }
 
-// New 创建新实例
+// New creates an instance
 // New creates a new instance.
 func (x *CommentNode) New() types.Node {
 	return &CommentNode{}
 }
 
-// Init 初始化组件
+// Init initializes the component
 // Init initializes the component.
 func (x *CommentNode) Init(_ types.Config, _ types.Configuration) error {
 	return nil
 }
 
-// OnMsg 直通传递消息
+// OnMsg passes messages directly
 // OnMsg forwards messages unchanged.
 func (x *CommentNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	ctx.TellSuccess(msg)

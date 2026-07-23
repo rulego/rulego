@@ -16,7 +16,7 @@
 
 package filter
 
-//规则链节点配置示例：
+//Example of rule chain node configuration:
 //{
 //        "id": "s1",
 //        "type": "exprFilter",
@@ -36,13 +36,13 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
-// init 注册ExprFilterNode组件
+// init registers the ExprFilterNode component
 // init registers the ExprFilterNode component with the default registry.
 func init() {
 	Registry.Add(&ExprFilterNode{})
 }
 
-// ExprFilterNodeConfiguration ExprFilterNode配置结构
+// ExprFilterNodeConfiguration ExprFilterNode configuration structure
 // ExprFilterNodeConfiguration defines the configuration structure for the ExprFilterNode component.
 type ExprFilterNodeConfiguration struct {
 	// Expr is the expression to evaluate for filtering. Must return a boolean.
@@ -50,39 +50,39 @@ type ExprFilterNodeConfiguration struct {
 	Expr string `json:"expr" label:"Expression" desc:"Boolean expression for filtering. Available: id, ts, data, msg, metadata, type, dataType. Example: msg.temperature > 50" required:"true"`
 }
 
-// ExprFilterNode 使用expr-lang表达式进行布尔评估来过滤消息的过滤组件
+// ExprFilterNode uses expr-lang expressions for boolean evaluation to filter out the filtering component of messages
 // ExprFilterNode filters messages using expr-lang expressions for boolean evaluation.
 //
-// 核心算法：
+// Core algorithm:
 // Core Algorithm:
-// 1. 初始化时编译表达式为优化的程序 - Compile expression to optimized program during initialization
-// 2. 准备消息评估环境（id、ts、data、msg、metadata等）- Prepare message evaluation environment
-// 3. 执行编译的表达式程序 - Execute compiled expression program
-// 4. 根据布尔结果路由消息到True/False关系 - Route message to True/False relation based on boolean result
+// 1. Compile expression to optimized program during initialization
+// 2. Prepare the message evaluation environment (id, ts, data, msg, metadata, etc.) - Prepare the message evaluation environment
+// 3. Execute compiled expression program
+// 4. Route message to True/False relation based on boolean result - Route message to True/False relation based on boolean result
 //
-// 表达式语言特性 - Expression language features:
-//   - 算术运算符：+, -, *, /, % - Arithmetic operators
-//   - 比较运算符：==, !=, <, <=, >, >= - Comparison operators
-//   - 逻辑运算符：&&, ||, ! - Logical operators
-//   - 字符串操作：contains, startsWith, endsWith - String operations
-//   - 数学函数：abs, ceil, floor, round - Mathematical functions
+// Expression language features:
+//   - Arithmetic operators: +, -, *, /, % - Arithmetic operators
+//   - Comparison operators: ==,!=, <, <=, >, >= - Comparison operators
+//   - Logical operator: &&, ||,! - Logical operators
+//   - String operations: contains, startsWith, endsWith - String operations
+//   - Mathematical functions: abs, ceil, floor, round - Mathematical functions
 type ExprFilterNode struct {
-	// Config 表达式过滤器配置
+	// Config Expression Filter Configuration
 	// Config holds the expression filter configuration
 	Config ExprFilterNodeConfiguration
 
-	// exprTemplate 执行的编译表达式模板
+	// exprTemplate executes the compiled expression template
 	// exprTemplate is the compiled expression template for execution
 	exprTemplate el.Template
 }
 
-// Type 返回组件类型
+// Type returns the component type
 // Type returns the component type identifier.
 func (x *ExprFilterNode) Type() string {
 	return "exprFilter"
 }
 
-// New 创建新实例
+// New creates an instance
 // New creates a new instance.
 func (x *ExprFilterNode) New() types.Node {
 	return &ExprFilterNode{Config: ExprFilterNodeConfiguration{
@@ -90,7 +90,7 @@ func (x *ExprFilterNode) New() types.Node {
 	}}
 }
 
-// Init 初始化组件，验证并编译表达式
+// Init initializes components, verifies and compiles expressions
 // Init initializes the component.
 func (x *ExprFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
@@ -107,7 +107,7 @@ func (x *ExprFilterNode) Init(ruleConfig types.Config, configuration types.Confi
 	return err
 }
 
-// OnMsg 处理消息，通过评估编译的表达式来过滤消息
+// OnMsg processes messages by evaluating compiled expressions to filter messages
 // OnMsg processes incoming messages by evaluating the compiled expression.
 func (x *ExprFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	evn := base.NodeUtils.GetEvn(ctx, msg)
@@ -128,7 +128,7 @@ func (x *ExprFilterNode) Desc() string {
 	return "Filter messages using expr-lang expressions. Expression must return boolean. Routes to True/False. Variables: id, ts, data, msg, metadata, type, dataType"
 }
 
-// Destroy 清理资源
+// Destroy to clean up resources
 // Destroy cleans up resources.
 func (x *ExprFilterNode) Destroy() {
 }

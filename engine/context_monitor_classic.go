@@ -4,8 +4,8 @@ package engine
 
 // startMonitoring starts monitoring parent contexts using a goroutine for Go < 1.21.
 // This provides backward compatibility for older Go versions.
-// startMonitoring 启动监控父上下文，对于 Go < 1.21 使用协程。
-// 这为旧版本的 Go 提供了向后兼容性。
+// startMonitoring: Starts monitoring the parent context, and for Go < 1.21, use a coroutine.
+// This provides backward compatibility for older versions of Go.
 func (c *combinedCancelContext) startMonitoring() {
 	c.doneOnce.Do(func() {
 		// If either is already done, cancel immediately
@@ -21,10 +21,10 @@ func (c *combinedCancelContext) startMonitoring() {
 		}
 
 		// Use goroutine for backward compatibility with Go < 1.21
-		// 启动单个协程来监控两个上下文
+		// Initiate a single coroutine to monitor two contexts
 		go func() {
-			// 如果 userCtx 是不可取消的（如 context.Background() 或 context.TODO()），
-			// 我们不需要监听它，只需要监听 shutdownCtx 和 internal ctx
+			// If userCtx is non-revocable (such as context.Background() or context.TODO()),
+			// We don't need to monitor it, only shutdownCtx and internal ctx
 			// If userCtx is not cancellable (Done() returns nil), we don't need to select on it
 			if c.userCtx.Done() == nil {
 				select {
@@ -33,7 +33,7 @@ func (c *combinedCancelContext) startMonitoring() {
 					c.cancel()
 				case <-c.ctx.Done():
 					// Internal context cancelled, exit goroutine
-					// 内部上下文已取消，退出协程
+					// Internal context has been removed, and the coroutine has been removed
 				}
 			} else {
 				select {
@@ -45,7 +45,7 @@ func (c *combinedCancelContext) startMonitoring() {
 					c.cancel()
 				case <-c.ctx.Done():
 					// Internal context cancelled, exit goroutine
-					// 内部上下文已取消，退出协程
+					// Internal context has been removed, and the coroutine has been removed
 				}
 			}
 		}()

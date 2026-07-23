@@ -83,9 +83,9 @@ func TestJsEngine(t *testing.T) {
 	`
 	start := time.Now()
 	config := types.NewConfig()
-	//注册全局配置参数
+	//Register global configuration parameters
 	config.Properties.PutValue("name", "lala")
-	//注册自定义函数
+	//Register custom functions
 	config.RegisterUdf("add", func(a, b int) int {
 		return a + b
 	})
@@ -94,13 +94,13 @@ func TestJsEngine(t *testing.T) {
 		return msg
 	})
 
-	//注册原生JS脚本
-	//使用 isNumber(xx)
+	//Register native JS scripts
+	//Using isNumber(xx)
 	config.RegisterUdf("isNumberScript", `function isNumber(value){
 			return typeof value === "number";
 		}
 	`)
-	// 使用：utilsFunc.dateFormat(new Date(), "yyyyMMddhh")
+	// Usage: utilsFunc.dateFormat(new Date(), "yyyyMMddhh")
 	config.RegisterUdf(
 		"utilsFunScript", types.Script{
 			Type: types.Js,
@@ -160,7 +160,7 @@ func TestJsEngine(t *testing.T) {
 				while (Date.now() < start + ms);
 			}
 			function timeoutFunc(value){
-			  sleep(3000); // 休眠3秒
+			  sleep(3000); // Sleep for 3 seconds
 			}
 		`,
 		},
@@ -172,12 +172,12 @@ func TestJsEngine(t *testing.T) {
 			Content: p,
 		},
 	)
-	//注册结构体所有导出函数
+	//Register all export functions of the structure
 	var tool = &ToolTest{}
 	config.RegisterUdf(
 		"tool", tool,
 	)
-	// types.Script 方式注册
+	// types.Script Registration method
 	config.RegisterUdf(
 		"tool2", types.Script{
 			Type:    types.AllScript,

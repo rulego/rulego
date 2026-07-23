@@ -16,7 +16,7 @@
 
 package action
 
-//规则链节点配置示例：
+//Example of rule chain node configuration:
 //{
 //        "id": "s2",
 //        "type": "functions",
@@ -36,50 +36,50 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 )
 
-// Functions 全局函数注册表，用于注册和查找自定义处理函数
+// Functions: A global function registry for registering and finding custom handler functions
 // Functions is the global registry for custom functions that can be called by FunctionsNode.
 var Functions = &FunctionsRegistry{}
 
-// init 注册FunctionsNode组件
+// init registers the FunctionsNode component
 // init registers the FunctionsNode component with the default registry.
 func init() {
 	Registry.Add(&FunctionsNode{})
 }
 
-// FunctionDef 函数定义
+// FunctionDef function definition
 // FunctionDef defines the structure for a registered function, including metadata and implementation.
 type FunctionDef struct {
-	// Name 函数名称
+	// Name function name
 	// Name is the unique identifier for the function.
 	Name string `json:"name"`
-	// Label 函数显示名/标签
+	// The Label function displays the name/label
 	// Label is the display name or label for the function.
 	Label string `json:"label"`
-	// Desc 函数描述
+	// Desc function description
 	// Desc provides a description of what the function does.
 	Desc string `json:"desc"`
-	// F 函数实现
+	// F function implementation
 	// F is the actual function implementation to be executed.
 	F func(ctx types.RuleContext, msg types.RuleMsg) `json:"-"`
 }
 
-// FunctionsRegistry 线程安全的自定义处理函数注册表
+// FunctionsRegistry: A custom handler function registry thread-safe for thread safety
 // FunctionsRegistry is a thread-safe registry for custom processing functions.
 //
-// 函数签名 - Function signature:
+// Function signature:
 //   - func(ctx types.RuleContext, msg types.RuleMsg)
-//   - 函数必须调用ctx.TellSuccess/TellNext/TellFailure进行路由 - Functions must call ctx.Tell* methods for routing
+//   - Functions must call ctx.TellSuccess/TellNext/TellFailure for routing - Functions must call ctx. Tell* methods for routing
 type FunctionsRegistry struct {
-	// functions 存储函数名到定义的映射
+	// functions: stores the mapping from function names to definitions
 	// functions stores the mapping from function names to their definitions
 	functions map[string]FunctionDef
-	// functionNames 存储函数名列表，用于保持注册顺序
+	// functionNames stores a list of function names to maintain the registration order
 	// functionNames stores the list of function names to maintain registration order
 	functionNames []string
 	sync.RWMutex
 }
 
-// Register 注册函数到注册表
+// Register: Register the function to the registry
 // Register adds a new function to the registry with the specified name.
 // params[0] label
 // params[1] desc
@@ -97,7 +97,7 @@ func (x *FunctionsRegistry) Register(functionName string, f func(ctx types.RuleC
 	x.RegisterDef(def)
 }
 
-// RegisterDef 注册函数定义到注册表
+// RegisterDef The registration function is defined in the registry
 // RegisterDef adds a new function definition to the registry.
 func (x *FunctionsRegistry) RegisterDef(def FunctionDef) {
 	x.Lock()
@@ -112,7 +112,7 @@ func (x *FunctionsRegistry) RegisterDef(def FunctionDef) {
 	x.functions[def.Name] = def
 }
 
-// UnRegister 从注册表移除函数
+// UnRegister removes the function from the registry
 // UnRegister removes a function from the registry by name.
 func (x *FunctionsRegistry) UnRegister(functionName string) {
 	x.Lock()
@@ -131,7 +131,7 @@ func (x *FunctionsRegistry) UnRegister(functionName string) {
 	}
 }
 
-// Get 从注册表获取函数
+// Get the function from the registry
 // Get retrieves a function from the registry by name.
 func (x *FunctionsRegistry) Get(functionName string) (func(ctx types.RuleContext, msg types.RuleMsg), bool) {
 	x.RLock()
@@ -146,7 +146,7 @@ func (x *FunctionsRegistry) Get(functionName string) (func(ctx types.RuleContext
 	return nil, false
 }
 
-// List 返回所有已注册的函数定义列表
+// List returns a list of all registered function definitions
 // List returns a list of all registered function definitions.
 func (x *FunctionsRegistry) List() []FunctionDef {
 	x.RLock()
@@ -160,7 +160,7 @@ func (x *FunctionsRegistry) List() []FunctionDef {
 	return defs
 }
 
-// Names 返回所有已注册的函数名称列表
+// Names returns a list of all registered function names
 // Names returns a list of all registered function names.
 func (x *FunctionsRegistry) Names() []string {
 	x.RLock()
@@ -170,7 +170,7 @@ func (x *FunctionsRegistry) Names() []string {
 	return keys
 }
 
-// FunctionsNodeConfiguration FunctionsNode配置结构
+// FunctionsNodeConfiguration FunctionsNode configuration structure
 // FunctionsNodeConfiguration defines the configuration structure for the FunctionsNode component.
 type FunctionsNodeConfiguration struct {
 	// FunctionName is the name of the registered function to call.
@@ -180,38 +180,38 @@ type FunctionsNodeConfiguration struct {
 	Param string `json:"param" label:"Parameter" desc:"Function input parameter. Supports ${metadata.key} and ${msg.key}. If empty, uses message payload"`
 }
 
-// FunctionsNode 通过函数名调用已注册自定义函数的动作组件
+// FunctionsNode calls the action component of a registered custom function via the function name
 // FunctionsNode is an action component that invokes registered custom functions by name.
 //
-// 核心算法：
+// Core algorithm:
 // Core Algorithm:
-// 1. 解析函数名（静态或动态变量替换）- Resolve function name (static or dynamic variable substitution)
-// 2. 从全局注册表查找函数 - Look up function in global registry
-// 3. 调用函数并由函数处理路由 - Invoke function and let function handle routing
+// 1. Resolve function name (static or dynamic variable substitution)
+// 2. Look up function in the global registry
+// 3. Call functions and let functions handle routing - Invoke function and let function handle routing
 //
-// 函数名解析 - Function name resolution:
-//   - 静态名称：直接使用 - Static names: used directly
-//   - 动态名称：支持${metadata.key}、${msg.key}和${nodeId.metadata.key}变量替换 - Dynamic names: support variable substitution including cross-node access
+// Function name resolution - Function name resolution:
+//   - Static names: used directly
+//   - Dynamic names: supports variable substitution including nodeId.metadata.key msg.key metadata.key cross-node access
 type FunctionsNode struct {
-	// Config 节点配置
+	// Config defines the node configuration
 	// Config holds the node configuration including function name specification
 	Config FunctionsNodeConfiguration
 
-	// functionNameTemplate 函数名模板，用于解析动态函数名
+	// functionNameTemplate is a template used to parse dynamic function names
 	// functionNameTemplate template for resolving dynamic function names
 	functionNameTemplate el.Template
-	// paramTemplate 参数模板
+	// paramTemplate parameter template
 	// paramTemplate template for resolving function parameters
 	paramTemplate el.Template
 }
 
-// Type 返回组件类型
+// Type returns the component type
 // Type returns the component type identifier.
 func (x *FunctionsNode) Type() string {
 	return "functions"
 }
 
-// New 创建新实例
+// New creates an instance
 // New creates a new instance.
 func (x *FunctionsNode) New() types.Node {
 	return &FunctionsNode{Config: FunctionsNodeConfiguration{
@@ -219,7 +219,7 @@ func (x *FunctionsNode) New() types.Node {
 	}}
 }
 
-// Init 初始化组件
+// Init initializes the component
 // Init initializes the component.
 func (x *FunctionsNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
@@ -227,13 +227,13 @@ func (x *FunctionsNode) Init(ruleConfig types.Config, configuration types.Config
 		return err
 	}
 
-	// 初始化函数名模板
+	// Initialize the function-name template
 	// Initialize function name template
 	x.functionNameTemplate, err = el.NewTemplate(x.Config.FunctionName)
 	if err != nil {
 		return fmt.Errorf("failed to create function name template: %w", err)
 	}
-	// 初始化参数模板
+	// Initialize parameter templates
 	// Initialize parameter template
 	if x.Config.Param != "" {
 		x.paramTemplate, err = el.NewTemplate(x.Config.Param)
@@ -244,7 +244,7 @@ func (x *FunctionsNode) Init(ruleConfig types.Config, configuration types.Config
 	return nil
 }
 
-// OnMsg 处理消息，调用指定的函数
+// OnMsg processes messages and calls specified functions
 // OnMsg processes incoming messages by invoking the specified function from the registry.
 func (x *FunctionsNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	funcName := x.getFunctionName(ctx, msg)
@@ -255,21 +255,21 @@ func (x *FunctionsNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			param := x.paramTemplate.ExecuteAsString(evn)
 			msg.SetData(param)
 		}
-		// 调用函数
+		// Calling the function
 		f(ctx, msg)
 	} else {
 		ctx.TellFailure(msg, fmt.Errorf("can not found the function=%s", funcName))
 	}
 }
 
-// Destroy 清理资源
+// Destroy to clean up resources
 // Destroy cleans up resources.
 func (x *FunctionsNode) Destroy() {
-	// 无资源需要清理
+	// No resources to clean
 	// No resources to clean up
 }
 
-// getFunctionName 解析函数名称，处理静态和动态情况，支持跨节点取值
+// getFunctionName parses function names, handles static and dynamic situations, and supports cross-node values
 // getFunctionName resolves the function name, handling both static and dynamic cases with cross-node access support.
 func (x *FunctionsNode) getFunctionName(ctx types.RuleContext, msg types.RuleMsg) string {
 	if x.functionNameTemplate != nil {

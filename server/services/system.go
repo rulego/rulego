@@ -4,7 +4,7 @@ import (
 	"github.com/rulego/rulego/server/config"
 )
 
-// ConfigService 配置管理服务接口
+// ConfigService configuration management service interface
 type ConfigService interface {
 	GetConfig() (*config.Config, error)
 	UpdateConfig(configMap map[string]interface{}) error

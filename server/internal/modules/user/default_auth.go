@@ -11,24 +11,24 @@ import (
 	"github.com/rulego/rulego/server/model"
 )
 
-// DefaultAuthenticator 默认认证器，使用 JWT + API Key 认证。
-// 与原有 authProcess() 逻辑完全一致，保证向后兼容。
+// DefaultAuthenticator is the default authenticator that uses JWT + API Key for authentication.
+// Completely consistent with the original authProcess() logic, ensuring backward compatibility.
 type DefaultAuthenticator struct {
 	cfg *config.Config
 }
 
-// NewDefaultAuthenticator 创建默认认证器
+// NewDefaultAuthenticator creates the default authenticator
 func NewDefaultAuthenticator(cfg *config.Config) *DefaultAuthenticator {
 	return &DefaultAuthenticator{cfg: cfg}
 }
 
-// Authenticate 从 authorization 头识别用户
+// Authenticate identifies users from the authorization header
 func (a *DefaultAuthenticator) Authenticate(authorization string) (*model.UserContext, error) {
-	// 尝试 API Key
+	// Try the API Key
 	if username := a.getUsernameByApiKey(authorization); username != "" {
 		return &model.UserContext{Username: username}, nil
 	}
-	// 尝试 JWT
+	// Try JWT
 	claim, err := parseToken(a.cfg, authorization)
 	if err != nil {
 		return nil, err
@@ -68,16 +68,16 @@ func parseToken(cfg *config.Config, authorization string) (*ruleGoClaim, error) 
 	return nil, fmt.Errorf("token is invalid")
 }
 
-// DefaultAuthorizer 默认授权器，全部放行（与当前行为一致）。
-// 嵌入模式可替换为自定义实现。
+// DefaultAuthorizer: The default authorizer, all permissions are granted (consistent with current behavior).
+// Embedding mode can be replaced with custom implementations.
 type DefaultAuthorizer struct{}
 
-// NewDefaultAuthorizer 创建默认授权器
+// NewDefaultAuthorizer creates the default authorizer
 func NewDefaultAuthorizer() *DefaultAuthorizer {
 	return &DefaultAuthorizer{}
 }
 
-// Authorize 全部放行
+// Authorize to let all the authors go
 func (a *DefaultAuthorizer) Authorize(user *model.UserContext, resource, action string) error {
 	return nil
 }

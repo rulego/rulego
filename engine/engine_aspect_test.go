@@ -32,9 +32,9 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// 测试故障降级切面
+// Test the fault degradation cross-section
 func TestSkipFallbackAspect(t *testing.T) {
-	//如果10s内出现3次错误，则跳过当前节点，继续执行下一个节点，10s后恢复
+	//If there are 3 errors within 10 seconds, skip the current node and continue to execute the next node, restoring after 10 seconds
 	config := NewConfig()
 
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
@@ -49,40 +49,40 @@ func TestSkipFallbackAspect(t *testing.T) {
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 
-	//第1次
+	//First time
 	ruleEngine.OnMsg(msg)
 
-	//第2次
+	//Second time
 	start := time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
-		//没达到错误降级阈值，执行该组件
-		//fmt.Printf("第2次耗时:%s", time.Since(start).String())
+		//If the error degradation threshold is not reached, execute the component
+		//fmt.Printf("Second test duration: %s", time.Since(start).String())
 		//fmt.Println()
 		assert.True(t, time.Since(start) > time.Second)
 	}))
 
-	//第3次
+	//The third time
 	ruleEngine.OnMsg(msg)
 
 	time.Sleep(time.Second * 4)
 
-	//第4次,达到错误降级阈值
+	//The fourth time, the error degrade threshold is reached
 	msg = types.NewMsg(0, "TEST_MSG_TYPE4", types.JSON, metaData, "{\"temperature\":44}")
 	start4 := time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
-		//进入故障降级，跳过该组件
-		//fmt.Printf("第4次耗时:%s", time.Since(start4).String())
+		//Enter fault degradation and skip this component
+		//fmt.Printf("Fourth session takes %s", time.Since(start4).String())
 		//fmt.Println()
 		assert.True(t, time.Since(start4) < time.Second)
 	}))
 
-	//等待恢复时间
+	//Waiting for recovery time
 	time.Sleep(time.Second * 11)
 
 	start5 := time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
-		//故障恢复，执行该组件
-		//fmt.Printf("第5次耗时:%s", time.Since(start5).String())
+		//Fault recovery and execution of the component
+		//fmt.Printf("Fifth attempt takes %s", time.Since(start5).String())
 		//fmt.Println()
 		assert.True(t, time.Since(start5) > time.Second)
 	}))
@@ -90,13 +90,13 @@ func TestSkipFallbackAspect(t *testing.T) {
 	ruleEngine.OnMsg(msg)
 	ruleEngine.OnMsg(msg)
 	time.Sleep(time.Second * 11)
-	//更新规则链，清除错误信息
+	//Update the rule chain and clear out error information
 	ruleEngine.ReloadSelf(loadFile("./test_skip_fallback_aspect.json"))
 
 	start6 := time.Now()
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
-		//故障恢复，执行该组件
-		//fmt.Printf("第6次耗时:%s", time.Since(start6).String())
+		//Fault recovery and execution of the component
+		//fmt.Printf("Time for the sixth test: %s", time.Since(start6).String())
 		//fmt.Println()
 		assert.True(t, time.Since(start6) > time.Second)
 	}))
@@ -171,7 +171,7 @@ func TestEngineAspect(t *testing.T) {
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 
 	ruleEngine.OnMsg(msg)
-	//重新加载规则链，会同时触发Reload 和 OnDestroy
+	//Reloading the rule chain triggers both Reload and OnDestroy simultaneously
 	err = ruleEngine.ReloadSelf([]byte(ruleChainFile))
 	if err != nil {
 		t.Error(err)
@@ -179,7 +179,7 @@ func TestEngineAspect(t *testing.T) {
 	assert.Equal(t, int32(2), count)
 	atomic.StoreInt32(&count, 0)
 
-	//更新子节节点
+	//Update the child nodes
 	err = ruleEngine.ReloadChild("s2", []byte(`
 	  {
 			"id": "s2",
@@ -195,7 +195,7 @@ func TestEngineAspect(t *testing.T) {
 		t.Error(err)
 	}
 	assert.Equal(t, int32(1), count)
-	//销毁
+	//Destruction
 	ruleEngine.Stop(context.Background())
 	time.Sleep(time.Millisecond * 200)
 
@@ -236,7 +236,7 @@ func TestBeforeInitErrAspect(t *testing.T) {
 	`))
 	assert.Nil(t, err)
 	assert.Equal(t, int32(2), count)
-	//销毁
+	//Destruction
 	ruleEngine.Stop(context.Background())
 }
 
@@ -470,21 +470,21 @@ func (aspect *AroundAspect) Around(ctx types.RuleContext, msg types.RuleMsg, rel
 		//s4 in err
 		assert.NotNil(aspect.t, ctx.GetErr())
 	}
-	// 执行当前节点
+	// Execute the current node
 	ctx.Self().OnMsg(ctx, msg)
-	// 节点执行完之后逻辑
+	// After the node finishes execution, the logic is followed
 	if ctx.GetSelfId() == "s1" {
 		msg.Metadata.PutValue(ctx.GetSelfId()+"_after", ctx.GetSelfId()+"_after")
 	}
 	if ctx.GetSelfId() == "s2" {
-		// 方案1: 使用推荐的 GetData() 方法（当前实现）
+		// Solution 1: Use the recommended GetData() method (currently implemented)
 		out := ctx.GetOut()
 		assert.Equal(aspect.t, "{\"temperature\":41,\"userName\":\"NO-1\"}", out.GetData())
 
-		// 方案2: 使用新的 String() 方法保持兼容性
+		// Solution 2: Use the new String() method to maintain compatibility
 		// assert.Equal(aspect.t, "{\"temperature\":41,\"userName\":\"NO-1\"}", ctx.GetOut().Data.String())
 
-		// 方案3: 使用 fmt.Sprintf 格式化（也支持兼容性）
+		// Option 3: Use fmt.Sprintf formatting (also supports compatibility)
 		// assert.Equal(aspect.t, "{\"temperature\":41,\"userName\":\"NO-1\"}", fmt.Sprintf("%s", ctx.GetOut().Data))
 	}
 	if ctx.GetSelfId() == "s3" {
@@ -498,7 +498,7 @@ func (aspect *AroundAspect) Around(ctx types.RuleContext, msg types.RuleMsg, rel
 	//fmt.Println(ctx.GetOut())
 	//fmt.Printf("debug Around after ruleChainId:%s,flowType:%s,nodeId:%s,msg:%+v,relationType:%s", ctx.RuleChain().GetNodeId().Id, "Around", ctx.Self().GetNodeId().Id, msg, relationType)
 	//fmt.Println()
-	//返回false,脱离框架不重复执行该节点逻辑
+	//Returns false, leaving the framework and not repeating the node logic
 	return msg, false
 }
 
@@ -609,13 +609,13 @@ func TestConcurrencyLimiterAspect(t *testing.T) {
           }
         }`
 
-	//测试函数
+	//Testing the function
 	action.Functions.Register("doSleep", func(ctx types.RuleContext, msg types.RuleMsg) {
 		time.Sleep(time.Millisecond * 200)
 		ctx.TellNext(msg, types.Success)
 	})
 	config := NewConfig(types.WithDefaultPool())
-	//限制并发1
+	//Concurrency is limited to 1
 	ruleEngine, err := New("testLimiterAspect", []byte(ruleChainFile), WithConfig(config),
 		types.WithAspects(&aspect.Debug{}, aspect.NewConcurrencyLimiterAspect(1)))
 	assert.Nil(t, err)
@@ -625,17 +625,17 @@ func TestConcurrencyLimiterAspect(t *testing.T) {
 		assert.Equal(t, types.Success, relationType)
 	}))
 	time.Sleep(time.Millisecond * 100)
-	//上一条没执行完，并发超过限制
+	//The previous item was not fully executed, and concurrent issues exceeded the limit
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, types.Failure, relationType)
 	}))
 	time.Sleep(time.Millisecond * 200)
-	//都已经执行完，解除并发限制
+	//All have been executed, and concurrency restrictions have been lifted
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, types.Success, relationType)
 	}))
 	time.Sleep(time.Millisecond * 250)
-	//修改并发2
+	//Modify concurrency 2
 	_ = ruleEngine.Reload(types.WithAspects(&aspect.Debug{}, aspect.NewConcurrencyLimiterAspect(2)))
 	msg = types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"body\":{\"sms\":[\"aa\"]}}")
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
@@ -645,12 +645,12 @@ func TestConcurrencyLimiterAspect(t *testing.T) {
 		assert.Equal(t, types.Success, relationType)
 	}))
 	time.Sleep(time.Millisecond * 100)
-	//触发并发限制
+	//Concurrency restrictions are triggered
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, types.Failure, relationType)
 	}))
 	time.Sleep(time.Millisecond * 250)
-	//取消限制并发
+	//Removal of concurrency restrictions
 	_ = ruleEngine.Reload(types.WithAspects(&aspect.Debug{}))
 	var i = 0
 	for i < 10 {
@@ -661,13 +661,13 @@ func TestConcurrencyLimiterAspect(t *testing.T) {
 	}
 	time.Sleep(time.Millisecond * 400)
 
-	//重新设置并发
+	//Resetting concurrency
 	_ = ruleEngine.Reload(types.WithAspects(&aspect.Debug{}, aspect.NewConcurrencyLimiterAspect(1)))
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, types.Success, relationType)
 	}))
 	time.Sleep(time.Millisecond * 100)
-	//上一条没执行完，并发超过限制
+	//The previous item was not fully executed, and concurrent issues exceeded the limit
 	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		assert.Equal(t, types.Failure, relationType)
 	}))
@@ -676,7 +676,7 @@ func TestConcurrencyLimiterAspect(t *testing.T) {
 
 func TestMetricsAspect(t *testing.T) {
 	ruleFile := loadFile("./test_metrics_chain.json")
-	//测试函数
+	//Testing the function
 	action.Functions.Register("doErr", func(ctx types.RuleContext, msg types.RuleMsg) {
 		time.Sleep(time.Millisecond * 100)
 		ctx.TellFailure(msg, errors.New("error"))
@@ -696,17 +696,17 @@ func TestMetricsAspect(t *testing.T) {
 	ruleEngine.OnMsg(msg)
 	time.Sleep(time.Millisecond * 50)
 	metrics := ruleEngine.GetMetrics().Get()
-	//正在执行
+	//Currently in operation
 	assert.Equal(t, int64(2), metrics.Current)
 
 	time.Sleep(time.Millisecond * 500)
-	//等待所有规则链支持完
+	//Wait until all rule chains are fully supported
 	metrics = ruleEngine.GetMetrics().Get()
 	assert.Equal(t, int64(0), metrics.Current)
 	assert.Equal(t, int64(2), metrics.Total)
 	assert.Equal(t, int64(2), metrics.Failed)
 	assert.Equal(t, int64(4), metrics.Success)
-	//重置
+	//Reset
 	ruleEngine.GetMetrics().Reset()
 	assert.Equal(t, int64(0), ruleEngine.GetMetrics().Get().Total)
 	assert.Equal(t, int64(0), ruleEngine.GetMetrics().Get().Failed)
@@ -721,7 +721,7 @@ func TestMetricsAspect(t *testing.T) {
 	assert.Equal(t, int64(2), metrics.Failed)
 	assert.Equal(t, int64(4), metrics.Success)
 
-	//刷新，指标不变
+	//Refresh, but the indicators remain unchanged
 	_ = ruleEngine.Reload()
 	metrics = ruleEngine.GetMetrics().Get()
 	assert.Equal(t, int64(0), metrics.Current)

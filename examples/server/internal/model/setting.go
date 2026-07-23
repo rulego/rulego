@@ -1,9 +1,9 @@
 package model
 
-// UserSetting 用户设置
+// UserSetting
 type UserSetting struct {
-	// 最后修改规则链ID
+	// Finally, modify the rule chain ID
 	LatestChainId string `json:"latestChainId"`
-	// 默认规则链ID，server所有事件都会发送至此
+	// By default, the rule chain ID is sent, and all server events are sent here
 	CoreChainId string `json:"coreChainId"`
 }

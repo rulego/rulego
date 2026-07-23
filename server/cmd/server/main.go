@@ -28,7 +28,7 @@ func main() {
 
 	application := bootstrap.DefaultApp(*configFile)
 
-	// AI 工具安全拦截 hook（仅 with_ai/with_all 编译时生效）
+	// AI tool securely intercepts hooks (effective only at with_ai/with_all compile time)
 	registerAiSecurityHook(application)
 
 	if err := bootstrap.Run(application); err != nil {

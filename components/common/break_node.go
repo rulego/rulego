@@ -24,21 +24,21 @@ func init() {
 	Registry.Add(&BreakNode{})
 }
 
-// MdKeyBreak 循环结束标记key
+// MdKeyBreak marks the key to end the loop
 const MdKeyBreak = "_break"
 
-// MdValueBreak 循环结束标记value
+// MdValueBreak Loop ends marking value
 const MdValueBreak = "1"
 
-// BreakNodeConfiguration BreakNode配置
+// BreakNodeConfiguration BreakNode configuration
 type BreakNodeConfiguration struct {
 }
 
-// BreakNode 中断组件，用于中断 for 循环节点
+// BreakNode interrupt component, used to interrupt for loop nodes
 type BreakNode struct {
 }
 
-// Type 返回组件类型
+// Type returns the component type
 func (x *BreakNode) Type() string {
 	return "break"
 }

@@ -9,14 +9,14 @@ import (
 	"github.com/rulego/rulego/utils/fs"
 )
 
-// NodePoolStore 基于文件系统的节点池存储实现。
-// 节点池数据以 JSON 文件形式存储在用户目录下。
+// NodePoolStore is implemented based on the node pool storage of the file system.
+// Node pool data is stored in the user directory as JSON files.
 type NodePoolStore struct {
 	config   config.Config
 	username string
 }
 
-// NewNodePoolStore 创建节点池文件存储
+// NewNodePoolStore creates node pool file storage
 func NewNodePoolStore(cfg config.Config, username string) (*NodePoolStore, error) {
 	return &NodePoolStore{
 		config:   cfg,
@@ -24,7 +24,7 @@ func NewNodePoolStore(cfg config.Config, username string) (*NodePoolStore, error
 	}, nil
 }
 
-// Get 获取节点池数据
+// Get the node pool data
 func (d *NodePoolStore) Get() ([]byte, error) {
 	pathStr := d.getFilePath()
 	if _, err := os.Stat(pathStr); os.IsNotExist(err) {
@@ -33,7 +33,7 @@ func (d *NodePoolStore) Get() ([]byte, error) {
 	return os.ReadFile(pathStr)
 }
 
-// Save 保存节点池数据
+// Save saves node pool data
 func (d *NodePoolStore) Save(data []byte) error {
 	pathStr := d.getFilePath()
 	dir := path.Dir(pathStr)

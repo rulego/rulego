@@ -25,24 +25,24 @@ import (
 )
 
 // ============================================
-// 日志级别
+// log level
 // ============================================
 
-// LogLevel 日志级别
+// LogLevel
 type LogLevel int8
 
 const (
-	// DebugLevel 调试级别
+	// DebugLevel
 	DebugLevel LogLevel = iota - 1
-	// InfoLevel 信息级别
+	// InfoLevel
 	InfoLevel
-	// WarnLevel 警告级别
+	// WarnLevel warning level
 	WarnLevel
-	// ErrorLevel 错误级别
+	// ErrorLevel
 	ErrorLevel
 )
 
-// String 返回日志级别的字符串表示
+// String returns a log-level string representation
 func (l LogLevel) String() string {
 	switch l {
 	case DebugLevel:
@@ -59,58 +59,58 @@ func (l LogLevel) String() string {
 }
 
 // ============================================
-// Field 结构化字段（可选扩展）
+// Field Structured Fields (optional extension)
 // ============================================
 
-// Field 结构化日志字段
+// Field: Structured log fields
 type Field struct {
 	Key   string
 	Value any
 }
 
-// F 创建日志字段的快捷方法
+// F. A quick way to create log fields
 func F(key string, value any) Field {
 	return Field{Key: key, Value: value}
 }
 
 // ============================================
-// Logger 接口
+// Logger interface
 // ============================================
 
-// Logger 日志接口
-// 应用层需要实现此接口以接入自己的日志框架
+// Logger log interface
+// The application layer needs to implement this interface to access its own log framework
 type Logger interface {
-	// Printf 兼容旧接口
-	// Deprecated: 请使用 Debugf/Infof/Warnf/Errorf 代替
+	// Printf is compatible with older interfaces
+	// Deprecated: Please use Debugf/Infof/Warnf/Errorf instead
 	Printf(format string, v ...interface{})
-	// Debugf 调试日志
+	// Debugf debugging log
 	Debugf(format string, v ...interface{})
-	// Infof 信息日志
+	// Infof Information Log
 	Infof(format string, v ...interface{})
-	// Warnf 警告日志
+	// Warnf warning log
 	Warnf(format string, v ...interface{})
-	// Errorf 错误日志
+	// Errorf error log
 	Errorf(format string, v ...interface{})
 }
 
 // ============================================
-// 默认实现
+// Implemented by default
 // ============================================
 
-// 确保 StdLogger 实现 Logger 接口
+// Make sure StdLogger implements the Logger interface
 var _ Logger = (*StdLogger)(nil)
 
-// 确保标准库 log.Logger 兼容 Printf 接口
+// Ensure the standard library log.Logger is compatible with the Printf interface
 var _ interface{ Printf(string, ...interface{}) } = (*log.Logger)(nil)
 
-// StdLogger 默认日志实现
+// StdLogger is implemented by default
 type StdLogger struct {
 	mu    sync.Mutex
 	w     io.Writer
 	level LogLevel
 }
 
-// NewStdLogger 创建标准日志器
+// NewStdLogger creates a standard logger
 func NewStdLogger(w io.Writer) *StdLogger {
 	if w == nil {
 		w = os.Stdout
@@ -118,21 +118,21 @@ func NewStdLogger(w io.Writer) *StdLogger {
 	return &StdLogger{w: w, level: InfoLevel}
 }
 
-// SetLevel 设置日志级别
+// SetLevel sets the log level
 func (l *StdLogger) SetLevel(level LogLevel) {
 	l.mu.Lock()
 	l.level = level
 	l.mu.Unlock()
 }
 
-// GetLevel 获取日志级别
+// GetLevel Retrieves log levels
 func (l *StdLogger) GetLevel() LogLevel {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.level
 }
 
-// SetOutput 设置输出目标
+// SetOutput sets the output target
 func (l *StdLogger) SetOutput(w io.Writer) {
 	l.mu.Lock()
 	l.w = w
@@ -148,41 +148,41 @@ func (l *StdLogger) output(level LogLevel, format string, v ...interface{}) {
 	fmt.Fprintf(l.w, "[%s] %s\n", level, fmt.Sprintf(format, v...))
 }
 
-// Printf 实现 Logger 接口
+// Printf implements the Logger interface
 func (l *StdLogger) Printf(format string, v ...interface{}) {
 	l.output(InfoLevel, format, v...)
 }
 
-// Debugf 调试日志
+// Debugf debugging log
 func (l *StdLogger) Debugf(format string, v ...interface{}) {
 	l.output(DebugLevel, format, v...)
 }
 
-// Infof 信息日志
+// Infof Information Log
 func (l *StdLogger) Infof(format string, v ...interface{}) {
 	l.output(InfoLevel, format, v...)
 }
 
-// Warnf 警告日志
+// Warnf warning log
 func (l *StdLogger) Warnf(format string, v ...interface{}) {
 	l.output(WarnLevel, format, v...)
 }
 
-// Errorf 错误日志
+// Errorf error log
 func (l *StdLogger) Errorf(format string, v ...interface{}) {
 	l.output(ErrorLevel, format, v...)
 }
 
 // ============================================
-// 工厂函数
+// Factory function
 // ============================================
 
-// DefaultLogger 返回默认日志器
+// DefaultLogger returns the default logger
 func DefaultLogger() Logger {
 	return NewStdLogger(os.Stdout)
 }
 
-// NewLogger 创建日志器
+// NewLogger creates a logger
 func NewLogger(custom Logger) Logger {
 	if custom != nil {
 		return custom
@@ -190,8 +190,8 @@ func NewLogger(custom Logger) Logger {
 	return DefaultLogger()
 }
 
-// IsNilLogger 判断日志器是否为空或使用空实现
-// 用于在打印日志前进行判断，避免空指针
+// IsNilLogger determines whether the logger is empty or if it uses an empty implementation
+// Used for judgment before printing logs, avoiding empty pointers
 func IsNilLogger(logger Logger) bool {
 	return logger == nil
 }

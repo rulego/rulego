@@ -16,7 +16,7 @@
 
 package filter
 
-//规则链节点配置示例：
+//Example of rule chain node configuration:
 //{
 //        "id": "s2",
 //        "type": "jsFilter",
@@ -37,57 +37,57 @@ import (
 )
 
 const (
-	// JsFilterFuncName JS函数名
+	// JsFilterFuncName: JS function name
 	JsFilterFuncName = "Filter"
-	// JsFilterType JsFilter组件类型
+	// JsFilterType The type of the JsFilter component
 	JsFilterType = "jsFilter"
-	// JsFilterFuncTemplate JS函数模板
+	// JsFilterFuncTemplate JS function template
 	JsFilterFuncTemplate = "function Filter(msg, metadata, msgType, dataType) { %s }"
 )
 
-// init 注册JsFilterNode组件
+// init registers the JsFilterNode component
 func init() {
 	Registry.Add(&JsFilterNode{})
 }
 
-// JsFilterNodeConfiguration JsFilterNode配置结构
+// JsFilterNodeConfiguration The configuration structure of JsFilterNode
 type JsFilterNodeConfiguration struct {
-	// JsScript JavaScript脚本，用于评估过滤条件
-	// 函数参数：msg, metadata, msgType, dataType
-	// 必须返回布尔值：true通过过滤，false不通过
+	// JsScript JavaScript script for evaluating filter conditions
+	// Function parameters: msg, metadata, msgType, dataType
+	// A boolean value must be returned: true passes filtering, false does not
 	//
-	// 内置变量：
-	//   - $ctx: 上下文对象，提供缓存操作
-	//   - global: 全局配置属性
-	//   - vars: 规则链变量
-	//   - UDF函数: 用户自定义函数
+	// Built-in variables:
+	//   - $ctx: Context object, provides caching operations
+	//   - global: Global configuration properties
+	//   - vars: Rules chain variables
+	//   - UDF function: User-defined function
 	//
-	// 示例: "return msg.temperature > 25.0;"
+	// Example: "return msg.temperature > 25.0;"
 	JsScript string `json:"jsScript" label:"Filter Script" desc:"JavaScript expression that returns true to pass, false to reject. Available variables: msg (message body), metadata, msgType (message type)" required:"true"`
 }
 
-// JsFilterNode 使用JavaScript评估布尔条件的过滤器节点
+// JsFilterNode uses JavaScript to evaluate the filter node for boolean conditions
 type JsFilterNode struct {
-	// Config 节点配置
+	// Config defines the node configuration
 	Config JsFilterNodeConfiguration
 
-	// jsEngine JavaScript执行引擎
+	// jsEngine JavaScript execution engine
 	jsEngine types.JsEngine
 }
 
-// Type 返回组件类型
+// Type returns the component type
 func (x *JsFilterNode) Type() string {
 	return JsFilterType
 }
 
-// New 创建新实例
+// New creates an instance
 func (x *JsFilterNode) New() types.Node {
 	return &JsFilterNode{Config: JsFilterNodeConfiguration{
 		JsScript: "return msg.temperature > 50;",
 	}}
 }
 
-// Init 初始化节点
+// Init initializes the node
 func (x *JsFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
 	if err == nil {
@@ -97,9 +97,9 @@ func (x *JsFilterNode) Init(ruleConfig types.Config, configuration types.Configu
 	return err
 }
 
-// OnMsg 处理消息，执行JavaScript过滤条件
+// OnMsg processes messages and executes JavaScript filtering conditions
 func (x *JsFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	// 准备传递给JS脚本的数据
+	// Prepare data to be passed to the JS script
 	data := base.NodeUtils.GetDataByType(msg, true)
 
 	out, err := x.jsEngine.Execute(ctx, JsFilterFuncName, data, msg.Metadata.Values(), msg.Type, string(msg.DataType))
@@ -119,7 +119,7 @@ func (x *JsFilterNode) Desc() string {
 	return "Filter messages using a JavaScript expression. Returns true routes to True, false routes to False. Available variables: msg (message body), metadata, msgType, dataType"
 }
 
-// Destroy 清理资源
+// Destroy to clean up resources
 func (x *JsFilterNode) Destroy() {
 	if x.jsEngine != nil {
 		x.jsEngine.Stop()

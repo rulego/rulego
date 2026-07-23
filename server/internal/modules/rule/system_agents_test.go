@@ -14,7 +14,7 @@ func TestCopyEmbeddedDir(t *testing.T) {
 		t.Fatalf("copyEmbeddedDir failed: %v", err)
 	}
 
-	// 验证 JSON 文件存在
+	// Verify the existence of the JSON file
 	jsonPath := filepath.Join(dst, "_assistant.json")
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
@@ -24,7 +24,7 @@ func TestCopyEmbeddedDir(t *testing.T) {
 		t.Fatal("_assistant.json is empty")
 	}
 
-	// 验证包含全局变量引用
+	// Validation includes global variable references
 	content := string(data)
 	for _, pattern := range []string{"${global.llm_url}", "${global.llm_api_key}", "${global.llm_model}"} {
 		if !containsStr(content, pattern) {
@@ -32,12 +32,12 @@ func TestCopyEmbeddedDir(t *testing.T) {
 		}
 	}
 
-	// 验证 AGENTS.md 存在
+	// Verify the existence of AGENTS.md
 	if _, err := os.Stat(filepath.Join(dst, "AGENTS.md")); err != nil {
 		t.Fatalf("AGENTS.md not found: %v", err)
 	}
 
-	// 验证 skills 子目录存在
+	// Verify that the skills subdirectory exists
 	skillPath := filepath.Join(dst, "skills", "streamsql", "SKILL.md")
 	if _, err := os.Stat(skillPath); err != nil {
 		t.Fatalf("SKILL.md not found: %v", err)
@@ -54,7 +54,7 @@ func TestEnsureDefaultAgents_CreatesMissing(t *testing.T) {
 
 	m.ensureDefaultAgents(agentsDir)
 
-	// 验证 _assistant 目录被创建
+	// Verify that the _assistant directory has been created
 	jsonPath := filepath.Join(agentsDir, "_assistant", "_assistant.json")
 	if _, err := os.Stat(jsonPath); err != nil {
 		t.Fatalf("_assistant.json not auto-created: %v", err)
@@ -67,7 +67,7 @@ func TestEnsureDefaultAgents_SkipsExisting(t *testing.T) {
 	assistantDir := filepath.Join(agentsDir, "_assistant")
 	os.MkdirAll(assistantDir, 0755)
 
-	// 写入已有的自定义 JSON
+	// Write an existing custom JSON
 	customContent := []byte(`{"ruleChain":{"id":"_assistant","name":"Custom"}}`)
 	os.WriteFile(filepath.Join(assistantDir, "_assistant.json"), customContent, 0644)
 
@@ -76,7 +76,7 @@ func TestEnsureDefaultAgents_SkipsExisting(t *testing.T) {
 
 	m.ensureDefaultAgents(agentsDir)
 
-	// 验证文件未被覆盖
+	// Verification documents are not overwritten
 	data, _ := os.ReadFile(filepath.Join(assistantDir, "_assistant.json"))
 	if string(data) != string(customContent) {
 		t.Fatal("existing _assistant.json was overwritten")
@@ -96,7 +96,7 @@ func searchString(s, substr string) bool {
 	return false
 }
 
-// testLogger 实现 types.Logger 接口，用于单元测试
+// testLogger implements types.Logger interface, used for unit testing
 type testLogger struct{}
 
 func (l *testLogger) Printf(format string, args ...interface{}) {}

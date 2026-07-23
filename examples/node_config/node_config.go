@@ -29,12 +29,12 @@ type MyEntity struct {
 	Name string
 }
 
-// 测试使用占位符替换配置
+// Test using placeholders to replace configurations
 func main() {
 
 	config := rulego.NewConfig()
-	//设置全局属性参数，通过${global.transformJs} 方式替换内容
-	//节点初始化时候替换,只替换一次
+	//Set global property parameters and replace content using ${global.transformJs}
+	//Node initialization replaces only once
 	config.Properties.PutValue("transformJs", `
 		var value=global.globalValue;
 		msg['addField2']=value;
@@ -45,19 +45,19 @@ func main() {
 		msgType=handleMsg(msg,metadata,msgType);
 		return {'msg':msg,'metadata':metadata,'msgType':msgType};
 	`)
-	//在js脚本运行时获取全局变量：global.xx
+	//Obtain the global variable at JS script runtime: global.xx
 	config.Properties.PutValue("globalValue", "addValueFromConfig")
 
-	//注册自定义函数
+	//Register custom functions
 	config.RegisterUdf("add", func(a, b int) int {
 		return a + b
 	})
-	//模拟通过缓存获取实体函数，返回复杂结构体
+	//Simulates obtaining entity functions through caching and returning complex structures
 	config.RegisterUdf("getEntity", func(id string) MyEntity {
 		return MyEntity{Id: id, Name: "entity name"}
 	})
-	//注册原生JS脚本
-	//使用 isNumber(xx)
+	//Register native JS scripts
+	//Using isNumber(xx)
 	config.RegisterUdf("isNumberScript", `function isNumber(value){
 			return typeof value === "number";
 		}
@@ -67,7 +67,7 @@ func main() {
 			return a;
 		}
 	`)
-	// 使用：utilsFunc.dateFormat(new Date(), "yyyyMMddhh")
+	// Usage: utilsFunc.dateFormat(new Date(), "yyyyMMddhh")
 	config.RegisterUdf(
 		"utilsFunScript", types.Script{
 			Type: types.Js,
@@ -118,13 +118,13 @@ func main() {
 		msg["hasAaRuleChain"] = ok
 		return "returnFromGoMsgType"
 	})
-	//元数据
+	//Metadata
 	metaData := types.NewMetadata()
-	//通过${url}替换内容
-	//运行时替换
+	//Replace content with ${url}
+	//Runtime replacement
 	metaData.PutValue("postUrl", "http://127.0.0.1:8080/api/msg")
 
-	//处理数据
+	//Processing data
 	ruleEngine, err := rulego.New("rule01", []byte(chainJsonFile), rulego.WithConfig(config))
 	if err != nil {
 		log.Fatal(err)
@@ -132,20 +132,20 @@ func main() {
 
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
-		//得到规则链处理结果
+		//Obtain the result of the rule chain processing
 		fmt.Println("第一次执行", msg, err)
 	}))
 
 	time.Sleep(time.Second * 5)
-	//第二次执行
-	//元数据
+	//The second execution
+	//Metadata
 	metaData = types.NewMetadata()
-	//通过${url}替换内容
-	//运行时替换
+	//Replace content with ${url}
+	//Runtime replacement
 	metaData.PutValue("postUrl", "http://127.0.0.1:8080/api/msg2")
 	msg = types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":42}")
 	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
-		//得到规则链处理结果
+		//Obtain the result of the rule chain processing
 		fmt.Println("第二次执行", msg, err)
 	}))
 	time.Sleep(time.Second * 30)

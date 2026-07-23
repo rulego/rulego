@@ -1,19 +1,19 @@
 package model
 
-// Workflow 工作流
+// Workflow
 type Workflow struct {
-	// 名称
+	// Name
 	Name string `json:"name"`
-	// 所属用户
+	// Affiliated users
 	Owner string `json:"owner"`
-	// 描述
+	// Description
 	Description string `json:"description"`
-	// 创建时间
+	// Creation date
 	CreateTime int64 `json:"createTime"`
-	// 更新时间
+	// Update time
 	UpdateTime int64 `json:"updateTime"`
-	// 扩展信息
+	// Expand information
 	AdditionalInfo map[string]interface{} `json:"additionalInfo"`
-	//规则链定义
+	//Rule chain definition
 	RuleChain string `json:"rulechain"`
 }

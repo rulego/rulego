@@ -30,13 +30,13 @@ import (
 	"github.com/rulego/rulego/utils/str"
 )
 
-// init 注册GroupActionNode组件
+// init registers the GroupActionNode component
 // init registers the GroupActionNode component with the default registry.
 func init() {
 	Registry.Add(&GroupActionNode{})
 }
 
-// GroupActionNodeConfiguration GroupActionNode配置结构
+// GroupActionNodeConfiguration GroupActionNode configuration structure
 // GroupActionNodeConfiguration defines the configuration structure for the GroupActionNode component.
 type GroupActionNodeConfiguration struct {
 	// MatchRelationType is the relation type to match within the group.
@@ -51,50 +51,50 @@ type GroupActionNodeConfiguration struct {
 	MergeToMap bool `json:"mergeToMap" label:"Merge to Map" desc:"true=merge all outputs into {nodeId: result} map"`
 }
 
-// GroupActionNode 将多个节点分组并异步执行的动作组件
+// GroupActionNode is an action component that groups multiple nodes and executes them asynchronously
 // GroupActionNode is an action component that groups multiple nodes and executes them asynchronously.
 //
-// 核心算法：
+// Core algorithm:
 // Core Algorithm:
-// 1. 并发执行组内所有节点 - Execute all nodes in group concurrently
-// 2. 收集执行结果并计数匹配的关系类型 - Collect results and count matching relation types
-// 3. 根据MatchNum判断成功条件 - Determine success based on MatchNum criteria
-// 4. 合并结果并路由到Success或Failure链 - Merge results and route to Success or Failure
+// 1. Execute all nodes in the group concurrently
+// 2. Collect results and count matching relation types
+// 3. Determine success based on MatchNum criteria
+// 4. Merge results and route to Success or Failure chains - Merge results and route to Success or Failure
 //
-// 匹配逻辑 - Matching logic:
-//   - MatchNum=0: 所有节点都必须匹配 - All nodes must match
-//   - MatchNum>0: 至少MatchNum个节点匹配 - At least MatchNum nodes must match
+// Matching logic:
+//   - MatchNum=0: All nodes must match
+//   - MatchNum>0: At least MatchNum nodes must match
 //
-// 超时保护 - Timeout protection:
-//   - 配置超时防止无限等待 - Configured timeout prevents indefinite waiting
-//   - 早期终止当满足匹配条件时 - Early termination when match criteria satisfied
+// Timeout protection:
+//   - Configured timeout prevents indefinite waiting
+//   - Early termination when match criteria are satisfied
 type GroupActionNode struct {
-	// Config 节点配置
+	// Config defines the node configuration
 	// Config holds the node configuration including matching criteria and timeout
 	Config GroupActionNodeConfiguration
 
-	// NodeIdList 要执行的节点ID列表
+	// NodeIdList is the list of node IDs to be executed
 	// NodeIdList contains the parsed list of node IDs to execute
 	NodeIdList []string
 
-	// Length 组中节点数量
+	// Number of nodes in the Length group
 	// Length stores the number of nodes in the group for efficient access
 	Length int32
 }
 
-// Type 返回组件类型
+// Type returns the component type
 // Type returns the component type identifier.
 func (x *GroupActionNode) Type() string {
 	return "groupAction"
 }
 
-// New 创建新实例
+// New creates an instance
 // New creates a new instance.
 func (x *GroupActionNode) New() types.Node {
 	return &GroupActionNode{Config: GroupActionNodeConfiguration{MatchRelationType: types.Success, MatchNum: 0}}
 }
 
-// Init 初始化组件
+// Init initializes the component
 // Init initializes the component.
 func (x *GroupActionNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
@@ -125,18 +125,18 @@ func (x *GroupActionNode) Init(ruleConfig types.Config, configuration types.Conf
 	return err
 }
 
-// OnMsg 处理消息，并发执行节点组并根据匹配条件确定成功
+// OnMsg processes messages, executes node groups concurrently, and determines success based on matching conditions
 // OnMsg processes incoming messages by executing the configured group of nodes in parallel.
 func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	if x.Length == 0 {
 		ctx.TellFailure(msg, errors.New("nodeIds is empty"))
 		return
 	}
-	//完成执行节点数量
+	//The number of completed execution nodes
 	var endCount int32
-	//匹配节点数量
+	//Match the number of nodes
 	var currentMatchedCount int32
-	//是否已经完成
+	//Whether it has been completed
 	var completed int32
 	c := make(chan bool, 1)
 	var chanCtx context.Context
@@ -150,23 +150,23 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	defer cancel()
 
 	var wrapperMsg = msg.Copy()
-	//每个节点执行结果列表
+	//Each node executes the result list
 	var msgs = make([]types.WrapperMsg, len(x.NodeIdList))
-	//保护msgs数组的互斥锁
+	//Protect the mutex lock of the msgs array
 	var msgsMutex sync.Mutex
 
-	//执行节点列表逻辑
+	//Execute node list logic
 	for i, nodeId := range x.NodeIdList {
 		index := i
 		ctx.TellNode(chanCtx, nodeId, msg.Copy(), true, func(callbackCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
-			// 检查context是否已被取消，避免无意义的计算
+			// Check if the context has been canceled to avoid meaningless calculations
 			select {
 			case <-chanCtx.Done():
-				return // 提前退出，避免资源浪费
+				return // Exit early to avoid wasting resources
 			default:
 			}
 
-			// 安全地写入msgs数组
+			// Safely write to the msgs array
 			errStr := ""
 			if err != nil {
 				errStr = err.Error()
@@ -181,7 +181,7 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			}
 			msgsMutex.Unlock()
 
-			// 直接使用原子操作获取当前计数，避免竞态窗口
+			// Directly use atomic operations to obtain the current count and avoid race window entries
 			currentEndCount := atomic.AddInt32(&endCount, 1)
 			var currentMatchCount int32
 			if x.Config.MatchRelationType == relationType {
@@ -190,23 +190,23 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				currentMatchCount = atomic.LoadInt32(&currentMatchedCount)
 			}
 
-			// 判断是否应该结束并发送结果
+			// Decide whether to end and send the results
 			var shouldComplete bool
 			var result bool
 
-			// 如果已经达到匹配数量，立即返回成功
+			// If the match quantity is reached, it immediately returns to success
 			if currentMatchCount >= int32(x.Config.MatchNum) {
 				shouldComplete = true
 				result = true
 			} else if currentEndCount >= x.Length {
-				// 所有节点都完成，但没有达到匹配数量，返回失败
+				// All nodes complete but fail to match the number of nodes, resulting in failure
 				shouldComplete = true
 				result = false
 			}
 
-			// 使用CAS确保只有一个goroutine能发送结果
+			// Use CAS to ensure that only one goroutine can send results
 			if shouldComplete && atomic.CompareAndSwapInt32(&completed, 0, 1) {
-				// 安全地读取msgs数组进行处理
+				// Safely read the msgs array for processing
 				msgsMutex.Lock()
 				msgsCopy := make([]types.WrapperMsg, len(msgs))
 				copy(msgsCopy, msgs)
@@ -217,7 +217,7 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 					mergedMap := make(map[string]interface{})
 					for _, val := range msgsCopy {
 						if val.NodeId != "" {
-							// 根据数据类型进行不同的处理
+							// Different processing is performed depending on the data type
 							switch val.Msg.DataType {
 							case types.JSON:
 								if dataMap, err := val.Msg.GetJsonData(); err == nil {
@@ -242,18 +242,18 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 				}
 				_ = mergeMetadata(msgsCopy, &wrapperMsg)
 
-				// 使用非阻塞发送，防止在超时情况下channel阻塞
+				// Uses non-blocking sending to prevent channel blocking during timeouts
 				select {
 				case c <- result:
-					// 发送成功
+					// Sent successfully
 				default:
-					// Channel已满或无接收者（可能主函数已超时退出），放弃发送
+					// The channel is full or has no recipients (possibly the main function has timed out), so the transmission is abandoned
 				}
 			}
 		}, nil)
 	}
 
-	// 等待执行结束或者超时
+	// Waiting for execution to finish or timeout
 	select {
 	case <-chanCtx.Done():
 		ctx.TellFailure(wrapperMsg, chanCtx.Err())
@@ -266,14 +266,14 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 }
 
-// Destroy 清理资源
+// Destroy to clean up resources
 // Destroy cleans up resources.
 func (x *GroupActionNode) Destroy() {
-	// 无资源需要清理
+	// No resources to clean
 	// No resources to clean up
 }
 
-// filterEmptyAndRemoveMeta 过滤空消息并清除元数据
+// filterEmptyAndRemoveMeta filters out empty messages and clears metadata
 // filterEmptyAndRemoveMeta filters out empty messages and removes metadata for cleaner output.
 func filterEmptyAndRemoveMeta(msgs []types.WrapperMsg) []types.WrapperMsg {
 	var result []types.WrapperMsg
@@ -288,7 +288,7 @@ func filterEmptyAndRemoveMeta(msgs []types.WrapperMsg) []types.WrapperMsg {
 	return result
 }
 
-// mergeMetadata 合并成功执行的元数据到包装消息中
+// mergeMetadata merges successfully executed metadata into wrapper messages
 // mergeMetadata merges metadata from successful group executions into the wrapper message.
 func mergeMetadata(msgs []types.WrapperMsg, wrapperMsg *types.RuleMsg) error {
 	var errStr string

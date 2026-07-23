@@ -20,14 +20,14 @@ import (
 	"fmt"
 )
 
-// JSONSchema 定义了 JSON Schema 的结构
+// JSONSchema defines the structure of the JSON Schema
 type JSONSchema struct {
 	Type       string                 `json:"type"`
 	Properties map[string]FieldSchema `json:"properties"`
 	Required   []string               `json:"required"`
 }
 
-// CheckFieldIsRequired 检查字段是否在 Required 列表中
+// CheckFieldIsRequired checks whether the field is in the Required list
 func (s JSONSchema) CheckFieldIsRequired(fieldName string) bool {
 	for _, requiredField := range s.Required {
 		if requiredField == fieldName {
@@ -37,32 +37,32 @@ func (s JSONSchema) CheckFieldIsRequired(fieldName string) bool {
 	return false
 }
 
-// FieldSchema 定义了单个字段的 Schema
+// FieldSchema defines the schema for individual fields
 type FieldSchema struct {
-	Type        string                 `json:"type"`        //类型
-	Title       string                 `json:"title"`       //标题
-	Description string                 `json:"description"` //描述
-	Default     interface{}            `json:"default"`     //默认值
-	Properties  map[string]FieldSchema `json:"properties"`  // 嵌套字段
-	Required    []string               `json:"required"`    // 嵌套字段的必填列表
-	Component   map[string]interface{} `json:"component"`   //前端表单组件配置
+	Type        string                 `json:"type"`        //Type
+	Title       string                 `json:"title"`       //Title
+	Description string                 `json:"description"` //Description
+	Default     interface{}            `json:"default"`     //Default values
+	Properties  map[string]FieldSchema `json:"properties"`  // Nested fields
+	Required    []string               `json:"required"`    // Required list of nested fields
+	Component   map[string]interface{} `json:"component"`   //Front-end form component configuration
 }
 
-// Data 定义了 JSON 数据的结构
+// Data defines the structure of JSON data
 type Data struct {
 	Properties map[string]interface{} `json:"properties"`
 }
 
-// validateData 验证 JSON 数据是否符合 JSON Schema
+// validateData verifies whether JSON data complies with the JSON Schema
 func validateData(data map[string]interface{}, schema JSONSchema) error {
-	// 检查 required 字段
+	// Check the required field
 	for _, field := range schema.Required {
 		if _, ok := data[field]; !ok {
 			return fmt.Errorf("missing required field: %s", field)
 		}
 	}
 
-	// 检查每个字段的类型
+	// Check the type of each field
 	for fieldName, fieldSchema := range schema.Properties {
 		if value, ok := data[fieldName]; ok {
 			if err := validateFieldType(value, fieldSchema.Type); err != nil {
@@ -74,7 +74,7 @@ func validateData(data map[string]interface{}, schema JSONSchema) error {
 	return nil
 }
 
-// validateFieldType 验证字段的类型是否符合 Schema 定义
+// validateFieldType Verifies whether the field type matches the Schema definition
 func validateFieldType(value interface{}, fieldType string) error {
 	switch fieldType {
 	case "string":
@@ -82,7 +82,7 @@ func validateFieldType(value interface{}, fieldType string) error {
 			return fmt.Errorf("expected string, got %T", value)
 		}
 	case "integer":
-		if _, ok := value.(float64); !ok { // JSON 中的整数通常被解析为 float64
+		if _, ok := value.(float64); !ok { // Integers in JSON are usually parsed as float64
 			return fmt.Errorf("expected integer, got %T", value)
 		}
 	case "boolean":

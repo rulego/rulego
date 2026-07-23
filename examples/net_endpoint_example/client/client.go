@@ -33,12 +33,12 @@ import (
 
 const (
 	// Server address to connect to
-	// 要连接的服务器地址
+	// The server address to connect to
 	serverAddr = "localhost:8088"
 )
 
 // DeviceCommand represents a binary command structure
-// DeviceCommand 表示二进制命令结构
+// DeviceCommand represents the binary command structure
 type DeviceCommand struct {
 	DeviceID uint16 `json:"deviceId"`
 	Command  uint8  `json:"command"`
@@ -50,7 +50,7 @@ func main() {
 	fmt.Println("Connecting to server at", serverAddr)
 
 	// Connect to the server
-	// 连接到服务器
+	// Connect to the server
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
 		log.Fatalf("Failed to connect to server: %v", err)
@@ -60,23 +60,23 @@ func main() {
 	fmt.Println("Connected to server successfully")
 
 	// Create a reader for server responses
-	// 创建用于服务器响应的读取器
+	// Create a reader for server responses
 	reader := bufio.NewReader(conn)
 
 	// Send binary data examples
-	// 发送二进制数据示例
+	// Send binary data examples
 	sendBinaryData(conn, reader)
 
 	fmt.Println("Client finished sending data")
 }
 
 // sendBinaryData sends sample binary messages to the server
-// sendBinaryData 向服务器发送示例二进制消息
+// sendBinaryData sends a sample binary message to the server
 func sendBinaryData(conn net.Conn, reader *bufio.Reader) {
 	fmt.Println("\n=== Sending Binary Data ===")
 
 	// Sample binary commands
-	// 示例二进制命令
+	// Example binary command
 	commands := []DeviceCommand{
 		{DeviceID: 1001, Command: 0x01, Value: 100},
 		{DeviceID: 1002, Command: 0x02, Value: 255},
@@ -85,27 +85,27 @@ func sendBinaryData(conn net.Conn, reader *bufio.Reader) {
 
 	for i, cmd := range commands {
 		// Create binary data (simple protocol: deviceId(2) + command(1) + value(4))
-		// 创建二进制数据（简单协议：deviceId(2) + command(1) + value(4)）
+		// Create binary data (simple protocol: deviceId(2) + command(1) + value(4))
 		binaryData := make([]byte, 7)
 
 		// Device ID (2 bytes, big endian)
-		// 设备 ID（2 字节，大端序）
+		// Device ID (2 bytes, large-ending)
 		binaryData[0] = byte(cmd.DeviceID >> 8)
 		binaryData[1] = byte(cmd.DeviceID & 0xFF)
 
 		// Command (1 byte)
-		// 命令（1 字节）
+		// Command (1 byte)
 		binaryData[2] = cmd.Command
 
 		// Value (4 bytes, big endian)
-		// 值（4 字节，大端序）
+		// Value (4 bytes, large-endix order)
 		binaryData[3] = byte(cmd.Value >> 24)
 		binaryData[4] = byte(cmd.Value >> 16)
 		binaryData[5] = byte(cmd.Value >> 8)
 		binaryData[6] = byte(cmd.Value & 0xFF)
 
 		// Send binary data
-		// 发送二进制数据
+		// Send binary data
 		fmt.Printf("Sending binary data %d: Device=%d, Command=0x%02X, Value=%d (hex: %02X %02X %02X %02X %02X %02X %02X)\n",
 			i+1, cmd.DeviceID, cmd.Command, cmd.Value,
 			binaryData[0], binaryData[1], binaryData[2], binaryData[3], binaryData[4], binaryData[5], binaryData[6])
@@ -118,7 +118,7 @@ func sendBinaryData(conn net.Conn, reader *bufio.Reader) {
 		}
 
 		// Read server response
-		// 读取服务器响应
+		// Read the server's response
 		err = readAndDisplayResponse(reader, "Binary", startTime)
 		if err != nil {
 			log.Printf("Failed to read response: %v", err)
@@ -126,16 +126,16 @@ func sendBinaryData(conn net.Conn, reader *bufio.Reader) {
 		}
 
 		// Wait a bit between messages
-		// 消息之间等待一点时间
+		// Wait a little between messages
 		time.Sleep(time.Second)
 	}
 }
 
 // readAndDisplayResponse reads server response and displays it with enhanced formatting
-// readAndDisplayResponse 读取服务器响应并以增强格式显示
+// readAndDisplayResponse reads the server response and displays it in enhanced format
 func readAndDisplayResponse(reader *bufio.Reader, dataType string, startTime time.Time) error {
 	// For binary data, read raw bytes until newline
-	// 对于二进制数据，读取原始字节直到换行符
+	// For binary data, the original byte is read up to the line new
 	var responseBytes []byte
 	for {
 		b, err := reader.ReadByte()
@@ -149,12 +149,12 @@ func readAndDisplayResponse(reader *bufio.Reader, dataType string, startTime tim
 	}
 
 	// Calculate response time
-	// 计算响应时间
+	// Calculate response time
 	responseTime := time.Since(startTime)
 	fmt.Printf("Response Time: %v\n", responseTime)
 
 	// Print binary response in hex format
-	// 以hex格式打印二进制响应
+	// Print binary responses in hex format
 	fmt.Printf("=== Binary Response ===\n")
 	fmt.Printf("Length: %d bytes\n", len(responseBytes))
 	fmt.Printf("Hex: ")
@@ -167,7 +167,7 @@ func readAndDisplayResponse(reader *bufio.Reader, dataType string, startTime tim
 	fmt.Printf("\n")
 
 	// Print as ASCII (for debugging)
-	// 打印为ASCII（用于调试）
+	// Printed as ASCII (for debugging)
 	fmt.Printf("ASCII: ")
 	for _, b := range responseBytes {
 		if b >= 32 && b <= 126 {
@@ -181,7 +181,7 @@ func readAndDisplayResponse(reader *bufio.Reader, dataType string, startTime tim
 	fmt.Printf("\n")
 
 	// Decode binary response (without newline)
-	// 解码二进制响应（不包括换行符）
+	// Decoding binary responses (excluding line breaks)
 	responseData := responseBytes[:len(responseBytes)-1] // Remove newline
 	if len(responseData) >= 4 {
 		status := responseData[0]

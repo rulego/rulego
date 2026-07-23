@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-// 服务端型 endpoint 的会话寻址抽象。接入的连接原本只在 handler 局部作用域，无法跨请求寻址；
-// 这里提供 Session 注册表，让业务侧能按 Key 向指定客户端主动推送。
+// Session addressing abstraction for server-based endpoints. The connected connection was originally only within the handler's local scope and could not be addressed across requests;
+// Here, a Session registry is provided, allowing the business side to proactively push to a specified client by pressing a Key.
 //
-// 并发模型：Key 经 Key()/SetKey() 内部 RWMutex 保护；Sender 连接生命周期内不变，并发安全由实现方保证；
-// 改写已注册 session 的 Key 应通过 SessionRegistry.Rekey（同时更新索引）。
+// Concurrency model: Key is protected by RWMutex within Key()/SetKey(); Sender remains unchanged throughout the connection lifecycle, with concurrency security guaranteed by the implementer;
+// Rewriting the key of a registered session should be done via SessionRegistry.Rekey (while updating the index).
 package endpoint
 
 import (
@@ -27,56 +27,56 @@ import (
 	"time"
 )
 
-// Sender 协议无关的发送通道，由各 endpoint 实现。
+// Sender protocol-independent send channels, implemented by each endpoint.
 type Sender interface {
-	// Send 发送一帧数据，实现方需保证并发安全。
+	// Send a frame of data, and the implementer must ensure concurrency safety.
 	Send(data []byte) error
 }
 
-// Session 表示一个客户端会话，并发安全。
+// Session represents a client-side session that is secure concurrently.
 type Session struct {
-	// Sender 发送通道，连接生命周期内不变。
+	// Sender send channel, which remains unchanged throughout the connection lifecycle.
 	Sender Sender
 
 	mu          sync.RWMutex
 	key         string
-	keyResolved bool // sessionKey 是否已确定（首帧提取后不再变更）
+	keyResolved bool // Is the sessionKey confirmed (no changes after extracting the first frame)
 
-	lastSeen int64 // 最近活跃时间（UnixNano），atomic 保护，每帧 Touch 刷新，TTL 扫描据此淘汰
+	lastSeen int64 // Recent Active Time (UnixNano), atomic protection, Touch refresh per frame, TTL scans are eliminated accordingly
 }
 
-// NewSession 创建一个 session，初始 Key 通常为 RemoteAddr。
+// NewSession creates a session, with the initial key usually being RemoteAddr.
 func NewSession(key string, sender Sender) *Session {
 	s := &Session{Sender: sender, key: key}
-	s.Touch() // 构造即置 lastSeen
+	s.Touch() // Construct lastSeen
 	return s
 }
 
-// Touch 刷新 lastSeen 为当前时间。每收到一帧调用（含心跳帧），用于 TTL 保活。
+// Touch refreshes lastSeen to the current time. Each frame call (including heartbeat frames) is used for TTL keep-alive.
 func (s *Session) Touch() { atomic.StoreInt64(&s.lastSeen, time.Now().UnixNano()) }
 
-// TouchAt 用显式时间刷新 lastSeen。供测试注入时钟构造混合年龄场景。
+// TouchAt refreshes lastSeen in explicit time. Testing injects clocks to construct mixed-age scenarios.
 func (s *Session) TouchAt(now time.Time) { atomic.StoreInt64(&s.lastSeen, now.UnixNano()) }
 
-// LastSeen 返回最近活跃时间（UnixNano）。TTL 扫描用。
+// LastSeen returns the most recent active time (UnixNano). TTL scanning is used.
 func (s *Session) LastSeen() int64 { return atomic.LoadInt64(&s.lastSeen) }
 
-// Key 返回当前寻址键。
+// Key returns the current address key.
 func (s *Session) Key() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.key
 }
 
-// IsResolved 返回 sessionKey 是否已确定。
+// IsResolved returns whether the sessionKey is determined.
 func (s *Session) IsResolved() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.keyResolved
 }
 
-// SetKey 更新 Key 并标记为已确定，空 key 被忽略。
-// 只改字段，不更新 registry 索引；改已注册的 session 应用 Rekey。
+// SetKey updates the key and marks it as confirmed, while the empty key is ignored.
+// Only change fields, do not update the registry index; Change the registered session app to Rekey.
 func (s *Session) SetKey(key string) {
 	if key == "" {
 		return
@@ -87,15 +87,15 @@ func (s *Session) SetKey(key string) {
 	s.keyResolved = true
 }
 
-// SessionRegistry 会话注册表，由服务端型 endpoint 实现。
+// SessionRegistry is a session registry implemented by a server-based endpoint.
 //
-// Lookup 按 target 寻址：
-//   - "*" 或空：广播，返回全部 session
-//   - 其他：精确匹配 Key（target 应为 sessionKey 提取出的值，如 deviceId）
+// Lookup addresses by target:
+//   - "*" or empty: Broadcast, returns all sessions
+//   - Other: Exact match key (target should be the value extracted from sessionKey, e.g., deviceId)
 type SessionRegistry interface {
 	Add(*Session)
 	Remove(key string)
-	// Rekey 改写 session 的 Key：注销旧 Key、SetKey、注册新 Key。
+	// Rekey rewrites session Keys: delete the old Key, SetKey, and register the new Key.
 	Rekey(s *Session, newKey string)
 	Lookup(target string) []*Session
 }
