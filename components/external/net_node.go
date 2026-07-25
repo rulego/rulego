@@ -17,6 +17,7 @@
 package external
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sync/atomic"
@@ -189,6 +190,8 @@ type NetNode struct {
 	disconnected int32
 	//断开连接次数
 	disconnectedCount int32
+	//closed 是否已销毁（1=已销毁），防止 Destroy 后心跳/重连复活节点、连接泄漏
+	closed int32
 }
 
 // Type 组件类型
@@ -214,11 +217,16 @@ func (x *NetNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	x.setDefaultConfig()
 	x.targetResolver = base.NewTargetResolver(x.Config.Target)
 	x.heartbeatDuration = time.Duration(x.Config.HeartbeatInterval) * time.Second
-	return x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow, x.initConnect, func(conn net.Conn) error {
+	if err := x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow, x.initConnect, func(conn net.Conn) error {
 		// 清理回调函数：关闭连接并清理相关状态
 		x.onDisconnect()
 		return conn.Close()
-	})
+	}); err != nil {
+		return err
+	}
+	// 启用同链连接池：本地模式 net.Conn 按节点ID注册到链目录，供链内 ref:// 借用复用
+	x.SharedNode.BindChain(configuration)
+	return nil
 }
 
 // OnMsg：server 为 ref:// 时走寻址推送，否则出站 dial。
@@ -244,47 +252,47 @@ func (x *NetNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	x.onWrite(ctx, msg, data)
 }
 
-// onSendToEndpoint ref:// 模式：解析目标实例，按 target 寻址推送。
-// 解析顺序：同链 Resources 优先 → NodePool 回退（均走 sync.Map，无锁读）。
-// TargetSender → SendToTarget 寻址；net.Conn → 直接 Write（共享出站连接兼容）。
+// onSendToEndpoint ref:// 模式：解析目标实例，按 target 寻址推送或借用共享连接直写。
+// 先经 SendToRefTarget 走 TargetSender 寻址；非 TargetSender 时回退借用另一个出站
+// NetNode 的共享 net.Conn（失败即 TellFailure，连接健康/重连由持有方管理）。
 func (x *NetNode) onSendToEndpoint(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
 	target := x.targetResolver.Resolve(ctx, msg)
 	if target == "" && !x.targetResolver.IsEmpty() && x.targetResolver.Literal() != "*" {
 		ctx.TellFailure(msg, fmt.Errorf("target %q resolved to empty", x.targetResolver.Literal()))
 		return
 	}
-	inst, found := base.ResolveRefEndpoint(ctx, x.ruleConfig.NodePool, x.InstanceId)
-	if !found {
-		ctx.TellFailure(msg, fmt.Errorf("ref://%s not found in chain or node pool", x.InstanceId))
-		return
-	}
-	switch v := inst.(type) {
-	case types.TargetSender:
-		sent, failed, err := v.SendToTarget(target, data)
-		if err != nil && sent == 0 {
-			ctx.TellFailure(msg, err)
-			return
-		}
+	// 寻址推送（TargetSender）：sent>0 即视为成功（含部分投递成功），仅记录部分失败
+	sent, failed, err := base.SendToRefTarget(ctx, x.ruleConfig.NodePool, x.InstanceId, target, data)
+	if sent > 0 {
 		if failed > 0 {
 			x.Printf("partial delivery: %d/%d failed for target=%q", failed, sent+failed, target)
 		}
 		ctx.TellSuccess(msg)
-	case net.Conn:
-		// ref:// 借用另一个出站 NetNode 的共享连接（非本节点本地连接）。
-		// 借用方只负责单次 Write，失败即 TellFailure；连接的健康/重连由持有方
-		// （原 NetNode 的心跳/tryReconnect）管理，本节点不接管其生命周期。
-		if _, err := v.Write(data); err != nil {
-			ctx.TellFailure(msg, err)
+		return
+	}
+	// sent==0：解析失败或全部投递失败。非 TargetSender 时尝试借用另一个出站 NetNode 的共享 net.Conn 直写
+	if err != nil && errors.Is(err, base.ErrNotTargetSender) {
+		if conn, ok := base.LoadConnFromCtx[net.Conn](ctx, x.ruleConfig.NodePool, x.InstanceId); ok {
+			if _, werr := conn.Write(data); werr != nil {
+				ctx.TellFailure(msg, werr)
+				return
+			}
+			ctx.TellSuccess(msg)
 			return
 		}
-		ctx.TellSuccess(msg)
-	default:
-		ctx.TellFailure(msg, fmt.Errorf("ref://%s type %T does not support addressing", x.InstanceId, inst))
 	}
+	if err == nil {
+		err = fmt.Errorf("ref://%s delivered 0 targets", x.InstanceId)
+	}
+	ctx.TellFailure(msg, err)
 }
 
-// Destroy 销毁
+// Destroy 销毁：标记已销毁、停止心跳定时器、关闭连接。防止销毁后心跳/重连复活节点。
 func (x *NetNode) Destroy() {
+	atomic.StoreInt32(&x.closed, 1)
+	if x.heartbeatTimer != nil {
+		x.heartbeatTimer.Stop()
+	}
 	_ = x.SharedNode.Close()
 }
 
@@ -313,27 +321,38 @@ func (x *NetNode) initConnect() (net.Conn, error) {
 	return conn, nil
 }
 
-// 重连
+// 重连：关闭旧连接后重新拨号，Refresh 更新 holder（目录条目不变）。
+// 注意：拨号窗口内 holder 仍指向旧（已关闭）连接，借用方取到会 Write 失败并 TellFailure，
+// 属重连期间的固有暂态（与连接确实在重建一致），Refresh 完成后即恢复。
 func (x *NetNode) tryReconnect() {
-	// ref:// endpoint 模式不重连（非出站连接）
-	if x.IsFromPool() {
+	// ref:// endpoint 模式不重连；已销毁不重连（防 Destroy 竞态复活节点、连接泄漏）
+	if x.IsFromPool() || atomic.LoadInt32(&x.closed) == 1 {
 		return
 	}
-	// 尝试通过SharedNode获取新连接（会触发重新初始化）
-	if conn, err := x.SharedNode.GetSafely(); err != nil {
-		// 5秒后重试
-		x.heartbeatTimer.Reset(5 * time.Second)
-	} else {
-		x.setDisconnected(false)
-		x.Printf("Reconnected to: %s", conn.RemoteAddr().String())
-		// 重连成功后，重置为正常的心跳间隔
-		x.heartbeatTimer.Reset(x.heartbeatDuration)
+	// 关闭旧连接（重置底层资源），建新连接，Refresh 同步 localClient 与同链 holder
+	if oldConn, _ := x.SharedNode.GetSafely(); oldConn != nil {
+		_ = oldConn.Close()
 	}
+	conn, err := x.initConnect()
+	if err != nil {
+		// 5秒后重试
+		if x.heartbeatTimer != nil {
+			x.heartbeatTimer.Reset(5 * time.Second)
+		}
+		return
+	}
+	// 二次检查 closed：拨号期间可能已被 Destroy，避免向已销毁节点 Refresh 新连接
+	if atomic.LoadInt32(&x.closed) == 1 {
+		_ = conn.Close()
+		return
+	}
+	x.SharedNode.Refresh(conn)
+	x.Printf("Reconnected to: %s", conn.RemoteAddr().String())
 }
 
 func (x *NetNode) onPing() {
-	// ref:// endpoint 模式无心跳（服务端寻址，非出站连接；且 SharedNode.GetSafely 会类型断言失败）
-	if x.IsFromPool() {
+	// ref:// endpoint 模式无心跳；已销毁不再心跳（服务端寻址，非出站连接）
+	if x.IsFromPool() || atomic.LoadInt32(&x.closed) == 1 {
 		return
 	}
 	// 如果连接已经断开，尝试重连

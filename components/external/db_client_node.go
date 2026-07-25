@@ -195,12 +195,17 @@ func (x *DbClientNode) Init(ruleConfig types.Config, configuration types.Configu
 		}
 	}
 	//初始化客户端
-	return x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Dsn, ruleConfig.NodeClientInitNow, func() (*sql.DB, error) {
+	if err := x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Dsn, ruleConfig.NodeClientInitNow, func() (*sql.DB, error) {
 		return x.initClient()
 	}, func(client *sql.DB) error {
 		// 清理回调函数
 		return client.Close()
-	})
+	}); err != nil {
+		return err
+	}
+	// 启用同链连接池：本地模式 *sql.DB 按节点ID注册到链目录，供链内 ref:// 借用复用
+	x.SharedNode.BindChain(configuration)
+	return nil
 }
 
 // OnMsg 处理消息，执行SQL操作并处理结果

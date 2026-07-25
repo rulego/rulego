@@ -1,8 +1,6 @@
 module github.com/rulego/rulego/server
 
-go 1.24.0
-
-toolchain go1.24.3
+go 1.24.7
 
 require (
 	github.com/cloudwego/eino v0.9.10
@@ -68,6 +66,7 @@ require (
 	github.com/creack/goselect v0.1.2 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/danieljoos/wincred v1.1.2 // indirect
+	github.com/danomagnum/gologix v0.41.0-beta // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dlclark/regexp2 v1.7.0 // indirect
@@ -115,12 +114,13 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
+	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gopcua/opcua v0.8.0 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/gosnmp/gosnmp v1.44.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.2 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/hamba/avro/v2 v2.29.0 // indirect
@@ -159,8 +159,9 @@ require (
 	github.com/nats-io/nkeys v0.4.11 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
+	github.com/npat-efault/crc16 v0.0.0-20161013170008-4128ccbe47c3 // indirect
 	github.com/nsqio/go-nsq v1.1.1-0.20250723164658-7188fbbac4d5 // indirect
-	github.com/openGemini/opengemini-client-go v0.9.1 // indirect
+	github.com/openGemini/opengemini-client-go v0.9.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pingcap/errors v0.11.5-0.20240311024730-e056997136bb // indirect
@@ -172,14 +173,15 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/prometheus/client_golang v1.20.5 // indirect
-	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.55.0 // indirect
+	github.com/prometheus/client_golang v1.22.0 // indirect
+	github.com/prometheus/client_model v0.6.2 // indirect
+	github.com/prometheus/common v0.63.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rabbitmq/amqp091-go v1.10.1-0.20240821123418-dc67c21576c2 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
 	github.com/redis/go-redis/v9 v9.17.2 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
+	github.com/robinson/gos7 v0.0.0-20260622162611-2d6806f80c8b // indirect
 	github.com/rulego/streamsql v1.1.1-0.20260721085023-017c636b45ad // indirect
 	github.com/sashabaranov/go-openai v1.41.1 // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
@@ -262,11 +264,12 @@ require (
 
 // 本地开发时使用组件包的本地版本
 
-// replace github.com/rulego/rulego => ../../rulego
+replace github.com/rulego/rulego => ../../rulego
 
 // replace github.com/rulego/rulego-components => ../../rulego-components
 
 // replace github.com/rulego/rulego-components-ai => ../../rulego-components-ai
 
-// replace github.com/rulego/rulego-components-iot => ../../rulego-components-iot
+replace github.com/rulego/rulego-components-iot => ../../rulego-components-iot
+
 // replace github.com/rulego/streamsql => ../../../streamsql

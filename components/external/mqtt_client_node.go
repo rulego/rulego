@@ -161,6 +161,8 @@ func (x *MqttClientNode) Init(ruleConfig types.Config, configuration types.Confi
 			// 清理回调函数
 			return client.Close()
 		})
+		// 启用同链连接池：本地模式 *mqtt.Client 按节点ID注册到链目录，供链内 ref:// 借用复用
+		x.SharedNode.BindChain(configuration)
 		x.topicTemplate, err = el.NewTemplate(x.Config.Topic)
 		if err != nil {
 			return err

@@ -855,9 +855,9 @@ type ChainCtx interface {
 	AddNodeDependency(nodeId string, dependentNodeId string)
 	// Resources 返回本链资源目录的只读视图，供 ref:// 同链解析（消费方 NetNode 等只读 Lookup）。
 	Resources() ResourceLookup
-	// EndpointRegistry 返回可写资源目录（Register/Unregister），仅资源生产方
-	// （EndpointAspect 等）使用；消费方不应通过它写入（接口隔离 ISP）。
-	EndpointRegistry() ResourceRegistry
+	// ResourceRegistry 返回可写资源目录（Register/Unregister），供资源生产方
+	// （EndpointAspect、同链连接型源节点等）使用；消费方不应通过它写入（接口隔离 ISP）。
+	ResourceRegistry() ResourceRegistry
 }
 
 // NodeRequest request to restore node execution

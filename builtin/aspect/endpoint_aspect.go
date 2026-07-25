@@ -151,7 +151,7 @@ func (aspect *EndpointAspect) OnCreated(ctx types.NodeCtx) error {
 // 用于 OnCreated（oldEps=nil 全量注册）与 OnReload（先注销旧再注册新）。
 // 注册底层 endpoint.Endpoint（而非 DynamicEndpoint 包装），因其稳定实现 TargetSender。
 func (aspect *EndpointAspect) syncResources(chainCtx types.ChainCtx, oldEps, newEps []endpoint.DynamicEndpoint) {
-	reg := chainCtx.EndpointRegistry()
+	reg := chainCtx.ResourceRegistry()
 	// 先 Register 新（Store 覆盖），保证窗口期 resources 总有最新值，避免并发 Lookup 落空。
 	newIds := make(map[string]bool, len(newEps))
 	for _, ep := range newEps {

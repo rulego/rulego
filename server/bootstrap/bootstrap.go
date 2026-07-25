@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/rulego/rulego/server/app"
+	"github.com/rulego/rulego/server/internal/modules/iotpoint"
 	"github.com/rulego/rulego/server/internal/modules/locale"
 	"github.com/rulego/rulego/server/internal/modules/marketplace"
 	"github.com/rulego/rulego/server/internal/modules/mcp"
@@ -37,6 +38,7 @@ func DefaultModules() []app.Module {
 		system.New(),
 		marketplace.New(),
 		mcp.New(),
+		iotpoint.New(),
 	}
 }
 

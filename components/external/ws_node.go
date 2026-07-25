@@ -107,11 +107,16 @@ func (x *WsNode) Init(ruleConfig types.Config, configuration types.Configuration
 	x.setDefaultConfig()
 	x.targetResolver = base.NewTargetResolver(x.Config.Target)
 	x.heartbeatDur = time.Duration(x.Config.HeartbeatInterval) * time.Second
-	return x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow,
+	if err := x.SharedNode.InitWithClose(ruleConfig, x.Type(), x.Config.Server, ruleConfig.NodeClientInitNow,
 		x.initConnect,
 		func(conn *websocket.Conn) error {
 			return conn.Close()
-		})
+		}); err != nil {
+		return err
+	}
+	// 启用同链连接池：本地模式 *websocket.Conn 按节点ID注册到链目录，供链内 ref:// 借用复用
+	x.SharedNode.BindChain(configuration)
+	return nil
 }
 
 func (x *WsNode) setDefaultConfig() {
@@ -209,8 +214,7 @@ func (x *WsNode) onWrite(ctx types.RuleContext, msg types.RuleMsg, data []byte) 
 	ctx.TellSuccess(msg)
 }
 
-// onSendToEndpoint 寻址推送：resolveRefEndpoint(同链优先→NodePool) → TargetSender.SendToTarget。
-// 与 NetNode.onSendToEndpoint 同构，复用 SendToTarget 已封装的 Lookup+遍历+统计逻辑，避免行为分裂。
+// onSendToEndpoint 寻址推送：经 SendToRefTarget（同链优先→NodePool）→ TargetSender.SendToTarget。
 func (x *WsNode) onSendToEndpoint(ctx types.RuleContext, msg types.RuleMsg, data []byte) {
 	target := x.targetResolver.Resolve(ctx, msg)
 	// 表达式解析为空（非显式 *）不静默广播，避免配错变成全量推送
@@ -218,25 +222,19 @@ func (x *WsNode) onSendToEndpoint(ctx types.RuleContext, msg types.RuleMsg, data
 		ctx.TellFailure(msg, fmt.Errorf("ws: target %q resolved to empty", x.targetResolver.Literal()))
 		return
 	}
-	inst, found := base.ResolveRefEndpoint(ctx, x.ruleConfig.NodePool, x.InstanceId)
-	if !found {
-		ctx.TellFailure(msg, fmt.Errorf("ws: ref://%s not found in chain or node pool", x.InstanceId))
+	sent, failed, err := base.SendToRefTarget(ctx, x.ruleConfig.NodePool, x.InstanceId, target, data)
+	// sent>0 即视为成功（含部分投递成功），仅记录部分失败
+	if sent > 0 {
+		if failed > 0 {
+			x.Printf("ws partial delivery: %d/%d failed for target=%q", failed, sent+failed, target)
+		}
+		ctx.TellSuccess(msg)
 		return
 	}
-	sender, ok := inst.(types.TargetSender)
-	if !ok {
-		ctx.TellFailure(msg, fmt.Errorf("ws: ref://%s type %T does not support addressing", x.InstanceId, inst))
-		return
+	if err == nil {
+		err = fmt.Errorf("ws: ref://%s delivered 0 targets", x.InstanceId)
 	}
-	sent, failed, err := sender.SendToTarget(target, data)
-	if err != nil && sent == 0 {
-		ctx.TellFailure(msg, err)
-		return
-	}
-	if failed > 0 {
-		x.Printf("ws partial delivery: %d/%d failed for target=%q", failed, sent+failed, target)
-	}
-	ctx.TellSuccess(msg)
+	ctx.TellFailure(msg, err)
 }
 
 // onPing 心跳：发 PingMessage 保活。已断开则改触发重连。
@@ -264,7 +262,8 @@ func (x *WsNode) onPing() {
 	x.resetHeartbeat(x.heartbeatDur)
 }
 
-// tryReconnect 关闭旧连接（重置 SharedNode 缓存）后重新拨号。
+// tryReconnect 关闭旧连接后重新拨号，Refresh 更新 holder（目录条目不变）。
+// 注意：拨号窗口内 holder 仍指向旧（已关闭）连接，借用方取到会失败，属重连固有暂态。
 // CAS 保证同一时刻只有一个重连在跑；拨号失败则延时由 onPing 重试。
 func (x *WsNode) tryReconnect() {
 	if x.IsFromPool() || atomic.LoadInt32(&x.closed) == 1 {
@@ -279,17 +278,19 @@ func (x *WsNode) tryReconnect() {
 		return
 	}
 
-	// Close 触发 CloseFunc（conn.Close），旧 readLoop 随之 ReadMessage 失败退出；
-	// 同时重置 clientInitialized，使下一次 GetSafely 重新拨号
-	_ = x.SharedNode.Close()
-	if _, err := x.SharedNode.GetSafely(); err != nil {
+	// 关闭旧连接（旧 readLoop 随之 ReadMessage 失败退出），重新拨号，Refresh 同步 holder。
+	if oldConn, _ := x.SharedNode.GetSafely(); oldConn != nil {
+		_ = oldConn.Close()
+	}
+	conn, err := x.initConnect()
+	if err != nil {
 		// initConnect 拨号失败：延时后由 onPing 再次尝试
 		x.resetHeartbeat(reconnectDelay)
-	} else {
-		// 拨号成功：initConnect 内已 setDisconnected(false) 并启动新 readLoop
-		x.Printf("ws reconnected to %s", x.Config.Server)
-		x.resetHeartbeat(x.heartbeatDur)
+		return
 	}
+	x.SharedNode.Refresh(conn)
+	x.Printf("ws reconnected to %s", x.Config.Server)
+	x.resetHeartbeat(x.heartbeatDur)
 }
 
 func (x *WsNode) Destroy() {
