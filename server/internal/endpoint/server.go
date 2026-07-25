@@ -180,6 +180,8 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 	s.registerLogRoutes(ep)
 	s.registerLocaleRoutes(ep)
 	s.registerMarketplaceRoutes(ep)
+	s.registerIoTPointRoutes(ep)
+	s.registerBuiltinRoutes(ep)
 	s.registerMCPRoutes(ep)
 
 	// 静态资源映射

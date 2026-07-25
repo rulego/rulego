@@ -20,4 +20,5 @@ const (
 	KeyAuthorizer         = "module.user.authorizer"
 	KeySkillService       = "module.skill.service"
 	KeyDebugService       = "module.debug.service"
+	KeyIoTPointService    = "module.iotpoint.service"
 )

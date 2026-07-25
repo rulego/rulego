@@ -114,6 +114,9 @@ func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.Com
 	if def.RouterForm != nil {
 		toComponentForm.RouterForm = def.RouterForm
 	}
+	if len(def.Groups) != 0 {
+		toComponentForm.Groups = def.Groups
+	}
 	toComponentForm.Disabled = def.Disabled
 
 	return toComponentForm
@@ -190,6 +193,7 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 			desc := field.Tag.Get("desc")
 			validate := field.Tag.Get("validate")
 			required, _ := strconv.ParseBool(field.Tag.Get("required"))
+			group := field.Tag.Get("group")
 			typeName := field.Type.Name()
 			var subFields []types.ComponentFormField
 			if field.Type.Kind() == reflect.Map {
@@ -252,6 +256,7 @@ func GetFields(configField reflect.StructField, configValue reflect.Value) []typ
 					Fields:       subFields,
 					Component:    component,
 					Ref:          field.Tag.Get("ref"),
+					Group:        group,
 				})
 		}
 	}

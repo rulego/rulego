@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/rulego/rulego/api/types"
@@ -10,9 +11,31 @@ import (
 var (
 	builtins        = make(map[string]interface{})
 	globalUdfs      = make(map[string]interface{})
+	dynamicBuiltins = make(map[string]DynamicBuiltin)
 	lock            sync.RWMutex
 	AiToolsProvider func(c types.Config) []interface{}
 )
+
+// DynamicBuiltin 动态组件配置查询处理器（运行时需要参数，如 OPC UA 在线浏览地址空间）
+type DynamicBuiltin func(params map[string]interface{}) (interface{}, error)
+
+// RegisterDynamicBuiltin 注册动态组件配置查询处理器
+func RegisterDynamicBuiltin(name string, fn DynamicBuiltin) {
+	lock.Lock()
+	defer lock.Unlock()
+	dynamicBuiltins[name] = fn
+}
+
+// QueryDynamicBuiltin 执行动态组件配置查询，未注册返回错误
+func QueryDynamicBuiltin(name string, params map[string]interface{}) (interface{}, error) {
+	lock.RLock()
+	fn := dynamicBuiltins[name]
+	lock.RUnlock()
+	if fn == nil {
+		return nil, errors.New("dynamic builtin not found: " + name)
+	}
+	return fn(params)
+}
 
 func init() {
 	builtins["functions"] = map[string]interface{}{

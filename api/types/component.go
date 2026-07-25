@@ -209,6 +209,10 @@ type ComponentForm struct {
 	// Fields 包含从组件的 Config 结构体中提取的配置字段
 	Fields ComponentFormFieldList `json:"fields"`
 
+	// Groups defines field groups for the UI
+	// Groups 定义 UI 的字段分组
+	Groups map[string]ComponentGroup `json:"groups,omitempty"`
+
 	// Label is the display name for the component (reserved for future use)
 	// Label 是组件的显示名称（保留供将来使用）
 	Label string `json:"label"`
@@ -249,6 +253,17 @@ type ComponentForm struct {
 	// RouterForm 包含 endpoint 组件的路由配置元数据。
 	// 仅 endpoint 组件有此字段，描述如何配置 endpoint 的路由。
 	RouterForm *RouterForm `json:"router,omitempty"`
+}
+
+// ComponentGroup represents a group of fields in the UI
+// ComponentGroup 表示 UI 中的一组字段
+type ComponentGroup struct {
+	// Label is the display name for the group
+	// Label 是分组的显示名称
+	Label string `json:"label"`
+	// Collapsed indicates whether the group is collapsed by default
+	// Collapsed 表示分组是否默认折叠
+	Collapsed bool `json:"collapsed,omitempty"`
 }
 
 // RouterForm describes the router configuration for an endpoint component.
@@ -362,6 +377,10 @@ type ComponentFormField struct {
 	// "shared" = 由共享节点提供（编辑器中选了 ref:// 后隐藏，创建共享节点时显示）
 	// "" = 组件业务字段（编辑器中始终显示，创建共享节点时隐藏）
 	Ref string `json:"ref,omitempty"`
+
+	// Group indicates which group this field belongs to
+	// Group 表示此字段所属的分组
+	Group string `json:"group,omitempty"`
 }
 
 // SafeComponentSlice provides a thread-safe slice for storing Node components.

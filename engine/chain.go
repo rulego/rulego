@@ -823,8 +823,8 @@ func (rc *RuleChainCtx) Resources() types.ResourceLookup {
 	return rc.ensureResources()
 }
 
-// EndpointRegistry 返回可写资源目录（仅 EndpointAspect 等生产方 Register/Unregister 用）。
-func (rc *RuleChainCtx) EndpointRegistry() types.ResourceRegistry {
+// ResourceRegistry 返回可写资源目录（EndpointAspect、同链连接型源节点等生产方 Register/Unregister 用）。
+func (rc *RuleChainCtx) ResourceRegistry() types.ResourceRegistry {
 	return rc.ensureResources()
 }
 
