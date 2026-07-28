@@ -1,5 +1,7 @@
 # RuleGo
 
+[![MCP Toplist](https://mcptoplist.com/badge/mcp.so%2Frulego%2Frulego.svg)](https://mcptoplist.com/server/mcp.so%2Frulego%2Frulego)
+
 [![GoDoc](https://pkg.go.dev/badge/github.com/rulego/rulego)](https://pkg.go.dev/github.com/rulego/rulego) 
 [![Go Report](https://goreportcard.com/badge/github.com/rulego/rulego)](https://goreportcard.com/report/github.com/rulego/rulego)
 [![codecov](https://codecov.io/gh/rulego/rulego/graph/badge.svg?token=G6XCGY7KVN)](https://codecov.io/gh/rulego/rulego)
