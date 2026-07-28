@@ -88,7 +88,7 @@ type DbClientNodeConfiguration struct {
 	DriverName string        `json:"driverName" label:"Driver" desc:"Database driver, e.g. mysql, postgres, sqlite3" required:"true" ref:"shared"`
 	Dsn        string        `json:"dsn" label:"DSN" desc:"Database connection string, e.g. user:password@tcp(host:port)/dbname" required:"true" ref:"primary"`
 	PoolSize   int           `json:"poolSize" label:"Pool Size" desc:"Database connection pool size" ref:"shared"`
-	OpType     string        `json:"opType" label:"Op Type" desc:"Operation type: SELECT, INSERT, UPDATE, DELETE" required:"true"`
+	OpType     string        `json:"opType" label:"Op Type" desc:"Operation type: SELECT, INSERT, UPDATE, DELETE. Empty or AUTO=auto-detect from SQL"`
 	Sql        string        `json:"sql" label:"SQL" desc:"SQL statement, supports ${metadata.key} and ${msg.key} substitution" required:"true"`
 	Params     []interface{} `json:"params" label:"Params" desc:"SQL parameter list, supports ${metadata.key} substitution"`
 	GetOne     bool          `json:"getOne" label:"Get One" desc:"true=return only first record, false=return all records"`
