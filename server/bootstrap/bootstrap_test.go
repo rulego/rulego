@@ -38,8 +38,8 @@ func initAppWithStores(t *testing.T) *app.App {
 
 func TestDefaultModules(t *testing.T) {
 	modules := DefaultModules()
-	if len(modules) != 9 {
-		t.Errorf("DefaultModules count = %d, want 9", len(modules))
+	if len(modules) != 10 {
+		t.Errorf("DefaultModules count = %d, want 10", len(modules))
 	}
 
 	names := map[string]bool{}
