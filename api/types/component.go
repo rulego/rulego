@@ -122,6 +122,11 @@ func (c ComponentFormList) Values() []ComponentForm {
 		if values[i].Category != values[j].Category {
 			return values[i].Category < values[j].Category
 		}
+		// Within the same category, sort by Order ascending (smaller first)
+		// 同类别内按 Order 升序，值越小越靠前
+		if values[i].Order != values[j].Order {
+			return values[i].Order < values[j].Order
+		}
 		// Otherwise, sort by type
 		// 否则，按类型排序
 		return values[i].Type < values[j].Type
@@ -205,13 +210,14 @@ type ComponentForm struct {
 	// Category 是用于组织组件的分类类别
 	Category string `json:"category"`
 
+	// Order controls the display order of components within the same category.
+	// Smaller values come first, defaults to 0.
+	// Order 控制同类别内组件的显示顺序，值越小越靠前，默认 0。
+	Order int `json:"order"`
+
 	// Fields contains the configuration fields extracted from the component's Config struct
 	// Fields 包含从组件的 Config 结构体中提取的配置字段
 	Fields ComponentFormFieldList `json:"fields"`
-
-	// Groups defines field groups for the UI
-	// Groups 定义 UI 的字段分组
-	Groups map[string]ComponentGroup `json:"groups,omitempty"`
 
 	// Label is the display name for the component (reserved for future use)
 	// Label 是组件的显示名称（保留供将来使用）
@@ -253,17 +259,6 @@ type ComponentForm struct {
 	// RouterForm 包含 endpoint 组件的路由配置元数据。
 	// 仅 endpoint 组件有此字段，描述如何配置 endpoint 的路由。
 	RouterForm *RouterForm `json:"router,omitempty"`
-}
-
-// ComponentGroup represents a group of fields in the UI
-// ComponentGroup 表示 UI 中的一组字段
-type ComponentGroup struct {
-	// Label is the display name for the group
-	// Label 是分组的显示名称
-	Label string `json:"label"`
-	// Collapsed indicates whether the group is collapsed by default
-	// Collapsed 表示分组是否默认折叠
-	Collapsed bool `json:"collapsed,omitempty"`
 }
 
 // RouterForm describes the router configuration for an endpoint component.
