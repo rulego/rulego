@@ -90,6 +90,9 @@ func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.Com
 	if def.Category != "" {
 		toComponentForm.Category = def.Category
 	}
+	if def.Order != 0 {
+		toComponentForm.Order = def.Order
+	}
 	if len(def.Fields) != 0 {
 		toComponentForm.Fields = def.Fields
 	}
@@ -113,9 +116,6 @@ func coverComponentForm(from types.ComponentDefGetter, toComponentForm types.Com
 	}
 	if def.RouterForm != nil {
 		toComponentForm.RouterForm = def.RouterForm
-	}
-	if len(def.Groups) != 0 {
-		toComponentForm.Groups = def.Groups
 	}
 	toComponentForm.Disabled = def.Disabled
 
