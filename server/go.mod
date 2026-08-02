@@ -1,18 +1,19 @@
 module github.com/rulego/rulego/server
 
-go 1.24.7
+go 1.25
 
 require (
 	github.com/cloudwego/eino v0.9.10
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/mark3labs/mcp-go v0.44.0
-	github.com/rulego/rulego v0.36.1-0.20260722081429-d9f2b097ce06
-	github.com/rulego/rulego-components v0.36.1-0.20260624103130-40b865665ed9
-	github.com/rulego/rulego-components-ai v0.36.1-0.20260710095835-67f244c3b41d
+	github.com/rulego/rulego v0.36.1-0.20260802040353-2ec085f29027
+	github.com/rulego/rulego-components v0.37.0
+	github.com/rulego/rulego-components-ai v0.36.1-0.20260802040812-6b8e3c90930c
 	github.com/rulego/rulego-components-ci v0.36.0
+	github.com/rulego/rulego-components-discovery v0.0.0-20260802055639-0a085f3ee870
 	github.com/rulego/rulego-components-etl v0.36.0
-	github.com/rulego/rulego-components-iot v0.36.0
+	github.com/rulego/rulego-components-iot v0.37.0
 	go.etcd.io/bbolt v1.4.3
 	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -35,11 +36,33 @@ require (
 	github.com/WuKongIM/WuKongIMGoProto v1.2.3 // indirect
 	github.com/WuKongIM/WuKongIMGoSDK v1.0.0 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
+	github.com/alibabacloud-go/alibabacloud-gateway-pop v0.0.6 // indirect
+	github.com/alibabacloud-go/alibabacloud-gateway-spi v0.0.5 // indirect
+	github.com/alibabacloud-go/darabonba-array v0.1.0 // indirect
+	github.com/alibabacloud-go/darabonba-encode-util v0.0.2 // indirect
+	github.com/alibabacloud-go/darabonba-map v0.0.2 // indirect
+	github.com/alibabacloud-go/darabonba-openapi/v2 v2.0.10 // indirect
+	github.com/alibabacloud-go/darabonba-signature-util v0.0.7 // indirect
+	github.com/alibabacloud-go/darabonba-string v1.0.2 // indirect
+	github.com/alibabacloud-go/debug v1.0.1 // indirect
+	github.com/alibabacloud-go/endpoint-util v1.1.0 // indirect
+	github.com/alibabacloud-go/kms-20160120/v3 v3.2.3 // indirect
+	github.com/alibabacloud-go/openapi-util v0.1.0 // indirect
+	github.com/alibabacloud-go/tea v1.2.2 // indirect
+	github.com/alibabacloud-go/tea-utils v1.4.4 // indirect
+	github.com/alibabacloud-go/tea-utils/v2 v2.0.7 // indirect
+	github.com/alibabacloud-go/tea-xml v1.1.3 // indirect
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1800 // indirect
+	github.com/aliyun/alibabacloud-dkms-gcs-go-sdk v0.5.1 // indirect
+	github.com/aliyun/alibabacloud-dkms-transfer-go-sdk v0.1.8 // indirect
+	github.com/aliyun/aliyun-secretsmanager-client-go v1.1.5 // indirect
+	github.com/aliyun/credentials-go v1.4.3 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/apache/pulsar-client-go v0.17.0 // indirect
+	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/ardielle/ardielle-go v1.5.2 // indirect
-	github.com/aws/aws-sdk-go v1.34.0 // indirect
+	github.com/aws/aws-sdk-go v1.55.7 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.4.0 // indirect
@@ -49,6 +72,7 @@ require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
+	github.com/castai/promwrite v0.6.0 // indirect
 	github.com/cbroglie/mustache v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -56,6 +80,7 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20250319231242-a755498943c8 // indirect
 	github.com/chromedp/chromedp v0.13.3 // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
+	github.com/clbanning/mxj/v2 v2.5.5 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.13 // indirect
@@ -68,6 +93,7 @@ require (
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/danomagnum/gologix v0.41.0-beta // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dlclark/regexp2 v1.7.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -87,7 +113,7 @@ require (
 	github.com/expr-lang/expr v1.17.8 // indirect
 	github.com/fasthttp/router v1.5.4 // indirect
 	github.com/fasthttp/websocket v1.5.12 // indirect
-	github.com/fatih/color v1.7.0 // indirect
+	github.com/fatih/color v1.16.0 // indirect
 	github.com/fullstorydev/grpcurl v1.9.3 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
@@ -111,6 +137,7 @@ require (
 	github.com/gofrs/uuid/v5 v5.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
+	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -121,10 +148,13 @@ require (
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/gosnmp/gosnmp v1.44.0 // indirect
+	github.com/grafana/regexp v0.0.0-20240518133315-a468a5bfb3bc // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.2 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/hamba/avro/v2 v2.29.0 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
+	github.com/influxdata/influxdb-client-go/v2 v2.14.0 // indirect
+	github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839 // indirect
 	github.com/invopop/jsonschema v0.13.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
@@ -133,35 +163,41 @@ require (
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/jhump/protoreflect v1.17.0 // indirect
-	github.com/jmespath/go-jmespath v0.3.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/libgox/gocollections v0.1.1 // indirect
 	github.com/libgox/unicodex v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
-	github.com/mattn/go-colorable v0.1.2 // indirect
-	github.com/mattn/go-isatty v0.0.12 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.7 // indirect
 	github.com/mattn/go-sqlite3 v1.14.7 // indirect
 	github.com/meguminnnnnnnnn/go-openai v0.1.2 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/moby/go-archive v0.2.1 // indirect
+	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/moge800/gomcprotocol v1.0.0 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/nacos-group/nacos-sdk-go/v2 v2.3.6-0.20260713020125-4ba94455701e // indirect
 	github.com/nats-io/nats.go v1.47.0 // indirect
 	github.com/nats-io/nkeys v0.4.11 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
 	github.com/npat-efault/crc16 v0.0.0-20161013170008-4128ccbe47c3 // indirect
 	github.com/nsqio/go-nsq v1.1.1-0.20250723164658-7188fbbac4d5 // indirect
+	github.com/oapi-codegen/runtime v1.0.0 // indirect
 	github.com/openGemini/opengemini-client-go v0.9.2 // indirect
+	github.com/orcaman/concurrent-map v0.0.0-20210501183033-44dafcb38ecc // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pingcap/errors v0.11.5-0.20240311024730-e056997136bb // indirect
@@ -177,12 +213,13 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.63.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/prometheus/prometheus v0.304.1 // indirect
 	github.com/rabbitmq/amqp091-go v1.10.1-0.20240821123418-dc67c21576c2 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
 	github.com/redis/go-redis/v9 v9.17.2 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/robinson/gos7 v0.0.0-20260622162611-2d6806f80c8b // indirect
-	github.com/rulego/streamsql v1.1.1-0.20260721085023-017c636b45ad // indirect
+	github.com/rulego/streamsql v1.1.2 // indirect
 	github.com/sashabaranov/go-openai v1.41.1 // indirect
 	github.com/savsgio/gotils v0.0.0-20240704082632-aef3928b8a38 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
@@ -190,14 +227,16 @@ require (
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/siddontang/go-log v0.0.0-20180807004314-8d05993dda07 // indirect
 	github.com/simonvetter/modbus v1.6.4 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/slongfield/pyfmt v0.0.0-20220222012616-ea85ff4c361f // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
+	github.com/taosdata/driver-go/v3 v3.8.2 // indirect
 	github.com/technoweenie/multipartstreamer v1.0.1 // indirect
+	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -206,6 +245,7 @@ require (
 	github.com/valyala/fasthttp v1.65.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+	github.com/wendy512/go-iecp5 v1.2.6 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
@@ -244,6 +284,7 @@ require (
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
+	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250825161204-c5933d9347a5 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250825161204-c5933d9347a5 // indirect
 	google.golang.org/grpc v1.75.1 // indirect
@@ -264,12 +305,14 @@ require (
 
 // 本地开发时使用组件包的本地版本
 
-replace github.com/rulego/rulego => ../../rulego
+// replace github.com/rulego/rulego => ../../rulego
 
 // replace github.com/rulego/rulego-components => ../../rulego-components
 
 // replace github.com/rulego/rulego-components-ai => ../../rulego-components-ai
 
-replace github.com/rulego/rulego-components-iot => ../../rulego-components-iot
+// replace github.com/rulego/rulego-components-discovery => ../../rulego-components-discovery
+
+// replace github.com/rulego/rulego-components-iot => ../../rulego-components-iot
 
 // replace github.com/rulego/streamsql => ../../../streamsql

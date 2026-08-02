@@ -22,7 +22,6 @@ import (
 	_ "github.com/rulego/rulego-components/external/mongodb"
 	_ "github.com/rulego/rulego-components/external/nats"
 	_ "github.com/rulego/rulego-components/external/nsq"
-	_ "github.com/rulego/rulego-components/external/opengemini"
 	_ "github.com/rulego/rulego-components/external/otel"
 	_ "github.com/rulego/rulego-components/external/pulsar"
 	_ "github.com/rulego/rulego-components/external/rabbitmq"
