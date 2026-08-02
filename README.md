@@ -162,6 +162,7 @@ The core feature of `RuleGo` is its component-based architecture, where all busi
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci)
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot)
 - [rulego-components-etl](https://github.com/rulego/rulego-components-etl)
+- [rulego-components-discovery](https://github.com/rulego/rulego-components-discovery)
 - [rulego-marketplace](https://github.com/rulego/rulego-marketplace) :Dynamic component and rule chain marketplace
 - [Custom Node Component Example](examples/custom_component) :[Documentation](https://rulego.cc/en/pages/custom-components-overview/)
 
@@ -199,6 +200,7 @@ Test results: 100 concurrent and 500 concurrent, memory consumption does not cha
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) : CI/CD scenario component library
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot) : IoT scenario component library
 - [rulego-components-etl](https://github.com/rulego/rulego-components-etl) : ETL scenario component library
+- [rulego-components-discovery](https://github.com/rulego/rulego-components-discovery) : Service discovery and configuration center component library
 - [rulego-marketplace](https://github.com/rulego/rulego-marketplace) : Dynamic component and rule chain marketplace
 
 ## Contribution

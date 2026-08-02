@@ -168,6 +168,7 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) 
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot) 
 - [rulego-components-etl](https://github.com/rulego/rulego-components-etl) 
+- [rulego-components-discovery](https://github.com/rulego/rulego-components-discovery) 
 - [rulego-marketplace](https://github.com/rulego/rulego-marketplace) ：动态组件和规则链市场
 - [自定义节点组件示例](examples/custom_component) :[文档](https://rulego.cc/pages/custom-components-overview/)
 
@@ -206,6 +207,7 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) ：CI/CD场景组件库
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot) ：IoT场景组件库
 - [rulego-components-etl](https://github.com/rulego/rulego-components-etl) ：ETL场景组件库
+- [rulego-components-discovery](https://github.com/rulego/rulego-components-discovery) ：服务发现与配置中心组件库
 - [rulego-marketplace](https://github.com/rulego/rulego-marketplace) ：动态组件和规则链市场
 
 ## 贡献
