@@ -113,3 +113,10 @@ const (
 	// KeySkipTellNext per-message 跳过通知下一节点元数据键
 	KeySkipTellNext = "_skipTellNext"
 )
+
+const (
+	// KeyErrorMsg 节点处理失败时写入 metadata 的错误信息键
+	// 供 Failure 分支下游组件通过 ${metadata.errorMsg} 消费
+	// KeyErrorMsg metadata key written on node failure, consumable via ${metadata.errorMsg} in the Failure branch
+	KeyErrorMsg = "errorMsg"
+)

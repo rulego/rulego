@@ -18,6 +18,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -651,4 +652,99 @@ func TestRuleContext(t *testing.T) {
 		assert.True(t, strings.Contains(errValue.Error(), "canceled"), "错误信息应该包含 canceled")
 	})
 
+}
+
+// waitGroup 等待 WaitGroup 完成，超时则失败，避免测试卡死
+func waitGroup(wg *sync.WaitGroup, t *testing.T) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("timeout waiting for node execution")
+	}
+}
+
+// TestTellFailureWritesErrorMsg 验证节点 TellFailure 时把错误信息写入 metadata.errorMsg，
+// Failure 分支下游组件可通过 ${metadata.errorMsg} 消费
+func TestTellFailureWritesErrorMsg(t *testing.T) {
+	var gotErrorMsg string
+	var wg sync.WaitGroup
+	wg.Add(1)
+	action.Functions.Register("testFailErrorMsg26", func(ctx types.RuleContext, msg types.RuleMsg) {
+		ctx.TellFailure(msg, errors.New("boom"))
+	})
+	action.Functions.Register("testCaptureErrorMsg26", func(ctx types.RuleContext, msg types.RuleMsg) {
+		gotErrorMsg = msg.Metadata.GetValue(types.KeyErrorMsg)
+		wg.Done()
+		ctx.TellSuccess(msg)
+	})
+
+	chain := `{
+		"ruleChain": {
+			"id": "test_error_msg_chain_26",
+			"name": "errorMsg测试"
+		},
+		"metadata": {
+			"firstNodeIndex": 0,
+			"nodes": [
+				{"id": "n1", "type": "functions", "name": "失败节点", "configuration": {"functionName": "testFailErrorMsg26"}},
+				{"id": "n2", "type": "functions", "name": "捕获节点", "configuration": {"functionName": "testCaptureErrorMsg26"}}
+			],
+			"connections": [
+				{"fromId": "n1", "toId": "n2", "type": "Failure"}
+			]
+		}
+	}`
+
+	ruleEngine, err := New("test_error_msg_chain_26", []byte(chain))
+	assert.Nil(t, err)
+	defer Del(ruleEngine.Id())
+
+	ruleEngine.OnMsg(types.NewMsg(0, "test", types.JSON, types.NewMetadata(), ""))
+
+	waitGroup(&wg, t)
+	assert.Equal(t, "boom", gotErrorMsg)
+}
+
+// TestTellSuccessNotWriteErrorMsg 验证 Success 路径不写入 errorMsg
+func TestTellSuccessNotWriteErrorMsg(t *testing.T) {
+	var gotErrorMsg string
+	var wg sync.WaitGroup
+	wg.Add(1)
+	action.Functions.Register("testSuccessNoErr26", func(ctx types.RuleContext, msg types.RuleMsg) {
+		ctx.TellSuccess(msg)
+	})
+	action.Functions.Register("testCaptureSuccess26", func(ctx types.RuleContext, msg types.RuleMsg) {
+		gotErrorMsg = msg.Metadata.GetValue(types.KeyErrorMsg)
+		wg.Done()
+		ctx.TellSuccess(msg)
+	})
+
+	chain := `{
+		"ruleChain": {
+			"id": "test_no_error_msg_chain_26",
+			"name": "无错误测试"
+		},
+		"metadata": {
+			"firstNodeIndex": 0,
+			"nodes": [
+				{"id": "n1", "type": "functions", "configuration": {"functionName": "testSuccessNoErr26"}},
+				{"id": "n2", "type": "functions", "configuration": {"functionName": "testCaptureSuccess26"}}
+			],
+			"connections": [
+				{"fromId": "n1", "toId": "n2", "type": "Success"}
+			]
+		}
+	}`
+
+	ruleEngine, err := New("test_no_error_msg_chain_26", []byte(chain))
+	assert.Nil(t, err)
+	defer Del(ruleEngine.Id())
+
+	ruleEngine.OnMsg(types.NewMsg(0, "test", types.JSON, types.NewMetadata(), ""))
+
+	waitGroup(&wg, t)
+	assert.Equal(t, "", gotErrorMsg)
 }
