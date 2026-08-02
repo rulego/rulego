@@ -1058,6 +1058,13 @@ func (ctx *DefaultRuleContext) tell(msg types.RuleMsg, err error, relationTypes 
 // tellNext 通知执行子节点，如果是当前第一个节点则执行当前节点
 // 如果找不到relationTypes对应的节点，而且defaultRelationType非默认值，则通过defaultRelationType查找节点
 func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultRelationType string, relationTypes ...string) {
+	// err != nil（即 TellFailure）时把错误写入 metadata，供 Failure 分支下游组件通过 ${metadata.errorMsg} 消费
+	if err != nil {
+		if msg.Metadata == nil {
+			msg.Metadata = types.NewMetadata()
+		}
+		msg.Metadata.PutValue(types.KeyErrorMsg, err.Error())
+	}
 	ctx.out = msg
 	ctx.err = err
 	if ctx.isFirst {
