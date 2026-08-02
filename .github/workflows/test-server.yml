@@ -1,5 +1,5 @@
 # rulego server 测试工作流
-# server 是独立 Go 模块，要求 Go 1.24.0+
+# server 是独立 Go 模块，要求 Go 1.25.0+（传递依赖 moby/go-archive 强制）
 name: test-server
 
 on:
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ["1.24"]
+        go-version: ["1.25"]
     steps:
       - uses: actions/checkout@v4
 

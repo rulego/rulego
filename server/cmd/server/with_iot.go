@@ -37,9 +37,6 @@ import (
 	_ "github.com/rulego/rulego-components-iot/external/timescaledb"
 	_ "github.com/rulego/rulego-components-iot/external/tsdb"
 
-	// IoT Transform
-	_ "github.com/rulego/rulego-components-iot/transform/iot_to_series"
-
 	// IoT Action
 	_ "github.com/rulego/rulego-components-iot/action/control"
 )
