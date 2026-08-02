@@ -98,14 +98,14 @@ export GOSUMDB=off
 #### 4.2.4 Download Source Code and Compile
 ```bash
 git clone git@github.com:<username>/rulego.git
-cd rulego/examples/server/cmd/server
+cd rulego/server
 # Compile
-go build .
+go build ./cmd/server
 # Or compile with extended components
-go build -tags "with_extend,with_ai,with_ci,with_iot" .
+go build -tags "with_extend,with_ai,with_ci,with_iot" ./cmd/server
 ```
 
-For more details, refer to: [server](examples/server/README_ZH.md)
+For more details, refer to: [server](server/README_ZH.md)
 
 ### 4.3 Start the Service
 ```bash

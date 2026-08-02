@@ -98,13 +98,13 @@ export GOSUMDB=off
 #### 4.2.4 下载源码编译
 ```bash
 git clone git@github.com:<username>/rulego.git
-cd rulego/examples/server/cmd/server
+cd rulego/server
 # 编译
-go build .
+go build ./cmd/server
 # 或者 加入扩展组件编译
-go build -tags "with_extend,with_ai,with_ci,with_iot" .
+go build -tags "with_extend,with_ai,with_ci,with_iot" ./cmd/server
 ```
-详细参考：[server](examples/server/README_ZH.md)
+详细参考：[server](server/README_ZH.md)
 ### 4.3 启动服务
 ```bash
 ./server -c ./config.conf
