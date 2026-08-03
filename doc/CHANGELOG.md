@@ -1,5 +1,73 @@
 # CHANGELOG
 
+# [v0.37.0] 2026/08/02
+### rulego-core
+- feat: 增加同链连接池——连接型组件可在链内按源节点 ID（`ref://节点ID`）复用连接，零引用计数；db/mqtt/net/ws 等组件完成适配
+- feat(endpoint): endpoint 支持会话寻址推送；`ref://` 共享连接解析优先同链节点，未命中回退共享节点池
+- feat(engine): Failure 分支把 TellFailure 错误暴露到 metadata.errorMsg (#26)
+- feat: 增加组件别名机制，兼容旧组件类型名；规则引擎池支持按别名查找节点
+- feat: 子链调试日志转发到根链控制台；TellFlow 传播父链 debug 模式到子规则链
+- feat: RouterForm 增加 Params 字段，组件文档输出 endpoint 路由参数
+- fix(switch): 单个 case 求值出错时跳过该分支，而不是终止整个实例
+- fix(endpoint): 路由目标规则链不存在时输出错误日志
+- fix(dbClient): opType 改为可选字段
+- fix: 修复 tellOrElse 循环变量闭包捕获导致的数据竞争
+### rulego-components
+- feat(streamsql): streamTransform 支持流-表 JOIN 富化和分析函数；被过滤数据改走 False 链，Failure 仅保留给真正的处理错误
+- feat(streamsql)!: streamAggregator 支持 CEP（MATCH_RECOGNIZE）模式识别；聚合结果关系类型由 window_event 更名为 stream_event
+- fix(endpoint): 注册 kafka 和 nats endpoint 的旧类型别名，保持向后兼容
+- fix(python): 空闲进程池缩容到 keepAlive 下限，避免全部回收
+- fix: 修正 endpoint 组件文档和默认值
+- chore: 移除 opengemini 组件（迁移到 rulego-components-iot 作为存储驱动）
+### rulego-components-ai
+- feat: 增加 AG-UI 流式模式，支持 OpenAI 工具调用协议
+- feat: 流式响应返回 token 用量统计；支持思考过程流式透传
+- feat: 支持会话级模型切换和思考强度扩展参数
+- feat: 增强流式重试、故障转移与事件有序输出；failover 支持参数覆盖并覆盖 401 认证错误触发条件
+- feat(agent): 增加 doom-loop 检测，自动识别并拦截死循环/重复工具调用；增加 panic 恢复
+- feat(tool): 增加 grep/glob 工具，行为对齐 ripgrep（跳过二进制、感知 gitignore）
+- feat(tool): 工具输出清洗与截断、多根路径安全解析；诊断 provider 改注册制，预置 ruff/tsc/eslint/shellcheck 模板
+- feat(skill): 动态技能列表注入，支持禁用技能列表和注入宿主技能目录
+- fix(tool/bash): 空白名单回退默认白名单；修复超时未终止进程导致 Windows 挂起
+- fix: MemoryStorage 消息深拷贝并加数量上限防 OOM；文件工具启用安全路径解析防越界
+- fix: full 模式流式重放改用阻塞反压，避免误判中断
+### rulego-components-iot
+- feat: 新增 8 个工业协议采集族——西门子 S7（x/s7Read/Write）、EtherNet/IP（x/eipRead/Write）、SNMP（x/snmpRead/Write 及 endpoint/snmp Trap 监听）、三菱 MC（x/mcRead/Write）、欧姆龙 FINS（x/finsRead/Write）、DL/T645 电表（x/dlt645Read/Write）、HJ212 环保（endpoint/hj212）、IEC 60870-5-104 电力（x/iec104Read/Write，协议栈合并进主 module 发布，无需 replace），加上已有 Modbus/OPC UA 共 10 个协议族；采集点位表支持缩放/偏移系数（ScaleValue）
+- feat: 新增 5 个时序数据库存储驱动——openGemini、InfluxDB、TDengine、TimescaleDB（x/*Write、x/*Query）和 Prometheus Remote Write（x/promremoteWrite）；TDengine 支持超级表自动建子表、标识符转义与批量分块写入，TimescaleDB 支持多行 VALUES 批量写入
+- feat: 新增协议/存储无关的通用组件 x/iotRead、x/iotWrite、x/tsdbWrite、x/tsdbQuery，仅配置 driver 字段即可切换具体协议/数据库；x/tsdbWrite 采集映射直接接受扁平 map 输入
+- feat(control): 新增软 PLC 控制节点 x/control/timer（TON/TOF 延时动作）和 x/control/watchdog（心跳看门狗，失联触发告警）
+- feat(modbus): 新增 x/modbusRead/x/modbusWrite 读写专用组件；新增 modbus_server 端点（设备上报模式），写回调携带 Modicon 地址和时间戳
+- feat(opcua): 增加请求 Timeout；ToPointsData 支持缩放；在线浏览包含层次引用子类型；连接字段支持 ref:shared
+- refactor!: modbus TLS 证书配置键 certPath/keyPath/caPath 更名为 certFile/certKeyFile/caFile
+- fix(modbus): 修正串口校验位描述（1=Even，2=Odd）
+### rulego-components-discovery（新组件库）
+- feat: 新增 Nacos 微服务发现组件库——x/nacosServiceCall（服务发现 + HTTP 调用，轮询选取健康实例转发）、x/nacosConfigGet/x/nacosConfigSet（配置读/写）、endpoint/nacos（订阅配置变更自动触发规则链）
+- feat: 提供服务注册 Server Hook（Register，临时实例 + 心跳 + 优雅反注册）
+- feat: 同地址连接经 SharedNode 自动复用；支持 TLS 配置
+### rulego-server
+- feat: 集成 rulego-components-discovery，提供 Nacos 服务调用/配置中心能力；默认注册全部 IoT 采集、存储和转换组件
+- feat: 新增 iotpoint 点位模板后端模块，内置 S7、IEC104、SNMP 等协议点位模板；新增 OPC UA 在线浏览处理器
+- feat: 共享 HTTP server 支持注入用户引擎池复用，由 isSystemNode 保护（默认关闭）(#119)
+- feat: 新增 AllChains 存储方法和规则链生命周期监听器；新增 AI 工具安全拦截切面
+- feat: 内置组件支持动态查询（DynamicBuiltin）；app 支持 WithConfig 编程式注入配置
+- feat(api): 组件表单增加 Order 排序字段
+- fix(security): 修复分类路径穿越；跨用户规则链执行限制为系统智能体；SaveAndLoad 剥除 systemAgent 属性防生成不可删除规则链
+- fix(skill): 文件上传从缓存请求体解析，修复流被读空导致失败
+- chore: 移除废弃的 examples/server
+- ci: release 打包内嵌 editor 前端界面
+### rulego-editor
+- feat: 画布交互全面增强——命令面板、右键菜单（多选对齐子菜单、endpoint 路由注入）、快捷键、节点对齐分布、节点搜索、网格吸附、Shift 溯源选择、调试时连线流动动画
+- feat: 新增链路诊断（拓扑告警和必填校验，诊断规则注册表化）
+- feat: 新增组件文档浏览器（设置菜单入口、分类列表、内嵌文档、悬浮查看）
+- feat: IoT 点位表支持 Excel/CSV 导入导出、覆盖导入、批量删除、重名检查、批量地址生成
+- feat: 新增 OPC UA 在线浏览对话框、Nacos 服务发现组件支持（含 TLS 配置）、x/tsdbQuery 组件支持
+- feat: endpoint/schedule 的 cron 输入增强（croner 校验、下次执行预览、cronstrue 中文描述、常用预设）
+- feat: 组件面板/节点选择器/节点管理全部折叠-展开开关，分类图标双层配色，侧边栏折叠把手重做，组件管理优化
+- feat: 未注册组件支持属性面板编辑（JSON 通用编辑模式）
+- feat: 库化——ESM 单文件构建（build:lib）、exports/peerDependencies 配置、.d.ts 类型定义
+- feat: 聊天流式渲染增强（Markdown 流式、代码块复制/全屏、HTML/SVG 预览）；引入 DOMPurify 修复 XSS
+- fix: 修复搜索框 TDZ 崩溃、编辑器保存覆盖宿主应用路由、初始化双重重建闪烁、el-table-column 缺 key 渲染崩溃等问题
+
 # [v0.36.0] 2026/06/01
 ### rulego-core
 - feat(engine): 增加 Stream 关系类型，支持同步执行流 (#63)

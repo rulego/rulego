@@ -68,20 +68,20 @@ jobs:
           cd server/cmd/server
           # All-in-one builds (with all extensions)
           tar -czf rulego-server-all-linux-amd64.tar.gz rulego-server-all-linux-amd64 config.conf node_pool.json editor
-          zip rulego-server-all-windows-amd64.zip rulego-server-all-windows-amd64.exe config.conf node_pool.json editor
+          zip -r rulego-server-all-windows-amd64.zip rulego-server-all-windows-amd64.exe config.conf node_pool.json editor
           tar -czf rulego-server-all-macos-amd64.tar.gz rulego-server-all-macos-amd64 config.conf node_pool.json editor
           tar -czf rulego-server-all-linux-arm64.tar.gz rulego-server-all-linux-arm64 config.conf node_pool.json editor
           tar -czf rulego-server-all-macos-arm64.tar.gz rulego-server-all-macos-arm64 config.conf node_pool.json editor
-          zip rulego-server-all-windows-arm64.zip rulego-server-all-windows-arm64.exe config.conf node_pool.json editor
+          zip -r rulego-server-all-windows-arm64.zip rulego-server-all-windows-arm64.exe config.conf node_pool.json editor
           tar -czf rulego-server-all-linux-386.tar.gz rulego-server-all-linux-386 config.conf node_pool.json editor
 
           # Standard builds (without optional extensions)
           tar -czf rulego-server-linux-amd64.tar.gz rulego-server-linux-amd64 config.conf node_pool.json editor
-          zip rulego-server-windows-amd64.zip rulego-server-windows-amd64.exe config.conf node_pool.json editor
+          zip -r rulego-server-windows-amd64.zip rulego-server-windows-amd64.exe config.conf node_pool.json editor
           tar -czf rulego-server-macos-amd64.tar.gz rulego-server-macos-amd64 config.conf node_pool.json editor
           tar -czf rulego-server-linux-arm64.tar.gz rulego-server-linux-arm64 config.conf node_pool.json editor
           tar -czf rulego-server-macos-arm64.tar.gz rulego-server-macos-arm64 config.conf node_pool.json editor
-          zip rulego-server-windows-arm64.zip rulego-server-windows-arm64.exe config.conf node_pool.json editor
+          zip -r rulego-server-windows-arm64.zip rulego-server-windows-arm64.exe config.conf node_pool.json editor
           tar -czf rulego-server-linux-386.tar.gz rulego-server-linux-386 config.conf node_pool.json editor
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
