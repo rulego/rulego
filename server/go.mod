@@ -13,7 +13,7 @@ require (
 	github.com/rulego/rulego-components-ci v0.36.0
 	github.com/rulego/rulego-components-discovery v0.0.0-20260802055639-0a085f3ee870
 	github.com/rulego/rulego-components-etl v0.36.0
-	github.com/rulego/rulego-components-iot v0.37.0
+	github.com/rulego/rulego-components-iot v0.37.1
 	go.etcd.io/bbolt v1.4.3
 	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
