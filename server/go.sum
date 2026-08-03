@@ -683,6 +683,8 @@ github.com/rulego/rulego-components-etl v0.36.0 h1:gZ4eVmWu/7xNJj3eOIV3v9Xgr/vyv
 github.com/rulego/rulego-components-etl v0.36.0/go.mod h1:JLEm4unhNUwEUvSnQ37KorAeLEvzkYfFA/L7RRltF5c=
 github.com/rulego/rulego-components-iot v0.37.0 h1:tfcabsHDYicVgg0u7NgXO0i/qQd5voVp3CPbd3t/NJY=
 github.com/rulego/rulego-components-iot v0.37.0/go.mod h1:ry9hSqAFz5gf/CrSWpCcoOqbP2PyQZHl32Eo0aEZ0gE=
+github.com/rulego/rulego-components-iot v0.37.1 h1:yECMOkggGuQb7ydcvSZC3ugSToOilp2lEl5+USVxKsA=
+github.com/rulego/rulego-components-iot v0.37.1/go.mod h1:ry9hSqAFz5gf/CrSWpCcoOqbP2PyQZHl32Eo0aEZ0gE=
 github.com/rulego/streamsql v1.1.2 h1:hfR0ccpnQJ4HQEYMDkLueh7MxOYpzzdJfJoisGI0tlI=
 github.com/rulego/streamsql v1.1.2/go.mod h1:un/TbbM6ln1FoMPpfV9ktav6PPHV8krA5FUaPPpCfCI=
 github.com/sashabaranov/go-openai v1.41.1 h1:zf5tM+GuxpyiyD9XZg8nCqu52eYFQg9OOew0gnIuDy4=
