@@ -695,6 +695,11 @@ func TestExecuteNode(t *testing.T) {
 	chainId2 := "executeNode_rule02"
 	chainJson2 := strings.Replace(string(b), chainId, chainId2, -1)
 	_, err = New(chainId2, []byte(chainJson2), WithConfig(config))
+	// 清理两条链，避免重复运行(-count=N)时 Pool.New 幂等命中上一轮 ReloadSelf 后残留的旧链
+	defer func() {
+		Del(chainId)
+		Del(chainId2)
+	}()
 
 	assert.Nil(t, err)
 	metaData := types.NewMetadata()
