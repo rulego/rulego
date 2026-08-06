@@ -8,6 +8,8 @@ import (
 	"github.com/rulego/rulego/api/types"
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/node_pool"
+	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/services"
 )
@@ -34,6 +36,38 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		writeListResult(exchange, list, total, intParam(msg, constants.KeyPage, 1), intParam(msg, constants.KeySize, 20))
+		return true
+	}).End())
+
+	// GET /shared-node-statuses - 共享节点连接状态
+	// 不能挂在 /shared-nodes/ 下：httprouter 同一方法树内静态段与 :id 通配符不能共存
+	ep.GET(endpoint.NewRouter().From(base + "/shared-node-statuses").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		username := metadataUsername(exchange)
+		if username == "" {
+			username = s.config.DefaultUsername
+		}
+		mgr, err := app.GetAs[services.EngineManager](s.container, services.KeyEngineManager)
+		if err != nil {
+			writeInternalError(exchange, err)
+			return false
+		}
+		ue, err := mgr.GetOrCreate(username)
+		if err != nil {
+			writeInternalError(exchange, err)
+			return false
+		}
+		pool, ok := ue.RuleConfig().NodePool.(*node_pool.NodePool)
+		exchange.Out.Headers().Set("Content-Type", "application/json")
+		if !ok {
+			exchange.Out.SetBody([]byte("{}"))
+			return true
+		}
+		body, err := json.Marshal(pool.Statuses())
+		if err != nil {
+			writeInternalError(exchange, err)
+			return false
+		}
+		exchange.Out.SetBody(body)
 		return true
 	}).End())
 
