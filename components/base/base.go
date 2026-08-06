@@ -229,8 +229,8 @@ type SharedNode[T any] struct {
 	chainCtx types.ChainCtx
 	// nodeId 作为同链目录注册 key（= 节点 ID）。
 	nodeId string
-	// holder 是注册到同链目录的稳定间接层；owner 持有以便 Close 时按指针 CAS 注销。
-	holder *connHolder[T]
+	// holder is the chain-scoped registry entry; holds *connHolder[T].
+	holder atomic.Value
 	// isRegistered 是否已注册到同链目录（防重复注册）。
 	isRegistered bool
 
@@ -337,8 +337,8 @@ func (x *SharedNode[T]) Refresh(newClient T) {
 	x.localClient = newClient
 	x.clientInitialized = true
 	x.initFailErr = nil
-	if x.holder != nil {
-		x.holder.store(newClient)
+	if h, _ := x.holder.Load().(*connHolder[T]); h != nil {
+		h.store(newClient)
 	}
 	x.setStatusLocked(types.StatusConnected, "")
 }
@@ -349,11 +349,13 @@ func (x *SharedNode[T]) registerUnderLock(client T) {
 	if x.chainCtx == nil || x.nodeId == "" || x.isRegistered {
 		return
 	}
-	if x.holder == nil {
-		x.holder = &connHolder[T]{}
+	h, _ := x.holder.Load().(*connHolder[T])
+	if h == nil {
+		h = &connHolder[T]{}
+		x.holder.Store(h)
 	}
-	x.holder.store(client)
-	x.chainCtx.ResourceRegistry().Register(x.nodeId, x.holder)
+	h.store(client)
+	x.chainCtx.ResourceRegistry().Register(x.nodeId, h)
 	x.isRegistered = true
 }
 
@@ -520,9 +522,9 @@ func (x *SharedNode[T]) Close() error {
 
 	// 先从同链目录摘除可见性（软 CAS：仅当仍是自己的 holder 才删，防 id 碰撞误删别人）。
 	// 先摘可见性再关连接，缩小借用方拿到正在关闭连接的窗口。
-	if x.isRegistered && x.chainCtx != nil && x.holder != nil {
+	if h, _ := x.holder.Load().(*connHolder[T]); x.isRegistered && x.chainCtx != nil && h != nil {
 		reg := x.chainCtx.ResourceRegistry()
-		if cur, found := reg.Lookup(x.nodeId); found && cur == x.holder {
+		if cur, found := reg.Lookup(x.nodeId); found && cur == h {
 			reg.Unregister(x.nodeId)
 		}
 		x.isRegistered = false
@@ -543,7 +545,7 @@ func (x *SharedNode[T]) Close() error {
 	x.clientInitialized = false
 	x.localClient = zeroValue[T]()
 	x.setStatusLocked(types.StatusDisconnected, "")
-	x.holder = nil
+	x.holder.Store((*connHolder[T])(nil))
 	x.initFailErr = nil
 
 	return err
@@ -561,16 +563,14 @@ func (x *SharedNode[T]) Initialized() bool {
 }
 
 // setStatusLocked updates status and syncs it to the chain-scoped holder.
-// statusMsg is guarded by statusMu (independent of x.Locker), so this is safe
-// to call from any context, including GetSafely's lazy-init callback that
-// already holds x.Locker.
 func (x *SharedNode[T]) setStatusLocked(s types.NodeStatus, msg string) {
 	atomic.StoreInt32(&x.status, int32(s))
 	x.statusMu.Lock()
 	x.statusMsg = msg
+	h, _ := x.holder.Load().(*connHolder[T])
 	x.statusMu.Unlock()
-	if x.holder != nil {
-		x.holder.storeStatus(s, msg)
+	if h != nil {
+		h.storeStatus(s, msg)
 	}
 }
 
