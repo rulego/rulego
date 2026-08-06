@@ -219,6 +219,7 @@ func (r *WsClientResponseMessage) GetError() error {
 // WsClient WebSocket客户端端点，连接到远程WebSocket服务器并接收数据
 type WsClient struct {
 	impl.BaseEndpoint
+	impl.ConnStatus
 	Config     WsClientConfig
 	RuleConfig types.Config
 	conn       *websocket.Conn
@@ -318,6 +319,7 @@ func (c *WsClient) Destroy() {
 // Close 关闭连接
 func (c *WsClient) Close() error {
 	atomic.StoreInt32(&c.closed, 1)
+	c.SetConnStatus(types.StatusDisconnected, "")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.conn != nil {
@@ -392,6 +394,9 @@ func (c *WsClient) connect() error {
 
 	conn, _, err := websocket.DefaultDialer.Dial(c.Config.Server, header)
 	if err != nil {
+		if c.Config.ReconnectInterval > 0 {
+			c.SetConnStatus(types.StatusReconnecting, err.Error())
+		}
 		return fmt.Errorf("ws client connect to %s failed: %w", c.Config.Server, err)
 	}
 
@@ -400,6 +405,7 @@ func (c *WsClient) connect() error {
 	c.mu.Unlock()
 
 	c.Printf("ws client connected to %s", c.Config.Server)
+	c.SetConnStatus(types.StatusConnected, "")
 
 	if c.OnEvent != nil {
 		c.OnEvent(endpoint.EventConnect, conn)
@@ -521,6 +527,7 @@ func (c *WsClient) tryReconnect() {
 		return
 	}
 
+	c.SetConnStatus(types.StatusReconnecting, "connection lost")
 	if c.OnEvent != nil {
 		c.OnEvent(endpoint.EventDisconnect)
 	}

@@ -526,6 +526,8 @@ func encodeData(src []byte, encode string) ([]byte, types.DataType) {
 type Net struct {
 	// 嵌入endpoint.BaseEndpoint，继承其方法
 	impl.BaseEndpoint
+	// 连接（监听）状态
+	impl.ConnStatus
 	// 配置
 	Config Config
 	// rulego配置
@@ -659,6 +661,7 @@ func (ep *Net) SendToTarget(target string, data []byte) (sent, failed int, err e
 // Close 关闭网络端点
 func (ep *Net) Close() error {
 	atomic.StoreInt32(&ep.closed, 1)
+	ep.SetConnStatus(types.StatusDisconnected, "")
 
 	ep.mu.Lock()
 	defer ep.mu.Unlock()
@@ -770,6 +773,7 @@ func (ep *Net) Start() error {
 
 		ep.Printf("started TCP server on %s", ep.Config.Server)
 		go ep.acceptTCPConnections()
+		ep.SetConnStatus(types.StatusConnected, "")
 		ttl := time.Duration(ep.Config.SessionTTL) * time.Second
 		if ttl <= 0 {
 			ttl = time.Duration(DefaultSessionTTL) * time.Second
@@ -781,6 +785,7 @@ func (ep *Net) Start() error {
 			return err
 		}
 		ep.Printf("started UDP server on %s", ep.Config.Server)
+		ep.SetConnStatus(types.StatusConnected, "")
 		h := UDPHandler{
 			endpoint: ep,
 			config:   ep.Config,

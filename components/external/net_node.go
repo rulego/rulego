@@ -411,9 +411,12 @@ func (x *NetNode) setDisconnected(disconnected bool) {
 	if disconnected {
 		atomic.AddInt32(&x.disconnectedCount, 1)
 		atomic.StoreInt32(&x.disconnected, 1)
+		// Disconnected: auto-reconnect is driven by the heartbeat timer; mark reconnecting.
+		x.SharedNode.SetStatus(types.StatusReconnecting, "connection lost")
 	} else {
 		atomic.StoreInt32(&x.disconnectedCount, 0)
 		atomic.StoreInt32(&x.disconnected, 0)
+		x.SharedNode.SetStatus(types.StatusConnected, "")
 	}
 }
 

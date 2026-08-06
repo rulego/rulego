@@ -646,7 +646,9 @@ func (x *Mqtt) Init(ruleConfig types.Config, configuration types.Configuration) 
 	// 初始化优雅停机功能 - 使用合理的默认超时(10秒)
 	x.GracefulShutdown.InitGracefulShutdown(x.RuleConfig.Logger, 10*time.Second)
 
-	_ = x.SharedNode.InitWithClose(x.RuleConfig, x.Type(), x.Config.Server, true, func() (*mqtt.Client, error) {
+	// Soft-fail init: a broker that is not up yet must not block initialization.
+	// Recovery is handled by GetSafely's cooldown retry and DynamicEndpoint.Start's background retry.
+	_ = x.SharedNode.InitWithCloseSoftFail(x.RuleConfig, x.Type(), x.Config.Server, true, func() (*mqtt.Client, error) {
 		return x.initClient()
 	}, func(client *mqtt.Client) error {
 		if client != nil {
@@ -717,6 +719,17 @@ func (x *Mqtt) RemoveRouter(routerId string, params ...interface{}) error {
 	} else {
 		return fmt.Errorf("router: %s not found", routerId)
 	}
+}
+
+// ConnectionStatus reports the live connection state of the underlying client (kept up to date by paho callbacks).
+func (x *Mqtt) ConnectionStatus() types.StatusInfo {
+	if client, ok := x.SharedNode.Instance(); ok {
+		if client.IsConnected() {
+			return types.StatusInfo{Status: types.StatusConnected}
+		}
+		return types.StatusInfo{Status: types.StatusReconnecting, Message: "connection lost"}
+	}
+	return x.SharedNode.ConnectionStatus()
 }
 
 func (x *Mqtt) Start() error {

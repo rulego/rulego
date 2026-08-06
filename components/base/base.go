@@ -24,6 +24,8 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/rulego/rulego/api/types"
 )
@@ -32,6 +34,9 @@ var (
 	ErrNodePoolNil   = errors.New("node pool is nil")
 	ErrClientNotInit = errors.New("client not init")
 )
+
+// DefaultInitFailRetryInterval is the default cooldown before retrying a failed init.
+const DefaultInitFailRetryInterval = 30 * time.Second
 
 var NodeUtils = &nodeUtils{}
 
@@ -160,6 +165,9 @@ func (n *nodeUtils) TrimStrings(config types.Configuration) {
 type connHolder[T any] struct {
 	mu sync.RWMutex
 	v  T
+	// status snapshot exposed to chain-scoped borrowers
+	status types.NodeStatus
+	msg    string
 }
 
 func (h *connHolder[T]) load() T {
@@ -172,6 +180,19 @@ func (h *connHolder[T]) store(c T) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.v = c
+}
+
+func (h *connHolder[T]) storeStatus(s types.NodeStatus, msg string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.status = s
+	h.msg = msg
+}
+
+func (h *connHolder[T]) loadStatus() types.StatusInfo {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return types.StatusInfo{Status: h.status, Message: h.msg}
 }
 
 // SharedNode 共享资源组件，通过 Get 获取共享实例，多个节点可以在共享池中获取相同的实例
@@ -187,6 +208,8 @@ type SharedNode[T any] struct {
 	InitInstanceFunc func() (T, error)
 	//清理资源的回调函数
 	CloseFunc func(T) error
+	// InitFailRetryInterval is the cooldown after a failed init; <=0 falls back to DefaultInitFailRetryInterval.
+	InitFailRetryInterval time.Duration
 	////初始化资源资源，防止并发初始化
 	//lock int32
 	//是否从资源池获取
@@ -197,6 +220,10 @@ type SharedNode[T any] struct {
 	localClient       T
 	clientInitialized bool
 
+	// recorded init failure: within the cooldown, the last error is returned without retrying
+	initFailErr  error
+	initFailTime time.Time
+
 	// 同链连接池（Chain-Scoped Connection Pool）相关字段：
 	// chainCtx 为本节点部署所属链（固定，不随消息流漂移）；nil 表示未启用同链能力（退化为旧行为）。
 	chainCtx types.ChainCtx
@@ -206,6 +233,14 @@ type SharedNode[T any] struct {
 	holder *connHolder[T]
 	// isRegistered 是否已注册到同链目录（防重复注册）。
 	isRegistered bool
+
+	// Connection status. status is atomic (types.NodeStatus); statusMsg is
+	// guarded by statusMu, decoupled from x.Locker so SetStatus is safe to
+	// call from within GetSafely (which holds x.Locker), e.g. inside an
+	// InitInstanceFunc callback.
+	status    int32
+	statusMsg string
+	statusMu  sync.RWMutex
 }
 
 // Init 初始化，如果 resourcePath 为 ref:// 开头，则从网络资源池获取，否则调用 initInstanceFunc 初始化
@@ -216,8 +251,23 @@ func (x *SharedNode[T]) Init(ruleConfig types.Config, nodeType, resourcePath str
 	})
 }
 
-// InitWithClose 初始化，支持自定义清理函数
+// InitWithClose initializes with a custom cleanup function.
+// When initNow is true, an init failure is returned as-is so callers can
+// gate startup on connectivity (e.g. node components honoring NodeClientInitNow).
+// For tolerant startup where the dependency may not be ready yet, use InitWithCloseSoftFail.
 func (x *SharedNode[T]) InitWithClose(ruleConfig types.Config, nodeType, resourcePath string, initNow bool, initInstanceFunc func() (T, error), closeFunc func(T) error) error {
+	return x.initShared(ruleConfig, nodeType, resourcePath, initNow, initInstanceFunc, closeFunc, false)
+}
+
+// InitWithCloseSoftFail is like InitWithClose, but when initNow is true an init
+// failure does not return an error: the status is set to Reconnecting and the
+// next GetSafely retries after the cooldown. Use when the dependency may become
+// ready after this service starts (e.g. an MQTT broker not yet up).
+func (x *SharedNode[T]) InitWithCloseSoftFail(ruleConfig types.Config, nodeType, resourcePath string, initNow bool, initInstanceFunc func() (T, error), closeFunc func(T) error) error {
+	return x.initShared(ruleConfig, nodeType, resourcePath, initNow, initInstanceFunc, closeFunc, true)
+}
+
+func (x *SharedNode[T]) initShared(ruleConfig types.Config, nodeType, resourcePath string, initNow bool, initInstanceFunc func() (T, error), closeFunc func(T) error, softFail bool) error {
 	x.RuleConfig = ruleConfig
 	x.NodeType = nodeType
 	x.CloseFunc = closeFunc
@@ -225,16 +275,23 @@ func (x *SharedNode[T]) InitWithClose(ruleConfig types.Config, nodeType, resourc
 	if instanceId := NodeUtils.GetInstanceId(ruleConfig, resourcePath); instanceId == "" {
 		x.InitInstanceFunc = initInstanceFunc
 		if initNow {
-			//非资源池方式，初始化
 			client, err := x.InitInstanceFunc()
 			if err != nil {
+				x.Locker.Lock()
+				x.initFailErr = err
+				x.initFailTime = time.Now()
+				x.Locker.Unlock()
+				x.setStatusLocked(types.StatusReconnecting, err.Error())
+				if softFail {
+					return nil
+				}
 				return err
 			}
 			x.Locker.Lock()
 			defer x.Locker.Unlock()
-			// 初始化成功，缓存客户端
 			x.localClient = client
 			x.clientInitialized = true
+			x.setStatusLocked(types.StatusConnected, "")
 			return nil
 		}
 	} else {
@@ -279,9 +336,11 @@ func (x *SharedNode[T]) Refresh(newClient T) {
 	defer x.Locker.Unlock()
 	x.localClient = newClient
 	x.clientInitialized = true
+	x.initFailErr = nil
 	if x.holder != nil {
 		x.holder.store(newClient)
 	}
+	x.setStatusLocked(types.StatusConnected, "")
 }
 
 // registerUnderLock 在已持有 x.Locker 写锁的前提下，将 client 注册为同链源。
@@ -388,9 +447,18 @@ func (x *SharedNode[T]) GetSafely() (T, error) {
 			return x.localClient, nil
 		}
 
+		// Fast-fail within the cooldown window: return the last error without retrying init.
+		if x.initFailErr != nil && time.Since(x.initFailTime) < x.initRetryInterval() {
+			return zeroValue[T](), x.initFailErr
+		}
+
 		// 初始化客户端
 		client, err := x.InitInstanceFunc()
 		if err != nil {
+			// record failure for cooldown fast-fail
+			x.initFailErr = err
+			x.initFailTime = time.Now()
+			x.setStatusLocked(types.StatusReconnecting, err.Error())
 			// 初始化失败，如果返回了部分初始化的客户端，尝试清理
 			if !isZeroValue(client) && x.CloseFunc != nil {
 				_ = x.CloseFunc(client)
@@ -398,15 +466,25 @@ func (x *SharedNode[T]) GetSafely() (T, error) {
 			return zeroValue[T](), err
 		}
 
-		// 初始化成功，缓存客户端
+		// init succeeded: clear failure record and cache the client
+		x.initFailErr = nil
 		x.localClient = client
 		x.clientInitialized = true
 		// 首次建连成功，注册为同链源（key=nodeId），供链内 ref:// 节点借用
 		x.registerUnderLock(client)
+		x.setStatusLocked(types.StatusConnected, "")
 		return client, nil
 	} else {
 		return zeroValue[T](), ErrClientNotInit
 	}
+}
+
+// initRetryInterval returns the cooldown applied after a failed init.
+func (x *SharedNode[T]) initRetryInterval() time.Duration {
+	if x.InitFailRetryInterval > 0 {
+		return x.InitFailRetryInterval
+	}
+	return DefaultInitFailRetryInterval
 }
 
 // isZeroValue 检查值是否为零值
@@ -433,6 +511,9 @@ func (x *SharedNode[T]) Close() error {
 	defer x.Locker.Unlock()
 
 	if !x.clientInitialized {
+		// never connected: clear the failure record to allow re-init
+		x.initFailErr = nil
+		x.setStatusLocked(types.StatusDisconnected, "")
 		return nil
 	}
 	client := x.localClient
@@ -461,7 +542,9 @@ func (x *SharedNode[T]) Close() error {
 	// 重置本地客户端状态
 	x.clientInitialized = false
 	x.localClient = zeroValue[T]()
+	x.setStatusLocked(types.StatusDisconnected, "")
 	x.holder = nil
+	x.initFailErr = nil
 
 	return err
 }
@@ -475,6 +558,62 @@ func (x *SharedNode[T]) Initialized() bool {
 	x.Locker.RLock()
 	defer x.Locker.RUnlock()
 	return x.clientInitialized
+}
+
+// setStatusLocked updates status and syncs it to the chain-scoped holder.
+// statusMsg is guarded by statusMu (independent of x.Locker), so this is safe
+// to call from any context, including GetSafely's lazy-init callback that
+// already holds x.Locker.
+func (x *SharedNode[T]) setStatusLocked(s types.NodeStatus, msg string) {
+	atomic.StoreInt32(&x.status, int32(s))
+	x.statusMu.Lock()
+	x.statusMsg = msg
+	x.statusMu.Unlock()
+	if x.holder != nil {
+		x.holder.storeStatus(s, msg)
+	}
+}
+
+// SetStatus updates the connection status from disconnect/reconnect events
+// (e.g. net/ws self-reconnect). It does not acquire x.Locker, so it is safe to
+// call from within an InitInstanceFunc callback running under GetSafely.
+func (x *SharedNode[T]) SetStatus(s types.NodeStatus, msg string) {
+	x.setStatusLocked(s, msg)
+}
+
+// ConnectionStatus implements types.ConnectionStatusGetter.
+// A ref:// borrower delegates to the holder: chain-scoped holder snapshot first, then the shared-pool source node. It never triggers a connection.
+func (x *SharedNode[T]) ConnectionStatus() types.StatusInfo {
+	if x.InstanceId != "" {
+		if x.chainCtx != nil {
+			if inst, found := x.chainCtx.Resources().Lookup(x.InstanceId); found {
+				if h, ok := inst.(*connHolder[T]); ok {
+					return h.loadStatus()
+				}
+			}
+		}
+		if x.RuleConfig.NodePool != nil {
+			if ctx, ok := x.RuleConfig.NodePool.Get(x.InstanceId); ok {
+				if s, ok := ctx.GetNode().(types.ConnectionStatusGetter); ok {
+					return s.ConnectionStatus()
+				}
+			}
+		}
+	}
+	x.statusMu.RLock()
+	msg := x.statusMsg
+	x.statusMu.RUnlock()
+	return types.StatusInfo{Status: types.NodeStatus(atomic.LoadInt32(&x.status)), Message: msg}
+}
+
+// Instance returns the initialized client without triggering lazy init; zero value and false if not initialized.
+func (x *SharedNode[T]) Instance() (T, bool) {
+	x.Locker.RLock()
+	defer x.Locker.RUnlock()
+	if x.clientInitialized {
+		return x.localClient, true
+	}
+	return zeroValue[T](), false
 }
 
 // zeroValue 函数用于返回 T 类型的零值
