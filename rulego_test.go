@@ -178,9 +178,11 @@ func TestHttpEndpointAspect(t *testing.T) {
 	ruleEngine, err := New(id, []byte(ruleDslStr))
 	assert.Nil(t, err)
 
-	//端口已经占用错误
+	//端口已占用：新语义下不报错而是后台重试（见 TestDynamicEndpointStartRetryDestroyRace）；
+	//创建成功后立即删除以取消后台重试，避免其稍后绑定 :9095 干扰后续断言
 	_, err = New("withHttpEndpoint2", []byte(ruleDslStr))
-	assert.NotNil(t, err)
+	assert.Nil(t, err)
+	Del("withHttpEndpoint2")
 
 	config := engine.NewConfig(types.WithDefaultPool())
 	metaData := types.BuildMetadata(make(map[string]string))

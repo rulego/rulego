@@ -327,8 +327,11 @@ func (x *WsNode) isDisconnected() bool { return atomic.LoadInt32(&x.disconnected
 func (x *WsNode) setDisconnected(d bool) {
 	if d {
 		atomic.StoreInt32(&x.disconnected, 1)
+		// Disconnected: auto-reconnect is triggered by the read loop/heartbeat; mark reconnecting.
+		x.SharedNode.SetStatus(types.StatusReconnecting, "connection lost")
 	} else {
 		atomic.StoreInt32(&x.disconnected, 0)
+		x.SharedNode.SetStatus(types.StatusConnected, "")
 	}
 }
 

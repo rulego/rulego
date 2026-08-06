@@ -295,6 +295,7 @@ func (r *ClientResponseMessage) GetError() error {
 //	client.Start()
 type NetClient struct {
 	impl.BaseEndpoint
+	impl.ConnStatus
 	// Config 客户端配置 / Client configuration
 	Config ClientConfig
 	// RuleConfig 规则引擎配置 / Rule engine configuration
@@ -404,6 +405,7 @@ func (c *NetClient) Destroy() {
 // Closes the client connection, stops all reading and heartbeat goroutines
 func (c *NetClient) Close() error {
 	atomic.StoreInt32(&c.closed, 1)
+	c.SetConnStatus(types.StatusDisconnected, "")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.conn != nil {
@@ -503,6 +505,10 @@ func (c *NetClient) connect() error {
 	conn, err := net.DialTimeout(c.Config.Protocol, c.Config.Server,
 		time.Duration(c.Config.ConnectTimeout)*time.Second)
 	if err != nil {
+		// Mark reconnecting if auto-reconnect is configured; otherwise the caller surfaces the error.
+		if c.Config.ReconnectInterval > 0 {
+			c.SetConnStatus(types.StatusReconnecting, err.Error())
+		}
 		return fmt.Errorf("net client connect to %s failed: %w", c.Config.Server, err)
 	}
 
@@ -511,6 +517,7 @@ func (c *NetClient) connect() error {
 	c.mu.Unlock()
 
 	c.Printf("net client connected to %s", c.Config.Server)
+	c.SetConnStatus(types.StatusConnected, "")
 
 	if c.OnEvent != nil {
 		c.OnEvent(endpoint.EventConnect, c.conn)
@@ -758,6 +765,7 @@ func (c *NetClient) tryReconnect() {
 		return
 	}
 
+	c.SetConnStatus(types.StatusReconnecting, "connection lost")
 	if c.OnEvent != nil {
 		c.OnEvent(endpoint.EventDisconnect)
 	}

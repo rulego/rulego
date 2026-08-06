@@ -20,6 +20,8 @@ import (
 	"errors"
 	"reflect"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
@@ -27,6 +29,13 @@ import (
 	"github.com/rulego/rulego/endpoint/impl"
 	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/utils/json"
+)
+
+var (
+	// StartRetryInterval is the initial interval for the Start background retry.
+	StartRetryInterval = time.Second * 2
+	// StartRetryMaxInterval caps the exponential backoff of the Start background retry.
+	StartRetryMaxInterval = time.Second * 60
 )
 
 // Endpoint is an alias for the Endpoint interface in the endpoint package.
@@ -122,6 +131,19 @@ type DynamicEndpoint struct {
 	// locker provides thread-safe access to endpoint state
 	// locker 为端点状态提供线程安全访问
 	locker sync.RWMutex
+
+	// stopCh cancels the background Start retry; nil when no retry is active.
+	stopCh chan struct{}
+	// retryDone is closed by the retry goroutine on exit, so cancelStartRetry
+	// can wait for it to fully stop before the caller destroys the endpoint
+	// instance (avoids a Start() call racing against Destroy()).
+	retryDone chan struct{}
+	// startRetrying is set while the Start background retry is active (atomic).
+	startRetrying int32
+	// started records whether Start has succeeded (atomic).
+	started int32
+	// startErr holds the last Start failure message; guarded by locker.
+	startErr string
 }
 
 // NewFromDsl creates a new DynamicEndpoint from the provided DSL definition and options.
@@ -410,6 +432,129 @@ func (e *DynamicEndpoint) GetRuleChain() *types.RuleChain {
 	return e.ruleChain
 }
 
+// Start starts the endpoint. On initial failure it retries in the background until success or Destroy;
+// the failure is exposed via ConnectionStatus.
+func (e *DynamicEndpoint) Start() error {
+	if e.Endpoint == nil {
+		return errors.New("endpoint not initialized")
+	}
+	if err := e.Endpoint.Start(); err != nil {
+		e.armStartRetry(e.Endpoint, err)
+		return nil
+	}
+	atomic.StoreInt32(&e.started, 1)
+	return nil
+}
+
+// Destroy tears down the endpoint and cancels the background Start retry.
+func (e *DynamicEndpoint) Destroy() {
+	e.cancelStartRetry()
+	atomic.StoreInt32(&e.started, 0)
+	if e.Endpoint != nil {
+		e.Endpoint.Destroy()
+	}
+}
+
+// ConnectionStatus implements types.ConnectionStatusGetter. It returns Reconnecting while
+// the background retry is active; otherwise it delegates to the underlying endpoint, falling
+// back to the started flag when the endpoint has no status of its own.
+func (e *DynamicEndpoint) ConnectionStatus() types.StatusInfo {
+	if atomic.LoadInt32(&e.startRetrying) == 1 {
+		e.locker.RLock()
+		msg := e.startErr
+		e.locker.RUnlock()
+		return types.StatusInfo{Status: types.StatusReconnecting, Message: msg}
+	}
+	if e.Endpoint != nil {
+		if s, ok := e.Endpoint.(types.ConnectionStatusGetter); ok {
+			return s.ConnectionStatus()
+		}
+		if atomic.LoadInt32(&e.started) == 1 {
+			return types.StatusInfo{Status: types.StatusConnected}
+		}
+	}
+	return types.StatusInfo{}
+}
+
+// armStartRetry starts the background retry on Start failure (idempotent: only updates the error if already retrying).
+func (e *DynamicEndpoint) armStartRetry(ep Endpoint, lastErr error) {
+	e.locker.Lock()
+	if e.stopCh == nil {
+		e.stopCh = make(chan struct{})
+		e.retryDone = make(chan struct{})
+	}
+	stop := e.stopCh
+	done := e.retryDone
+	e.startErr = lastErr.Error()
+	id := e.id
+	logger := e.ruleConfig.Logger
+	alreadyRetrying := atomic.SwapInt32(&e.startRetrying, 1) == 1
+	e.locker.Unlock()
+
+	if logger != nil {
+		logger.Printf("endpoint:%s start failed:%v, retrying in background", id, lastErr)
+	}
+	if alreadyRetrying {
+		return
+	}
+	go func() {
+		defer func() {
+			atomic.StoreInt32(&e.startRetrying, 0)
+			close(done)
+		}()
+		interval := StartRetryInterval
+		for {
+			select {
+			case <-stop:
+				return
+			case <-time.After(interval):
+			}
+			if err := ep.Start(); err != nil {
+				e.setStartErr(err.Error())
+				if logger != nil {
+					logger.Printf("endpoint:%s start retry failed:%v", id, err)
+				}
+				interval += interval / 2
+				if interval > StartRetryMaxInterval {
+					interval = StartRetryMaxInterval
+				}
+			} else {
+				e.setStartErr("")
+				atomic.StoreInt32(&e.started, 1)
+				if logger != nil {
+					logger.Printf("endpoint:%s start retry succeeded", id)
+				}
+				return
+			}
+		}
+	}()
+}
+
+// cancelStartRetry signals the background retry to stop and waits for it to
+// fully exit, so the caller can safely destroy the endpoint instance without
+// racing an in-flight Start().
+func (e *DynamicEndpoint) cancelStartRetry() {
+	e.locker.Lock()
+	stop := e.stopCh
+	done := e.retryDone
+	e.stopCh = nil
+	e.retryDone = nil
+	if stop != nil {
+		close(stop)
+	}
+	e.locker.Unlock()
+	// Wait outside the lock: the goroutine signals exit via closing `done`.
+	if done != nil {
+		<-done
+	}
+}
+
+func (e *DynamicEndpoint) setStartErr(msg string) {
+	e.locker.Lock()
+	e.startErr = msg
+	e.locker.Unlock()
+}
+
 // newEndpoint creates a new Endpoint with the provided DSL.
 func (e *DynamicEndpoint) newEndpoint(dsl types.EndpointDsl) error {
 	var configuration = make(types.Configuration)
@@ -448,7 +593,8 @@ func (e *DynamicEndpoint) newEndpoint(dsl types.EndpointDsl) error {
 			}
 		}
 		if e.restart {
-			return ep.Start()
+			// Use the wrapped Start so an initial failure retries in the background instead of failing deploy.
+			return e.Start()
 		} else {
 			return nil
 		}
@@ -458,6 +604,9 @@ func (e *DynamicEndpoint) newEndpoint(dsl types.EndpointDsl) error {
 // reloadEndpoint reloads the Endpoint with the provided DSL.
 func (e *DynamicEndpoint) reloadEndpoint(def types.EndpointDsl) error {
 	if e.Endpoint != nil && (e.restart || needRestart(e.definition, def)) {
+		// Cancel any running retry first; otherwise it keeps calling Start on the old instance.
+		e.cancelStartRetry()
+		atomic.StoreInt32(&e.started, 0)
 		e.Endpoint.Destroy()
 		e.Endpoint = nil
 		e.restart = true

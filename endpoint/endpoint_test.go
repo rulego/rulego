@@ -85,3 +85,41 @@ func TestDynamicEndpoint(t *testing.T) {
 
 	ep.Destroy()
 }
+
+// TestDynamicEndpointStartRetryDestroyRace guards the cancelStartRetry fix:
+// while the background Start retry is active, Destroy must wait for the retry
+// goroutine to exit before returning, so the endpoint instance is not
+// destroyed out from under an in-flight Start().
+func TestDynamicEndpointStartRetryDestroyRace(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	// Point at an unreachable port so Start() fails and arms the background retry.
+	dsl := `{"id":"ep_retry_race","type":"endpoint/mqtt","configuration":{"server":"127.0.0.1:1","qos":0}}`
+	ep, err := NewFromDsl([]byte(dsl), endpoint.DynamicEndpointOptions.WithConfig(config))
+	if err != nil {
+		t.Fatalf("NewFromDsl: %v", err)
+	}
+
+	// Wrapped Start swallows the failure and arms the background retry.
+	if err := ep.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	// Confirm the retry is active.
+	if got := ep.ConnectionStatus().Status; got != types.StatusReconnecting {
+		t.Fatalf("status=%s, want reconnecting", got)
+	}
+
+	// Destroy during active retry must return promptly (not block on the retry).
+	destroyDone := make(chan struct{})
+	go func() { ep.Destroy(); close(destroyDone) }()
+	select {
+	case <-destroyDone:
+		// returned without blocking
+	case <-time.After(5 * time.Second):
+		t.Fatal("Destroy blocked for >5s while retry was active")
+	}
+
+	// After Destroy, status must no longer report an active retry.
+	if got := ep.ConnectionStatus().Status; got == types.StatusReconnecting {
+		t.Fatalf("status still reconnecting after Destroy")
+	}
+}

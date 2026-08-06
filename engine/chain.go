@@ -432,6 +432,48 @@ func (rc *RuleChainCtx) GetParentNodeIds(id types.RuleNodeId) ([]types.RuleNodeI
 	return nodeIds, ok
 }
 
+// Statuses returns the connection status of chain nodes and metadata-declared endpoints.
+func (rc *RuleChainCtx) Statuses() map[string]types.StatusInfo {
+	result := make(map[string]types.StatusInfo)
+	rc.RLock()
+	nodeIds := make([]types.RuleNodeId, len(rc.nodeIds))
+	copy(nodeIds, rc.nodeIds)
+	definition := rc.SelfDefinition
+	resources := rc.resources
+	rc.RUnlock()
+
+	// regular nodes: assert the inner component's status interface
+	for _, id := range nodeIds {
+		nodeCtx, ok := rc.GetNodeById(id)
+		if !ok {
+			continue
+		}
+		if nc, ok := nodeCtx.(*RuleNodeCtx); ok {
+			if s, ok := nc.Node.(types.ConnectionStatusGetter); ok {
+				if info := s.ConnectionStatus(); info.Status != types.StatusNone {
+					result[id.Id] = info
+				}
+			}
+		}
+	}
+	// metadata-declared endpoints: registered by EndpointAspect into the chain resource registry
+	if definition != nil && resources != nil {
+		for _, ep := range definition.Metadata.Endpoints {
+			if ep == nil {
+				continue
+			}
+			if inst, found := resources.Lookup(ep.Id); found {
+				if s, ok := inst.(types.ConnectionStatusGetter); ok {
+					if info := s.ConnectionStatus(); info.Status != types.StatusNone {
+						result[ep.Id] = info
+					}
+				}
+			}
+		}
+	}
+	return result
+}
+
 // GetLCA finds the lowest common ancestor of a node's parent nodes using optimized algorithm
 // GetLCA 使用优化算法查找节点所有父节点的最低共同祖先
 func (rc *RuleChainCtx) GetLCA(id types.RuleNodeId) (types.RuleNodeId, bool) {

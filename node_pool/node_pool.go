@@ -454,6 +454,21 @@ func (n *NodePool) Range(f func(key, value any) bool) {
 	n.entries.Range(f)
 }
 
+// Statuses returns the connection status of all nodes in the pool.
+func (n *NodePool) Statuses() map[string]types.StatusInfo {
+	result := make(map[string]types.StatusInfo)
+	n.entries.Range(func(key, value any) bool {
+		ctx := value.(*sharedNodeCtx)
+		if s, ok := ctx.GetNode().(types.ConnectionStatusGetter); ok {
+			if info := s.ConnectionStatus(); info.Status != types.StatusNone {
+				result[key.(string)] = info
+			}
+		}
+		return true
+	})
+	return result
+}
+
 type sharedNodeCtx struct {
 	*engine.RuleNodeCtx
 	Endpoint   endpointApi.Endpoint

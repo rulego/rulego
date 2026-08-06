@@ -197,6 +197,17 @@ func (x *MqttClientNode) Destroy() {
 	_ = x.SharedNode.Close()
 }
 
+// ConnectionStatus reports the live connection state of the underlying client (kept up to date by paho callbacks).
+func (x *MqttClientNode) ConnectionStatus() types.StatusInfo {
+	if client, ok := x.SharedNode.Instance(); ok {
+		if client.IsConnected() {
+			return types.StatusInfo{Status: types.StatusConnected}
+		}
+		return types.StatusInfo{Status: types.StatusReconnecting, Message: "connection lost"}
+	}
+	return x.SharedNode.ConnectionStatus()
+}
+
 // initClient 初始化客户端
 func (x *MqttClientNode) initClient() (*mqtt.Client, error) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)

@@ -1111,3 +1111,50 @@ func TestNetClientHeartbeatCallback(t *testing.T) {
 
 	assert.True(t, atomic.LoadInt32(&callbackCalled) > 0, "expected OnHeartbeat callback to be called")
 }
+
+// TestNetClientConnectionStatus verifies the connection status transitions:
+// after Start the client reports Connected; after Destroy it reports Disconnected.
+func TestNetClientConnectionStatus(t *testing.T) {
+	stop := make(chan struct{})
+	go startTCPEchoServer(t, stop)
+	time.Sleep(time.Millisecond * 200)
+	defer close(stop)
+
+	config := engine.NewConfig(types.WithDefaultPool())
+	var nodeConfig = make(types.Configuration)
+	_ = maps.Map2Struct(&ClientConfig{
+		Protocol:          "tcp",
+		Server:            "127.0.0.1" + clientTestServer,
+		ConnectTimeout:    5,
+		ReconnectInterval: 0,
+		PacketMode:        "line",
+	}, &nodeConfig)
+
+	client := &NetClient{}
+	if err := client.Init(config, nodeConfig); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	// Before Start: no status activity yet.
+	if got := client.ConnectionStatus().Status; got != types.StatusNone {
+		t.Fatalf("before Start: status=%s, want none", got)
+	}
+
+	if err := client.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer client.Destroy()
+	time.Sleep(time.Millisecond * 300)
+
+	// After Start: connected.
+	if got := client.ConnectionStatus().Status; got != types.StatusConnected {
+		t.Fatalf("after Start: status=%s, want connected", got)
+	}
+
+	client.Destroy()
+	// After Destroy: disconnected.
+	if got := client.ConnectionStatus().Status; got != types.StatusDisconnected {
+		t.Fatalf("after Destroy: status=%s, want disconnected", got)
+	}
+}
+

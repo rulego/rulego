@@ -860,6 +860,18 @@ type ChainCtx interface {
 	ResourceRegistry() ResourceRegistry
 }
 
+// ChainStatusesGetter is an optional ChainCtx capability: aggregated connection
+// status of chain nodes and metadata-declared endpoints. Implemented by
+// engine.RuleChainCtx; assert at the call site:
+//
+//	if g, ok := ctx.(types.ChainStatusesGetter); ok { statuses := g.Statuses() }
+//
+// Read-only; never triggers a connection. Components without a status
+// implementation are omitted from the result.
+type ChainStatusesGetter interface {
+	Statuses() map[string]StatusInfo
+}
+
 // NodeRequest request to restore node execution
 type NodeRequest struct {
 	NodeId string
