@@ -186,6 +186,40 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		return false
 	}).End())
 
+	// GET /rules/:id/status - aggregate rule-chain connection status (nodes + endpoint)
+	ep.GET(endpoint.NewRouter().From(base + "/rules/:id/status").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		chainId := metadataValue(exchange, constants.KeyId)
+		if !validateId(chainId) {
+			writeBadRequest(exchange, fmt.Errorf("invalid rule chain id"))
+			return false
+		}
+		pool := s.getRuleGoFunc(exchange)
+		if pool == nil {
+			return false
+		}
+		eng, ok := pool.Get(chainId)
+		if !ok {
+			exchange.Out.SetStatusCode(http.StatusNotFound)
+			exchange.Out.SetBody([]byte("rule chain not loaded: " + chainId))
+			return false
+		}
+		// ChainStatusesGetter is an optional ChainCtx capability; assert at the call site.
+		var statuses map[string]types.StatusInfo
+		if g, ok := eng.RootRuleChainCtx().(types.ChainStatusesGetter); ok {
+			statuses = g.Statuses()
+		} else {
+			statuses = map[string]types.StatusInfo{}
+		}
+		body, err := json.Marshal(statuses)
+		if err != nil {
+			writeInternalError(exchange, err)
+			return false
+		}
+		exchange.Out.Headers().Set("Content-Type", "application/json")
+		exchange.Out.SetBody(body)
+		return true
+	}).End())
+
 	// POST /rules/:id/base - 保存规则链基础信息
 	ep.POST(endpoint.NewRouter().From(base + "/rules/:id/base").Process(s.authWithPermission("rule", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		id := metadataValue(exchange, constants.KeyId)
