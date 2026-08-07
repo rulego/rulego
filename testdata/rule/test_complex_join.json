@@ -76,7 +76,7 @@
         "name": "合并",
         "debugMode": false,
         "configuration": {
-          "timeout": 0
+          "timeout": 5
         }
       },
       {
