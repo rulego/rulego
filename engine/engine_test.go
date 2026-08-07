@@ -729,14 +729,22 @@ func TestExecuteNode(t *testing.T) {
 	// 等待规则链重新加载完成
 	time.Sleep(time.Millisecond * 200)
 
+	// 等待 reload 后的 msg1/msg2 处理完成再发送 msg3，避免它们与 msg3 回调并发时偶尔晚于
+	// msg3 完成：测试结束后 defer Del 会 Stop 引擎并取消在途消息 context，groupFilter 无 Failure
+	// 下游，被取消后 result 为空，导致断言失败（间歇性，慢速 CI 易触发）
+	var reloadDone sync.WaitGroup
+	reloadDone.Add(2)
 	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		defer reloadDone.Done()
 		assert.Equal(t, "false", msg.Metadata.GetValue("result"))
 	}))
 
 	msg2 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":52,\"humidity\":90}")
 	ruleEngine.OnMsg(msg2, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		defer reloadDone.Done()
 		assert.Equal(t, "true", msg.Metadata.GetValue("result"))
 	}))
+	reloadDone.Wait()
 
 	var wg sync.WaitGroup
 	wg.Add(4)
