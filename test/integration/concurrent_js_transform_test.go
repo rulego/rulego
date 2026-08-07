@@ -80,6 +80,8 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 		var results []types.RuleMsg
 		var resultsMutex sync.Mutex
 		var wg sync.WaitGroup
+		// 先 Add 再 OnMsg，避免 OnEnd 回调先于 Add 执行导致 WaitGroup 计数变负
+		wg.Add(2)
 
 		// 设置消息处理回调
 		ruleEngine.OnMsg(testMsg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
@@ -95,7 +97,6 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 		}))
 
 		// 等待两个JS节点都处理完成
-		wg.Add(2)
 		wg.Wait()
 
 		// 验证结果
@@ -194,6 +195,8 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 		var results []types.RuleMsg
 		var resultsMutex sync.Mutex
 		var wg sync.WaitGroup
+		// 先 Add 再 OnMsg，避免 OnEnd 回调先于 Add 执行导致 WaitGroup 计数变负
+		wg.Add(2)
 
 		// 设置消息处理回调
 		ruleEngine.OnMsg(testMsg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
@@ -209,7 +212,6 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 		}))
 
 		// 等待两个JS节点都处理完成
-		wg.Add(2)
 		wg.Wait()
 
 		// 验证结果
@@ -328,6 +330,8 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 		var results []types.RuleMsg
 		var resultsMutex sync.Mutex
 		var wg sync.WaitGroup
+		// 先 Add 再 OnMsg，避免 OnEnd 回调先于 Add 执行导致 WaitGroup 计数变负
+		wg.Add(5)
 
 		// 设置消息处理回调
 		ruleEngine.OnMsg(testMsg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
@@ -343,7 +347,6 @@ func TestConcurrentJsTransformInRuleChain(t *testing.T) {
 		}))
 
 		// 等待所有5个JS节点都处理完成
-		wg.Add(5)
 		wg.Wait()
 
 		// 验证结果
