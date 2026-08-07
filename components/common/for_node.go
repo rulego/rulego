@@ -73,7 +73,7 @@ type ForNodeConfiguration struct {
 	// Range is the target expression to iterate over.
 	// Supports msg fields, metadata, numeric ranges (1..5), and expressions.
 	// If empty, iterates over the msg payload.
-	Range string `json:"range" label:"Range" desc:"Target to iterate: msg.items, metadata.list, 1..5, or expression. Empty=msg payload" required:"true"`
+	Range string `json:"range" label:"Range" desc:"Target to iterate: msg.items, metadata.list, 1..5, or expression. Empty=msg payload"`
 	// Do is the node ID or sub-rule chain to process each element.
 	// Format: {nodeId} or chain:{chainId}
 	Do string `json:"do" label:"Do" desc:"Node ID or sub-chain to process each item. Format: {nodeId} or chain:{chainId}" required:"true"`
