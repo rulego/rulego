@@ -47,8 +47,8 @@ type GroupFilterNodeConfiguration struct {
 	// Can be provided as comma-separated string, []string, or []interface{}.
 	NodeIds interface{} `json:"nodeIds" label:"Node IDs" desc:"Comma-separated filter node IDs or string array" required:"true"`
 
-	// Timeout specifies the execution timeout in seconds. Default 0 means no timeout.
-	Timeout int `json:"timeout" label:"Timeout" desc:"Execution timeout in seconds, 0=no limit"`
+	// Timeout specifies the execution timeout in seconds. Values <= 0 fall back to the default 30s.
+	Timeout int `json:"timeout" label:"Timeout" desc:"Execution timeout in seconds, default 30"`
 }
 
 // GroupFilterNode 将多个过滤器节点分组并集体评估的过滤组件
@@ -91,13 +91,19 @@ func (x *GroupFilterNode) Type() string {
 // New 创建新实例
 // New creates a new instance.
 func (x *GroupFilterNode) New() types.Node {
-	return &GroupFilterNode{Config: GroupFilterNodeConfiguration{AllMatches: false}}
+	return &GroupFilterNode{Config: GroupFilterNodeConfiguration{AllMatches: false, Timeout: 30}}
 }
 
 // Init 初始化组件
 // Init initializes the component.
 func (x *GroupFilterNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
+	// 强制最小超时，防止 Timeout<=0 时 WithCancel 导致 goroutine 永久阻塞泄漏。
+	// Enforce a minimum timeout: Timeout<=0 would fall back to an uncancellable WithCancel,
+	// which leaks the worker goroutine forever if the group never completes.
+	if x.Config.Timeout <= 0 {
+		x.Config.Timeout = 30
+	}
 	var nodeIds []string
 	if v, ok := x.Config.NodeIds.(string); ok {
 		nodeIds = strings.Split(v, ",")
@@ -128,13 +134,9 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var trueCount int32 // 新增：跟踪True结果数量
 	var completed int32
 	c := make(chan bool, 1)
-	var chanCtx context.Context
-	var cancel context.CancelFunc
-	if x.Config.Timeout > 0 {
-		chanCtx, cancel = context.WithTimeout(ctx.GetContext(), time.Duration(x.Config.Timeout)*time.Second)
-	} else {
-		chanCtx, cancel = context.WithCancel(ctx.GetContext())
-	}
+	// Init 已保证 Timeout>0，这里始终使用 WithTimeout，避免 WithCancel 导致永久阻塞。
+	// Init guarantees Timeout>0, so always use WithTimeout to avoid an uncancellable wait.
+	chanCtx, cancel := context.WithTimeout(ctx.GetContext(), time.Duration(x.Config.Timeout)*time.Second)
 
 	defer cancel()
 

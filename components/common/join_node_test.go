@@ -53,7 +53,7 @@ func TestJoinNode(t *testing.T) {
 
 	t.Run("DefaultConfig", func(t *testing.T) {
 		test.NodeInit(t, targetNodeType, types.Configuration{}, types.Configuration{
-			"timeout": 0,
+			"timeout": 30,
 		}, Registry)
 	})
 

@@ -45,8 +45,8 @@ type GroupActionNodeConfiguration struct {
 	MatchNum int `json:"matchNum" label:"Match Count" desc:"Nodes that must match relation type. 0=all must match for Success"`
 	// NodeIds is the list of node IDs in the group.
 	NodeIds interface{} `json:"nodeIds" label:"Node IDs" desc:"Comma-separated node IDs or string array" required:"true"`
-	// Timeout is the execution timeout in seconds. 0=no limit.
-	Timeout int `json:"timeout" label:"Timeout" desc:"Execution timeout in seconds, 0=no limit"`
+	// Timeout is the execution timeout in seconds. Values <= 0 fall back to the default 30s.
+	Timeout int `json:"timeout" label:"Timeout" desc:"Execution timeout in seconds, default 30"`
 	// MergeToMap merges all node outputs into a single JSON map if true.
 	MergeToMap bool `json:"mergeToMap" label:"Merge to Map" desc:"true=merge all outputs into {nodeId: result} map"`
 }
@@ -91,13 +91,19 @@ func (x *GroupActionNode) Type() string {
 // New 创建新实例
 // New creates a new instance.
 func (x *GroupActionNode) New() types.Node {
-	return &GroupActionNode{Config: GroupActionNodeConfiguration{MatchRelationType: types.Success, MatchNum: 0}}
+	return &GroupActionNode{Config: GroupActionNodeConfiguration{MatchRelationType: types.Success, MatchNum: 0, Timeout: 30}}
 }
 
 // Init 初始化组件
 // Init initializes the component.
 func (x *GroupActionNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
+	// 强制最小超时，防止 Timeout<=0 时 WithCancel 导致 goroutine 永久阻塞泄漏。
+	// Enforce a minimum timeout: Timeout<=0 would fall back to an uncancellable WithCancel,
+	// which leaks the worker goroutine forever if the group never completes.
+	if x.Config.Timeout <= 0 {
+		x.Config.Timeout = 30
+	}
 	var nodeIds []string
 	if v, ok := x.Config.NodeIds.(string); ok {
 		nodeIds = strings.Split(v, ",")
@@ -139,13 +145,9 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	//是否已经完成
 	var completed int32
 	c := make(chan bool, 1)
-	var chanCtx context.Context
-	var cancel context.CancelFunc
-	if x.Config.Timeout > 0 {
-		chanCtx, cancel = context.WithTimeout(ctx.GetContext(), time.Duration(x.Config.Timeout)*time.Second)
-	} else {
-		chanCtx, cancel = context.WithCancel(ctx.GetContext())
-	}
+	// Init 已保证 Timeout>0，这里始终使用 WithTimeout，避免 WithCancel 导致永久阻塞。
+	// Init guarantees Timeout>0, so always use WithTimeout to avoid an uncancellable wait.
+	chanCtx, cancel := context.WithTimeout(ctx.GetContext(), time.Duration(x.Config.Timeout)*time.Second)
 
 	defer cancel()
 
