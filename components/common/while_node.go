@@ -233,9 +233,9 @@ func (x *WhileNode) executeItem(ctxWithCancel context.Context, ctx types.RuleCon
 	}
 
 	if x.ruleNodeId.Type == types.CHAIN {
-		ctx.TellFlow(x.ruleNodeId.Id, fromMsg, types.WithContext(ctx.GetContext()), types.WithOnEnd(onEnd), types.WithOnAllNodeCompleted(onAllCompleted))
+		ctx.TellFlow(x.ruleNodeId.Id, fromMsg, types.WithContext(ctxWithCancel), types.WithOnEnd(onEnd), types.WithOnAllNodeCompleted(onAllCompleted))
 	} else {
-		ctx.TellNode(ctx.GetContext(), x.ruleNodeId.Id, fromMsg, false, onEnd, onAllCompleted)
+		ctx.TellNode(ctxWithCancel, x.ruleNodeId.Id, fromMsg, false, onEnd, onAllCompleted)
 	}
 
 	wg.Wait()
