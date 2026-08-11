@@ -10,16 +10,6 @@ import (
 	"time"
 
 	"github.com/rulego/rulego/server/app"
-	"github.com/rulego/rulego/server/internal/modules/iotpoint"
-	"github.com/rulego/rulego/server/internal/modules/locale"
-	"github.com/rulego/rulego/server/internal/modules/marketplace"
-	"github.com/rulego/rulego/server/internal/modules/mcp"
-	"github.com/rulego/rulego/server/internal/modules/node"
-	"github.com/rulego/rulego/server/internal/modules/rule"
-	"github.com/rulego/rulego/server/internal/modules/runlog"
-	"github.com/rulego/rulego/server/internal/modules/skill"
-	"github.com/rulego/rulego/server/internal/modules/system"
-	"github.com/rulego/rulego/server/internal/modules/user"
 	srvEndpoint "github.com/rulego/rulego/server/internal/endpoint"
 	"github.com/rulego/rulego/server/internal/engine"
 	"github.com/rulego/rulego/server/services"
@@ -28,18 +18,7 @@ import (
 // DefaultModules 返回默认业务模块列表。
 // 可与 app.WithModuleOverride 配合使用，替换特定模块。
 func DefaultModules() []app.Module {
-	return []app.Module{
-		user.New(),
-		rule.New(),
-		node.New(),
-		runlog.New(),
-		locale.New(),
-		skill.New(),
-		system.New(),
-		marketplace.New(),
-		mcp.New(),
-		iotpoint.New(),
-	}
+	return Modules(User, Rule, Node, RunLog, Locale, Skill, System, Marketplace, MCP, IoTPoint)
 }
 
 // DefaultApp 创建一个使用默认配置的应用实例。
