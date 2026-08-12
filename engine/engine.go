@@ -1487,7 +1487,57 @@ func (e *RuleEngine) createRootContextCopy(msg types.RuleMsg, opts ...types.Rule
 		opt(rootCtxCopy)
 	}
 
+	// opts 应用后计算 collectDetail（此时 per-call 完成回调已注册）。
+	// 仅决定 snapshot 是否收集逐节点 in/out 日志，不影响完成回调是否触发。
+	rootCtxCopy.runSnapshot.collectDetail = computeCollectDetail(rootCtxCopy)
+
 	return rootCtxCopy
+}
+
+// computeCollectDetail decides whether per-node in/out logs are collected into
+// the snapshot for this message.
+//
+// Two independent concerns:
+//  1. Whether the completion callback fires at all depends only on whether any
+//     completion callback is registered (per-call or Config-level) — see
+//     RunSnapshot.onRuleChainCompleted. It is unrelated to this function.
+//  2. This function only decides log collection, and only matters when at least
+//     one callback exists (otherwise nothing reads the snapshot, so skip).
+//
+// Effective level = chain-level additionalInfo.runLogMode if set, else global
+// Config.RunLogMode. Logs are collected only when the effective level is detail.
+//
+// computeCollectDetail 判断本次消息是否需要收集逐节点 in/out 日志。
+// 两件事相互独立：
+//  1. 完成回调是否触发，只取决于是否注册了任意完成回调（per-call 或 Config 级），
+//     见 RunSnapshot.onRuleChainCompleted，与本函数无关。
+//  2. 本函数只决定日志收集，且仅在存在至少一个回调时才有意义（否则无人消费 snapshot，直接跳过）。
+//
+// 生效级别 = 链级 additionalInfo.runLogMode（设置时优先）否则全局 Config.RunLogMode。
+// 仅当生效级别为 detail 时才收集逐节点日志。
+func computeCollectDetail(rootCtxCopy *DefaultRuleContext) bool {
+	// 没有任何完成回调 → 无人消费 snapshot，既不需要收集日志，也不需要触发完成钩子
+	if rootCtxCopy.config.OnRuleChainCompleted == nil &&
+		rootCtxCopy.runSnapshot.onRuleChainCompletedFunc == nil &&
+		rootCtxCopy.runSnapshot.onNodeCompletedFunc == nil {
+		return false
+	}
+	// 链级 runLogMode 优先（非空时覆盖全局）
+	chainLevel := types.RunLogMode("")
+	if rootCtxCopy.ruleChainCtx != nil {
+		if def := rootCtxCopy.ruleChainCtx.SelfDefinition; def != nil {
+			if v, ok := def.RuleChain.GetAdditionalInfo(types.AdditionalInfoKeyRunLogMode); ok {
+				if s, ok := v.(string); ok {
+					chainLevel = types.RunLogMode(s)
+				}
+			}
+		}
+	}
+	level := chainLevel
+	if level == "" {
+		level = rootCtxCopy.config.RunLogMode
+	}
+	return level == types.RunLogModeDetail
 }
 
 // validateRuleChainState validates the rule chain and context state.

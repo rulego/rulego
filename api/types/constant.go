@@ -114,6 +114,28 @@ const (
 	KeySkipTellNext = "_skipTellNext"
 )
 
+// RunLogMode is the run-log granularity for a rule chain execution.
+// RunLogMode 是规则链一次执行的运行记录粒度。
+type RunLogMode string
+
+const (
+	// RunLogModeOff disables per-node log collection (default).
+	// RunLogModeOff 不收集逐节点日志（默认）。
+	RunLogModeOff RunLogMode = "off"
+	// RunLogModeSummary triggers completion callbacks but skips per-node logs (zero overhead).
+	// RunLogModeSummary 触发完成回调但不收集逐节点日志（零开销）。
+	RunLogModeSummary RunLogMode = "summary"
+	// RunLogModeDetail triggers completion callbacks and collects per-node in/out logs.
+	// RunLogModeDetail 触发完成回调并收集逐节点 in/out 日志。
+	RunLogModeDetail RunLogMode = "detail"
+)
+
+// AdditionalInfo key under ruleChain.additionalInfo that overrides the global
+// Config.RunLogMode for a specific chain. Empty/absent means "use the global value".
+// 链级 additionalInfo 中覆盖全局 Config.RunLogMode 的键。
+// 空值/缺省表示沿用全局配置。
+const AdditionalInfoKeyRunLogMode = "runLogMode"
+
 const (
 	// KeyErrorMsg 节点处理失败时写入 metadata 的错误信息键
 	// 供 Failure 分支下游组件通过 ${metadata.errorMsg} 消费

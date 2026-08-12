@@ -75,6 +75,22 @@ type Config struct {
 	// OnEndWithFailure indicates whether to trigger the OnEnd callback when no connected node is found and the relation type is Failure.
 	// OnEndWithFailure 表示没有找到连接的节点，并且当关系类型为 Failure 时，是否触发 OnEnd 回调。
 	OnEndWithFailure bool
+	// OnRuleChainCompleted is a global callback invoked when a rule chain execution
+	// finishes. It applies to every message that does not carry a per-call
+	// OnRuleChainCompleted (set via WithOnRuleChainCompleted); per-call callbacks
+	// take precedence and suppress this one.
+	// OnRuleChainCompleted 是规则链执行完成时的全局回调。对未设置 per-call 完成回调
+	// （通过 WithOnRuleChainCompleted 设置）的消息生效；per-call 回调优先级更高，
+	// 命中时本回调不会触发。
+	OnRuleChainCompleted func(ctx RuleContext, snapshot RuleChainRunSnapshot)
+	// RunLogMode controls the run-log granularity: off (default) / summary / detail.
+	// Whether the completion callback fires depends only on whether a callback is
+	// registered; RunLogMode only decides whether per-node in/out logs are
+	// collected into the snapshot (detail collects, off/summary skip, zero overhead).
+	// 运行记录模式：off（默认）/summary/detail。完成回调是否触发仅取决于是否注册了回调，
+	// 与本字段无关；本字段只决定 snapshot 是否收集逐节点 in/out 日志
+	// （detail 收集，off/summary 跳过，零开销）。
+	RunLogMode RunLogMode
 	// ScriptMaxExecutionTime is the maximum execution time for scripts, defaulting to 2000 milliseconds.
 	// ScriptMaxExecutionTime 是脚本的最大执行时间，默认为 2000 毫秒。
 	//

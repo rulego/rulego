@@ -363,6 +363,8 @@ type RunSnapshot struct {
 	onDebugCustomFunc func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error)
 	// Lock for synchronizing access to logs.
 	lock sync.RWMutex
+	// collectDetail 为 true 时收集逐节点 in/out 消息（detail 级）。summary 级为 false，零开销。
+	collectDetail bool
 }
 
 // NewRunSnapshot creates a new instance of RunSnapshot with the given parameters.
@@ -379,7 +381,7 @@ func NewRunSnapshot(msgId string, chainCtx *RuleChainCtx, startTs int64) *RunSna
 
 // needCollectRunSnapshot determines if there is a need to collect a snapshot of the rule chain execution.
 func (r *RunSnapshot) needCollectRunSnapshot() bool {
-	return r.onRuleChainCompletedFunc != nil || r.onNodeCompletedFunc != nil
+	return r.collectDetail || r.onRuleChainCompletedFunc != nil || r.onNodeCompletedFunc != nil
 }
 
 // collectRunSnapshot collects a snapshot of the rule node's execution state.
@@ -450,10 +452,12 @@ func (r *RunSnapshot) createRuleChainRunLog(endTs int64) types.RuleChainRunSnaps
 
 }
 
-// onRuleChainCompleted is called when the rule chain execution is completed.
+// onRuleChainCompleted 规则链执行完成时触发。per-call 优先，否则回退到 Config 级全局回调。
 func (r *RunSnapshot) onRuleChainCompleted(ctx types.RuleContext) {
 	if r.onRuleChainCompletedFunc != nil {
 		r.onRuleChainCompletedFunc(ctx, r.createRuleChainRunLog(time.Now().UnixMilli()))
+	} else if dc, ok := ctx.(*DefaultRuleContext); ok && dc.config.OnRuleChainCompleted != nil {
+		dc.config.OnRuleChainCompleted(ctx, r.createRuleChainRunLog(time.Now().UnixMilli()))
 	}
 }
 

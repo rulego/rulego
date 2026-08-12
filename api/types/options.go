@@ -122,6 +122,39 @@ func WithOnEndGlobal(onEnd func(ctx RuleContext, msg RuleMsg, err error, relatio
 	}
 }
 
+// WithOnRuleChainCompletedGlobal sets a global rule-chain-completion callback.
+// It fires for every message that does not carry its own per-call completion
+// callback (WithOnRuleChainCompleted); when a per-call callback is present it
+// takes precedence and this global one is not invoked.
+// WithOnRuleChainCompletedGlobal 设置全局规则链完成回调。对未设置 per-call 完成回调
+// 的消息生效；per-call 回调（WithOnRuleChainCompleted）优先级更高，命中时本回调不触发。
+func WithOnRuleChainCompletedGlobal(onCompleted func(ctx RuleContext, snapshot RuleChainRunSnapshot)) Option {
+	return func(c *Config) error {
+		c.OnRuleChainCompleted = onCompleted
+		return nil
+	}
+}
+
+// WithRunLogMode sets the run-log granularity: off (default) / summary / detail.
+// An unrecognized value is normalized to off and a warning is logged, so a typo
+// cannot silently behave as if logging were enabled.
+// 设置运行记录模式：off（默认）/summary/detail。无法识别的值会被规范化为 off 并打印
+// 警告日志，避免拼错时被静默当作已启用。
+func WithRunLogMode(mode RunLogMode) Option {
+	return func(c *Config) error {
+		switch mode {
+		case RunLogModeOff, RunLogModeSummary, RunLogModeDetail:
+			c.RunLogMode = mode
+		default:
+			if c.Logger != nil {
+				c.Logger.Warnf("WithRunLogMode: unknown mode %q, falling back to %q", mode, RunLogModeOff)
+			}
+			c.RunLogMode = RunLogModeOff
+		}
+		return nil
+	}
+}
+
 // WithOnEndWithFailure is an option that sets the OnEndWithFailure of the Config.
 // WithOnEndWithFailure 是设置 Config 的 OnEndWithFailure 的选项。
 //
