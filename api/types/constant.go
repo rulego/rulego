@@ -112,6 +112,12 @@ const (
 	// KeySkipTellNext per-message skip tell next metadata key
 	// KeySkipTellNext per-message 跳过通知下一节点元数据键
 	KeySkipTellNext = "_skipTellNext"
+	// KeyTriggerSource trigger source metadata key for run records
+	// KeyTriggerSource 运行记录触发来源元数据键
+	KeyTriggerSource = "_triggerSource"
+	// TriggerSourceEndpoint generic trigger source value for endpoint triggers
+	// TriggerSourceEndpoint endpoint 触发的通用来源值
+	TriggerSourceEndpoint = "endpoint"
 )
 
 // RunLogMode is the run-log granularity for a rule chain execution.

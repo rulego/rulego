@@ -597,6 +597,11 @@ func (schedule *Schedule) handler(router endpoint.Router) {
 			}
 		}
 	}
+	// 触发来源记录为 schedule 端点组件名
+	if metadata == nil {
+		metadata = map[string]string{}
+	}
+	metadata[types.KeyTriggerSource] = Type
 	exchange := &endpoint.Exchange{
 		In:  &RequestMessage{body: body, msgType: msgType, metadata: metadata},
 		Out: &ResponseMessage{}}

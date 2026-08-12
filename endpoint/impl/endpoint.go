@@ -1011,6 +1011,10 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router endpoint.Router, ex
 		return
 	}
 	inMsg := exchange.In.GetMsg()
+	// 上游未设置触发来源时兜底标记为 endpoint
+	if inMsg != nil && inMsg.Metadata.GetValue(types.KeyTriggerSource) == "" {
+		inMsg.Metadata.PutValue(types.KeyTriggerSource, types.TriggerSourceEndpoint)
+	}
 	if toFlow := fromFlow.GetTo(); toFlow != nil && inMsg != nil {
 		toChainId := toFlow.ToStringByDict(inMsg.Metadata.GetReadOnlyValues())
 		tos := strings.Split(toChainId, pathSplitFlag)
