@@ -162,17 +162,13 @@ var BuiltinVars = map[string]bool{
 
 // ExtractNodeReferencesFromExpression 从表达式内容中提取节点引用
 // ExtractNodeReferencesFromExpression extracts node references from expression content
+// nodeRefRegex 匹配节点引用的正则，包级只编译一次
+var nodeRefRegex = regexp.MustCompile(`(?:^|[^a-zA-Z0-9_./-])([a-zA-Z0-9_\-/]+)\.(data|msg|metadata|id|ts|dataType|global|vars)(?:[^a-zA-Z0-9_]|$)`)
+
 func ExtractNodeReferencesFromExpression(expression string) []string {
 	var nodeIds []string
 	uniqueNodeIds := make(map[string]bool)
 
-	// 使用正则表达式来匹配节点引用
-	// Use regex to match node references
-	// 匹配 nodeId.data, nodeId.msg, nodeId.metadata, nodeId.id, nodeId.ts, nodeId.dataType, nodeId.global, nodeId.vars 的模式，确保前面不是点号
-	// nodeId 支持字母、数字、下划线、中划线和斜杠
-	// Match nodeId.data, nodeId.msg, nodeId.metadata, etc. patterns, ensuring not preceded by a dot
-	// nodeId supports letters, numbers, underscores, hyphens and slashes
-	nodeRefRegex := regexp.MustCompile(`(?:^|[^a-zA-Z0-9_./-])([a-zA-Z0-9_\-/]+)\.(data|msg|metadata|id|ts|dataType|global|vars)(?:[^a-zA-Z0-9_]|$)`)
 	matches := nodeRefRegex.FindAllStringSubmatch(expression, -1)
 
 	for _, match := range matches {
