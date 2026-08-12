@@ -167,10 +167,14 @@ func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg) {
 		})
 
 	}), types.WithOnAllNodeCompleted(func() {
+		mu.Lock()
 		wrapperMsg.DataType = types.JSON
 		wrapperMsg.SetData(str.ToString(msgs))
-		if targetRelationType == types.Failure {
-			ctx.TellFailure(wrapperMsg, targetErr)
+		relationType := targetRelationType
+		err := targetErr
+		mu.Unlock()
+		if relationType == types.Failure {
+			ctx.TellFailure(wrapperMsg, err)
 		} else {
 			ctx.TellSuccess(wrapperMsg)
 		}
