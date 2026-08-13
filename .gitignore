@@ -44,3 +44,4 @@ vendor/
 coverage.html
 
 data/
+server/rulego-server

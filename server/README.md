@@ -161,12 +161,33 @@ RuleGo-Editor is the visual UI for RuleGo-Server, allowing visual management, de
 - Editor Demo: [editor.rulego.cc](https://editor.rulego.cc/)
 - Full Demo (with server): [http://8.134.32.225:9090/ui/](http://8.134.32.225:9090/ui/)
 
-Usage:
+### Using Release binaries (recommended)
 
-- Download `editor.zip` from [Release](https://github.com/rulego/rulego/releases), extract to the same directory as the server (creates an `editor` folder)
-- Start the server, then open `http://localhost:9090/` in your browser
-- Customize the editor directory via `resource_mapping` in `config.conf`
-- Customize the backend API address via `baseUrl` in `editor/config/config.js`
+The web UI is compiled into the binary via `go:embed` — **no extra download or extraction needed**, and it
+does not depend on the working directory at startup:
+
+- Download and extract the archive for your platform from [Release](https://github.com/rulego/rulego/releases)
+- Start the server and open `http://localhost:9090/` (Console) or `http://localhost:9090/editor/` (standalone editor)
+
+### Building from source
+
+The frontend source lives in a separate repository and is not part of this repo. **A missing frontend does not
+break the build** — placeholder files under `server/webui/` keep `go build` working; the binary simply ships
+without a bundled UI, and behavior falls back to:
+
+- Root path `/` redirects to `/editor/`
+- `/editor/` is served from disk via `resource_mapping` in `config.conf` (default `./editor`)
+
+So when building from source, place the frontend build output in an `editor` folder next to the binary to get
+the UI (same as older versions).
+
+In binaries with a bundled UI, embed takes precedence over `resource_mapping`. When both are absent,
+`/editor/` returns 404.
+
+### Configuration
+
+- `resource_mapping` in `config.conf`: change the on-disk UI directory (only applies when no UI is bundled)
+- `baseUrl` in `editor/config/config.js`: change the backend API address
 
 ## Public API Packages
 

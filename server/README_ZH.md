@@ -161,12 +161,29 @@ RuleGo-Editor 是 RuleGo-Server 的可视化 UI 界面，可以对规则链进�
 - 编辑器演示：[editor.rulego.cc](https://editor.rulego.cc/)
 - 完整演示（含服务端）：[http://8.134.32.225:9090/ui/](http://8.134.32.225:9090/ui/)
 
-使用步骤：
+### 使用 Release 二进制（推荐）
 
-- 从 [Release](https://github.com/rulego/rulego/releases) 下载 `editor.zip`，解压到 server 相同目录（会生成 `editor` 文件夹）
-- 启动 server 后，打开浏览器访问 `http://localhost:9090/` 即可使用
-- 通过 `config.conf` 的 `resource_mapping` 配置修改 editor 目录
-- 通过 `editor/config/config.js` 的 `baseUrl` 配置修改后端 API 地址
+前端产物已通过 `go:embed` 编译进二进制，**无需额外下载和解压**，也不依赖启动时的工作目录：
+
+- 从 [Release](https://github.com/rulego/rulego/releases) 下载对应平台的压缩包并解压
+- 启动 server，浏览器访问 `http://localhost:9090/`（Console）或 `http://localhost:9090/editor/`（独立编辑器）
+
+### 从源码编译
+
+前端源码位于独立仓库，不在本仓库内。**缺少前端源码不会导致编译失败** —— `server/webui/` 下有占位文件，
+`go build` 正常通过，只是运行时没有内置 UI，此时行为回退为：
+
+- 根路径 `/` 重定向到 `/editor/`
+- `/editor/` 由 `config.conf` 的 `resource_mapping` 从磁盘提供（默认 `./editor`）
+
+所以从源码编译后若要使用 UI，把前端产物放到二进制同目录的 `editor` 文件夹即可（与旧版本行为一致）。
+
+已内置 UI 的二进制中，embed 优先于 `resource_mapping`；两者都缺失时 `/editor/` 返回 404。
+
+### 配置
+
+- `config.conf` 的 `resource_mapping`：修改磁盘 UI 目录（仅在未内置 UI 时生效）
+- `editor/config/config.js` 的 `baseUrl`：修改后端 API 地址
 
 ## 公开 API 包
 

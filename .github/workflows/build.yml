@@ -40,8 +40,11 @@ jobs:
           cd rulego-editor
           npm ci
           rm -rf dist
-          # 嵌入 rulego server（base=/editor/）
-          npm run build:editor
+          # 嵌入 rulego server（base=/editor/）。
+          # build:editor:same-origin：生产同源部署（editor 被 go:embed，与 API 同域名），
+          # 清空 config.js 写死地址，运行时用 location.origin 自动适配后端。
+          # 连别的后端：改用 build:editor:remote -- http://x:9090，或部署后用 ?apiBase= URL 参数。
+          npm run build:editor:same-origin
           mkdir -p ../server/cmd/server/editor
           cp -r dist/. ../server/cmd/server/editor/
       - name: Build for Linux and Windows and Macos
