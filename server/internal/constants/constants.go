@@ -68,6 +68,13 @@ const (
 	BearerPrefix = "Bearer "
 )
 
+// 权限资源名（authWithPermission 的 resource 入参）
+const (
+	ResourceRule = "rule"
+	ResourceLog  = "log"
+	ResourceUser = "user"
+)
+
 // 消息类型
 const (
 	MsgTypeChatCompletions = "chat.completions"

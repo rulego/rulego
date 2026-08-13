@@ -6,8 +6,8 @@ import (
 
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
-	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/model"
+	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
 )
 
@@ -118,7 +118,9 @@ func TestUserModuleStartStop(t *testing.T) {
 // mockUserStore is a minimal mock for store.UserStore
 type mockUserStore struct{}
 
-func (m *mockUserStore) CreateUser(_ model.User) error      { return nil }
-func (m *mockUserStore) ValidatePassword(_, _ string) bool  { return false }
+func (m *mockUserStore) CreateUser(_ model.User) error       { return nil }
+func (m *mockUserStore) ValidatePassword(_, _ string) bool   { return false }
+func (m *mockUserStore) GetUser(_ string) (model.User, bool) { return model.User{}, false }
+func (m *mockUserStore) GetUsernameByApiKey(_ string) string { return "" }
 func (m *mockUserStore) Delete(_ string) error               { return nil }
-func (m *mockUserStore) List() []model.User                 { return nil }
+func (m *mockUserStore) List() []model.User                  { return nil }

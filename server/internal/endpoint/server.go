@@ -24,7 +24,8 @@ func getAuthenticator(c *app.Container, cfg *config.Config) services.Authenticat
 	if auth, err := app.GetAs[services.Authenticator](c, services.KeyAuthenticator); err == nil {
 		return auth
 	}
-	return user.NewDefaultAuthenticator(cfg)
+	// 兜底路径（user 模块未注册认证器）：无 RoleReader，所有认证用户视为 admin
+	return user.NewDefaultAuthenticator(cfg, nil)
 }
 
 // getAuthorizer 从 Container 获取授权器，未注册时返回默认实现
@@ -183,6 +184,7 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 	s.registerIoTPointRoutes(ep)
 	s.registerBuiltinRoutes(ep)
 	s.registerMCPRoutes(ep)
+	s.registerUserRoutes(ep)
 
 	// 静态资源映射
 	if s.config.ResourceMapping != "" {

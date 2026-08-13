@@ -72,6 +72,24 @@ func (m *Manager) SetContainer(c *app.Container) {
 	m.container = c
 }
 
+// userExists 判断用户是否仍有效，用于在 InitUserEngines 时识别已删用户的残留目录。
+// 判定优先级：default_username 始终有效（开箱即用账号可能尚未落 store）；
+// 其次 config 内置账号；最后查 UserStore。storeErr/userStore==nil 时对非内置账号
+// 保守放行，避免在 store 不可用时误伤正常用户。
+func (m *Manager) userExists(username string, userStore store.UserStore, storeErr error) bool {
+	if username == m.cfg.DefaultUsername {
+		return true
+	}
+	if m.cfg.CheckUserExists(username) {
+		return true
+	}
+	if storeErr != nil || userStore == nil {
+		return true
+	}
+	_, ok := userStore.GetUser(username)
+	return ok
+}
+
 // GetOrCreate 获取或创建用户引擎，使用 double-check locking 防止竞态
 func (m *Manager) GetOrCreate(username string) (services.UserEngine, error) {
 	if ue, ok := m.get(username); ok {
@@ -96,10 +114,9 @@ func (m *Manager) Get(username string) (services.UserEngine, bool) {
 	return m.get(username)
 }
 
-// InitUserEngines 初始化已有用户目录的引擎。
-// 分两阶段执行：
-//  1. 创建所有用户引擎（不加载规则链），让 MCP 等模块在 Start 阶段注册 UDF
-//  2. 统一加载所有规则链，此时 UDF（如 mcp_tool_provider）已就绪
+// InitUserEngines 初始化已有用户目录的引擎，分两阶段：
+//  1. 创建所有用户引擎但不加载规则链，让 MCP 等模块在 Start 阶段先注册 UDF；
+//  2. 再统一加载规则链——此时 mcp_tool_provider 等 UDF 已就绪，含 AI/agent 节点的链才能正确解析。
 func (m *Manager) InitUserEngines() error {
 	userPath := path.Join(m.cfg.DataDir, constants.DirWorkflows)
 	_ = fs.CreateDirs(userPath)
@@ -109,11 +126,18 @@ func (m *Manager) InitUserEngines() error {
 	if err != nil {
 		return err
 	}
+	userStore, storeErr := m.storeProvider.GetUserStore()
 	for _, entry := range entries {
-		if entry.IsDir() {
-			if _, err := m.GetOrCreate(entry.Name()); err != nil {
-				m.logger.Errorf("Init %s error: %s", entry.Name(), err.Error())
-			}
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !m.userExists(name, userStore, storeErr) {
+			m.logger.Infof("skip orphan data dir for removed user: %s", name)
+			continue
+		}
+		if _, err := m.GetOrCreate(name); err != nil {
+			m.logger.Errorf("Init %s error: %s", name, err.Error())
 		}
 	}
 	for user := range m.cfg.Users {
@@ -141,6 +165,22 @@ func (m *Manager) InitUserEngines() error {
 	for _, ue := range userEngines {
 		ue.loadRules()
 	}
+	return nil
+}
+
+// Remove 移除并停止指定用户的引擎，用户不存在时返回 nil（幂等）。
+// 先加锁摘出实例并从 pool 删除，解锁后再 Stop，避免持锁做慢操作。
+func (m *Manager) Remove(username string) error {
+	m.locker.Lock()
+	ue, ok := m.pool[username]
+	if ok {
+		delete(m.pool, username)
+	}
+	m.locker.Unlock()
+	if !ok {
+		return nil
+	}
+	ue.Stop()
 	return nil
 }
 

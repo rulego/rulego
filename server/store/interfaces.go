@@ -29,10 +29,14 @@ type RuleStore interface {
 
 // UserStore 用户存储接口
 type UserStore interface {
-	// CreateUser 创建用户
+	// CreateUser 创建或更新用户（按 username 覆盖）
 	CreateUser(user model.User) error
-	// ValidatePassword 验证密码
+	// ValidatePassword 验证密码。用户不存在或已停用时返回 false
 	ValidatePassword(username, password string) bool
+	// GetUser 获取单个用户，第二个返回值表示是否存在
+	GetUser(username string) (model.User, bool)
+	// GetUsernameByApiKey 通过 API Key 反查用户名，未命中返回空串
+	GetUsernameByApiKey(apiKey string) string
 	// Delete 删除用户
 	Delete(username string) error
 	// List 列出所有用户

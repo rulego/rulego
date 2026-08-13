@@ -23,5 +23,7 @@ type EngineManager interface {
 	GetOrCreate(username string) (UserEngine, error)
 	Get(username string) (UserEngine, bool)
 	InitUserEngines() error
+	// Remove 移除并停止指定用户的引擎，用户不存在时返回 nil（幂等）
+	Remove(username string) error
 	Stop()
 }

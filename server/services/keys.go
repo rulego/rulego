@@ -1,8 +1,7 @@
-// Package services 定义服务接口和容器键名常量。
+// Package services 定义服务接口与容器键名常量。
 package services
 
-// 容器中的服务键名常量。
-// Service key constants for container lookups.
+// 容器中的服务键名常量，用于 DI 查找。
 const (
 	KeyRuleCatalog        = "module.rule.catalog"
 	KeyRuleExecutor       = "module.rule.executor"
@@ -16,6 +15,7 @@ const (
 	KeyConfigService      = "module.system.settings"
 	KeyAuthService        = "module.user.auth"
 	KeyUserProfile        = "module.user.profile"
+	KeyUserAdmin          = "module.user.admin"
 	KeyAuthenticator      = "module.user.authenticator"
 	KeyAuthorizer         = "module.user.authorizer"
 	KeySkillService       = "module.skill.service"

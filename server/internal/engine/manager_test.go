@@ -10,6 +10,7 @@ import (
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/internal/store/filestore"
+	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/services"
 )
 
@@ -122,9 +123,14 @@ func TestManager_Stop(t *testing.T) {
 
 func TestManager_InitUserEngines(t *testing.T) {
 	tmpDir := t.TempDir()
-	// 创建用户目录
+	// existing-user：有目录且在 UserStore 里有记录，应被初始化。
 	userDir := filepath.Join(tmpDir, constants.DirWorkflows, "existing-user")
 	if err := os.MkdirAll(userDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// orphan-user：只有目录、无用户记录（模拟已删用户 purge=false 残留），应跳过。
+	orphanDir := filepath.Join(tmpDir, constants.DirWorkflows, "orphan-user")
+	if err := os.MkdirAll(orphanDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -137,15 +143,27 @@ func TestManager_InitUserEngines(t *testing.T) {
 	}
 	logger := types.DefaultLogger()
 	provider := filestore.NewFileStoreProvider(*cfg, logger)
+	// 把 existing-user 写进 UserStore，使其成为有效用户（或孤儿目录的判据）。
+	if us, err := provider.GetUserStore(); err == nil {
+		if err := us.CreateUser(model.User{Username: "existing-user", Password: "x", Roles: []string{model.RoleEditor}}); err != nil {
+			t.Fatalf("CreateUser: %v", err)
+		}
+	} else {
+		t.Fatalf("GetUserStore: %v", err)
+	}
 	mgr := NewManager(cfg, logger, provider)
 
 	if err := mgr.InitUserEngines(); err != nil {
 		t.Fatalf("InitUserEngines: %v", err)
 	}
 
-	// 应该创建了目录中的用户
+	// 有目录且有用户记录：应初始化
 	if _, ok := mgr.Get("existing-user"); !ok {
-		t.Error("should have engine for existing-user from directory")
+		t.Error("should have engine for existing-user (dir + user store record)")
+	}
+	// 只有目录无用户记录：应跳过，不为已删用户复活引擎
+	if _, ok := mgr.Get("orphan-user"); ok {
+		t.Error("orphan-user should be skipped (dir without user record)")
 	}
 	// 应该创建了配置中的用户
 	if _, ok := mgr.Get("config-user"); !ok {

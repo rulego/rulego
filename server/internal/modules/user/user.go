@@ -5,8 +5,8 @@ import (
 
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
-	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/model"
+	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
 )
 
@@ -43,16 +43,20 @@ func (m *Module) Init(ctx *app.ModuleContext) error {
 	}
 	m.userStore = userStore
 
-	m.authSvc = &authService{cfg: m.cfg}
+	m.authSvc = &authService{cfg: m.cfg, userStore: userStore}
 	if err := ctx.Container.Register(services.KeyAuthService, services.AuthService(m.authSvc)); err != nil {
 		return err
 	}
 	if err := ctx.Container.Register(services.KeyUserProfile, services.UserReader(m)); err != nil {
 		return err
 	}
+	if err := ctx.Container.Register(services.KeyUserAdmin, services.UserAdmin(m)); err != nil {
+		return err
+	}
 
-	// 注册默认认证器和授权器，嵌入模式可通过 WithModuleOverride 替换整个 user 模块
-	if err := ctx.Container.Register(services.KeyAuthenticator, services.Authenticator(NewDefaultAuthenticator(m.cfg))); err != nil {
+	// 注册默认认证器与授权器；嵌入模式可用 WithModuleOverride 替换整个 user 模块。
+	// 传入 m 作为 RoleReader：认证后回填 UserContext.Roles 供授权器判权。
+	if err := ctx.Container.Register(services.KeyAuthenticator, services.Authenticator(NewDefaultAuthenticator(m.cfg, m))); err != nil {
 		return err
 	}
 	if err := ctx.Container.Register(services.KeyAuthorizer, services.Authorizer(NewDefaultAuthorizer())); err != nil {
@@ -73,23 +77,90 @@ func (m *Module) List() []model.User {
 	return m.userStore.List()
 }
 
-// authService 认证服务实现
-type authService struct {
-	cfg *config.Config
+// Get 返回单个用户
+func (m *Module) Get(username string) (model.User, bool) {
+	return m.userStore.GetUser(username)
 }
 
-// CheckPassword 校验用户名和密码
+// Save 创建或更新用户
+func (m *Module) Save(user model.User) error {
+	return m.userStore.CreateUser(user)
+}
+
+// Delete 删除用户。调用方（endpoint 层）负责先停引擎再清数据目录。
+func (m *Module) Delete(username string) error {
+	return m.userStore.Delete(username)
+}
+
+// GetUsernameByApiKey 通过 API Key 反查用户名，只查 store。
+// config.conf 静态 Key 的回退由认证器负责（这里实现 ApiKeyReader 供其调用）。
+func (m *Module) GetUsernameByApiKey(apikey string) string {
+	if apikey == "" {
+		return ""
+	}
+	return m.userStore.GetUsernameByApiKey(apikey)
+}
+
+// RolesOf 返回用户角色。store 里没有则回退 config：config.conf 内置账号视为
+// admin（保持升级前的开箱体验）。
+func (m *Module) RolesOf(username string) []string {
+	if u, ok := m.userStore.GetUser(username); ok && len(u.Roles) > 0 {
+		return u.Roles
+	}
+	if m.cfg != nil && m.cfg.CheckUserExists(username) {
+		return []string{model.RoleAdmin}
+	}
+	return nil
+}
+
+// IsDisabled 查询账号是否停用，供认证器拒绝停用账号。不在 store 视为未停用。
+func (m *Module) IsDisabled(username string) bool {
+	if m.userStore == nil || username == "" {
+		return false
+	}
+	if u, ok := m.userStore.GetUser(username); ok {
+		return u.Disabled
+	}
+	return false
+}
+
+// authService 认证服务实现
+type authService struct {
+	cfg       *config.Config
+	userStore store.UserStore
+}
+
+// CheckPassword 校验用户名和密码。先查 UserStore（运行时创建的租户），
+// 未命中再回退 config.conf 的内置账号。
 func (s *authService) CheckPassword(username, password string) bool {
 	if username == "" {
 		return false
 	}
+	if s.userStore != nil {
+		if u, ok := s.userStore.GetUser(username); ok {
+			if u.Disabled {
+				// 停用是明确意图，不给 config 回退机会
+				return false
+			}
+			// 密码为空表示 store 未持有凭据（如内置账号只在 store 存了 apiKey），
+			// 此时 store 不权威，回退 config 以免把内置账号锁死
+			if u.Password != "" {
+				return s.userStore.ValidatePassword(username, password)
+			}
+		}
+	}
 	return s.cfg.CheckPassword(username, password)
 }
 
-// GetUsernameByApiKey 通过 API Key 获取用户名
+// GetUsernameByApiKey 通过 API Key 取用户名，store 优先，回退 config。
 func (s *authService) GetUsernameByApiKey(apikey string) string {
 	if apikey == "" {
 		return ""
+	}
+	if s.userStore != nil {
+		if username := s.userStore.GetUsernameByApiKey(apikey); username != "" {
+			return username
+		}
 	}
 	return s.cfg.GetUsernameByApiKey(apikey)
 }

@@ -169,6 +169,15 @@ func (c *Config) InitUserMap() {
 	}
 }
 
+// CheckUserExists 检查用户是否在配置的内置账号里
+func (c *Config) CheckUserExists(username string) bool {
+	if c.UserNamePasswordMap == nil {
+		return false
+	}
+	_, ok := c.UserNamePasswordMap[username]
+	return ok
+}
+
 // CheckPassword 检查密码
 func (c *Config) CheckPassword(username, password string) bool {
 	if c.UserNamePasswordMap == nil {
