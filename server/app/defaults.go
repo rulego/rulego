@@ -8,6 +8,7 @@ import (
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/config"
+	"github.com/rulego/rulego/server/internal/runlogutil"
 	"github.com/rulego/rulego/server/internal/store/bboltstore"
 	"github.com/rulego/rulego/server/internal/store/filestore"
 	"github.com/rulego/rulego/server/internal/store/jsonlstore"
@@ -40,7 +41,7 @@ func RegisterDefaultStoresHook(application *App) {
 			if err == nil {
 				if fp, ok := provider.(*filestore.FileStoreProvider); ok {
 					var runLogStore store.RunLogStore
-					if !cfg.SaveRunLog {
+					if runlogutil.ParseLevel(cfg.RunLogMode) == runlogutil.LevelOff {
 						runLogStore = nopstore.NopRunLogStore{}
 					} else {
 						switch cfg.RunLogStoreType {

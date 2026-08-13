@@ -11,9 +11,9 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
-	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/internal/engine"
+	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
 	"github.com/rulego/rulego/utils/json"
 	"github.com/rulego/rulego/utils/maps"
@@ -38,8 +38,8 @@ func New() *Module {
 	return &Module{}
 }
 
-func (m *Module) Name() string     { return ModuleName }
-func (m *Module) Priority() int    { return Priority }
+func (m *Module) Name() string  { return ModuleName }
+func (m *Module) Priority() int { return Priority }
 
 func (m *Module) Init(ctx *app.ModuleContext) error {
 	m.cfg = ctx.Config
@@ -51,6 +51,8 @@ func (m *Module) Init(ctx *app.ModuleContext) error {
 	}
 
 	m.engine = engine.NewManager(m.cfg, m.logger, storeProvider)
+	// 注入服务容器，供全局 OnRuleChainCompleted 回调懒取 RunLogService（覆盖所有触发源）
+	m.engine.SetContainer(ctx.Container)
 
 	if err := ctx.Container.Register(services.KeyRuleCatalog, services.ChainCatalog(m)); err != nil {
 		return err
@@ -462,7 +464,6 @@ func (m *Module) MCPService(username string) interface{} {
 type mcpServiceStub struct{}
 
 func (s *mcpServiceStub) Name() string { return "mcp (not enabled)" }
-
 
 func (m *Module) fillAdditionalInfo(ue services.UserEngine, def *types.RuleChain) {
 	if def.RuleChain.AdditionalInfo == nil {

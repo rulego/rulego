@@ -13,14 +13,16 @@ import (
 	"github.com/rulego/rulego/api/types"
 	rulegoEngine "github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/node_pool"
+	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/internal/modules/runlog"
+	"github.com/rulego/rulego/server/internal/runlogutil"
+	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
 	"github.com/rulego/rulego/utils/fs"
 
 	"github.com/rulego/rulego/components/action"
-	"github.com/rulego/rulego/server/services"
 )
 
 // UserEngine 用户级规则引擎，管理引擎池和配置
@@ -32,6 +34,7 @@ type UserEngine struct {
 	logger     types.Logger
 	ruleStore  store.RuleStore
 	setStore   store.SettingStore
+	container  *app.Container // 服务容器，供全局回调按需懒取 RunLogService 等服务；nil 表示不可用
 	locker     sync.RWMutex
 	mainEngine types.RuleEngine
 }
@@ -43,7 +46,8 @@ type Manager struct {
 	cfg           *config.Config
 	logger        types.Logger
 	storeProvider store.StoreProvider
-	systemEp      types.Node // 共享给用户池的系统端点（如主 HTTP server），由 SetSystemEndpoint 注入；nil 表示不注入
+	systemEp      types.Node     // 共享给用户池的系统端点（如主 HTTP server），由 SetSystemEndpoint 注入；nil 表示不注入
+	container     *app.Container // 服务容器，由 SetContainer 注入，供全局回调懒取 RunLogService
 }
 
 // NewManager 创建引擎管理器
@@ -60,6 +64,12 @@ func NewManager(cfg *config.Config, logger types.Logger, storeProvider store.Sto
 // 设置后新建用户引擎时会把该端点加入用户节点池，供用户规则链通过 ref:// 引用。
 func (m *Manager) SetSystemEndpoint(ep types.Node) {
 	m.systemEp = ep
+}
+
+// SetContainer 注入服务容器，供全局 OnRuleChainCompleted 回调懒取 RunLogService。
+// 应在 InitUserEngines 之前调用（由 rule 模块在 Init 阶段注入）。
+func (m *Manager) SetContainer(c *app.Container) {
+	m.container = c
 }
 
 // GetOrCreate 获取或创建用户引擎，使用 double-check locking 防止竞态
@@ -186,6 +196,7 @@ func (m *Manager) newUserEngine(username string) (*UserEngine, error) {
 		logger:     logger,
 		ruleStore:  ruleStore,
 		setStore:   setStore,
+		container:  m.container,
 	}
 
 	ue.initRuleConfig()
@@ -329,6 +340,30 @@ func (ue *UserEngine) initRuleConfig() {
 		// 子规则链调试日志同步推送到调试发起的根链路，使主链路控制台可见
 		if root := msg.Metadata.GetValue(constants.ParamRootChainId); root != "" && root != chainId {
 			runlog.SendDebugDataToClients(root, logData)
+		}
+	}
+
+	// 注册全局完成回调以落运行记录。仅当全局级别非 Off 时才启用——
+	// RunLogMode 必须设进 ruleConfig，引擎据此决定是否收集逐节点日志。
+	if globalLevel := runlogutil.ParseLevel(ue.config.RunLogMode); globalLevel != runlogutil.LevelOff {
+		ue.ruleConfig.RunLogMode = types.RunLogMode(ue.config.RunLogMode)
+		ue.ruleConfig.OnRuleChainCompleted = func(ctx types.RuleContext, snapshot types.RuleChainRunSnapshot) {
+			// 单链可能在自己的 additionalInfo 里覆盖级别，需按链重新解析
+			level := runlogutil.ResolveLevel(ue.config.RunLogMode, ctx)
+			if level == runlogutil.LevelOff {
+				return
+			}
+			username := runlogutil.UsernameFromCtx(ctx)
+			source := ""
+			if out := ctx.GetOut(); out.Metadata != nil {
+				source = out.Metadata.GetValue(constants.ParamTriggerSource)
+			}
+			// RunLogService 此时未必已注册，按需从容器懒取以避开模块 init 时序
+			if ue.container != nil {
+				if runLogSvc, err := app.GetAs[services.RunLogService](ue.container, services.KeyRunLogService); err == nil {
+					_ = runLogSvc.SaveRunLog(username, ctx, snapshot, level, source)
+				}
+			}
 		}
 	}
 }

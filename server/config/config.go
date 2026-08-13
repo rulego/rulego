@@ -50,13 +50,14 @@ type Config struct {
 	Global types.Properties `ini:"global"`
 	// NodePoolFile 节点池文件
 	NodePoolFile string `ini:"node_pool_file"`
-	// SaveRunLog 是否保存运行日志
-	SaveRunLog bool `ini:"save_run_log"`
+	// RunLogMode 运行记录级别：off（不记录，默认）/ summary（摘要）/ detail（完整节点日志）
+	// 替代原 save_run_log。链级 additionalInfo.runLogMode 可覆盖此全局配置。
+	RunLogMode string `ini:"run_log_mode"`
 	// RunLogStoreType 运行日志存储类型：bbolt（默认）或 file（JSON Lines）
 	RunLogStoreType string `ini:"run_log_store_type"`
-	// RunLogRetentionCount 保留最近 N 条日志，0 表示不限制
+	// RunLogRetentionCount 每条规则链保留最近 N 条运行记录，0 表示不限制。默认 500
 	RunLogRetentionCount int `ini:"run_log_retention_count"`
-	// RunLogRetentionDays 保留最近 N 天日志，0 表示不限制
+	// RunLogRetentionDays 保留最近 N 天运行记录，0 表示不限制。默认 7
 	RunLogRetentionDays int `ini:"run_log_retention_days"`
 	// ScriptMaxExecutionTime 脚本最大执行时间（毫秒）
 	ScriptMaxExecutionTime int `ini:"script_max_execution_time"`
@@ -200,28 +201,30 @@ func (c *Config) GetApiKeyByUsername(username string) string {
 // DefaultConfig 返回默认配置
 func DefaultConfig() Config {
 	cfg := Config{
-		DataDir:           "./data",
-		SkillPath:         "./skills",
-		CmdWhiteList:      "cp,scp,mvn,npm,yarn,git,make,cmake,docker,kubectl,helm,ansible,puppet,pytest,python,python3,pip,go,java,dotnet,gcc,g++,ctest",
-		CmdMode:           "allow",
-		FilePathWhiteList: "/tmp",
-		LoadLuaLibs:       "true",
-		Server:            ":9090",
-		DefaultUsername:   "admin",
-		MaxNodeLogSize:    40,
-		ResourceMapping:   "/editor/*filepath=./editor,/images/*filepath=./editor/images",
-		JwtSecretKey:      "r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1",
-		JwtExpireTime:     43200000,
-		JwtIssuer:         "rulego.cc",
-		ShareHttpServer:   false,
-		AllowCors:         true,
-		ReadTimeout:       30,
-		WriteTimeout:      300,
-		MaxBodySize:       10,
-		LogLevel:          "info",
-		LogMaxSize:        100,
-		LogMaxBackups:     30,
-		LogMaxAge:         7,
+		DataDir:              "./data",
+		SkillPath:            "./skills",
+		CmdWhiteList:         "cp,scp,mvn,npm,yarn,git,make,cmake,docker,kubectl,helm,ansible,puppet,pytest,python,python3,pip,go,java,dotnet,gcc,g++,ctest",
+		CmdMode:              "allow",
+		FilePathWhiteList:    "/tmp",
+		LoadLuaLibs:          "true",
+		Server:               ":9090",
+		DefaultUsername:      "admin",
+		MaxNodeLogSize:       40,
+		RunLogRetentionCount: 500,
+		RunLogRetentionDays:  7,
+		ResourceMapping:      "/editor/*filepath=./editor,/images/*filepath=./editor/images",
+		JwtSecretKey:         "r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1",
+		JwtExpireTime:        43200000,
+		JwtIssuer:            "rulego.cc",
+		ShareHttpServer:      false,
+		AllowCors:            true,
+		ReadTimeout:          30,
+		WriteTimeout:         300,
+		MaxBodySize:          10,
+		LogLevel:             "info",
+		LogMaxSize:           100,
+		LogMaxBackups:        30,
+		LogMaxAge:            7,
 		Users: types.Properties{
 			"admin": "admin,2af255ea5618467d914c67a8beeca31d",
 		},

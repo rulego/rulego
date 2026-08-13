@@ -1424,8 +1424,10 @@ GET/POST/DELETE /api/v1/mcp/:apiKey/group/:group
 | read_timeout | 30 | HTTP 读超时（秒） |
 | write_timeout | 300 | HTTP 写超时（秒，AI 聊天需要较长超时） |
 | max_body_size | 10 | 请求体最大大小（MB） |
-| save_run_log | false | 是否保存运行日志 |
+| run_log_mode | `off` | 运行记录级别：`off`（不记录，默认）/ `summary`（摘要，零开销）/ `detail`（完整节点日志）。链级 `additionalInfo.runLogMode` 可覆盖 |
 | run_log_store_type | `bbolt` | 运行日志存储类型：`bbolt` 或 `file`（JSON Lines） |
+| run_log_retention_count | `500` | 每条规则链保留最近 N 条运行记录，`0` 表示不限制 |
+| run_log_retention_days | `7` | 保留最近 N 天运行记录，`0` 表示不限制 |
 | pprof.enable | `false` | 是否启用 pprof |
 | pprof.addr | `0.0.0.0:6060` | pprof 服务地址 |
 | mcp.enable | `true` | 是否启用 MCP 服务 |
