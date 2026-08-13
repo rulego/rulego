@@ -6,16 +6,14 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-// FileStorage INI 文件存储基类，提供对单个 INI 文件的读写操作。
-// 线程安全，支持按 section 分组存储键值对。
+// FileStorage 单个 INI 文件的线程安全读写，按 section 分组键值对。
 type FileStorage struct {
 	filename string
 	file     *ini.File
 	lock     sync.RWMutex
 }
 
-// NewFileStorage 创建或加载 INI 文件存储。
-// 如果文件不存在则自动创建空文件。
+// NewFileStorage 加载 INI 文件，文件不存在时按空文件处理（ini.LooseLoad 不报错）。
 func NewFileStorage(filename string) (*FileStorage, error) {
 	file, err := ini.LooseLoad(filename)
 	if err != nil {
@@ -24,24 +22,30 @@ func NewFileStorage(filename string) (*FileStorage, error) {
 	return &FileStorage{filename: filename, file: file}, nil
 }
 
-// GetSection 获取指定分区
+// GetSection 返回指定分区的 *ini.Section。
+// 返回值指向锁内共享结构，脱离本类型锁保护：调用方只读，改值走 Save/SaveList/Delete，
+// 否则与并发写竞争。
 func (d *FileStorage) GetSection(sectionName string) (*ini.Section, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 	return d.file.GetSection(sectionName)
 }
 
-// Get 获取指定 section 下的键值
+// Get 读取键值，键不存在返回空串。
+// 必须先 HasKey 再取值：ini.Section.Key() 对不存在键会 NewKey 注册空键，
+// 让读产生写副作用——下次 Save 会把这些空键落盘（users.ini 曾因此冒出幽灵条目），
+// 且在 RLock 下改写 ini 还构成数据竞争。
 func (d *FileStorage) Get(sectionName string, keyName string) string {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
-	if fs, err := d.file.GetSection(sectionName); err != nil {
-		return ""
-	} else if key := fs.Key(keyName); key != nil {
-		return key.Value()
-	} else {
+	fs, err := d.file.GetSection(sectionName)
+	if err != nil || fs == nil {
 		return ""
 	}
+	if !fs.HasKey(keyName) {
+		return ""
+	}
+	return fs.Key(keyName).Value()
 }
 
 // GetAll 获取指定 section 下的所有键值对
@@ -57,24 +61,30 @@ func (d *FileStorage) GetAll(sectionName string) map[string]string {
 	return values
 }
 
-// Save 保存单个键值对到指定 section，如果 section 不存在则自动创建
+// Save 写入单个键值对（section 不存在自动创建），改内存与落盘在同一写锁内。
+// ini.File 非并发安全：若只在落盘时加锁，改写会与并发 Get/GetAll 竞争内部 map。
 func (d *FileStorage) Save(sectionName, key, value string) error {
-	section := d.file.Section(sectionName)
-	section.Key(key).SetValue(value)
-	return d.SaveToFile()
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	d.file.Section(sectionName).Key(key).SetValue(value)
+	return d.saveToFileLocked()
 }
 
 // SaveList 批量保存键值对到指定 section
 func (d *FileStorage) SaveList(sectionName string, values map[string]string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	section := d.file.Section(sectionName)
 	for key, value := range values {
 		section.Key(key).SetValue(value)
 	}
-	return d.SaveToFile()
+	return d.saveToFileLocked()
 }
 
 // Delete 删除指定 section 下的键
 func (d *FileStorage) Delete(sectionName string, keys ...string) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	if !d.file.HasSection(sectionName) {
 		return nil
 	}
@@ -82,18 +92,23 @@ func (d *FileStorage) Delete(sectionName string, keys ...string) error {
 	for _, key := range keys {
 		section.DeleteKey(key)
 	}
-	return d.SaveToFile()
+	return d.saveToFileLocked()
 }
 
 // SaveToFile 将内存中的 INI 数据持久化到磁盘文件
 func (d *FileStorage) SaveToFile() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+	return d.saveToFileLocked()
+}
+
+// saveToFileLocked 落盘，调用方须已持写锁：SaveTo 遍历 ini 内部结构，
+// 必须与改写处同处一个临界区。
+func (d *FileStorage) saveToFileLocked() error {
 	return d.file.SaveTo(d.filename)
 }
 
-// FileStorageManager INI 文件存储管理器，负责懒加载和缓存多个 FileStorage 实例。
-// 避免对同一文件重复创建存储实例。
+// FileStorageManager 按文件路径懒加载并缓存 FileStorage，避免对同一文件重复建实例。
 type FileStorageManager struct {
 	manager map[string]*FileStorage
 	lock    sync.RWMutex

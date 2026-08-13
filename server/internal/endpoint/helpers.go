@@ -2,7 +2,6 @@ package endpoint
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -23,10 +22,15 @@ func getService[T any](s *Server, exchange *endpointApi.Exchange, name string) (
 	return svc, true
 }
 
-// writeError 写入错误响应
+// writeError 写入错误响应。用 json.Marshal 而非 %q 拼接：%q 对控制字符产出
+// \xNN 转义，不是合法 JSON。
 func writeError(exchange *endpointApi.Exchange, code int, err error) {
 	exchange.Out.SetStatusCode(code)
-	exchange.Out.SetBody([]byte(fmt.Sprintf(`{"error":%q}`, err.Error())))
+	body, marshalErr := json.Marshal(map[string]string{"error": err.Error()})
+	if marshalErr != nil {
+		body = []byte(`{"error":"internal server error"}`)
+	}
+	exchange.Out.SetBody(body)
 }
 
 // writeBadRequest 写入 400 错误响应（客户端错误，可以暴露信息）

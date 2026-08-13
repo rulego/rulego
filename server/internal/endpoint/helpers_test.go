@@ -69,6 +69,29 @@ func TestWriteError(t *testing.T) {
 	}
 }
 
+// 错误消息含控制字符（如 0x7F）或引号时，响应体仍必须是合法 JSON：
+// %q 会对 0x7F 产出 \xNN 转义，JSON 不认，浏览器拿到的是解析失败的响应体。
+func TestWriteError_SpecialCharsStillValidJSON(t *testing.T) {
+	cases := []string{
+		"bad \x7f value",
+		`quote " and backslash \`,
+		"换行\n与制表\t",
+	}
+	for _, msg := range cases {
+		exchange := newTestExchange(t)
+		writeError(exchange, http.StatusBadRequest, errors.New(msg))
+
+		var resp map[string]string
+		if err := json.Unmarshal(outBody(exchange), &resp); err != nil {
+			t.Errorf("消息 %q 的响应体不是合法 JSON: %v, body=%q", msg, err, outBody(exchange))
+			continue
+		}
+		if resp["error"] != msg {
+			t.Errorf("消息内容被改变: got %q, want %q", resp["error"], msg)
+		}
+	}
+}
+
 func TestWriteBadRequest(t *testing.T) {
 	exchange := newTestExchange(t)
 	writeBadRequest(exchange, errors.New("bad input"))
