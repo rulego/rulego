@@ -25,6 +25,92 @@ func doGet(t *testing.T, br *Bridge, path string) (int, []byte) {
 	return w.Code, w.Body.Bytes()
 }
 
+// TestRuleCategoriesRoute 锁住路径名。
+// /rules/categories 会让 httprouter panic（静态段与同层 :id 通配冲突），
+// 故走 /category/rule 前缀（与 /rules/:id 不同层，天然不冲突）。前端若按旧路径写会 404，此用例即为防线。
+func TestRuleCategoriesRoute(t *testing.T) {
+	br := newTestBridge(t)
+	defer br.Stop()
+
+	code, body := doGet(t, br, "/api/v1/category/rule")
+	if code != http.StatusOK {
+		t.Fatalf("GET /api/v1/category/rule = %d, want 200；响应: %s", code, body)
+	}
+
+	// 响应形状是 {items, total}（与其他列表接口一致），不是裸数组。
+	// 空库下 items 也必须存在，前端导航树直接遍历不做兜底。
+	var payload struct {
+		Items []string `json:"items"`
+		Total *int     `json:"total"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("响应不是 {items,total} 形状: %v；原始: %s", err, body)
+	}
+	if payload.Items == nil {
+		t.Errorf("items 字段缺失或为 null，应为数组（可空）；原始: %s", body)
+	}
+	if payload.Total == nil {
+		t.Errorf("total 字段缺失；原始: %s", body)
+	}
+}
+
+// TestRuleCategoriesOldPathIsNotRegistered 反向锁定：
+// 若将来有人「修正」成 /rules/categories，这条会失败，提醒他那样注册会让服务起不来。
+func TestRuleCategoriesOldPathIsNotRegistered(t *testing.T) {
+	br := newTestBridge(t)
+	defer br.Stop()
+
+	code, _ := doGet(t, br, "/api/v1/rules/categories")
+	if code == http.StatusOK {
+		t.Fatal("/api/v1/rules/categories 返回 200：该路径与 /rules/:id 通配冲突，不应存在")
+	}
+}
+
+// TestOverviewRoute 总览聚合接口。响应里含 categories 字段，
+// 导航树可直接复用，少一次请求——字段缺失会让前端静默拿到 undefined。
+func TestOverviewRoute(t *testing.T) {
+	br := newTestBridge(t)
+	defer br.Stop()
+
+	code, body := doGet(t, br, "/api/v1/overview")
+	if code != http.StatusOK {
+		t.Fatalf("GET /api/v1/overview = %d, want 200；响应: %s", code, body)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("响应不是 JSON 对象: %v；原始: %s", err, body)
+	}
+	if _, ok := payload["categories"]; !ok {
+		t.Errorf("响应缺 categories 字段（导航树依赖它复用总览数据）；实际键: %v", keysOf(payload))
+	}
+}
+
+// TestVersionRoute 版本接口，供总览与「关于」使用
+func TestVersionRoute(t *testing.T) {
+	br := newTestBridge(t)
+	defer br.Stop()
+
+	code, body := doGet(t, br, "/api/v1/version")
+	if code != http.StatusOK {
+		t.Fatalf("GET /api/v1/version = %d, want 200；响应: %s", code, body)
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("响应不是 JSON 对象: %v；原始: %s", err, body)
+	}
+	for _, k := range []string{"version", "apiVersion", "startTime"} {
+		if _, ok := payload[k]; !ok {
+			t.Errorf("响应缺 %q 字段；实际键: %v", k, keysOf(payload))
+		}
+	}
+	// goVersion 是运行时指纹（可据 CVE 查攻击面），该接口只认证不鉴权，不应返回
+	if _, ok := payload["goVersion"]; ok {
+		t.Errorf("响应不应含 goVersion；实际键: %v", keysOf(payload))
+	}
+}
+
 // TestUsersMeRoute /users/me：当前登录者信息。
 // 曾经的坑是登录不走 UserStore，这类只有过 HTTP 才暴露。
 func TestUsersMeRoute(t *testing.T) {
@@ -66,4 +152,12 @@ func TestUsersListRoute(t *testing.T) {
 	if err := json.Unmarshal(body, &any); err != nil {
 		t.Fatalf("响应不是合法 JSON: %v；原始: %s", err, body)
 	}
+}
+
+func keysOf(m map[string]interface{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
 }

@@ -185,6 +185,7 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 	s.registerBuiltinRoutes(ep)
 	s.registerMCPRoutes(ep)
 	s.registerUserRoutes(ep)
+	s.registerOverviewRoutes(ep)
 
 	// 静态资源映射
 	if s.config.ResourceMapping != "" {

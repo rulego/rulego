@@ -38,6 +38,34 @@ func (s *Server) getRuleGoFunc(exchange *endpointApi.Exchange) types.RuleEngineP
 func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
+	// GET /category/rule - 规则链分类枚举（供前端表单下拉 / 导航树分组）。
+	// 走 /category 前缀：与 /rules/:id 不同层，天然不撞 httprouter 的静态段+通配冲突，
+	// 无需像 /rule-categories 那样避让命名；未来可扩展 /category/component 等。
+	//
+	// 当前实现一次性拉全量再去重（size=categoriesPageSize），是当前规模下的权衡；
+	// 链数上千应改为 store 层做 distinct 查询，避免每次请求全量反序列化。
+	ep.GET(endpoint.NewRouter().From(base + "/category/rule").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		username := metadataUsername(exchange)
+		catalog, ok := getService[services.ChainCatalog](s, exchange, services.KeyRuleCatalog)
+		if !ok {
+			return false
+		}
+		list, _, err := catalog.List(username, "", nil, nil, "", categoriesPageSize, 1)
+		if err != nil {
+			writeInternalError(exchange, err)
+			return false
+		}
+		catSet := make(map[string]struct{})
+		for _, c := range list {
+			if cat := chainCategory(c); cat != "" {
+				catSet[cat] = struct{}{}
+			}
+		}
+		items := sortedKeys(catSet)
+		writeJSON(exchange, map[string]interface{}{"items": items, "total": len(items)})
+		return true
+	}).End())
+
 	// GET /rules - 获取规则链列表
 	ep.GET(endpoint.NewRouter().From(base + "/rules").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
@@ -200,9 +228,11 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		eng, ok := pool.Get(chainId)
 		if !ok {
-			exchange.Out.SetStatusCode(http.StatusNotFound)
-			exchange.Out.SetBody([]byte("rule chain not loaded: " + chainId))
-			return false
+			// 规则链未加载（未保存或未部署），返回空状态而非 404
+			// 这样前端可以正常处理新创建的规则链（如 __scratch__）
+			exchange.Out.Headers().Set("Content-Type", "application/json")
+			exchange.Out.SetBody([]byte("{}"))
+			return true
 		}
 		// ChainStatusesGetter is an optional ChainCtx capability; assert at the call site.
 		var statuses map[string]types.StatusInfo

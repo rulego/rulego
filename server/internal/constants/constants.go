@@ -68,6 +68,9 @@ const (
 	BearerPrefix = "Bearer "
 )
 
+// ServerVersion 服务端版本号，由 GET /api/v1/version 返回
+const ServerVersion = "0.37.0"
+
 // 权限资源名（authWithPermission 的 resource 入参）
 const (
 	ResourceRule = "rule"

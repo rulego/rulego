@@ -119,7 +119,7 @@ func (d *RuleStore) List(username string, keywords string, root *bool, disabled 
 		}
 		if (root == nil || meta.Root == *root) &&
 			(disabled == nil || meta.Disabled == *disabled) &&
-			(category == "" || meta.Category == category) {
+			categoryMatches(meta.Category, category) {
 			if keywords == "" || strings.Contains(meta.Name, keywords) ||
 				strings.Contains(meta.ID, keywords) {
 				ruleChainData, err := d.GetAsRuleChain(username, meta.ID)
@@ -210,6 +210,23 @@ func (d *RuleStore) getCategory(chainId string) string {
 // isSafeCategory 校验 category 不会逃逸出存储根目录，防止路径穿越。
 // category 来自客户端可控的 additionalInfo，会被直接拼入存储路径，必须校验。
 // 允许 "a/b" 这类多级分类，但禁止 ".." 段和绝对路径。
+// categoryMatches 判断规则链的 category 是否落在查询分类之下。
+//
+// category 是路径式的（如 "collect/modbus"），存储时按 "/" 分段建目录，
+// 所以查询父级要能命中子级：query="collect" 命中 "collect/modbus"。
+//
+// 必须在 "/" 边界上比，不能用裸 strings.HasPrefix ——
+// 否则 query="collect" 会误命中兄弟分类 "collection"。
+// query 两端的 "/" 先规整掉，避免 "collect/" 与 "collect" 行为不一致。
+func categoryMatches(itemCategory, query string) bool {
+	q := strings.Trim(strings.TrimSpace(query), "/")
+	if q == "" {
+		return true
+	}
+	c := strings.Trim(itemCategory, "/")
+	return c == q || strings.HasPrefix(c, q+"/")
+}
+
 func isSafeCategory(category string) bool {
 	if category == "" {
 		return true
@@ -337,6 +354,10 @@ func (d *RuleStore) deleteIndex(chainId string) error {
 func (d *RuleStore) saveIndex(indexPath string) error {
 	d.Lock()
 	defer d.Unlock()
+	// 父目录可能尚未创建（新建用户首次写入索引时），os.Create 不会自动建目录。
+	if err := os.MkdirAll(filepath.Dir(indexPath), 0o755); err != nil {
+		return err
+	}
 	file, err := os.Create(indexPath)
 	if err != nil {
 		return err
