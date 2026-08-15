@@ -161,7 +161,11 @@ func (p *Pool) New(id string, def []byte, opts ...endpoint.DynamicEndpointOption
 		if e, err := NewFromDsl(def, opts...); err != nil {
 			return e, err
 		} else {
-			p.entries.Store(e.Id(), e)
+			// LoadOrStore 消除并发同 id 双建：败者销毁自己刚建的实例并返回既有者
+			if actual, loaded := p.entries.LoadOrStore(e.Id(), e); loaded {
+				e.Destroy()
+				return actual.(endpoint.DynamicEndpoint), nil
+			}
 			return e, nil
 		}
 	}
@@ -218,7 +222,7 @@ func (p *Pool) Range(f func(key, value any) bool) {
 // Reload 使用提供的选项重新加载所有 DynamicEndpoint 实例。
 // 此方法将相同的选项应用于池中的所有端点。
 func (p *Pool) Reload(opts ...endpoint.DynamicEndpointOption) {
-	DefaultPool.entries.Range(func(key, value any) bool {
+	p.entries.Range(func(key, value any) bool {
 		if item, ok := value.(endpoint.DynamicEndpoint); ok {
 			_ = item.Reload(nil, opts...)
 		}

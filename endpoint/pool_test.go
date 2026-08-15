@@ -28,6 +28,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -215,4 +216,42 @@ func sendMsg(t *testing.T, url, method string, msg types.RuleMsg, ctx types.Rule
 	//发送消息
 	node.OnMsg(ctx, msg)
 	return node
+}
+
+// 并发同 id New 应收敛到同一实例，败者自我销毁不泄漏。
+func TestPoolNewConcurrentSameId(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	endpointBuf, err := os.ReadFile(testEndpointsFolder + "/http_01.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	endpointStr := strings.Replace(string(endpointBuf), "9090", "9083", -1)
+
+	pool := NewPool()
+	defer pool.Stop()
+	var mu sync.Mutex
+	var first endpoint.DynamicEndpoint
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ep, err := pool.New("same-id", []byte(endpointStr), endpoint.DynamicEndpointOptions.WithConfig(config))
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if first == nil {
+				first = ep
+			} else if first != ep {
+				t.Error("concurrent New with same id returned different instances")
+			}
+		}()
+	}
+	wg.Wait()
+	if _, ok := pool.Get("same-id"); !ok {
+		t.Error("endpoint missing from pool after concurrent New")
+	}
 }
