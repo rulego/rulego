@@ -134,7 +134,7 @@ func (s *Server) NewStandardRestEndpoint() (endpointApi.HttpEndpoint, error) {
 
 // initRestEndpoint 初始化 REST 端点路由
 func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.HttpEndpoint, error) {
-	// 全局拦截器：设置 Content-Type + panic recovery
+	// 全局拦截器：设置 Content-Type + panic recovery + 请求体上限
 	ep.AddInterceptors(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		// panic recovery，防止单个请求 panic 导致整个进程崩溃
 		defer func() {
@@ -143,6 +143,23 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 				exchange.Out.SetBody([]byte(`{"error":"internal server error"}`))
 			}
 		}()
+
+		// 请求体大小限制：必须在鉴权中间件读 body 之前包装，
+		// 否则超大请求会被 io.ReadAll 全量读入内存（max_body_size 一直没接上）
+		if r, ok := exchange.In.(*rest.RequestMessage); ok {
+			req := r.Request()
+			if req != nil && req.Body != nil {
+				w, wOk := exchange.Out.(interface{ Response() http.ResponseWriter })
+				if req.ContentLength > s.maxBodyBytes() {
+					exchange.Out.SetStatusCode(http.StatusRequestEntityTooLarge)
+					exchange.Out.SetBody([]byte(`{"error":"request body too large"}`))
+					return false
+				}
+				if wOk {
+					req.Body = http.MaxBytesReader(w.Response(), req.Body, s.maxBodyBytes())
+				}
+			}
+		}
 
 		if out, ok := exchange.Out.(endpointApi.HeaderModifier); ok {
 			out.AddHeader("Content-Type", "application/json")

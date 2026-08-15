@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
@@ -119,13 +120,17 @@ func appendQueryParams(rawURL, keywords string, page, size int, root *bool) stri
 	return rawURL
 }
 
+// marketHTTPClient 拉取市场目录：带超时与大小上限，
+// 恶意/卡死的市场端点不会拖死 handler 或撑爆内存
+var marketHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
 func (m *Module) fetchList(rawURL string, defaultPage, defaultSize int) (*MarketplaceResult, error) {
-	resp, err := http.Get(rawURL)
+	resp, err := marketHTTPClient.Get(rawURL)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
 	if err != nil {
 		return nil, err
 	}
