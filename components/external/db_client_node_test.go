@@ -17,13 +17,18 @@
 package external
 
 import (
+	"database/sql"
+	"database/sql/driver"
+	"errors"
+	"fmt"
+	"net"
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/json"
-	"net"
-	"testing"
-	"time"
 )
 
 func TestDbClientNode(t *testing.T) {
@@ -976,4 +981,29 @@ func BenchmarkExpandInClause(b *testing.B) {
 			}
 		})
 	}
+}
+
+func TestIsConnError(t *testing.T) {
+	assert.True(t, isConnError(driver.ErrBadConn))
+	assert.True(t, isConnError(fmt.Errorf("wrap: %w", driver.ErrBadConn)))
+	assert.True(t, isConnError(sql.ErrConnDone))
+	assert.False(t, isConnError(errors.New("You have an error in your SQL syntax")))
+	assert.False(t, isConnError(errors.New("Error 1062: Duplicate entry")))
+	assert.False(t, isConnError(nil))
+}
+
+func TestDbClientNodeConnectionStatusUnreachable(t *testing.T) {
+	node := &DbClientNode{}
+	config := types.NewConfig()
+	err := node.Init(config, types.Configuration{
+		"driverName": "mysql",
+		"dsn":        "root:root@tcp(127.0.0.1:1)/test",
+		"sql":        "select * from test",
+	})
+	assert.Nil(t, err)
+	_, err = node.SharedNode.GetSafely()
+	assert.NotNil(t, err)
+	info := node.ConnectionStatus()
+	assert.Equal(t, types.StatusReconnecting, info.Status)
+	assert.True(t, info.Message != "")
 }
