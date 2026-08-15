@@ -30,21 +30,35 @@ type RuleStore struct {
 // RuleIndex 规则链索引，仅包含必要元数据用于快速列表查询
 type RuleIndex struct {
 	Rules map[string]RuleMeta `json:"rules"`
+	// SchemaVersion 索引结构版本。新增摘要字段时 +1，旧版本索引触发一次性全量重扫回填
+	SchemaVersion int `json:"v,omitempty"`
 }
+
+// ruleIndexSchemaVersion 当前索引结构版本（v2 起含 Description/Message/FirstEndpointType/MTime）
+const ruleIndexSchemaVersion = 2
 
 // RuleMeta 规则链元数据
 type RuleMeta struct {
-	Name         string `json:"name"`
-	ID           string `json:"id"`
-	Root         bool   `json:"root"`
-	Disabled     bool   `json:"disabled"`
-	UpdateTime   string `json:"updateTime"`
-	Category     string `json:"category"`
-	SystemAgent  bool   `json:"systemAgent"`
+	Name        string `json:"name"`
+	ID          string `json:"id"`
+	Root        bool   `json:"root"`
+	Disabled    bool   `json:"disabled"`
+	UpdateTime  string `json:"updateTime"`
+	Category    string `json:"category"`
+	SystemAgent bool   `json:"systemAgent"`
+	// Description/Message 列表摘要 additionalInfo 字段（管理页描述、启停信息）
+	Description string `json:"description,omitempty"`
+	Message     string `json:"message,omitempty"`
+	// FirstEndpointType 第一个 endpoint 的组件类型（管理页触发器图标/文案）
+	FirstEndpointType string `json:"firstEndpointType,omitempty"`
+	// MTime DSL 文件 mtime（UnixNano）。reconcile 据此识别被绕过 API 覆写的文件。
+	MTime int64 `json:"mtime,omitempty"`
 }
 
 // NewRuleStore 创建规则链文件存储。
-// 如果索引文件不存在，会自动扫描规则链文件重建索引。
+// 如果索引文件不存在，会自动扫描规则链文件重建索引；
+// 索引结构版本落后时全量重扫回填新字段；其余情况做一次磁盘对账（reconcile），
+// 把绕过 API 的变更（手动上传/覆写/删除的 DSL 文件）同步进索引。
 func NewRuleStore(cfg config.Config, username string) (*RuleStore, error) {
 	store := &RuleStore{
 		config:   cfg,
@@ -61,6 +75,16 @@ func NewRuleStore(cfg config.Config, username string) (*RuleStore, error) {
 	if err := store.loadIndex(indexPath); err != nil {
 		return nil, err
 	}
+	if store.index.Rules == nil {
+		store.index.Rules = make(map[string]RuleMeta)
+	}
+	if store.index.SchemaVersion < ruleIndexSchemaVersion {
+		if err := store.rebuildIndex(); err != nil {
+			return nil, err
+		}
+	} else if err := store.reconcileIndex(); err != nil {
+		return nil, err
+	}
 
 	return store, nil
 }
@@ -71,15 +95,28 @@ func (d *RuleStore) Save(username, chainId string, def []byte) error {
 	if err := json.Unmarshal(def, &ruleChain); err != nil {
 		return err
 	}
-	if err := d.saveRuleChain(username, chainId, def); err != nil {
+	filePath, err := d.saveRuleChain(username, chainId, def)
+	if err != nil {
 		return err
 	}
-	d.createIndex(ruleChain)
+	d.createIndex(ruleChain, fileModTime(filePath))
 	return d.saveIndex(d.getIndexPath())
 }
 
-// Get 获取规则链原始 JSON 数据
+// Get 获取规则链原始 JSON 数据。
+// 文件路径按索引反查的分类目录拼接；读不到时先做一次磁盘对账再重试，
+// 覆盖手动上传后未经过任何列表请求就直接按 id 访问的场景。
 func (d *RuleStore) Get(username, chainId string) ([]byte, error) {
+	data, err := d.readChainFile(username, chainId)
+	if err != nil {
+		if reconcileErr := d.reconcileIndex(); reconcileErr == nil {
+			data, err = d.readChainFile(username, chainId)
+		}
+	}
+	return data, err
+}
+
+func (d *RuleStore) readChainFile(username, chainId string) ([]byte, error) {
 	category := d.getCategory(chainId)
 	if !isSafeCategory(category) {
 		return nil, errors.New("invalid category")
@@ -108,12 +145,13 @@ func (d *RuleStore) GetAsRuleChain(username, chainId string) (types.RuleChain, e
 }
 
 // List 列出规则链（面向 UI）：关键字搜索、root/disabled 过滤、category 过滤、分页排序。
-// 会过滤 SystemAgent 链；启动加载请用 AllChains。
+// 过滤 SystemAgent 链；启动加载请用 AllChains。
+// 从索引构造摘要项，不读 DSL 文件（完整 DSL 在打开链时按 id 单独拉取）；
+// 每次调用先做磁盘对账，同步绕过 API 的文件变更。
 func (d *RuleStore) List(username string, keywords string, root *bool, disabled *bool, category string, size, page int) ([]types.RuleChain, int, error) {
-	var ruleChains []types.RuleChain
-	totalCount := 0
-	indexList := d.getAllIndex()
-	for _, meta := range indexList {
+	_ = d.reconcileIndex()
+	var metas []RuleMeta
+	for _, meta := range d.getAllIndex() {
 		if meta.SystemAgent {
 			continue
 		}
@@ -122,31 +160,22 @@ func (d *RuleStore) List(username string, keywords string, root *bool, disabled 
 			categoryMatches(meta.Category, category) {
 			if keywords == "" || strings.Contains(meta.Name, keywords) ||
 				strings.Contains(meta.ID, keywords) {
-				ruleChainData, err := d.GetAsRuleChain(username, meta.ID)
-				if err != nil {
-					continue
-				}
-				ruleChains = append(ruleChains, ruleChainData)
-				totalCount++
+				metas = append(metas, meta)
 			}
 		}
 	}
 
-	sort.Slice(ruleChains, func(i, j int) bool {
-		var iTime, jTime string
-		if v, ok := ruleChains[i].RuleChain.GetAdditionalInfo(constants.KeyUpdateTime); ok {
-			iTime = str.ToString(v)
-		}
-		if v, ok := ruleChains[j].RuleChain.GetAdditionalInfo(constants.KeyUpdateTime); ok {
-			jTime = str.ToString(v)
-		}
-		return iTime > jTime
-	})
+	// 按 updateTime 字符串倒序（最近更新的在前）
+	sort.Slice(metas, func(i, j int) bool { return metas[i].UpdateTime > metas[j].UpdateTime })
 
+	totalCount := len(metas)
 	if page == 0 {
-		return ruleChains, totalCount, nil
+		size = totalCount
+		if size == 0 {
+			size = 1
+		}
+		page = 1
 	}
-
 	start := (page - 1) * size
 	end := start + size
 	if start > totalCount {
@@ -155,7 +184,45 @@ func (d *RuleStore) List(username string, keywords string, root *bool, disabled 
 	if end > totalCount {
 		end = totalCount
 	}
-	return ruleChains[start:end], totalCount, nil
+	ruleChains := make([]types.RuleChain, 0, end-start)
+	for _, meta := range metas[start:end] {
+		ruleChains = append(ruleChains, meta.summaryRuleChain())
+	}
+	return ruleChains, totalCount, nil
+}
+
+// summaryRuleChain 由索引元数据构造列表摘要项，不含完整 DSL。
+// 字段集对齐消费方：资源树/切换器用 id/name/root/disabled/category/updateTime，
+// 管理页用 description/message 和首个 endpoint 类型。
+func (m RuleMeta) summaryRuleChain() types.RuleChain {
+	addi := make(map[string]interface{}, 4)
+	if m.Category != "" {
+		addi[constants.KeyCategory] = m.Category
+	}
+	if m.UpdateTime != "" {
+		addi[constants.KeyUpdateTime] = m.UpdateTime
+	}
+	if m.Description != "" {
+		addi[constants.AddiKeyDescription] = m.Description
+	}
+	if m.Message != "" {
+		addi[constants.AddiKeyMessage] = m.Message
+	}
+	summary := types.RuleChain{
+		RuleChain: types.RuleChainBaseInfo{
+			ID:       m.ID,
+			Name:     m.Name,
+			Root:     m.Root,
+			Disabled: m.Disabled,
+		},
+	}
+	if len(addi) > 0 {
+		summary.RuleChain.AdditionalInfo = addi
+	}
+	if m.FirstEndpointType != "" {
+		summary.Metadata.Endpoints = []*types.EndpointDsl{{RuleNode: types.RuleNode{Type: m.FirstEndpointType}}}
+	}
+	return summary
 }
 
 // AllChains 读取该用户所有规则链的 ID 和 DSL（含 SystemAgent）。
@@ -238,7 +305,7 @@ func isSafeCategory(category string) bool {
 	return true
 }
 
-func (d *RuleStore) saveRuleChain(username, chainId string, def []byte) error {
+func (d *RuleStore) saveRuleChain(username, chainId string, def []byte) (string, error) {
 	var ruleChain types.RuleChain
 	category := ""
 	if err := json.Unmarshal(def, &ruleChain); err == nil {
@@ -247,20 +314,34 @@ func (d *RuleStore) saveRuleChain(username, chainId string, def []byte) error {
 		}
 	}
 	if !isSafeCategory(category) {
-		return errors.New("invalid category")
+		return "", errors.New("invalid category")
 	}
+	pathStr := d.ruleFilePath(username, chainId, category)
+	_ = fs.CreateDirs(pathStr)
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, def, "", "  "); err != nil {
+		return "", err
+	}
+	filePath := filepath.Join(pathStr, chainId+constants.RuleChainFileSuffix)
+	return filePath, fs.SaveFile(filePath, buf.Bytes())
+}
+
+// ruleFilePath 规则链 DSL 所在目录（含分类子目录）
+func (d *RuleStore) ruleFilePath(username, chainId, category string) string {
 	var paths = []string{d.config.DataDir, constants.DirWorkflows}
 	paths = append(paths, username, constants.DirWorkflowsRule)
 	if d.isCategoryFolderEnabled() && category != "" {
 		paths = append(paths, category)
 	}
-	pathStr := path.Join(paths...)
-	_ = fs.CreateDirs(pathStr)
-	var buf bytes.Buffer
-	if err := json.Indent(&buf, def, "", "  "); err != nil {
-		return err
+	return path.Join(paths...)
+}
+
+// fileModTime 取文件 mtime（UnixNano），取不到返回 0
+func fileModTime(filePath string) int64 {
+	if info, err := os.Stat(filePath); err == nil {
+		return info.ModTime().UnixNano()
 	}
-	return fs.SaveFile(filepath.Join(pathStr, chainId+constants.RuleChainFileSuffix), buf.Bytes())
+	return 0
 }
 
 func (d *RuleStore) getIndexPath() string {
@@ -268,12 +349,19 @@ func (d *RuleStore) getIndexPath() string {
 }
 
 func (d *RuleStore) rebuildIndex() error {
-	var paths []string
-	paths = append(paths, d.config.DataDir, constants.DirWorkflows)
-	paths = append(paths, d.username, constants.DirWorkflowsRule)
-	basePath := filepath.Join(paths...)
+	// 清空重建：版本升级路径复用此方法，不能残留旧条目
+	d.Lock()
+	d.index.Rules = make(map[string]RuleMeta)
+	d.index.SchemaVersion = ruleIndexSchemaVersion
+	d.Unlock()
+	basePath := d.ruleBasePath()
 	d.scanDirectory(basePath, "")
 	return d.saveIndex(d.getIndexPath())
+}
+
+// ruleBasePath 当前用户规则链 DSL 根目录
+func (d *RuleStore) ruleBasePath() string {
+	return filepath.Join(d.config.DataDir, constants.DirWorkflows, d.username, constants.DirWorkflowsRule)
 }
 
 func (d *RuleStore) scanDirectory(dirPath string, folderCategory string) {
@@ -291,24 +379,113 @@ func (d *RuleStore) scanDirectory(dirPath string, folderCategory string) {
 			continue
 		}
 		if filepath.Ext(strings.ToLower(file.Name())) == constants.RuleChainFileSuffix {
-			filePath := filepath.Join(dirPath, file.Name())
-			data, err := os.ReadFile(filePath)
+			info, err := file.Info()
 			if err != nil {
 				continue
 			}
-			var ruleChain types.RuleChain
-			if err := json.Unmarshal(data, &ruleChain); err != nil {
-				continue
-			}
-			if d.isCategoryFolderEnabled() && folderCategory != "" {
-				if ruleChain.RuleChain.AdditionalInfo == nil {
-					ruleChain.RuleChain.AdditionalInfo = make(map[string]interface{})
-				}
-				ruleChain.RuleChain.AdditionalInfo[constants.KeyCategory] = folderCategory
-			}
-			d.createIndex(ruleChain)
+			d.indexChainFile(filepath.Join(dirPath, file.Name()), folderCategory, info.ModTime().UnixNano())
 		}
 	}
+}
+
+// indexChainFile 读取单个 DSL 文件并写入索引。读取/解析失败静默跳过（与扫描重建同策略）。
+func (d *RuleStore) indexChainFile(filePath, folderCategory string, mtime int64) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return
+	}
+	var ruleChain types.RuleChain
+	if err := json.Unmarshal(data, &ruleChain); err != nil {
+		return
+	}
+	if d.isCategoryFolderEnabled() && folderCategory != "" {
+		if ruleChain.RuleChain.AdditionalInfo == nil {
+			ruleChain.RuleChain.AdditionalInfo = make(map[string]interface{})
+		}
+		ruleChain.RuleChain.AdditionalInfo[constants.KeyCategory] = folderCategory
+	}
+	d.createIndex(ruleChain, mtime)
+}
+
+// diskChainFile 磁盘上发现的一个 DSL 文件
+type diskChainFile struct {
+	id             string
+	mtime          int64
+	path           string
+	folderCategory string
+}
+
+// collectDiskChains 递归收集当前用户规则链目录下的 DSL 文件（只列目录不读文件内容）。
+func (d *RuleStore) collectDiskChains() map[string]diskChainFile {
+	out := make(map[string]diskChainFile)
+	var walk func(dirPath, folderCategory string)
+	walk = func(dirPath, folderCategory string) {
+		entries, err := os.ReadDir(dirPath)
+		if err != nil {
+			return
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				sub := entry.Name()
+				if folderCategory != "" {
+					sub = folderCategory + "/" + entry.Name()
+				}
+				walk(filepath.Join(dirPath, entry.Name()), sub)
+				continue
+			}
+			if filepath.Ext(strings.ToLower(entry.Name())) != constants.RuleChainFileSuffix {
+				continue
+			}
+			info, err := entry.Info()
+			if err != nil {
+				continue
+			}
+			id := strings.TrimSuffix(entry.Name(), constants.RuleChainFileSuffix)
+			out[id] = diskChainFile{
+				id:             id,
+				mtime:          info.ModTime().UnixNano(),
+				path:           filepath.Join(dirPath, entry.Name()),
+				folderCategory: folderCategory,
+			}
+		}
+	}
+	walk(d.ruleBasePath(), "")
+	return out
+}
+
+// reconcileIndex 磁盘对账：同步绕过 API 的文件变更——新增（手动上传）、删除、
+// 覆写（mtime 变化）。正常 Save/Delete 已同步索引；无差异时零文件读取。
+func (d *RuleStore) reconcileIndex() error {
+	disk := d.collectDiskChains()
+	d.RLock()
+	var toRead []diskChainFile
+	var removed []string
+	for id, f := range disk {
+		cur, ok := d.index.Rules[id]
+		if !ok || cur.MTime != f.mtime {
+			toRead = append(toRead, f)
+		}
+	}
+	for id := range d.index.Rules {
+		if _, ok := disk[id]; !ok {
+			removed = append(removed, id)
+		}
+	}
+	d.RUnlock()
+	if len(toRead) == 0 && len(removed) == 0 {
+		return nil
+	}
+	for _, f := range toRead {
+		d.indexChainFile(f.path, f.folderCategory, f.mtime)
+	}
+	if len(removed) > 0 {
+		d.Lock()
+		for _, id := range removed {
+			delete(d.index.Rules, id)
+		}
+		d.Unlock()
+	}
+	return d.saveIndex(d.getIndexPath())
 }
 
 func (d *RuleStore) loadIndex(indexPath string) error {
@@ -322,22 +499,32 @@ func (d *RuleStore) loadIndex(indexPath string) error {
 	return json.NewDecoder(file).Decode(&d.index)
 }
 
-func (d *RuleStore) createIndex(ruleChain types.RuleChain) {
+func (d *RuleStore) createIndex(ruleChain types.RuleChain, mtime int64) {
 	updateTime, _ := ruleChain.RuleChain.GetAdditionalInfo(constants.KeyUpdateTime)
 	category, _ := ruleChain.RuleChain.GetAdditionalInfo(constants.KeyCategory)
+	description, _ := ruleChain.RuleChain.GetAdditionalInfo(constants.AddiKeyDescription)
+	message, _ := ruleChain.RuleChain.GetAdditionalInfo(constants.AddiKeyMessage)
 	var systemAgent bool
 	if v, ok := ruleChain.RuleChain.GetAdditionalInfo(constants.KeySystemAgent); ok {
 		systemAgent, _ = v.(bool)
 	}
+	firstEndpointType := ""
+	if len(ruleChain.Metadata.Endpoints) > 0 {
+		firstEndpointType = ruleChain.Metadata.Endpoints[0].Type
+	}
 	chainId := ruleChain.RuleChain.ID
 	meta := RuleMeta{
-		Name:        ruleChain.RuleChain.Name,
-		ID:          chainId,
-		Root:        ruleChain.RuleChain.Root,
-		Disabled:    ruleChain.RuleChain.Disabled,
-		UpdateTime:  str.ToString(updateTime),
-		Category:    str.ToString(category),
-		SystemAgent: systemAgent,
+		Name:              ruleChain.RuleChain.Name,
+		ID:                chainId,
+		Root:              ruleChain.RuleChain.Root,
+		Disabled:          ruleChain.RuleChain.Disabled,
+		UpdateTime:        str.ToString(updateTime),
+		Category:          str.ToString(category),
+		Description:       str.ToString(description),
+		Message:           str.ToString(message),
+		FirstEndpointType: firstEndpointType,
+		MTime:             mtime,
+		SystemAgent:       systemAgent,
 	}
 	d.Lock()
 	defer d.Unlock()

@@ -10,7 +10,7 @@ const (
 	DirSystem = "system"
 	// DirSystemAgents 系统级内置智能体目录
 	DirSystemAgents = "system/agents"
-	FileNameIndex = "index"
+	FileNameIndex   = "index"
 )
 
 const (
@@ -110,6 +110,8 @@ const (
 
 const (
 	AddiKeyMessage = "message"
+	// AddiKeyDescription 规则链描述（列表摘要 additionalInfo 字段）
+	AddiKeyDescription = "description"
 )
 
 const (
