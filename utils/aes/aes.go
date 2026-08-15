@@ -46,6 +46,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"io"
 )
 
@@ -99,8 +100,10 @@ func Decrypt(encrypted string, key []byte) (string, error) {
 		return "", err
 	}
 
-	if len(ciphertext) < aes.BlockSize {
-		return "", err
+	// Encrypt 产物最小为 IV+一个整块；长度不足或非块整数倍时
+	// CryptBlocks/尾部取值会 panic，必须先拒绝
+	if len(ciphertext) < 2*aes.BlockSize || len(ciphertext)%aes.BlockSize != 0 {
+		return "", errors.New("ciphertext length invalid")
 	}
 	iv := ciphertext[:aes.BlockSize]
 	ciphertext = ciphertext[aes.BlockSize:]
@@ -111,11 +114,11 @@ func Decrypt(encrypted string, key []byte) (string, error) {
 	// 移除填充
 	padding := int(ciphertext[len(ciphertext)-1])
 	if padding < 1 || padding > aes.BlockSize {
-		return "", err
+		return "", errors.New("invalid padding")
 	}
 	for i := len(ciphertext) - padding; i < len(ciphertext); i++ {
 		if ciphertext[i] != byte(padding) {
-			return "", err
+			return "", errors.New("invalid padding")
 		}
 	}
 

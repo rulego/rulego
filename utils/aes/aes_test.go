@@ -111,3 +111,25 @@ func TestAes(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, plaintext, decryptedWithShortKey)
 }
+
+// Decrypt 对畸形长度输入应报错而非 panic 或静默成功。
+func TestDecryptInvalidInput(t *testing.T) {
+	key := []byte("secret")
+	// 8/16/20 字节：分别触发过短、剥 IV 后为空、非块整数倍
+	for _, badHex := range []string{
+		"0011223344556677",
+		"00112233445566778899aabbccddeeff",
+		"00112233445566778899aabbccddeeff0011",
+	} {
+		_, err := Decrypt(badHex, key)
+		assert.NotNil(t, err)
+	}
+	// 错误密钥解密合法密文：padding 校验应失败（此前返回 nil error，secret 被静默置空）
+	encrypted, err := Encrypt("secret data", key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Decrypt(encrypted, []byte("wrong-key")); err == nil {
+		t.Error("Decrypt with wrong key should fail")
+	}
+}
