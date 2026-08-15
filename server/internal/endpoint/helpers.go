@@ -93,12 +93,18 @@ func maybeGzipJSON(exchange *endpointApi.Exchange, body []byte) []byte {
 	return gz
 }
 
-// intParam 从消息元数据获取整数参数
+// intParam 从消息元数据获取整数参数。
+// 负值会让 store 层切片下标越界 panic（兜成 500），钳到默认值；0 不钳——
+// page=0 是部分接口「取全部」的哨兵。size 上限对齐 categoriesPageSize。
 func intParam(msg *types.RuleMsg, key string, defaultVal int) int {
-	if i, err := strconv.Atoi(msg.Metadata.GetValue(key)); err == nil {
-		return i
+	i, err := strconv.Atoi(msg.Metadata.GetValue(key))
+	if err != nil || i < 0 {
+		return defaultVal
 	}
-	return defaultVal
+	if key == constants.KeySize && i > categoriesPageSize {
+		return categoriesPageSize
+	}
+	return i
 }
 
 // writeNoContent 写入 204 无内容响应

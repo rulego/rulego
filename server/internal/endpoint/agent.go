@@ -259,6 +259,10 @@ func reloadAssistantRuleChain(dataDir, username, agentID string, reloader assist
 	return reloader.SaveAndLoad(username, agentID, data)
 }
 
+// assistantModelKeyPlaceholder GET 响应用占位符替代真实 LLM Key；
+// POST 收到占位符时保留现有 Key 不覆盖（用户手动输入该字面量同样视为保留）。
+const assistantModelKeyPlaceholder = "__KEEP_KEY__"
+
 // extractAssistantModelPayload parses the first ai/agent node configuration
 // into a compact API payload for the editor.
 func extractAssistantModelPayload(def []byte) (assistantModelPayload, error) {
@@ -267,10 +271,14 @@ func extractAssistantModelPayload(def []byte) (assistantModelPayload, error) {
 		return assistantModelPayload{}, err
 	}
 	params := mapValue(node.Configuration, "params")
+	key := stringValue(node.Configuration["key"])
+	if key != "" {
+		key = assistantModelKeyPlaceholder
+	}
 	return assistantModelPayload{
 		Provider:            stringValue(node.Configuration["provider"]),
 		URL:                 stringValue(node.Configuration["url"]),
-		Key:                 stringValue(node.Configuration["key"]),
+		Key:                 key,
 		Model:               stringValue(node.Configuration["model"]),
 		MaxStep:             intValue(node.Configuration["maxStep"]),
 		MaxToolOutputLength: intValue(node.Configuration["maxToolOutputLength"]),
@@ -309,7 +317,9 @@ func updateAssistantModelDefinition(def []byte, payload assistantModelPayload) (
 			node.Configuration = make(types.Configuration)
 		}
 		node.Configuration["url"] = payload.URL
-		node.Configuration["key"] = payload.Key
+		if payload.Key != assistantModelKeyPlaceholder {
+			node.Configuration["key"] = payload.Key
+		}
 		node.Configuration["model"] = payload.Model
 		if !firstAgentUpdated {
 			if payload.Provider != "" {

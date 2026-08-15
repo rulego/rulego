@@ -201,3 +201,55 @@ func readAssistantAgentNodeConfig(dataDir, agentID, nodeID string) (map[string]i
 	}
 	return nil, os.ErrNotExist
 }
+
+// GET 提取时 Key 应被占位符替代，不再回传明文。
+func TestExtractAssistantModel_MasksKey(t *testing.T) {
+	dataDir := t.TempDir()
+	writeAssistantRuleChainFixture(t, dataDir)
+	def, err := os.ReadFile(filepath.Join(dataDir, "system", "agents", defaultAssistantID, defaultAssistantID+".json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := extractAssistantModelPayload(def)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload.Key != assistantModelKeyPlaceholder {
+		t.Errorf("Key = %q, want placeholder %q", payload.Key, assistantModelKeyPlaceholder)
+	}
+}
+
+// 占位符保留现有 Key；空串视为清除。
+func TestUpdateAssistantModel_PlaceholderPreservesKey(t *testing.T) {
+	dataDir := t.TempDir()
+	writeAssistantRuleChainFixture(t, dataDir)
+	def, _ := os.ReadFile(filepath.Join(dataDir, "system", "agents", defaultAssistantID, defaultAssistantID+".json"))
+
+	keep := assistantModelPayload{URL: "https://api.deepseek.com", Key: assistantModelKeyPlaceholder, Model: "deepseek-chat"}
+	updated, payload, err := updateAssistantModelDefinition(def, keep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload.Key != assistantModelKeyPlaceholder {
+		t.Errorf("round-trip Key = %q, want placeholder", payload.Key)
+	}
+	var doc assistantRuleChainDocument
+	if err := json.Unmarshal(updated, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if got := doc.Metadata.Nodes[0].Configuration["key"]; got != "sk-old" {
+		t.Errorf("placeholder should preserve key, got %v", got)
+	}
+
+	clear := assistantModelPayload{URL: "https://api.deepseek.com", Key: "", Model: "deepseek-chat"}
+	updated, _, err = updateAssistantModelDefinition(def, clear)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(updated, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if got := doc.Metadata.Nodes[0].Configuration["key"]; got != "" {
+		t.Errorf("empty key should clear, got %v", got)
+	}
+}

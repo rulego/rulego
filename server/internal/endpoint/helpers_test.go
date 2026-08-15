@@ -200,3 +200,25 @@ func TestMetadataValue(t *testing.T) {
 		t.Errorf("metadataValue(nonexistent) = %q, want empty", v)
 	}
 }
+
+func TestIntParam_NegativeClamped(t *testing.T) {
+	msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), "{}")
+	msg.Metadata.PutValue("page", "-1")
+	msg.Metadata.PutValue("size", "-5")
+	msg.Metadata.PutValue("huge", "999999")
+
+	if v := intParam(&msg, "page", 1); v != 1 {
+		t.Errorf("intParam(page=-1) = %d, want 1", v)
+	}
+	if v := intParam(&msg, "size", 20); v != 20 {
+		t.Errorf("intParam(size=-5) = %d, want 20", v)
+	}
+	// 非分页键不设上限
+	if v := intParam(&msg, "huge", 0); v != 999999 {
+		t.Errorf("intParam(huge) = %d, want 999999", v)
+	}
+	msg.Metadata.PutValue("size", "100000")
+	if v := intParam(&msg, "size", 20); v != categoriesPageSize {
+		t.Errorf("intParam(size=100000) = %d, want %d", v, categoriesPageSize)
+	}
+}

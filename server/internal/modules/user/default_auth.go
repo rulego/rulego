@@ -116,9 +116,10 @@ func parseToken(cfg *config.Config, authorization string) (*ruleGoClaim, error) 
 	}
 	token := authorization[7:]
 	claims := &ruleGoClaim{}
+	// 只接受 HS256：系统只签发 HS256，避免同密钥其他算法的混淆攻击面
 	tk, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(cfg.JwtSecretKey), nil
-	})
+	}, jwt.WithValidMethods([]string{"HS256"}))
 	if err != nil {
 		return nil, err
 	}

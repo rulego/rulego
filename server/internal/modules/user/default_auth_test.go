@@ -337,3 +337,23 @@ func TestAuthorizerInterface(t *testing.T) {
 		Authorize(user *model.UserContext, resource, action string) error
 	} = &DefaultAuthorizer{}
 }
+
+// 同密钥签发的非 HS256 token 应被拒绝。
+func TestParseToken_RejectsNonHS256(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.InitUserMap()
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, ruleGoClaim{
+		Username: "hacker",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+		},
+	})
+	tokenStr, err := token.SignedString([]byte(cfg.JwtSecretKey))
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+	if _, err := parseToken(&cfg, "Bearer "+tokenStr); err == nil {
+		t.Error("HS512 token should be rejected")
+	}
+}
