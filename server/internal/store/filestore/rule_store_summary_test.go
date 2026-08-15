@@ -282,3 +282,27 @@ func TestRuleStore_GetWithoutList_CategoryDir(t *testing.T) {
 		t.Errorf("Get returned wrong chain")
 	}
 }
+
+// TestRuleStore_Get_CategoryDirFallback 文件在根目录但 additionalInfo.category
+// 已设置（启用分类前的旧文件/手动挪动）：Get 按分类路径找不到时回退根目录。
+func TestRuleStore_Get_CategoryDirFallback(t *testing.T) {
+	store := newTestRuleStore(t, "kate")
+	// 直接把带分类标记的 DSL 写进根目录，模拟历史遗留状态
+	dsl := `{"ruleChain": {"id": "legacy-cat", "name": "旧分类链", "root": true,
+		"additionalInfo": {"category": "iot", "updateTime": "2026/08/15 10:00:00"}},
+		"metadata": {"nodes": []}}`
+	if err := os.WriteFile(filepath.Join(store.ruleBasePath(), "legacy-cat.json"), []byte(dsl), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// 先 List 让对账把它收进索引（category 记为 iot）
+	if _, _, err := store.List("kate", "", nil, nil, "", 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	data, err := store.Get("kate", "legacy-cat")
+	if err != nil {
+		t.Fatalf("Get with category/root mismatch: %v", err)
+	}
+	if extractID(t, data) != "legacy-cat" {
+		t.Errorf("Get returned wrong chain")
+	}
+}

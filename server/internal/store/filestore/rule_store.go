@@ -121,14 +121,22 @@ func (d *RuleStore) readChainFile(username, chainId string) ([]byte, error) {
 	if !isSafeCategory(category) {
 		return nil, errors.New("invalid category")
 	}
+	// 索引分类可能与文件实际位置不一致（启用分类前保存的旧文件、手动挪动），
+	// 分类路径读不到时回退根目录
+	if data, err := os.ReadFile(d.chainFilePath(username, chainId, category)); err == nil {
+		return data, nil
+	}
+	return os.ReadFile(d.chainFilePath(username, chainId, ""))
+}
+
+func (d *RuleStore) chainFilePath(username, chainId, category string) string {
 	var paths = []string{d.config.DataDir, constants.DirWorkflows}
 	paths = append(paths, username, constants.DirWorkflowsRule)
 	if d.isCategoryFolderEnabled() && category != "" {
 		paths = append(paths, category)
 	}
 	paths = append(paths, chainId+constants.RuleChainFileSuffix)
-	pathStr := path.Join(paths...)
-	return os.ReadFile(pathStr)
+	return path.Join(paths...)
 }
 
 // GetAsRuleChain 获取规则链结构体
