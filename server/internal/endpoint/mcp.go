@@ -31,12 +31,13 @@ func (s *Server) registerMCPRoutes(ep endpointApi.HttpEndpoint) {
 			exchange.Out.SetStatusCode(http.StatusUnauthorized)
 			return "", false
 		}
-		username := s.config.GetUsernameByApiKey(apiKey)
-		if username == "" {
+		// 走容器认证器：UI 运行时签发/吊销的 Key 才能生效，且同步检查账号停用状态
+		userCtx, err := getAuthenticator(s.container, s.config).Authenticate(constants.BearerPrefix + apiKey)
+		if err != nil {
 			exchange.Out.SetStatusCode(http.StatusUnauthorized)
 			return "", false
 		}
-		return username, true
+		return userCtx.Username, true
 	}
 
 	// GET/POST/DELETE /mcp/:apiKey - MCP StreamableHTTP 端点（默认组，全部工具）
