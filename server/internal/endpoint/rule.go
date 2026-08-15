@@ -114,7 +114,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 			exchange.Out.SetStatusCode(http.StatusNotFound)
 			return false
 		}
-		exchange.Out.SetBody(def)
+		exchange.Out.SetBody(maybeGzipJSON(exchange, def))
 		return true
 	}).End())
 

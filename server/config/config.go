@@ -46,6 +46,9 @@ type Config struct {
 	MaxNodeLogSize int `ini:"max_node_log_size"`
 	// ResourceMapping 静态文件路径映射
 	ResourceMapping string `ini:"resource_mapping"`
+	// DisableGzip 关闭内置 gzip（静态资源与 JSON API），默认开启。
+	// 前置 nginx 已开启压缩时可置 true；两层同时开启不出错，仅多耗一层 CPU。
+	DisableGzip bool `ini:"disable_gzip"`
 	// Global 全局自定义配置
 	Global types.Properties `ini:"global"`
 	// NodePoolFile 节点池文件

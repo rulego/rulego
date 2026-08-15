@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"net/http"
 	"strings"
 
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
@@ -98,9 +99,8 @@ func (s *Server) registerSkillRoutes(ep endpointApi.HttpEndpoint) {
 			writeBadRequest(exchange, err)
 			return false
 		}
-		exchange.Out.SetStatusCode(201)
 		s.reloadBuiltInAssistant()
-		writeJSON(exchange, item)
+		writeJSONStatus(exchange, http.StatusCreated, item)
 		return true
 	}).End())
 

@@ -187,9 +187,10 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 	s.registerUserRoutes(ep)
 	s.registerOverviewRoutes(ep)
 
-	// 静态资源映射
+	// 静态资源映射（gzip/Cache-Control/HEAD 见 static.go）
 	if s.config.ResourceMapping != "" {
-		ep.RegisterStaticFiles(s.config.ResourceMapping)
+		SetGzipEnabled(!s.config.DisableGzip)
+		s.registerStaticFiles(ep, s.config.ResourceMapping)
 	}
 
 	// 把默认HTTP服务设置成共享节点
