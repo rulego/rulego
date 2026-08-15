@@ -306,3 +306,74 @@ func TestRuleStore_Get_CategoryDirFallback(t *testing.T) {
 		t.Errorf("Get returned wrong chain")
 	}
 }
+
+// TestRuleStore_Save_CategoryChangeCleansOldFile 改分类保存后，
+// 旧分类位置的文件应被清理，只保留新位置。
+func TestRuleStore_Save_CategoryChangeCleansOldFile(t *testing.T) {
+	store := newTestRuleStore(t, "lena")
+	save := func(category string) {
+		dsl := `{"ruleChain": {"id": "mover", "name": "搬家的链", "root": true,
+			"additionalInfo": {"category": "` + category + `", "updateTime": "2026/08/15 12:00:00"}},
+			"metadata": {"nodes": []}}`
+		if err := store.Save("lena", "mover", []byte(dsl)); err != nil {
+			t.Fatalf("Save(%s): %v", category, err)
+		}
+	}
+	save("old-cat")
+	oldPath := filepath.Join(store.ruleBasePath(), "old-cat", "mover.json")
+	if _, err := os.Stat(oldPath); err != nil {
+		t.Fatalf("old-cat file should exist after first save: %v", err)
+	}
+	if err := os.Chtimes(oldPath, time.Now().Add(-time.Hour), time.Now().Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	save("new-cat")
+	if _, err := os.Stat(oldPath); !os.IsNotExist(err) {
+		t.Errorf("old location should be removed after category change, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(store.ruleBasePath(), "new-cat", "mover.json")); err != nil {
+		t.Fatalf("new location missing: %v", err)
+	}
+}
+
+// TestRuleStore_Reconcile_DuplicateConverges 同 id 双副本（根目录旧 + 分类目录新）：
+// 对账后索引应指向新副本（分类=目录名），旧副本被清除。
+func TestRuleStore_Reconcile_DuplicateConverges(t *testing.T) {
+	store := newTestRuleStore(t, "mona")
+	rulesDir := store.ruleBasePath()
+	mk := func(rel string, older bool) {
+		p := filepath.Join(rulesDir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		dsl := `{"ruleChain": {"id": "dup", "name": "双副本", "root": true,
+			"additionalInfo": {"updateTime": "2026/08/15 12:00:00"}}, "metadata": {"nodes": []}}`
+		if err := os.WriteFile(p, []byte(dsl), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		stamp := time.Now()
+		if older {
+			stamp = stamp.Add(-2 * time.Hour)
+		}
+		if err := os.Chtimes(p, stamp, stamp); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mk("dup.json", true)      // 根目录旧副本
+	mk("iot/dup.json", false) // iot 目录新副本
+
+	if _, _, err := store.List("mona", "", nil, nil, "", 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(rulesDir, "dup.json")); !os.IsNotExist(err) {
+		t.Errorf("stale root copy should be removed, stat err=%v", err)
+	}
+	items, _, _ := store.List("mona", "", nil, nil, "", 0, 0)
+	if len(items) != 1 || items[0].RuleChain.AdditionalInfo["category"] != "iot" {
+		t.Errorf("index should reflect newest copy in iot, got %+v", items)
+	}
+	// Get 也应从 iot 目录读到
+	if _, err := store.Get("mona", "dup"); err != nil {
+		t.Errorf("Get after convergence: %v", err)
+	}
+}

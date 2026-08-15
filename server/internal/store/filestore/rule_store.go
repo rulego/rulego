@@ -89,15 +89,25 @@ func NewRuleStore(cfg config.Config, username string) (*RuleStore, error) {
 	return store, nil
 }
 
-// Save 保存规则链定义到文件并更新索引
+// Save 保存规则链定义到文件并更新索引。
+// 分类变更会使落盘路径变化，写完新位置后删除旧位置的文件，
+// 否则同 id 双份并存、索引裁决不明（旧副本会把列表/对账带回旧分类）。
 func (d *RuleStore) Save(username, chainId string, def []byte) error {
 	var ruleChain types.RuleChain
 	if err := json.Unmarshal(def, &ruleChain); err != nil {
 		return err
 	}
+	oldCategory := d.getCategory(chainId)
 	filePath, err := d.saveRuleChain(username, chainId, def)
 	if err != nil {
 		return err
+	}
+	if oldCategory != "" {
+		if newCategory, ok := ruleChain.RuleChain.GetAdditionalInfo(constants.KeyCategory); ok {
+			if c := strings.TrimSpace(str.ToString(newCategory)); c != oldCategory {
+				_ = os.Remove(d.chainFilePath(username, chainId, oldCategory))
+			}
+		}
 	}
 	d.createIndex(ruleChain, fileModTime(filePath))
 	return d.saveIndex(d.getIndexPath())
@@ -260,15 +270,12 @@ func (d *RuleStore) Delete(username, chainId string) error {
 	if !isSafeCategory(category) {
 		return errors.New("invalid category")
 	}
-	var paths = []string{d.config.DataDir, constants.DirWorkflows}
-	paths = append(paths, username, constants.DirWorkflowsRule)
-	if d.isCategoryFolderEnabled() && category != "" {
-		paths = append(paths, category)
-	}
-	pathStr := path.Join(paths...)
-	file := filepath.Join(pathStr, chainId+constants.RuleChainFileSuffix)
-	if err := os.RemoveAll(file); err != nil {
-		return err
+	// 索引分类可能与实际位置不一致（历史遗留），两个候选位置都清理；
+	// 只删索引分类路径会漏掉根目录文件，残留文件会被对账复活
+	for _, cat := range []string{category, ""} {
+		if err := os.RemoveAll(d.chainFilePath(username, chainId, cat)); err != nil {
+			return err
+		}
 	}
 	return d.deleteIndex(chainId)
 }
@@ -424,8 +431,11 @@ type diskChainFile struct {
 }
 
 // collectDiskChains 递归收集当前用户规则链目录下的 DSL 文件（只列目录不读文件内容）。
-func (d *RuleStore) collectDiskChains() map[string]diskChainFile {
+// 同 id 多副本（改分类保存未清理旧位置的历史遗留）时保留 mtime 新的，
+// 旧副本作为 stale 返回，由对账清除。
+func (d *RuleStore) collectDiskChains() (map[string]diskChainFile, []diskChainFile) {
 	out := make(map[string]diskChainFile)
+	var stale []diskChainFile
 	var walk func(dirPath, folderCategory string)
 	walk = func(dirPath, folderCategory string) {
 		entries, err := os.ReadDir(dirPath)
@@ -449,22 +459,33 @@ func (d *RuleStore) collectDiskChains() map[string]diskChainFile {
 				continue
 			}
 			id := strings.TrimSuffix(entry.Name(), constants.RuleChainFileSuffix)
-			out[id] = diskChainFile{
+			file := diskChainFile{
 				id:             id,
 				mtime:          info.ModTime().UnixNano(),
 				path:           filepath.Join(dirPath, entry.Name()),
 				folderCategory: folderCategory,
 			}
+			if prev, ok := out[id]; ok {
+				if file.mtime >= prev.mtime {
+					out[id] = file
+					stale = append(stale, prev)
+				} else {
+					stale = append(stale, file)
+				}
+			} else {
+				out[id] = file
+			}
 		}
 	}
 	walk(d.ruleBasePath(), "")
-	return out
+	return out, stale
 }
 
 // reconcileIndex 磁盘对账：同步绕过 API 的文件变更——新增（手动上传）、删除、
-// 覆写（mtime 变化）。正常 Save/Delete 已同步索引；无差异时零文件读取。
+// 覆写（mtime 变化）、同 id 多副本收敛（以最新为准并清除旧副本）。
+// 正常 Save/Delete 已同步索引；无差异时零文件读取。
 func (d *RuleStore) reconcileIndex() error {
-	disk := d.collectDiskChains()
+	disk, stale := d.collectDiskChains()
 	d.RLock()
 	var toRead []diskChainFile
 	var removed []string
@@ -480,7 +501,7 @@ func (d *RuleStore) reconcileIndex() error {
 		}
 	}
 	d.RUnlock()
-	if len(toRead) == 0 && len(removed) == 0 {
+	if len(toRead) == 0 && len(removed) == 0 && len(stale) == 0 {
 		return nil
 	}
 	for _, f := range toRead {
@@ -492,6 +513,12 @@ func (d *RuleStore) reconcileIndex() error {
 			delete(d.index.Rules, id)
 		}
 		d.Unlock()
+	}
+	for _, f := range stale {
+		_ = os.Remove(f.path)
+	}
+	if len(toRead) == 0 && len(removed) == 0 {
+		return nil
 	}
 	return d.saveIndex(d.getIndexPath())
 }
