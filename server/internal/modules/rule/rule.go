@@ -32,11 +32,34 @@ type Module struct {
 	engine             *engine.Manager
 	lifecycleListeners []services.ChainLifecycleListener
 	listenersMu        sync.RWMutex
+	// opLocks 按 (username, chainId) 分条串行化生命周期操作（Save/Deploy/Undeploy/Delete），
+	// 防止并发交错产生「已删链被复活」「停链未落盘」等存储态与内存态背离；
+	// 分条免清理，条内冲突概率 1/256 可忽略
+	opLocks [256]sync.Mutex
 }
 
 // New 创建 rule 模块
 func New() *Module {
 	return &Module{}
+}
+
+// lockChainOp 对同一条链的生命周期操作加锁，返回解锁函数。
+// sync.Mutex 不可重入：SaveAndLoad 持锁期间须调用 deployLocked/undeployLocked，
+// 新增内部调用若再进公共方法会自死锁。
+func (m *Module) lockChainOp(username, chainId string) func() {
+	var h uint32 = 2166136261
+	for i := 0; i < len(username); i++ {
+		h ^= uint32(username[i])
+		h *= 16777619
+	}
+	h ^= '/'
+	for i := 0; i < len(chainId); i++ {
+		h ^= uint32(chainId[i])
+		h *= 16777619
+	}
+	l := &m.opLocks[h%256]
+	l.Lock()
+	return l.Unlock
 }
 
 func (m *Module) Name() string  { return ModuleName }
@@ -170,6 +193,8 @@ func (m *Module) ExecuteAndWait(username, chainId string, msg types.RuleMsg, opt
 // RuleAdminService 实现
 
 func (m *Module) SaveAndLoad(username, chainId string, def []byte) error {
+	unlock := m.lockChainOp(username, chainId)
+	defer unlock()
 	ue, err := m.getUserEngine(username)
 	if err != nil {
 		return err
@@ -199,12 +224,18 @@ func (m *Module) SaveAndLoad(username, chainId string, def []byte) error {
 	}
 	m.fireSaved(username, chainId, b)
 	if ruleChain.RuleChain.Disabled {
-		return m.Undeploy(username, chainId)
+		return m.undeployLocked(username, chainId)
 	}
-	return m.Deploy(username, chainId)
+	return m.deployLocked(username, chainId)
 }
 
 func (m *Module) Deploy(username, chainId string) error {
+	unlock := m.lockChainOp(username, chainId)
+	defer unlock()
+	return m.deployLocked(username, chainId)
+}
+
+func (m *Module) deployLocked(username, chainId string) error {
 	ue, err := m.getUserEngine(username)
 	if err != nil {
 		return err
@@ -236,6 +267,12 @@ func (m *Module) Deploy(username, chainId string) error {
 }
 
 func (m *Module) Undeploy(username, chainId string) error {
+	unlock := m.lockChainOp(username, chainId)
+	defer unlock()
+	return m.undeployLocked(username, chainId)
+}
+
+func (m *Module) undeployLocked(username, chainId string) error {
 	ue, err := m.getUserEngine(username)
 	if err != nil {
 		return err
@@ -314,6 +351,8 @@ func (m *Module) safeNotify(l services.ChainLifecycleListener, invoke func(servi
 }
 
 func (m *Module) Delete(username, chainId string) error {
+	unlock := m.lockChainOp(username, chainId)
+	defer unlock()
 	ue, err := m.getUserEngine(username)
 	if err != nil {
 		return err
@@ -341,6 +380,8 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 	if chainId == "" {
 		return errors.New("chainId is empty")
 	}
+	unlock := m.lockChainOp(username, chainId)
+	defer unlock()
 	// 保护服务端字段：禁止通过基础信息注入 systemAgent 标记（否则任意链可伪装为不可删除的系统智能体）
 	if baseInfo.AdditionalInfo != nil {
 		delete(baseInfo.AdditionalInfo, constants.KeySystemAgent)
@@ -401,6 +442,8 @@ func (m *Module) SaveConfiguration(username, chainId string, key string, configu
 	if chainId == "" {
 		return errors.New("chainId is empty")
 	}
+	unlock := m.lockChainOp(username, chainId)
+	defer unlock()
 	ue, err := m.getUserEngine(username)
 	if err != nil {
 		return err

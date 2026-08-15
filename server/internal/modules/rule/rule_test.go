@@ -1,6 +1,7 @@
 package rule
 
 import (
+	"sync"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -693,4 +694,69 @@ func TestRuleModule_Delete_ClearsDebugData(t *testing.T) {
 	if got := runlog.DefaultDebugDataStore.GetPage("admin", "race-chain", "n1", 1, 20); got["total"].(int) != 0 {
 		t.Errorf("debug data total after delete = %v, want 0", got["total"])
 	}
+}
+
+// 并发生命周期操作（部署/下线/保存/删除交错）后，store 与 pool 状态必须一致：
+// 已下线的链不出现在池中、已删除的链不复活。
+func TestRuleModule_ConcurrentOps_ConsistentState(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SaveAndLoad("admin", "con-chain", []byte(raceChainDef)); err != nil {
+		t.Fatal(err)
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(3)
+		go func() { defer wg.Done(); _ = m.Deploy("admin", "con-chain") }()
+		go func() { defer wg.Done(); _ = m.Undeploy("admin", "con-chain") }()
+		go func() { defer wg.Done(); _ = m.SaveConfiguration("admin", "con-chain", "k", i) }()
+	}
+	wg.Wait()
+
+	check := func() {
+		def, err := m.Get("admin", "con-chain")
+		if err != nil {
+			t.Fatalf("Get: %v", err)
+		}
+		var parsed struct {
+			RuleChain struct {
+				Disabled bool `json:"disabled"`
+			} `json:"ruleChain"`
+		}
+		if err := json.Unmarshal(def, &parsed); err != nil {
+			t.Fatal(err)
+		}
+		_, inPool := m.GetEngine("admin", "con-chain")
+		if parsed.RuleChain.Disabled && inPool {
+			t.Error("undeployed chain still running in pool")
+		}
+	}
+	check()
+
+	// 删除与保存竞争：终态要么两处都有、要么两处都无
+	wg = sync.WaitGroup{}
+	wg.Add(2)
+	go func() { defer wg.Done(); _ = m.Delete("admin", "con-chain") }()
+	go func() { defer wg.Done(); _ = m.SaveAndLoad("admin", "con-chain", []byte(raceChainDef)) }()
+	wg.Wait()
+
+	chains, total, err := m.List("admin", "", nil, nil, "", 100, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inStore := false
+	for _, c := range chains {
+		if c.RuleChain.ID == "con-chain" {
+			inStore = true
+		}
+	}
+	_, inPool := m.GetEngine("admin", "con-chain")
+	if !inStore && inPool && total >= 0 {
+		// 已删除（store 无）却仍在池中运行 = 幽灵引擎；若保存方胜出则两者皆有，合法
+		t.Error("deleted chain still running in pool (ghost engine)")
+	}
+	_ = total
 }
