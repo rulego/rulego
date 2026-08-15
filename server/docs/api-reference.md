@@ -170,27 +170,52 @@ GET /api/v1/rules
   "size": 20,
   "items": [
     {
-      "id": "chain_01",
-      "name": "示例规则链",
-      "rootRuleId": "",
-      "disabled": false,
-      "createTime": 1700000000000,
-      "updateTime": 1700000000000
+      "ruleChain": {
+        "id": "chain_01",
+        "name": "示例规则链",
+        "root": true,
+        "disabled": false,
+        "additionalInfo": {
+          "category": "demo",
+          "updateTime": "2026/08/14 10:00:00",
+          "description": "示例描述",
+          "message": ""
+        }
+      },
+      "metadata": {
+        "endpoints": [{ "type": "endpoint/net" }]
+      }
     }
   ]
 }
 ```
 
-**items 中对象字段（RuleChainMeta）：**
+items 为摘要项，不含完整 DSL（节点/连线等 `metadata` 明细请在打开链时通过 `GET /api/v1/rules/:id` 获取）。
+列表直接读服务端索引构造，链数量不影响响应时长。
+
+**items[].ruleChain 字段：**
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | id | string | 规则链 ID |
 | name | string | 规则链名称 |
-| rootRuleId | string | 根规则 ID |
+| root | bool | 是否根规则链 |
 | disabled | bool | 是否禁用 |
-| createTime | int64 | 创建时间（毫秒时间戳） |
-| updateTime | int64 | 更新时间（毫秒时间戳） |
+| additionalInfo.category | string | 分类 |
+| additionalInfo.updateTime | string | 更新时间 |
+| additionalInfo.description | string | 描述 |
+| additionalInfo.message | string | 启停异常信息（如有） |
+
+**items[].metadata 字段：**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| endpoints[0].type | string | 第一个 endpoint 组件类型（无 endpoint 时为空数组） |
+
+**说明：**
+
+- 服务端对规则链目录做磁盘对账：绕过 API 手动上传/删除/覆写的 DSL 文件，会在下次列表请求时自动同步进索引。
+- 响应体支持 gzip 压缩（客户端发送 `Accept-Encoding: gzip` 即生效）。
 
 #### 4.2 获取规则链 DSL
 
