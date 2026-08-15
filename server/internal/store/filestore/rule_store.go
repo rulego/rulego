@@ -313,7 +313,9 @@ func isSafeCategory(category string) bool {
 	if category == "" {
 		return true
 	}
-	cleaned := filepath.Clean(filepath.ToSlash(category))
+	// Clean 在 Windows 会把分隔符转成 \，必须 Clean 后再 ToSlash 归一，
+	// 否则 ../ 前缀检查在 Windows 上失效
+	cleaned := filepath.ToSlash(filepath.Clean(category))
 	if cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/") {
 		return false
 	}
