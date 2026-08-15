@@ -54,9 +54,6 @@ func (m *Module) Init(ctx *app.ModuleContext) error {
 	if err := ctx.Container.Register(services.KeyRunLogService, services.RunLogService(defaultRunLogService)); err != nil {
 		return err
 	}
-	if err := ctx.Container.Register(services.KeyDebugService, services.DebugService(m)); err != nil {
-		return err
-	}
 	return nil
 }
 

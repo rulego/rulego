@@ -95,7 +95,6 @@ func TestDefaultAppInit(t *testing.T) {
 		"module.runlog.service",
 		"module.locale.service",
 		"module.skill.service",
-		"module.debug.service",
 		"module.system.settings",
 		"module.marketplace.service",
 		"module.mcp.service",

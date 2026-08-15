@@ -35,8 +35,6 @@ type UserEngine struct {
 	ruleStore  store.RuleStore
 	setStore   store.SettingStore
 	container  *app.Container // 服务容器，供全局回调按需懒取 RunLogService 等服务；nil 表示不可用
-	locker     sync.RWMutex
-	mainEngine types.RuleEngine
 }
 
 // Manager 管理多租户用户引擎池
@@ -313,15 +311,14 @@ func (ue *UserEngine) SetMainChainId(chainId string) error {
 	if chainId == "" {
 		return fmt.Errorf("chainId is empty")
 	}
+	// 先校验再落 setting：先写后查会在链不存在时留下脏 setting
+	if _, ok := ue.pool.Get(chainId); !ok {
+		return fmt.Errorf("please deploy rule chain first")
+	}
 	if err := ue.setStore.Save(constants.SettingKeyMainChainId, chainId); err != nil {
 		return err
 	}
-	if e, ok := ue.pool.Get(chainId); !ok {
-		return fmt.Errorf("please deploy rule chain first")
-	} else {
-		ue.mainEngine = e
-		return nil
-	}
+	return nil
 }
 
 // SaveSetting 保存用户设置
