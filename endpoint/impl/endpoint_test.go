@@ -646,3 +646,15 @@ func (test *testEndpoint) RemoveRouter(routeId string, params ...interface{}) er
 func (test *testEndpoint) Start() error {
 	return nil
 }
+
+// To 缺 ":path" 后缀时应报错而非切片越界 panic。
+func TestToMissingPath(t *testing.T) {
+	router := NewRouter().From("test/missing-path").To("chain").End()
+	if router.Err() == nil {
+		t.Error("To without executor path suffix should set router error")
+	}
+	router2 := NewRouter().From("test/missing-path").To("chain:abc").End()
+	if router2.Err() != nil {
+		t.Errorf("To with path should not error: %v", router2.Err())
+	}
+}

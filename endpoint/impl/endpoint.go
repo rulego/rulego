@@ -231,6 +231,11 @@ func (f *From) To(to string, configs ...types.Configuration) endpoint.To {
 			f.Router.err = fmt.Errorf("executor=%s, path not support variables", executorType)
 			return f.to
 		}
+		// to 恰好等于执行器名（缺 ":path" 后缀）时，下方切片会越界 panic
+		if idx := strings.Index(to, pathSplitFlag); idx < 0 {
+			f.Router.err = fmt.Errorf("executor=%s, missing path after executor type: %s", executorType, to)
+			return f.to
+		}
 		f.to.ToPath = strings.TrimSpace(to[len(executorType)+1:])
 		toConfig[pathKey] = f.to.ToPath
 		//初始化组件  Initialize component
