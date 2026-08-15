@@ -18,11 +18,13 @@ package external
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"reflect"
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -118,6 +120,9 @@ type DbClientNode struct {
 	// SQL校验器，用于自定义SQL校验逻辑
 	// SQL validator for custom SQL validation logic
 	sqlValidator SqlValidator
+	// connHealthy 缓存连接健康标记，避免每条消息都调 SetStatus
+	// connHealthy caches connection health to avoid SetStatus on every message
+	connHealthy int32
 }
 
 // Type 返回组件类型
@@ -272,8 +277,14 @@ func (x *DbClientNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	}
 
 	if err != nil {
+		if isConnError(err) && atomic.CompareAndSwapInt32(&x.connHealthy, 1, 0) {
+			x.SharedNode.SetStatus(types.StatusReconnecting, err.Error())
+		}
 		ctx.TellFailure(msg, err)
 	} else {
+		if atomic.CompareAndSwapInt32(&x.connHealthy, 0, 1) {
+			x.SharedNode.SetStatus(types.StatusConnected, "")
+		}
 		switch opType {
 		case SELECT:
 			msg.SetData(str.ToString(data))
@@ -469,6 +480,12 @@ func (x *DbClientNode) validateSQL(opType, sql string) error {
 		return x.sqlValidator.ValidateSQL(x.RuleConfig, opType, sql)
 	}
 	return nil
+}
+
+// isConnError 判断是否为连接级错误，SQL 语法/约束错误不算断连
+// isConnError reports connection-level errors; syntax/constraint errors don't
+func isConnError(err error) bool {
+	return errors.Is(err, driver.ErrBadConn) || errors.Is(err, sql.ErrConnDone)
 }
 
 // expandInClause expands slice/array parameters in SQL IN clauses.
