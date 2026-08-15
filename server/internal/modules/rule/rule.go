@@ -13,6 +13,7 @@ import (
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/internal/engine"
+	"github.com/rulego/rulego/server/internal/modules/runlog"
 	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
 	"github.com/rulego/rulego/utils/json"
@@ -330,6 +331,8 @@ func (m *Module) Delete(username, chainId string) error {
 	if err = ue.RuleStore().Delete(username, chainId); err != nil {
 		return err
 	}
+	// 链已删除，调试数据不再有意义，随链清理避免内存滞留
+	runlog.DefaultDebugDataStore.Clear(username, chainId)
 	m.fireDeleted(username, chainId, nil)
 	return nil
 }
@@ -349,7 +352,12 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 	_ = ue.SaveSetting(constants.SettingKeyLatestChainId, chainId)
 	ruleEngine, ok := ue.GetEngine(chainId)
 	if ok {
-		def := ruleEngine.RootRuleChainCtx().Definition()
+		// 在 DSL 快照的副本上修改：直接改运行中引擎的 Definition 会与消息执行路径
+		// 并发读写 AdditionalInfo map，触发进程级 fatal（不可 recover）
+		def, err := snapshotDefinition(ruleEngine)
+		if err != nil {
+			return err
+		}
 		// 保留原有 systemAgent 标记（系统智能体编辑后仍保持受保护），其余以提交的 additionalInfo 为准
 		sysAgent, _ := def.RuleChain.GetAdditionalInfo(constants.KeySystemAgent)
 		def.RuleChain.AdditionalInfo = baseInfo.AdditionalInfo
@@ -364,11 +372,18 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 		def.RuleChain.DebugMode = baseInfo.DebugMode
 		_ = maps.Map2Struct(baseInfo.Configuration, &def.RuleChain.Configuration)
 		m.fillAdditionalInfo(ue, def)
-		defBytes, err := json.Format(ruleEngine.DSL())
+		defBytes, err := json.Marshal(def)
 		if err != nil {
 			return err
 		}
-		return ue.RuleStore().Save(username, chainId, defBytes)
+		if err := ruleEngine.ReloadSelf(defBytes); err != nil {
+			return err
+		}
+		formatted, err := json.Format(defBytes)
+		if err != nil {
+			return err
+		}
+		return ue.RuleStore().Save(username, chainId, formatted)
 	}
 	def := types.RuleChain{RuleChain: baseInfo}
 	m.fillAdditionalInfo(ue, &def)
@@ -395,20 +410,36 @@ func (m *Module) SaveConfiguration(username, chainId string, key string, configu
 	if !ok {
 		return errors.New("chain not found: " + chainId)
 	}
-	self := ruleEngine.RootRuleChainCtx().Definition()
+	self, err := snapshotDefinition(ruleEngine)
+	if err != nil {
+		return err
+	}
 	if self.RuleChain.Configuration == nil {
 		self.RuleChain.Configuration = make(types.Configuration)
 	}
 	self.RuleChain.Configuration[key] = configuration
 	m.fillAdditionalInfo(ue, self)
-	if err := ruleEngine.ReloadSelf(ruleEngine.DSL()); err != nil {
-		return err
-	}
-	def, err := json.Format(ruleEngine.DSL())
+	defBytes, err := json.Marshal(self)
 	if err != nil {
 		return err
 	}
-	return ue.RuleStore().Save(username, chainId, def)
+	if err := ruleEngine.ReloadSelf(defBytes); err != nil {
+		return err
+	}
+	formatted, err := json.Format(defBytes)
+	if err != nil {
+		return err
+	}
+	return ue.RuleStore().Save(username, chainId, formatted)
+}
+
+// snapshotDefinition 从引擎 DSL 快照反序列化出可安全修改的定义副本。
+func snapshotDefinition(ruleEngine types.RuleEngine) (*types.RuleChain, error) {
+	var def types.RuleChain
+	if err := json.Unmarshal(ruleEngine.DSL(), &def); err != nil {
+		return nil, err
+	}
+	return &def, nil
 }
 
 func (m *Module) SetMainChainId(username, chainId string) error {

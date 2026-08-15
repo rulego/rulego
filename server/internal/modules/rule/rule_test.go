@@ -3,12 +3,14 @@ package rule
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/constants"
+	"github.com/rulego/rulego/server/internal/modules/runlog"
 	"github.com/rulego/rulego/server/internal/store/filestore"
 	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
@@ -161,6 +163,105 @@ func TestRuleModule_SaveConfiguration_ChainNotFound(t *testing.T) {
 	err := m.SaveConfiguration("admin", "nonexistent", "key", "value")
 	if err == nil {
 		t.Error("SaveConfiguration with nonexistent chain should return error")
+	}
+}
+
+const raceChainDef = `{
+	"ruleChain": {"id": "race-chain", "name": "Race Chain"},
+	"metadata": {"nodes": [], "connections": []}
+}`
+
+// 并发保存与 DSL 快照读取（模拟消息执行路径的 Definition 读取），-race 下应无数据竞争。
+func TestRuleModule_SaveConfiguration_ConcurrentNoRace(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SaveAndLoad("admin", "race-chain", []byte(raceChainDef)); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 200; i++ {
+			engine, ok := m.GetEngine("admin", "race-chain")
+			if !ok {
+				t.Error("engine missing during concurrent save")
+				return
+			}
+			_ = engine.DSL()
+			_ = m.isSystemAgentEngine(engine)
+		}
+	}()
+	for i := 0; i < 50; i++ {
+		if err := m.SaveConfiguration("admin", "race-chain", "counter", i); err != nil {
+			t.Fatalf("SaveConfiguration: %v", err)
+		}
+	}
+	<-done
+
+	def, err := m.Get("admin", "race-chain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(def, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	rc, _ := parsed["ruleChain"].(map[string]interface{})
+	cfg, _ := rc["configuration"].(map[string]interface{})
+	if cfg == nil || cfg["counter"] == nil {
+		t.Error("configuration not persisted")
+	}
+}
+
+func TestRuleModule_SaveBaseInfo_ConcurrentNoRace(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SaveAndLoad("admin", "race-chain", []byte(raceChainDef)); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 200; i++ {
+			engine, ok := m.GetEngine("admin", "race-chain")
+			if !ok {
+				t.Error("engine missing during concurrent save")
+				return
+			}
+			_ = engine.DSL()
+			_ = m.isSystemAgentEngine(engine)
+		}
+	}()
+	for i := 0; i < 50; i++ {
+		baseInfo := types.RuleChainBaseInfo{
+			ID:             "race-chain",
+			Name:           fmt.Sprintf("Race Chain %d", i),
+			Root:           true,
+			AdditionalInfo: map[string]interface{}{"seq": i},
+		}
+		if err := m.SaveBaseInfo("admin", "race-chain", baseInfo); err != nil {
+			t.Fatalf("SaveBaseInfo: %v", err)
+		}
+	}
+	<-done
+
+	def, err := m.Get("admin", "race-chain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(def, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	rc, _ := parsed["ruleChain"].(map[string]interface{})
+	if name, _ := rc["name"].(string); name != "Race Chain 49" {
+		t.Errorf("final name = %q, want %q", name, "Race Chain 49")
 	}
 }
 
@@ -373,10 +474,18 @@ type capturingListener struct {
 	deletedEvents    []services.ChainLifecycleEvent
 }
 
-func (c *capturingListener) OnSaved(e services.ChainLifecycleEvent)      { c.savedEvents = append(c.savedEvents, e) }
-func (c *capturingListener) OnDeployed(e services.ChainLifecycleEvent)   { c.deployedEvents = append(c.deployedEvents, e) }
-func (c *capturingListener) OnUndeployed(e services.ChainLifecycleEvent) { c.undeployedEvents = append(c.undeployedEvents, e) }
-func (c *capturingListener) OnDeleted(e services.ChainLifecycleEvent)    { c.deletedEvents = append(c.deletedEvents, e) }
+func (c *capturingListener) OnSaved(e services.ChainLifecycleEvent) {
+	c.savedEvents = append(c.savedEvents, e)
+}
+func (c *capturingListener) OnDeployed(e services.ChainLifecycleEvent) {
+	c.deployedEvents = append(c.deployedEvents, e)
+}
+func (c *capturingListener) OnUndeployed(e services.ChainLifecycleEvent) {
+	c.undeployedEvents = append(c.undeployedEvents, e)
+}
+func (c *capturingListener) OnDeleted(e services.ChainLifecycleEvent) {
+	c.deletedEvents = append(c.deletedEvents, e)
+}
 
 // TestRuleModule_LifecycleListener_AllEvents 验证全部 4 个事件正确触发
 func TestRuleModule_LifecycleListener_AllEvents(t *testing.T) {
@@ -477,7 +586,7 @@ type panickingListener struct {
 }
 
 func (p *panickingListener) OnDeployed(services.ChainLifecycleEvent) { panic("intentional") }
-func (p *panickingListener) OnSaved(services.ChainLifecycleEvent)   { panic("intentional") }
+func (p *panickingListener) OnSaved(services.ChainLifecycleEvent)    { panic("intentional") }
 
 func TestRuleModule_LifecycleListener_PanicSafe(t *testing.T) {
 	m, _ := setupRuleModule(t)
@@ -566,3 +675,22 @@ func TestRuleModule_CategoryFilter(t *testing.T) {
 var _ services.ChainCatalog = (*Module)(nil)
 var _ services.ChainExecutor = (*Module)(nil)
 var _ services.RuleAdminService = (*Module)(nil)
+
+// 删除链后调试数据应随链清理。
+func TestRuleModule_Delete_ClearsDebugData(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SaveAndLoad("admin", "race-chain", []byte(raceChainDef)); err != nil {
+		t.Fatal(err)
+	}
+	runlog.DefaultDebugDataStore.Add("admin", "race-chain", "n1", map[string]interface{}{"ts": int64(1)})
+
+	if err := m.Delete("admin", "race-chain"); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if got := runlog.DefaultDebugDataStore.GetPage("admin", "race-chain", "n1", 1, 20); got["total"].(int) != 0 {
+		t.Errorf("debug data total after delete = %v, want 0", got["total"])
+	}
+}
