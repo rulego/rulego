@@ -1,6 +1,6 @@
 module github.com/rulego/rulego/server
 
-go 1.24
+go 1.25
 
 require (
 	github.com/cloudwego/eino v0.9.10
