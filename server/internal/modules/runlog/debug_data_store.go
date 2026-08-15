@@ -26,22 +26,23 @@ func NewDebugDataStore(maxSize int) *DebugDataStore {
 	}
 }
 
-// Add 添加调试数据
-func (s *DebugDataStore) Add(chainId, nodeId string, data map[string]interface{}) {
+// Add 添加调试数据（按 username+chainId 隔离，不同用户同名链互不可见）
+func (s *DebugDataStore) Add(username, chainId, nodeId string, data map[string]interface{}) {
+	key := debugKey(username, chainId)
 	s.mu.Lock()
-	nodes, ok := s.chainData[chainId]
+	nodes, ok := s.chainData[key]
 	if !ok {
 		nodes = newNodeDebugData(s.maxSize)
-		s.chainData[chainId] = nodes
+		s.chainData[key] = nodes
 	}
 	s.mu.Unlock()
 	nodes.Add(nodeId, data)
 }
 
 // GetPage 获取指定节点的调试数据（分页）
-func (s *DebugDataStore) GetPage(chainId, nodeId string, page, size int) map[string]interface{} {
+func (s *DebugDataStore) GetPage(username, chainId, nodeId string, page, size int) map[string]interface{} {
 	s.mu.RLock()
-	nodes, ok := s.chainData[chainId]
+	nodes, ok := s.chainData[debugKey(username, chainId)]
 	s.mu.RUnlock()
 	if !ok {
 		return emptyPage(page, size)
@@ -50,9 +51,9 @@ func (s *DebugDataStore) GetPage(chainId, nodeId string, page, size int) map[str
 }
 
 // Clear 清空指定规则链的调试数据
-func (s *DebugDataStore) Clear(chainId string) {
+func (s *DebugDataStore) Clear(username, chainId string) {
 	s.mu.Lock()
-	delete(s.chainData, chainId)
+	delete(s.chainData, debugKey(username, chainId))
 	s.mu.Unlock()
 }
 

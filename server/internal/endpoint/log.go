@@ -1,6 +1,7 @@
 package endpoint
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,6 +25,10 @@ func (s *Server) registerLogRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		username := metadataUsername(exchange)
 		chainId := metadataValue(exchange, constants.KeyChainId)
+		if chainId != "" && !validateId(chainId) {
+			writeBadRequest(exchange, fmt.Errorf("invalid chain id"))
+			return false
+		}
 		logId := strings.TrimSpace(exchange.In.GetParam("id"))
 
 		if logId != "" {
@@ -68,6 +73,10 @@ func (s *Server) registerLogRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		username := metadataUsername(exchange)
 		chainId := strings.TrimSpace(exchange.In.GetParam("chainId"))
+		if chainId != "" && !validateId(chainId) {
+			writeBadRequest(exchange, fmt.Errorf("invalid chain id"))
+			return false
+		}
 		logId := strings.TrimSpace(exchange.In.GetParam("id"))
 
 		var err error
@@ -93,11 +102,15 @@ func (s *Server) registerLogRoutes(ep endpointApi.HttpEndpoint) {
 	ep.GET(endpoint.NewRouter().From(base+"/logs/debug").Process(s.authWithPermission("log", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		chainId := msg.Metadata.GetValue(constants.KeyChainId)
+		if chainId != "" && !validateId(chainId) {
+			writeBadRequest(exchange, fmt.Errorf("invalid chain id"))
+			return false
+		}
 		nodeId := msg.Metadata.GetValue(constants.KeyNodeId)
 		page := intParam(msg, constants.KeyPage, 1)
 		size := intParam(msg, constants.KeySize, 20)
 
-		result := runlog.DefaultDebugDataStore.GetPage(chainId, nodeId, page, size)
+		result := runlog.DefaultDebugDataStore.GetPage(metadataUsername(exchange), chainId, nodeId, page, size)
 		writeJSON(exchange, result)
 		return true
 	}).End())

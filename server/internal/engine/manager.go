@@ -374,12 +374,12 @@ func (ue *UserEngine) initRuleConfig() {
 			"ts":           time.Now().UnixMilli(),
 		}
 		// 存到内存，供 REST API 查询（双击节点时使用）
-		runlog.DefaultDebugDataStore.Add(chainId, nodeId, logData)
+		runlog.DefaultDebugDataStore.Add(ue.username, chainId, nodeId, logData)
 		// 推送到 WebSocket 客户端
-		runlog.SendDebugDataToClients(chainId, logData)
+		runlog.SendDebugDataToClients(ue.username, chainId, logData)
 		// 子规则链调试日志同步推送到调试发起的根链路，使主链路控制台可见
 		if root := msg.Metadata.GetValue(constants.ParamRootChainId); root != "" && root != chainId {
-			runlog.SendDebugDataToClients(root, logData)
+			runlog.SendDebugDataToClients(ue.username, root, logData)
 		}
 	}
 

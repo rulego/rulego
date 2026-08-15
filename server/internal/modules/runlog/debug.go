@@ -50,18 +50,25 @@ var (
 	debugClients   = make(map[string][]*DebugDataClient)
 )
 
-// DebugDataClient 调试数据客户端
-type DebugDataClient struct {
-	ChainId string
-	DataCh  chan map[string]interface{}
+// debugKey 不同用户可能存在同名链，按 username+chainId 隔离广播与存储。
+func debugKey(username, chainId string) string {
+	return username + "\x00" + chainId
 }
 
-// SendDebugDataToClients 向所有监听指定规则链的客户端发送调试数据
-func SendDebugDataToClients(chainId string, data map[string]interface{}) {
+// DebugDataClient 调试数据客户端
+type DebugDataClient struct {
+	Username string
+	ChainId  string
+	DataCh   chan map[string]interface{}
+}
+
+// SendDebugDataToClients 向所有监听指定规则链的客户端发送调试数据。
+// 发送必须持读锁：UnregisterDebugClient 在写锁内移除后才 close(DataCh)，
+// 若锁外发送，会与 close 竞态产生 send on closed channel panic。
+func SendDebugDataToClients(username, chainId string, data map[string]interface{}) {
 	debugClientsMu.RLock()
-	clients := debugClients[chainId]
-	debugClientsMu.RUnlock()
-	for _, client := range clients {
+	defer debugClientsMu.RUnlock()
+	for _, client := range debugClients[debugKey(username, chainId)] {
 		select {
 		case client.DataCh <- data:
 		default:
@@ -72,7 +79,8 @@ func SendDebugDataToClients(chainId string, data map[string]interface{}) {
 // RegisterDebugClient 注册调试数据客户端
 func RegisterDebugClient(client *DebugDataClient) {
 	debugClientsMu.Lock()
-	debugClients[client.ChainId] = append(debugClients[client.ChainId], client)
+	key := debugKey(client.Username, client.ChainId)
+	debugClients[key] = append(debugClients[key], client)
 	debugClientsMu.Unlock()
 }
 
@@ -80,10 +88,11 @@ func RegisterDebugClient(client *DebugDataClient) {
 func UnregisterDebugClient(client *DebugDataClient) {
 	debugClientsMu.Lock()
 	defer debugClientsMu.Unlock()
-	if clients, ok := debugClients[client.ChainId]; ok {
+	key := debugKey(client.Username, client.ChainId)
+	if clients, ok := debugClients[key]; ok {
 		for i, c := range clients {
 			if c == client {
-				debugClients[client.ChainId] = append(clients[:i], clients[i+1:]...)
+				debugClients[key] = append(clients[:i], clients[i+1:]...)
 				break
 			}
 		}

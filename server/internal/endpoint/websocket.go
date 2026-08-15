@@ -2,7 +2,6 @@ package endpoint
 
 import (
 	"sync"
-	"time"
 
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
@@ -34,26 +33,37 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 		switch eventName {
 		case endpointApi.EventConnect:
 			exchange := params[0].(*endpointApi.Exchange)
-			username := exchange.In.Headers().Get(constants.KeyUsername)
-			if username == "" {
-				username = s.config.DefaultUsername
-			}
 			chainId := exchange.In.GetParam(constants.KeyChainId)
 			clientId := exchange.In.GetParam(constants.KeyClientId)
 
 			if chainId == "" || clientId == "" {
 				return
 			}
+			// EventConnect 在 upgrade 后、任何路由 Process 前触发，路由上的 authProcess
+			// 管不到这里，必须自行鉴权，否则未认证连接连上即收到调试数据广播
+			username := s.config.DefaultUsername
+			if s.config.RequireAuth {
+				userCtx, err := getAuthenticator(s.container, s.config).Authenticate(extractAuthorization(exchange))
+				if err != nil {
+					return
+				}
+				username = userCtx.Username
+			}
 
 			client := &runlog.DebugDataClient{
-				ChainId: chainId,
-				DataCh:  make(chan map[string]interface{}, 100),
+				Username: username,
+				ChainId:  chainId,
+				DataCh:   make(chan map[string]interface{}, 100),
 			}
-			runlog.RegisterDebugClient(client)
-
+			// 同 clientId 重连：先注销旧客户端，否则永久滞留广播列表（泄漏+死通道）
 			clientMu.Lock()
+			if old, ok := clientMap[clientId]; ok {
+				runlog.UnregisterDebugClient(old)
+				close(old.DataCh)
+			}
 			clientMap[clientId] = client
 			clientMu.Unlock()
+			runlog.RegisterDebugClient(client)
 
 			go func() {
 				for data := range client.DataCh {
@@ -78,6 +88,8 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 			}
 			clientMu.Unlock()
 			if ok {
+				// close 必须在 Unregister 之后：发送方持读锁发送，写锁移除完成后
+				// 不再有并发发送者，close 才安全
 				runlog.UnregisterDebugClient(client)
 				close(client.DataCh)
 			}
@@ -93,18 +105,4 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 		}).End())
 
 	return wsEp, nil
-}
-
-// sendWsDebugLog 构造调试日志数据并推送给 WebSocket 客户端。
-func sendWsDebugLog(chainId, flowType, nodeId string, relationType string, errStr string, msg interface{}) {
-	logData := map[string]interface{}{
-		"chainId":      chainId,
-		"flowType":     flowType,
-		"nodeId":       nodeId,
-		"relationType": relationType,
-		"err":          errStr,
-		"msg":          msg,
-		"ts":           time.Now().UnixMilli(),
-	}
-	runlog.SendDebugDataToClients(chainId, logData)
 }

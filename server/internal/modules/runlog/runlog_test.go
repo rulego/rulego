@@ -2,6 +2,7 @@ package runlog
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -95,3 +96,78 @@ func TestRunlogServiceImplDeleteNonexistent(t *testing.T) {
 
 // Compile-time interface check
 var _ services.RunLogService = (*runLogServiceImpl)(nil)
+
+// TestDebugDataStore_UserIsolation 不同用户同名链的调试数据互不可见。
+func TestDebugDataStore_UserIsolation(t *testing.T) {
+	s := NewDebugDataStore(10)
+	s.Add("alice", "chain-1", "n1", map[string]interface{}{"ts": int64(1), "user": "alice"})
+	s.Add("bob", "chain-1", "n1", map[string]interface{}{"ts": int64(2), "user": "bob"})
+
+	if got := s.GetPage("alice", "chain-1", "n1", 1, 20); got["total"].(int) != 1 {
+		t.Errorf("alice total = %v, want 1", got["total"])
+	}
+	if got := s.GetPage("bob", "chain-1", "n1", 1, 20); got["total"].(int) != 1 {
+		t.Errorf("bob total = %v, want 1", got["total"])
+	}
+	s.Clear("alice", "chain-1")
+	if got := s.GetPage("alice", "chain-1", "n1", 1, 20); got["total"].(int) != 0 {
+		t.Errorf("alice total after clear = %v, want 0", got["total"])
+	}
+	if got := s.GetPage("bob", "chain-1", "n1", 1, 20); got["total"].(int) != 1 {
+		t.Errorf("bob total after alice clear = %v, want 1", got["total"])
+	}
+}
+
+// TestSendDebugDataToClients_ConcurrentUnregister 并发发送与注销+close 不应 panic。
+func TestSendDebugDataToClients_ConcurrentUnregister(t *testing.T) {
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	// 3 个发送者持续广播
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					SendDebugDataToClients("alice", "chain-1", map[string]interface{}{"ts": int64(1)})
+				}
+			}
+		}()
+	}
+	// 注册/注销/关闭循环
+	for i := 0; i < 50; i++ {
+		client := &DebugDataClient{Username: "alice", ChainId: "chain-1", DataCh: make(chan map[string]interface{}, 1)}
+		RegisterDebugClient(client)
+		UnregisterDebugClient(client)
+		close(client.DataCh)
+	}
+	close(done)
+	wg.Wait()
+}
+
+// TestSendDebugDataToClients_UserFilter 广播只投递给同用户的客户端。
+func TestSendDebugDataToClients_UserFilter(t *testing.T) {
+	aliceCh := make(chan map[string]interface{}, 1)
+	bobCh := make(chan map[string]interface{}, 1)
+	RegisterDebugClient(&DebugDataClient{Username: "alice", ChainId: "c", DataCh: aliceCh})
+	RegisterDebugClient(&DebugDataClient{Username: "bob", ChainId: "c", DataCh: bobCh})
+	defer func() {
+		UnregisterDebugClient(&DebugDataClient{Username: "alice", ChainId: "c"})
+		UnregisterDebugClient(&DebugDataClient{Username: "bob", ChainId: "c"})
+	}()
+
+	SendDebugDataToClients("alice", "c", map[string]interface{}{"ts": int64(1)})
+	select {
+	case <-aliceCh:
+	default:
+		t.Error("alice client should receive")
+	}
+	select {
+	case <-bobCh:
+		t.Error("bob client should not receive alice data")
+	default:
+	}
+}
