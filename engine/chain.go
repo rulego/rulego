@@ -787,6 +787,15 @@ func (rc *RuleChainCtx) copyUnsafe(newCtx *RuleChainCtx) {
 	rc.destroyAspects = newCtx.destroyAspects
 	rc.vars = newCtx.vars
 	rc.decryptSecrets = newCtx.decryptSecrets
+	// 拓扑状态必须随 reload 更新，否则 LCA/OnEnd/空链判定/跨节点取值
+	// 会继续使用旧图，直到进程重启才恢复
+	rc.parentNodeIds = newCtx.parentNodeIds
+	rc.hasEndNode = newCtx.hasEndNode
+	rc.isEmpty = newCtx.isEmpty
+	rc.nodeDependencies = newCtx.nodeDependencies
+	rc.referencedNodes = newCtx.referencedNodes
+	// 重建而非拷贝：计算器的 parentProvider 须指向 rc 自身，且连带清空旧拓扑缓存
+	rc.lcaCalculator = lca.NewLCACalculator(rc)
 	// Clear cache
 	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
 	// 接管 newCtx 的资源目录，使 reload 后 ref:// 解析到新 endpoint。
@@ -842,8 +851,15 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.destroyAspects = newCtx.destroyAspects
 	rc.vars = newCtx.vars
 	rc.decryptSecrets = newCtx.decryptSecrets
+	rc.parentNodeIds = newCtx.parentNodeIds
+	rc.hasEndNode = newCtx.hasEndNode
+	rc.isEmpty = newCtx.isEmpty
+	rc.nodeDependencies = newCtx.nodeDependencies
+	rc.referencedNodes = newCtx.referencedNodes
+	rc.lcaCalculator = lca.NewLCACalculator(rc)
 	// Clear cache
 	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
+	rc.resources = newCtx.resources
 }
 
 // SetRuleEnginePool sets the sub-rule chain pool
@@ -894,6 +910,14 @@ func (rc *RuleChainCtx) SetAspects(aspects types.AspectList) {
 	_, _, _, afterReloadAspects, destroyAspects := aspects.GetEngineAspects()
 	rc.afterReloadAspects = afterReloadAspects
 	rc.destroyAspects = destroyAspects
+}
+
+// SetConfig updates the config under the chain lock; DSL() reads rc.config under RLock,
+// an unlocked write here races with concurrent DSL snapshots.
+func (rc *RuleChainCtx) SetConfig(config types.Config) {
+	rc.Lock()
+	defer rc.Unlock()
+	rc.config = config
 }
 
 // GetAspects retrieves the aspects of the rule chain

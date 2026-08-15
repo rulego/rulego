@@ -529,7 +529,7 @@ func (e *RuleEngine) reloadSelf(dsl []byte, opts ...types.RuleEngineOption) erro
 		if len(e.Aspects) == 0 {
 			e.initBuiltinsAspects()
 		}
-		e.rootRuleChainCtx.config = e.Config
+		e.rootRuleChainCtx.SetConfig(e.Config)
 		e.rootRuleChainCtx.SetAspects(e.Aspects)
 		//更新规则链
 		err = e.rootRuleChainCtx.ReloadSelf(dsl)

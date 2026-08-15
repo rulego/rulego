@@ -726,3 +726,57 @@ func TestGetLCA(t *testing.T) {
 
 	})
 }
+
+// ReloadSelf 后拓扑派生状态（父节点表/End 标记/LCA）必须随新图刷新，
+// 否则 join 判定、OnEnd 门控等会继续使用旧图直到进程重启。
+func TestReloadSelfRefreshTopologyState(t *testing.T) {
+	config := NewConfig()
+	jsonParser := JsonParser{}
+	dsl := []byte(`{
+	  "ruleChain": {"id": "reload-topo", "name": "reloadTopo"},
+	  "metadata": {
+	    "nodes": [
+	      {"id": "a", "type": "jsFilter", "name": "a", "configuration": {"jsScript": "return true"}},
+	      {"id": "b", "type": "jsFilter", "name": "b", "configuration": {"jsScript": "return true"}}
+	    ],
+	    "connections": [{"fromId": "a", "toId": "b", "relationType": "Success"}]
+	  }
+	}`)
+	def, err := jsonParser.DecodeRuleChain(dsl)
+	assert.Nil(t, err)
+	ctx, err := InitRuleChainCtx(config, nil, &def, nil)
+	assert.Nil(t, err)
+	assert.False(t, ctx.HasEndNode())
+	if _, ok := ctx.GetParentNodeIds(types.RuleNodeId{Id: "b"}); !ok {
+		t.Fatal("initial parentNodeIds missing b")
+	}
+
+	newDsl := []byte(`{
+	  "ruleChain": {"id": "reload-topo", "name": "reloadTopo"},
+	  "metadata": {
+	    "nodes": [
+	      {"id": "a", "type": "jsFilter", "name": "a", "configuration": {"jsScript": "return true"}},
+	      {"id": "c", "type": "jsFilter", "name": "c", "configuration": {"jsScript": "return true"}},
+	      {"id": "e", "type": "end", "name": "e"}
+	    ],
+	    "connections": [
+	      {"fromId": "a", "toId": "c", "relationType": "Success"},
+	      {"fromId": "c", "toId": "e", "relationType": "Success"}
+	    ]
+	  }
+	}`)
+	err = ctx.ReloadSelf(newDsl)
+	assert.Nil(t, err)
+
+	assert.True(t, ctx.HasEndNode())
+	parents, ok := ctx.GetParentNodeIds(types.RuleNodeId{Id: "c"})
+	if !ok || len(parents) == 0 || parents[0].Id != "a" {
+		t.Errorf("after reload, parents(c) = %v, want [a]", parents)
+	}
+	if _, ok := ctx.GetParentNodeIds(types.RuleNodeId{Id: "b"}); ok {
+		t.Error("stale node b should be gone from parentNodeIds after reload")
+	}
+	if _, ok := ctx.GetLCA(types.RuleNodeId{Id: "c"}); !ok {
+		t.Error("GetLCA(c) should resolve after reload")
+	}
+}
