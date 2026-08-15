@@ -1,5 +1,7 @@
 package constants
 
+import "strings"
+
 const (
 	DirWorkflows          = "workflows"
 	DirPublic             = "public"
@@ -122,3 +124,16 @@ const (
 	KeyInMessage = "inMessage"
 	KeyBody      = "body"
 )
+
+// IsValidId 严格校验资源 ID（REST/MCP 入口防线）：非空、长度 ≤256、不含路径分隔符与点号。
+func IsValidId(id string) bool {
+	return IsSafeId(id) && !strings.Contains(id, ".")
+}
+
+// IsSafeId 宽松校验（store 层兜底）：拒绝路径分隔符与 ".." 段；允许点号以兼容历史数据。
+func IsSafeId(id string) bool {
+	if id == "" || len(id) > 256 {
+		return false
+	}
+	return !strings.ContainsAny(id, "/\\") && !strings.Contains(id, "..")
+}

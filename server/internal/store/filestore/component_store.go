@@ -53,13 +53,19 @@ func NewComponentStore(cfg config.Config, username string) (*ComponentStore, err
 		return nil, err
 	}
 	if err := store.loadIndex(indexPath); err != nil {
-		return nil, err
+		// 索引损坏时从组件文件重建，避免用户存储整体不可用
+		if err := store.rebuildIndex(); err != nil {
+			return nil, err
+		}
 	}
 	return store, nil
 }
 
 // Save 保存组件定义到文件并更新索引
 func (d *ComponentStore) Save(username, componentId string, def []byte) error {
+	if !constants.IsSafeId(componentId) {
+		return errors.New("invalid component id")
+	}
 	var ruleChain types.RuleChain
 	if err := json.Unmarshal(def, &ruleChain); err != nil {
 		return err
@@ -73,6 +79,9 @@ func (d *ComponentStore) Save(username, componentId string, def []byte) error {
 
 // Get 获取组件定义原始 JSON 数据
 func (d *ComponentStore) Get(username, componentId string) ([]byte, error) {
+	if !constants.IsSafeId(componentId) {
+		return nil, errors.New("invalid component id")
+	}
 	var paths = []string{d.config.DataDir, constants.DirWorkflows}
 	paths = append(paths, username, constants.DirWorkflowsComponent, componentId+constants.RuleChainFileSuffix)
 	return os.ReadFile(path.Join(paths...))
@@ -122,6 +131,9 @@ func (d *ComponentStore) List(username, keywords string, size, page int) ([][]by
 
 // Delete 删除组件文件并从索引中移除
 func (d *ComponentStore) Delete(username, componentId string) error {
+	if !constants.IsSafeId(componentId) {
+		return errors.New("invalid component id")
+	}
 	var paths = []string{d.config.DataDir, constants.DirWorkflows}
 	paths = append(paths, username, constants.DirWorkflowsComponent)
 	filePath := filepath.Join(path.Join(paths...), componentId+constants.RuleChainFileSuffix)

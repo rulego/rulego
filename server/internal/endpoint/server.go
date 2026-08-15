@@ -210,12 +210,9 @@ func (s *Server) maxBodyBytes() int64 {
 	return int64(s.config.MaxBodySize) << 20
 }
 
-// validateId 校验路径参数 ID，防止路径遍历
+// validateId 校验路径参数 ID，防止路径遍历（规则单一事实源在 constants.IsValidId）
 func validateId(id string) bool {
-	if id == "" || len(id) > 256 {
-		return false
-	}
-	return !strings.ContainsAny(id, "/\\.")
+	return constants.IsValidId(id)
 }
 
 // safeInternalError 记录完整错误到日志，返回通用消息给客户端

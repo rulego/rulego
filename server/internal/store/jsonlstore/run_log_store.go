@@ -57,6 +57,9 @@ func (s *RunLogStore) userDir(username string) string {
 
 // Save 保存运行日志（仅 append 写入，不做清理，清理由后台 goroutine 负责）
 func (s *RunLogStore) Save(username string, event model.Event) error {
+	if !constants.IsSafeId(event.ChainId) {
+		return fmt.Errorf("invalid chain id: %s", event.ChainId)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -82,6 +85,9 @@ func (s *RunLogStore) Save(username string, event model.Event) error {
 
 // List 列出运行日志，支持按 chainId、时间范围过滤和分页
 func (s *RunLogStore) List(username, chainId string, startTime, endTime time.Time, size, page int) ([]model.Event, int, error) {
+	if chainId != "" && !constants.IsSafeId(chainId) {
+		return nil, 0, fmt.Errorf("invalid chain id: %s", chainId)
+	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -209,6 +215,9 @@ func (s *RunLogStore) Delete(username, logId string) error {
 
 // DeleteByChainId 删除指定规则链的所有运行日志
 func (s *RunLogStore) DeleteByChainId(username, chainId string) error {
+	if !constants.IsSafeId(chainId) {
+		return fmt.Errorf("invalid chain id: %s", chainId)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

@@ -95,3 +95,82 @@ func extractID(t *testing.T, dsl []byte) string {
 	}
 	return rc.RuleChain.ID
 }
+
+// TestStores_RejectsUnsafeId 验证 store 层兜底拒绝可造成路径穿越的 id，且不产生越界文件。
+func TestStores_RejectsUnsafeId(t *testing.T) {
+	cfg := newTestConfig(t)
+	userRulesDir := filepath.Join(cfg.DataDir, constants.DirWorkflows, "alice", constants.DirWorkflowsRule)
+	compDir := filepath.Join(cfg.DataDir, constants.DirWorkflows, "alice", constants.DirWorkflowsComponent)
+	if err := os.MkdirAll(userRulesDir, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.MkdirAll(compDir, 0755); err != nil {
+		t.Fatalf("mkdir components: %v", err)
+	}
+	ruleStore, err := NewRuleStore(cfg, "alice")
+	if err != nil {
+		t.Fatalf("NewRuleStore: %v", err)
+	}
+	compStore, err := NewComponentStore(cfg, "alice")
+	if err != nil {
+		t.Fatalf("NewComponentStore: %v", err)
+	}
+
+	dsl := []byte(`{"ruleChain": {"id": "x", "name": "X"}, "metadata": {"nodes": []}}`)
+	for _, id := range []string{"../../evil", `..\evil`, "a/b", "..", ""} {
+		if err := ruleStore.Save("alice", id, dsl); err == nil {
+			t.Errorf("RuleStore.Save(%q) should fail", id)
+		}
+		if _, err := ruleStore.Get("alice", id); err == nil {
+			t.Errorf("RuleStore.Get(%q) should fail", id)
+		}
+		if err := ruleStore.Delete("alice", id); err == nil {
+			t.Errorf("RuleStore.Delete(%q) should fail", id)
+		}
+		if err := compStore.Save("alice", id, dsl); err == nil {
+			t.Errorf("ComponentStore.Save(%q) should fail", id)
+		}
+		if _, err := compStore.Get("alice", id); err == nil {
+			t.Errorf("ComponentStore.Get(%q) should fail", id)
+		}
+		if err := compStore.Delete("alice", id); err == nil {
+			t.Errorf("ComponentStore.Delete(%q) should fail", id)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(cfg.DataDir), "evil.json")); !os.IsNotExist(err) {
+		t.Error("file escaped the data dir")
+	}
+}
+
+// 索引文件损坏（半写）时应从 DSL 文件重建，而不是让存储整体不可用。
+func TestNewRuleStore_CorruptIndexRebuilds(t *testing.T) {
+	cfg := newTestConfig(t)
+	userRulesDir := filepath.Join(cfg.DataDir, constants.DirWorkflows, "alice", constants.DirWorkflowsRule)
+	if err := os.MkdirAll(userRulesDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewRuleStore(cfg, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dsl := []byte(`{"ruleChain": {"id": "chain-1", "name": "C1"}, "metadata": {"nodes": []}}`)
+	if err := store.Save("alice", "chain-1", dsl); err != nil {
+		t.Fatal(err)
+	}
+	// 写坏 index.json 模拟崩溃半写
+	if err := os.WriteFile(store.getIndexPath(), []byte(`{"rules": {`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	rebuilt, err := NewRuleStore(cfg, "alice")
+	if err != nil {
+		t.Fatalf("NewRuleStore with corrupt index: %v", err)
+	}
+	chains, total, err := rebuilt.List("alice", "", nil, nil, "", 20, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 || len(chains) != 1 || chains[0].RuleChain.ID != "chain-1" {
+		t.Errorf("rebuild lost chain: total=%d", total)
+	}
+}

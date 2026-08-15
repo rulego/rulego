@@ -826,6 +826,9 @@ func (m *Module) addGetRuleChainTool(mcpServer *mcpserver.MCPServer, username st
 		if id == "" {
 			return nil, errors.New("id is required")
 		}
+		if !constants.IsValidId(id) {
+			return nil, errors.New("invalid id")
+		}
 		data, err := m.catalog.GetAsRuleChain(username, id)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get rule chain: %w", err)
@@ -848,6 +851,10 @@ func (m *Module) addSaveRuleChainTool(mcpServer *mcpserver.MCPServer, username s
 		if !ok {
 			return nil, errors.New("id is required")
 		}
+		idStr := str.ToString(id)
+		if !constants.IsValidId(idStr) {
+			return nil, errors.New("invalid id")
+		}
 		body, ok := request.GetArguments()["body"]
 		if !ok {
 			return nil, errors.New("body is required")
@@ -862,7 +869,7 @@ func (m *Module) addSaveRuleChainTool(mcpServer *mcpserver.MCPServer, username s
 			return mcp.NewToolResultText(warnMsg), nil
 		}
 
-		err = m.admin.SaveAndLoad(username, str.ToString(id), b)
+		err = m.admin.SaveAndLoad(username, idStr, b)
 		if err != nil {
 			return nil, err
 		}
@@ -918,7 +925,11 @@ func (m *Module) addDeleteRuleChainTool(mcpServer *mcpserver.MCPServer, username
 		if !ok {
 			return nil, errors.New("id is required")
 		}
-		err := m.admin.Delete(username, str.ToString(id))
+		idStr := str.ToString(id)
+		if !constants.IsValidId(idStr) {
+			return nil, errors.New("invalid id")
+		}
+		err := m.admin.Delete(username, idStr)
 		if err != nil {
 			return nil, err
 		}
@@ -935,6 +946,9 @@ func (m *Module) addOperateRuleChainTool(mcpServer *mcpserver.MCPServer, usernam
 		id := str.ToString(request.GetArguments()["id"])
 		if id == "" {
 			return nil, errors.New("id is required")
+		}
+		if !constants.IsValidId(id) {
+			return nil, errors.New("invalid id")
 		}
 		action := strings.ToLower(str.ToString(request.GetArguments()["action"]))
 		var err error

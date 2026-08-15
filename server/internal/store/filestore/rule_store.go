@@ -73,7 +73,10 @@ func NewRuleStore(cfg config.Config, username string) (*RuleStore, error) {
 		return nil, err
 	}
 	if err := store.loadIndex(indexPath); err != nil {
-		return nil, err
+		// 索引损坏（如崩溃时的半写）降级为从 DSL 文件重建，而不是让整个用户存储不可用
+		if err := store.rebuildIndex(); err != nil {
+			return nil, err
+		}
 	}
 	if store.index.Rules == nil {
 		store.index.Rules = make(map[string]RuleMeta)
@@ -93,6 +96,9 @@ func NewRuleStore(cfg config.Config, username string) (*RuleStore, error) {
 // 分类变更会使落盘路径变化，写完新位置后删除旧位置的文件，
 // 否则同 id 双份并存、索引裁决不明（旧副本会把列表/对账带回旧分类）。
 func (d *RuleStore) Save(username, chainId string, def []byte) error {
+	if !constants.IsSafeId(chainId) {
+		return errors.New("invalid chain id")
+	}
 	var ruleChain types.RuleChain
 	if err := json.Unmarshal(def, &ruleChain); err != nil {
 		return err
@@ -117,6 +123,9 @@ func (d *RuleStore) Save(username, chainId string, def []byte) error {
 // 文件路径按索引反查的分类目录拼接；读不到时先做一次磁盘对账再重试，
 // 覆盖手动上传后未经过任何列表请求就直接按 id 访问的场景。
 func (d *RuleStore) Get(username, chainId string) ([]byte, error) {
+	if !constants.IsSafeId(chainId) {
+		return nil, errors.New("invalid chain id")
+	}
 	data, err := d.readChainFile(username, chainId)
 	if err != nil {
 		if reconcileErr := d.reconcileIndex(); reconcileErr == nil {
@@ -266,6 +275,9 @@ func (d *RuleStore) AllChains(username string) (map[string][]byte, error) {
 
 // Delete 删除规则链文件并从索引中移除
 func (d *RuleStore) Delete(username, chainId string) error {
+	if !constants.IsSafeId(chainId) {
+		return errors.New("invalid chain id")
+	}
 	category := d.getCategory(chainId)
 	if !isSafeCategory(category) {
 		return errors.New("invalid category")

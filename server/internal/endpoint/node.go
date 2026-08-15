@@ -2,6 +2,7 @@ package endpoint
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -156,6 +157,10 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 
 	// GET /dynamic-components/:id - 获取动态组件 DSL
 	ep.GET(endpoint.NewRouter().From(base+"/dynamic-components/:id").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		if !validateId(metadataValue(exchange, constants.KeyId)) {
+			writeBadRequest(exchange, fmt.Errorf("invalid component id"))
+			return false
+		}
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -171,6 +176,10 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 
 	// POST /dynamic-components/:id - 安装/升级动态组件
 	ep.POST(endpoint.NewRouter().From(base+"/dynamic-components/:id").Process(s.authWithPermission("component", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		if !validateId(metadataValue(exchange, constants.KeyId)) {
+			writeBadRequest(exchange, fmt.Errorf("invalid component id"))
+			return false
+		}
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -183,6 +192,10 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 
 	// DELETE /dynamic-components/:id - 卸载动态组件
 	ep.DELETE(endpoint.NewRouter().From(base+"/dynamic-components/:id").Process(s.authWithPermission("component", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		if !validateId(metadataValue(exchange, constants.KeyId)) {
+			writeBadRequest(exchange, fmt.Errorf("invalid component id"))
+			return false
+		}
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
