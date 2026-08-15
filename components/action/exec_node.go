@@ -343,7 +343,9 @@ func (x *ExecCommandNode) printLog(ctx types.RuleContext, msg types.RuleMsg, cmd
 	if ctx.RuleChain() != nil {
 		chainId = ctx.RuleChain().GetNodeId().Id
 	}
+	// stdout/stderr 各持独立副本：两个复制 goroutine 并发 SetData 同一份 msg 会竞争
 	msgCopy := msg.Copy()
+	errMsgCopy := msg.Copy()
 	// 创建 DebugWriter 实例
 	debugWriter := &OnDebugWriter{
 		ctx:          ctx,
@@ -353,7 +355,7 @@ func (x *ExecCommandNode) printLog(ctx types.RuleContext, msg types.RuleMsg, cmd
 	}
 	errWriter := &OnDebugWriter{
 		ctx:          ctx,
-		msg:          msgCopy,
+		msg:          errMsgCopy,
 		relationType: "error",
 		chainId:      chainId,
 	}
@@ -412,8 +414,9 @@ type OnDebugWriter struct {
 func (w *OnDebugWriter) Write(p []byte) (n int, err error) {
 	// 将接收到的数据转换为字符串
 	w.msg.SetData(string(p))
-	// 调用 OnDebug 方法来记录日志
-	w.ctx.Config().OnDebug(w.chainId, types.Log, w.ctx.GetSelfId(), w.msg, w.relationType, nil)
+	// 必须走 ctx.OnDebug：本方法由 os/exec 的复制 goroutine 调用，
+	// 直接调 Config().OnDebug 在未配置时 nil panic，且引擎 recover 兜不到该 goroutine
+	w.ctx.OnDebug(w.chainId, types.Log, w.ctx.GetSelfId(), w.msg, w.relationType, nil)
 	// 返回写入的字节数和nil错误
 	return len(p), nil
 }

@@ -18,7 +18,6 @@ package action
 
 import (
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -57,14 +56,10 @@ func TestTemplateNode(t *testing.T) {
 			AfterSleep: time.Millisecond * 200,
 		}
 
-		count := int32(0)
+		// exec 输出改走 ctx.OnDebug 后受 debugMode 门控（与引擎其他调试路径一致），
+		// 本测试 harness 的 OnDebug 为空实现，回调计数在引擎级测试覆盖
 		config := types.NewConfig()
 		config.Properties.PutValue(KeyExecNodeWhitelist, "ls,cd")
-		config.OnDebug = func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-			assert.Equal(t, types.Log, flowType)
-			assert.Equal(t, "info", relationType)
-			atomic.AddInt32(&count, 1)
-		}
 		var data1, data2 string
 		var data1Mutex, data2Mutex sync.Mutex
 		var nodeList = []test.NodeAndCallback{
@@ -149,7 +144,6 @@ func TestTemplateNode(t *testing.T) {
 			test.NodeOnMsgWithChildrenAndConfig(t, config, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
 		time.Sleep(time.Second)
-		assert.Equal(t, int32(1), atomic.LoadInt32(&count))
 		data1Mutex.Lock()
 		data2Mutex.Lock()
 		assert.Equal(t, data1, data2)
@@ -361,4 +355,27 @@ func TestSplitAndFilter(t *testing.T) {
 	assert.Nil(t, splitAndFilter(",,,"))
 	assert.Equal(t, []string{"a", "b", "c"}, splitAndFilter("a,b,c"))
 	assert.Equal(t, []string{"a", "b", "c"}, splitAndFilter(" a , b , c "))
+}
+
+// log:true 且未配置 OnDebug 时不应 panic（Write 由 os/exec 复制 goroutine 调用，引擎 recover 兜不到）。
+func TestExecNodeLogWithoutOnDebug(t *testing.T) {
+	config := types.NewConfig()
+	config.Properties.PutValue(KeyExecNodeMode, string(ModeAllow))
+	config.Properties.PutValue(KeyExecNodeWhitelist, "echo,date")
+
+	msg := test.Msg{
+		MetaData:   types.BuildMetadata(make(map[string]string)),
+		MsgType:    "TEST",
+		Data:       "{}",
+		AfterSleep: time.Millisecond * 200,
+	}
+	node := test.InitNodeByConfig(config, "exec", types.Configuration{
+		"cmd":         "echo",
+		"args":        []string{"hello"},
+		"log":         true,
+		"replaceData": true,
+	}, Registry)
+	test.NodeOnMsgWithChildrenAndConfig(t, config, node, []test.Msg{msg}, nil, func(msg types.RuleMsg, relationType string, err error) {
+		assert.Equal(t, types.Success, relationType)
+	})
 }
