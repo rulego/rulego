@@ -293,3 +293,20 @@ func (t *ToolTest) Query(id string) string {
 func (t *ToolTest) Delete(id string) bool {
 	return true
 }
+
+// Execute 归还 VM 前应清掉 $ctx，避免池内长期持有上一条消息的 RuleContext。
+func TestExecuteClearsCtxAfterPut(t *testing.T) {
+	config := types.NewConfig()
+	engine, err := NewGojaJsEngine(config, `function Transform(msg, metadata, msgType) { return msg }`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := engine.Execute(nil, "Transform", "data"); err != nil {
+		t.Fatal(err)
+	}
+	vm := engine.vmPool.Get().(*goja.Runtime)
+	if v := vm.Get(CtxKey); v != nil && !goja.IsUndefined(v) && !goja.IsNull(v) {
+		t.Errorf("$ctx should be cleared after Put, got %v", v)
+	}
+	engine.vmPool.Put(vm)
+}

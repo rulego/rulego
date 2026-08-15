@@ -188,7 +188,12 @@ func (g *GojaJsEngine) Execute(ctx types.RuleContext, functionName string, argum
 	}()
 
 	vm := g.vmPool.Get().(*goja.Runtime)
-	defer g.vmPool.Put(vm)
+	// 归还前清掉 $ctx：池化 VM 会长期持有上一条消息的 RuleContext 引用，
+	// 阻碍大消息 GC；ctx 为 nil 的执行读到 null 报错优于读到上一条的脏值
+	defer func() {
+		_ = vm.Set(CtxKey, nil)
+		g.vmPool.Put(vm)
+	}()
 
 	// Only set context if provided to avoid nil overhead
 	if ctx != nil {
