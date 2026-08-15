@@ -1,6 +1,6 @@
 module github.com/rulego/rulego/server
 
-go 1.25
+go 1.24
 
 require (
 	github.com/cloudwego/eino v0.9.10
@@ -13,7 +13,7 @@ require (
 	github.com/rulego/rulego-components-ci v0.36.0
 	github.com/rulego/rulego-components-discovery v0.37.1-0.20260812095641-8fa69fe0154a
 	github.com/rulego/rulego-components-etl v0.36.0
-	github.com/rulego/rulego-components-iot v0.37.2-0.20260806102455-4b63334d22cd
+	github.com/rulego/rulego-components-iot v0.37.2-0.20260815052038-1b3d08a5751c
 	go.etcd.io/bbolt v1.4.3
 	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -245,7 +245,6 @@ require (
 	github.com/valyala/fasthttp v1.65.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	github.com/wendy512/go-iecp5 v1.2.6 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
