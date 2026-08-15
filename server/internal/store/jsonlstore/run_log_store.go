@@ -15,6 +15,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/constants"
+	"github.com/rulego/rulego/server/internal/utils/file"
 	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/store"
 )
@@ -98,13 +99,17 @@ func (s *RunLogStore) List(username, chainId string, startTime, endTime time.Tim
 }
 
 func (s *RunLogStore) listByChain(username, chainId string, startTime, endTime time.Time, size, page int) ([]model.Event, int, error) {
+	if size <= 0 {
+		size = 20
+	}
+	if page <= 0 {
+		page = 1
+	}
 	fp := s.filePath(username, chainId)
-	events, err := s.readFile(fp)
+	events, total, err := s.readEventsReverse(fp, page*size, startTime, endTime)
 	if err != nil {
 		return nil, 0, nil
 	}
-	events = filterByDate(events, startTime, endTime)
-	total := len(events)
 	start := (page - 1) * size
 	if start >= total {
 		return nil, total, nil
@@ -142,6 +147,12 @@ func (s *RunLogStore) listAll(username string, startTime, endTime time.Time, siz
 		return allEvents[i].StartTs > allEvents[j].StartTs
 	})
 
+	if size <= 0 {
+		size = 20
+	}
+	if page <= 0 {
+		page = 1
+	}
 	total := len(allEvents)
 	start := (page - 1) * size
 	if start >= total {
@@ -162,7 +173,7 @@ func (s *RunLogStore) Get(username, logId string) (model.Event, error) {
 	dir := s.userDir(username)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return model.Event{}, nil
+		return model.Event{}, store.ErrRunLogNotFound
 	}
 
 	for _, entry := range entries {
@@ -180,7 +191,7 @@ func (s *RunLogStore) Get(username, logId string) (model.Event, error) {
 			}
 		}
 	}
-	return model.Event{}, nil
+	return model.Event{}, store.ErrRunLogNotFound
 }
 
 // Delete 删除运行日志
@@ -226,6 +237,10 @@ func (s *RunLogStore) DeleteByChainId(username, chainId string) error {
 }
 
 // readFile 读取 jsonl 文件中的所有事件（倒序返回）
+// maxLineSize 单行事件上限：超过则跳过该行。detail 级事件可能超过
+// bufio.Scanner 的行缓冲上限，Scanner 遇超长行直接中断导致整表丢弃。
+const maxLineSize = 10 * 1024 * 1024
+
 func (s *RunLogStore) readFile(fp string) ([]model.Event, error) {
 	f, err := os.Open(fp)
 	if err != nil {
@@ -234,47 +249,122 @@ func (s *RunLogStore) readFile(fp string) ([]model.Event, error) {
 	defer f.Close()
 
 	var events []model.Event
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
+	reader := bufio.NewReaderSize(f, 64*1024)
+	for {
+		line, rerr := reader.ReadBytes('\n')
+		if len(line) > 0 {
+			trimmed := bytes.TrimRight(line, "\r\n")
+			if len(trimmed) > 0 && len(trimmed) <= maxLineSize {
+				if event, uerr := unmarshalLine(trimmed); uerr == nil {
+					events = append(events, event)
+				}
+			}
 		}
-		event, err := unmarshalLine(line)
-		if err != nil {
-			continue
+		if rerr != nil {
+			break
 		}
-		events = append(events, event)
 	}
 
 	// 倒序（最新的在前）
 	for i, j := 0, len(events)-1; i < j; i, j = i+1, j-1 {
 		events[i], events[j] = events[j], events[i]
 	}
-	return events, scanner.Err()
+	return events, nil
 }
 
-// writeFile 重写 jsonl 文件
+// readEventsReverse 从文件尾部向前扫描，返回时间新→旧、落在 [startTime,endTime]
+// 内的前 max 条，以及范围内总条数。total 需要精确计数因此会扫到文件尾
+//（保留策略下文件行数有限，IO 可接受），但只保留最近 max 条在内存——
+// detail 级事件单条可达 MB，全量持有才是 OOM 根源。文件按完成顺序追加，
+// 倒序即近似时间倒序；结果再按 StartTs 排序兜住乱序写入，startTime
+// 早于范围时提前终止。
+func (s *RunLogStore) readEventsReverse(fp string, max int, startTime, endTime time.Time) ([]model.Event, int, error) {
+	f, err := os.Open(fp)
+	if err != nil {
+		return nil, 0, nil // 文件不存在按空处理
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil || st.Size() == 0 {
+		return nil, 0, err
+	}
+	const chunkSize = 64 * 1024
+	buf := make([]byte, chunkSize)
+	var carry []byte
+	var matched []model.Event
+	total := 0
+	pos := st.Size()
+	process := func(line []byte) bool { // 返回 false 表示可停止扫描
+		trimmed := bytes.TrimRight(line, "\r")
+		if len(trimmed) == 0 || len(trimmed) > maxLineSize {
+			return true
+		}
+		e, uerr := unmarshalLine(trimmed)
+		if uerr != nil {
+			return true
+		}
+		if !startTime.IsZero() && e.StartTs < startTime.UnixMilli() {
+			return false
+		}
+		if !endTime.IsZero() && e.StartTs > endTime.UnixMilli() {
+			return true
+		}
+		total++
+		if len(matched) < max {
+			matched = append(matched, e)
+		}
+		return true
+	}
+	for pos > 0 {
+		n := int64(chunkSize)
+		if n > pos {
+			n = pos
+		}
+		pos -= n
+		if _, rerr := f.ReadAt(buf[:n], pos); rerr != nil {
+			return nil, 0, rerr
+		}
+		data := buf[:n]
+		if carry != nil {
+			data = append(data, carry...)
+		}
+		lines := bytes.Split(data, []byte{'\n'})
+		if pos == 0 {
+			carry = nil
+		} else {
+			carry = append(carry[:0], lines[0]...)
+		}
+		stop := false
+		for i := len(lines) - 1; i >= 1 && !stop; i-- {
+			if !process(lines[i]) {
+				stop = true
+			}
+		}
+		if pos == 0 && !stop {
+			process(lines[0])
+		}
+		if stop {
+			break
+		}
+	}
+	sort.Slice(matched, func(i, j int) bool { return matched[i].StartTs > matched[j].StartTs })
+	return matched, total, nil
+}
+
+// writeFile 重写 jsonl 文件（原子替换，避免清理线程崩溃时整文件损坏）
 func (s *RunLogStore) writeFile(fp string, events []model.Event) error {
 	if len(events) == 0 {
 		return os.Remove(fp)
 	}
-	f, err := os.Create(fp)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+	var buf bytes.Buffer
 	for _, e := range events {
 		line, err := marshalLine(e)
 		if err != nil {
 			continue
 		}
-		if _, err := f.Write(line); err != nil {
-			return err
-		}
+		buf.Write(line)
 	}
-	return nil
+	return file.WriteFileAtomic(fp, buf.Bytes(), 0o644)
 }
 
 // retentionLoop 后台定期清理：按天数和按条数

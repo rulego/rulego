@@ -1,10 +1,12 @@
 package nopstore
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/rulego/rulego/server/model"
+	"github.com/rulego/rulego/server/store"
 )
 
 func TestNopRunLogStore_Save(t *testing.T) {
@@ -31,8 +33,8 @@ func TestNopRunLogStore_List(t *testing.T) {
 func TestNopRunLogStore_Get(t *testing.T) {
 	s := NopRunLogStore{}
 	event, err := s.Get("user", "id")
-	if err != nil {
-		t.Fatalf("Get should return nil error, got: %v", err)
+	if !errors.Is(err, store.ErrRunLogNotFound) {
+		t.Fatalf("Get should return ErrRunLogNotFound, got: %v", err)
 	}
 	if event.Id != "" {
 		t.Errorf("event.Id should be empty")

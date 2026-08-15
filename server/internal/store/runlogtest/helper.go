@@ -1,6 +1,7 @@
 package runlogtest
 
 import (
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -149,8 +150,8 @@ func testDeleteByChainId(t *testing.T, s store.RunLogStore) {
 
 func testGetNotFound(t *testing.T, s store.RunLogStore) {
 	got, err := s.Get("user1", "nonexistent")
-	if err != nil {
-		t.Fatalf("Get nonexistent: %v", err)
+	if !errors.Is(err, store.ErrRunLogNotFound) {
+		t.Fatalf("Get nonexistent should return ErrRunLogNotFound, got: %v", err)
 	}
 	if got.Id != "" {
 		t.Errorf("got.Id = %q, want empty", got.Id)

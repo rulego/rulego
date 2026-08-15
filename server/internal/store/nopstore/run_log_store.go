@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/rulego/rulego/server/model"
+	"github.com/rulego/rulego/server/store"
 )
 
 // NopRunLogStore 空操作的运行日志存储，run_log_mode=off 时使用，零开销。
@@ -16,7 +17,7 @@ func (NopRunLogStore) List(_ string, _ string, _, _ time.Time, _, _ int) ([]mode
 }
 
 func (NopRunLogStore) Get(_, _ string) (model.Event, error) {
-	return model.Event{}, nil
+	return model.Event{}, store.ErrRunLogNotFound
 }
 
 func (NopRunLogStore) Delete(_, _ string) error { return nil }

@@ -30,6 +30,10 @@ type RunLogStore struct {
 	db     *bolt.DB
 	mu     sync.RWMutex
 	stopCh chan struct{}
+	// retainCounters 每链累计新增计数，达到阈值才触发一次真扫描清理；
+	// 保留策略是软配额，计数漂移导致的最坏多存量约为阈值的 1.5 倍，可接受
+	retainMu       sync.Mutex
+	retainCounters map[string]int
 }
 
 // NewRunLogStore 创建 BBolt 运行日志存储
@@ -46,10 +50,11 @@ func NewRunLogStore(cfg config.Config, logger types.Logger) (*RunLogStore, error
 		return nil, fmt.Errorf("open bbolt: %w", err)
 	}
 	s := &RunLogStore{
-		cfg:    cfg,
-		logger: logger,
-		db:     db,
-		stopCh: make(chan struct{}),
+		cfg:           cfg,
+		logger:        logger,
+		db:            db,
+		stopCh:        make(chan struct{}),
+		retainCounters: make(map[string]int),
 	}
 	go s.retentionLoop()
 	return s, nil
@@ -187,6 +192,9 @@ func (s *RunLogStore) Get(username, logId string) (model.Event, error) {
 		return nil
 	})
 
+	if err == nil && event.Id == "" {
+		return event, store.ErrRunLogNotFound
+	}
 	return event, err
 }
 
@@ -242,6 +250,23 @@ func (s *RunLogStore) DeleteByChainId(username, chainId string) error {
 func (s *RunLogStore) lazyRetainCount(username, chainId string) {
 	maxCount := s.cfg.RunLogRetentionCount
 	if maxCount <= 0 {
+		return
+	}
+	// 每 Save 都开写事务全前缀扫描是明显的写放大，
+	// 用内存计数达到阈值才触发一次真扫描
+	threshold := maxCount / 2
+	if threshold < 16 {
+		threshold = 16
+	}
+	s.retainMu.Lock()
+	key := username + "\x00" + chainId
+	s.retainCounters[key]++
+	fire := s.retainCounters[key] >= threshold
+	if fire {
+		s.retainCounters[key] = 0
+	}
+	s.retainMu.Unlock()
+	if !fire {
 		return
 	}
 

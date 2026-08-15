@@ -12,6 +12,7 @@ import (
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/server/internal/constants"
+	"github.com/rulego/rulego/server/internal/utils/file"
 	"github.com/rulego/rulego/server/services"
 )
 
@@ -204,7 +205,7 @@ func writeAssistantPrompt(dataDir, agentID, content string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(content), 0644)
+	return file.WriteFileAtomic(path, []byte(content), 0644)
 }
 
 // readAssistantModelConfig loads the ai/agent node model settings from the
@@ -236,7 +237,7 @@ func writeAssistantModelConfig(dataDir, username, agentID string, payload assist
 	if err != nil {
 		return assistantModelPayload{}, err
 	}
-	if err := os.WriteFile(path, updatedDef, 0644); err != nil {
+	if err := file.WriteFileAtomic(path, updatedDef, 0644); err != nil {
 		return assistantModelPayload{}, err
 	}
 	if err := reloader.SaveAndLoad(username, agentID, updatedDef); err != nil {

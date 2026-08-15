@@ -2,11 +2,15 @@
 package store
 
 import (
+	"errors"
 	"time"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/model"
 )
+
+// ErrRunLogNotFound Get 未命中时返回的可识别错误（endpoint 据此映射 404）
+var ErrRunLogNotFound = errors.New("run log not found")
 
 // RuleStore 规则链存储接口
 type RuleStore interface {

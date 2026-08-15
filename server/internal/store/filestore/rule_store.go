@@ -10,10 +10,13 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/constants"
+	"github.com/rulego/rulego/server/internal/utils/file"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/str"
 )
@@ -25,6 +28,21 @@ type RuleStore struct {
 	username string
 	index    RuleIndex
 	sync.RWMutex
+	// lastReconcileAt 上次对账时间：reconcile 为全目录递归扫描，
+	// 每次列表都跑会放大大目录下的延迟；对账只为兜住手工改文件，
+	// 节流到 10s 一次，索引在自身写路径上始终是即时的
+	lastReconcileAt atomic.Value
+}
+
+func (d *RuleStore) lastReconcileTime() time.Time {
+	if v, ok := d.lastReconcileAt.Load().(time.Time); ok {
+		return v
+	}
+	return time.Time{}
+}
+
+func (d *RuleStore) setLastReconcileTime(t time.Time) {
+	d.lastReconcileAt.Store(t)
 }
 
 // RuleIndex 规则链索引，仅包含必要元数据用于快速列表查询
@@ -99,6 +117,8 @@ func (d *RuleStore) Save(username, chainId string, def []byte) error {
 	if !constants.IsSafeId(chainId) {
 		return errors.New("invalid chain id")
 	}
+	// 写操作后允许立即对账：分类归位产生的旧位置残留文件靠对账清除
+	d.setLastReconcileTime(time.Time{})
 	var ruleChain types.RuleChain
 	if err := json.Unmarshal(def, &ruleChain); err != nil {
 		return err
@@ -176,7 +196,10 @@ func (d *RuleStore) GetAsRuleChain(username, chainId string) (types.RuleChain, e
 // 从索引构造摘要项，不读 DSL 文件（完整 DSL 在打开链时按 id 单独拉取）；
 // 每次调用先做磁盘对账，同步绕过 API 的文件变更。
 func (d *RuleStore) List(username string, keywords string, root *bool, disabled *bool, category string, size, page int) ([]types.RuleChain, int, error) {
-	_ = d.reconcileIndex()
+	if now := time.Now(); now.Sub(d.lastReconcileTime()) > 10*time.Second {
+		d.setLastReconcileTime(now)
+		_ = d.reconcileIndex()
+	}
 	var metas []RuleMeta
 	for _, meta := range d.getAllIndex() {
 		if meta.SystemAgent {
@@ -203,7 +226,16 @@ func (d *RuleStore) List(username string, keywords string, root *bool, disabled 
 		}
 		page = 1
 	}
+	if size <= 0 {
+		size = 20
+	}
+	if page < 0 {
+		page = 0
+	}
 	start := (page - 1) * size
+	if start < 0 {
+		start = 0
+	}
 	end := start + size
 	if start > totalCount {
 		start = totalCount
@@ -278,6 +310,7 @@ func (d *RuleStore) Delete(username, chainId string) error {
 	if !constants.IsSafeId(chainId) {
 		return errors.New("invalid chain id")
 	}
+	d.setLastReconcileTime(time.Time{})
 	category := d.getCategory(chainId)
 	if !isSafeCategory(category) {
 		return errors.New("invalid category")
@@ -352,7 +385,7 @@ func (d *RuleStore) saveRuleChain(username, chainId string, def []byte) (string,
 		return "", err
 	}
 	filePath := filepath.Join(pathStr, chainId+constants.RuleChainFileSuffix)
-	return filePath, fs.SaveFile(filePath, buf.Bytes())
+	return filePath, file.WriteFileAtomic(filePath, buf.Bytes(), 0o644)
 }
 
 // ruleFilePath 规则链 DSL 所在目录（含分类子目录）
@@ -590,16 +623,13 @@ func (d *RuleStore) deleteIndex(chainId string) error {
 func (d *RuleStore) saveIndex(indexPath string) error {
 	d.Lock()
 	defer d.Unlock()
-	// 父目录可能尚未创建（新建用户首次写入索引时），os.Create 不会自动建目录。
-	if err := os.MkdirAll(filepath.Dir(indexPath), 0o755); err != nil {
+	// 先序列化再原子落盘：O_TRUNC 直写在崩溃时会留下半写 index，
+	// loadIndex 解析失败曾导致整个用户存储不可用
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(d.index); err != nil {
 		return err
 	}
-	file, err := os.Create(indexPath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	return json.NewEncoder(file).Encode(d.index)
+	return file.WriteFileAtomic(indexPath, buf.Bytes(), 0o644)
 }
 
 func (d *RuleStore) getAllIndex() []RuleMeta {

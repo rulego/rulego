@@ -1,6 +1,8 @@
 package filestore
 
 import (
+	"os"
+	"path/filepath"
 	"sync"
 
 	"gopkg.in/ini.v1"
@@ -102,10 +104,35 @@ func (d *FileStorage) SaveToFile() error {
 	return d.saveToFileLocked()
 }
 
-// saveToFileLocked 落盘，调用方须已持写锁：SaveTo 遍历 ini 内部结构，
-// 必须与改写处同处一个临界区。
+// saveToFileLocked 落盘，调用方须已持写锁：序列化遍历 ini 内部结构，
+// 必须与改写处同处一个临界区。经临时文件+rename 原子替换，
+// 避免崩溃时 users.ini 半写导致凭据丢失。
 func (d *FileStorage) saveToFileLocked() error {
-	return d.file.SaveTo(d.filename)
+	tmp, err := os.CreateTemp(filepath.Dir(d.filename), filepath.Base(d.filename)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		if err != nil {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if _, err = d.file.WriteTo(tmp); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err = tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err = tmp.Close(); err != nil {
+		return err
+	}
+	if err = os.Chmod(tmpName, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, d.filename)
 }
 
 // FileStorageManager 按文件路径懒加载并缓存 FileStorage，避免对同一文件重复建实例。

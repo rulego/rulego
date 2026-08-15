@@ -14,6 +14,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/constants"
+	"github.com/rulego/rulego/server/internal/utils/file"
 	"github.com/rulego/rulego/utils/fs"
 	"github.com/rulego/rulego/utils/str"
 )
@@ -102,23 +103,32 @@ func (d *ComponentStore) List(username, keywords string, size, page int) ([][]by
 			totalCount++
 		}
 	}
-	sort.Slice(results, func(i, j int) bool {
-		var iChain, jChain types.RuleChain
-		_ = json.Unmarshal(results[i], &iChain)
-		_ = json.Unmarshal(results[j], &jChain)
-		var iTime, jTime string
-		if v, ok := iChain.RuleChain.GetAdditionalInfo(constants.KeyUpdateTime); ok {
-			iTime = str.ToString(v)
+	// 比较器里逐次反序列化是 O(n log n) 次 JSON 解析，先一次性提出排序键
+	type item struct {
+		data  []byte
+		tsStr string
+	}
+	items := make([]item, 0, len(results))
+	for _, r := range results {
+		var chain types.RuleChain
+		_ = json.Unmarshal(r, &chain)
+		tsStr := ""
+		if v, ok := chain.RuleChain.GetAdditionalInfo(constants.KeyUpdateTime); ok {
+			tsStr = str.ToString(v)
 		}
-		if v, ok := jChain.RuleChain.GetAdditionalInfo(constants.KeyUpdateTime); ok {
-			jTime = str.ToString(v)
-		}
-		return iTime > jTime
-	})
+		items = append(items, item{data: r, tsStr: tsStr})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].tsStr > items[j].tsStr })
 	if page == 0 {
 		return results, totalCount, nil
 	}
+	if size <= 0 {
+		size = 20
+	}
 	start := (page - 1) * size
+	if start < 0 {
+		start = 0
+	}
 	end := start + size
 	if start > totalCount {
 		start = totalCount
@@ -126,7 +136,12 @@ func (d *ComponentStore) List(username, keywords string, size, page int) ([][]by
 	if end > totalCount {
 		end = totalCount
 	}
-	return results[start:end], totalCount, nil
+	pageItems := items[start:end]
+	paged := make([][]byte, 0, len(pageItems))
+	for _, it := range pageItems {
+		paged = append(paged, it.data)
+	}
+	return paged, totalCount, nil
 }
 
 // Delete 删除组件文件并从索引中移除
@@ -152,7 +167,7 @@ func (d *ComponentStore) saveFile(username, componentId string, def []byte) erro
 	if err := json.Indent(&buf, def, "", "  "); err != nil {
 		return err
 	}
-	return fs.SaveFile(filepath.Join(pathStr, componentId+constants.RuleChainFileSuffix), buf.Bytes())
+	return file.WriteFileAtomic(filepath.Join(pathStr, componentId+constants.RuleChainFileSuffix), buf.Bytes(), 0o644)
 }
 
 func (d *ComponentStore) getIndexPath() string {
@@ -222,12 +237,11 @@ func (d *ComponentStore) deleteIndex(chainId string) error {
 func (d *ComponentStore) saveIndex(indexPath string) error {
 	d.Lock()
 	defer d.Unlock()
-	file, err := os.Create(indexPath)
-	if err != nil {
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(d.index); err != nil {
 		return err
 	}
-	defer file.Close()
-	return json.NewEncoder(file).Encode(d.index)
+	return file.WriteFileAtomic(indexPath, buf.Bytes(), 0o644)
 }
 
 func (d *ComponentStore) getAllIndex() []ComponentMeta {
