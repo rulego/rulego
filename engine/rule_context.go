@@ -119,6 +119,8 @@ type ContextObserver struct {
 	nodeInMsgList map[string][]types.WrapperMsg
 	// Map of callbacks for node completion events
 	nodeDoneEvent map[string]joinNodeCallback
+	// 是否注册过 join 完成事件，未注册时 executedNode 跳过加锁检查
+	hasJoinEvents int32
 	sync.RWMutex
 }
 
@@ -161,6 +163,7 @@ func (c *ContextObserver) getInMsgList(joinNodeId string) []types.WrapperMsg {
 
 // registerNodeDoneEvent registers a callback for when a join node completes.
 func (c *ContextObserver) registerNodeDoneEvent(joinNodeId, lcaNodeId string, callback func([]types.WrapperMsg)) {
+	atomic.StoreInt32(&c.hasJoinEvents, 1)
 	c.Lock()
 	if c.nodeDoneEvent == nil {
 		c.nodeDoneEvent = make(map[string]joinNodeCallback)
@@ -186,8 +189,14 @@ func (c *ContextObserver) checkNodesDone(nodeIds ...string) bool {
 
 // executedNode marks a node as executed and checks for any completed join nodes.
 func (c *ContextObserver) executedNode(nodeId string) {
-	c.executedNodes.Store(nodeId, true)
-	c.checkAndTrigger()
+	// 去重：同一节点跨消息只记录一次，避免重复 Store 的分配开销
+	if _, ok := c.executedNodes.Load(nodeId); !ok {
+		c.executedNodes.Store(nodeId, true)
+	}
+	// 无 join 事件的链没有可触发的回调，跳过加锁检查
+	if atomic.LoadInt32(&c.hasJoinEvents) == 1 {
+		c.checkAndTrigger()
+	}
 }
 
 // checkAndTrigger checks for completed join nodes and triggers their callbacks.
@@ -369,14 +378,11 @@ type RunSnapshot struct {
 
 // NewRunSnapshot creates a new instance of RunSnapshot with the given parameters.
 func NewRunSnapshot(msgId string, chainCtx *RuleChainCtx, startTs int64) *RunSnapshot {
-	runSnapshot := &RunSnapshot{
+	return &RunSnapshot{
 		msgId:    msgId,
 		chainCtx: chainCtx,
 		startTs:  startTs,
 	}
-	// Initialize the logs map.
-	runSnapshot.logs = make(map[string]*types.RuleNodeRunLog)
-	return runSnapshot
 }
 
 // needCollectRunSnapshot determines if there is a need to collect a snapshot of the rule chain execution.
@@ -390,6 +396,10 @@ func (r *RunSnapshot) collectRunSnapshot(ctx types.RuleContext, flowType string,
 		return
 	}
 	r.lock.Lock()
+	// 惰性初始化：不收集运行日志的消息不分配 logs map
+	if r.logs == nil {
+		r.logs = make(map[string]*types.RuleNodeRunLog)
+	}
 	nodeLog, ok := r.logs[nodeId]
 	if !ok {
 		nodeLog = &types.RuleNodeRunLog{
@@ -501,8 +511,7 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		chainCache:      ctx.chainCache,      // 共享缓存
 		nodeOutputCache: ctx.nodeOutputCache, // 共享节点输出缓存
 
-		relationTypes: make([]string, 1),
-		hasEndNode:    ctx.hasEndNode,
+		hasEndNode: ctx.hasEndNode,
 	}
 	// 继承 debugModeOverride（1=强制开启, -1=强制关闭, 0=使用节点默认值）
 	if v := atomic.LoadInt32(&ctx.debugModeOverride); v != 0 {
@@ -1229,8 +1238,13 @@ func (ctx *DefaultRuleContext) setRelationType(nextCtx *DefaultRuleContext, rela
 	case types.False:
 		nextCtx.relationTypes = falseRelationTypes
 	default:
-		// 对于自定义关系类型，复用已分配的 slice
-		// For custom relation types, reuse the pre-allocated slice
+		// 对于自定义关系类型，复用已分配的 slice，否则按需分配
+		// For custom relation types, reuse the pre-allocated slice or allocate lazily
+		if cap(nextCtx.relationTypes) > 0 {
+			nextCtx.relationTypes = nextCtx.relationTypes[:1]
+		} else {
+			nextCtx.relationTypes = make([]string, 1)
+		}
 		nextCtx.relationTypes[0] = relationType
 	}
 }

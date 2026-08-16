@@ -62,6 +62,12 @@ type GojaJsEngine struct {
 	jsUdfProgramCache map[string]*goja.Program
 }
 
+// gojaVmSlot 池化的 VM 槽位，绑定可复用的超时定时器，避免每次执行新建 timer
+type gojaVmSlot struct {
+	vm    *goja.Runtime
+	timer *time.Timer
+}
+
 // NewGojaJsEngine Create a new instance of the JavaScript engine
 func NewGojaJsEngine(config types.Config, jsScript string, fromVars map[string]interface{}) (*GojaJsEngine, error) {
 	program, err := goja.Compile("", jsScript, true)
@@ -77,7 +83,16 @@ func NewGojaJsEngine(config types.Config, jsScript string, fromVars map[string]i
 	}
 	jsEngine.vmPool = sync.Pool{
 		New: func() interface{} {
-			return jsEngine.NewVm(config, fromVars)
+			vm := jsEngine.NewVm(config, fromVars)
+			slot := &gojaVmSlot{vm: vm}
+			if config.ScriptMaxExecutionTime > 0 {
+				// 创建后立即停止，后续执行用 Reset 复用，回调固定绑定该 VM
+				slot.timer = time.AfterFunc(config.ScriptMaxExecutionTime, func() {
+					vm.Interrupt("execution timeout")
+				})
+				slot.timer.Stop()
+			}
+			return slot
 		},
 	}
 	return jsEngine, nil
@@ -187,12 +202,13 @@ func (g *GojaJsEngine) Execute(ctx types.RuleContext, functionName string, argum
 		}
 	}()
 
-	vm := g.vmPool.Get().(*goja.Runtime)
+	slot := g.vmPool.Get().(*gojaVmSlot)
+	vm := slot.vm
 	// 归还前清掉 $ctx：池化 VM 会长期持有上一条消息的 RuleContext 引用，
 	// 阻碍大消息 GC；ctx 为 nil 的执行读到 null 报错优于读到上一条的脏值
 	defer func() {
 		_ = vm.Set(CtxKey, nil)
-		g.vmPool.Put(vm)
+		g.vmPool.Put(slot)
 	}()
 
 	// Only set context if provided to avoid nil overhead
@@ -200,11 +216,10 @@ func (g *GojaJsEngine) Execute(ctx types.RuleContext, functionName string, argum
 		vm.Set(CtxKey, ctx)
 	}
 
-	// Use timeout only if configured
-	var timer *time.Timer
-	if g.config.ScriptMaxExecutionTime > 0 {
-		timer = g.startTimeout(vm)
-		defer g.stopTimeout(timer)
+	// 复用槽位定时器；未配置超时时 timer 为 nil
+	if slot.timer != nil {
+		slot.timer.Reset(g.config.ScriptMaxExecutionTime)
+		defer slot.timer.Stop()
 	}
 
 	// Get function

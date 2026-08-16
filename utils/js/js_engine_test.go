@@ -304,9 +304,9 @@ func TestExecuteClearsCtxAfterPut(t *testing.T) {
 	if _, err := engine.Execute(nil, "Transform", "data"); err != nil {
 		t.Fatal(err)
 	}
-	vm := engine.vmPool.Get().(*goja.Runtime)
-	if v := vm.Get(CtxKey); v != nil && !goja.IsUndefined(v) && !goja.IsNull(v) {
+	slot := engine.vmPool.Get().(*gojaVmSlot)
+	if v := slot.vm.Get(CtxKey); v != nil && !goja.IsUndefined(v) && !goja.IsNull(v) {
 		t.Errorf("$ctx should be cleared after Put, got %v", v)
 	}
-	engine.vmPool.Put(vm)
+	engine.vmPool.Put(slot)
 }
