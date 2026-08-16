@@ -7,11 +7,11 @@ require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/mark3labs/mcp-go v0.44.0
-	github.com/rulego/rulego v0.37.1-0.20260816034156-dd23b5ae3802
-	github.com/rulego/rulego-components v0.37.1-0.20260816042029-83aca67f50b7
+	github.com/rulego/rulego v0.37.1-0.20260816080045-8bb732264aa3
+	github.com/rulego/rulego-components v0.37.1-0.20260816080051-925f1529ddb2
 	github.com/rulego/rulego-components-ai v0.37.1-0.20260816034014-d5312a602f16
 	github.com/rulego/rulego-components-ci v0.36.0
-	github.com/rulego/rulego-components-discovery v0.37.1-0.20260812095641-8fa69fe0154a
+	github.com/rulego/rulego-components-discovery v0.37.1-0.20260816080205-93ee3de7886f
 	github.com/rulego/rulego-components-etl v0.36.0
 	github.com/rulego/rulego-components-iot v0.37.2-0.20260815052038-1b3d08a5751c
 	go.etcd.io/bbolt v1.4.3
