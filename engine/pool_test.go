@@ -19,6 +19,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -218,4 +219,53 @@ func TestPoolAlias_Stop(t *testing.T) {
 	assert.False(t, ok, "Stop 后主键应失效")
 	_, ok = pool.Get(ruleChainID)
 	assert.False(t, ok, "Stop 后别名应被清理")
+}
+
+// 并发 New 同 id：check-then-create 窗口内会双建引擎，后者覆盖前者导致前者泄漏。
+// LoadOrStore 后必须返回同一实例、池中唯一、OnNew 恰好触发一次。
+func TestPoolNewConcurrentSameId(t *testing.T) {
+	_ = Registry.Register(&test.UpperNode{})
+	pool := NewPool()
+	var onNewCount int32
+	pool.SetCallbacks(types.Callbacks{
+		OnNew: func(chainId string, dsl []byte) {
+			atomic.AddInt32(&onNewCount, 1)
+		},
+	})
+
+	const (
+		workers   = 20
+		chainID   = "concurrent-same-id"
+		chainName = "concurrent_same_id"
+	)
+	def := []byte(fmt.Sprintf(aliasChainDefTpl, chainName))
+
+	engines := make([]types.RuleEngine, workers)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			e, err := pool.New(chainID, def)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			engines[i] = e
+		}(i)
+	}
+	wg.Wait()
+
+	for i := 0; i < workers; i++ {
+		if engines[i] == nil {
+			t.Fatalf("worker %d got nil engine", i)
+		}
+		if engines[i] != engines[0] {
+			t.Fatalf("worker %d got different engine instance", i)
+		}
+	}
+	got, ok := pool.Get(chainID)
+	assert.True(t, ok)
+	assert.True(t, got == engines[0], "pool entry must be the returned instance")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&onNewCount), "OnNew must fire exactly once")
 }

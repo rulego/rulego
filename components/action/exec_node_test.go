@@ -17,6 +17,8 @@
 package action
 
 import (
+	"context"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -378,4 +380,47 @@ func TestExecNodeLogWithoutOnDebug(t *testing.T) {
 	test.NodeOnMsgWithChildrenAndConfig(t, config, node, []test.Msg{msg}, nil, func(msg types.RuleMsg, relationType string, err error) {
 		assert.Equal(t, types.Success, relationType)
 	})
+}
+
+// 挂死子进程必须响应规则链 ctx 取消（引擎 Stop/优雅停机），否则 OnMsg 永不返回、worker 被永久占用。
+func TestExecNodeSubprocessCancel(t *testing.T) {
+	config := types.NewConfig()
+	config.Properties.PutValue(KeyExecNodeMode, string(ModeDeny))
+
+	var cmdName string
+	var args []string
+	if runtime.GOOS == "windows" {
+		cmdName, args = "ping", []string{"-n", "30", "127.0.0.1"}
+	} else {
+		cmdName, args = "sleep", []string{"30"}
+	}
+
+	node := test.InitNodeByConfig(config, "exec", types.Configuration{
+		"cmd":  cmdName,
+		"args": args,
+	}, Registry)
+
+	baseCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var once sync.Once
+	done := make(chan struct{})
+	ruleCtx := test.NewRuleContextFull(config, node, nil, func(msg types.RuleMsg, relationType string, err error) {
+		once.Do(func() {
+			assert.Equal(t, types.Failure, relationType, "killed process must route to Failure")
+			close(done)
+		})
+	})
+	ruleCtx = ruleCtx.SetContext(baseCtx)
+
+	msg := types.NewMsg(0, "TEST", types.JSON, types.BuildMetadata(make(map[string]string)), "{}")
+	go node.OnMsg(ruleCtx, msg)
+
+	// 等子进程真正启动后再取消，避免命令还没 Start 就被取消
+	time.Sleep(500 * time.Millisecond)
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("OnMsg did not return after ctx cancel")
+	}
 }

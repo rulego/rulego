@@ -23,7 +23,9 @@ import (
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 	"os"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -778,5 +780,90 @@ func TestReloadSelfRefreshTopologyState(t *testing.T) {
 	}
 	if _, ok := ctx.GetLCA(types.RuleNodeId{Id: "c"}); !ok {
 		t.Error("GetLCA(c) should resolve after reload")
+	}
+}
+
+// GetNextNodes 锁外计算期间发生 ReloadSelf 时，缓存写回必须核对拓扑版本，
+// 否则已销毁的旧节点指针会被永久写入新缓存（命中后每次路由都拿到失效节点）。
+func TestGetNextNodesConcurrentReload(t *testing.T) {
+	config := NewConfig()
+	jsonParser := JsonParser{}
+	// v1 有 a-False->c；v2 删除 c 与该边
+	dslV1 := []byte(`{
+	  "ruleChain": {"id": "next-nodes-reload"},
+	  "metadata": {
+	    "nodes": [
+	      {"id": "a", "type": "jsFilter", "name": "a", "configuration": {"jsScript": "return true"}},
+	      {"id": "b", "type": "jsFilter", "name": "b", "configuration": {"jsScript": "return true"}},
+	      {"id": "c", "type": "jsFilter", "name": "c", "configuration": {"jsScript": "return true"}}
+	    ],
+	    "connections": [
+	      {"fromId": "a", "toId": "b", "type": "Success"},
+	      {"fromId": "a", "toId": "c", "type": "False"}
+	    ]
+	  }
+	}`)
+	dslV2 := []byte(`{
+	  "ruleChain": {"id": "next-nodes-reload"},
+	  "metadata": {
+	    "nodes": [
+	      {"id": "a", "type": "jsFilter", "name": "a", "configuration": {"jsScript": "return true"}},
+	      {"id": "b", "type": "jsFilter", "name": "b", "configuration": {"jsScript": "return true"}}
+	    ],
+	    "connections": [
+	      {"fromId": "a", "toId": "b", "type": "Success"}
+	    ]
+	  }
+	}`)
+	def, err := jsonParser.DecodeRuleChain(dslV1)
+	assert.Nil(t, err)
+	ctx, err := InitRuleChainCtx(config, nil, &def, nil)
+	assert.Nil(t, err)
+
+	nodeA := types.RuleNodeId{Id: "a", Type: types.NODE}
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				nodes, _ := ctx.GetNextNodes(nodeA, types.False)
+				for _, n := range nodes {
+					// v1 只可能返回 c，v2 返回空；出现其他 id 说明缓存被旧图污染
+					if n.GetNodeId().Id != "c" {
+						t.Errorf("GetNextNodes(a,False) returned unexpected node %s", n.GetNodeId().Id)
+						return
+					}
+				}
+				runtime.Gosched()
+			}
+		}()
+	}
+	for i := 0; i < 100; i++ {
+		dsl := dslV2
+		if i%2 == 1 {
+			dsl = dslV1
+		}
+		if err := ctx.ReloadSelf(dsl); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// 终态固定为 v2 后停止并发读
+	if err := ctx.ReloadSelf(dslV2); err != nil {
+		t.Fatal(err)
+	}
+	close(stop)
+	wg.Wait()
+
+	nodes, ok := ctx.GetNextNodes(nodeA, types.False)
+	assert.False(t, ok, "v2 has no False edge from a")
+	for _, n := range nodes {
+		assert.NotEqual(t, "c", n.GetNodeId().Id, "deleted node c leaked into relationCache")
 	}
 }

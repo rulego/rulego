@@ -135,6 +135,11 @@ type RuleChainCtx struct {
 	// relationCache 基于传入节点和关系类型缓存传出节点列表，显著提高频繁访问路径的路由性能
 	relationCache map[RelationCache][]types.NodeCtx
 
+	// topologyVersion 每次 reload 拓扑替换（copyUnsafe）时递增。GetNextNodes 在锁外
+	// 计算缓存，写回前必须核对版本：窗口内发生 reload 时旧节点已被销毁，
+	// 无条件写回会把失效节点指针永久写入新缓存。
+	topologyVersion uint64
+
 	// lcaCalculator provides LCA calculation functionality
 	// lcaCalculator 提供LCA计算功能
 	lcaCalculator *lca.LCACalculator
@@ -506,32 +511,49 @@ func (rc *RuleChainCtx) GetLCAOfNodes(nodeIds []types.RuleNodeId) (types.RuleNod
 func (rc *RuleChainCtx) GetNextNodes(id types.RuleNodeId, relationType string) ([]types.NodeCtx, bool) {
 	var nodeCtxList []types.NodeCtx
 	cacheKey := RelationCache{inNodeId: id, relationType: relationType}
+	// routes、nodes 与 version 必须在同一次 RLock 内读取：分开设锁会读到新图配旧版本
+	//（或反之），写回复核失去意义；锁外读 rc.nodes 则与 reload 的整表替换竞争。
+	// 子链解析与 GetNodeById 语义一致。
 	rc.RLock()
-	// Get from cache
 	nodeCtxList, ok := rc.relationCache[cacheKey]
+	hasNextComponents := false
+	if !ok {
+		for _, item := range rc.nodeRoutes[id] {
+			if item.RelationType != relationType {
+				continue
+			}
+			if nodeCtx, nodeCtxOk := rc.getNodeCtxUnsafe(item.OutId); nodeCtxOk {
+				nodeCtxList = append(nodeCtxList, nodeCtx)
+				hasNextComponents = true
+			}
+		}
+	}
+	topologyVersion := rc.topologyVersion
 	rc.RUnlock()
 	if ok {
 		return nodeCtxList, nodeCtxList != nil
 	}
 
-	// Get from the Routes
-	relations, ok := rc.GetNodeRoutes(id)
-	hasNextComponents := false
-	if ok {
-		for _, item := range relations {
-			if item.RelationType == relationType {
-				if nodeCtx, nodeCtxOk := rc.GetNodeById(item.OutId); nodeCtxOk {
-					nodeCtxList = append(nodeCtxList, nodeCtx)
-					hasNextComponents = true
-				}
-			}
-		}
-	}
 	rc.Lock()
-	// Add to the cache
-	rc.relationCache[cacheKey] = nodeCtxList
+	// Add to the cache. 版本不一致说明计算期间发生了 reload，放弃写回，下次重算。
+	if rc.topologyVersion == topologyVersion {
+		rc.relationCache[cacheKey] = nodeCtxList
+	}
 	rc.Unlock()
 	return nodeCtxList, hasNextComponents
+}
+
+// getNodeCtxUnsafe 按 id 解析节点上下文，语义与 GetNodeById 相同，但要求调用方已持锁。
+func (rc *RuleChainCtx) getNodeCtxUnsafe(id types.RuleNodeId) (types.NodeCtx, bool) {
+	if id.Type == types.CHAIN {
+		// For sub-rule chains, search through the rule chain pool
+		if subRuleEngine, ok := rc.GetRuleEnginePool().Get(id.Id); ok && subRuleEngine.RootRuleChainCtx() != nil {
+			return subRuleEngine.RootRuleChainCtx(), true
+		}
+		return nil, false
+	}
+	nodeCtx, ok := rc.nodes[id]
+	return nodeCtx, ok
 }
 
 // Type returns the component type
@@ -798,6 +820,7 @@ func (rc *RuleChainCtx) copyUnsafe(newCtx *RuleChainCtx) {
 	rc.lcaCalculator = lca.NewLCACalculator(rc)
 	// Clear cache
 	rc.relationCache = make(map[RelationCache][]types.NodeCtx)
+	rc.topologyVersion++
 	// 接管 newCtx 的资源目录，使 reload 后 ref:// 解析到新 endpoint。
 	rc.resources = newCtx.resources
 }

@@ -172,9 +172,13 @@ func (g *Pool) New(id string, rootRuleChainSrc []byte, opts ...types.RuleEngineO
 		if ruleEngine, err := NewRuleEngine(id, rootRuleChainSrc, opts...); err != nil {
 			return nil, err
 		} else {
-			// Store the new rule engine instance in the pool.
 			if ruleEngine.Id() != "" {
-				g.entries.Store(ruleEngine.Id(), ruleEngine)
+				// LoadOrStore 消除并发同 id 双建：败者释放自己刚建的实例并返回既有者，
+				// 否则败者的节点连接、切面 goroutine 全部泄漏
+				if actual, loaded := g.entries.LoadOrStore(ruleEngine.Id(), ruleEngine); loaded {
+					ruleEngine.Stop(context.Background())
+					return actual.(*RuleEngine), nil
+				}
 			}
 			// 注册别名，使别名也能寻址到该引擎。
 			for _, alias := range ruleEngine.Aliases() {

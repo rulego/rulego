@@ -167,8 +167,10 @@ func NewClient(ctx context.Context, conf Config) (*Client, error) {
 // RegisterHandler 注册订阅数据处理器
 func (b *Client) RegisterHandler(handler Handler) {
 	b.Lock()
-	defer b.Unlock()
 	b.msgHandlerMap[handler.Topic] = handler
+	// 订阅不得在锁内进行：broker 恒拒或不可达时订阅重试会长期占住写锁，
+	// UnregisterHandler/GetHandlerByUpTopic/Close 全部饿死
+	b.Unlock()
 	b.subscribeHandler(handler)
 }
 
@@ -260,14 +262,22 @@ func (b *Client) subscribe() {
 	}
 }
 
+// subscribeHandler 有界重试订阅。paho 未连接时 token.Wait() 可能永不返回，必须用
+// WaitTimeout。放弃重试是安全的：重连成功后 onConnected→subscribe() 会重订全部 handler。
 func (b *Client) subscribeHandler(handler Handler) {
 	topic := handler.Topic
-	for {
-		if token := b.client.Subscribe(topic, handler.Qos, handler.Handle).(*paho.SubscribeToken); token.Wait() && (token.Error() != nil || is128Err(token, topic)) { //128 ACK错误
-			time.Sleep(2 * time.Second)
+	backoff := time.Second
+	for i := 0; i < 5; i++ {
+		token := b.client.Subscribe(topic, handler.Qos, handler.Handle).(*paho.SubscribeToken)
+		if !token.WaitTimeout(10*time.Second) || token.Error() != nil || is128Err(token, topic) { //128 ACK错误
+			time.Sleep(backoff)
+			backoff *= 2
+			if backoff > 8*time.Second {
+				backoff = 8 * time.Second
+			}
 			continue
 		}
-		break
+		return
 	}
 }
 

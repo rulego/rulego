@@ -23,7 +23,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 )
 
-var DefaultCache = NewMemoryCache(time.Minute * 5)
+var DefaultCache = NewMemoryCacheWithCap(time.Minute*5, 100000)
 
 // MemoryCache is an in-memory cache implementation.
 // It stores key-value pairs with optional expiration.
@@ -33,6 +33,9 @@ type MemoryCache struct {
 	stopGc     chan struct{} // Channel to signal GC to stop
 	ticker     *time.Ticker  // Ticker for GC
 	gcInterval time.Duration // GC interval duration
+	// maxItems 容量上限（<=0 不限）。ttl=0 的条目永不过期，无上限时
+	// JS 脚本可无限 Set 导致 OOM，超限按 lastAccess 淘汰最久未访问条目
+	maxItems int
 }
 
 // item represents a cached item with its value and expiration time.
@@ -41,6 +44,8 @@ type MemoryCache struct {
 type item struct {
 	value      interface{}
 	expiration int64
+	// lastAccess 最近一次 Get/Set 的 UnixNano，仅容量淘汰用
+	lastAccess int64
 }
 
 // NewMemoryCache creates a new MemoryCache instance.
@@ -58,6 +63,14 @@ func NewMemoryCache(gcInterval time.Duration) *MemoryCache {
 		c.gcInterval = gcInterval
 	}
 	// GC is no longer started automatically
+	return c
+}
+
+// NewMemoryCacheWithCap creates a new MemoryCache with a capacity limit.
+// maxItems<=0 表示无上限。超限时淘汰最久未访问（Get/Set）的条目。
+func NewMemoryCacheWithCap(gcInterval time.Duration, maxItems int) *MemoryCache {
+	c := NewMemoryCache(gcInterval)
+	c.maxItems = maxItems
 	return c
 }
 
@@ -92,6 +105,14 @@ func (c *MemoryCache) Set(key string, value interface{}, ttl string) error {
 	c.items[key] = item{
 		value:      value,
 		expiration: expiration,
+		lastAccess: time.Now().UnixNano(),
+	}
+	if c.maxItems > 0 {
+		// 刚写入的键不参与淘汰：时钟精度不足时新旧条目可能同 nanosecond，
+		// 扫描把它当最旧删掉会让本次 Set 丢失
+		for len(c.items) > c.maxItems {
+			c.evictOldestUnsafe(key)
+		}
 	}
 	// If an expirable item was added and GC is not running (ticker is nil),
 	// set flag to start GC after releasing the lock.
@@ -105,6 +126,24 @@ func (c *MemoryCache) Set(key string, value interface{}, ttl string) error {
 	return nil
 }
 
+// evictOldestUnsafe 删除除 skip 外最久未访问的条目，调用方须已持写锁且确有超限。
+func (c *MemoryCache) evictOldestUnsafe(skip string) {
+	oldestKey := ""
+	var oldestAccess int64
+	for k, it := range c.items {
+		if k == skip {
+			continue
+		}
+		if oldestKey == "" || it.lastAccess < oldestAccess {
+			oldestKey = k
+			oldestAccess = it.lastAccess
+		}
+	}
+	if oldestKey != "" {
+		delete(c.items, oldestKey)
+	}
+}
+
 // Get retrieves a value from the cache by its key.
 // Parameters:
 //   - key: The cache key to retrieve (string)
@@ -115,8 +154,9 @@ func (c *MemoryCache) Set(key string, value interface{}, ttl string) error {
 //
 // It returns the value and nil error if the key exists and has not expired.
 func (c *MemoryCache) Get(key string) (interface{}, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	// 写锁而非读锁：命中要刷新 lastAccess（容量淘汰依据），条目结构体非指针无法原子更新
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	it, found := c.items[key]
 	if !found {
@@ -129,6 +169,8 @@ func (c *MemoryCache) Get(key string) (interface{}, error) {
 		return nil, types.ErrCacheMiss
 	}
 
+	it.lastAccess = time.Now().UnixNano()
+	c.items[key] = it
 	return it.value, nil
 }
 

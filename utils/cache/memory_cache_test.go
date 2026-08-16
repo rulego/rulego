@@ -17,6 +17,7 @@
 package cache
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -322,4 +323,38 @@ func TestNamespaceCache(t *testing.T) {
 		}
 	})
 
+}
+
+// 容量上限 + 简单 LRU：超限淘汰最久未访问条目，Get 刷新访问序。
+// 条目间隔 1ms 写入，保证 lastAccess 严格递增（Windows 时钟精度下连续 Set 可能同 nanosecond）。
+func TestMemoryCacheCapacityLRU(t *testing.T) {
+	c := NewMemoryCacheWithCap(time.Minute, 3)
+	for i := 0; i < 5; i++ {
+		assert.Nil(t, c.Set(fmt.Sprintf("k%d", i), i, ""))
+		time.Sleep(time.Millisecond)
+	}
+	_, err := c.Get("k0")
+	assert.Equal(t, types.ErrCacheMiss, err)
+	_, err = c.Get("k1")
+	assert.Equal(t, types.ErrCacheMiss, err)
+	v, err := c.Get("k4")
+	assert.Nil(t, err)
+	assert.Equal(t, 4, v)
+
+	// Get(k2) 把最旧的 k2 刷新为最近访问，写入超限时被淘汰的应是次旧的 k3
+	_, _ = c.Get("k2")
+	time.Sleep(time.Millisecond)
+	assert.Nil(t, c.Set("n0", 0, ""))
+	assert.False(t, c.Has("k3"))
+	assert.True(t, c.Has("k2"))
+	assert.True(t, c.Has("k4"))
+	assert.True(t, c.Has("n0"))
+
+	// maxItems<=0 表示无上限
+	unlimited := NewMemoryCacheWithCap(time.Minute, 0)
+	for i := 0; i < 10; i++ {
+		assert.Nil(t, unlimited.Set(fmt.Sprintf("u%d", i), i, ""))
+	}
+	_, err = unlimited.Get("u0")
+	assert.Nil(t, err)
 }

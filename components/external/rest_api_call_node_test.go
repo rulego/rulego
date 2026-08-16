@@ -401,3 +401,25 @@ func TestRestApiCallNode(t *testing.T) {
 		})
 	})
 }
+
+// 钉死 readTimeoutMs 的实际解码行为（mitchellh/mapstructure v1.5.0 的 ZeroFields
+// 不清 map 中缺失的键，New() 预置的 2000 得以保留；若日后更换解码器把缺键清零，
+// http.Client{Timeout:0} 会让上游挂起时链路 goroutine 永久阻塞）。显式传 0（SSE 流）必须保留。
+func TestRestApiCallNodeReadTimeoutDefault(t *testing.T) {
+	config := types.NewConfig()
+
+	node := (&RestApiCallNode{}).New()
+	err := node.Init(config, types.Configuration{
+		"restEndpointUrlPattern": "http://127.0.0.1:1/test",
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, 2000, node.(*RestApiCallNode).Config.ReadTimeoutMs)
+
+	nodeExplicitZero := (&RestApiCallNode{}).New()
+	err = nodeExplicitZero.Init(config, types.Configuration{
+		"restEndpointUrlPattern": "http://127.0.0.1:1/test",
+		"readTimeoutMs":          0,
+	})
+	assert.Nil(t, err)
+	assert.Equal(t, 0, nodeExplicitZero.(*RestApiCallNode).Config.ReadTimeoutMs)
+}

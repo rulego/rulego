@@ -236,6 +236,57 @@ func TestClient_ConcurrentAccess(t *testing.T) {
 	wg.Wait()
 }
 
+// newUnreachableClient 构造指向不可达 broker 的客户端：不走 NewClient 的连接重试，
+// paho 对未连接客户端的 Subscribe 立即返回错误 token。
+func newUnreachableClient() *Client {
+	b := &Client{
+		msgHandlerMap: make(map[string]Handler),
+		isConnected:   0,
+	}
+	opts := paho.NewClientOptions()
+	opts.AddBroker("tcp://127.0.0.1:1")
+	opts.SetClientID("rulego-test-unreachable")
+	opts.SetAutoReconnect(true)
+	opts.SetMaxReconnectInterval(2 * time.Second)
+	opts.SetOnConnectHandler(b.onConnected)
+	opts.SetConnectionLostHandler(b.onConnectionLost)
+	opts.SetReconnectingHandler(b.onReconnecting)
+	b.client = paho.NewClient(opts)
+	return b
+}
+
+// broker 恒拒/不可达时 RegisterHandler 的订阅重试不得占住写锁，
+// 否则 GetHandlerByUpTopic/UnregisterHandler/Close 全部饿死。
+func TestClient_RegisterHandlerNoLockStarvation(t *testing.T) {
+	b := newUnreachableClient()
+
+	go b.RegisterHandler(Handler{
+		Topic: "test/starvation",
+		Qos:   1,
+		Handle: func(c paho.Client, data paho.Message) {
+		},
+	})
+
+	// 注册的 handler 必须在订阅重试期间就可读（锁未被订阅占住）。
+	// 轮询放子协程：锁被占住时 GetHandlerByUpTopic 的 RLock 会永久阻塞，
+	// 主协程只等超时，测试才能以失败而非挂起收场。
+	found := make(chan struct{})
+	go func() {
+		for {
+			if h := b.GetHandlerByUpTopic("test/starvation"); h.Topic == "test/starvation" {
+				close(found)
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+	select {
+	case <-found:
+	case <-time.After(3 * time.Second):
+		t.Fatal("GetHandlerByUpTopic starved: RegisterHandler holds lock during subscribe retry")
+	}
+}
+
 // =============================================================================
 // 真实环境测试 (需要本地MQTT Broker)
 // =============================================================================

@@ -30,7 +30,7 @@ package external
 import (
 	"errors"
 	"fmt"
-	"sync"
+	"sync/atomic"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/components/base"
@@ -69,11 +69,11 @@ type SshConfiguration struct {
 //
 // 核心算法：
 // Core Algorithm:
-// 1. 初始化时建立SSH连接 - Establish SSH connection during initialization
+// 1. 懒建立SSH连接（首次使用或配置 NodeClientInitNow 时）- Establish SSH connection lazily (on first use or when NodeClientInitNow is set)
 // 2. 解析命令模板，支持变量替换 - Parse command template with variable substitution
 // 3. 创建SSH会话执行命令 - Create SSH session to execute command
 // 4. 捕获命令输出（stdout+stderr）- Capture command output (stdout+stderr)
-// 5. 关闭会话并返回结果 - Close session and return results
+// 5. 连接断开时自动重连 - Reconnect automatically after connection loss
 //
 // 变量替换 - Variable substitution:
 //   - ${metadata.key}: 访问消息元数据变量 - Access message metadata variables
@@ -122,18 +122,18 @@ type SshConfiguration struct {
 //   - 批量服务器管理操作 - Batch server management operations
 //   - 自动化运维脚本执行 - Automated operations script execution
 type SshNode struct {
+	base.SharedNode[*ssh.Client]
 	//节点配置
 	Config SshConfiguration
-	// client 是一个 ssh.Client 类型的字段，用来保存 ssh 客户端对象
-	client *ssh.Client
 	// cmdTemplate 命令模板，用于解析动态命令
 	// cmdTemplate template for resolving dynamic commands
 	cmdTemplate el.Template
 	// hasVar 标识模板是否包含变量
 	// hasVar indicates whether the template contains variables
 	hasVar bool
-	// 保护client字段的并发访问
-	clientMutex sync.RWMutex
+	// connHealthy 缓存连接健康标记，避免每条消息都调 SetStatus
+	// connHealthy caches connection health to avoid SetStatus on every message
+	connHealthy int32
 }
 
 // Type 方法用来返回组件的类型
@@ -154,84 +154,111 @@ func (x *SshNode) New() types.Node {
 // Init 方法用来初始化组件，一般做一些组件参数配置或者客户端初始化操作
 func (x *SshNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	err := maps.Map2Struct(configuration, &x.Config)
-	if err == nil {
-		// 从配置中获取 ssh 连接的参数
-		sshConfig := x.Config
-		// 如果参数不为空，则创建一个 ssh 客户端对象
-		if sshConfig.Host != "" && sshConfig.Port != 0 && sshConfig.Username != "" && sshConfig.Password != "" {
-			config := &ssh.ClientConfig{
-				User: sshConfig.Username,
-				Auth: []ssh.AuthMethod{
-					ssh.Password(sshConfig.Password),
-				},
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-			}
-			x.client, err = ssh.Dial("tcp", fmt.Sprintf("%s:%d", sshConfig.Host, sshConfig.Port), config)
-		} else {
-			return SshConfigEmptyErr
-		}
-		if x.Config.Cmd == "" {
-			return SshCmdEmptyErr
-		}
-		x.cmdTemplate, err = el.NewTemplate(x.Config.Cmd)
-		if err != nil {
-			return err
-		}
-		x.hasVar = x.cmdTemplate.HasVar()
+	if err != nil {
+		return err
 	}
-	return err
+	if x.Config.Host == "" || x.Config.Port == 0 || x.Config.Username == "" || x.Config.Password == "" {
+		return SshConfigEmptyErr
+	}
+	if x.Config.Cmd == "" {
+		return SshCmdEmptyErr
+	}
+	addr := fmt.Sprintf("%s:%d", x.Config.Host, x.Config.Port)
+	err = x.SharedNode.InitWithClose(ruleConfig, x.Type(), addr, ruleConfig.NodeClientInitNow, func() (*ssh.Client, error) {
+		return x.initClient()
+	}, func(client *ssh.Client) error {
+		return client.Close()
+	})
+	if err != nil {
+		return err
+	}
+	// 启用同链连接池：本地模式 *ssh.Client 按节点ID注册到链目录，供链内 ref:// 借用复用
+	x.SharedNode.BindChain(configuration)
+	x.cmdTemplate, err = el.NewTemplate(x.Config.Cmd)
+	if err != nil {
+		return err
+	}
+	x.hasVar = x.cmdTemplate.HasVar()
+	return nil
 }
 
 // OnMsg 方法用来处理消息，每条流入组件的数据会经过该函数处理
 func (x *SshNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	var err error
-
-	// 安全获取client引用
-	x.clientMutex.RLock()
-	client := x.client
-	x.clientMutex.RUnlock()
-
-	if client == nil {
-		ctx.TellFailure(msg, SshClientNotInitErr)
+	client, err := x.SharedNode.GetSafely()
+	if err != nil {
+		if errors.Is(err, base.ErrClientNotInit) {
+			err = SshClientNotInitErr
+		}
+		ctx.TellFailure(msg, err)
 		return
 	}
-
-	// 获取shell 命令
 	var evn map[string]interface{}
 	if x.hasVar {
 		evn = base.NodeUtils.GetEvnAndMetadata(ctx, msg)
 	}
 	cmd := x.cmdTemplate.ExecuteAsString(evn)
-	var output []byte
-	var session *ssh.Session
-	// 如果有 ssh 客户端对象，则创建一个 ssh 会话，并执行远程 shell 命令，并获取其输出或错误信息
-	if session, err = client.NewSession(); err == nil {
-		defer session.Close()
-		output, err = session.CombinedOutput(cmd)
-
-		msg.SetData(string(output))
-		msg.DataType = types.TEXT
-
-		if err != nil {
-			ctx.TellFailure(msg, err)
-		} else {
-			// 将输出结果作为新的消息发送到下一个组件
-			ctx.TellSuccess(msg)
-		}
-	} else {
+	session, err := client.NewSession()
+	if err != nil {
+		x.onConnFailure(err)
 		ctx.TellFailure(msg, err)
+		return
 	}
+	defer session.Close()
+	output, err := session.CombinedOutput(cmd)
+
+	msg.SetData(string(output))
+	msg.DataType = types.TEXT
+
+	if err != nil {
+		// 命令非零退出/无退出码属于命令失败，连接本身可能还是好的
+		if !isSshCmdError(err) {
+			x.onConnFailure(err)
+		}
+		ctx.TellFailure(msg, err)
+	} else {
+		if atomic.CompareAndSwapInt32(&x.connHealthy, 0, 1) {
+			x.SharedNode.SetStatus(types.StatusConnected, "")
+		}
+		ctx.TellSuccess(msg)
+	}
+}
+
+// onConnFailure 连接级失败：标记断连并重置客户端，下次消息触发重连
+// onConnFailure marks the connection lost and resets the client for lazy re-dial.
+func (x *SshNode) onConnFailure(err error) {
+	if atomic.CompareAndSwapInt32(&x.connHealthy, 1, 0) {
+		_ = x.SharedNode.Close()
+		x.SharedNode.SetStatus(types.StatusReconnecting, err.Error())
+	}
+}
+
+// isSshCmdError 命令退出类错误不算断连
+// isSshCmdError reports command exit errors, which don't imply a broken connection.
+func isSshCmdError(err error) bool {
+	var exitErr *ssh.ExitError
+	if errors.As(err, &exitErr) {
+		return true
+	}
+	var missingErr *ssh.ExitMissingError
+	return errors.As(err, &missingErr)
 }
 
 // Destroy 方法用来销毁组件，做一些资源释放操作
 func (x *SshNode) Destroy() {
-	x.clientMutex.Lock()
-	defer x.clientMutex.Unlock()
+	_ = x.SharedNode.Close()
+}
 
-	if x.client != nil {
-		_ = x.client.Close()
-		x.client = nil
+// initClient 拨号建立 SSH 连接
+// initClient dials the SSH server.
+func (x *SshNode) initClient() (*ssh.Client, error) {
+	config := &ssh.ClientConfig{
+		User: x.Config.Username,
+		Auth: []ssh.AuthMethod{
+			ssh.Password(x.Config.Password),
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
+	return ssh.Dial("tcp", fmt.Sprintf("%s:%d", x.Config.Host, x.Config.Port), config)
 }
 
 // Desc returns the component description

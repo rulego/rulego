@@ -295,8 +295,9 @@ func (x *ExecCommandNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		return
 	}
 
-	// 执行命令
-	cmd := exec.Command(command, args...)
+	// 绑定规则链 ctx：引擎 Stop/优雅停机取消 ctx 时 kill 子进程，
+	// 避免挂死子进程永久占用 worker；正常运行期 ctx 无取消，行为不变
+	cmd := exec.CommandContext(ctx.GetContext(), command, args...)
 	// 设置命令的工作目录
 	cmd.Dir = msg.Metadata.GetValue(KeyWorkDir)
 	var stdoutBuf, stderrBuf bytes.Buffer
