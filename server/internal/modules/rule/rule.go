@@ -203,6 +203,8 @@ func (m *Module) SaveAndLoad(username, chainId string, def []byte) error {
 	if err := json.Unmarshal(def, &ruleChain); err != nil {
 		return err
 	}
+	// 链 ID 统一为存储键 chainId
+	ruleChain.RuleChain.ID = chainId
 	// 保护服务端字段：禁止通过 SaveAndLoad 注入 systemAgent 标记
 	// （否则任意链可伪装为不可删除的系统智能体）。系统智能体仅由服务端
 	// 在 DefaultUsername 命名空间下部署（system_agents.go 经 markSystemAgent 标记）；
