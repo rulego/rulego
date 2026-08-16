@@ -74,8 +74,8 @@ type RestApiCallNodeConfiguration struct {
 	ReadTimeoutMs int `json:"readTimeoutMs" label:"Timeout (ms)" desc:"Request timeout in milliseconds, default 2000"`
 	//禁用证书验证
 	InsecureSkipVerify bool `json:"insecureSkipVerify" label:"Skip TLS Verify" desc:"Set to true to skip HTTPS certificate verification"`
-	//MaxParallelRequestsCount 连接池大小，默认200。0代表不限制
-	MaxParallelRequestsCount int `json:"maxParallelRequestsCount" label:"Max Parallel Requests" desc:"Connection pool size, default 200, 0 for unlimited"`
+	//MaxParallelRequestsCount 连接池大小，默认2000。0代表不限制
+	MaxParallelRequestsCount int `json:"maxParallelRequestsCount" label:"Max Parallel Requests" desc:"Connection pool size, default 2000, 0 for unlimited"`
 	//EnableProxy 是否开启代理
 	EnableProxy bool `json:"enableProxy" label:"Enable Proxy" desc:"Whether to enable proxy"`
 	//UseSystemProxyProperties 使用系统配置代理
@@ -227,7 +227,7 @@ func (x *RestApiCallNode) New() types.Node {
 	headers := map[string]string{"Content-Type": "application/json"}
 	config := RestApiCallNodeConfiguration{
 		RequestMethod:            "POST",
-		MaxParallelRequestsCount: 200,
+		MaxParallelRequestsCount: 2000,
 		ReadTimeoutMs:            2000,
 		Headers:                  headers,
 		InsecureSkipVerify:       true,
