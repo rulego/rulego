@@ -315,7 +315,12 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 	}).Wait().End())
 
 	// POST /rules/:id/v1/chat/completions - OpenAI 兼容路由
-	ep.POST(endpoint.NewRouter().From(base + "/rules/:id/v1/chat/completions").Process(s.authWithPermission("rule", "execute")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	// from 配置标记 streaming=true：fasthttp endpoint 据此走流式执行路径
+	// （handler 提前返回 + bodyStreamWriter 增量推送），保证 SSE 实时送达；
+	// rest endpoint 忽略该标记（net/http 原生支持 handler 内 Flush）。
+	ep.POST(endpoint.NewRouter().From(base+"/rules/:id/v1/chat/completions", types.Configuration{
+		endpointApi.ConfigKeyStreaming: true,
+	}).Process(s.authWithPermission("rule", "execute")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		executor, ok := getService[services.ChainExecutor](s, exchange, services.KeyRuleExecutor)
 		if !ok {
 			return false

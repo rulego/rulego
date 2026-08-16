@@ -1736,6 +1736,16 @@ type Flusher interface {
 	Flush()
 }
 
+// ConfigKeyStreaming is the From configuration key that marks a route as
+// streaming (SSE). Endpoints that cannot flush inside the handler
+// (e.g. fasthttp) use it to select a streaming-capable execution path;
+// endpoints with native flush support (e.g. rest) ignore it.
+//
+// ConfigKeyStreaming 是 From 配置中标记路由为流式（SSE）的键。
+// 无法在 handler 内部直接推送数据的端点（如 fasthttp）依据它选择流式执行路径，
+// 具备原生 Flush 能力的端点（如 rest）可忽略。
+const ConfigKeyStreaming = "streaming"
+
 // HttpEndpoint defines the interface for HTTP-specific endpoint functionality.
 // This interface extends the basic Endpoint interface with HTTP-specific methods
 // for handling different HTTP methods and static file serving.
