@@ -83,12 +83,17 @@ func createToken(cfg *config.Config, claim ruleGoClaim) (*string, error) {
 	return &tokenStr, nil
 }
 
-// extractAuthorization 从请求中提取 authorization 值
+// extractAuthorization 从请求中提取 authorization 值。
+// 从 URL query 取 token 而非 GetParam，避免 FormValue 触发 ParseMultipartForm 消费 body。
 func extractAuthorization(exchange *endpointApi.Exchange) string {
 	authorization := exchange.In.Headers().Get("Authorization")
 	if authorization == "" {
-		if token := exchange.In.GetParam("token"); token != "" {
-			authorization = constants.BearerPrefix + token
+		if reqMsg, ok := exchange.In.(interface{ Request() *http.Request }); ok {
+			if req := reqMsg.Request(); req != nil {
+				if token := req.URL.Query().Get("token"); token != "" {
+					authorization = constants.BearerPrefix + token
+				}
+			}
 		}
 	}
 	return authorization
