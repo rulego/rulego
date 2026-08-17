@@ -316,8 +316,8 @@ func (m *Module) DeleteSkill(username, name, scope string) error {
 	return os.RemoveAll(skillDir)
 }
 
-// ImportSkills extracts SKILL.md files from a zip archive into the target
-// scope directory and returns the imported skill metadata.
+// ImportSkills 从 zip 解压 skill 到目标目录，保留子目录结构。
+// 含 SKILL.md 的目录视为一个 skill，目录下所有文件一并提取。
 func (m *Module) ImportSkills(username, scope string, archive []byte) ([]model.Skill, error) {
 	basePath := m.getSkillBasePath(username, scope)
 	if err := fs.CreateDirs(basePath); err != nil {
@@ -329,43 +329,83 @@ func (m *Module) ImportSkills(username, scope string, archive []byte) ([]model.S
 		return nil, fmt.Errorf("failed to read zip archive: %v", err)
 	}
 
-	imported := make([]model.Skill, 0)
-	seen := make(map[string]struct{})
+	// 扫描所有含 SKILL.md 的目录
+	skillDirs := make(map[string]string) // zipDir -> skillName
 	for _, file := range reader.File {
 		if file.FileInfo().IsDir() || pathpkg.Base(file.Name) != "SKILL.md" {
 			continue
 		}
-
 		skillName := pathpkg.Base(pathpkg.Dir(file.Name))
 		if err := validateSkillName(skillName); err != nil {
 			return nil, err
 		}
-		content, err := readZipFile(file)
-		if err != nil {
-			return nil, err
+		skillDirs[pathpkg.Dir(file.Name)] = skillName
+	}
+	if len(skillDirs) == 0 {
+		return nil, errors.New("no SKILL.md files found in archive")
+	}
+
+	// 按 skill 目录分组提取所有文件
+	imported := make([]model.Skill, 0, len(skillDirs))
+	seen := make(map[string]struct{})
+	for _, file := range reader.File {
+		if file.FileInfo().IsDir() {
+			continue
 		}
-		skillDir := filepath.Join(basePath, skillName)
-		if err := fs.CreateDirs(skillDir); err != nil {
-			return nil, fmt.Errorf("failed to create skill directory: %v", err)
-		}
-		skillFile := filepath.Join(skillDir, "SKILL.md")
-		if err := os.WriteFile(skillFile, content, 0644); err != nil {
-			return nil, fmt.Errorf("failed to write imported skill file: %v", err)
+		skillName, zipDir := matchSkillDir(file.Name, skillDirs)
+		if skillName == "" {
+			continue
 		}
 		if _, ok := seen[skillName]; ok {
 			continue
 		}
+
+		prefix := zipDir + "/"
+		for _, f := range reader.File {
+			if f.FileInfo().IsDir() || !strings.HasPrefix(f.Name, prefix) {
+				continue
+			}
+			relPath := f.Name[len(prefix):]
+			if relPath == "" {
+				continue
+			}
+			dest := filepath.Join(filepath.Join(basePath, skillName), relPath)
+			if err := fs.CreateDirs(filepath.Dir(dest)); err != nil {
+				return nil, fmt.Errorf("failed to create directory: %v", err)
+			}
+			content, err := readZipFile(f)
+			if err != nil {
+				return nil, err
+			}
+			if err := os.WriteFile(dest, content, 0644); err != nil {
+				return nil, fmt.Errorf("failed to write file: %v", err)
+			}
+		}
 		seen[skillName] = struct{}{}
+
+		skillFile := filepath.Join(filepath.Join(basePath, skillName), "SKILL.md")
 		skill, err := m.parseSkillFile(skillFile, skillName, scope)
 		if err != nil {
 			return nil, err
 		}
 		imported = append(imported, *skill)
 	}
-	if len(imported) == 0 {
-		return nil, errors.New("no SKILL.md files found in archive")
-	}
 	return imported, nil
+}
+
+// matchSkillDir 返回 file 所属的最长匹配 skill 目录前缀。
+func matchSkillDir(file string, skillDirs map[string]string) (string, string) {
+	bestLen := 0
+	bestName, bestDir := "", ""
+	for dir, name := range skillDirs {
+		prefix := dir + "/"
+		if strings.HasPrefix(file, prefix) && len(dir) > bestLen {
+			bestLen = len(dir)
+			bestName = name
+			bestDir = dir
+		}
+	}
+	return bestName, bestDir
 }
 
 func (m *Module) CopySkill(username, name, targetScope, newName string) (*model.Skill, error) {
