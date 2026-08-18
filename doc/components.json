@@ -555,6 +555,33 @@
         "fields": null
       },
       {
+        "name": "privateKey",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "privateKeyPath",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
+        "name": "privateKeyPassphrase",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
         "name": "cmd",
         "type": "string",
         "defaultValue": "",

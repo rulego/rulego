@@ -41,6 +41,13 @@ func init() {
 // count.sh 内容
 // #!/bin/sh
 // echo "The first argument is $1"
+//
+// 认证方式二选一：
+//   - 密码认证：配置 password
+//   - 公钥认证：配置 privateKey（私钥内容）或 privateKeyPath（私钥文件路径）；
+//     私钥加密时还需配置 privateKeyPassphrase，例如：
+//     "privateKeyPath": "/root/.ssh/id_rsa",
+//     "privateKeyPassphrase": "key-passphrase"
 func main() {
 
 	metaData := types.NewMetadata()

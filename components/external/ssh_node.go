@@ -26,10 +26,26 @@ package external
 //"cmd": "sh count.sh test.txt hello"
 //}
 //}
+//
+// 公钥认证示例（密码与私钥至少配置其一）：
+// Public key auth example (password and private key are alternatives):
+//
+//	{
+//	  "type": "ssh",
+//	  "config": {
+//	    "host": "192.168.1.1",
+//	    "port": 22,
+//	    "username": "root",
+//	    "privateKeyPath": "/root/.ssh/id_rsa",
+//	    "privateKeyPassphrase": "key-passphrase",
+//	    "cmd": "ls /tmp"
+//	  }
+//	}
 
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sync/atomic"
 
 	"github.com/rulego/rulego/api/types"
@@ -40,9 +56,10 @@ import (
 )
 
 var (
-	SshConfigEmptyErr   = errors.New("ssh config can not empty")
-	SshClientNotInitErr = errors.New("ssh client not initialized")
-	SshCmdEmptyErr      = errors.New("cmd can not empty")
+	SshConfigEmptyErr           = errors.New("ssh config can not empty")
+	SshClientNotInitErr         = errors.New("ssh client not initialized")
+	SshCmdEmptyErr              = errors.New("cmd can not empty")
+	SshConfigPassphraseNoKeyErr = errors.New("ssh privateKeyPassphrase configured but no private key")
 )
 
 func init() {
@@ -60,6 +77,15 @@ type SshConfiguration struct {
 	Username string `json:"username" label:"Username" desc:"SSH login username" required:"true"`
 	// Password is the SSH login password.
 	Password string `json:"password" label:"Password" desc:"SSH login password" required:"true"`
+	// PrivateKey is the SSH private key PEM content (e.g. -----BEGIN OPENSSH PRIVATE KEY-----).
+	// Mutually exclusive with PrivateKeyPath; PrivateKey takes precedence when both are set.
+	PrivateKey string `json:"privateKey,omitempty" label:"Private Key" desc:"SSH private key PEM content, e.g. -----BEGIN OPENSSH PRIVATE KEY-----"`
+	// PrivateKeyPath is the path to the SSH private key file (e.g. /root/.ssh/id_rsa).
+	// Mutually exclusive with PrivateKey; PrivateKey takes precedence when both are set.
+	PrivateKeyPath string `json:"privateKeyPath,omitempty" label:"Private Key File" desc:"SSH private key file path, e.g. /root/.ssh/id_rsa"`
+	// PrivateKeyPassphrase is the passphrase of the encrypted private key.
+	// Required only when the configured private key is encrypted.
+	PrivateKeyPassphrase string `json:"privateKeyPassphrase,omitempty" label:"Private Key Passphrase" desc:"Passphrase of the encrypted private key, required only when the private key is encrypted"`
 	// Cmd is the shell command. Supports ${metadata.key} and ${msg.key} substitution.
 	Cmd string `json:"cmd" label:"Command" desc:"Shell command to execute. Supports ${metadata.key} and ${msg.key} substitution" required:"true"`
 }
@@ -85,7 +111,9 @@ type SshConfiguration struct {
 //		"host": "192.168.1.100",        // SSH服务器地址 - SSH server address
 //		"port": 22,                     // SSH端口 - SSH port
 //		"username": "admin",            // 用户名 - Username
-//		"password": "secret123",        // 密码 - Password
+//		"password": "secret123",        // 密码 - Password (密码与私钥至少配置其一 - password and private key are alternatives)
+//		"privateKeyPath": "/root/.ssh/id_rsa",            // 私钥文件路径 - Private key file path
+//		"privateKeyPassphrase": "key-passphrase",         // 私钥口令（私钥加密时必填）- Passphrase of encrypted private key
 //		"cmd": "ls -la /tmp/${metadata.path}"  // 支持变量替换的命令 - Command with variables
 //	}
 //
@@ -134,6 +162,9 @@ type SshNode struct {
 	// connHealthy 缓存连接健康标记，避免每条消息都调 SetStatus
 	// connHealthy caches connection health to avoid SetStatus on every message
 	connHealthy int32
+	// signer 私钥签名器，Init 时解析并缓存，用于公钥认证；未配置私钥时为 nil
+	// signer is parsed and cached at Init time for public key auth; nil when no private key is configured
+	signer ssh.Signer
 }
 
 // Type 方法用来返回组件的类型
@@ -157,11 +188,24 @@ func (x *SshNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	if err != nil {
 		return err
 	}
-	if x.Config.Host == "" || x.Config.Port == 0 || x.Config.Username == "" || x.Config.Password == "" {
+	if x.Config.Host == "" || x.Config.Port == 0 || x.Config.Username == "" {
 		return SshConfigEmptyErr
+	}
+	// 密码与私钥至少配置其一 - require password or private key
+	if x.Config.Password == "" && x.Config.PrivateKey == "" && x.Config.PrivateKeyPath == "" {
+		return SshConfigEmptyErr
+	}
+	// 配置了私钥口令但没有私钥 - passphrase without private key
+	if x.Config.PrivateKeyPassphrase != "" && x.Config.PrivateKey == "" && x.Config.PrivateKeyPath == "" {
+		return SshConfigPassphraseNoKeyErr
 	}
 	if x.Config.Cmd == "" {
 		return SshCmdEmptyErr
+	}
+	// 解析并缓存私钥签名器，提前暴露密钥格式/口令错误 - parse the private key early (fail-fast)
+	x.signer, err = x.parseSigner()
+	if err != nil {
+		return err
 	}
 	addr := fmt.Sprintf("%s:%d", x.Config.Host, x.Config.Port)
 	err = x.SharedNode.InitWithClose(ruleConfig, x.Type(), addr, ruleConfig.NodeClientInitNow, func() (*ssh.Client, error) {
@@ -248,17 +292,64 @@ func (x *SshNode) Destroy() {
 	_ = x.SharedNode.Close()
 }
 
+// clientConfig 构建 SSH 客户端配置。
+// clientConfig builds the SSH client configuration.
+func (x *SshNode) clientConfig() *ssh.ClientConfig {
+	// 密码与公钥认证可共存，由 SSH 服务器协商选择 - password and public key auth can coexist
+	authMethods := make([]ssh.AuthMethod, 0, 2)
+	if x.Config.Password != "" {
+		authMethods = append(authMethods, ssh.Password(x.Config.Password))
+	}
+	if x.signer != nil {
+		authMethods = append(authMethods, ssh.PublicKeys(x.signer))
+	}
+	return &ssh.ClientConfig{
+		User:            x.Config.Username,
+		Auth:            authMethods,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+}
+
 // initClient 拨号建立 SSH 连接
 // initClient dials the SSH server.
 func (x *SshNode) initClient() (*ssh.Client, error) {
-	config := &ssh.ClientConfig{
-		User: x.Config.Username,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(x.Config.Password),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	return ssh.Dial("tcp", fmt.Sprintf("%s:%d", x.Config.Host, x.Config.Port), x.clientConfig())
+}
+
+// parseSigner 解析私钥并返回签名器；未配置私钥时返回 nil。
+// parseSigner parses the configured private key into a signer; returns nil when no private key is configured.
+// 私钥内容 (PrivateKey) 优先于文件路径 (PrivateKeyPath)。
+// PrivateKey content takes precedence over PrivateKeyPath.
+func (x *SshNode) parseSigner() (ssh.Signer, error) {
+	if x.Config.PrivateKey == "" && x.Config.PrivateKeyPath == "" {
+		return nil, nil
 	}
-	return ssh.Dial("tcp", fmt.Sprintf("%s:%d", x.Config.Host, x.Config.Port), config)
+	var pemBytes []byte
+	var err error
+	if x.Config.PrivateKey != "" {
+		pemBytes = []byte(x.Config.PrivateKey)
+	} else {
+		pemBytes, err = os.ReadFile(x.Config.PrivateKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("ssh: read private key file %s: %w", x.Config.PrivateKeyPath, err)
+		}
+	}
+	if x.Config.PrivateKeyPassphrase != "" {
+		signer, err := ssh.ParsePrivateKeyWithPassphrase(pemBytes, []byte(x.Config.PrivateKeyPassphrase))
+		if err != nil {
+			return nil, fmt.Errorf("ssh: parse encrypted private key: %w", err)
+		}
+		return signer, nil
+	}
+	signer, err := ssh.ParsePrivateKey(pemBytes)
+	if err != nil {
+		var missing *ssh.PassphraseMissingError
+		if errors.As(err, &missing) {
+			return nil, errors.New("ssh: private key is encrypted, please configure privateKeyPassphrase")
+		}
+		return nil, fmt.Errorf("ssh: parse private key: %w", err)
+	}
+	return signer, nil
 }
 
 // Desc returns the component description
