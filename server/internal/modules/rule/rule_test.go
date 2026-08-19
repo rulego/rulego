@@ -1,10 +1,12 @@
 package rule
 
 import (
-	"sync"
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/rulego/rulego/api/types"
@@ -464,6 +466,56 @@ func TestRuleModule_SaveAndLoad_StripsSystemAgentFromUserNamespace(t *testing.T)
 	// 剥离后该链应可被删除（非系统智能体）
 	if err := m.Delete("tenant-1", "poison-chain"); err != nil {
 		t.Errorf("Delete should succeed after stripping systemAgent, got: %v", err)
+	}
+}
+
+// TestRuleModule_SystemAgentDiskDirProtection 验证磁盘模板（无 systemAgent 标记）
+// 重装链后：标记自动补回，Undeploy/Delete 被拒绝，链保持可执行。
+func TestRuleModule_SystemAgentDiskDirProtection(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	agentDir := filepath.Join(m.cfg.DataDir, constants.DirSystemAgents, "_assistant")
+	if err := os.MkdirAll(agentDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	chainDef := `{
+		"ruleChain": {"id": "_assistant", "name": "Assistant"},
+		"metadata": {"nodes": [], "connections": []}
+	}`
+	if err := m.SaveAndLoad("admin", "_assistant", []byte(chainDef)); err != nil {
+		t.Fatalf("SaveAndLoad: %v", err)
+	}
+
+	// 标记须自动补回（Delete 与 Execute 回退判断依赖）
+	raw, err := m.Get("admin", "_assistant")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	var def types.RuleChain
+	if err := json.Unmarshal(raw, &def); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if v, ok := def.RuleChain.GetAdditionalInfo(constants.KeySystemAgent); !ok {
+		t.Error("systemAgent marker should be auto-injected for disk-dir system agent")
+	} else if b, ok := v.(bool); !ok || !b {
+		t.Error("systemAgent marker should be boolean true")
+	}
+
+	if err := m.Undeploy("admin", "_assistant"); err == nil {
+		t.Error("Undeploy system agent should return error")
+	}
+	if err := m.Delete("admin", "_assistant"); err == nil {
+		t.Error("Delete system agent should return error")
+	}
+
+	// 保护生效后链必须仍在引擎池中可执行
+	msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{}`)
+	if err := m.Execute("admin", "_assistant", msg); err != nil {
+		t.Errorf("Execute after blocked undeploy: %v", err)
 	}
 }
 

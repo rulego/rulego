@@ -1,7 +1,6 @@
 package rule
 
 import (
-	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -39,8 +38,8 @@ func (m *Module) deploySystemAgents() error {
 				continue
 			}
 			chainId := strings.TrimSuffix(filepath.Base(f), constants.RuleChainFileSuffix)
-				def = m.markSystemAgent(def)
-				if err := m.SaveAndLoad(m.cfg.DefaultUsername, chainId, def); err != nil {
+			// systemAgent 标记在 SaveAndLoad 中统一注入
+			if err := m.SaveAndLoad(m.cfg.DefaultUsername, chainId, def); err != nil {
 				m.logger.Warnf("[rule] deploy agent %s: %v", chainId, err)
 			} else {
 				m.logger.Infof("[rule] deployed system agent: %s", chainId)
@@ -72,30 +71,6 @@ func (m *Module) ensureDefaultAgents(agentsDir string) {
 			m.logger.Infof("[rule] auto-created default agent: %s", agentID)
 		}
 	}
-}
-
-// markSystemAgent 给规则链 JSON 注入 systemAgent=true 标记
-func (m *Module) markSystemAgent(def []byte) []byte {
-	var chain map[string]interface{}
-	if err := json.Unmarshal(def, &chain); err != nil {
-		return def
-	}
-	rc, ok := chain["ruleChain"].(map[string]interface{})
-	if !ok {
-		return def
-	}
-	info, _ := rc["additionalInfo"].(map[string]interface{})
-	if info == nil {
-		info = make(map[string]interface{})
-	}
-	info[constants.KeySystemAgent] = true
-	rc["additionalInfo"] = info
-	chain["ruleChain"] = rc
-	b, err := json.Marshal(chain)
-	if err != nil {
-		return def
-	}
-	return b
 }
 
 // copyEmbeddedDir 递归复制 embed.FS 中的目录到目标路径。

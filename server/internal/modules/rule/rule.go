@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -205,11 +208,15 @@ func (m *Module) SaveAndLoad(username, chainId string, def []byte) error {
 	}
 	// 链 ID 统一为存储键 chainId
 	ruleChain.RuleChain.ID = chainId
-	// 保护服务端字段：禁止通过 SaveAndLoad 注入 systemAgent 标记
-	// （否则任意链可伪装为不可删除的系统智能体）。系统智能体仅由服务端
-	// 在 DefaultUsername 命名空间下部署（system_agents.go 经 markSystemAgent 标记）；
-	// 普通用户命名空间一律剥离该标记，杜绝越权伪装。
-	if ue.Username() != m.cfg.DefaultUsername && ruleChain.RuleChain.AdditionalInfo != nil {
+	// systemAgent 标记只由服务端管理：DefaultUsername 命名空间按磁盘目录注入
+	// （磁盘模板本身不带标记，不能依赖提交方传入）；其他命名空间一律剥离，
+	// 防止伪装系统智能体
+	if m.isSystemAgentID(username, chainId) {
+		if ruleChain.RuleChain.AdditionalInfo == nil {
+			ruleChain.RuleChain.AdditionalInfo = make(map[string]interface{})
+		}
+		ruleChain.RuleChain.AdditionalInfo[constants.KeySystemAgent] = true
+	} else if ue.Username() != m.cfg.DefaultUsername && ruleChain.RuleChain.AdditionalInfo != nil {
 		delete(ruleChain.RuleChain.AdditionalInfo, constants.KeySystemAgent)
 	}
 	// 系统智能体不更新最后操作规则链ID
@@ -275,6 +282,10 @@ func (m *Module) Undeploy(username, chainId string) error {
 }
 
 func (m *Module) undeployLocked(username, chainId string) error {
+	// 下线会把链移出引擎池，内置智能体禁止下线
+	if m.isSystemAgentID(username, chainId) {
+		return errors.New("系统内置智能体不允许下线")
+	}
 	ue, err := m.getUserEngine(username)
 	if err != nil {
 		return err
@@ -363,10 +374,8 @@ func (m *Module) Delete(username, chainId string) error {
 	if err != nil {
 		return err
 	}
-	if v, ok := chain.RuleChain.GetAdditionalInfo(constants.KeySystemAgent); ok {
-		if b, ok := v.(bool); ok && b {
-			return fmt.Errorf("系统内置智能体不允许删除")
-		}
+	if m.isSystemAgent(chain) || m.isSystemAgentID(username, chainId) {
+		return fmt.Errorf("系统内置智能体不允许删除")
 	}
 	ue.Pool().Del(chainId)
 	if err = ue.RuleStore().Delete(username, chainId); err != nil {
@@ -560,6 +569,16 @@ func (m *Module) isSystemAgent(ruleChain types.RuleChain) bool {
 		}
 	}
 	return false
+}
+
+// isSystemAgentID 以磁盘目录（dataDir/system/agents/<chainId>）判定内置智能体。
+// 磁盘模板不带 systemAgent 标记，标记会随链重装落库而丢失，保护判定须以目录为准。
+func (m *Module) isSystemAgentID(username, chainId string) bool {
+	if username != m.cfg.DefaultUsername || chainId == "" || strings.ContainsAny(chainId, `/\`) {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(m.cfg.DataDir, constants.DirSystemAgents, chainId))
+	return err == nil
 }
 
 // isSystemAgentEngine 判断引擎对应的规则链是否为系统智能体。
