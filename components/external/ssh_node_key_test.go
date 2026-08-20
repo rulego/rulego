@@ -66,14 +66,14 @@ func TestSshNodeParseSigner(t *testing.T) {
 		errContains string
 	}{
 		{"no private key", SshConfiguration{}, true, false, ""},
-		{"plain PEM content", SshConfiguration{PrivateKey: plainPEM}, false, false, ""},
-		{"plain PEM file", SshConfiguration{PrivateKeyPath: keyPath}, false, false, ""},
-		{"privateKey content takes precedence over path", SshConfiguration{PrivateKey: plainPEM, PrivateKeyPath: filepath.Join(dir, "missing")}, false, false, ""},
-		{"encrypted with correct passphrase", SshConfiguration{PrivateKey: encryptedPEM, PrivateKeyPassphrase: passphrase}, false, false, ""},
-		{"encrypted with wrong passphrase", SshConfiguration{PrivateKey: encryptedPEM, PrivateKeyPassphrase: "wrong-passphrase"}, false, true, ""},
-		{"encrypted without passphrase", SshConfiguration{PrivateKey: encryptedPEM}, false, true, "privateKeyPassphrase"},
-		{"missing key file", SshConfiguration{PrivateKeyPath: filepath.Join(dir, "no-such-file")}, false, true, "read private key file"},
-		{"invalid pem content", SshConfiguration{PrivateKey: "not a private key"}, false, true, "parse private key"},
+		{"plain PEM content", SshConfiguration{CertKeyFile: plainPEM}, false, false, ""},
+		{"plain PEM with redundant passphrase", SshConfiguration{CertKeyFile: plainPEM, Password: "ignored"}, false, false, ""},
+		{"plain PEM file", SshConfiguration{CertKeyFile: keyPath}, false, false, ""},
+		{"encrypted with correct passphrase", SshConfiguration{CertKeyFile: encryptedPEM, Password: passphrase}, false, false, ""},
+		{"encrypted with wrong passphrase", SshConfiguration{CertKeyFile: encryptedPEM, Password: "wrong-passphrase"}, false, true, ""},
+		{"encrypted without passphrase", SshConfiguration{CertKeyFile: encryptedPEM}, false, true, "password (used as passphrase)"},
+		{"missing key file", SshConfiguration{CertKeyFile: filepath.Join(dir, "no-such-file")}, false, true, "read private key file"},
+		{"invalid PEM content", SshConfiguration{CertKeyFile: "-----BEGIN RSA PRIVATE KEY-----\ninvalid"}, false, true, "parse private key"},
 	}
 
 	for _, tt := range tests {
@@ -106,11 +106,11 @@ func TestSshNodeInitPrivateKeyValidation(t *testing.T) {
 	t.Run("private key only passes validation", func(t *testing.T) {
 		node := &SshNode{}
 		err := node.Init(types.NewConfig(), types.Configuration{
-			"host":       "127.0.0.1",
-			"port":       22,
-			"username":   "root",
-			"privateKey": plainPEM,
-			"cmd":        "ls",
+			"host":        "127.0.0.1",
+			"port":        22,
+			"username":    "root",
+			"certKeyFile": plainPEM,
+			"cmd":         "ls",
 		})
 		assert.Nil(t, err)
 		assert.NotNil(t, node.signer)
@@ -123,29 +123,29 @@ func TestSshNodeInitPrivateKeyValidation(t *testing.T) {
 		assert.Nil(t, os.WriteFile(keyPath, []byte(plainPEM), 0600))
 		node := &SshNode{}
 		err := node.Init(types.NewConfig(), types.Configuration{
-			"host":           "127.0.0.1",
-			"port":           22,
-			"username":       "root",
-			"privateKeyPath": keyPath,
-			"cmd":            "ls",
+			"host":        "127.0.0.1",
+			"port":        22,
+			"username":    "root",
+			"certKeyFile": keyPath,
+			"cmd":         "ls",
 		})
 		assert.Nil(t, err)
 		assert.NotNil(t, node.signer)
 		node.Destroy()
 	})
 
-	t.Run("passphrase without private key", func(t *testing.T) {
+	t.Run("password and certKeyFile are mutually exclusive", func(t *testing.T) {
 		node := &SshNode{}
 		err := node.Init(types.NewConfig(), types.Configuration{
-			"host":                 "127.0.0.1",
-			"port":                 22,
-			"username":             "root",
-			"password":             "secret",
-			"privateKeyPassphrase": "pass",
-			"cmd":                  "ls",
+			"host":        "127.0.0.1",
+			"port":        22,
+			"username":    "root",
+			"password":    "secret",
+			"certKeyFile": plainPEM,
+			"cmd":         "ls",
 		})
 		assert.NotNil(t, err)
-		assert.Equal(t, SshConfigPassphraseNoKeyErr.Error(), err.Error())
+		assert.Equal(t, SshConfigPasswordKeyExclusiveErr.Error(), err.Error())
 	})
 
 	t.Run("neither password nor private key", func(t *testing.T) {
@@ -163,11 +163,11 @@ func TestSshNodeInitPrivateKeyValidation(t *testing.T) {
 	t.Run("invalid private key fails fast", func(t *testing.T) {
 		node := &SshNode{}
 		err := node.Init(types.NewConfig(), types.Configuration{
-			"host":       "127.0.0.1",
-			"port":       22,
-			"username":   "root",
-			"privateKey": "garbage",
-			"cmd":        "ls",
+			"host":        "127.0.0.1",
+			"port":        22,
+			"username":    "root",
+			"certKeyFile": "-----BEGIN RSA PRIVATE KEY-----\ngarbage",
+			"cmd":         "ls",
 		})
 		assert.NotNil(t, err)
 		assert.True(t, strings.Contains(err.Error(), "parse private key"))
@@ -177,7 +177,8 @@ func TestSshNodeInitPrivateKeyValidation(t *testing.T) {
 // TestSshNodeClientConfigAuth 覆盖 clientConfig 的认证方式组装。
 // TestSshNodeClientConfigAuth covers auth method assembly in clientConfig.
 func TestSshNodeClientConfigAuth(t *testing.T) {
-	plainPEM, _ := testKeyPair(t, "")
+	const passphrase = "test-passphrase"
+	plainPEM, encryptedPEM := testKeyPair(t, passphrase)
 
 	t.Run("password only", func(t *testing.T) {
 		node := &SshNode{Config: SshConfiguration{Username: "root", Password: "secret"}}
@@ -188,7 +189,7 @@ func TestSshNodeClientConfigAuth(t *testing.T) {
 	})
 
 	t.Run("private key only", func(t *testing.T) {
-		node := &SshNode{Config: SshConfiguration{Username: "root", PrivateKey: plainPEM}}
+		node := &SshNode{Config: SshConfiguration{Username: "root", CertKeyFile: plainPEM}}
 		signer, err := node.parseSigner()
 		assert.Nil(t, err)
 		node.signer = signer
@@ -199,16 +200,14 @@ func TestSshNodeClientConfigAuth(t *testing.T) {
 			"auth method should be publicKey type, got %s", reflect.TypeOf(cfg.Auth[0]))
 	})
 
-	t.Run("password and private key coexist", func(t *testing.T) {
-		node := &SshNode{Config: SshConfiguration{Username: "root", Password: "secret", PrivateKey: plainPEM}}
+	t.Run("private key with password (passphrase) uses public key only", func(t *testing.T) {
+		node := &SshNode{Config: SshConfiguration{Username: "root", Password: passphrase, CertKeyFile: encryptedPEM}}
 		signer, err := node.parseSigner()
 		assert.Nil(t, err)
 		node.signer = signer
 		cfg := node.clientConfig()
-		assert.Equal(t, 2, len(cfg.Auth))
-		assert.True(t, strings.Contains(reflect.TypeOf(cfg.Auth[0]).String(), "password"),
-			"first auth method should be password type, got %s", reflect.TypeOf(cfg.Auth[0]))
-		assert.True(t, strings.Contains(reflect.TypeOf(cfg.Auth[1]).String(), "publicKey"),
-			"second auth method should be publicKey type, got %s", reflect.TypeOf(cfg.Auth[1]))
+		assert.Equal(t, 1, len(cfg.Auth))
+		assert.True(t, strings.Contains(reflect.TypeOf(cfg.Auth[0]).String(), "publicKey"),
+			"auth method should be publicKey type, got %s", reflect.TypeOf(cfg.Auth[0]))
 	})
 }
