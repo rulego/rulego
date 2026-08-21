@@ -26,10 +26,27 @@ package external
 //"cmd": "sh count.sh test.txt hello"
 //}
 //}
+//
+// 公钥认证示例（密码与私钥互斥，二选一；certKeyFile 支持 PEM 内容或文件路径，自动识别）：
+// Public key auth example (password and private key are mutually exclusive; certKeyFile accepts PEM content or a file path, auto-detected):
+//
+//	{
+//	  "type": "ssh",
+//	  "config": {
+//	    "host": "192.168.1.1",
+//	    "port": 22,
+//	    "username": "root",
+//	    "certKeyFile": "/root/.ssh/id_rsa",
+//	    "password": "key-passphrase",
+//	    "cmd": "ls /tmp"
+//	  }
+//	}
 
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 	"sync/atomic"
 
 	"github.com/rulego/rulego/api/types"
@@ -40,9 +57,10 @@ import (
 )
 
 var (
-	SshConfigEmptyErr   = errors.New("ssh config can not empty")
-	SshClientNotInitErr = errors.New("ssh client not initialized")
-	SshCmdEmptyErr      = errors.New("cmd can not empty")
+	SshConfigEmptyErr                = errors.New("ssh config can not empty")
+	SshClientNotInitErr              = errors.New("ssh client not initialized")
+	SshCmdEmptyErr                   = errors.New("cmd can not empty")
+	SshConfigPasswordKeyExclusiveErr = errors.New("ssh password and certKeyFile are mutually exclusive")
 )
 
 func init() {
@@ -59,7 +77,13 @@ type SshConfiguration struct {
 	// Username is the SSH login username.
 	Username string `json:"username" label:"Username" desc:"SSH login username" required:"true"`
 	// Password is the SSH login password.
-	Password string `json:"password" label:"Password" desc:"SSH login password" required:"true"`
+	// When CertKeyFile is set (public key auth), it is used as the passphrase of the encrypted private key.
+	// Password and CertKeyFile are mutually exclusive.
+	Password string `json:"password" label:"Password" desc:"SSH login password; when certKeyFile is set, used as the passphrase of the encrypted private key"`
+	// CertKeyFile is the SSH private key: PEM content (e.g. -----BEGIN OPENSSH PRIVATE KEY-----) or a file path (e.g. /root/.ssh/id_rsa).
+	// Auto-detected: content starting with -----BEGIN is treated as PEM content, otherwise as a file path.
+	// Mutually exclusive with Password; when set, Password acts as the private key passphrase.
+	CertKeyFile string `json:"certKeyFile,omitempty" label:"Cert Key File" desc:"SSH private key PEM content or file path, auto-detected; mutually exclusive with password"`
 	// Cmd is the shell command. Supports ${metadata.key} and ${msg.key} substitution.
 	Cmd string `json:"cmd" label:"Command" desc:"Shell command to execute. Supports ${metadata.key} and ${msg.key} substitution" required:"true"`
 }
@@ -85,7 +109,9 @@ type SshConfiguration struct {
 //		"host": "192.168.1.100",        // SSH服务器地址 - SSH server address
 //		"port": 22,                     // SSH端口 - SSH port
 //		"username": "admin",            // 用户名 - Username
-//		"password": "secret123",        // 密码 - Password
+//		"password": "secret123",        // 密码 - Password (密码与私钥至少配置其一 - password and private key are alternatives)
+//		"certKeyFile": "/root/.ssh/id_rsa",               // 私钥 PEM 内容或文件路径，自动识别 - Private key PEM content or file path, auto-detected
+//		"password": "key-passphrase",                     // 私钥口令（私钥加密时必填）- Passphrase of encrypted private key (password is reused)
 //		"cmd": "ls -la /tmp/${metadata.path}"  // 支持变量替换的命令 - Command with variables
 //	}
 //
@@ -134,6 +160,9 @@ type SshNode struct {
 	// connHealthy 缓存连接健康标记，避免每条消息都调 SetStatus
 	// connHealthy caches connection health to avoid SetStatus on every message
 	connHealthy int32
+	// signer 私钥签名器，Init 时解析并缓存，用于公钥认证；未配置私钥时为 nil
+	// signer is parsed and cached at Init time for public key auth; nil when no private key is configured
+	signer ssh.Signer
 }
 
 // Type 方法用来返回组件的类型
@@ -157,11 +186,24 @@ func (x *SshNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	if err != nil {
 		return err
 	}
-	if x.Config.Host == "" || x.Config.Port == 0 || x.Config.Username == "" || x.Config.Password == "" {
+	if x.Config.Host == "" || x.Config.Port == 0 || x.Config.Username == "" {
 		return SshConfigEmptyErr
+	}
+	// 密码与私钥至少配置其一 - require password or private key
+	if x.Config.Password == "" && x.Config.CertKeyFile == "" {
+		return SshConfigEmptyErr
+	}
+	// 密码认证与私钥认证互斥 - password auth and public key auth are mutually exclusive
+	if x.Config.Password != "" && x.Config.CertKeyFile != "" {
+		return SshConfigPasswordKeyExclusiveErr
 	}
 	if x.Config.Cmd == "" {
 		return SshCmdEmptyErr
+	}
+	// 解析并缓存私钥签名器，提前暴露密钥格式/口令错误 - parse the private key early (fail-fast)
+	x.signer, err = x.parseSigner()
+	if err != nil {
+		return err
 	}
 	addr := fmt.Sprintf("%s:%d", x.Config.Host, x.Config.Port)
 	err = x.SharedNode.InitWithClose(ruleConfig, x.Type(), addr, ruleConfig.NodeClientInitNow, func() (*ssh.Client, error) {
@@ -248,17 +290,75 @@ func (x *SshNode) Destroy() {
 	_ = x.SharedNode.Close()
 }
 
+// clientConfig 构建 SSH 客户端配置。
+// clientConfig builds the SSH client configuration.
+func (x *SshNode) clientConfig() *ssh.ClientConfig {
+	// 密码认证与公钥认证互斥：配置私钥时仅用公钥认证（Password 作为私钥口令），否则仅用密码认证
+	// password and public key auth are mutually exclusive: public key only when a private key is set (Password acts as passphrase), otherwise password only
+	var authMethods []ssh.AuthMethod
+	if x.signer != nil {
+		authMethods = append(authMethods, ssh.PublicKeys(x.signer))
+	} else if x.Config.Password != "" {
+		authMethods = append(authMethods, ssh.Password(x.Config.Password))
+	}
+	return &ssh.ClientConfig{
+		User:            x.Config.Username,
+		Auth:            authMethods,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+}
+
 // initClient 拨号建立 SSH 连接
 // initClient dials the SSH server.
 func (x *SshNode) initClient() (*ssh.Client, error) {
-	config := &ssh.ClientConfig{
-		User: x.Config.Username,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(x.Config.Password),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	return ssh.Dial("tcp", fmt.Sprintf("%s:%d", x.Config.Host, x.Config.Port), x.clientConfig())
+}
+
+// parseSigner 解析私钥并返回签名器；未配置私钥时返回 nil。
+// parseSigner parses the configured private key into a signer; returns nil when no private key is configured.
+// CertKeyFile 支持 PEM 内容或文件路径（自动识别）；私钥加密时 Password 作为口令，未加密时忽略 Password。
+// CertKeyFile accepts PEM content or a file path (auto-detected); Password is used as the passphrase only when the private key is encrypted.
+func (x *SshNode) parseSigner() (ssh.Signer, error) {
+	if x.Config.CertKeyFile == "" {
+		return nil, nil
 	}
-	return ssh.Dial("tcp", fmt.Sprintf("%s:%d", x.Config.Host, x.Config.Port), config)
+	pemBytes, err := x.loadKeyBytes()
+	if err != nil {
+		return nil, err
+	}
+	// 先按无口令私钥解析；若是加密私钥（PassphraseMissingError），再按需使用 Password 作为口令解析
+	// try parsing as a plain private key first; if the key is encrypted (PassphraseMissingError), parse with Password as the passphrase
+	signer, err := ssh.ParsePrivateKey(pemBytes)
+	if err != nil {
+		var missing *ssh.PassphraseMissingError
+		if errors.As(err, &missing) {
+			if x.Config.Password == "" {
+				return nil, errors.New("ssh: private key is encrypted, please configure password (used as passphrase)")
+			}
+			signer, err = ssh.ParsePrivateKeyWithPassphrase(pemBytes, []byte(x.Config.Password))
+			if err != nil {
+				return nil, fmt.Errorf("ssh: parse encrypted private key: %w", err)
+			}
+			return signer, nil
+		}
+		return nil, fmt.Errorf("ssh: parse private key: %w", err)
+	}
+	return signer, nil
+}
+
+// loadKeyBytes 自动识别 CertKeyFile 是 PEM 内容还是文件路径并返回私钥字节。
+// loadKeyBytes auto-detects whether CertKeyFile holds PEM content or a file path and returns the key bytes.
+// 以 -----BEGIN 开头视为 PEM 内容，否则按文件路径读取。
+// Content starting with -----BEGIN is treated as PEM content; otherwise CertKeyFile is read as a file path.
+func (x *SshNode) loadKeyBytes() ([]byte, error) {
+	if strings.HasPrefix(strings.TrimSpace(x.Config.CertKeyFile), "-----BEGIN") {
+		return []byte(x.Config.CertKeyFile), nil
+	}
+	data, err := os.ReadFile(x.Config.CertKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("ssh: read private key file %s: %w", x.Config.CertKeyFile, err)
+	}
+	return data, nil
 }
 
 // Desc returns the component description

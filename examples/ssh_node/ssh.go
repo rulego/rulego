@@ -41,6 +41,13 @@ func init() {
 // count.sh 内容
 // #!/bin/sh
 // echo "The first argument is $1"
+//
+// 认证方式二选一（互斥）：
+//   - 密码认证：配置 password
+//   - 公钥认证：配置 certKeyFile（私钥 PEM 内容或文件路径，自动识别）；
+//     私钥加密时 password 作为私钥口令，例如：
+//     "certKeyFile": "/root/.ssh/id_rsa",
+//     "password": "key-passphrase"
 func main() {
 
 	metaData := types.NewMetadata()

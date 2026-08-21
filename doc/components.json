@@ -555,6 +555,15 @@
         "fields": null
       },
       {
+        "name": "certKeyFile",
+        "type": "string",
+        "defaultValue": "",
+        "label": "",
+        "desc": "",
+        "validate": "",
+        "fields": null
+      },
+      {
         "name": "cmd",
         "type": "string",
         "defaultValue": "",
