@@ -419,6 +419,8 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 		if sysAgent != nil {
 			def.RuleChain.AdditionalInfo[constants.KeySystemAgent] = sysAgent
 		}
+		// Keep the chain ID aligned with the storage key.
+		def.RuleChain.ID = chainId
 		def.RuleChain.Name = baseInfo.Name
 		def.RuleChain.Root = baseInfo.Root
 		def.RuleChain.DebugMode = baseInfo.DebugMode
@@ -438,6 +440,8 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 		return ue.RuleStore().Save(username, chainId, formatted)
 	}
 	def := types.RuleChain{RuleChain: baseInfo}
+	// Keep the chain ID aligned with the storage key.
+	def.RuleChain.ID = chainId
 	m.fillAdditionalInfo(ue, &def)
 	defBytes, err := json.Marshal(def)
 	if err != nil {

@@ -170,12 +170,12 @@ func (s *Server) registerSkillRoutes(ep endpointApi.HttpEndpoint) {
 			writeBadRequest(exchange, err)
 			return false
 		}
-		archive, err := readUploadedSkillArchive(exchange)
+		archiveName, archive, err := readUploadedSkillArchive(exchange)
 		if err != nil {
 			writeBadRequest(exchange, err)
 			return false
 		}
-		items, err := skillSvc.ImportSkills(metadataUsername(exchange), scope, archive)
+		items, err := skillSvc.ImportSkills(metadataUsername(exchange), scope, archiveName, archive)
 		if err != nil {
 			writeBadRequest(exchange, err)
 			return false
@@ -208,25 +208,23 @@ func configuredSkillPath(cfg *serverconfig.Config) string {
 	return path
 }
 
-// readUploadedSkillArchive extracts the uploaded zip file from multipart form
-// data and returns its raw bytes.
-func readUploadedSkillArchive(exchange *endpointApi.Exchange) ([]byte, error) {
+// readUploadedSkillArchive returns the uploaded filename and file bytes from a
+// multipart request.
+func readUploadedSkillArchive(exchange *endpointApi.Exchange) (string, []byte, error) {
 	req, ok := exchange.In.(*rest.RequestMessage)
 	if !ok || req.Request() == nil {
-		return nil, errors.New("unsupported request")
+		return "", nil, errors.New("unsupported request")
 	}
-	// 注意：rest.RequestMessage.Body() 会 io.ReadAll 后 Close 掉 request.Body 流，
-	// 请求管线在到达本 handler 前已缓存过 Body()，导致 request.Body 已耗尽。
-	// 因此不能用 req.Request().ParseMultipartForm（它读原始流，必失败）；
-	// 改从已缓存的 Body() 字节，借助 multipart.Reader 解析。
+	// Parse multipart data from the cached request body; the original stream may
+	// already be consumed by earlier middleware.
 	body := req.Body()
 	mediaType, params, err := mime.ParseMediaType(req.Request().Header.Get("Content-Type"))
 	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
-		return nil, errors.New("invalid multipart content-type")
+		return "", nil, errors.New("invalid multipart content-type")
 	}
 	boundary := params["boundary"]
 	if boundary == "" {
-		return nil, errors.New("multipart boundary not found")
+		return "", nil, errors.New("multipart boundary not found")
 	}
 	mr := multipart.NewReader(bytes.NewReader(body), boundary)
 	for {
@@ -235,13 +233,17 @@ func readUploadedSkillArchive(exchange *endpointApi.Exchange) ([]byte, error) {
 			break
 		}
 		if err != nil {
-			return nil, errors.New("invalid multipart form data")
+			return "", nil, errors.New("invalid multipart form data")
 		}
 		if part.FormName() == "file" {
-			return io.ReadAll(part)
+			data, err := io.ReadAll(part)
+			if err != nil {
+				return "", nil, err
+			}
+			return part.FileName(), data, nil
 		}
 	}
-	return nil, errors.New("uploaded file is required")
+	return "", nil, errors.New("uploaded file is required")
 }
 
 // skillScopeFromExchange normalizes the scope query parameter.

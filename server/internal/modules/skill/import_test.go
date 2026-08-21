@@ -26,7 +26,7 @@ func TestImportSkillsImportsNestedZip(t *testing.T) {
 		"nested/ignored/readme.md": "ignore me",
 	})
 
-	items, err := module.ImportSkills("tester", "global", archive)
+	items, err := module.ImportSkills("tester", "global", "skills.zip", archive)
 	if err != nil {
 		t.Fatalf("ImportSkills() error = %v", err)
 	}

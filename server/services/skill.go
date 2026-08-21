@@ -12,5 +12,5 @@ type SkillService interface {
 	UpdateSkill(username, name string, skill model.Skill) (*model.Skill, error)
 	DeleteSkill(username, name, scope string) error
 	CopySkill(username, name, targetScope, newName string) (*model.Skill, error)
-	ImportSkills(username, scope string, archive []byte) ([]model.Skill, error)
+	ImportSkills(username, scope, archiveName string, archive []byte) ([]model.Skill, error)
 }

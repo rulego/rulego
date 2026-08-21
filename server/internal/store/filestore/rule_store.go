@@ -460,6 +460,10 @@ func (d *RuleStore) indexChainFile(filePath, folderCategory string, mtime int64)
 	if err := json.Unmarshal(data, &ruleChain); err != nil {
 		return
 	}
+	// Backfill empty chain IDs from the file name for indexed legacy DSL files.
+	if ruleChain.RuleChain.ID == "" {
+		ruleChain.RuleChain.ID = strings.TrimSuffix(filepath.Base(filePath), constants.RuleChainFileSuffix)
+	}
 	if d.isCategoryFolderEnabled() && folderCategory != "" {
 		if ruleChain.RuleChain.AdditionalInfo == nil {
 			ruleChain.RuleChain.AdditionalInfo = make(map[string]interface{})
