@@ -3,6 +3,7 @@ package runlog
 import (
 	"context"
 	"time"
+	"unicode/utf8"
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/app"
@@ -23,9 +24,9 @@ const (
 // 运行日志的写入路径——引擎 OnRuleChainCompleted 回调经 RunLogService 落库；
 // 调试数据（双击节点查看）走内存 + WebSocket 推送，不经本模块的持久化。
 type Module struct {
-	cfg      *config.Config
-	logger   types.Logger
-	asyncW   *asyncRunLogWriter
+	cfg    *config.Config
+	logger types.Logger
+	asyncW *asyncRunLogWriter
 }
 
 func New() *Module {
@@ -99,6 +100,21 @@ var defaultRunLogService services.RunLogService
 // DefaultDebugDataStore 调试数据内存存储（节点双击查看 + WebSocket 推送的来源）
 var DefaultDebugDataStore = NewDebugDataStore(0)
 
+// runLogMsgSummaryMax 消息摘要（msgData）的最大字节数；完整内容在 detail 级的 Logs 里
+const runLogMsgSummaryMax = 512
+
+// truncateSummary 按 UTF-8 边界截断，避免把多字节字符切成乱码
+func truncateSummary(s string) string {
+	if len(s) <= runLogMsgSummaryMax {
+		return s
+	}
+	cut := runLogMsgSummaryMax
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
+}
+
 type runLogServiceImpl struct {
 	cfg    *config.Config
 	logger types.Logger
@@ -133,10 +149,15 @@ func (s *runLogServiceImpl) SaveRunLog(username string, ctx types.RuleContext, s
 		ChainName:     snapshot.RuleChain.RuleChain.Name,
 		StartTs:       snapshot.StartTs,
 		EndTs:         snapshot.EndTs,
+		DurationMs:    snapshot.EndTs - snapshot.StartTs,
 		Success:       success,
 		ErrorMsg:      errorMsg,
 		TriggerSource: triggerSource,
 		Level:         level.String(),
+	}
+	// EndTs 未赋值等异常下差值为负，钳为 0 保证非负
+	if event.DurationMs < 0 {
+		event.DurationMs = 0
 	}
 	// 逐节点日志只在 detail 级序列化，summary 级保持零开销
 	if level == runlogutil.LevelDetail {
@@ -146,6 +167,13 @@ func (s *runLogServiceImpl) SaveRunLog(username string, ctx types.RuleContext, s
 			return err
 		}
 		event.Logs = logsBytes
+	}
+	// 消息摘要统一取链的出口消息（所有级别一致；detail 级的完整
+	// 入口/出口消息在每个节点的 Logs 里，前端自行取用）
+	if ctx != nil {
+		out := ctx.GetOut()
+		event.MsgType = out.Type
+		event.MsgData = truncateSummary(out.GetData())
 	}
 	return s.store.Save(username, event)
 }
