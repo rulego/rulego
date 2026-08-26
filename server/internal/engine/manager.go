@@ -141,7 +141,7 @@ func (m *Manager) InitUserEngines() error {
 	}
 	// DB 类存储（无 workflows/<user> 目录可扫描）经可选的 ListUsernames 发现用户，
 	// 否则其引擎与规则链（含 endpoint/schedule 定时端点）不会随启动恢复——
-	// gflow 内嵌 gorm 存储即此形态：重启后规则链 404、定时任务消失。
+	// 宿主以 gorm 等 DB Provider 嵌入时即此形态：重启后规则链 404、定时任务消失。
 	// 类型断言可选实现，文件存储等既有 Provider 不受影响。
 	if lp, ok := m.storeProvider.(interface {
 		ListUsernames() ([]string, error)
