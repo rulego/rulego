@@ -33,8 +33,24 @@ func (c *Container) Register(name string, svc any) error {
 	return nil
 }
 
+// RegisterIfAbsent 注册服务，同名服务已存在时跳过（不报错、不覆盖）。
+// 供模块注册"有合理默认值的可替换服务"（如认证器/授权器）：
+// app.WithAuthenticator 等选项在模块 Init 前先注册，模块 Init 用本方法补默认值。
+// RegisterIfAbsent registers a service, skipping silently if the name already exists.
+// Used by modules for replaceable services with sensible defaults: option-injected
+// implementations (app.WithAuthenticator etc.) register before module Init, and the
+// module backfills its default only when absent.
+func (c *Container) RegisterIfAbsent(name string, svc any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, exists := c.services[name]; exists {
+		return
+	}
+	c.services[name] = svc
+}
+
 // Replace 替换容器中已注册的服务，仅用于明确的覆盖点
-// Replace replaces a registered service in the container, intended for explicit override points
+// Replace replaces an already registered service in the container, intended for explicit override points
 func (c *Container) Replace(name string, svc any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

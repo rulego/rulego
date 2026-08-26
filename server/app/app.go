@@ -16,6 +16,7 @@ import (
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/store/filestore"
 	srvLogger "github.com/rulego/rulego/server/internal/logger"
+	"github.com/rulego/rulego/server/services"
 )
 
 // App 核心应用结构体，管理完整生命周期
@@ -98,12 +99,8 @@ func (a *App) Init() error {
 		a.ensureDataDirs()
 	}
 
-	// 如果用户通过 WithStoreProvider 注入了自定义 Provider，提前注册到容器
-	if a.opts.StoreProvider != nil {
-		if err := a.container.Register("store.provider", a.opts.StoreProvider); err != nil {
-			return fmt.Errorf("register store provider: %w", err)
-		}
-	}
+	// 选项注入的 SPI（StoreProvider/认证器/授权器）注册进容器（模块 Init 前）
+	a.registerOptionSPI()
 
 	appCtx := &ModuleContext{
 		Container: a.container,
@@ -260,6 +257,8 @@ func (a *App) Reload() error {
 
 	// 5. 重新注册核心服务
 	a.registerCoreServices()
+	// 5.1 重新注册选项注入的 SPI（Reload 重建容器后必须补回，否则认证/存储丢失）
+	a.registerOptionSPI()
 	// 5.5 重新注册钩子
 	for _, h := range a.opts.Hooks {
 		a.hooks.Add(h)
@@ -425,6 +424,25 @@ func (a *App) registerCoreServices() {
 		a.container.Replace("core.config", a.config)
 	}
 	a.container.Replace("core.logger", a.typesLog)
+}
+
+// registerOptionSPI 注册选项注入的 SPI 服务（模块 Init 之前调用）。
+// Init 和 Reload 都会调用：Reload 重建容器后必须补回，否则存储/认证全部丢失。
+// registerOptionSPI registers option-injected SPI services (called before module Init).
+// Called by both Init and Reload: Reload recreates the container and must restore
+// these, otherwise storage/authentication would be silently lost.
+func (a *App) registerOptionSPI() {
+	if a.opts.StoreProvider != nil {
+		if err := a.container.Register("store.provider", a.opts.StoreProvider); err != nil {
+			a.typesLog.Errorf("[init] register store provider: %v", err)
+		}
+	}
+	if a.opts.Authenticator != nil {
+		a.container.RegisterIfAbsent(services.KeyAuthenticator, a.opts.Authenticator)
+	}
+	if a.opts.Authorizer != nil {
+		a.container.RegisterIfAbsent(services.KeyAuthorizer, a.opts.Authorizer)
+	}
 }
 
 // ensureDataDirs 创建数据目录结构

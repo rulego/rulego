@@ -54,14 +54,12 @@ func (m *Module) Init(ctx *app.ModuleContext) error {
 		return err
 	}
 
-	// 注册默认认证器与授权器；嵌入模式可用 WithModuleOverride 替换整个 user 模块。
+	// 注册默认认证器与授权器（RegisterIfAbsent）：宿主通过 app.WithAuthenticator/
+	// WithAuthorizer 注入的实现优先，此处仅在未注入时补默认值。
+	// （除 WithModuleOverride 替换整个 user 模块外，宿主现在有了轻量的 SPI 注入路径。）
 	// 传入 m 作为 RoleReader：认证后回填 UserContext.Roles 供授权器判权。
-	if err := ctx.Container.Register(services.KeyAuthenticator, services.Authenticator(NewDefaultAuthenticator(m.cfg, m))); err != nil {
-		return err
-	}
-	if err := ctx.Container.Register(services.KeyAuthorizer, services.Authorizer(NewDefaultAuthorizer())); err != nil {
-		return err
-	}
+	ctx.Container.RegisterIfAbsent(services.KeyAuthenticator, services.Authenticator(NewDefaultAuthenticator(m.cfg, m)))
+	ctx.Container.RegisterIfAbsent(services.KeyAuthorizer, services.Authorizer(NewDefaultAuthorizer()))
 
 	return nil
 }

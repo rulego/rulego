@@ -185,8 +185,12 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 		return false
 	}).End())
 
-	// 登录
-	ep.POST(s.loginRoute())
+	// 登录 + 用户管理路由：DisableLocalAuth（嵌入模式）下完全跳过——
+	// 认证由宿主 Authenticator SPI 承担，本地账号端点（含默认口令）不应暴露
+	if !(s.config != nil && s.config.DisableLocalAuth) {
+		ep.POST(s.loginRoute())
+		s.registerUserRoutes(ep)
+	}
 
 	// 注册各模块路由
 	s.registerRuleRoutes(ep)
@@ -201,7 +205,6 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 	s.registerIoTPointRoutes(ep)
 	s.registerBuiltinRoutes(ep)
 	s.registerMCPRoutes(ep)
-	s.registerUserRoutes(ep)
 	s.registerOverviewRoutes(ep)
 
 	// 静态资源映射（gzip/Cache-Control/HEAD 见 static.go）

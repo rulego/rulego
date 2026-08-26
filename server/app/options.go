@@ -3,6 +3,7 @@ package app
 import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/config"
+	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
 )
 
@@ -50,6 +51,17 @@ type Options struct {
 	// StoreProvider 自定义存储提供者，用于注入数据库等自定义存储实现
 	// StoreProvider is a custom store provider for injecting custom storage implementations (e.g., database-backed)
 	StoreProvider store.StoreProvider
+
+	// Authenticator 宿主自定义认证器（Init 前注册进容器，优先于 user 模块默认实现）。
+	// 嵌入模式下由宿主把自身身份体系翻译为 rulego-server 的 UserContext。
+	// Authenticator is a host-provided authenticator, registered into the container
+	// before module Init, taking precedence over the user module default.
+	Authenticator services.Authenticator
+
+	// Authorizer 宿主自定义授权器（Init 前注册进容器，优先于 user 模块默认实现）。
+	// Authorizer is a host-provided authorizer, registered into the container
+	// before module Init, taking precedence over the user module default.
+	Authorizer services.Authorizer
 
 	// AutoMkdir 是否在 Init 时自动创建数据目录（默认 true）。
 	// 嵌入模式下可通过 WithoutAutoMkdir() 禁用。
@@ -178,6 +190,29 @@ func WithStoreProvider(provider store.StoreProvider) Option {
 func WithoutAutoMkdir() Option {
 	return func(o *Options) {
 		o.AutoMkdir = false
+	}
+}
+
+// WithAuthenticator 注入宿主自定义认证器。
+// 在模块 Init 前注册进容器（键 services.KeyAuthenticator），优先于 user 模块的
+// 默认实现——user 模块检测到已注册时会跳过默认认证器。
+// 适合嵌入模式：宿主把自身 JWT/会话翻译为 *model.UserContext（Username 即数据分区键）。
+//
+// WithAuthenticator injects a host-provided authenticator.
+// It is registered into the container (key services.KeyAuthenticator) before module
+// Init, taking precedence over the user module default, which skips itself when present.
+func WithAuthenticator(a services.Authenticator) Option {
+	return func(o *Options) {
+		o.Authenticator = a
+	}
+}
+
+// WithAuthorizer 注入宿主自定义授权器，注册时机与优先级同 WithAuthenticator。
+// WithAuthorizer injects a host-provided authorizer; registration order and
+// precedence are the same as WithAuthenticator.
+func WithAuthorizer(a services.Authorizer) Option {
+	return func(o *Options) {
+		o.Authorizer = a
 	}
 }
 

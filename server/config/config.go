@@ -74,6 +74,13 @@ type Config struct {
 	CategoryFolderEnabled *bool `ini:"category_folder_enabled"`
 	// RequireAuth api访问是否需要验证
 	RequireAuth bool `ini:"require_auth"`
+	// DisableLocalAuth 禁用 rulego-server 自身的登录/用户管理路由（/api/v1/login、/users*）。
+	// 嵌入模式使用：认证完全由宿主通过 app.WithAuthenticator 注入的 SPI 承担，
+	// 本地账号体系（config Users / UserStore）不再暴露，避免默认口令/双账号体系泄露面。
+	// DisableLocalAuth disables rulego-server's own login/user-management routes
+	// (/api/v1/login, /users*). For embedded mode: authentication is fully delegated to
+	// the host-injected Authenticator SPI, keeping the local account system unexposed.
+	DisableLocalAuth bool `ini:"disable_local_auth"`
 	// JwtSecretKey jwt密钥
 	JwtSecretKey string `ini:"jwt_secret_key"`
 	// JwtExpireTime jwt过期时间（毫秒）
