@@ -2,6 +2,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
@@ -136,6 +137,26 @@ func (m *Manager) InitUserEngines() error {
 		}
 		if _, err := m.GetOrCreate(name); err != nil {
 			m.logger.Errorf("Init %s error: %s", name, err.Error())
+		}
+	}
+	// DB 类存储（无 workflows/<user> 目录可扫描）经可选的 ListUsernames 发现用户，
+	// 否则其引擎与规则链（含 endpoint/schedule 定时端点）不会随启动恢复——
+	// gflow 内嵌 gorm 存储即此形态：重启后规则链 404、定时任务消失。
+	// 类型断言可选实现，文件存储等既有 Provider 不受影响。
+	if lp, ok := m.storeProvider.(interface {
+		ListUsernames() ([]string, error)
+	}); ok {
+		if names, err := lp.ListUsernames(); err == nil {
+			for _, name := range names {
+				if name == "" {
+					continue
+				}
+				if _, err := m.GetOrCreate(name); err != nil {
+					m.logger.Errorf("Init %s error: %s", name, err.Error())
+				}
+			}
+		} else {
+			m.logger.Errorf("list usernames from store error: %s", err.Error())
 		}
 	}
 	for user := range m.cfg.Users {
@@ -451,6 +472,12 @@ func (ue *UserEngine) loadRules() {
 
 	var count int
 	for chainId, def := range chains {
+		// 下线链（disabled）跳过：initChain 会因 ErrEngineDisabled 报错，
+		// 不跳过则每次启动对每条草稿链打一条误导性 error 日志；且下线链
+		// 本就不应恢复运行（定时端点随部署/下线启停）。
+		if chainDisabled(def) {
+			continue
+		}
 		if err := ue.loadDef(chainId, def); err != nil {
 			ue.logger.Errorf("load rule chain id:%s error: %s",
 				chainId, err.Error())
@@ -466,4 +493,14 @@ func (ue *UserEngine) loadRules() {
 				ue.username, err.Error())
 		}
 	}
+}
+
+// chainDisabled 轻量探测 DSL 的 ruleChain.disabled（只解头部字段，boot 期跳过下线链用）。
+func chainDisabled(def []byte) bool {
+	var head struct {
+		RuleChain struct {
+			Disabled bool `json:"disabled"`
+		} `json:"ruleChain"`
+	}
+	return json.Unmarshal(def, &head) == nil && head.RuleChain.Disabled
 }

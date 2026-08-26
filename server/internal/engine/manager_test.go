@@ -384,3 +384,54 @@ func TestLoadRules_EnumerateError(t *testing.T) {
 	// 不应 panic，只是记录错误日志
 	ue.loadRules()
 }
+
+// dbLikeProvider 模拟 DB 型存储（gflow 内嵌 gorm Provider 形态）：
+// 无 workflows/<user> 目录可扫描，但实现 ListUsernames 可发现租户。
+type dbLikeProvider struct {
+	*filestore.FileStoreProvider
+	usernames []string
+}
+
+func (p *dbLikeProvider) ListUsernames() ([]string, error) {
+	return p.usernames, nil
+}
+
+func TestManager_InitUserEngines_ListUsernames(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{DataDir: tmpDir, DefaultUsername: "admin"}
+	logger := types.DefaultLogger()
+	fs := filestore.NewFileStoreProvider(*cfg, logger)
+	provider := &dbLikeProvider{FileStoreProvider: fs, usernames: []string{"tenant_1"}}
+
+	// 预置 tenant_1 的两条链：一条部署、一条下线（disabled）
+	ruleStore, err := provider.GetRuleStore("tenant_1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	active := `{"ruleChain":{"id":"chain_active","name":"a","root":true},"metadata":{"firstNodeIndex":0,"nodes":[{"id":"n1","type":"jsFilter","name":"f"}],"connections":[]}}`
+	retired := `{"ruleChain":{"id":"chain_retired","name":"r","root":true,"disabled":true},"metadata":{"firstNodeIndex":0,"nodes":[{"id":"n1","type":"jsFilter","name":"f"}],"connections":[]}}`
+	if err := ruleStore.Save("tenant_1", "chain_active", []byte(active)); err != nil {
+		t.Fatal(err)
+	}
+	if err := ruleStore.Save("tenant_1", "chain_retired", []byte(retired)); err != nil {
+		t.Fatal(err)
+	}
+
+	mgr := NewManager(cfg, logger, provider)
+	if err := mgr.InitUserEngines(); err != nil {
+		t.Fatalf("InitUserEngines: %v", err)
+	}
+
+	// DB 发现的租户应有引擎且链已恢复（重启前创建的链重启后可执行）
+	ue, ok := mgr.Get("tenant_1")
+	if !ok {
+		t.Fatal("engine for store-discovered tenant_1 should be created")
+	}
+	if _, ok := ue.GetEngine("chain_active"); !ok {
+		t.Error("active chain should be restored into pool after restart")
+	}
+	// 下线链不恢复（定时端点随部署/下线启停）
+	if _, ok := ue.GetEngine("chain_retired"); ok {
+		t.Error("retired (disabled) chain should NOT be loaded at boot")
+	}
+}
