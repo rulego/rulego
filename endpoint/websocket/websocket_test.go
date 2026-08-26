@@ -24,6 +24,40 @@ var testdataFolder = "../../testdata/rule"
 var testServer = ":9090"
 var testConfigServer = ":9091"
 
+// 握手来源校验：同源与无 Origin 始终放行，AllowCors 只管跨源。
+// 回归 AllowCors=false（宿主自管 CORS 的嵌入式部署）时同源握手被误拒的问题。
+func TestCheckOrigin(t *testing.T) {
+	newReq := func(origin, host string) *http.Request {
+		r := &http.Request{Host: host, Header: http.Header{}}
+		if origin != "" {
+			r.Header.Set("Origin", origin)
+		}
+		return r
+	}
+
+	t.Run("AllowCorsFalse", func(t *testing.T) {
+		ws := &Websocket{}
+		ws.Config.AllowCors = false
+		// 无 Origin（非浏览器客户端）
+		assert.True(t, ws.checkOrigin(newReq("", "example.com:8081")))
+		// 同源
+		assert.True(t, ws.checkOrigin(newReq("http://example.com:8081", "example.com:8081")))
+		// 同源，scheme 不同但 host 相同（https 页面连 wss 同主机）
+		assert.True(t, ws.checkOrigin(newReq("https://example.com:8081", "example.com:8081")))
+		// 跨源：AllowCors=false 时拒绝
+		assert.False(t, ws.checkOrigin(newReq("http://evil.com", "example.com:8081")))
+		// 端口不同即跨源
+		assert.False(t, ws.checkOrigin(newReq("http://example.com:9999", "example.com:8081")))
+	})
+
+	t.Run("AllowCorsTrue", func(t *testing.T) {
+		ws := &Websocket{}
+		ws.Config.AllowCors = true
+		assert.True(t, ws.checkOrigin(newReq("http://evil.com", "example.com:8081")))
+		assert.True(t, ws.checkOrigin(newReq("http://example.com:8081", "example.com:8081")))
+	})
+}
+
 // 测试请求/响应消息
 func TestWebSocketMessage(t *testing.T) {
 	t.Run("Request", func(t *testing.T) {

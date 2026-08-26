@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -281,9 +282,7 @@ func (ws *Websocket) Init(ruleConfig types.Config, configuration types.Configura
 	if err != nil {
 		return err
 	}
-	ws.Upgrader.CheckOrigin = func(r *http.Request) bool {
-		return ws.Config.AllowCors // 允许所有跨域请求
-	}
+	ws.Upgrader.CheckOrigin = ws.checkOrigin
 	if ws.Config.SessionTTL <= 0 {
 		ws.Config.SessionTTL = 1800 // <=0 默认 30 分钟
 	}
@@ -366,13 +365,26 @@ func (ws *Websocket) Printf(format string, v ...interface{}) {
 	}
 }
 
+// checkOrigin 握手来源校验：同源请求与无 Origin 头的请求（非浏览器客户端）始终放行，
+// AllowCors 只决定是否放行**跨源**握手。CORS 响应头策略与握手来源校验是两件事：
+// 宿主自管 CORS（AllowCors=false）时，同源 WS 握手仍须可用。
+func (ws *Websocket) checkOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		// 非浏览器客户端不发 Origin，无同源概念
+		return true
+	}
+	if u, err := url.Parse(origin); err == nil && strings.EqualFold(u.Host, r.Host) {
+		return true
+	}
+	return ws.Config.AllowCors
+}
+
 func (ws *Websocket) Start() error {
 	if ws.OnEvent != nil {
 		ws.OnEvent(endpoint.EventInitServer, ws.Rest.Server)
 	}
-	ws.Upgrader.CheckOrigin = func(r *http.Request) bool {
-		return ws.Config.AllowCors // 允许所有跨域请求
-	}
+	ws.Upgrader.CheckOrigin = ws.checkOrigin
 	if ws.Rest.Started() {
 		return nil
 	}
