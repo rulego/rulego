@@ -3,7 +3,9 @@ package bridge
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -15,16 +17,18 @@ import (
 //     且状态码允许有 body 时进入缓冲模式，响应结束后整体交给 wrapper；
 //   - 非 JSON（SSE text/event-stream、octet-stream 下载等）、204/304、HEAD/OPTIONS
 //     直接透传，不做任何缓冲；
+//   - MCP 端点（/api/v1/mcp/*）的 JSON-RPC 报文原样透传（见 isRawAPIPath）；
 //   - 缓冲模式下上游一旦调用 Flush（流式响应的标志），立即把已缓冲内容直写并切换
 //     透传，保证增量推送语义不变。
 //
 // wrapHandler wraps the upstream handler with a ResponseWrapper.
 // Buffering policy (SSE/stream/binary safe): only JSON responses are buffered and
-// rewritten; anything else passes through untouched. A Flush during buffering dumps
-// the buffer and switches to pass-through, preserving incremental streaming.
+// rewritten; anything else (including raw MCP JSON-RPC) passes through untouched.
+// A Flush during buffering dumps the buffer and switches to pass-through,
+// preserving incremental streaming.
 func wrapHandler(h http.Handler, wrap ResponseWrapper) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if wrap == nil || r.Method == http.MethodHead || r.Method == http.MethodOptions {
+		if wrap == nil || r.Method == http.MethodHead || r.Method == http.MethodOptions || isRawAPIPath(r.URL.Path) {
 			h.ServeHTTP(w, r)
 			return
 		}
@@ -109,7 +113,18 @@ func (b *bufferedJSONWriter) finish(wrap ResponseWrapper) {
 		// 上游未写任何内容：按 200 空响应交给包装器决定
 		b.status = http.StatusOK
 	}
-	wrapped, code := wrap(b.status, b.buf.Bytes())
+	body := b.buf.Bytes()
+	// 上游已 gzip 压缩的 JSON（≥1KB 响应会触发内置压缩）：先解压成明文再交给
+	// 包装器，否则包装器解析压缩体失败会静默跳过包装，大响应丢失信封。
+	// 解压失败（响应体与 Content-Encoding 不符）按原样交给包装器，由其透传规则兜底。
+	if strings.TrimSpace(b.Header().Get("Content-Encoding")) == "gzip" {
+		if plain, err := gunzipBody(body); err == nil {
+			body = plain
+			b.Header().Del("Content-Encoding")
+			b.Header().Del("Content-Length")
+		}
+	}
+	wrapped, code := wrap(b.status, body)
 	if code <= 0 {
 		code = b.status
 	}
@@ -117,6 +132,23 @@ func (b *bufferedJSONWriter) finish(wrap ResponseWrapper) {
 	if len(wrapped) > 0 {
 		_, _ = b.ResponseWriter.Write(wrapped)
 	}
+}
+
+// gunzipBody 解压 gzip 响应体。
+func gunzipBody(body []byte) ([]byte, error) {
+	r, err := gzip.NewReader(bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	return io.ReadAll(r)
+}
+
+// isRawAPIPath 判定必须原样透传、不做信封包装的 API 路径。
+// MCP StreamableHTTP 端点（/api/v1/mcp/*）的 JSON 形态响应是 JSON-RPC 协议报文，
+// 包装会破坏标准 MCP 客户端解析（SSE 形态已按 Content-Type 透传）。
+func isRawAPIPath(path string) bool {
+	return strings.Contains(path, "/api/v1/mcp/")
 }
 
 // isJSONContentType 判断是否为 JSON 响应（含 charset 变体；空视为 JSON——

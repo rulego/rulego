@@ -80,7 +80,7 @@ func DefaultOptions() Options {
 
 // WithConfig 设置编程式配置，优先于 ConfigFile 和默认配置。
 // 适合嵌入模式：宿主直接构造 config.Config 注入，无需写配置文件。
-// 注意：传入的 Config 会被 InitUserMap/Global 合并处理；Global 选项的值仍会覆盖 Config.Global。
+// 传入的 Config 会被 InitUserMap/Global 合并处理；Global 选项的值仍会覆盖 Config.Global。
 func WithConfig(cfg *config.Config) Option {
 	return func(o *Options) {
 		o.Config = cfg

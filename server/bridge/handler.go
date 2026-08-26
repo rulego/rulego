@@ -44,6 +44,7 @@
 package bridge
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -98,6 +99,7 @@ func WithResponseWrapper(w ResponseWrapper) Option {
 
 // WithoutLocalAuth 关闭 rulego-server 自身的登录/用户管理路由（/api/v1/login、/users*）。
 // 嵌入模式下认证由宿主 Authenticator SPI 承担时使用，避免本地账号体系（含默认口令）暴露。
+// 要求 RequireAuth=true（New 会校验）：本地账号关闭后，匿名请求不得回退到默认管理员身份。
 // WithoutLocalAuth disables rulego-server's own login/user-management routes.
 func WithoutLocalAuth() Option {
 	return func(o *options) { o.noLocalAuth = true }
@@ -133,6 +135,12 @@ func New(opts ...Option) (*Bridge, error) {
 
 	if o.noLocalAuth {
 		cfg.DisableLocalAuth = true
+		// 危险组合拒绝：本地账号体系已关闭而 RequireAuth=false 时，匿名请求会以
+		// DefaultUsername（默认 admin）身份放行——关掉登录反而人人是管理员。
+		if !cfg.RequireAuth {
+			_ = application.Stop()
+			return nil, fmt.Errorf("bridge: WithoutLocalAuth requires RequireAuth=true, otherwise anonymous requests run as the default admin user")
+		}
 	}
 
 	typesLogger := application.Logger()

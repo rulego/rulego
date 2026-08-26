@@ -1,6 +1,8 @@
 package bridge
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -256,5 +258,85 @@ func TestWrapHandler_ErrorEnveloped(t *testing.T) {
 	}
 	if env.Code != 400 || env.Message != "invalid username or password" {
 		t.Fatalf("unexpected envelope: %+v", env)
+	}
+}
+
+// TestWrapHandler_GzipJSONWrapped 验证上游已 gzip 压缩的 JSON 响应被解压后包装：
+// 不解压时包装器解析压缩体失败会静默跳过，大响应（≥1KB 触发内置压缩）丢失信封。
+func TestWrapHandler_GzipJSONWrapped(t *testing.T) {
+	raw, err := json.Marshal(map[string]interface{}{"items": strings.Repeat("x", 2048)})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	if _, err := gw.Write(raw); err != nil {
+		t.Fatalf("gzip write: %v", err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatalf("gzip close: %v", err)
+	}
+
+	upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Encoding", "gzip")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(buf.Bytes())
+	})
+
+	rec := httptest.NewRecorder()
+	wrapHandler(upstream, envelopeWrapper).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/rules", nil))
+
+	if ce := rec.Header().Get("Content-Encoding"); ce == "gzip" {
+		t.Fatal("Content-Encoding must be stripped after unwrap, otherwise clients misdecode the plain body")
+	}
+	var env struct {
+		Code int          `json:"code"`
+		Data map[string]interface{} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil {
+		t.Fatalf("gzip response not enveloped: %v body=%q", err, rec.Body.String())
+	}
+	if env.Code != 200 {
+		t.Fatalf("expected envelope code 200, got %d", env.Code)
+	}
+	if _, ok := env.Data["items"]; !ok {
+		t.Fatalf("envelope data missing items: %s", rec.Body.String())
+	}
+}
+
+// TestWrapHandler_MCPPassthrough 验证 MCP 端点（JSON-RPC 报文）不经信封包装。
+func TestWrapHandler_MCPPassthrough(t *testing.T) {
+	raw := `{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}`
+	upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(raw))
+	})
+
+	rec := httptest.NewRecorder()
+	wrapHandler(upstream, envelopeWrapper).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/mcp/test-key", nil))
+
+	if rec.Body.String() != raw {
+		t.Fatalf("MCP JSON-RPC response must pass through unwrapped, got %s", rec.Body.String())
+	}
+}
+
+// TestNew_WithoutLocalAuthRequiresAuth 验证危险组合被拒绝构造：
+// 本地账号已关闭而 RequireAuth=false 时，匿名请求会以默认 admin 身份放行。
+func TestNew_WithoutLocalAuthRequiresAuth(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.DataDir = t.TempDir()
+	cfg.Server = ":0"
+	cfg.RequireAuth = false
+
+	_, err := New(WithAppOptions(
+		app.WithConfig(&cfg),
+		app.WithModules(user.New(), rule.New()),
+	), WithoutLocalAuth())
+	if err == nil {
+		t.Fatal("expected error for WithoutLocalAuth + RequireAuth=false")
+	}
+	if !strings.Contains(err.Error(), "RequireAuth") {
+		t.Fatalf("error should explain the RequireAuth requirement, got: %v", err)
 	}
 }
