@@ -46,6 +46,7 @@ package bridge
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/server/app"
@@ -153,6 +154,22 @@ func New(opts ...Option) (*Bridge, error) {
 	restEp, err := srv.NewStandardRestEndpoint()
 	if err != nil {
 		return nil, err
+	}
+
+	// 调试日志 WebSocket（/logs/ws/:chainId/:clientId）：复用 REST 共享 router。
+	// NewWebsocketEndpoint 经 AddRouter 把 GET 路由写进共享 httprouter，宿主流量直达；
+	// 不调用 wsEp.Start()——它会经 SharedNode 启动共享 REST 的 HTTP 服务器，
+	// 等于绑定独立端口（违反原则 1）。Start 里唯一的非监听副作用是会话清扫，
+	// 在此补上作为半死连接的安全网；Upgrader.CheckOrigin 已在 Init 设置。
+	if wsEp, wsErr := srv.NewWebsocketEndpoint(restEp); wsErr == nil {
+		if sweeper, ok := wsEp.(interface {
+			StartSweeping(ttl, interval time.Duration)
+		}); ok {
+			ttl := 30 * time.Minute
+			sweeper.StartSweeping(ttl, ttl/2)
+		}
+	} else {
+		typesLogger.Printf("bridge: register debug websocket endpoint failed: %v", wsErr)
 	}
 
 	if err := application.Start(); err != nil {
