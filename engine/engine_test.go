@@ -572,59 +572,92 @@ func TestSpecifyID(t *testing.T) {
 	assert.Equal(t, true, ok)
 }
 
+// waitForCount 轮询等待原子计数到期望值。OnEnd 回调在协程池异步触发，
+// 与 onAllNodeCompleted/OnMsgAndWait 返回无固定先后，断言前必须等计数到齐
+func waitForCount(t *testing.T, count *int32, want int32) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for atomic.LoadInt32(count) < want {
+		if time.Now().After(deadline) {
+			t.Fatalf("count=%d, want %d", atomic.LoadInt32(count), want)
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+}
+
 // TestOnMsgAndWait 测试同步执行规则链
 func TestOnMsgAndWait(t *testing.T) {
-	var wg sync.WaitGroup
+	// 调试事件经 SubmitTask 异步投递，可能跨越消息边界迟到，
+	// 按消息 id 计数并等待，避免共享 WaitGroup 的负计数与跨消息污染
+	var debugMu sync.Mutex
+	debugEvents := map[string]int{}
+	waitDebug := func(id string, want int) {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			debugMu.Lock()
+			got := debugEvents[id]
+			debugMu.Unlock()
+			if got >= want {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("debug events for %s=%d, want %d", id, got, want)
+			}
+			time.Sleep(2 * time.Millisecond)
+		}
+	}
 
 	config := NewConfig()
 	config.OnDebug = func(chainId, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-		wg.Done()
+		debugMu.Lock()
+		debugEvents[msg.GetId()]++
+		debugMu.Unlock()
 	}
 	ruleEngine, err := New(str.RandomStr(10), loadFile("./test_wait.json"), WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = New("sub_chain_02", loadFile("./sub_chain.json"), WithConfig(config))
+	subEngine, err := New("sub_chain_02", loadFile("./sub_chain.json"), WithConfig(config))
 	if err != nil {
 		t.Error(err)
 	}
+	//子链引擎按固定 id 缓存复用，不清理会把本迭代的调试事件发往上一迭代注册的旧闭包
+	defer Del(ruleEngine.Id())
+	defer Del(subEngine.Id())
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 
 	//TEST_MSG_TYPE1 找到2条chains,5个nodes
-	wg.Add(10)
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	var count int32
 	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		atomic.AddInt32(&count, 1)
 	}))
-	time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
-	assert.Equal(t, int32(2), count)
-	wg.Wait()
+	waitForCount(t, &count, 2) //OnEnd 在协程池异步触发，与 onCompleted 无固定先后，断言前等计数到齐
+	waitDebug(msg.GetId(), 10)
 
 	//TEST_MSG_TYPE2 找到1条chain,2个nodes
-	wg.Add(4)
-	count = 0
+	atomic.StoreInt32(&count, 0)
 	msg = types.NewMsg(0, "TEST_MSG_TYPE2", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		atomic.AddInt32(&count, 1)
 	}))
-	//time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
-	assert.Equal(t, int32(1), count)
-	wg.Wait()
+	waitForCount(t, &count, 1)
+	waitDebug(msg.GetId(), 4)
 
 	//TEST_MSG_TYPE3 找到0条chain,1个node
-	wg.Add(2)
-	count = 0
+	atomic.StoreInt32(&count, 0)
 	data := ""
 	msg = types.NewMsg(0, "TEST_MSG_TYPE3", types.JSON, metaData, "{\"temperature\":41}")
 	ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		atomic.AddInt32(&count, 1)
 		data = msg.GetData()
 	}))
+	waitForCount(t, &count, 1) //count 原子递增先于 data 写入，计数到齐后读 data 无竞争
 	assert.Equal(t, "{\"temperature\":41}", data)
-	assert.Equal(t, int32(1), count)
-	wg.Wait()
+	assert.Equal(t, int32(1), atomic.LoadInt32(&count))
+	waitDebug(msg.GetId(), 2)
 }
 
 // 测试functions节点，并发修改metadata
