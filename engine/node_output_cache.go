@@ -55,7 +55,7 @@ func (cache *NodeOutputCache) StoreNodeOutput(nodeId string, msg types.RuleMsg) 
 // SetCacheableNodes sets the collection of node IDs that need to be cached
 func (cache *NodeOutputCache) SetCacheableNodes(nodeIds []string) {
 	for _, nodeId := range nodeIds {
-		cache.cacheableNodes.Store(nodeId, true)
+		cache.cacheableNodes.Store(nodeId, markTrue)
 	}
 }
 
@@ -69,7 +69,7 @@ func (cache *NodeOutputCache) IsNodeCacheable(nodeId string) bool {
 // AddCacheableNode 添加单个需要缓存的节点
 // AddCacheableNode adds a single node that needs to be cached
 func (cache *NodeOutputCache) AddCacheableNode(nodeId string) {
-	cache.cacheableNodes.Store(nodeId, true)
+	cache.cacheableNodes.Store(nodeId, markTrue)
 }
 
 // RemoveCacheableNode 移除不需要缓存的节点

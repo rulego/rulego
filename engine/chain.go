@@ -159,6 +159,13 @@ type RuleChainCtx struct {
 	// aspects 包含应用于此规则链的 AOP 切面列表，提供如日志、验证和指标等横切关注点
 	aspects types.AspectList
 
+	// nodeAspectsCache is the around/before/after split of the aspects list.
+	// Must be refreshed wherever aspects is written; NewRuleContext reads it
+	// on every message.
+	// nodeAspectsCache 是 aspects 列表的 around/before/after 拆分，
+	// aspects 的每个写入点都要同步刷新，NewRuleContext 每条消息读取。
+	nodeAspectsCache *nodeAspects
+
 	// afterReloadAspects contains aspects triggered after rule chain reload,
 	// enabling post-reload processing and validation
 	// afterReloadAspects 包含规则链重载后触发的切面，支持重载后处理和验证
@@ -264,6 +271,7 @@ func InitRuleChainCtx(config types.Config, aspects types.AspectList, ruleChainDe
 		componentsRegistry: config.ComponentsRegistry,
 		initialized:        true,
 		aspects:            aspects,
+		nodeAspectsCache:   splitNodeAspects(aspects),
 		afterReloadAspects: afterReloadAspects,
 		destroyAspects:     destroyAspects,
 		ruleChainPool:      ruleChainPool,
@@ -805,6 +813,7 @@ func (rc *RuleChainCtx) copyUnsafe(newCtx *RuleChainCtx) {
 	rc.nodeRoutes = newCtx.nodeRoutes
 	rc.rootRuleContext = newCtx.rootRuleContext
 	rc.aspects = newCtx.aspects
+	rc.nodeAspectsCache = newCtx.nodeAspectsCache
 	rc.afterReloadAspects = newCtx.afterReloadAspects
 	rc.destroyAspects = newCtx.destroyAspects
 	rc.vars = newCtx.vars
@@ -870,6 +879,7 @@ func (rc *RuleChainCtx) Copy(newCtx *RuleChainCtx) {
 	rc.nodeRoutes = newCtx.nodeRoutes
 	rc.rootRuleContext = newCtx.rootRuleContext
 	rc.aspects = newCtx.aspects
+	rc.nodeAspectsCache = newCtx.nodeAspectsCache
 	rc.afterReloadAspects = newCtx.afterReloadAspects
 	rc.destroyAspects = newCtx.destroyAspects
 	rc.vars = newCtx.vars
@@ -925,11 +935,28 @@ func (rc *RuleChainCtx) ensureResources() *resourceRegistry {
 	return rc.resources
 }
 
+// nodeAspects holds the around/before/after split of an AspectList.
+// nodeAspects 保存切面列表的 around/before/after 拆分结果。
+type nodeAspects struct {
+	around []types.AroundAspect
+	before []types.BeforeAspect
+	after  []types.AfterAspect
+}
+
+// splitNodeAspects returns the around/before/after split of the list.
+// GetNodeAspects sorts in place, so the caller must hold the chain write lock
+// or exclusively own the list.
+func splitNodeAspects(aspects types.AspectList) *nodeAspects {
+	around, before, after := aspects.GetNodeAspects()
+	return &nodeAspects{around: around, before: before, after: after}
+}
+
 // SetAspects sets the aspects for the rule chain
 func (rc *RuleChainCtx) SetAspects(aspects types.AspectList) {
 	rc.Lock()
 	defer rc.Unlock()
 	rc.aspects = aspects
+	rc.nodeAspectsCache = splitNodeAspects(aspects)
 	_, _, _, afterReloadAspects, destroyAspects := aspects.GetEngineAspects()
 	rc.afterReloadAspects = afterReloadAspects
 	rc.destroyAspects = destroyAspects

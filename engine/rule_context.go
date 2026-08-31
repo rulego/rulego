@@ -187,11 +187,14 @@ func (c *ContextObserver) checkNodesDone(nodeIds ...string) bool {
 	return true
 }
 
+// markTrue 预装箱的 bool 值，供 sync.Map Store 复用，避免每次装箱分配
+var markTrue interface{} = true
+
 // executedNode marks a node as executed and checks for any completed join nodes.
 func (c *ContextObserver) executedNode(nodeId string) {
 	// 去重：同一节点跨消息只记录一次，避免重复 Store 的分配开销
 	if _, ok := c.executedNodes.Load(nodeId); !ok {
-		c.executedNodes.Store(nodeId, true)
+		c.executedNodes.Store(nodeId, markTrue)
 	}
 	// 无 join 事件的链没有可触发的回调，跳过加锁检查
 	if atomic.LoadInt32(&c.hasJoinEvents) == 1 {
@@ -316,14 +319,20 @@ func NewRuleContext(context context.Context, config types.Config, ruleChainCtx *
 		aspects = ruleChainCtx.aspects
 		chainId = ruleChainCtx.GetNodeId().Id
 	}
-	// If no aspects are defined, use built-in aspects.
+	var aroundAspects []types.AroundAspect
+	var beforeAspects []types.BeforeAspect
+	var afterAspects []types.AfterAspect
 	if len(aspects) == 0 {
+		// If no aspects are defined, use built-in aspects.
 		for _, builtinsAspect := range BuiltinsAspects {
 			aspects = append(aspects, builtinsAspect.New())
 		}
+		aroundAspects, beforeAspects, afterAspects = aspects.GetNodeAspects()
+	} else if na := ruleChainCtx.nodeAspectsCache; na != nil {
+		aroundAspects, beforeAspects, afterAspects = na.around, na.before, na.after
+	} else {
+		aroundAspects, beforeAspects, afterAspects = aspects.GetNodeAspects()
 	}
-	// Get node-specific aspects.
-	aroundAspects, beforeAspects, afterAspects := aspects.GetNodeAspects()
 	var chainCache types.Cache
 	if chainId != "" {
 		chainCache = cache.NewNamespaceCache(config.Cache, chainId+types.NamespaceSeparator)
