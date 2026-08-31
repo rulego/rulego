@@ -237,12 +237,19 @@ func TestForNodeMetadataRaceCondition(t *testing.T) {
 	case <-ctx.Done():
 		currentProcessed := atomic.LoadInt64(&processedCount)
 		t.Errorf("测试超时: 只处理了 %d 条消息", currentProcessed)
+		return
 	}
 
-	// 验证至少处理了一些消息
-	finalProcessedCount := atomic.LoadInt64(&processedCount)
-	if finalProcessedCount <= 0 {
-		t.Errorf("应该至少处理一些消息，实际处理: %d", finalProcessedCount)
+	// OnMsg 是异步投递，OnEnd 回调在协程池触发；生产者返回不代表处理完成，
+	// 必须等计数到齐再断言，否则消息还在池里排队时断言必然失败
+	for atomic.LoadInt64(&processedCount) < int64(concurrentCount) {
+		select {
+		case <-ctx.Done():
+			t.Errorf("处理超时: 只处理了 %d/%d 条消息", atomic.LoadInt64(&processedCount), concurrentCount)
+			return
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 }
 
