@@ -1585,6 +1585,8 @@ func (e *RuleEngine) processMessage(rootCtxCopy *DefaultRuleContext, msg types.R
 		// If waiting is required, set up a channel to synchronize the completion
 		// 如果需要等待，设置通道来同步完成
 		c := make(chan struct{})
+		// 调用方同步等待，允许单子节点线性段内联执行（见 tellOrElse/tellSelf）
+		rootCtxCopy.syncWait = true
 		rootCtxCopy.onAllNodeCompleted = func() {
 			defer close(c)
 			// Execute the completion handling function
