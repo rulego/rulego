@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -747,4 +748,86 @@ func TestTellSuccessNotWriteErrorMsg(t *testing.T) {
 
 	waitGroup(&wg, t)
 	assert.Equal(t, "", gotErrorMsg)
+}
+
+// traversalCount 包级计数：节点实例经 New() 克隆，计数必须落在共享变量上
+var traversalCount int64
+
+type traversalNode struct{}
+
+func (n *traversalNode) Type() string { return "test/traversal" }
+func (n *traversalNode) New() types.Node {
+	return &traversalNode{}
+}
+func (n *traversalNode) Init(_ types.Config, _ types.Configuration) error { return nil }
+func (n *traversalNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	atomic.AddInt64(&traversalCount, 1)
+	ctx.TellSuccess(msg)
+}
+func (n *traversalNode) Destroy() {}
+
+func traversalChainDsl(hops int) []byte {
+	dsl := `{"ruleChain":{"id":"traversal_chain"},"metadata":{"nodes":[`
+	for i := 0; i < hops; i++ {
+		if i > 0 {
+			dsl += ","
+		}
+		dsl += `{"id":"n` + strconv.Itoa(i) + `","type":"test/traversal","name":"n` + strconv.Itoa(i) + `"}`
+	}
+	dsl += `],"connections":[`
+	for i := 0; i < hops-1; i++ {
+		if i > 0 {
+			dsl += ","
+		}
+		dsl += `{"fromId":"n` + strconv.Itoa(i) + `","toId":"n` + strconv.Itoa(i+1) + `","type":"Success"}`
+	}
+	dsl += `]}}`
+	return []byte(dsl)
+}
+
+// TestLinearChainTraversal 验证线性链在 wait 与 async 两种模式下每个节点恰好执行一次：
+// 内联调度（单关系单子节点跳转在当前 goroutine 续跑）不得漏执行或多执行节点
+func TestLinearChainTraversal(t *testing.T) {
+	if err := Registry.Register(&traversalNode{}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = Registry.Unregister("test/traversal") }()
+
+	config := NewConfig(types.WithDefaultPool())
+	ruleEngine, err := New("traversal_chain", traversalChainDsl(10), WithConfig(config))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// wait 模式：OnMsgAndWait 返回后 10 个节点应各执行一次
+	atomic.StoreInt64(&traversalCount, 0)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ruleEngine.OnMsgAndWait(types.NewMsg(0, "test", types.JSON, types.NewMetadata(), ""))
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("OnMsgAndWait did not return in 5s")
+	}
+	if got := atomic.LoadInt64(&traversalCount); got != 10 {
+		t.Fatalf("wait mode: expected 10 node executions, got %d", got)
+	}
+
+	// async 模式：OnEnd 触发时 10 个节点应各执行一次
+	atomic.StoreInt64(&traversalCount, 0)
+	asyncDone := make(chan struct{})
+	ruleEngine.OnMsg(types.NewMsg(0, "test", types.JSON, types.NewMetadata(), ""),
+		types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			close(asyncDone)
+		}))
+	select {
+	case <-asyncDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("OnEnd did not fire in 5s")
+	}
+	if got := atomic.LoadInt64(&traversalCount); got != 10 {
+		t.Fatalf("async mode: expected 10 node executions, got %d", got)
+	}
 }

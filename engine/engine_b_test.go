@@ -17,6 +17,7 @@
 package engine
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -278,4 +279,71 @@ func BenchmarkRuleMsgDataCOWConcurrent(b *testing.B) {
 			}
 		})
 	})
+}
+
+// linearNode 直通节点：收到消息按 Success 转发，用于测量引擎调度开销
+type linearNode struct {
+	BaseNode
+}
+
+func (n *linearNode) Type() string { return "bench/linear" }
+func (n *linearNode) New() types.Node {
+	return &linearNode{}
+}
+func (n *linearNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	ctx.TellNext(msg, types.Success)
+}
+
+func linearChainDsl(id string, hops int) []byte {
+	dsl := `{"ruleChain":{"id":"` + id + `"},"metadata":{"nodes":[`
+	for i := 0; i < hops; i++ {
+		if i > 0 {
+			dsl += ","
+		}
+		dsl += `{"id":"n` + strconv.Itoa(i) + `","type":"bench/linear","name":"n` + strconv.Itoa(i) + `"}`
+	}
+	dsl += `],"connections":[`
+	for i := 0; i < hops-1; i++ {
+		if i > 0 {
+			dsl += ","
+		}
+		dsl += `{"fromId":"n` + strconv.Itoa(i) + `","toId":"n` + strconv.Itoa(i+1) + `","type":"Success"}`
+	}
+	dsl += `]}}`
+	return []byte(dsl)
+}
+
+// BenchmarkLinearChain 线性直通链两种调用模式的吞吐：
+// wait=OnMsgAndWait 同步等待（单子节点跳转内联在调用方 goroutine），
+// async=OnMsg 异步投递（每跳交协程池）。
+// 引擎池按 id 单例，每个子基准必须用唯一 id，否则拿到的是缓存的旧链。
+func BenchmarkLinearChain(b *testing.B) {
+	if err := Registry.Register(&linearNode{}); err != nil {
+		b.Fatal(err)
+	}
+	defer func() { _ = Registry.Unregister("bench/linear") }()
+
+	config := NewConfig(types.WithDefaultPool())
+	for _, hop := range []int{1, 10, 30} {
+		id := "bench_linear_" + strconv.Itoa(hop)
+		e, err := New(id, linearChainDsl(id, hop), WithConfig(config))
+		if err != nil {
+			b.Fatal(err)
+		}
+		for _, mode := range []string{"wait", "async"} {
+			b.Run(mode+"/hops="+strconv.Itoa(hop), func(b *testing.B) {
+				b.ResetTimer()
+				b.RunParallel(func(pb *testing.PB) {
+					for pb.Next() {
+						msg := types.NewMsg(0, "BENCH", types.JSON, types.NewMetadata(), `{"temperature":35}`)
+						if mode == "wait" {
+							e.OnMsgAndWait(msg)
+						} else {
+							e.OnMsg(msg)
+						}
+					}
+				})
+			})
+		}
+	}
 }

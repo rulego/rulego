@@ -260,6 +260,12 @@ type DefaultRuleContext struct {
 	ruleChainPool types.RuleEnginePool
 	// Indicates whether to skip executing child nodes, default is false.
 	skipTellNext bool
+	// syncWait marks OnMsgAndWait (synchronous wait) processing. Single-child
+	// hops then run inline on the caller goroutine instead of crossing the
+	// worker pool; fan-out, stream and async OnMsg still dispatch to the pool.
+	// syncWait 标记 OnMsgAndWait 同步等待处理。此时单子节点跳转在调用方 goroutine
+	// 内联执行，不再穿越协程池；扇出、stream 与异步 OnMsg 仍交池调度。
+	syncWait bool
 	// List of aspects.
 	aspects types.AspectList
 	// List of around aspects.
@@ -506,6 +512,7 @@ func (ctx *DefaultRuleContext) NewNextNodeRuleContext(nextNode types.NodeCtx) *D
 		context:       ctx.context,       // 直接复用context，避免调用GetContext()
 		parentRuleCtx: ctx,
 		skipTellNext:  ctx.skipTellNext,
+		syncWait:      ctx.syncWait,
 
 		// 共享切面列表，它们在运行时不会改变
 		aroundAspects: ctx.aroundAspects,
@@ -1060,7 +1067,9 @@ func (ctx *DefaultRuleContext) tellSelf(msg types.RuleMsg, err error, relationTy
 		// 异步执行需要拷贝确保线程安全
 		// 注意：不能简单根据节点类型优化，因为其他并发分支可能修改消息
 		msgCopy := msg.Copy()
-		if relationType == types.Stream {
+		if relationType == types.Stream || ctx.syncWait {
+			// stream 直连保证流块顺序；wait 模式内联首跳，调用方 goroutine 本就
+			// 在等待结果，免去一次协程池穿越。异步模式首跳仍交池，生产者立即返回
 			ctx.tellNext(msgCopy, ctx.self, relationType)
 		} else {
 			ctx.SubmitTask(func() {
@@ -1130,8 +1139,11 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 						}
 
 						//通知执行子节点
-						if rt == types.Stream {
-							//为了保证流块的顺序
+						// stream 为保证流块顺序；syncWait 下严格线性段（单关系单子节点）
+						// 内联执行，省掉每跳一次协程池穿越。扇出或多关系仍交池保持并行。
+						inline := rt == types.Stream ||
+							(ctx.syncWait && len(nodes) == 1 && relationTypeLen == 1)
+						if inline {
 							ctx.tellNext(msgToPass, tmp, rt)
 						} else {
 							ctx.SubmitTask(func() {
