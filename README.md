@@ -195,8 +195,9 @@ Test results: 100 concurrent and 500 concurrent, memory consumption does not cha
 - [RuleGo-Editor](https://editor.rulego.cc/) : Rule chain visual editor
 - [RuleGo-Server](server/) : Automation workflow platform
 - [Tpclaw](https://tpclaw.teambuf.com/) : Autonomous evolution of AI agent platform
+- [GFlow Engine](https://github.com/rulego/gflow-engine) : Embeddable approval workflow engine
 - [rulego-components](https://gitee.com/rulego/rulego-components) : Extension component library
-- [rulego-components-ai](https://github.com/rulego/rulego-components-ai) : AI scenario component library
+- [rulego-components-ai](https://github.com/rulego/rulego-components-ai) : Declarative agent framework
 - [rulego-components-ci](https://github.com/rulego/rulego-components-ci) : CI/CD scenario component library
 - [rulego-components-iot](https://github.com/rulego/rulego-components-iot) : IoT scenario component library
 - [rulego-components-etl](https://github.com/rulego/rulego-components-etl) : ETL scenario component library
