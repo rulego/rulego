@@ -7,7 +7,7 @@ require (
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/mark3labs/mcp-go v0.44.0
-	github.com/rulego/rulego v0.37.1-0.20260816112453-8995627f6da7
+	github.com/rulego/rulego v0.37.0
 	github.com/rulego/rulego-components v0.37.1-0.20260816115602-d2ee85cba44c
 	github.com/rulego/rulego-components-ai v0.37.1-0.20260816034014-d5312a602f16
 	github.com/rulego/rulego-components-ci v0.36.0
