@@ -16,6 +16,7 @@ rulego
 ├── engine
 ├── examples
 ├── node_pool
+├── server
 ├── test
 ├── testdata
 ├── utils
@@ -32,6 +33,7 @@ rulego
 | engine     | Core implementation of the rule engine                                                                   |
 | examples   | Code examples and demonstrations                                                                         |
 | node_pool  | Shared node pool                                                                                         |
+| server     | Standalone RuleGo automation workflow platform (server module)                                           |
 | test       | Testing tools and scripts                                                                                |
 | testdata   | Test datasets                                                                                            |
 | utils      | Utility classes                                                                                          |
@@ -39,7 +41,7 @@ rulego
 
 ## 2. Code of Conduct
 
-We are committed to providing an open and inclusive community environment. Please adhere to our [Code of Conduct] when participating in this project.
+We are committed to providing an open and inclusive community environment. Please adhere to our Code of Conduct when participating in this project.
 
 ## 3. Submitting Issues/Handling Issue Tasks
 
@@ -82,8 +84,8 @@ We are committed to providing an open and inclusive community environment. Pleas
 - All operating systems that support the Go language.
 
 #### 4.2.2 Compilation Environment Information
-- Go version: v1.20+ (without extended components: v1.18+)
-- Git: [Download Git].
+- Go version: v1.20+ (server module: v1.25+)
+- Git: [Download Git](https://git-scm.com/downloads).
 
 #### 4.2.3 GO Environment Variable Settings (Optional)
 ```bash
@@ -105,7 +107,7 @@ go build ./cmd/server
 go build -tags "with_extend,with_ai,with_ci,with_iot" ./cmd/server
 ```
 
-For more details, refer to: [server](server/README_ZH.md)
+For more details, refer to: [server](server/README.md)
 
 ### 4.3 Start the Service
 ```bash
@@ -119,7 +121,7 @@ Use the [RuleGo-Editor](https://editor.rulego.cc/) 、[RuleGo-Example](https://e
 
 ### 5.1 Contribute Extended Components
 - [rulego-components](https://github.com/rulego/rulego-components) : Other extended components.
-- [rulego-components-ai](https://github.com/rulego/rulego-ai) : Components for AI scenarios.
+- [rulego-components-ai](https://github.com/rulego/rulego-components-ai) : Components for AI scenarios.
 - [rulego-components-ci](https://github.com/rulego/rulego-ci) : Components for CI/CD scenarios.
 - [rulego-components-iot](https://github.com/rulego/rulego-iot) : Components for IoT scenarios.
 - [rulego-components-etl](https://github.com/rulego/rulego-components-etl): ETL scenario components.

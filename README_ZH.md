@@ -10,7 +10,7 @@
 
 [English](README.md)| 简体中文
 
-[官网](https://rulego.cc) | [文档](https://rulego.cc/pages/introduction/) | [贡献指南](CONTRIBUTION_CN.md) 
+[官网](https://rulego.cc) | [文档](https://rulego.cc/pages/introduction/) | [贡献指南](CONTRIBUTING_CN.md)
 
 <img src="doc/imgs/logo.png" alt="logo" width="100"/>  
 
@@ -213,7 +213,7 @@ ruleEngine, err := rulego.New("rule01", []byte(ruleFile), rulego.WithConfig(conf
 
 ## 贡献
 
-欢迎任何形式的贡献，包括提交问题、建议、文档、测试或代码。[贡献指南](CONTRIBUTION_CN.md)
+欢迎任何形式的贡献，包括提交问题、建议、文档、测试或代码。[贡献指南](CONTRIBUTING_CN.md)
 
 ## 交流群
 

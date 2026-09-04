@@ -11,7 +11,7 @@
 
 English| [简体中文](README_ZH.md)
 
-[Official Website](https://rulego.cc) | [Docs](https://rulego.cc/en/pages/introduction/) | [Contribution Guide](CONTRIBUTION.md)
+[Official Website](https://rulego.cc) | [Docs](https://rulego.cc/en/pages/introduction/) | [Contribution Guide](CONTRIBUTING.md)
 
 <img src="doc/imgs/logo.png" alt="logo" width="100"/>   
 
@@ -205,7 +205,7 @@ Test results: 100 concurrent and 500 concurrent, memory consumption does not cha
 - [rulego-marketplace](https://github.com/rulego/rulego-marketplace) : Dynamic component and rule chain marketplace
 
 ## Contribution
-Any form of contribution is welcome, including submitting issues, suggestions, documentation, tests or code. [Contribution Guide](CONTRIBUTION.md)
+Any form of contribution is welcome, including submitting issues, suggestions, documentation, tests or code. [Contribution Guide](CONTRIBUTING.md)
 
 ## License
 `RuleGo` uses Apache 2.0 license, please refer to [LICENSE](LICENSE) file for details.

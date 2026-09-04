@@ -1,4 +1,3 @@
-
 # 贡献指南
 
 **我们的使命是构建适用于各种场景需求的新一代规则引擎，并致力于培育充满活力的组件生态系统，引领软件开发进入全新的创新范式。**
@@ -17,6 +16,7 @@ rulego
 ├── engine
 ├── examples
 ├── node_pool
+├── server
 ├── test
 ├── testdata
 ├── utils
@@ -33,6 +33,7 @@ rulego
 | engine     | 规则引擎核心实现                      |
 | examples   | 代码示例和演示                       |
 | node_pool  | 共享节点资源池                       |
+| server     | 独立部署的自动化工作流平台（server 模块）      |
 | test       | 测试工具和脚本                       |
 | testdata   | 测试数据集                         |
 | utils      | 辅助工具类                         |
@@ -40,7 +41,7 @@ rulego
 
 ## 2. 行为守则
 
-我们致力于提供一个开放和包容的社区环境。请在参与本项目时遵守我们的[行为准则] 。
+我们致力于提供一个开放和包容的社区环境。请在参与本项目时遵守我们的行为准则。
 
 ## 3. 提交Issue/处理Issue任务
 
@@ -74,7 +75,7 @@ rulego
    - `git fetch --all`
    - `git rebase upstream/main`
    - 将您的分支推送到Github `git push origin my-fix-branch`
-11. **创建PR**：在Github上创建PR，并确保填写详细的PR描述。
+10. **创建PR**：在Github上创建PR，并确保填写详细的PR描述。
 
 ### 4.2 编译源码
 
@@ -82,7 +83,7 @@ rulego
 - 所有支持Go语言的操作系统。
 
 #### 4.2.2 编译环境信息
-- Go版本：v1.20+ (不引入扩展组件：v1.18+)
+- Go版本：v1.20+（server 模块：v1.25+）
 - Git：[下载Git](https://git-scm.com/downloads)
 
 #### 4.2.3 GO环境变量设置（可选）
