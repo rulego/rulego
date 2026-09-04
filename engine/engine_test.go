@@ -746,7 +746,8 @@ func TestExecuteNode(t *testing.T) {
 	firstCallbackDone.Add(1)
 	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		defer firstCallbackDone.Done()
-		assert.Equal(t, "true", msg.Metadata.GetValue("result"))
+		assert.Equal(t, "true", msg.Metadata.GetValue("result"),
+			fmt.Sprintf("err=%v relationType=%s errorMsg=%s", err, relationType, msg.Metadata.GetValue(types.KeyErrorMsg)))
 	}))
 
 	// Wait for callback to complete before reloading
@@ -769,13 +770,15 @@ func TestExecuteNode(t *testing.T) {
 	reloadDone.Add(2)
 	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		defer reloadDone.Done()
-		assert.Equal(t, "false", msg.Metadata.GetValue("result"))
+		assert.Equal(t, "false", msg.Metadata.GetValue("result"),
+			fmt.Sprintf("err=%v relationType=%s errorMsg=%s", err, relationType, msg.Metadata.GetValue(types.KeyErrorMsg)))
 	}))
 
 	msg2 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":52,\"humidity\":90}")
 	ruleEngine.OnMsg(msg2, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		defer reloadDone.Done()
-		assert.Equal(t, "true", msg.Metadata.GetValue("result"))
+		assert.Equal(t, "true", msg.Metadata.GetValue("result"),
+			fmt.Sprintf("err=%v relationType=%s errorMsg=%s", err, relationType, msg.Metadata.GetValue(types.KeyErrorMsg)))
 	}))
 	reloadDone.Wait()
 
@@ -815,6 +818,49 @@ func TestExecuteNode(t *testing.T) {
 		//}, nil)
 	}))
 
+	wg.Wait()
+}
+
+// TestTellNextNodePanic 节点 panic 须以 Failure 结束分支并触发 OnEnd
+func TestTellNextNodePanic(t *testing.T) {
+	action.Functions.Register("panicFn", func(ctx types.RuleContext, msg types.RuleMsg) {
+		panic("boom")
+	})
+	var ruleChainFile = `{
+          "ruleChain": {
+            "id": "testPanicNode",
+            "name": "testPanicNode"
+          },
+          "metadata": {
+            "nodes": [
+              {
+                "id": "n1",
+                "type": "functions",
+                "name": "panic节点",
+                "configuration": {
+                  "functionName": "panicFn"
+                }
+              }
+            ],
+            "connections": []
+          }
+        }`
+	config := NewConfig()
+	ruleEngine, err := New("testPanicNode", []byte(ruleChainFile), WithConfig(config))
+	assert.Nil(t, err)
+	defer Del("testPanicNode")
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{}")
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+		defer wg.Done()
+		assert.Equal(t, types.Failure, relationType)
+		assert.True(t, err != nil && strings.Contains(err.Error(), "panic"),
+			"onEnd should surface the node panic, got err=%v", err)
+	}))
 	wg.Wait()
 }
 

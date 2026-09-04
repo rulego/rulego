@@ -161,13 +161,6 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	for i, nodeId := range x.NodeIdList {
 		index := i
 		ctx.TellNode(chanCtx, nodeId, msg.Copy(), true, func(callbackCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
-			// 检查context是否已被取消，避免无意义的计算
-			select {
-			case <-chanCtx.Done():
-				return // 提前退出，避免资源浪费
-			default:
-			}
-
 			// 安全地写入msgs数组
 			errStr := ""
 			if err != nil {
@@ -183,12 +176,14 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			}
 			msgsMutex.Unlock()
 
-			// 直接使用原子操作获取当前计数，避免竞态窗口
-			currentEndCount := atomic.AddInt32(&endCount, 1)
+			// 匹配增量先于 end 落账、非匹配的读取在 end 之后：
+			// endCount 到齐时匹配增量必然全部可见，否则整组会被误判为 Failure
 			var currentMatchCount int32
 			if x.Config.MatchRelationType == relationType {
 				currentMatchCount = atomic.AddInt32(&currentMatchedCount, 1)
-			} else {
+			}
+			currentEndCount := atomic.AddInt32(&endCount, 1)
+			if x.Config.MatchRelationType != relationType {
 				currentMatchCount = atomic.LoadInt32(&currentMatchedCount)
 			}
 
@@ -258,7 +253,21 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	// 等待执行结束或者超时
 	select {
 	case <-chanCtx.Done():
-		ctx.TellFailure(wrapperMsg, chanCtx.Err())
+		// Done 与 c 同时就绪时 select 随机取分支，排空 c 防止已完成误报超时
+		select {
+		case r := <-c:
+			if r {
+				ctx.TellSuccess(wrapperMsg)
+			} else {
+				ctx.TellNext(wrapperMsg, types.Failure)
+			}
+			return
+		default:
+		}
+		err := fmt.Errorf("groupAction timeout: %d/%d nodes completed, matched %d/%d: %w",
+			atomic.LoadInt32(&endCount), x.Length, atomic.LoadInt32(&currentMatchedCount),
+			x.Config.MatchNum, chanCtx.Err())
+		ctx.TellFailure(wrapperMsg, err)
 	case r := <-c:
 		if r {
 			ctx.TellSuccess(wrapperMsg)

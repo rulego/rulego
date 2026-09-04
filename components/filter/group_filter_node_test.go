@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -519,4 +520,40 @@ func TestGroupFilterNodeContextCancellation(t *testing.T) {
 	results := mockCtx.GetResults()
 	assert.Equal(t, 1, len(results))
 	assert.Equal(t, "Failure", results[0])
+}
+
+// TestGroupFilterNodeTimeoutErrorDetail 超时 TellFailure 需携带完成数与原因（DeadlineExceeded/Canceled）
+func TestGroupFilterNodeTimeoutErrorDetail(t *testing.T) {
+	node := &GroupFilterNode{}
+	err := node.Init(types.NewConfig(), map[string]interface{}{
+		"allMatches": true,
+		"nodeIds":    []string{"node1", "node2"},
+		"timeout":    1,
+	})
+	assert.Nil(t, err)
+
+	mockCtx := NewMockRuleContext()
+	// 永不返回的子节点，保证 1s 后以 0/2 完成数超时
+	block := make(chan struct{})
+	defer close(block)
+	neverReturn := func(msg types.RuleMsg) (string, error) {
+		<-block
+		return types.True, nil
+	}
+	mockCtx.SetNodeHandler("node1", neverReturn)
+	mockCtx.SetNodeHandler("node2", neverReturn)
+
+	msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), `{}`)
+	node.OnMsg(mockCtx, msg)
+
+	select {
+	case r := <-mockCtx.GetResultsChannel():
+		assert.Equal(t, "Failure", r.RelationType)
+		assert.True(t, r.Err != nil && strings.Contains(r.Err.Error(), "0/2"),
+			"timeout error should contain completed count, got: %v", r.Err)
+		assert.True(t, r.Err != nil && strings.Contains(r.Err.Error(), "context deadline exceeded"),
+			"timeout error should contain deadline cause, got: %v", r.Err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("no result received")
+	}
 }

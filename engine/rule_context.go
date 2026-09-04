@@ -1204,9 +1204,14 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 	defer func() {
 		//捕捉异常
 		if e := recover(); e != nil {
+			err := fmt.Errorf("node %s panic: %v", nextNode.GetNodeId().Id, e)
+			if ctx.config.Logger != nil {
+				ctx.config.Logger.Printf("%s", err.Error())
+			}
 			//执行After aop
-			msg = ctx.executeAfterAop(msg, fmt.Errorf("%v", e), relationType)
-			ctx.childDone()
+			msg = ctx.executeAfterAop(msg, err, relationType)
+			// 以 Failure 结束分支并触发结束回调；DoOnEnd 内部会 childDone 结清计数
+			ctx.DoOnEnd(msg, err, types.Failure)
 		}
 	}()
 

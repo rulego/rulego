@@ -19,6 +19,7 @@ package filter
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -143,19 +144,14 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	//执行节点列表逻辑
 	for _, nodeId := range x.NodeIdList {
 		ctx.TellNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
-			// 检查context是否已被取消，避免无意义的计算
-			select {
-			case <-chanCtx.Done():
-				return // 提前退出，避免资源浪费
-			default:
-			}
-
-			// 直接使用原子操作获取当前计数，避免竞态窗口
-			currentEndCount := atomic.AddInt32(&endCount, 1)
+			// True 增量先于 end 落账、非 True 的读取在 end 之后：
+			// endCount 到齐时 True 增量必然全部可见，否则整组会被误判为 False
 			var currentTrueCount int32
 			if relationType == types.True {
 				currentTrueCount = atomic.AddInt32(&trueCount, 1)
-			} else {
+			}
+			currentEndCount := atomic.AddInt32(&endCount, 1)
+			if relationType != types.True {
 				currentTrueCount = atomic.LoadInt32(&trueCount)
 			}
 
@@ -199,7 +195,20 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	// 等待执行结束或者超时
 	select {
 	case <-chanCtx.Done():
-		ctx.TellFailure(msg, chanCtx.Err())
+		// Done 与 c 同时就绪时 select 随机取分支，排空 c 防止已完成误报超时
+		select {
+		case r := <-c:
+			if r {
+				ctx.TellNext(msg, types.True)
+			} else {
+				ctx.TellNext(msg, types.False)
+			}
+			return
+		default:
+		}
+		err := fmt.Errorf("groupFilter timeout: %d/%d nodes completed in %ds: %w",
+			atomic.LoadInt32(&endCount), x.Length, x.Config.Timeout, chanCtx.Err())
+		ctx.TellFailure(msg, err)
 	case r := <-c:
 		if r {
 			ctx.TellNext(msg, types.True)
