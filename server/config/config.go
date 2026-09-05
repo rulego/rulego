@@ -10,6 +10,9 @@ import (
 type Config struct {
 	// ConfigFile 配置文件路径（非 INI 字段）
 	ConfigFile string `ini:"-"`
+	// Locker 分布式锁（程序化注入字段，非 INI 配置）。注入后随用户引擎下发，
+	// 定时端点等组件用它实现多副本部署下的至多一次触发
+	Locker types.Locker `ini:"-"`
 	// DataDir 数据目录
 	DataDir string `ini:"data_dir"`
 	// LogFile 日志文件路径，为空则仅输出到控制台

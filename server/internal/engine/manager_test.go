@@ -435,3 +435,36 @@ func TestManager_InitUserEngines_ListUsernames(t *testing.T) {
 		t.Error("retired (disabled) chain should NOT be loaded at boot")
 	}
 }
+
+func TestManager_LockerInjection(t *testing.T) {
+	tmpDir := t.TempDir()
+	locker := types.NewLocalLocker()
+	cfg := &config.Config{DataDir: tmpDir, DefaultUsername: "admin", Locker: locker}
+	mgr := NewManager(cfg, types.DefaultLogger(), filestore.NewFileStoreProvider(*cfg, types.DefaultLogger()))
+
+	ue, err := mgr.GetOrCreate("tenant1")
+	if err != nil {
+		t.Fatalf("GetOrCreate: %v", err)
+	}
+	rc := ue.RuleConfig()
+	if rc.Locker != types.Locker(locker) {
+		t.Fatal("user engine rule config should share the injected Locker instance")
+	}
+	if rc.Owner != "tenant1" {
+		t.Fatalf("owner should be the engine partition name, got %q", rc.Owner)
+	}
+
+	// 未注入 Locker 的引擎不带锁，也不写 owner
+	cfg2 := &config.Config{DataDir: t.TempDir(), DefaultUsername: "admin"}
+	mgr2 := NewManager(cfg2, types.DefaultLogger(), filestore.NewFileStoreProvider(*cfg2, types.DefaultLogger()))
+	ue2, err := mgr2.GetOrCreate("tenant2")
+	if err != nil {
+		t.Fatalf("GetOrCreate: %v", err)
+	}
+	if ue2.RuleConfig().Locker != nil {
+		t.Fatal("rule config should have no Locker when none is injected")
+	}
+	if ue2.RuleConfig().Owner != "" {
+		t.Fatalf("owner should be empty when no Locker is injected, got %q", ue2.RuleConfig().Owner)
+	}
+}

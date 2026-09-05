@@ -371,6 +371,11 @@ func (ue *UserEngine) initRuleConfig() {
 	if ue.config.EndpointEnabled != nil {
 		ue.ruleConfig.EndpointEnabled = *ue.config.EndpointEnabled
 	}
+	if ue.config.Locker != nil {
+		ue.ruleConfig.Locker = ue.config.Locker
+		// owner 即用户分区名：保证不同租户的同名端点与路由生成不同的锁键
+		ue.ruleConfig.Owner = ue.username
+	}
 	if ue.config.SecretKey != nil && *ue.config.SecretKey != "" {
 		ue.ruleConfig.SecretKey = *ue.config.SecretKey
 	}
