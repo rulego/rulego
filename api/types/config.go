@@ -219,6 +219,26 @@ type Config struct {
 	//	  }]
 	//	}
 	EndpointEnabled bool
+	// Locker is the distributed lock shared by components that need at-most-once
+	// semantics across replicas, such as the schedule endpoint deduplicating
+	// cron ticks. When nil, those components behave exactly as in a single
+	// process deployment.
+	// Locker 是需要跨副本至多一次语义的组件共享的分布式锁，
+	// 例如 schedule 端点用它对同一计划槽位跨副本去重。
+	// 为 nil 时这些组件的行为与单进程部署完全一致。
+	Locker Locker
+	// Owner is the identity of the engine instance: who this engine, its rule
+	// chains and endpoints belong to. In multi-tenant deployments it is the
+	// tenant partition name. It is fixed at construction and treated as
+	// read-only by components; use it to namespace resources that must not be
+	// shared across engines, such as lock keys, cache keys and message broker
+	// subscriptions. It is not the tenant of a particular message, which
+	// travels in message metadata.
+	// Owner 是引擎实例的所属者标识：本引擎及其规则链、端点归谁。多租户部署下即
+	// 租户分区名。构造时确定，组件按只读身份使用；用于隔离不能跨引擎共享的
+	// 资源命名，如锁键、缓存键、消息订阅。它不是某条消息的租户——后者随消息
+	// metadata 传递。
+	Owner string
 	// NodePool is the interface for a shared Component Pool.
 	// NodePool 是共享组件池的接口。
 	//

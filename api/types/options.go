@@ -355,6 +355,24 @@ func WithEndpointEnabled(endpointEnabled bool) Option {
 	}
 }
 
+// WithLocker creates an Option that sets the distributed Locker of the Config.
+// WithLocker 创建一个设置 Config 分布式锁的选项。
+func WithLocker(locker Locker) Option {
+	return func(c *Config) error {
+		c.Locker = locker
+		return nil
+	}
+}
+
+// WithOwner creates an Option that sets the engine owner identity.
+// WithOwner 创建一个设置引擎所属者标识的选项。
+func WithOwner(owner string) Option {
+	return func(c *Config) error {
+		c.Owner = owner
+		return nil
+	}
+}
+
 // WithCache is an option that sets the cache of the Config.
 // WithCache 是设置 Config 缓存的选项。
 func WithCache(cache Cache) Option {
