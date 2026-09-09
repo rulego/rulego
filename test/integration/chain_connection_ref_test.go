@@ -34,6 +34,9 @@ type testConn struct {
 
 var testConnSeq int32
 
+// testConnLiveCount 统计存活的测试连接（建连 +1，关闭 -1），供部署回滚测试断言泄漏。
+var testConnLiveCount int64
+
 // testConnNode 是测试用连接持有型组件：本地模式按 server 建连并以节点ID注册到同链目录，
 // ref:// 则借用同链源的连接。模拟 modbus/db 等真实连接型组件，但不依赖任何外部资源。
 type testConnNode struct {
@@ -41,7 +44,7 @@ type testConnNode struct {
 	Server string
 }
 
-func (n *testConnNode) Type() string { return "test/conn" }
+func (n *testConnNode) Type() string    { return "test/conn" }
 func (n *testConnNode) New() types.Node { return &testConnNode{} }
 func (n *testConnNode) Init(rc types.Config, cfg types.Configuration) error {
 	if v, ok := cfg["server"]; ok {
@@ -49,15 +52,19 @@ func (n *testConnNode) Init(rc types.Config, cfg types.Configuration) error {
 	}
 	err := n.SharedNode.InitWithClose(rc, n.Type(), n.Server, rc.NodeClientInitNow,
 		func() (*testConn, error) {
+			atomic.AddInt64(&testConnLiveCount, 1)
 			return &testConn{addr: n.Server, seq: int(atomic.AddInt32(&testConnSeq, 1))}, nil
 		},
-		func(c *testConn) error { return nil })
+		func(c *testConn) error {
+			atomic.AddInt64(&testConnLiveCount, -1)
+			return nil
+		})
 	// 启用同链连接池：本地模式连接按节点ID注册到链目录
 	n.SharedNode.BindChain(cfg)
 	return err
 }
 func (n *testConnNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) { ctx.TellSuccess(msg) }
-func (n *testConnNode) Destroy()                                        { _ = n.SharedNode.Close() }
+func (n *testConnNode) Destroy()                                       { _ = n.SharedNode.Close() }
 
 // conn 暴露当前连接供测试断言（复用 / 独立）。
 func (n *testConnNode) conn() (*testConn, error) { return n.SharedNode.GetSafely() }

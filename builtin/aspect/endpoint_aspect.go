@@ -261,6 +261,7 @@ func NewRuleChainEndpoint(ruleEngineId string, config types.Config, endpointPool
 		}
 		ruleChainEndpoint.bindTo(item, ruleEngineId)
 		if err := ruleChainEndpoint.createEndpoint(item); err != nil {
+			ruleChainEndpoint.destroyEndpoints()
 			return nil, err
 		}
 	}
@@ -272,9 +273,19 @@ func NewRuleChainEndpoint(ruleEngineId string, config types.Config, endpointPool
 		ruleChainEndpoint.registerResources(nil, eps)
 	}
 	if err := ruleChainEndpoint.subscribeAndStart(eps); err != nil {
+		ruleChainEndpoint.destroyEndpoints()
 		return nil, err
 	}
 	return ruleChainEndpoint, nil
+}
+
+// destroyEndpoints tears down every created instance when a failed deploy
+// aborts halfway, releasing connections that the chain context never adopted.
+func (e *RuleChainEndpoint) destroyEndpoints() {
+	for _, ep := range e.GetEndpoints() {
+		ep.Destroy()
+	}
+	e.endpoints = make(map[string]endpoint.DynamicEndpoint)
 }
 
 // createEndpoint creates the endpoint instance without attaching routers or
@@ -369,7 +380,14 @@ func (e *RuleChainEndpoint) Reload(ruleChain *types.RuleChain, newDefs []*types.
 	if e.chainCtx != nil {
 		e.registerResources(nil, changed)
 	}
-	return e.subscribeAndStart(changed)
+	// 失败时回滚本批新增/修改的实例：此时它们均未启动，回滚不损失存量运行状态。
+	if err := e.subscribeAndStart(changed); err != nil {
+		for _, item := range append(append([]*types.EndpointDsl{}, added...), modified...) {
+			e.RemoveEndpoint(item.Id)
+		}
+		return err
+	}
+	return nil
 }
 
 // registerResources syncs the chain resource directory; same semantics as

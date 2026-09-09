@@ -119,7 +119,8 @@ type DynamicEndpoint struct {
 
 	// deferredRouters defers router definitions until ApplyRouters, so chain
 	// deployment can register all endpoint instances into the chain resource
-	// directory before any of them subscribes.
+	// directory before any of them subscribes. One-shot: ApplyRouters clears
+	// the flag so later restart-style reloads attach routers inline.
 	deferredRouters bool
 
 	// ruleConfig contains the rule engine configuration
@@ -263,8 +264,11 @@ func (e *DynamicEndpoint) SetDeferredRouters(deferred bool) {
 }
 
 // ApplyRouters applies the deferred router definitions; a no-op unless
-// SetDeferredRouters(true) was set on (re)creation.
-// ApplyRouters 应用被延迟的路由定义；未开启延迟时为 no-op。
+// SetDeferredRouters(true) was set on (re)creation. Clears the deferred flag
+// on success, so subsequent restart-style reloads attach routers inline
+// instead of silently deploying with none.
+// ApplyRouters 应用被延迟的路由定义；未开启延迟时为 no-op。成功后清除延迟标记，
+// 避免后续重启型重载静默产出零路由端点。
 func (e *DynamicEndpoint) ApplyRouters() error {
 	if e.Endpoint == nil {
 		return errors.New("endpoint not initialized")
@@ -275,6 +279,7 @@ func (e *DynamicEndpoint) ApplyRouters() error {
 			return err
 		}
 	}
+	e.deferredRouters = false
 	return nil
 }
 

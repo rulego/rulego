@@ -18,6 +18,7 @@ package integration
 
 import (
 	"errors"
+	"sync/atomic"
 
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
@@ -54,8 +55,12 @@ func (e *testConnEndpoint) Init(rc types.Config, cfg types.Configuration) error 
 		if e.Server == "" {
 			return nil, errors.New("server is empty")
 		}
+		atomic.AddInt64(&testConnLiveCount, 1)
 		return &testConn{addr: e.Server}, nil
-	}, nil)
+	}, func(c *testConn) error {
+		atomic.AddInt64(&testConnLiveCount, -1)
+		return nil
+	})
 	// chainCtx（链上部署时注入）启用链内 ref:// 解析与注册
 	e.SharedNode.BindChain(cfg)
 	return err
