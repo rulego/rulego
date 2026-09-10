@@ -88,6 +88,11 @@ func createToken(cfg *config.Config, claim ruleGoClaim) (*string, error) {
 func extractAuthorization(exchange *endpointApi.Exchange) string {
 	authorization := exchange.In.Headers().Get("Authorization")
 	if authorization == "" {
+		if apiKey := exchange.In.Headers().Get("X-API-Key"); apiKey != "" {
+			authorization = constants.BearerPrefix + apiKey
+		}
+	}
+	if authorization == "" {
 		if reqMsg, ok := exchange.In.(interface{ Request() *http.Request }); ok {
 			if req := reqMsg.Request(); req != nil {
 				if token := req.URL.Query().Get("token"); token != "" {
