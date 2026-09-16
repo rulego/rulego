@@ -56,13 +56,16 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		catSet := make(map[string]struct{})
+		counts := make(map[string]int)
 		for _, c := range list {
 			if cat := chainCategory(c); cat != "" {
 				catSet[cat] = struct{}{}
+				counts[cat]++
 			}
 		}
 		items := sortedKeys(catSet)
-		writeJSON(exchange, map[string]interface{}{"items": items, "total": len(items)})
+		// counts 供前端筛选项展示每类链数；仅统计已拉取的链，超过 categoriesPageSize 的部分不计入
+		writeJSON(exchange, map[string]interface{}{"items": items, "total": len(items), "counts": counts})
 		return true
 	}).End())
 

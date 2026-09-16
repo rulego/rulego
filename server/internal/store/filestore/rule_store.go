@@ -52,8 +52,8 @@ type RuleIndex struct {
 	SchemaVersion int `json:"v,omitempty"`
 }
 
-// ruleIndexSchemaVersion 当前索引结构版本（v2 起含 Description/Message/FirstEndpointType/MTime）
-const ruleIndexSchemaVersion = 2
+// ruleIndexSchemaVersion 当前索引结构版本（v2 起含 Description/Message/FirstEndpointType/MTime；v3 起含 Agent）
+const ruleIndexSchemaVersion = 3
 
 // RuleMeta 规则链元数据
 type RuleMeta struct {
@@ -69,6 +69,8 @@ type RuleMeta struct {
 	Message     string `json:"message,omitempty"`
 	// FirstEndpointType 第一个 endpoint 的组件类型（管理页触发器图标/文案）
 	FirstEndpointType string `json:"firstEndpointType,omitempty"`
+	// Agent 含 ai/agent 节点（列表摘要供前端露出智能体标记与对话入口）
+	Agent bool `json:"agent,omitempty"`
 	// MTime DSL 文件 mtime（UnixNano）。reconcile 据此识别被绕过 API 覆写的文件。
 	MTime int64 `json:"mtime,omitempty"`
 }
@@ -280,6 +282,10 @@ func (m RuleMeta) summaryRuleChain() types.RuleChain {
 	}
 	if m.FirstEndpointType != "" {
 		summary.Metadata.Endpoints = []*types.EndpointDsl{{RuleNode: types.RuleNode{Type: m.FirstEndpointType}}}
+	}
+	// 摘要只放类型不含配置，与上面 Endpoints 的做法一致；消费方仅据此露出智能体标记/对话入口
+	if m.Agent {
+		summary.Metadata.Nodes = []*types.RuleNode{{Type: "ai/agent"}}
 	}
 	return summary
 }
@@ -598,6 +604,13 @@ func (d *RuleStore) createIndex(ruleChain types.RuleChain, mtime int64) {
 	if len(ruleChain.Metadata.Endpoints) > 0 {
 		firstEndpointType = ruleChain.Metadata.Endpoints[0].Type
 	}
+	agent := false
+	for _, n := range ruleChain.Metadata.Nodes {
+		if n != nil && n.Type == "ai/agent" {
+			agent = true
+			break
+		}
+	}
 	chainId := ruleChain.RuleChain.ID
 	meta := RuleMeta{
 		Name:              ruleChain.RuleChain.Name,
@@ -609,6 +622,7 @@ func (d *RuleStore) createIndex(ruleChain types.RuleChain, mtime int64) {
 		Description:       str.ToString(description),
 		Message:           str.ToString(message),
 		FirstEndpointType: firstEndpointType,
+		Agent:             agent,
 		MTime:             mtime,
 		SystemAgent:       systemAgent,
 	}
