@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -70,10 +72,13 @@ func (m *Module) GetComponents(keywords string, page, size int) (*MarketplaceRes
 	return m.fetchList(u, page, size)
 }
 
-// GetChains 获取规则链列表，优先从远程市场获取，如果未配置则从本地获取
+// GetChains 获取规则链列表，优先从远程市场获取，其次读本地市场目录，未配置则返回空列表
 func (m *Module) GetChains(root *bool, keywords string, page, size int) (*MarketplaceResult, error) {
 	baseUrl := m.cfg.MarketplaceBaseUrl
 	if baseUrl == "" {
+		if m.cfg.MarketplaceLocalDir != "" {
+			return m.getLocalDirChains(root, keywords, page, size)
+		}
 		return m.getLocalChains(keywords, page, size)
 	}
 	u := strings.TrimRight(baseUrl, "/") + "/marketplace/chains"
@@ -102,6 +107,84 @@ func (m *Module) getLocalComponents(keywords string, page, size int) (*Marketpla
 func (m *Module) getLocalChains(keywords string, page, size int) (*MarketplaceResult, error) {
 	// 本地规则链由 rules 模块管理，这里返回空列表
 	return &MarketplaceResult{Items: []interface{}{}, Total: 0, Page: page, Size: size}, nil
+}
+
+// getLocalDirChains 读取本地市场目录下的规则链 DSL，每请求现读目录，上传即生效。
+// 目录不存在视为空市场；单个文件解析失败跳过，不中断其余文件。
+// 根/子链以 DSL 内 ruleChain.root 为准过滤，chains/ 与 sub-chains/ 只是存放约定。
+func (m *Module) getLocalDirChains(root *bool, keywords string, page, size int) (*MarketplaceResult, error) {
+	var matched []interface{}
+	for _, sub := range []string{"chains", "sub-chains"} {
+		entries, err := os.ReadDir(filepath.Join(m.cfg.MarketplaceLocalDir, sub))
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.EqualFold(filepath.Ext(entry.Name()), ".json") {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(m.cfg.MarketplaceLocalDir, sub, entry.Name()))
+			if err != nil {
+				continue
+			}
+			var item map[string]interface{}
+			if err := json.Unmarshal(data, &item); err != nil {
+				continue
+			}
+			rc, _ := item["ruleChain"].(map[string]interface{})
+			isRoot, _ := rc["root"].(bool)
+			if root != nil && isRoot != *root {
+				continue
+			}
+			if keywords != "" && !matchChainKeywords(rc, keywords) {
+				continue
+			}
+			matched = append(matched, item)
+		}
+	}
+
+	total := len(matched)
+	empty := &MarketplaceResult{Items: []interface{}{}, Total: total, Page: page, Size: size}
+	if size <= 0 || page < 1 {
+		return empty, nil
+	}
+	start := (page - 1) * size
+	if start >= total {
+		return empty, nil
+	}
+	end := start + size
+	if end > total {
+		end = total
+	}
+	return &MarketplaceResult{Items: matched[start:end], Total: total, Page: page, Size: size}, nil
+}
+
+// matchChainKeywords 对名称/描述/分类/标签做不区分大小写的包含匹配
+func matchChainKeywords(rc map[string]interface{}, keywords string) bool {
+	kw := strings.ToLower(keywords)
+	if strings.Contains(strings.ToLower(toStr(rc["name"])), kw) {
+		return true
+	}
+	info, _ := rc["additionalInfo"].(map[string]interface{})
+	for _, v := range []interface{}{info["description"], info["category"]} {
+		if strings.Contains(strings.ToLower(toStr(v)), kw) {
+			return true
+		}
+	}
+	tags, _ := info["tags"].([]interface{})
+	for _, tag := range tags {
+		if strings.Contains(strings.ToLower(toStr(tag)), kw) {
+			return true
+		}
+	}
+	return false
+}
+
+func toStr(v interface{}) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
 }
 
 func appendQueryParams(rawURL, keywords string, page, size int, root *bool) string {

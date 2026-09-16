@@ -92,6 +92,8 @@ type Config struct {
 	Pprof PprofConfig `ini:"pprof"`
 	// MarketplaceBaseUrl 组件市场根地址
 	MarketplaceBaseUrl string `ini:"marketplace_base_url"`
+	// MarketplaceLocalDir 本地规则链市场目录，优先级低于 MarketplaceBaseUrl
+	MarketplaceLocalDir string `ini:"marketplace_local_dir"`
 	// ShareHttpServer 是否默认HTTP服务设置成共享节点
 	ShareHttpServer bool `ini:"share_http_server"`
 	// AllowCors 是否允许跨域，默认 true（向后兼容）
