@@ -41,6 +41,11 @@ func TestCategoryMatches(t *testing.T) {
 		// 无分类项
 		{"无分类项不被具体查询命中", "", "collect", false},
 
+		// 保留查询值 none = 筛无分类
+		{"none 命中无分类项", "", "none", true},
+		{"none 不命中有分类项", "collect/modbus", "none", false},
+		{"纯空白分类视同无分类", "  ", "none", true},
+
 		// 大小写：category 是用户自由输入，保持区分（与目录名一致）
 		{"大小写敏感", "Collect/modbus", "collect", false},
 	}

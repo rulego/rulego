@@ -351,12 +351,16 @@ func (d *RuleStore) getCategory(chainId string) string {
 // 必须在 "/" 边界上比，不能用裸 strings.HasPrefix ——
 // 否则 query="collect" 会误命中兄弟分类 "collection"。
 // query 两端的 "/" 先规整掉，避免 "collect/" 与 "collect" 行为不一致。
+// "none" 保留作"无分类"筛选，命中 category 为空的链。
 func categoryMatches(itemCategory, query string) bool {
 	q := strings.Trim(strings.TrimSpace(query), "/")
 	if q == "" {
 		return true
 	}
 	c := strings.Trim(itemCategory, "/")
+	if q == "none" {
+		return strings.TrimSpace(c) == ""
+	}
 	return c == q || strings.HasPrefix(c, q+"/")
 }
 
