@@ -1156,36 +1156,6 @@ func (e *RuleEngine) GetMetrics() *metrics.EngineMetrics {
 	return nil
 }
 
-// OnMsgWithEndFunc is a deprecated method that asynchronously processes a message using the rule engine.
-// The endFunc callback is used to obtain the results after the rule chain execution is complete.
-// Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
-// Deprecated: Use OnMsg instead.
-//
-// OnMsgWithEndFunc 是一个已弃用的方法，使用规则引擎异步处理消息。
-// endFunc 回调用于在规则链执行完成后获取结果。
-// 注意：如果规则链有多个端点，回调函数将被执行多次。
-// 已弃用：请改用 OnMsg。
-func (e *RuleEngine) OnMsgWithEndFunc(msg types.RuleMsg, endFunc types.OnEndFunc) {
-	e.OnMsg(msg, types.WithOnEnd(endFunc))
-}
-
-// OnMsgWithOptions is a deprecated method that asynchronously processes a message using the rule engine.
-// It allows carrying context options and an end callback option.
-// The context is used for sharing data between different component instances.
-// The endFunc callback is used to obtain the results after the rule chain execution is complete.
-// Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
-// Deprecated: Use OnMsg instead.
-//
-// OnMsgWithOptions 是一个已弃用的方法，使用规则引擎异步处理消息。
-// 它允许携带上下文选项和结束回调选项。
-// 上下文用于在不同组件实例之间共享数据。
-// endFunc 回调用于在规则链执行完成后获取结果。
-// 注意：如果规则链有多个端点，回调函数将被执行多次。
-// 已弃用：请改用 OnMsg。
-func (e *RuleEngine) OnMsgWithOptions(msg types.RuleMsg, opts ...types.RuleContextOption) {
-	e.onMsgAndWait(msg, false, opts...)
-}
-
 // doOnAllNodeCompleted handles the completion of all nodes within the rule chain.
 // It executes aspects, completes the run snapshot, and triggers any custom callback functions.
 // doOnAllNodeCompleted 处理规则链内所有节点的完成。

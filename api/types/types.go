@@ -963,9 +963,6 @@ type RuleContext interface {
 	RuleChain() NodeCtx
 	// Config retrieves the configuration of the rule engine.
 	Config() Config
-	// SubmitTack submits an asynchronous task for execution.
-	//Deprecated: Use Flow SubmitTask instead.
-	SubmitTack(task func())
 	// SubmitTask submits an asynchronous task for execution.
 	SubmitTask(task func())
 	// SetEndFunc sets the callback function for when the current message processing ends.
@@ -1032,19 +1029,6 @@ type RuleContext interface {
 
 // RuleContextOption is a function type for modifying RuleContext options.
 type RuleContextOption func(RuleContext)
-
-// WithEndFunc is a callback function for when a branch of the rule chain completes.
-// Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.
-// If an explicit end node is configured in the rule chain, the callback will only be triggered
-// when the message flow reaches that specific end node branch.
-// Deprecated: Use `types.WithOnEnd` instead.
-func WithEndFunc(endFunc func(ctx RuleContext, msg RuleMsg, err error)) RuleContextOption {
-	return func(rc RuleContext) {
-		rc.SetEndFunc(func(ctx RuleContext, msg RuleMsg, err error, relationType string) {
-			endFunc(ctx, msg, err)
-		})
-	}
-}
 
 // WithOnEnd is a callback function for when a branch of the rule chain completes.
 // Note: If the rule chain has multiple endpoints, the callback function will be executed multiple times.

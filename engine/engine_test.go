@@ -295,7 +295,7 @@ func TestSubRuleChain(t *testing.T) {
 		msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "aa")
 
 		//处理消息并得到处理结果
-		ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 
 			atomic.AddInt32(&completed, 1)
 			group.Done()
@@ -399,7 +399,7 @@ func TestNotDebugModel(t *testing.T) {
 	msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"temperature\":41}")
 	var wg sync.WaitGroup
 	wg.Add(1)
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		wg.Done()
 		//已经被 s2 节点修改消息类型
 		assert.Equal(t, "TEST_MSG_TYPE2", msg.Type)
@@ -415,7 +415,7 @@ func TestNotDebugModel(t *testing.T) {
 	err = ruleEngine.ReloadSelf([]byte(debugEnableRuleChain))
 	assert.Nil(t, err)
 
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 	}))
 	time.Sleep(time.Millisecond * 200)
 	assert.True(t, atomic.LoadInt32(&debugDone) == 1)
@@ -461,7 +461,7 @@ func TestCallRestApi(t *testing.T) {
 			metaData := types.NewMetadata()
 			metaData.PutValue("productType", "productType01")
 			msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"aa\":\"aaaaaaaaaaaaaa\"}")
-			ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+			ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 				group.Done()
 			}))
 
@@ -537,7 +537,7 @@ func TestWithContext(t *testing.T) {
 	wg.Add(maxTimes)
 	for j := 0; j < maxTimes; j++ {
 		go func(index int) {
-			ruleEngine.OnMsg(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue+strconv.Itoa(index))), types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+			ruleEngine.OnMsg(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue+strconv.Itoa(index))), types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 				v1 := msg.Metadata.GetValue(shareKey)
 				assert.Equal(t, shareValue+strconv.Itoa(index), v1)
 
@@ -686,7 +686,7 @@ func TestFunctionsNode(t *testing.T) {
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	var i = 0
 	for i < 100 {
-		ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		}))
 		i++
 	}
@@ -710,7 +710,7 @@ func TestFunctionsNodeRelationTypeEmpty(t *testing.T) {
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 	var wg sync.WaitGroup
 	wg.Add(1)
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		assert.Equal(t, "aa", msg.Metadata.GetValue("aa"))
 		assert.Equal(t, "bb", msg.Metadata.GetValue("bb"))
 		wg.Done()
@@ -876,7 +876,7 @@ func TestBatchOnMsgAndWait(t *testing.T) {
 		metaData.PutValue("productType", "test01")
 		msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"temperature\":35}")
 		ruleEngine.OnMsgAndWait(msg, types.WithOnAllNodeCompleted(func() {
-		}), types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+		}), types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 			wg.Done()
 		}))
 	}
@@ -897,7 +897,7 @@ func TestBatchOnMsgAndWaitMultipleOnEnd(t *testing.T) {
 	var maxTimes = 100
 	for i := 0; i < maxTimes; i++ {
 		var count = int32(0)
-		ruleEngine.OnMsgAndWait(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+		ruleEngine.OnMsgAndWait(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 			atomic.AddInt32(&count, 1)
 		}))
 		time.Sleep(time.Millisecond * 50) //因为OnEnd 和 onCompleted 是异步的。所以不能确保顺序，这里需要等一下
@@ -1002,7 +1002,7 @@ func TestEngine(t *testing.T) {
 
 	var onAllNodeCompleted = int32(0)
 
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		newMsg := ctx.NewMsg("TEST_MSG_TYPE2", types.NewMetadata(), "test")
 		assert.Equal(t, "test", newMsg.GetData())
 		assert.Equal(t, types.JSON, newMsg.DataType)
@@ -1730,7 +1730,7 @@ func TestMetadataCopyOnWritePerformance(t *testing.T) {
 				var msgWg sync.WaitGroup
 				msgWg.Add(3) // 三个并行的transform节点，每个都会触发EndFunc
 
-				ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, resultMsg types.RuleMsg, err error) {
+				ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, resultMsg types.RuleMsg, err error, _ string) {
 					defer msgWg.Done()
 					atomic.AddInt32(&processedCount, 1)
 
@@ -1874,7 +1874,7 @@ func TestMetadataIsolationInMultipleNodes(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, resultMsg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, resultMsg types.RuleMsg, err error, _ string) {
 		wg.Done()
 	}))
 

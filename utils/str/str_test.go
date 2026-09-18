@@ -42,28 +42,6 @@ func TestSprintfDict(t *testing.T) {
 	assert.Equal(t, "Hello, Alice. You are 18 years old.", s)
 }
 
-func TestExecuteTemplate(t *testing.T) {
-	dict := map[string]interface{}{
-		"name": "Alice",
-		"age":  "18",
-		"info": map[string]interface{}{
-			"job": map[string]interface{}{
-				"title": "Engineer",
-			},
-			"location": map[string]interface{}{
-				"city": "GZ",
-				"addr": "",
-			},
-		},
-	}
-
-	s := ExecuteTemplate("Hello, ${name}. You are ${age} years old. I am an ${info.job.title} from ${info.location.city} ${info.location.addr}. ${unknown}", dict)
-	assert.Equal(t, "Hello, Alice. You are 18 years old. I am an Engineer from GZ . ${unknown}", s)
-
-	s = ExecuteTemplate("Hello, Alice.", dict)
-	assert.Equal(t, "Hello, Alice.", s)
-}
-
 type Stringer struct {
 	Value string
 }

@@ -54,7 +54,7 @@ func TestSkipFallbackAspect(t *testing.T) {
 
 	//第2次
 	start := time.Now()
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		//没达到错误降级阈值，执行该组件
 		//fmt.Printf("第2次耗时:%s", time.Since(start).String())
 		//fmt.Println()
@@ -69,7 +69,7 @@ func TestSkipFallbackAspect(t *testing.T) {
 	//第4次,达到错误降级阈值
 	msg = types.NewMsg(0, "TEST_MSG_TYPE4", types.JSON, metaData, "{\"temperature\":44}")
 	start4 := time.Now()
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		//进入故障降级，跳过该组件
 		//fmt.Printf("第4次耗时:%s", time.Since(start4).String())
 		//fmt.Println()
@@ -80,7 +80,7 @@ func TestSkipFallbackAspect(t *testing.T) {
 	time.Sleep(time.Second * 11)
 
 	start5 := time.Now()
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		//故障恢复，执行该组件
 		//fmt.Printf("第5次耗时:%s", time.Since(start5).String())
 		//fmt.Println()
@@ -94,7 +94,7 @@ func TestSkipFallbackAspect(t *testing.T) {
 	ruleEngine.ReloadSelf(loadFile("./test_skip_fallback_aspect.json"))
 
 	start6 := time.Now()
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		//故障恢复，执行该组件
 		//fmt.Printf("第6次耗时:%s", time.Since(start6).String())
 		//fmt.Println()
@@ -260,7 +260,7 @@ func TestChainAspect(t *testing.T) {
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		v1 := msg.Metadata.GetValue("key1")
 		assert.Equal(t, "addValueOnStart", v1)
 		v2 := msg.Metadata.GetValue("key2")

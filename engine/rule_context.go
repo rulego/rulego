@@ -644,11 +644,6 @@ func (ctx *DefaultRuleContext) GetContext() context.Context {
 	return ctx.context
 }
 
-// Deprecated: Use Flow SubmitTask instead.
-func (ctx *DefaultRuleContext) SubmitTack(task func()) {
-	ctx.SubmitTask(task)
-}
-
 func (ctx *DefaultRuleContext) SubmitTask(task func()) {
 	if ctx.pool != nil {
 		// 在提交任务前捕获需要的值，避免并发访问

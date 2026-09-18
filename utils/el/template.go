@@ -81,9 +81,6 @@ type Template interface {
 	Execute(data map[string]any) (interface{}, error)
 	ExecuteFn(loadDataFunc func() map[string]any) (interface{}, error)
 	ExecuteAsString(data map[string]any) string
-	// Deprecated: Use HasVar instead.
-	// IsNotVar 是否是模板变量
-	IsNotVar() bool
 	// HasVar 是否有变量
 	HasVar() bool
 }
@@ -288,10 +285,6 @@ func (t *ExprTemplate) ExecuteFn(loadDataFunc func() map[string]any) (interface{
 	return t.Execute(data)
 }
 
-func (t *ExprTemplate) IsNotVar() bool {
-	return false
-}
-
 func (t *ExprTemplate) HasVar() bool {
 	return true
 }
@@ -331,10 +324,6 @@ func (t *NotTemplate) ExecuteAsString(data map[string]any) string {
 	return t.Tmpl
 }
 
-func (t *NotTemplate) IsNotVar() bool {
-	return true
-}
-
 func (t *NotTemplate) HasVar() bool {
 	return false
 }
@@ -359,10 +348,6 @@ func (t *AnyTemplate) ExecuteFn(loadDataFunc func() map[string]any) (interface{}
 // ExecuteAsString 执行模板并返回字符串结果
 func (t *AnyTemplate) ExecuteAsString(data map[string]any) string {
 	return str.ToString(t.Tmpl)
-}
-
-func (t *AnyTemplate) IsNotVar() bool {
-	return true
 }
 
 func (t *AnyTemplate) HasVar() bool {
@@ -528,10 +513,6 @@ func (t *MixedTemplate) ExecuteFnAsString(loadDataFunc func() map[string]any) st
 	}
 	val, _ := t.execute(data)
 	return val
-}
-
-func (t *MixedTemplate) IsNotVar() bool {
-	return !t.hasVars
 }
 
 func (t *MixedTemplate) HasVar() bool {

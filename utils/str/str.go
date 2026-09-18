@@ -15,10 +15,9 @@
  */
 
 // Package str provides utility functions for string manipulation and processing.
-// It includes functions for template execution, string formatting, and various
-// string operations commonly used in the RuleGo project.
+// It includes functions for string formatting and various string operations
+// commonly used in the RuleGo project.
 // Key features:
-// - ExecuteTemplate: Replaces ${} variables in string templates
 // - SprintfDict: Formats strings using a dictionary for variable substitution
 // - ToString: Converts various types to string representations
 // - Random string generation functions
@@ -38,7 +37,6 @@ import (
 	"time"
 
 	"github.com/rulego/rulego/utils/json"
-	"github.com/rulego/rulego/utils/maps"
 )
 
 // VarPrefix 模板变量前缀
@@ -55,36 +53,6 @@ func init() {
 // 正则表达式匹配 ${aa} 或 ${aa.bb}
 // 预编译的模板变量正则表达式，提高性能
 var tplVarRegex = regexp.MustCompile(`\$\{ *([^}]+) *\}`)
-
-// ExecuteTemplate 替换字符串模板中的${}变量
-// original是一个字符串，包含${key}形式的变量占位符。支持多级变量如：${key.subKey}
-// Example: ExecuteTemplate("Hello,${name}",map[string]string{"name":"Alice"}). return "Hello,Alice!".
-// 如果没匹配到变量，则保留原样
-// Deprecated: Use github.com/rulego/rulego/utils/el.NewTemplate instead.
-// This function will be removed in a future version.
-func ExecuteTemplate(original string, dict map[string]interface{}) string {
-	// 快速检查：如果字符串中没有模板变量，直接返回
-	if !strings.Contains(original, "${") {
-		return original
-	}
-
-	// 使用预编译的正则表达式进行替换
-	return tplVarRegex.ReplaceAllStringFunc(original, func(s string) string {
-		// 提取键名（优化：减少重复的正则匹配）
-		start := strings.Index(s, "{") + 1
-		end := strings.LastIndex(s, "}")
-		if start <= 0 || end <= start {
-			return s
-		}
-
-		key := strings.TrimSpace(s[start:end])
-		v := maps.Get(dict, key)
-		if v == nil {
-			return s
-		}
-		return ToString(v)
-	})
-}
 
 // SprintfDict 根据pattern和dict格式化字符串。
 // SprintfDict 替换字符串模板中的${}变量
