@@ -98,6 +98,12 @@ type Config struct {
 	ShareHttpServer bool `ini:"share_http_server"`
 	// AllowCors 是否允许跨域，默认 true（向后兼容）
 	AllowCors bool `ini:"allow_cors"`
+	// LoginMaxAttempts 每个 IP 在 LoginWindowSeconds 窗口期内允许的登录尝试次数，超过返回 429。
+	// 0 表示使用默认值（10）；负数表示关闭登录限流。
+	// 反向代理/NAT 场景多个用户共享同一出口 IP 时可调大或置负关闭。
+	LoginMaxAttempts int `ini:"login_max_attempts"`
+	// LoginWindowSeconds 登录限流的滑动窗口（秒）。0 表示使用默认值（60）
+	LoginWindowSeconds int `ini:"login_window_seconds"`
 	// ReadTimeout HTTP 读超时（秒），默认 30
 	ReadTimeout int `ini:"read_timeout"`
 	// WriteTimeout HTTP 写超时（秒），默认 300（AI 聊天需要较长超时）
@@ -238,6 +244,8 @@ func DefaultConfig() Config {
 		JwtIssuer:            "rulego.cc",
 		ShareHttpServer:      false,
 		AllowCors:            true,
+		LoginMaxAttempts:     10,
+		LoginWindowSeconds:   60,
 		ReadTimeout:          30,
 		WriteTimeout:         300,
 		MaxBodySize:          10,

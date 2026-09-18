@@ -52,6 +52,8 @@ func NewServer(container *app.Container, cfg *config.Config, logger types.Logger
 	systemNodePool := node_pool.NewNodePool(systemRulegoCfg)
 	systemRulegoCfg.NodePool = systemNodePool
 
+	configureLoginLimiter(cfg.LoginMaxAttempts, cfg.LoginWindowSeconds)
+
 	return &Server{
 		container:       container,
 		config:          cfg,

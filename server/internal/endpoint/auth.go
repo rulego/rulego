@@ -25,8 +25,11 @@ type ruleGoClaim struct {
 
 // loginLimiter 登录速率限制器（基于 IP）
 type loginLimiter struct {
-	mu       sync.Mutex
-	attempts map[string]*attemptInfo
+	mu          sync.Mutex
+	attempts    map[string]*attemptInfo
+	maxAttempts int       // 窗口期内最大尝试次数；负数表示关闭限流
+	window      time.Duration // 滑动窗口
+	disabled    bool
 }
 
 type attemptInfo struct {
@@ -34,28 +37,48 @@ type attemptInfo struct {
 	lastTime time.Time
 }
 
-// 全局登录限速器
+const (
+	defaultMaxLoginAttempts = 10              // 每个 IP 窗口期内最大尝试次数
+	defaultLoginWindow      = 1 * time.Minute // 窗口期
+)
+
+// 全局登录限速器，参数由配置注入（见 configureLoginLimiter）
 var limiter = &loginLimiter{
-	attempts: make(map[string]*attemptInfo),
+	attempts:    make(map[string]*attemptInfo),
+	maxAttempts: defaultMaxLoginAttempts,
+	window:      defaultLoginWindow,
 }
 
-const (
-	maxLoginAttempts = 10              // 每个 IP 窗口期内最大尝试次数
-	loginWindow      = 1 * time.Minute // 窗口期
-)
+// configureLoginLimiter 按配置设置限流参数。0 取默认值；maxAttempts 负数关闭限流。
+func configureLoginLimiter(maxAttempts, windowSeconds int) {
+	limiter.mu.Lock()
+	defer limiter.mu.Unlock()
+	if maxAttempts == 0 {
+		maxAttempts = defaultMaxLoginAttempts
+	}
+	if windowSeconds == 0 {
+		windowSeconds = int(defaultLoginWindow / time.Second)
+	}
+	limiter.maxAttempts = maxAttempts
+	limiter.window = time.Duration(windowSeconds) * time.Second
+	limiter.disabled = maxAttempts < 0
+}
 
 // check 允许该 IP 继续登录则返回 true
 func (l *loginLimiter) check(ip string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if l.disabled {
+		return true
+	}
 	info, ok := l.attempts[ip]
-	if !ok || time.Since(info.lastTime) > loginWindow {
+	if !ok || time.Since(info.lastTime) > l.window {
 		l.attempts[ip] = &attemptInfo{count: 1, lastTime: time.Now()}
 		return true
 	}
 	info.lastTime = time.Now()
 	info.count++
-	return info.count <= maxLoginAttempts
+	return info.count <= l.maxAttempts
 }
 
 // 后台定期清理过期的限速条目
@@ -65,7 +88,7 @@ func init() {
 			time.Sleep(5 * time.Minute)
 			limiter.mu.Lock()
 			for ip, info := range limiter.attempts {
-				if time.Since(info.lastTime) > loginWindow {
+				if time.Since(info.lastTime) > limiter.window {
 					delete(limiter.attempts, ip)
 				}
 			}
