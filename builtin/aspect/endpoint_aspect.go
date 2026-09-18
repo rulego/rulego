@@ -164,7 +164,7 @@ func (aspect *EndpointAspect) syncResources(chainCtx types.ChainCtx, oldEps, new
 		} else {
 			// Target()==nil：底层 endpoint 未初始化，记录日志便于排查（否则静默不注册，ref:// 仅报 not found）
 			if l := chainCtx.Config().Logger; l != nil {
-				l.Printf("endpoint %s Target() is nil, skip register to chain resources", ep.Id())
+				l.Warnf("endpoint %s Target() is nil, skip register to chain resources", ep.Id())
 			}
 		}
 	}

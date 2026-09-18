@@ -351,7 +351,7 @@ func (g *GracefulShutdown) WaitForActiveOperations(timeout time.Duration) bool {
 // logf 提供带空检查的内部日志记录
 func (g *GracefulShutdown) logf(format string, args ...interface{}) {
 	if g.logger != nil {
-		g.logger.Printf(format, args...)
+		g.logger.Infof(format, args...)
 	}
 }
 
@@ -532,7 +532,6 @@ func (u *contextUtils) WithGracefulShutdown(ctx context.Context, operation func(
 // 使用示例：
 //
 //	if cancelled, err := base.ContextUtils.IsContextCancelled(ctx.GetContext()); cancelled {
-//	    logger.Printf("Operation cancelled: %v", err)
 //	    return
 //	}
 func (u *contextUtils) IsContextCancelled(ctx context.Context) (bool, error) {

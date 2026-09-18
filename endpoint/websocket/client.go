@@ -371,9 +371,6 @@ func (c *WsClient) RemoveRouter(routerId string, params ...interface{}) error {
 	return nil
 }
 
-// Printf 日志输出
-
-
 // Start 连接到远程WebSocket服务器
 func (c *WsClient) Start() error {
 	return c.connect()
@@ -404,7 +401,7 @@ func (c *WsClient) connect() error {
 	c.conn = conn
 	c.mu.Unlock()
 
-	c.Printf("ws client connected to %s", c.Config.Server)
+	c.Infof("ws client connected to %s", c.Config.Server)
 	c.SetConnStatus(types.StatusConnected, "")
 
 	if c.OnEvent != nil {
@@ -425,7 +422,7 @@ func (c *WsClient) readLoop(conn *websocket.Conn) {
 	defer func() {
 		_ = conn.Close()
 		if e := recover(); e != nil {
-			c.Printf("ws client readLoop panic: %v", e)
+			c.Errorf("ws client readLoop panic: %v", e)
 		}
 	}()
 
@@ -439,7 +436,7 @@ func (c *WsClient) readLoop(conn *websocket.Conn) {
 			if atomic.LoadInt32(&c.closed) == 1 {
 				return
 			}
-			c.Printf("ws client read error: %v", err)
+			c.Warnf("ws client read error: %v", err)
 			c.tryReconnect()
 			return
 		}
@@ -465,7 +462,7 @@ func (c *WsClient) readLoop(conn *websocket.Conn) {
 			},
 			Out: &WsClientResponseMessage{
 				log: func(format string, v ...interface{}) {
-					c.Printf(format, v...)
+					c.Infof(format, v...)
 				},
 				conn:        conn,
 				messageType: mt,
@@ -514,7 +511,7 @@ func (c *WsClient) heartbeatLoop(conn *websocket.Conn) {
 			}
 			c.writeMu.Unlock()
 			if err != nil {
-				c.Printf("ws client heartbeat send failed: %v", err)
+				c.Warnf("ws client heartbeat send failed: %v", err)
 				return
 			}
 		}
@@ -536,7 +533,7 @@ func (c *WsClient) tryReconnect() {
 		if atomic.LoadInt32(&c.closed) == 1 {
 			return
 		}
-		c.Printf("ws client attempting to reconnect to %s in %d seconds...", c.Config.Server, c.Config.ReconnectInterval)
+		c.Warnf("ws client attempting to reconnect to %s in %d seconds...", c.Config.Server, c.Config.ReconnectInterval)
 		time.Sleep(time.Duration(c.Config.ReconnectInterval) * time.Second)
 
 		if atomic.LoadInt32(&c.closed) == 1 {
@@ -544,7 +541,7 @@ func (c *WsClient) tryReconnect() {
 		}
 
 		if err := c.connect(); err != nil {
-			c.Printf("ws client reconnect failed: %v", err)
+			c.Warnf("ws client reconnect failed: %v", err)
 			continue
 		}
 		return

@@ -135,7 +135,7 @@ func (g *GojaJsEngine) NewVm(config types.Config, fromVars map[string]interface{
 	if fromVars != nil {
 		for k, v := range fromVars {
 			if err := vm.Set(k, v); err != nil {
-				config.Logger.Printf("set fromVar %s error: %s", k, err.Error())
+				config.Logger.Errorf("set fromVar %s error: %s", k, err.Error())
 			}
 		}
 	}
@@ -143,7 +143,7 @@ func (g *GojaJsEngine) NewVm(config types.Config, fromVars map[string]interface{
 	// Set global properties directly
 	if len(config.Properties.Values()) != 0 {
 		if err := vm.Set(GlobalKey, config.Properties.Values()); err != nil {
-			config.Logger.Printf("set global properties error: %s", err.Error())
+			config.Logger.Errorf("set global properties error: %s", err.Error())
 		}
 	}
 
@@ -179,7 +179,7 @@ func (g *GojaJsEngine) NewVm(config types.Config, fromVars map[string]interface{
 		}
 
 		if err != nil {
-			config.Logger.Printf("parse js script=%s error: %s", k, err.Error())
+			config.Logger.Errorf("parse js script=%s error: %s", k, err.Error())
 		}
 	}
 
@@ -189,7 +189,7 @@ func (g *GojaJsEngine) NewVm(config types.Config, fromVars map[string]interface{
 	g.stopTimeout(timer)
 
 	if err != nil {
-		config.Logger.Printf("js vm error: %s", err.Error())
+		config.Logger.Errorf("js vm error: %s", err.Error())
 	}
 	return vm
 }

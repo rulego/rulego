@@ -487,10 +487,6 @@ func (c *NetClient) RemoveRouter(routerId string, params ...interface{}) error {
 	return nil
 }
 
-// Printf 输出日志到规则引擎的日志器
-// Outputs log messages to the rule engine's logger
-
-
 // Start 启动客户端，连接到远程服务器并开始接收数据
 // Starts the client, connects to the remote server and begins receiving data
 // 连接成功后，根据协议类型启动对应的读取循环协程（TCP使用流式读取，UDP使用数据报读取）
@@ -516,7 +512,7 @@ func (c *NetClient) connect() error {
 	c.conn = conn
 	c.mu.Unlock()
 
-	c.Printf("net client connected to %s", c.Config.Server)
+	c.Infof("net client connected to %s", c.Config.Server)
 	c.SetConnStatus(types.StatusConnected, "")
 
 	if c.OnEvent != nil {
@@ -544,7 +540,7 @@ func (c *NetClient) readLoop(conn net.Conn) {
 	defer func() {
 		_ = conn.Close()
 		if e := recover(); e != nil {
-			c.Printf("net client readLoop panic: %v", e)
+			c.Errorf("net client readLoop panic: %v", e)
 		}
 	}()
 
@@ -555,7 +551,7 @@ func (c *NetClient) readLoop(conn net.Conn) {
 		MaxPacketSize: c.Config.MaxPacketSize,
 	})
 	if err != nil {
-		c.Printf("net client failed to create packet splitter: %v", err)
+		c.Errorf("net client failed to create packet splitter: %v", err)
 		return
 	}
 
@@ -605,7 +601,7 @@ func (c *NetClient) readLoop(conn net.Conn) {
 			},
 			Out: &ClientResponseMessage{
 				log: func(format string, v ...interface{}) {
-					c.Printf(format, v...)
+					c.Infof(format, v...)
 				},
 				conn: conn,
 				from: from,
@@ -634,7 +630,7 @@ func (c *NetClient) readLoopUDP(conn net.Conn) {
 	defer func() {
 		_ = conn.Close()
 		if e := recover(); e != nil {
-			c.Printf("net client readLoopUDP panic: %v", e)
+			c.Errorf("net client readLoopUDP panic: %v", e)
 		}
 	}()
 
@@ -654,7 +650,7 @@ func (c *NetClient) readLoopUDP(conn net.Conn) {
 			if atomic.LoadInt32(&c.closed) == 1 {
 				return
 			}
-			c.Printf("net client UDP read error: %v", err)
+			c.Warnf("net client UDP read error: %v", err)
 			time.Sleep(time.Second)
 			continue
 		}
@@ -678,7 +674,7 @@ func (c *NetClient) readLoopUDP(conn net.Conn) {
 			},
 			Out: &ClientResponseMessage{
 				log: func(format string, v ...interface{}) {
-					c.Printf(format, v...)
+					c.Infof(format, v...)
 				},
 				conn: conn,
 				from: from,
@@ -726,7 +722,7 @@ func (c *NetClient) heartbeatLoop(conn net.Conn) {
 				_, err = currentConn.Write(heartbeatData)
 			}
 			if err != nil {
-				c.Printf("net client heartbeat send failed: %v", err)
+				c.Warnf("net client heartbeat send failed: %v", err)
 				return
 			}
 		}
@@ -774,7 +770,7 @@ func (c *NetClient) tryReconnect() {
 		if atomic.LoadInt32(&c.closed) == 1 {
 			return
 		}
-		c.Printf("net client attempting to reconnect to %s in %d seconds...", c.Config.Server, c.Config.ReconnectInterval)
+		c.Warnf("net client attempting to reconnect to %s in %d seconds...", c.Config.Server, c.Config.ReconnectInterval)
 		time.Sleep(time.Duration(c.Config.ReconnectInterval) * time.Second)
 
 		if atomic.LoadInt32(&c.closed) == 1 {
@@ -782,7 +778,7 @@ func (c *NetClient) tryReconnect() {
 		}
 
 		if err := c.connect(); err != nil {
-			c.Printf("net client reconnect failed: %v", err)
+			c.Warnf("net client reconnect failed: %v", err)
 			continue
 		}
 		return

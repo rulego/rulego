@@ -169,7 +169,7 @@ func New(opts ...Option) (*Bridge, error) {
 			sweeper.StartSweeping(ttl, ttl/2)
 		}
 	} else {
-		typesLogger.Printf("bridge: register debug websocket endpoint failed: %v", wsErr)
+		typesLogger.Errorf("bridge: register debug websocket endpoint failed: %v", wsErr)
 	}
 
 	if err := application.Start(); err != nil {

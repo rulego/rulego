@@ -31,7 +31,6 @@ var ruleEngine types.RuleEngine
 func init() {
 	config := rulego.NewConfig()
 	//config.OnDebug = func(chainId,flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
-	//config.Logger.Printf("flowType=%s,nodeId=%s,msgId=%s,data=%s,metaData=%s,relationType=%s,err=%s", flowType, nodeId, msg.Id, msg.Data, msg.Metadata, relationType, err)
 	//}
 	var err error
 	ruleEngine, err = rulego.New("rule01", []byte(chainJsonFile1), rulego.WithConfig(config))

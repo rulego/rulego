@@ -771,7 +771,7 @@ func (ep *Net) Start() error {
 		ep.listener = listener
 		ep.mu.Unlock()
 
-		ep.Printf("started TCP server on %s", ep.Config.Server)
+		ep.Infof("started TCP server on %s", ep.Config.Server)
 		go ep.acceptTCPConnections()
 		ep.SetConnStatus(types.StatusConnected, "")
 		ttl := time.Duration(ep.Config.SessionTTL) * time.Second
@@ -784,7 +784,7 @@ func (ep *Net) Start() error {
 		if err != nil {
 			return err
 		}
-		ep.Printf("started UDP server on %s", ep.Config.Server)
+		ep.Infof("started UDP server on %s", ep.Config.Server)
 		ep.SetConnStatus(types.StatusConnected, "")
 		h := UDPHandler{
 			endpoint: ep,
@@ -822,7 +822,7 @@ func (ep *Net) acceptTCPConnections() {
 	for {
 		// 检查是否已关闭，避免数据竞争
 		if atomic.LoadInt32(&ep.closed) == 1 {
-			ep.Printf("net endpoint stop")
+			ep.Infof("net endpoint stop")
 			return
 		}
 
@@ -832,7 +832,7 @@ func (ep *Net) acceptTCPConnections() {
 		ep.mu.RUnlock()
 
 		if listener == nil {
-			ep.Printf("net endpoint stop - listener is nil")
+			ep.Warnf("net endpoint stop - listener is nil")
 			return
 		}
 
@@ -840,11 +840,11 @@ func (ep *Net) acceptTCPConnections() {
 		conn, err := listener.Accept()
 		if err != nil {
 			if opError, ok := err.(*net.OpError); ok && opError.Err == net.ErrClosed {
-				ep.Printf("net endpoint stop")
+				ep.Infof("net endpoint stop")
 				return
 				//return endpoint.ErrServerStopped
 			} else {
-				ep.Printf("accept:", err)
+				ep.Errorf("accept:", err)
 				continue
 			}
 		}
@@ -852,12 +852,11 @@ func (ep *Net) acceptTCPConnections() {
 		// 再次检查关闭状态，防止在Accept()期间被关闭
 		if atomic.LoadInt32(&ep.closed) == 1 {
 			_ = conn.Close()
-			ep.Printf("net endpoint stop - closing accepted connection")
+			ep.Infof("net endpoint stop - closing accepted connection")
 			return
 		}
 
 		// 打印客户端连接的信息
-		//ep.Printf("new connection from:", conn.RemoteAddr().String())
 		h := TcpHandler{
 			endpoint: ep,
 			conn:     conn,
@@ -873,7 +872,7 @@ func (ep *Net) acceptTCPConnections() {
 func (ep *Net) submitTask(fn func()) error {
 	if ep.RuleConfig.Pool != nil {
 		if err := ep.RuleConfig.Pool.Submit(fn); err != nil {
-			ep.Printf("submit task err: %v", err)
+			ep.Warnf("submit task err: %v", err)
 			return err
 		}
 	} else {
@@ -913,7 +912,7 @@ func (x *TcpHandler) handler() {
 		_ = x.conn.Close()
 		//捕捉异常
 		if e := recover(); e != nil {
-			x.endpoint.Printf("net endpoint handler err :\n%v", runtime.Stack())
+			x.endpoint.Errorf("net endpoint handler err :\n%v", runtime.Stack())
 		}
 	}()
 
@@ -928,7 +927,7 @@ func (x *TcpHandler) handler() {
 	// 创建数据包分割器
 	splitter, err := CreatePacketSplitter(x.endpoint.Config)
 	if err != nil {
-		x.endpoint.Printf("failed to create packet splitter: %v", err)
+		x.endpoint.Errorf("failed to create packet splitter: %v", err)
 		return
 	}
 	x.splitter = splitter
@@ -996,7 +995,7 @@ func (x *TcpHandler) handler() {
 			},
 			Out: &ResponseMessage{
 				log: func(format string, v ...interface{}) {
-					x.endpoint.Printf(format, v...)
+					x.endpoint.Infof(format, v...)
 				},
 				conn: x.conn,
 				from: from,
@@ -1037,7 +1036,7 @@ func (x *TcpHandler) onDisconnect() {
 		x.readTimeoutTimer.Stop()
 	}
 	if x.conn.RemoteAddr() != nil {
-		x.endpoint.Printf("onDisconnect:" + x.conn.RemoteAddr().String())
+		x.endpoint.Infof("onDisconnect:" + x.conn.RemoteAddr().String())
 	}
 }
 
@@ -1078,7 +1077,7 @@ func (x *UDPHandler) handler() {
 			}
 			err = x.endpoint.listenUDP()
 			if err != nil {
-				x.endpoint.Printf("Error listenUDP: %v", err)
+				x.endpoint.Errorf("Error listenUDP: %v", err)
 				time.Sleep(time.Second)
 			}
 			continue
@@ -1091,7 +1090,7 @@ func (x *UDPHandler) handler() {
 
 		// 检查包大小限制
 		if len(msgBuffer) > x.endpoint.Config.MaxPacketSize {
-			x.endpoint.Printf("UDP packet too large: %d > %d from %s", len(msgBuffer), x.endpoint.Config.MaxPacketSize, addr)
+			x.endpoint.Warnf("UDP packet too large: %d > %d from %s", len(msgBuffer), x.endpoint.Config.MaxPacketSize, addr)
 			continue
 		}
 
@@ -1112,7 +1111,7 @@ func (x *UDPHandler) handler() {
 			},
 			Out: &ResponseMessage{
 				log: func(format string, v ...interface{}) {
-					x.endpoint.Printf(format, v...)
+					x.endpoint.Infof(format, v...)
 				},
 				conn:    x.endpoint.udpConn,
 				udpAddr: addr,

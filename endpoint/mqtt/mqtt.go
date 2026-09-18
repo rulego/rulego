@@ -650,6 +650,7 @@ func (x *Mqtt) Init(ruleConfig types.Config, configuration types.Configuration) 
 	}
 	err := maps.Map2Struct(configuration, &x.Config)
 	x.RuleConfig = ruleConfig
+	x.Logger = ruleConfig.Logger
 
 	// 初始化优雅停机功能 - 使用合理的默认超时(10秒)
 	x.GracefulShutdown.InitGracefulShutdown(x.RuleConfig.Logger, 10*time.Second)
@@ -801,13 +802,13 @@ func (x *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Mes
 		defer func() {
 			//捕捉异常
 			if e := recover(); e != nil {
-				x.Printf("mqtt endpoint handler err :\n%v", runtime.Stack())
+				x.Errorf("mqtt endpoint handler err :\n%v", runtime.Stack())
 			}
 		}()
 
 		// 检查是否正在停机
 		if err := x.GracefulShutdown.CheckShutdownSignal(); err != nil {
-			x.Printf("MQTT message ignored due to shutdown: %v", err)
+			x.Warnf("MQTT message ignored due to shutdown: %v", err)
 			return
 		}
 
@@ -826,12 +827,6 @@ func (x *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Mes
 
 		// 使用停机上下文处理消息
 		x.DoProcess(x.GracefulShutdown.GetShutdownContext(), router, exchange)
-	}
-}
-
-func (x *Mqtt) Printf(format string, v ...interface{}) {
-	if x.RuleConfig.Logger != nil {
-		x.RuleConfig.Logger.Printf(format, v...)
 	}
 }
 

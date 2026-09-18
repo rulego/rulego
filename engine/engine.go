@@ -744,7 +744,7 @@ func (e *RuleEngine) Stop(ctx context.Context) {
 			case <-waitCtx.Done():
 				// Timeout waiting for shutdown to complete, force cleanup
 				// 等待停机完成超时，强制清理
-				e.Config.Logger.Printf("Timeout waiting for ongoing shutdown to complete, forcing cleanup")
+				e.Config.Logger.Warnf("Timeout waiting for ongoing shutdown to complete, forcing cleanup")
 				e.forceStop()
 				return
 			case <-ticker.C:
@@ -773,7 +773,7 @@ func (e *RuleEngine) Stop(ctx context.Context) {
 				// Context deadline has already passed
 				// 上下文截止时间已过
 				isExpiredContext = true
-				e.Config.Logger.Printf("Context deadline has already passed (negative duration: %v), performing immediate shutdown", timeout)
+				e.Config.Logger.Warnf("Context deadline has already passed (negative duration: %v), performing immediate shutdown", timeout)
 				timeout = 0 // Use immediate shutdown for expired contexts
 			}
 		} else {
@@ -793,14 +793,14 @@ func (e *RuleEngine) Stop(ctx context.Context) {
 		if isExpiredContext || timeout == 0 {
 			// For expired contexts or nil context, skip graceful wait and go straight to cleanup
 			// 对于过期上下文或nil上下文，跳过优雅等待直接清理
-			e.Config.Logger.Printf("Performing immediate shutdown")
+			e.Config.Logger.Infof("Performing immediate shutdown")
 			e.GracefulShutdown.ForceStop()
 		} else {
 			// Phase 1: Wait for all active messages to complete naturally
 			// 第一阶段：等待所有活跃消息自然完成
 			allCompleted := e.WaitForActiveOperations(timeout)
 			if !allCompleted {
-				e.Config.Logger.Printf("Graceful shutdown timeout after %v, forcing context cancellation", timeout)
+				e.Config.Logger.Warnf("Graceful shutdown timeout after %v, forcing context cancellation", timeout)
 				// Phase 2: Force cancel context to interrupt ongoing operations
 				// 第二阶段：强制取消上下文以中断正在进行的操作
 				e.GracefulShutdown.ForceStop()
@@ -1087,7 +1087,7 @@ func (e *RuleEngine) decrementActiveMessages() {
 func (e *RuleEngine) forceStop() {
 	defer func() {
 		if r := recover(); r != nil {
-			e.Config.Logger.Printf("RuleEngine.forceStop() panic recovered: %v", r)
+			e.Config.Logger.Errorf("RuleEngine.forceStop() panic recovered: %v", r)
 		}
 	}()
 
@@ -1099,7 +1099,7 @@ func (e *RuleEngine) forceStop() {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					e.Config.Logger.Printf("RuleChainCtx.Destroy() panic recovered: %v", r)
+					e.Config.Logger.Errorf("RuleChainCtx.Destroy() panic recovered: %v", r)
 				}
 			}()
 			e.rootRuleChainCtx.Destroy()
@@ -1111,7 +1111,7 @@ func (e *RuleEngine) forceStop() {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					e.Config.Logger.Printf("Cache cleanup panic recovered: %v", r)
+					e.Config.Logger.Errorf("Cache cleanup panic recovered: %v", r)
 				}
 			}()
 			_ = e.Config.Cache.DeleteByPrefix(e.rootRuleChainCtx.GetNodeId().Id + types.NamespaceSeparator)
@@ -1292,7 +1292,7 @@ func (e *RuleEngine) onMsgAndWait(msg types.RuleMsg, wait bool, opts ...types.Ru
 			// Backpressure limit reached - reject message to prevent memory overflow
 			// 达到背压限制 - 拒绝消息以防止内存溢出
 			rootCtxCopy := e.createRootContextCopy(msg, opts...)
-			e.Config.Logger.Printf("RuleEngine: %s", types.ErrEngineReloadBackpressureLimit.Error())
+			e.Config.Logger.Warnf("RuleEngine: %s", types.ErrEngineReloadBackpressureLimit.Error())
 			e.onErrHandler(msg, rootCtxCopy, types.ErrEngineReloadBackpressureLimit, false)
 			return
 		}
@@ -1430,7 +1430,7 @@ func (e *RuleEngine) processRestoreNodes(rootCtxCopy *DefaultRuleContext, msg ty
 		} else {
 			// 节点找不到，减少 waitingCount
 			parentCtx.childDone()
-			e.Config.Logger.Printf("Restore node id=%s not found", req.NodeId)
+			e.Config.Logger.Errorf("Restore node id=%s not found", req.NodeId)
 		}
 	}
 

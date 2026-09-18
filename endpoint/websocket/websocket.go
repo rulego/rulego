@@ -359,11 +359,6 @@ func (ws *Websocket) RemoveRouter(routerId string, params ...interface{}) error 
 	}
 	return nil
 }
-func (ws *Websocket) Printf(format string, v ...interface{}) {
-	if ws.RuleConfig.Logger != nil {
-		ws.RuleConfig.Logger.Printf(format, v...)
-	}
-}
 
 // checkOrigin 握手来源校验：同源请求与无 Origin 头的请求（非浏览器客户端）始终放行，
 // AllowCors 只决定是否放行**跨源**握手。CORS 响应头策略与握手来源校验是两件事：
@@ -425,7 +420,7 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 		}
 		c, err := ws.Upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			ws.Printf("Websocket handler upgrade:", err)
+			ws.Errorf("Websocket handler upgrade:", err)
 			return
 		}
 		// 共享 wsSender：回写与寻址推送共用锁，避免并发 WriteMessage 帧交错
@@ -438,7 +433,7 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 			},
 			Out: &ResponseMessage{
 				log: func(format string, v ...interface{}) {
-					ws.Printf(format, v...)
+					ws.Infof(format, v...)
 				},
 				request: r,
 				sender:  sender,
@@ -459,7 +454,7 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 				if ws.OnEvent != nil {
 					ws.OnEvent(endpoint.EventDisconnect, connectExchange)
 				}
-				ws.Printf("ws endpoint handler err :\n%v", runtime.Stack())
+				ws.Errorf("ws endpoint handler err :\n%v", runtime.Stack())
 			}
 		}()
 
@@ -483,7 +478,6 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 			if mt != websocket.BinaryMessage && mt != websocket.TextMessage {
 				continue
 			}
-			//ws.Printf("recv:", string(message))
 			exchange := &endpoint.Exchange{
 				In: &RequestMessage{
 					request:     r,
@@ -493,7 +487,7 @@ func (ws *Websocket) handler(router endpoint.Router) httprouter.Handle {
 				},
 				Out: &ResponseMessage{
 					log: func(format string, v ...interface{}) {
-						ws.Printf(format, v...)
+						ws.Infof(format, v...)
 					},
 					request:     r,
 					sender:      sender,

@@ -695,12 +695,6 @@ func (e *BaseEndpoint) SetOnEvent(onEvent endpoint.OnEvent) {
 	e.OnEvent = onEvent
 }
 
-func (e *BaseEndpoint) Printf(format string, v ...interface{}) {
-	if e.Logger != nil {
-		e.Logger.Printf(format, v...)
-	}
-}
-
 func (e *BaseEndpoint) Debugf(format string, v ...interface{}) {
 	if e.Logger != nil {
 		e.Logger.Debugf(format, v...)

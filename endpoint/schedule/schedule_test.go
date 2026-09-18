@@ -71,7 +71,7 @@ func TestScheduleEndPoint(t *testing.T) {
 
 	_, _ = schedule.AddRouter(impl.NewRouter().From("*/1 * * * * *").End())
 
-	schedule.Printf("run %s", "schedule")
+	schedule.Infof("run %s", "schedule")
 
 	assert.Equal(t, schedule.id, schedule.Id())
 

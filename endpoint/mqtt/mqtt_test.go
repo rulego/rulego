@@ -432,7 +432,7 @@ func startServer(t *testing.T, stop chan struct{}) {
 
 	ep.RemoveRouter(routerId)
 
-	ep.Printf("start server")
+	ep.Infof("start server")
 	<-stop
 	ep.Destroy()
 }

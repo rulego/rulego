@@ -541,7 +541,7 @@ func (e *DynamicEndpoint) armStartRetry(ep Endpoint, lastErr error) {
 	e.locker.Unlock()
 
 	if logger != nil {
-		logger.Printf("endpoint:%s start failed:%v, retrying in background", id, lastErr)
+		logger.Warnf("endpoint:%s start failed:%v, retrying in background", id, lastErr)
 	}
 	if alreadyRetrying {
 		return
@@ -561,7 +561,7 @@ func (e *DynamicEndpoint) armStartRetry(ep Endpoint, lastErr error) {
 			if err := ep.Start(); err != nil {
 				e.setStartErr(err.Error())
 				if logger != nil {
-					logger.Printf("endpoint:%s start retry failed:%v", id, err)
+					logger.Warnf("endpoint:%s start retry failed:%v", id, err)
 				}
 				interval += interval / 2
 				if interval > StartRetryMaxInterval {
@@ -571,7 +571,7 @@ func (e *DynamicEndpoint) armStartRetry(ep Endpoint, lastErr error) {
 				e.setStartErr("")
 				atomic.StoreInt32(&e.started, 1)
 				if logger != nil {
-					logger.Printf("endpoint:%s start retry succeeded", id)
+					logger.Infof("endpoint:%s start retry succeeded", id)
 				}
 				return
 			}

@@ -226,7 +226,7 @@ func (x *WsNode) onSendToEndpoint(ctx types.RuleContext, msg types.RuleMsg, data
 	// sent>0 即视为成功（含部分投递成功），仅记录部分失败
 	if sent > 0 {
 		if failed > 0 {
-			x.Printf("ws partial delivery: %d/%d failed for target=%q", failed, sent+failed, target)
+			x.errorf("ws partial delivery: %d/%d failed for target=%q", failed, sent+failed, target)
 		}
 		ctx.TellSuccess(msg)
 		return
@@ -254,7 +254,7 @@ func (x *WsNode) onPing() {
 	}
 	// WriteControl 可与 WriteMessage 并发，无需持 mu
 	if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeWait)); err != nil {
-		x.Printf("ws ping failed: %v", err)
+		x.warnf("ws ping failed: %v", err)
 		x.setDisconnected(true)
 		x.tryReconnect()
 		return
@@ -289,7 +289,7 @@ func (x *WsNode) tryReconnect() {
 		return
 	}
 	x.SharedNode.Refresh(conn)
-	x.Printf("ws reconnected to %s", x.Config.Server)
+	x.infof("ws reconnected to %s", x.Config.Server)
 	x.resetHeartbeat(x.heartbeatDur)
 }
 
@@ -319,8 +319,28 @@ func (x *WsNode) stopHeartbeat() {
 	}
 }
 
-func (x *WsNode) Printf(format string, v ...interface{}) {
-	x.ruleConfig.Logger.Printf(format, v...)
+func (x *WsNode) debugf(format string, v ...interface{}) {
+	if x.ruleConfig.Logger != nil {
+		x.ruleConfig.Logger.Debugf(format, v...)
+	}
+}
+
+func (x *WsNode) infof(format string, v ...interface{}) {
+	if x.ruleConfig.Logger != nil {
+		x.ruleConfig.Logger.Infof(format, v...)
+	}
+}
+
+func (x *WsNode) warnf(format string, v ...interface{}) {
+	if x.ruleConfig.Logger != nil {
+		x.ruleConfig.Logger.Warnf(format, v...)
+	}
+}
+
+func (x *WsNode) errorf(format string, v ...interface{}) {
+	if x.ruleConfig.Logger != nil {
+		x.ruleConfig.Logger.Errorf(format, v...)
+	}
 }
 
 func (x *WsNode) isDisconnected() bool { return atomic.LoadInt32(&x.disconnected) == 1 }

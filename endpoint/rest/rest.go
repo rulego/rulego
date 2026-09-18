@@ -946,6 +946,7 @@ func (rest *Rest) Init(ruleConfig types.Config, configuration types.Configuratio
 		return err
 	}
 	rest.RuleConfig = ruleConfig
+	rest.Logger = ruleConfig.Logger
 	return rest.SharedNode.InitWithClose(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
 		return rest.initServer()
 	}, func(server *Rest) error {
@@ -988,9 +989,9 @@ func (rest *Rest) shutdownServer() error {
 		// 如果优雅关闭失败，强制关闭
 		// Force close if graceful shutdown fails
 		// 如果优雅关闭失败，强制关闭
-		rest.Printf("graceful shutdown failed, forcing close: %v", err)
+		rest.Errorf("graceful shutdown failed, forcing close: %v", err)
 		if closeErr := rest.Server.Close(); closeErr != nil {
-			rest.Printf("force close failed: %v", closeErr)
+			rest.Errorf("force close failed: %v", closeErr)
 		}
 		shutdownErr = err
 	}
@@ -1050,7 +1051,7 @@ func (rest *Rest) Restart() error {
 		}
 		if !rest.HasRouter(router.GetId()) {
 			if _, err := rest.AddRouter(router, router.GetParams()...); err != nil {
-				rest.Printf("rest add router path:=%s error:%v", router.FromToString(), err)
+				rest.Errorf("rest add router path:=%s error:%v", router.FromToString(), err)
 				continue
 			}
 		}
@@ -1066,7 +1067,7 @@ func (rest *Rest) Close() error {
 	// 使用统一的关闭方法，保留错误处理
 	if err := rest.shutdownServer(); err != nil {
 		// 在Close()方法中，我们需要继续清理，即使关闭失败
-		rest.Printf("server shutdown error during close: %v", err)
+		rest.Errorf("server shutdown error during close: %v", err)
 	}
 
 	if rest.router != nil {
@@ -1297,7 +1298,7 @@ func (rest *Rest) Router() *httprouter.Router {
 	rest.checkIsInitSharedNode()
 
 	if fromPool, err := rest.SharedNode.GetSafely(); err != nil {
-		rest.Printf("get router err :%v", err)
+		rest.Errorf("get router err :%v", err)
 		return rest.newRouter()
 	} else {
 		return fromPool.router
@@ -1313,7 +1314,7 @@ func (rest *Rest) handler(router endpoint.Router, isWait bool) httprouter.Handle
 		defer func() {
 			//捕捉异常
 			if e := recover(); e != nil {
-				rest.Printf("http endpoint handler err :\n%v", runtime.Stack())
+				rest.Errorf("http endpoint handler err :\n%v", runtime.Stack())
 			}
 		}()
 		if router.IsDisable() {
@@ -1354,12 +1355,6 @@ func (rest *Rest) handler(router endpoint.Router, isWait bool) httprouter.Handle
 			ctx = context.Background()
 		}
 		rest.DoProcess(ctx, router, exchange)
-	}
-}
-
-func (rest *Rest) Printf(format string, v ...interface{}) {
-	if rest.RuleConfig.Logger != nil {
-		rest.RuleConfig.Logger.Printf(format, v...)
 	}
 }
 
@@ -1483,7 +1478,7 @@ func (rest *Rest) startServer() error {
 		onEvent(endpoint.EventInitServer, rest)
 	}
 	if isTls {
-		rest.Printf("started rest server with TLS on %s", serverAddr)
+		rest.Infof("started rest server with TLS on %s", serverAddr)
 		go func() {
 			defer ln.Close()
 			err = server.ServeTLS(ln, certFile, certKeyFile)
@@ -1496,7 +1491,7 @@ func (rest *Rest) startServer() error {
 			}
 		}()
 	} else {
-		rest.Printf("started rest server on %s", serverAddr)
+		rest.Infof("started rest server on %s", serverAddr)
 		go func() {
 			defer ln.Close()
 			err = server.Serve(ln)

@@ -601,7 +601,7 @@ func (rc *RuleChainCtx) Destroy() {
 	defer func() {
 		if r := recover(); r != nil {
 			if rc.config.Logger != nil {
-				rc.config.Logger.Printf("RuleChainCtx.Destroy() panic recovered: %v", r)
+				rc.config.Logger.Errorf("RuleChainCtx.Destroy() panic recovered: %v", r)
 			}
 		}
 	}()
@@ -625,7 +625,7 @@ func (rc *RuleChainCtx) Destroy() {
 			defer func() {
 				if r := recover(); r != nil {
 					if config.Logger != nil {
-						config.Logger.Printf("Node.Destroy() panic recovered: %v", r)
+						config.Logger.Errorf("Node.Destroy() panic recovered: %v", r)
 					}
 				}
 			}()
@@ -646,7 +646,7 @@ func (rc *RuleChainCtx) Destroy() {
 			defer func() {
 				if r := recover(); r != nil {
 					if config.Logger != nil {
-						config.Logger.Printf("OnDestroy aspect panic recovered: %v", r)
+						config.Logger.Errorf("OnDestroy aspect panic recovered: %v", r)
 					}
 				}
 			}()
@@ -716,7 +716,7 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 	defer func() {
 		if r := recover(); r != nil {
 			if rc.config.Logger != nil {
-				rc.config.Logger.Printf("ReloadSelfFromDef panic recovered: %v", r)
+				rc.config.Logger.Errorf("ReloadSelfFromDef panic recovered: %v", r)
 			}
 		}
 	}()
@@ -744,7 +744,7 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 				defer func() {
 					if r := recover(); r != nil {
 						if config.Logger != nil {
-							config.Logger.Printf("Node destroy in reload panic recovered: %v", r)
+							config.Logger.Errorf("Node destroy in reload panic recovered: %v", r)
 						}
 					}
 				}()
@@ -764,7 +764,7 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 				defer func() {
 					if r := recover(); r != nil {
 						if config.Logger != nil {
-							config.Logger.Printf("OnDestroy aspect in reload panic recovered: %v", r)
+							config.Logger.Errorf("OnDestroy aspect in reload panic recovered: %v", r)
 						}
 					}
 				}()
@@ -783,13 +783,13 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 				defer func() {
 					if r := recover(); r != nil {
 						if config.Logger != nil {
-							config.Logger.Printf("OnReload aspect panic recovered: %v", r)
+							config.Logger.Errorf("OnReload aspect panic recovered: %v", r)
 						}
 					}
 				}()
 				if err := aop.OnReload(rc, rc); err != nil {
 					if config.Logger != nil {
-						config.Logger.Printf("OnReload aspect error: %v", err)
+						config.Logger.Errorf("OnReload aspect error: %v", err)
 					}
 				}
 			}()

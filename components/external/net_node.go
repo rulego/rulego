@@ -265,7 +265,7 @@ func (x *NetNode) onSendToEndpoint(ctx types.RuleContext, msg types.RuleMsg, dat
 	sent, failed, err := base.SendToRefTarget(ctx, x.ruleConfig.NodePool, x.InstanceId, target, data)
 	if sent > 0 {
 		if failed > 0 {
-			x.Printf("partial delivery: %d/%d failed for target=%q", failed, sent+failed, target)
+			x.errorf("partial delivery: %d/%d failed for target=%q", failed, sent+failed, target)
 		}
 		ctx.TellSuccess(msg)
 		return
@@ -296,8 +296,28 @@ func (x *NetNode) Destroy() {
 	_ = x.SharedNode.Close()
 }
 
-func (x *NetNode) Printf(format string, v ...interface{}) {
-	x.ruleConfig.Logger.Printf(format, v...)
+func (x *NetNode) debugf(format string, v ...interface{}) {
+	if x.ruleConfig.Logger != nil {
+		x.ruleConfig.Logger.Debugf(format, v...)
+	}
+}
+
+func (x *NetNode) infof(format string, v ...interface{}) {
+	if x.ruleConfig.Logger != nil {
+		x.ruleConfig.Logger.Infof(format, v...)
+	}
+}
+
+func (x *NetNode) warnf(format string, v ...interface{}) {
+	if x.ruleConfig.Logger != nil {
+		x.ruleConfig.Logger.Warnf(format, v...)
+	}
+}
+
+func (x *NetNode) errorf(format string, v ...interface{}) {
+	if x.ruleConfig.Logger != nil {
+		x.ruleConfig.Logger.Errorf(format, v...)
+	}
 }
 
 // initConnect 方法简化
@@ -347,7 +367,7 @@ func (x *NetNode) tryReconnect() {
 		return
 	}
 	x.SharedNode.Refresh(conn)
-	x.Printf("Reconnected to: %s", conn.RemoteAddr().String())
+	x.infof("Reconnected to: %s", conn.RemoteAddr().String())
 }
 
 func (x *NetNode) onPing() {
@@ -363,7 +383,7 @@ func (x *NetNode) onPing() {
 	// 发送心跳
 	if conn, err := x.SharedNode.GetSafely(); err == nil {
 		if _, err := conn.Write(PingData); err != nil {
-			x.Printf("Ping failed: %v", err)
+			x.warnf("Ping failed: %v", err)
 			x.setDisconnected(true)
 			x.tryReconnect()
 		} else {

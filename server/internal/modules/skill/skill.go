@@ -138,7 +138,7 @@ func (m *Module) listSkillsFromPath(dirPath, scope string) ([]model.Skill, error
 		skill, err := m.parseSkillFile(skillFile, skillName, scope)
 		if err != nil {
 			if m.logger != nil {
-				m.logger.Printf("Failed to parse skill %s: %v", skillName, err)
+				m.logger.Errorf("Failed to parse skill %s: %v", skillName, err)
 			}
 			continue
 		}

@@ -113,7 +113,7 @@ func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.TellFailure(msg, err)
 	} else {
 		if formatData, ok := out.(string); ok {
-			x.logger.Printf(formatData)
+			x.logger.Infof(formatData)
 			ctx.TellSuccess(msg)
 		} else {
 			ctx.TellFailure(msg, JsLogReturnFormatErr)

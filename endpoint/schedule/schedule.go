@@ -282,6 +282,7 @@ func (schedule *Schedule) New() types.Node {
 // Init 初始化
 func (schedule *Schedule) Init(ruleConfig types.Config, configuration types.Configuration) error {
 	schedule.RuleConfig = ruleConfig
+	schedule.Logger = ruleConfig.Logger
 	if def := schedule.GetRuleChainDefinition(configuration); def != nil {
 		schedule.chainId = def.RuleChain.ID
 	}
@@ -358,12 +359,6 @@ func (schedule *Schedule) Start() error {
 	return nil
 }
 
-func (schedule *Schedule) Printf(format string, v ...interface{}) {
-	if schedule.RuleConfig.Logger != nil {
-		schedule.RuleConfig.Logger.Printf(format, v...)
-	}
-}
-
 // cronParser 与 cron 引擎一致的 6 字段秒级解析规则。
 var cronParser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 
@@ -408,7 +403,7 @@ func (schedule *Schedule) handler(router endpoint.Router) {
 	defer func() {
 		//捕捉异常
 		if e := recover(); e != nil {
-			schedule.Printf("schedule endpoint handler err :\n%v", runtime.Stack())
+			schedule.Errorf("schedule endpoint handler err :\n%v", runtime.Stack())
 		}
 	}()
 	var body []byte

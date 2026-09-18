@@ -654,7 +654,7 @@ func (ctx *DefaultRuleContext) SubmitTask(task func()) {
 		// 在提交任务前捕获需要的值，避免并发访问
 		logger := ctx.config.Logger
 		if err := ctx.pool.Submit(task); err != nil {
-			logger.Printf("SubmitTask error:%s, fallback to goroutine", err)
+			logger.Warnf("SubmitTask error:%s, fallback to goroutine", err)
 			// 如果工作池提交失败，回退到直接创建goroutine
 			// 这确保任务不会丢失，避免计数器不匹配导致的死锁
 			go task()
@@ -1206,7 +1206,7 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 		if e := recover(); e != nil {
 			err := fmt.Errorf("node %s panic: %v", nextNode.GetNodeId().Id, e)
 			if ctx.config.Logger != nil {
-				ctx.config.Logger.Printf("%s", err.Error())
+				ctx.config.Logger.Errorf("%s", err.Error())
 			}
 			//执行After aop
 			msg = ctx.executeAfterAop(msg, err, relationType)
