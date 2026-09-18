@@ -23,7 +23,7 @@ import (
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/utils/dsl"
-	"github.com/rulego/rulego/utils/str"
+	"github.com/rulego/rulego/utils/el"
 )
 
 const (
@@ -458,7 +458,7 @@ func processVariables(config types.Config, chainCtx *RuleChainCtx, configuration
 func processValueRecursive(env map[string]interface{}, value interface{}) interface{} {
 	switch v := value.(type) {
 	case string:
-		return str.ExecuteTemplate(v, env)
+		return el.ExecuteTemplate(v, env)
 	case map[string]interface{}:
 		// 递归处理 map
 		subResult := make(map[string]interface{})

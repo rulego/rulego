@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/str"
 )
 
@@ -235,7 +236,7 @@ func ProcessVariables(config types.Config, ruleChainDef types.RuleChain, from ty
 	env := GetInitNodeEnv(config, ruleChainDef)
 	for key, value := range from {
 		if strV, ok := value.(string); ok {
-			to[key] = str.ExecuteTemplate(strV, env)
+			to[key] = el.ExecuteTemplate(strV, env)
 		} else {
 			to[key] = value
 		}

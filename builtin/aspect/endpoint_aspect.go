@@ -24,7 +24,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/utils/dsl"
-	"github.com/rulego/rulego/utils/str"
+	"github.com/rulego/rulego/utils/el"
 )
 
 var (
@@ -538,12 +538,12 @@ func processEndpointDsl(config types.Config, ruleChain *types.RuleChain, item *t
 		router.Params = processInterfaceSlice(env, router.Params)
 
 		// From
-		router.From.Path = str.ExecuteTemplate(router.From.Path, env)
+		router.From.Path = el.ExecuteTemplate(router.From.Path, env)
 		router.From.Configuration = processConfiguration(env, router.From.Configuration)
 		router.From.Processors = processSlice(env, router.From.Processors)
 
 		// To
-		router.To.Path = str.ExecuteTemplate(router.To.Path, env)
+		router.To.Path = el.ExecuteTemplate(router.To.Path, env)
 		router.To.Configuration = processConfiguration(env, router.To.Configuration)
 		router.To.Processors = processSlice(env, router.To.Processors)
 	}
@@ -553,7 +553,7 @@ func processConfiguration(env map[string]interface{}, config types.Configuration
 	newConfig := make(types.Configuration)
 	for k, v := range config {
 		if strV, ok := v.(string); ok {
-			newConfig[k] = str.ExecuteTemplate(strV, env)
+			newConfig[k] = el.ExecuteTemplate(strV, env)
 		} else {
 			newConfig[k] = v
 		}
@@ -564,7 +564,7 @@ func processConfiguration(env map[string]interface{}, config types.Configuration
 func processSlice(env map[string]interface{}, slice []string) []string {
 	var newSlice []string
 	for _, s := range slice {
-		newSlice = append(newSlice, str.ExecuteTemplate(s, env))
+		newSlice = append(newSlice, el.ExecuteTemplate(s, env))
 	}
 	return newSlice
 }
@@ -573,7 +573,7 @@ func processInterfaceSlice(env map[string]interface{}, slice []interface{}) []in
 	var newSlice []interface{}
 	for _, v := range slice {
 		if s, ok := v.(string); ok {
-			newSlice = append(newSlice, str.ExecuteTemplate(s, env))
+			newSlice = append(newSlice, el.ExecuteTemplate(s, env))
 		} else {
 			newSlice = append(newSlice, v)
 		}

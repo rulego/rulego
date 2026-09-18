@@ -38,7 +38,6 @@ import (
 	"github.com/rulego/rulego/components/base"
 	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
-	"github.com/rulego/rulego/utils/str"
 )
 
 var DelayNodeMsgType = "DELAY_NODE_MSG_TYPE"
@@ -170,7 +169,7 @@ func (x *DelayNode) getDelayMilliseconds(ctx types.RuleContext, msg types.RuleMs
 	//从变量中获取延迟时间
 	if x.Config.PeriodInSecondsPattern != "" {
 		evn := base.NodeUtils.GetEvnAndMetadata(ctx, msg)
-		if v, err := strconv.Atoi(str.ExecuteTemplate(x.Config.PeriodInSecondsPattern, evn)); err != nil {
+		if v, err := strconv.Atoi(el.ExecuteTemplate(x.Config.PeriodInSecondsPattern, evn)); err != nil {
 			return 0, err
 		} else {
 			periodInSeconds = v
