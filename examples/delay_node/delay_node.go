@@ -54,7 +54,7 @@ func main() {
 	wg.Add(1)
 	start := time.Now()
 	//第1条,走Success链
-	ruleEngine.OnMsg(msg1, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		fmt.Println("用时:" + time.Since(start).String())
 		useTime := time.Since(start)
 		if useTime < time.Second {

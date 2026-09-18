@@ -48,7 +48,7 @@ func main() {
 	metaData.PutValue("productType", "test01")
 	msg := types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, metaData, "{\"temperature\":41}")
 
-	ruleEngine.OnMsg(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue)), types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithContext(context.WithValue(context.Background(), shareKey, shareValue)), types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		fmt.Println(msg)
 	}))
 	time.Sleep(time.Second * 1)

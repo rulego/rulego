@@ -43,7 +43,7 @@ func main() {
 	//创建msg
 	msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41}")
 
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		fmt.Println("处理结果=====")
 		//得到规则链处理结果
 		fmt.Println(msg, err)
@@ -55,7 +55,7 @@ func main() {
 	_ = ruleEngine.ReloadChild("s1", []byte(s1Node))
 
 	//重新执行
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		fmt.Println("更新s1节点后，处理结果=====")
 		//得到规则链处理结果
 		fmt.Println(msg, err)
@@ -66,7 +66,7 @@ func main() {
 	//更新规则链
 	_ = ruleEngine.ReloadSelf([]byte(chainJsonFile2), rulego.WithConfig(config))
 	//重新执行
-	ruleEngine.OnMsg(msg, types.WithEndFunc(func(ctx types.RuleContext, msg types.RuleMsg, err error) {
+	ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, _ string) {
 		fmt.Println("更新规则链后，处理结果=====")
 		//得到规则链处理结果
 		//因为推送的url:http://192.168.136.26:9099/api/msg 是无效url，所以会返回超时错误
