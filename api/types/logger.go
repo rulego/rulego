@@ -81,7 +81,9 @@ func F(key string, value any) Field {
 // 应用层需要实现此接口以接入自己的日志框架
 type Logger interface {
 	// Printf 兼容旧接口
-	// Deprecated: 请使用 Debugf/Infof/Warnf/Errorf 代替
+	// Deprecated: kept for host compatibility; planned for removal in 2.0.
+	// Use Debugf/Infof/Warnf/Errorf instead.
+	// 仅为宿主兼容保留，计划 2.0 移除，请使用 Debugf/Infof/Warnf/Errorf 代替
 	Printf(format string, v ...interface{})
 	// Debugf 调试日志
 	Debugf(format string, v ...interface{})

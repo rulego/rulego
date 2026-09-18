@@ -404,7 +404,7 @@ func TestEndpoint(t *testing.T) {
 			Out: &testResponseMessage{}}
 		router2 := NewRouter()
 		router2.From(from).Process(transformFunc).To("chain:${chainId}").Wait().Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-			assert.Equal(t, "chainId=aa not found error", exchange.Out.GetError().Error())
+			assert.Equal(t, "chainId=aa not found error: rule chain not found", exchange.Out.GetError().Error())
 			return true
 		})
 		//执行路由

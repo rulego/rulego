@@ -116,6 +116,9 @@ import (
 	"github.com/rulego/rulego/node_pool"
 )
 
+// Version is the semantic version of the RuleGo core library.
+const Version = "1.0.0"
+
 // Registry is the default registrar for rule engine components.
 var Registry = engine.Registry
 

@@ -198,7 +198,7 @@ func (ctx *NodeTestRuleContext) TellFlow(chainId string, msg types.RuleMsg, opts
 
 	} else if chainId == "notfound" {
 		if ctx.onEndFunc != nil {
-			ctx.onEndFunc(ctx, msg, fmt.Errorf("ruleChain id=%s not found", chainId), types.Failure)
+			ctx.onEndFunc(ctx, msg, fmt.Errorf("ruleChain id=%s not found: %w", chainId, types.ErrRuleChainNotFound), types.Failure)
 		}
 		if ctx.onAllNodeCompleted != nil {
 			ctx.onAllNodeCompleted()
@@ -241,7 +241,7 @@ func (ctx *NodeTestRuleContext) TellNode(context context.Context, nodeId string,
 		v.(types.Node).OnMsg(subCtx, msg)
 	} else {
 		if callback != nil {
-			callback(ctx, msg, fmt.Errorf("node id=%s not found", nodeId), types.Failure)
+			callback(ctx, msg, fmt.Errorf("node id=%s not found: %w", nodeId, types.ErrNodeNotFound), types.Failure)
 		}
 		if onAllNodeCompleted != nil {
 			onAllNodeCompleted()

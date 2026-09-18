@@ -802,7 +802,7 @@ func TestExecuteNode(t *testing.T) {
 
 		ctx.TellChainNode(context.Background(), "notfound", "s2", msg, true, func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 			assert.NotNil(t, err)
-			assert.Equal(t, "ruleChain id=notfound not found", err.Error())
+			assert.Equal(t, "ruleChain id=notfound not found: rule chain not found", err.Error())
 			assert.Equal(t, types.Failure, relationType)
 			wg.Done()
 		}, nil)

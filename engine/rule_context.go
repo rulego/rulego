@@ -676,7 +676,7 @@ func (ctx *DefaultRuleContext) TellFlow(ruleChainId string, msg types.RuleMsg, o
 		}
 		e.OnMsg(msg, opts...)
 	} else {
-		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found", ruleChainId))
+		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found: %w", ruleChainId, types.ErrRuleChainNotFound))
 	}
 }
 
@@ -704,7 +704,7 @@ func (ctx *DefaultRuleContext) TellNode(chanCtx context.Context, nodeId string, 
 		rootCtxCopy.tell(msg, nil, "")
 	} else {
 		if onEnd != nil {
-			onEnd(ctx, msg, fmt.Errorf("node id=%s not found", nodeId), types.Failure)
+			onEnd(ctx, msg, fmt.Errorf("node id=%s not found: %w", nodeId, types.ErrNodeNotFound), types.Failure)
 		}
 		if onAllNodeCompleted != nil {
 			onAllNodeCompleted()
@@ -737,7 +737,7 @@ func (ctx *DefaultRuleContext) tellOtherChainNode(chanCtx context.Context, ruleC
 		rootCtx.TellNode(chanCtx, nodeId, msg, skipTellNext, onEnd, onAllNodeCompleted)
 	} else {
 		if onEnd != nil {
-			onEnd(ctx, msg, fmt.Errorf("ruleChain id=%s not found", ruleChainId), types.Failure)
+			onEnd(ctx, msg, fmt.Errorf("ruleChain id=%s not found: %w", ruleChainId, types.ErrRuleChainNotFound), types.Failure)
 		}
 		if onAllNodeCompleted != nil {
 			onAllNodeCompleted()
@@ -919,7 +919,7 @@ func (ctx *DefaultRuleContext) SetExecuteNodes(nodes ...types.NodeRequest) {
 			if node, ok := ctx.ruleChainCtx.GetNodeById(types.RuleNodeId{Id: nodeId}); ok {
 				ctx.self = node
 			} else {
-				ctx.err = fmt.Errorf("SetExecuteNodes node id=%s not found", nodeId)
+				ctx.err = fmt.Errorf("SetExecuteNodes node id=%s not found: %w", nodeId, types.ErrNodeNotFound)
 			}
 			// 清空 restoreNodeInfo，确保使用 TellNext 路径
 			ctx.restoreNodeInfo = nil

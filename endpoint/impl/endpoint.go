@@ -1081,7 +1081,7 @@ func (ce *ChainExecutor) Execute(ctx context.Context, router endpoint.Router, ex
 			}
 		} else {
 			//找不到规则链返回错误
-			err := fmt.Errorf("chainId=%s not found error", toChainId)
+			err := fmt.Errorf("chainId=%s not found error: %w", toChainId, types.ErrRuleChainNotFound)
 			exchange.Out.SetError(err)
 			// 记录错误日志，避免目标链不存在时消息被静默丢弃
 			if r, ok := router.(*Router); ok && r.Config.Logger != nil {

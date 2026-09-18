@@ -1392,7 +1392,7 @@ func (e *RuleEngine) processRestoreNodes(rootCtxCopy *DefaultRuleContext, msg ty
 		parentNode = node
 	} else {
 		// 找不到父节点，报错
-		e.onErrHandler(msg, rootCtxCopy, fmt.Errorf("restore parent node id=%s not found", parentNodeId), true)
+		e.onErrHandler(msg, rootCtxCopy, fmt.Errorf("restore parent node id=%s not found: %w", parentNodeId, types.ErrNodeNotFound), true)
 		return
 	}
 

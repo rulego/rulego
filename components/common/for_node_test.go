@@ -183,14 +183,14 @@ func TestForNode(t *testing.T) {
 				Node:    node2,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, fmt.Sprintf("node id=%s not found", "notfound"), err.Error())
+					assert.Equal(t, fmt.Sprintf("node id=%s not found: node not found", "notfound"), err.Error())
 				},
 			},
 			{
 				Node:    node3,
 				MsgList: msgList,
 				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, fmt.Sprintf("ruleChain id=%s not found", "notfound"), err.Error())
+					assert.Equal(t, fmt.Sprintf("ruleChain id=%s not found: rule chain not found", "notfound"), err.Error())
 				},
 			},
 			{
