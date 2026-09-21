@@ -8,7 +8,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mark3labs/mcp-go v0.44.0
-	github.com/rulego/rulego v0.38.0
+	github.com/rulego/rulego v0.38.1-0.20260921030909-a93fa4848bb0
 	github.com/rulego/rulego-components v0.37.1-0.20260909073244-db603f94a756
 	github.com/rulego/rulego-components-ai v0.37.1-0.20260911055624-b1789137971d
 	github.com/rulego/rulego-components-ci v0.36.0
