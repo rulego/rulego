@@ -9,12 +9,12 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mark3labs/mcp-go v0.44.0
 	github.com/rulego/rulego v0.38.1-0.20260921030909-a93fa4848bb0
-	github.com/rulego/rulego-components v0.37.1-0.20260909073244-db603f94a756
+	github.com/rulego/rulego-components v0.37.1-0.20260918053811-8f596d3796a7
 	github.com/rulego/rulego-components-ai v0.37.1-0.20260911055624-b1789137971d
-	github.com/rulego/rulego-components-ci v0.36.0
+	github.com/rulego/rulego-components-ci v0.36.1-0.20260918062335-475a10a11d04
 	github.com/rulego/rulego-components-discovery v0.37.1-0.20260816080205-93ee3de7886f
 	github.com/rulego/rulego-components-etl v0.36.0
-	github.com/rulego/rulego-components-iot v0.37.2-0.20260821163432-9d8b752fbf62
+	github.com/rulego/rulego-components-iot v0.37.2-0.20260918062334-d49ac718a02e
 	go.etcd.io/bbolt v1.4.3
 	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
