@@ -23,4 +23,6 @@ var (
 	ErrRuleChainNotFound = errors.New("rule chain not found")
 	// ErrNodeNotFound 目标节点不存在，宿主用 errors.Is 识别该类失败
 	ErrNodeNotFound = errors.New("node not found")
+	// ErrMsgHopBudgetExceeded 单条消息跳数超过 Config.MsgMaxHops 被终止，宿主用 errors.Is 识别该类失败
+	ErrMsgHopBudgetExceeded = errors.New("message hop budget exceeded")
 )

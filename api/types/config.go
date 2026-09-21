@@ -102,6 +102,16 @@ type Config struct {
 	// 当脚本超过此时间限制时，将被终止并返回错误。
 	//
 	ScriptMaxExecutionTime time.Duration
+	// MsgMaxHops is the maximum number of node hops a single message may traverse
+	// across the engine, including sub chains reached via TellFlow. When a message
+	// exceeds the limit it is terminated with types.Failure and an error wrapping
+	// ErrMsgHopBudgetExceeded. This bounds runaway messages: a while node whose
+	// condition never turns false, cyclic chains, sub chain recursion. 0 disables
+	// the limit.
+	// MsgMaxHops 是单条消息在引擎内允许经过的最大节点跳数（含 TellFlow 子链）。
+	// 超限后消息以 Failure 终止，错误包装 ErrMsgHopBudgetExceeded。
+	// 用于兜底消息不终止的场景：while 条件恒真、链成环、子链递归。0 表示不限制。
+	MsgMaxHops int64
 	// Pool is the interface for a coroutine pool. If not configured, the go func method is used by default.
 	// The default implementation is `pool.WorkerPool`. It is compatible with ants coroutine pool and can be implemented using ants.
 	// Example:

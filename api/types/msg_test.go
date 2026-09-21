@@ -1080,3 +1080,95 @@ func TestSharedDataJSONRoundTrip(t *testing.T) {
 		assert.Equal(t, BINARY, sharedData.dataType, "SharedData should infer BINARY type")
 	})
 }
+
+// TestMsgHopBudget 测试消息跳数预算计数（Config.MsgMaxHops 的载体）
+func TestMsgHopBudget(t *testing.T) {
+	t.Run("BumpAndExceed", func(t *testing.T) {
+		msg := NewMsg(0, "TEST", JSON, NewMetadata(), "{}")
+		assert.Equal(t, int64(0), msg.Hops())
+
+		const limit = 5
+		for i := int64(1); i <= limit; i++ {
+			exceeded, first := msg.BumpHops(limit)
+			assert.False(t, exceeded)
+			assert.False(t, first)
+		}
+		exceeded, first := msg.BumpHops(limit)
+		assert.True(t, exceeded)
+		assert.True(t, first)
+		// 首次越界之后仍继续计数，但不再报告 first
+		exceeded, first = msg.BumpHops(limit)
+		assert.True(t, exceeded)
+		assert.False(t, first)
+		assert.Equal(t, int64(limit+2), msg.Hops())
+	})
+
+	t.Run("CopySharesBudget", func(t *testing.T) {
+		original := NewMsg(0, "TEST", JSON, NewMetadata(), "{}")
+		original.BumpHops(100)
+		original.BumpHops(100)
+		original.BumpHops(100)
+
+		// Copy 与值拷贝共享同一预算：扇出分支、子链计入同一条消息
+		copied := original.Copy()
+		copied.BumpHops(100)
+		copied.BumpHops(100)
+		assert.Equal(t, int64(5), original.Hops())
+
+		byValue := original
+		byValue.BumpHops(100)
+		assert.Equal(t, int64(6), original.Hops())
+	})
+
+	t.Run("JSONExcludesHopBudget", func(t *testing.T) {
+		msg := NewMsg(0, "TEST", JSON, NewMetadata(), "{}")
+		msg.BumpHops(10)
+		data, err := json.Marshal(msg)
+		assert.Nil(t, err)
+		assert.False(t, strings.Contains(string(data), "hopBudget"))
+	})
+}
+
+var benchHopLimit int64
+
+func BenchmarkBumpHops(b *testing.B) {
+	msg := NewMsg(0, "TEST", JSON, NewMetadata(), "{}")
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		msg.BumpHops(1 << 40)
+	}
+}
+
+// 各消息独立计数：正常高并发形态，无缓存行争抢
+func BenchmarkBumpHopsParallel(b *testing.B) {
+	b.ReportAllocs()
+	b.RunParallel(func(pb *testing.PB) {
+		msg := NewMsg(0, "TEST", JSON, NewMetadata(), "{}")
+		for pb.Next() {
+			msg.BumpHops(1 << 40)
+		}
+	})
+}
+
+// 多核共享同一消息：死循环消息熔断前的最坏形态
+func BenchmarkBumpHopsContended(b *testing.B) {
+	msg := NewMsg(0, "TEST", JSON, NewMetadata(), "{}")
+	b.ReportAllocs()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			msg.BumpHops(1 << 40)
+		}
+	})
+}
+
+// 未启用预算时的挂点开销：调用方仅做一次 limit 比较
+func BenchmarkBumpHopsDisabled(b *testing.B) {
+	msg := NewMsg(0, "TEST", JSON, NewMetadata(), "{}")
+	benchHopLimit = 0
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if benchHopLimit > 0 {
+			msg.BumpHops(benchHopLimit)
+		}
+	}
+}

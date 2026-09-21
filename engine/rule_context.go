@@ -649,10 +649,19 @@ func (ctx *DefaultRuleContext) SubmitTask(task func()) {
 		// 在提交任务前捕获需要的值，避免并发访问
 		logger := ctx.config.Logger
 		if err := ctx.pool.Submit(task); err != nil {
-			logger.Warnf("SubmitTask error:%s, fallback to goroutine", err)
-			// 如果工作池提交失败，回退到直接创建goroutine
-			// 这确保任务不会丢失，避免计数器不匹配导致的死锁
-			go task()
+			logger.Warnf("SubmitTask error:%s, fallback to caller goroutine", err)
+			// 池满时在调用方协程同步执行，不新增协程。等待型组件（while/join
+			// 的 wg.Wait）的任务此刻已提交，同步执行当场满足等待条件，不会死锁。
+			func() {
+				defer func() {
+					if e := recover(); e != nil {
+						if logger != nil {
+							logger.Errorf("SubmitTask panic:%v", e)
+						}
+					}
+				}()
+				task()
+			}()
 		}
 	} else {
 		go task()
@@ -1224,6 +1233,24 @@ func (ctx *DefaultRuleContext) tellNext(msg types.RuleMsg, nextNode types.NodeCt
 		default:
 			// 上下文正常，继续处理
 			// Context is normal, continue processing
+		}
+	}
+
+	// 消息级跳数预算：超限视为消息不终止（while 条件恒真、链成环、子链递归），
+	// 与上下文取消同样终止该分支。日志只在首次越界打一条。
+	if limit := ctx.config.MsgMaxHops; limit > 0 {
+		if exceeded, first := msg.BumpHops(limit); exceeded {
+			chainId := ""
+			if ctx.ruleChainCtx != nil {
+				chainId = ctx.ruleChainCtx.Id.Id
+			}
+			err := fmt.Errorf("%w: message %s exceeded max hops %d (chain=%s, node=%s)",
+				types.ErrMsgHopBudgetExceeded, msg.Id, limit, chainId, nextNode.GetNodeId().Id)
+			if first && ctx.config.Logger != nil {
+				ctx.config.Logger.Errorf("%s, terminate it to prevent infinite loop", err)
+			}
+			ctx.DoOnEnd(msg, err, types.Failure)
+			return
 		}
 	}
 

@@ -238,6 +238,27 @@ func WithDefaultPool() Option {
 	}
 }
 
+// WithMsgMaxHops is an option that sets the max node hops per message of the Config.
+// WithMsgMaxHops 是设置 Config 单消息最大节点跳数的选项。
+//
+// A message that traverses more nodes than this limit is terminated with
+// types.Failure and an error wrapping ErrMsgHopBudgetExceeded, which bounds
+// runaway messages such as a while node whose condition never turns false.
+// 0 disables the limit.
+// 超过该跳数上限的消息以 Failure 终止并返回包装 ErrMsgHopBudgetExceeded 的错误，
+// 用于兜底 while 条件恒真等消息不终止场景。0 表示不限制。
+//
+// Example:
+// 示例：
+//
+//	config := NewConfig(WithMsgMaxHops(10000))
+func WithMsgMaxHops(maxHops int64) Option {
+	return func(c *Config) error {
+		c.MsgMaxHops = maxHops
+		return nil
+	}
+}
+
 // WithScriptMaxExecutionTime is an option that sets the js max execution time of the Config.
 // WithScriptMaxExecutionTime 是设置 Config 脚本最大执行时间的选项。
 //

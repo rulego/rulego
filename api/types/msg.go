@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/rulego/rulego/utils/json"
@@ -497,6 +498,44 @@ type RuleMsg struct {
 	// Metadata 包含与消息相关的附加键值对。
 	// 此字段使用写时复制优化，在多节点场景下提供更好的性能。
 	Metadata *Metadata `json:"metadata"`
+
+	// hopBudget counts node hops for Config.MsgMaxHops. It is a shared state
+	// pointer: Copy and value assignment keep counting the same message across
+	// fan-out branches and sub chains. Unexported, so it never appears in JSON.
+	// hopBudget 为 Config.MsgMaxHops 计数，共享状态指针：Copy 与值拷贝
+	// 使扇出分支、子链计入同一条消息的预算。非导出，不参与 JSON 序列化。
+	hopBudget unsafe.Pointer // *hopState
+}
+
+// hopState carries the hop count of one message. count must remain the first
+// and only field: atomic.AddInt64 requires 8-byte alignment on 32-bit
+// platforms (386/arm), and Go guarantees that for the leading 64-bit field.
+type hopState struct {
+	count int64
+}
+
+// BumpHops increments the message hop count and reports whether it exceeded
+// limit, and whether this call is the first one past the limit (the caller
+// logs circuit breaking only on that call). The state is allocated lazily;
+// the CAS covers concurrent first bumps of message copies.
+func (m *RuleMsg) BumpHops(limit int64) (exceeded, firstExceeded bool) {
+	p := (*hopState)(atomic.LoadPointer(&m.hopBudget))
+	if p == nil {
+		p = &hopState{}
+		if !atomic.CompareAndSwapPointer(&m.hopBudget, nil, unsafe.Pointer(p)) {
+			p = (*hopState)(atomic.LoadPointer(&m.hopBudget))
+		}
+	}
+	n := atomic.AddInt64(&p.count, 1)
+	return n > limit, n == limit+1
+}
+
+// Hops returns the current hop count of the message, mainly for diagnostics.
+func (m *RuleMsg) Hops() int64 {
+	if p := (*hopState)(atomic.LoadPointer(&m.hopBudget)); p != nil {
+		return atomic.LoadInt64(&p.count)
+	}
+	return 0
 }
 
 // NewMsg creates a new message instance and generates a message ID using UUID.
@@ -690,6 +729,8 @@ func (m *RuleMsg) Copy() RuleMsg {
 		DataType: m.DataType,
 		Data:     copiedData,
 		Metadata: copiedMetadata,
+		// 共享而非复制：副本与原消息属于同一条消息的生命周期，跳数计入同一预算
+		hopBudget: m.hopBudget,
 	}
 
 	// Note: Cannot set callback here for the same reason as in newMsg.
