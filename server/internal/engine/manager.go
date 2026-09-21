@@ -22,6 +22,7 @@ import (
 	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
 	"github.com/rulego/rulego/utils/fs"
+	rulegopool "github.com/rulego/rulego/utils/pool"
 
 	"github.com/rulego/rulego/components/action"
 )
@@ -36,6 +37,7 @@ type UserEngine struct {
 	ruleStore  store.RuleStore
 	setStore   store.SettingStore
 	container  *app.Container // 服务容器，供全局回调按需懒取 RunLogService 等服务；nil 表示不可用
+	workerPool *rulegopool.WorkerPool
 }
 
 // Manager 管理多租户用户引擎池
@@ -233,7 +235,19 @@ func (m *Manager) newUserEngine(username string) (*UserEngine, error) {
 		}
 	}
 
-	ruleConfig := rulego.NewConfig(types.WithDefaultPool(),
+	// 有界工作协程池：池满后新任务在调用方协程同步执行，单用户 goroutine 总量有上界；
+	// 未配置上限时保持无限池，行为与旧版一致
+	var workerOpt types.Option
+	var workerPool *rulegopool.WorkerPool
+	if cfg.WorkerPoolMaxWorkers > 0 {
+		workerPool = &rulegopool.WorkerPool{MaxWorkersCount: cfg.WorkerPoolMaxWorkers}
+		workerPool.Start()
+		workerOpt = types.WithPool(workerPool)
+	} else {
+		workerOpt = types.WithDefaultPool()
+	}
+
+	ruleConfig := rulego.NewConfig(workerOpt,
 		types.WithLogger(logger),
 		types.WithComponentsRegistry(componentRegistry),
 		types.WithNodePool(pool))
@@ -256,6 +270,7 @@ func (m *Manager) newUserEngine(username string) (*UserEngine, error) {
 		ruleStore:  ruleStore,
 		setStore:   setStore,
 		container:  m.container,
+		workerPool: workerPool,
 	}
 
 	ue.initRuleConfig()
@@ -276,6 +291,9 @@ func (m *Manager) newUserEngine(username string) (*UserEngine, error) {
 func (ue *UserEngine) Stop() {
 	if ue.pool != nil {
 		ue.pool.Stop()
+	}
+	if ue.workerPool != nil {
+		ue.workerPool.Stop()
 	}
 }
 
@@ -367,6 +385,9 @@ func (ue *UserEngine) initRuleConfig() {
 	}
 	if ue.config.ScriptMaxExecutionTime > 0 {
 		ue.ruleConfig.ScriptMaxExecutionTime = time.Millisecond * time.Duration(ue.config.ScriptMaxExecutionTime)
+	}
+	if ue.config.MsgMaxHops > 0 {
+		ue.ruleConfig.MsgMaxHops = ue.config.MsgMaxHops
 	}
 	if ue.config.EndpointEnabled != nil {
 		ue.ruleConfig.EndpointEnabled = *ue.config.EndpointEnabled

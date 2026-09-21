@@ -66,6 +66,13 @@ type Config struct {
 	RunLogRetentionDays int `ini:"run_log_retention_days"`
 	// ScriptMaxExecutionTime 脚本最大执行时间（毫秒）
 	ScriptMaxExecutionTime int `ini:"script_max_execution_time"`
+	// MsgMaxHops 单条消息在引擎内允许经过的最大节点跳数（含子链），超限消息以
+	// Failure 终止并返回 ErrMsgHopBudgetExceeded。兜底 while 条件恒真、链成环、
+	// 子链递归等消息不终止场景。0 或负数表示不限制
+	MsgMaxHops int64 `ini:"msg_max_hops"`
+	// WorkerPoolMaxWorkers 每用户引擎工作协程池上限。池满后新任务在调用方
+	// 协程同步执行形成背压，goroutine 总量有上界。0 或负数表示不限制
+	WorkerPoolMaxWorkers int `ini:"worker_pool_max_workers"`
 	// EndpointEnabled 是否启用endpoint
 	EndpointEnabled *bool `ini:"endpoint_enabled"`
 	// SecretKey 密钥
@@ -238,6 +245,8 @@ func DefaultConfig() Config {
 		MaxNodeLogSize:       40,
 		RunLogRetentionCount: 500,
 		RunLogRetentionDays:  7,
+		MsgMaxHops:           10000,
+		WorkerPoolMaxWorkers: 5000,
 		ResourceMapping:      "/editor/*filepath=./editor,/images/*filepath=./editor/images",
 		JwtSecretKey:         "r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1",
 		JwtExpireTime:        43200000,
