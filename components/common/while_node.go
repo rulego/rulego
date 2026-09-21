@@ -40,7 +40,7 @@ func init() {
 // WhileNodeConfiguration defines the configuration for the WhileNode.
 type WhileNodeConfiguration struct {
 	// Condition is the expression to check before each iteration. Loop continues while true.
-	Condition string `json:"condition" label:"Condition" desc:"Expression checked each iteration. Loop continues while true. Example: ${msg.count} < 10" required:"true"`
+	Condition string `json:"condition" label:"Condition" desc:"Expression checked each iteration. Loop continues while true; the referenced field must be updated by the do branch. Example: ${msg.count} < 10" required:"true"`
 	// Do is the node ID or sub-chain to execute each iteration.
 	Do string `json:"do" label:"Do" desc:"Node ID or sub-chain per iteration. Format: {nodeId} or chain:{chainId}" required:"true"`
 	// Mode: 0=do not process, 1=merge results, 2=replace msg
@@ -76,9 +76,11 @@ func (x *WhileNode) Type() string {
 }
 
 func (x *WhileNode) New() types.Node {
+	// Condition must stay empty: any default expression that references fields
+	// the do branch never updates loops forever. Init rejects an empty value,
+	// so an unconfigured node fails at load time instead of spinning.
 	return &WhileNode{Config: WhileNodeConfiguration{
-		Condition: "msg.count==nil || msg.count < 3",
-		Mode:      ReplaceValues,
+		Mode: ReplaceValues,
 	}}
 }
 
