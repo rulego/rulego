@@ -84,32 +84,42 @@ func TestRestApiCallNode(t *testing.T) {
 	})
 
 	t.Run("OnMsg", func(t *testing.T) {
+		// 用本地服务替代外网站点：外网延迟不可控，固定等待窗口下结果数量断言随机失败
+		testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"message":"success"}`))
+		}))
+		defer testServer.Close()
+
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"restEndpointUrlPattern": "https://rulego.cc",
+			"restEndpointUrlPattern": testServer.URL,
 			"requestMethod":          "POST",
 		}, Registry)
 		assert.Nil(t, err)
 
 		node2, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"restEndpointUrlPattern": "https://rulego.cc/",
+			"restEndpointUrlPattern": testServer.URL + "/",
 			"requestMethod":          "GET",
 		}, Registry)
 		assert.Nil(t, err)
 
+		// 代理指向本机必拒绝端口（1）：确定性快速失败，不依赖外网与 DNS
 		node3, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"restEndpointUrlPattern": "https://rulego.xx/",
+			"restEndpointUrlPattern": testServer.URL + "/",
 			"requestMethod":          "GET",
 			"enableProxy":            true,
 			"proxyScheme":            "http",
 			"proxyHost":              "127.0.0.1",
-			"proxyPor":               "10809",
+			"proxyPort":              1,
 		}, Registry)
+		assert.Nil(t, err)
 
 		node4, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"restEndpointUrlPattern": "https://rulego.cc/",
+			"restEndpointUrlPattern": testServer.URL + "/",
 			"requestMethod":          "GET",
 			"withoutRequestBody":     true,
 		}, Registry)
+		assert.Nil(t, err)
 
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
@@ -122,74 +132,63 @@ func TestRestApiCallNode(t *testing.T) {
 			},
 		}
 
-		// 使用 channel 收集结果，避免并发访问 t
+		// 收集结果后在主测试协程断言，避免并发访问 t
 		type result struct {
+			node         string
 			relationType string
 			statusCode   string
 			err          error
 		}
 		var mu sync.Mutex
 		results := make([]result, 0, 4)
+		collect := func(node string) func(msg types.RuleMsg, relationType string, err error) {
+			return func(msg types.RuleMsg, relationType string, err error) {
+				mu.Lock()
+				results = append(results, result{
+					node:         node,
+					relationType: relationType,
+					statusCode:   msg.Metadata.GetValue(StatusCodeMetadataKey),
+					err:          err,
+				})
+				mu.Unlock()
+			}
+		}
 
 		var nodeList = []test.NodeAndCallback{
-			{
-				Node:    node1,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					code := msg.Metadata.GetValue(StatusCodeMetadataKey)
-					mu.Lock()
-					results = append(results, result{relationType: relationType, statusCode: code, err: err})
-					mu.Unlock()
-				},
-			},
-			{
-				Node:    node2,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					mu.Lock()
-					results = append(results, result{relationType: relationType, err: err})
-					mu.Unlock()
-				},
-			},
-			{
-				Node:    node3,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					mu.Lock()
-					results = append(results, result{relationType: relationType, err: err})
-					mu.Unlock()
-				},
-			},
-			{
-				Node:    node4,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					mu.Lock()
-					results = append(results, result{relationType: relationType, err: err})
-					mu.Unlock()
-				},
-			},
+			{Node: node1, MsgList: msgList, Callback: collect("node1")},
+			{Node: node2, MsgList: msgList, Callback: collect("node2")},
+			{Node: node3, MsgList: msgList, Callback: collect("node3")},
+			{Node: node4, MsgList: msgList, Callback: collect("node4")},
 		}
 		for _, item := range nodeList {
 			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
 
-		// 等待所有回调完成
-		time.Sleep(time.Millisecond * 500)
-
-		// 在主线程中断言
-		mu.Lock()
-		assert.Equal(t, 4, len(results))
-		for _, r := range results {
-			if r.statusCode == "405" {
-				assert.Equal(t, "405", r.statusCode)
-			} else if r.err != nil {
-				assert.Equal(t, types.Failure, r.relationType)
-			} else {
-				assert.Equal(t, types.Success, r.relationType)
+		// 轮询等待回调到齐，上限 3 秒（覆盖 readTimeoutMs 默认 2000ms 的超时返回）
+		deadline := time.Now().Add(time.Second * 3)
+		for {
+			mu.Lock()
+			done := len(results) == 4
+			mu.Unlock()
+			if done || time.Now().After(deadline) {
+				break
 			}
+			time.Sleep(time.Millisecond * 10)
 		}
-		mu.Unlock()
+
+		mu.Lock()
+		defer mu.Unlock()
+		assert.Equal(t, 4, len(results))
+		byNode := make(map[string]result, 4)
+		for _, r := range results {
+			byNode[r.node] = r
+		}
+		for _, name := range []string{"node1", "node2", "node4"} {
+			r := byNode[name]
+			assert.Equal(t, types.Success, r.relationType)
+			assert.Equal(t, "200", r.statusCode)
+		}
+		assert.Equal(t, types.Failure, byNode["node3"].relationType)
 	})
 
 	//SSE(Server-Sent Events)流式请求
