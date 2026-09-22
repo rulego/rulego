@@ -3,14 +3,14 @@ module github.com/rulego/rulego/server
 go 1.25.0
 
 require (
-	github.com/cloudwego/eino v0.9.10
+	github.com/cloudwego/eino v0.9.19
 	github.com/dop251/goja v0.0.0-20231024180952-594410467bc6
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mark3labs/mcp-go v0.44.0
 	github.com/rulego/rulego v0.38.1-0.20260921030909-a93fa4848bb0
 	github.com/rulego/rulego-components v0.37.1-0.20260918053811-8f596d3796a7
-	github.com/rulego/rulego-components-ai v0.37.1-0.20260911055624-b1789137971d
+	github.com/rulego/rulego-components-ai v0.37.1-0.20260922004554-980b2a7c833e
 	github.com/rulego/rulego-components-ci v0.36.1-0.20260918062335-475a10a11d04
 	github.com/rulego/rulego-components-discovery v0.37.1-0.20260816080205-93ee3de7886f
 	github.com/rulego/rulego-components-etl v0.36.0
