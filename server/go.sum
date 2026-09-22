@@ -689,6 +689,8 @@ github.com/rulego/rulego-components-ai v0.37.1-0.20260922000000-7704db51e601 h1:
 github.com/rulego/rulego-components-ai v0.37.1-0.20260922000000-7704db51e601/go.mod h1:fTdJtIlBuuFnsJuWYMsEOSRjTFPhrllOsAcD32itUMM=
 github.com/rulego/rulego-components-ai v0.37.1-0.20260922004554-980b2a7c833e h1:ITqz17qCuTEKecx4qKZAdFuzkZPwMCZ47LfXTDQGPIc=
 github.com/rulego/rulego-components-ai v0.37.1-0.20260922004554-980b2a7c833e/go.mod h1:fTdJtIlBuuFnsJuWYMsEOSRjTFPhrllOsAcD32itUMM=
+github.com/rulego/rulego-components-ai v0.37.1-0.20260922023540-1b835118b365 h1:wZHWpGeuoAE5mjj5O0kSHmj612NorQkQKcOBuHe2kKc=
+github.com/rulego/rulego-components-ai v0.37.1-0.20260922023540-1b835118b365/go.mod h1:fTdJtIlBuuFnsJuWYMsEOSRjTFPhrllOsAcD32itUMM=
 github.com/rulego/rulego-components-ci v0.36.1-0.20260918062335-475a10a11d04 h1:hhZFnmXXo7Wo0ewt0U75aQXFlP8886FWir+ahWsFv9I=
 github.com/rulego/rulego-components-ci v0.36.1-0.20260918062335-475a10a11d04/go.mod h1:eJY3JlY/vzm0T+0yHNkWltI4n+zdUGTHXIbnDwL04rQ=
 github.com/rulego/rulego-components-discovery v0.37.1-0.20260816080205-93ee3de7886f h1:n9KTjuKfjU+mdKbmUO7PbasEL8G93aGoQeZhcIlUPt4=
