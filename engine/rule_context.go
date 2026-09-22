@@ -462,10 +462,13 @@ func (r *RunSnapshot) onDebugCustom(ruleChainId string, flowType string, nodeId 
 
 // createRuleChainRunLog creates a log of the entire rule chain's execution.
 func (r *RunSnapshot) createRuleChainRunLog(endTs int64) types.RuleChainRunSnapshot {
-	var logs []types.RuleNodeRunLog
+	// 完成回调触发时分支节点可能仍在写日志，读 logs 须持锁
+	r.lock.RLock()
+	logs := make([]types.RuleNodeRunLog, 0, len(r.logs))
 	for _, item := range r.logs {
 		logs = append(logs, *item)
 	}
+	r.lock.RUnlock()
 	ruleChainRunLog := types.RuleChainRunSnapshot{
 		RuleChain: *r.chainCtx.SelfDefinition,
 		Id:        r.msgId,
