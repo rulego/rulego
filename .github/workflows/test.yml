@@ -68,7 +68,7 @@ jobs:
         run: go build -buildmode=plugin -o plugin.so testdata/plugin/plugin.go
       - name: Run tests with race detector
         if: matrix.go-version != '1.18.10'
-        run: go test -v -race ./...
+        run: go test -v -race -p 2 ./...
         env:
           TEST_SERVER_IP: ${{ secrets.TEST_SERVER_IP }}
           TEST_SERVER_USERNAME: ${{ secrets.TEST_SERVER_USERNAME }}

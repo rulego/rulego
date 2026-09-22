@@ -32,7 +32,8 @@
         "debugMode": true,
         "configuration": {
           "allMatches": false,
-          "nodeIds": "s1,s2"
+          "nodeIds": "s1,s2",
+          "timeout": 300
         }
       },
       {
