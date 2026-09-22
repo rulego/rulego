@@ -270,11 +270,7 @@ func testDbClientNodeOnMsg(t *testing.T, targetNodeType, driverName, dsn string)
 			},
 		},
 	}
-	for _, item := range nodeList {
-		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
-		time.Sleep(time.Millisecond * 100)
-	}
-	time.Sleep(time.Millisecond * 500)
+	sendAndWaitCallbacks(t, nodeList, time.Second*10)
 }
 
 func testConcurrency(t *testing.T, targetNodeType, driverName, dsn string) {
@@ -479,20 +475,53 @@ func testConcurrency(t *testing.T, targetNodeType, driverName, dsn string) {
 			},
 		},
 	}
-	var i = 0
+	// 并发压测：一次性全部发出，等全部回调收齐再结束子测试，
+	// 固定 5s sleep 在慢环境下等不齐，迟到的断言会 panic
+	total := len(nodeList) * 1000
+	done := make(chan struct{}, total)
 	for _, item := range nodeList {
-		for i < 1000 {
-			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
-			i++
+		callback := item.Callback
+		for i := 0; i < 1000; i++ {
+			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes,
+				func(msg types.RuleMsg, relationType string, err error) {
+					callback(msg, relationType, err)
+					done <- struct{}{}
+				})
 		}
 	}
-	time.Sleep(time.Millisecond * 5000)
+	for i := 0; i < total; i++ {
+		select {
+		case <-done:
+		case <-time.After(time.Second * 60):
+			t.Fatalf("callback %d/%d not received within 60s", i, total)
+		}
+	}
 }
 
 type testUser struct {
 	Id   int64  `json:"id"`
 	Name string `json:"name"`
 	Age  int    `json:"age"`
+}
+
+// sendAndWaitCallbacks 逐条发送并等当前回调返回后再发下一条：多条 SQL 存在先后依赖，
+// 固定 sleep 保证不了顺序（CI 慢环境下前一条未执行完后一条就发出）；断言也因此全部
+// 落在子测试存续期内，迟到的回调不会再触发 "Fail in goroutine after ... completed"
+func sendAndWaitCallbacks(t *testing.T, nodeList []test.NodeAndCallback, timeout time.Duration) {
+	done := make(chan struct{}, len(nodeList))
+	for _, item := range nodeList {
+		callback := item.Callback
+		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes,
+			func(msg types.RuleMsg, relationType string, err error) {
+				callback(msg, relationType, err)
+				done <- struct{}{}
+			})
+		select {
+		case <-done:
+		case <-time.After(timeout):
+			t.Fatalf("callback not received within %s", timeout)
+		}
+	}
 }
 
 // TestExpandInClause 测试 IN 子句参数展开功能
@@ -656,10 +685,7 @@ func testExecTypeDDL(t *testing.T, targetNodeType, driverName, dsn string) {
 		},
 	}
 
-	for _, item := range nodeList {
-		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
-		time.Sleep(time.Millisecond * 200)
-	}
+	sendAndWaitCallbacks(t, nodeList, time.Second*10)
 }
 
 // testExecTypeWithStatement 测试WITH语句的EXEC类型处理
@@ -719,10 +745,7 @@ func testExecTypeWithStatement(t *testing.T, targetNodeType, driverName, dsn str
 		},
 	}
 
-	for _, item := range nodeList {
-		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
-		time.Sleep(time.Millisecond * 200)
-	}
+	sendAndWaitCallbacks(t, nodeList, time.Second*10)
 }
 
 // testExecTypeConfigurable 测试OpType配置化功能
@@ -808,10 +831,7 @@ func testExecTypeConfigurable(t *testing.T, targetNodeType, driverName, dsn stri
 		},
 	}
 
-	for _, item := range nodeList {
-		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
-		time.Sleep(time.Millisecond * 200)
-	}
+	sendAndWaitCallbacks(t, nodeList, time.Second*10)
 }
 
 // testExecTypeOtherStatements 测试其他EXEC类型语句（TRUNCATE、EXPLAIN、DESCRIBE、SHOW）
@@ -933,10 +953,7 @@ func testExecTypeOtherStatements(t *testing.T, targetNodeType, driverName, dsn s
 		},
 	}
 
-	for _, item := range nodeList {
-		test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
-		time.Sleep(time.Millisecond * 200)
-	}
+	sendAndWaitCallbacks(t, nodeList, time.Second*10)
 }
 
 // BenchmarkExpandInClause 基准测试
