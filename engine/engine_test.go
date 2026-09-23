@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -738,6 +739,17 @@ func TestExecuteNode(t *testing.T) {
 	metaData := types.NewMetadata()
 	metaData.PutValue("productType", "test01")
 
+	// 回调迟到打满 groupFilter 超时窗的现象只在 CI -race 负载下出现，本地无法复现，
+	// 失败时的全量 goroutine 栈是定位卡点的唯一取证
+	dumpIfStalled := func(msg types.RuleMsg) {
+		if msg.Metadata.GetValue("result") != "" {
+			return
+		}
+		buf := make([]byte, 1<<22)
+		n := runtime.Stack(buf, true)
+		t.Logf("groupFilter stalled, dumping all goroutines:\n%s", buf[:n])
+	}
+
 	msg1 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":41,\"humidity\":90}")
 
 	// Use WaitGroup to ensure callback completes before reload
@@ -746,6 +758,7 @@ func TestExecuteNode(t *testing.T) {
 	firstCallbackDone.Add(1)
 	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		defer firstCallbackDone.Done()
+		dumpIfStalled(msg)
 		assert.Equal(t, "true", msg.Metadata.GetValue("result"),
 			fmt.Sprintf("err=%v relationType=%s errorMsg=%s", err, relationType, msg.Metadata.GetValue(types.KeyErrorMsg)))
 	}))
@@ -770,6 +783,7 @@ func TestExecuteNode(t *testing.T) {
 	reloadDone.Add(2)
 	ruleEngine.OnMsg(msg1, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		defer reloadDone.Done()
+		dumpIfStalled(msg)
 		assert.Equal(t, "false", msg.Metadata.GetValue("result"),
 			fmt.Sprintf("err=%v relationType=%s errorMsg=%s", err, relationType, msg.Metadata.GetValue(types.KeyErrorMsg)))
 	}))
@@ -777,6 +791,7 @@ func TestExecuteNode(t *testing.T) {
 	msg2 := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, "{\"temperature\":52,\"humidity\":90}")
 	ruleEngine.OnMsg(msg2, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
 		defer reloadDone.Done()
+		dumpIfStalled(msg)
 		assert.Equal(t, "true", msg.Metadata.GetValue("result"),
 			fmt.Sprintf("err=%v relationType=%s errorMsg=%s", err, relationType, msg.Metadata.GetValue(types.KeyErrorMsg)))
 	}))
