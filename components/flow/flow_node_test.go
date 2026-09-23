@@ -317,3 +317,103 @@ func TestFlowNodeStartNode(t *testing.T) {
 		assert.Equal(t, "", msg.Metadata.GetValue(types.KeyFromNodeId))
 	})
 }
+
+// TestFlowNodeDynamicTargetId targetId 支持 ${} 动态取值（metadata/global/vars/msg），执行时求值
+func TestFlowNodeDynamicTargetId(t *testing.T) {
+	const subChainId = "flow_dyn_test_sub"
+	const parentChainId = "flow_dyn_test_parent"
+
+	engine.DefaultPool.Del(subChainId)
+	engine.DefaultPool.Del(parentChainId)
+	t.Cleanup(func() {
+		engine.DefaultPool.Del(subChainId)
+		engine.DefaultPool.Del(parentChainId)
+	})
+
+	//n_a/n_b 分别向 metadata.touched 追加 A/B，用于判断哪些节点执行过
+	subDSL := `{
+		"ruleChain": {"id": "flow_dyn_test_sub"},
+		"metadata": {
+			"nodes": [
+				{"id": "n_a", "type": "jsTransform", "name": "A", "configuration": {"jsScript": "metadata['touched']=(metadata['touched']||'')+'A'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"}},
+				{"id": "n_b", "type": "jsTransform", "name": "B", "configuration": {"jsScript": "metadata['touched']=(metadata['touched']||'')+'B'; return {'msg':msg,'metadata':metadata,'msgType':msgType};"}}
+			],
+			"connections": [{"fromId": "n_a", "toId": "n_b", "type": "Success"}]
+		}
+	}`
+	_, err := rulego.New(subChainId, []byte(subDSL))
+	assert.Nil(t, err)
+
+	type chainResult struct {
+		relationType string
+		err          error
+		msg          types.RuleMsg
+	}
+
+	runParent := func(t *testing.T, targetId string, extraMeta map[string]string) chainResult {
+		engine.DefaultPool.Del(parentChainId)
+		parentDSL := fmt.Sprintf(`{
+			"ruleChain": {"id": "flow_dyn_test_parent"},
+			"metadata": {
+				"nodes": [
+					{"id": "s_flow", "type": "flow", "name": "flow", "configuration": {"targetId": "%s"}}
+				],
+				"connections": []
+			}
+		}`, targetId)
+		_, err := rulego.New(parentChainId, []byte(parentDSL))
+		assert.Nil(t, err)
+
+		metadata := types.NewMetadata()
+		metadata.PutValue("productType", "test")
+		for k, v := range extraMeta {
+			metadata.PutValue(k, v)
+		}
+		msg := types.NewMsg(0, "START_TEST", types.JSON, metadata, "{\"temperature\":60}")
+
+		resultChan := make(chan chainResult, 1)
+		parentEngine, _ := engine.DefaultPool.Get(parentChainId)
+		parentEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
+			resultChan <- chainResult{relationType: relationType, err: err, msg: onEndMsg}
+		}))
+		select {
+		case r := <-resultChan:
+			return r
+		case <-time.After(3 * time.Second):
+			t.Fatalf("timeout waiting for onEnd, targetId=%s", targetId)
+			return chainResult{}
+		}
+	}
+
+	t.Run("DynamicChainIdFromMetadata", func(t *testing.T) {
+		r := runParent(t, "${metadata.subChainId}", map[string]string{"subChainId": subChainId})
+		assert.Equal(t, types.Success, r.relationType)
+		assert.Equal(t, "AB", r.msg.Metadata.GetValue("touched"))
+	})
+
+	t.Run("DynamicChainIdWithStartNode", func(t *testing.T) {
+		r := runParent(t, "${metadata.subChainId}:n_b", map[string]string{"subChainId": subChainId})
+		assert.Equal(t, types.Success, r.relationType)
+		//从 n_b 开始，n_a 不应执行
+		assert.Equal(t, "B", r.msg.Metadata.GetValue("touched"))
+	})
+
+	t.Run("DynamicChainNotFound", func(t *testing.T) {
+		r := runParent(t, "${metadata.subChainId}", map[string]string{"subChainId": "not_exist_chain"})
+		assert.Equal(t, types.Failure, r.relationType)
+		assert.NotNil(t, r.err)
+	})
+
+	t.Run("UnresolvedPlaceholder", func(t *testing.T) {
+		//变量缺失，占位符求值为空，按失败结束
+		r := runParent(t, "${metadata.subChainId}", nil)
+		assert.Equal(t, types.Failure, r.relationType)
+		assert.NotNil(t, r.err)
+	})
+
+	t.Run("StaticTargetIdStillWorks", func(t *testing.T) {
+		r := runParent(t, subChainId, nil)
+		assert.Equal(t, types.Success, r.relationType)
+		assert.Equal(t, "AB", r.msg.Metadata.GetValue("touched"))
+	})
+}

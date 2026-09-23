@@ -30,7 +30,10 @@ import (
 	"strings"
 
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
+	"github.com/rulego/rulego/utils/str"
 )
 
 // init 注册RefNode组件
@@ -93,13 +96,8 @@ type RefNode struct {
 	// Config holds the node configuration including target node specification
 	Config RefNodeConfiguration
 
-	// chainId 存储外部引用的已解析链ID（本地为空）
-	// chainId stores the parsed chain ID for external references (empty for local)
-	chainId string
-
-	// nodeId 存储要引用的已解析节点ID
-	// nodeId stores the parsed node ID to reference
-	nodeId string
+	// targetId 模板：执行时求值，静态值原样输出
+	targetIdTemplate el.Template
 }
 
 // Type 返回组件类型
@@ -114,28 +112,43 @@ func (x *RefNode) New() types.Node {
 	return &RefNode{}
 }
 
-// Init 初始化组件，解析目标ID以提取链和节点标识符
+// Init 初始化组件
 // Init initializes the component.
 func (x *RefNode) Init(ruleConfig types.Config, configuration types.Configuration) error {
-	err := maps.Map2Struct(configuration, &x.Config)
-	if err != nil {
+	if err := maps.Map2Struct(configuration, &x.Config); err != nil {
 		return err
 	}
 
 	if x.Config.TargetId == "" {
 		return errors.New("targetId is empty")
 	}
+	tpl, err := el.NewTemplate(x.Config.TargetId)
+	if err != nil {
+		return err
+	}
+	x.targetIdTemplate = tpl
+	//静态值部署期即校验格式，动态值执行时求值后再解析
+	if !tpl.HasVar() {
+		chainId, nodeId := "", ""
+		return parseRefTargetId(x.Config.TargetId, &chainId, &nodeId)
+	}
+	return nil
+}
 
-	values := strings.Split(x.Config.TargetId, ":")
+// parseRefTargetId 拆分 targetId 为链 ID 与节点 ID（无冒号 = 本链节点）
+func parseRefTargetId(targetId string, chainId *string, nodeId *string) error {
+	*chainId = ""
+	*nodeId = ""
+	values := strings.Split(targetId, ":")
 	if len(values) == 1 {
-		x.nodeId = strings.TrimSpace(values[0])
-		if x.nodeId == "" {
+		*nodeId = strings.TrimSpace(values[0])
+		if *nodeId == "" {
 			return errors.New("nodeId is empty")
 		}
 	} else if len(values) == 2 {
-		x.chainId = strings.TrimSpace(values[0])
-		x.nodeId = strings.TrimSpace(values[1])
-		if x.chainId == "" || x.nodeId == "" {
+		*chainId = strings.TrimSpace(values[0])
+		*nodeId = strings.TrimSpace(values[1])
+		if *chainId == "" || *nodeId == "" {
 			return errors.New("chainId or nodeId is empty")
 		}
 	} else {
@@ -144,10 +157,33 @@ func (x *RefNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	return nil
 }
 
+// resolveTargetId 执行时求值 targetId，支持 ${msg.x}/${metadata.x}/${global.x}/${vars.x}
+// 动态取值
+func (x *RefNode) resolveTargetId(ctx types.RuleContext, msg types.RuleMsg) (string, string, error) {
+	targetId := x.Config.TargetId
+	if x.targetIdTemplate.HasVar() {
+		v, err := x.targetIdTemplate.Execute(base.NodeUtils.GetEvnAndMetadata(ctx, msg))
+		if err != nil {
+			return "", "", err
+		}
+		targetId = str.ToString(v)
+	}
+	chainId, nodeId := "", ""
+	if err := parseRefTargetId(strings.TrimSpace(targetId), &chainId, &nodeId); err != nil {
+		return "", "", err
+	}
+	return chainId, nodeId, nil
+}
+
 // OnMsg 处理消息，通过执行引用的节点来处理传入消息
 // OnMsg processes incoming messages by executing the referenced node.
 func (x *RefNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
-	ctx.TellChainNode(ctx.GetContext(), x.chainId, x.nodeId, msg, !x.Config.TellChain, func(newCtx types.RuleContext, newMsg types.RuleMsg, err error, relationType string) {
+	chainId, nodeId, err := x.resolveTargetId(ctx, msg)
+	if err != nil {
+		ctx.TellFailure(msg, err)
+		return
+	}
+	ctx.TellChainNode(ctx.GetContext(), chainId, nodeId, msg, !x.Config.TellChain, func(newCtx types.RuleContext, newMsg types.RuleMsg, err error, relationType string) {
 		if err != nil {
 			ctx.TellFailure(msg, err)
 		} else {
@@ -164,7 +200,7 @@ func (x *RefNode) Destroy() {
 // Def returns the component form definition
 func (x *RefNode) Def() types.ComponentForm {
 	return types.ComponentForm{
-		Desc:          "Reference and execute a node from same or different rule chain. Format: {nodeId} or {chainId}:{nodeId}. tellChain=true executes entire sub-chain",
+		Desc:          "Reference and execute a node from same or different rule chain. Format: {nodeId} or {chainId}:{nodeId}. targetId supports ${msg.x}/${metadata.x}/${global.x}/${vars.x} dynamic values. tellChain=true executes entire sub-chain",
 		RelationTypes: &[]string{types.Success, types.Failure, types.True, types.False},
 	}
 }

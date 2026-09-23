@@ -26,12 +26,15 @@ package flow
 //        }
 //  }
 //targetId 支持 {chainId}:{nodeId} 格式，从子链指定节点开始执行，例如 "sub_chain_01:node_2"
+//targetId 支持 ${} 动态取值，如 "${metadata.subChain}"，可用变量同 el.ExecuteTemplate
 import (
 	"errors"
 	"strings"
 	"sync"
 
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/components/base"
+	"github.com/rulego/rulego/utils/el"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/str"
 )
@@ -47,7 +50,8 @@ func init() {
 type ChainNodeConfiguration struct {
 	// TargetId is the sub-rule chain ID to execute.
 	// Format: {chainId} executes the whole chain, {chainId}:{nodeId} starts from the given node.
-	TargetId string `json:"targetId" label:"Target Chain ID" desc:"Sub-rule chain ID to execute. Format: {chainId} or {chainId}:{nodeId} to start from a specific node" required:"true" component:"{\"type\":\"RuleChainSelector\",\"nodePicker\":true}"`
+	// Supports ${} dynamic values resolved at execution time, e.g. "${metadata.subChainId}".
+	TargetId string `json:"targetId" label:"Target Chain ID" desc:"Sub-rule chain ID to execute. Format: {chainId} or {chainId}:{nodeId} to start from a specific node. Supports ${msg.x}/${metadata.x}/${global.x}/${vars.x} dynamic values" required:"true" component:"{\"type\":\"RuleChainSelector\",\"nodePicker\":true}"`
 	// Extend: true=inherit sub-chain relations without merging, false=merge all outputs.
 	Extend bool `json:"extend" label:"Extend" desc:"true=forward each sub-chain output directly, false=merge all outputs into single result"`
 }
@@ -90,10 +94,8 @@ type ChainNode struct {
 	// Config holds the node configuration including target chain ID and execution mode
 	Config ChainNodeConfiguration
 
-	// chainId 目标链 ID（targetId 去掉起点部分）
-	chainId string
-	// startNodeId 起始节点 ID，targetId 不带起点时为空
-	startNodeId string
+	// targetId 模板：执行时求值，静态值原样输出
+	targetIdTemplate el.Template
 }
 
 // Type 返回组件类型
@@ -114,47 +116,78 @@ func (x *ChainNode) Init(ruleConfig types.Config, configuration types.Configurat
 	if err := maps.Map2Struct(configuration, &x.Config); err != nil {
 		return err
 	}
-	x.chainId = ""
-	x.startNodeId = ""
-	targetId := strings.TrimSpace(x.Config.TargetId)
 	//空 targetId 允许初始化（画布先放置后配置），执行时按链不存在走 Failure
-	if targetId == "" {
+	if x.Config.TargetId == "" {
 		return nil
 	}
+	tpl, err := el.NewTemplate(x.Config.TargetId)
+	if err != nil {
+		return err
+	}
+	x.targetIdTemplate = tpl
+	//静态值部署期即校验格式，动态值执行时求值后再解析
+	if !tpl.HasVar() {
+		_, _, err = parseTargetId(strings.TrimSpace(x.Config.TargetId))
+		return err
+	}
+	return nil
+}
+
+// parseTargetId 拆分 targetId 为链 ID 与起点节点 ID
+func parseTargetId(targetId string) (chainId string, startNodeId string, err error) {
 	values := strings.Split(targetId, ":")
 	switch len(values) {
 	case 1:
-		x.chainId = values[0]
+		return values[0], "", nil
 	case 2:
-		x.chainId = strings.TrimSpace(values[0])
-		x.startNodeId = strings.TrimSpace(values[1])
-		if x.chainId == "" || x.startNodeId == "" {
-			return errors.New("invalid targetId format, expected 'chainId' or 'chainId:nodeId'")
+		chainId = strings.TrimSpace(values[0])
+		startNodeId = strings.TrimSpace(values[1])
+		if chainId == "" || startNodeId == "" {
+			return "", "", errors.New("invalid targetId format, expected 'chainId' or 'chainId:nodeId'")
 		}
+		return chainId, startNodeId, nil
 	default:
-		return errors.New("invalid targetId format, expected 'chainId' or 'chainId:nodeId'")
+		return "", "", errors.New("invalid targetId format, expected 'chainId' or 'chainId:nodeId'")
 	}
-	return nil
+}
+
+// resolveTargetId 执行时求值 targetId，支持 ${msg.x}/${metadata.x}/${global.x}/${vars.x}
+// 动态取值
+func (x *ChainNode) resolveTargetId(ctx types.RuleContext, msg types.RuleMsg) (string, string, error) {
+	targetId := x.Config.TargetId
+	if x.targetIdTemplate.HasVar() {
+		v, err := x.targetIdTemplate.Execute(base.NodeUtils.GetEvnAndMetadata(ctx, msg))
+		if err != nil {
+			return "", "", err
+		}
+		targetId = str.ToString(v)
+	}
+	return parseTargetId(strings.TrimSpace(targetId))
 }
 
 // OnMsg 处理消息，通过执行配置的子规则链来处理传入消息
 // OnMsg processes incoming messages by executing the configured sub-rule chain.
 func (x *ChainNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	chainId, startNodeId, err := x.resolveTargetId(ctx, msg)
+	if err != nil {
+		ctx.TellFailure(msg, err)
+		return
+	}
 	opts := make([]types.RuleContextOption, 0, 3)
 	opts = append(opts, types.WithContext(ctx.GetContext()))
-	if x.startNodeId != "" {
-		opts = append(opts, types.WithStartNode(x.startNodeId))
+	if startNodeId != "" {
+		opts = append(opts, types.WithStartNode(startNodeId))
 	}
 	if x.Config.Extend {
-		x.TellFlowAndNoMerge(ctx, msg, opts...)
+		x.TellFlowAndNoMerge(ctx, msg, chainId, opts...)
 	} else {
-		x.TellFlowAndMerge(ctx, msg, opts...)
+		x.TellFlowAndMerge(ctx, msg, chainId, opts...)
 	}
 }
 
 // TellFlowAndNoMerge 执行子规则链而不合并结果，每个输出单独转发
 // TellFlowAndNoMerge executes the sub-rule chain without merging results.
-func (x *ChainNode) TellFlowAndNoMerge(ctx types.RuleContext, msg types.RuleMsg, opts ...types.RuleContextOption) {
+func (x *ChainNode) TellFlowAndNoMerge(ctx types.RuleContext, msg types.RuleMsg, chainId string, opts ...types.RuleContextOption) {
 	opts = append(opts, types.WithOnEnd(func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
 		if err != nil {
 			ctx.TellFailure(onEndMsg, err)
@@ -163,12 +196,12 @@ func (x *ChainNode) TellFlowAndNoMerge(ctx types.RuleContext, msg types.RuleMsg,
 		}
 
 	}))
-	ctx.TellFlow(x.chainId, msg, opts...)
+	ctx.TellFlow(chainId, msg, opts...)
 }
 
 // TellFlowAndMerge 执行子规则链并将所有结果合并为单个输出
 // TellFlowAndMerge executes the sub-rule chain and merges all results into a single output.
-func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg, opts ...types.RuleContextOption) {
+func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg, chainId string, opts ...types.RuleContextOption) {
 	var wrapperMsg = msg.Copy()
 	var msgs []types.WrapperMsg
 	var targetRelationType = types.Success
@@ -217,7 +250,7 @@ func (x *ChainNode) TellFlowAndMerge(ctx types.RuleContext, msg types.RuleMsg, o
 			ctx.TellSuccess(wrapperMsg)
 		}
 	}))
-	ctx.TellFlow(x.chainId, msg, opts...)
+	ctx.TellFlow(chainId, msg, opts...)
 }
 
 // Destroy 清理资源
@@ -227,5 +260,5 @@ func (x *ChainNode) Destroy() {
 
 // Desc returns the component description
 func (x *ChainNode) Desc() string {
-	return "Execute a sub-rule chain by targetId. Format: {chainId} or {chainId}:{nodeId} to start from a specific node. extend=true forwards each output directly, false merges all outputs. Routes to Success/Failure"
+	return "Execute a sub-rule chain by targetId. Format: {chainId} or {chainId}:{nodeId} to start from a specific node. targetId supports ${msg.x}/${metadata.x}/${global.x}/${vars.x} dynamic values. extend=true forwards each output directly, false merges all outputs. Routes to Success/Failure"
 }

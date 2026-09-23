@@ -40,8 +40,9 @@ func TestRefNode(t *testing.T) {
 		}, Registry)
 		assert.Nil(t, err)
 		refNode := node.(*RefNode)
-		assert.Equal(t, "test_node", refNode.nodeId)
-		assert.Equal(t, "", refNode.chainId)
+		assert.Equal(t, "test_node", refNode.Config.TargetId)
+		assert.NotNil(t, refNode.targetIdTemplate)
+		assert.False(t, refNode.targetIdTemplate.HasVar())
 	})
 
 	t.Run("DefaultConfig", func(t *testing.T) {
@@ -66,8 +67,7 @@ func TestRefNode(t *testing.T) {
 			}, Registry)
 			assert.Nil(t, err)
 			refNode := node.(*RefNode)
-			assert.Equal(t, "chain01", refNode.chainId)
-			assert.Equal(t, "node01", refNode.nodeId)
+			assert.Equal(t, "chain01:node01", refNode.Config.TargetId)
 		})
 
 		// Test valid local node reference
@@ -77,8 +77,7 @@ func TestRefNode(t *testing.T) {
 			}, Registry)
 			assert.Nil(t, err)
 			refNode := node.(*RefNode)
-			assert.Equal(t, "", refNode.chainId)
-			assert.Equal(t, "node01", refNode.nodeId)
+			assert.Equal(t, "node01", refNode.Config.TargetId)
 		})
 
 		// Test message handling with non-existent target nodes
@@ -158,4 +157,100 @@ func TestRefNode(t *testing.T) {
 			})
 		})
 	})
+}
+
+// TestRefNodeDynamicTargetIdInit 含 ${} 的 targetId 部署期只编译模板，执行时求值
+func TestRefNodeDynamicTargetIdInit(t *testing.T) {
+	node, err := test.CreateAndInitNode("ref", types.Configuration{
+		"targetId": "${metadata.targetChain}:node_x",
+	}, Registry)
+	assert.Nil(t, err)
+	refNode := node.(*RefNode)
+	assert.NotNil(t, refNode.targetIdTemplate)
+	assert.True(t, refNode.targetIdTemplate.HasVar())
+}
+
+// TestRefNodeResolveTargetId 执行时求值：metadata 驱动 chainId/nodeId
+func TestRefNodeResolveTargetId(t *testing.T) {
+	node, err := test.CreateAndInitNode("ref", types.Configuration{
+		"targetId": "${metadata.targetChain}:node_x",
+	}, Registry)
+	assert.Nil(t, err)
+	refNode := node.(*RefNode)
+
+	ctx := test.NewRuleContextFull(types.NewConfig(), refNode, nil, nil)
+	metadata := types.NewMetadata()
+	metadata.PutValue("targetChain", "chain_a")
+	chainId, nodeId, err := refNode.resolveTargetId(ctx, types.NewMsg(0, "T", types.JSON, metadata, "{}"))
+	assert.Nil(t, err)
+	assert.Equal(t, "chain_a", chainId)
+	assert.Equal(t, "node_x", nodeId)
+
+	//变量缺失：占位符求值为空，解析报错
+	metadata = types.NewMetadata()
+	_, _, err = refNode.resolveTargetId(ctx, types.NewMsg(0, "T", types.JSON, metadata, "{}"))
+	assert.NotNil(t, err)
+}
+
+// TestRefNodeDynamicLocalRef 本链引用同样支持 ${} 动态指定节点
+func TestRefNodeDynamicLocalRef(t *testing.T) {
+	node, err := test.CreateAndInitNode("ref", types.Configuration{
+		"targetId": "${metadata.targetNodeId}",
+	}, Registry)
+	assert.Nil(t, err)
+
+	testMsg := test.Msg{
+		MetaData:   types.BuildMetadata(map[string]string{"targetNodeId": "node_x"}),
+		MsgType:    "ACTIVITY_EVENT2",
+		Data:       "{\"temperature\":60}",
+		AfterSleep: time.Millisecond * 200,
+	}
+
+	type testResult struct {
+		relationType string
+		msg          types.RuleMsg
+	}
+	resultChan := make(chan testResult, 1)
+	callback := func(msg types.RuleMsg, relationType string, err error) {
+		resultChan <- testResult{relationType: relationType, msg: msg}
+	}
+
+	test.NodeOnMsgWithChildrenAndConfig(t, types.NewConfig(), node, []test.Msg{testMsg},
+		map[string]types.Node{"node_x": &markNode{}}, callback)
+
+	select {
+	case result := <-resultChan:
+		assert.Equal(t, types.Success, result.relationType)
+		assert.Equal(t, "X", result.msg.Metadata.GetValue("touched"))
+	case <-time.After(time.Second):
+		t.Fatal("Test timed out")
+	}
+}
+
+//markNode 测试桩：向 metadata.touched 追加标记后走 Success
+type markNode struct{}
+
+func (n *markNode) Type() string                                              { return "markNode" }
+func (n *markNode) New() types.Node                                           { return &markNode{} }
+func (n *markNode) Init(_ types.Config, _ types.Configuration) error          { return nil }
+func (n *markNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	msg.Metadata.PutValue("touched", msg.Metadata.GetValue("touched")+"X")
+	ctx.TellSuccess(msg)
+}
+func (n *markNode) Destroy()                                                 {}
+func (n *markNode) Def() types.ComponentForm                                 { return types.ComponentForm{} }
+
+// TestParseRefTargetId 静态 targetId 拆分
+func TestParseRefTargetId(t *testing.T) {
+	chainId, nodeId := "", ""
+	assert.Nil(t, parseRefTargetId("chain01:node01", &chainId, &nodeId))
+	assert.Equal(t, "chain01", chainId)
+	assert.Equal(t, "node01", nodeId)
+
+	assert.Nil(t, parseRefTargetId("node01", &chainId, &nodeId))
+	assert.Equal(t, "", chainId)
+	assert.Equal(t, "node01", nodeId)
+
+	assert.NotNil(t, parseRefTargetId("a:b:c", &chainId, &nodeId))
+	assert.NotNil(t, parseRefTargetId(":node01", &chainId, &nodeId))
 }
