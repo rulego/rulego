@@ -85,8 +85,12 @@ func TestParser(t *testing.T) {
 	}`), &expectMap)
 	assert.Equal(t, expectMap, targetMap)
 
-	_, err = jsonParser.EncodeRuleChain(map[interface{}]interface{}{})
+	// Channel values are rejected by json.Marshal on every Go version, so this
+	// reliably exercises the Marshal error path (an empty map[interface{}]interface{}
+	// stopped erroring on go1.27+, where map key types are resolved per entry).
+	unsupported := struct{ Ch chan int }{Ch: make(chan int)}
+	_, err = jsonParser.EncodeRuleChain(unsupported)
 	assert.NotNil(t, err)
-	_, err = jsonParser.EncodeRuleNode(map[interface{}]interface{}{})
+	_, err = jsonParser.EncodeRuleNode(unsupported)
 	assert.NotNil(t, err)
 }
