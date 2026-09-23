@@ -147,4 +147,10 @@ const (
 	// 供 Failure 分支下游组件通过 ${metadata.errorMsg} 消费
 	// KeyErrorMsg metadata key written on node failure, consumable via ${metadata.errorMsg} in the Failure branch
 	KeyErrorMsg = "errorMsg"
+	// KeyFromChainId 跨链调用（TellFlow/TellChainNode）时写入 metadata 的调用方规则链 ID，取直接调用方（上一跳）
+	// KeyFromChainId metadata key holding the caller chain ID written when a message crosses chains, the direct caller only
+	KeyFromChainId = "fromChainId"
+	// KeyFromNodeId 跨链调用时写入 metadata 的调用方节点 ID（flow/ref 等触发节点）
+	// KeyFromNodeId metadata key holding the caller node ID written when a message crosses chains
+	KeyFromNodeId = "fromNodeId"
 )

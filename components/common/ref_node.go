@@ -44,7 +44,7 @@ func init() {
 type RefNodeConfiguration struct {
 	// TargetId is the target node ID to reference.
 	// Format: {nodeId} for local nodes, {chainId}:{nodeId} for external chain nodes.
-	TargetId string `json:"targetId" label:"Target ID" desc:"Target node ID. Format: {nodeId} or {chainId}:{nodeId}" required:"true"`
+	TargetId string `json:"targetId" label:"Target ID" desc:"Target node ID. Format: {nodeId} or {chainId}:{nodeId}" required:"true" component:"{\"type\":\"RuleChainSelector\",\"nodePicker\":true,\"allowSelf\":true,\"requireNode\":true}"`
 	// TellChain: true executes the entire chain from TargetId, false executes only the target node.
 	TellChain bool `json:"tellChain" label:"Tell Chain" desc:"true=execute entire chain from target, false=execute target node only"`
 }

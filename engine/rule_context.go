@@ -681,10 +681,23 @@ func (ctx *DefaultRuleContext) TellFlow(ruleChainId string, msg types.RuleMsg, o
 		if ctx.IsDebugMode() {
 			opts = append([]types.RuleContextOption{types.WithDebugMode(true)}, opts...)
 		}
-		e.OnMsg(msg, opts...)
+		e.OnMsg(ctx.withCrossChainSource(msg), opts...)
 	} else {
 		ctx.TellFailure(msg, fmt.Errorf("ruleChain id=%s not found: %w", ruleChainId, types.ErrRuleChainNotFound))
 	}
+}
+
+// withCrossChainSource 跨链前在消息副本的 metadata 记录调用方链 ID 与节点 ID。
+// 单子节点路径传递的是同一消息实例，必须拷贝后再写键，否则会写穿调用方在途消息。
+func (ctx *DefaultRuleContext) withCrossChainSource(msg types.RuleMsg) types.RuleMsg {
+	msg = msg.Copy()
+	if ctx.ruleChainCtx != nil {
+		msg.Metadata.PutValue(types.KeyFromChainId, ctx.ruleChainCtx.Id.Id)
+	}
+	if nodeId := ctx.GetSelfId(); nodeId != "" {
+		msg.Metadata.PutValue(types.KeyFromNodeId, nodeId)
+	}
+	return msg
 }
 
 // TellNode 从指定节点开始执行，如果 skipTellNext=true 则只执行当前节点，不通知下一个节点。
@@ -741,7 +754,7 @@ func (ctx *DefaultRuleContext) tellOtherChainNode(chanCtx context.Context, ruleC
 			}
 			return
 		}
-		rootCtx.TellNode(chanCtx, nodeId, msg, skipTellNext, onEnd, onAllNodeCompleted)
+		rootCtx.TellNode(chanCtx, nodeId, ctx.withCrossChainSource(msg), skipTellNext, onEnd, onAllNodeCompleted)
 	} else {
 		if onEnd != nil {
 			onEnd(ctx, msg, fmt.Errorf("ruleChain id=%s not found: %w", ruleChainId, types.ErrRuleChainNotFound), types.Failure)
@@ -1084,6 +1097,13 @@ func (ctx *DefaultRuleContext) tellSelf(msg types.RuleMsg, err error, relationTy
 			})
 		}
 	} else {
+		//WithStartNode 指定的起点不存在时 self 为空、错误留在 ctx.err，公开 TellNext 不传 err，这里补上并按 Failure 结束
+		if err == nil {
+			err = ctx.err
+		}
+		if err != nil && relationType == "" {
+			relationType = types.Failure
+		}
 		ctx.DoOnEnd(msg, err, relationType)
 	}
 }
