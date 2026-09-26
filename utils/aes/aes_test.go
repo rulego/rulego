@@ -17,8 +17,12 @@
 package aes
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
+	"encoding/hex"
+	"io"
 	"strings"
 	"testing"
 
@@ -131,5 +135,67 @@ func TestDecryptInvalidInput(t *testing.T) {
 	}
 	if _, err := Decrypt(encrypted, []byte("wrong-key")); err == nil {
 		t.Error("Decrypt with wrong key should fail")
+	}
+}
+
+// Padding bytes greater than the block size must be rejected before the
+// content check touches out-of-range indices.
+func TestDecryptPaddingTooLarge(t *testing.T) {
+	key := []byte("secret")
+	block, err := aes.NewCipher(generateKey(key))
+	if err != nil {
+		t.Fatal(err)
+	}
+	iv := make([]byte, aes.BlockSize)
+	// two blocks of plaintext ending in 0x11 (17 > block size)
+	padded := bytes.Repeat([]byte{0x00}, 2*aes.BlockSize)
+	padded[len(padded)-1] = byte(aes.BlockSize) + 1
+
+	ciphertext := make([]byte, aes.BlockSize+len(padded))
+	copy(ciphertext, iv)
+	cipher.NewCBCEncrypter(block, iv).CryptBlocks(ciphertext[aes.BlockSize:], padded)
+
+	_, err = Decrypt(hex.EncodeToString(ciphertext), key)
+	if err == nil {
+		t.Error("Decrypt should reject padding larger than the block size")
+	}
+}
+
+// Padding length in valid range but content bytes inconsistent must be rejected.
+func TestDecryptPaddingBytesMismatch(t *testing.T) {
+	key := []byte("secret")
+	block, err := aes.NewCipher(generateKey(key))
+	if err != nil {
+		t.Fatal(err)
+	}
+	iv := make([]byte, aes.BlockSize)
+	// last byte says "2 bytes of padding" but the byte before it is not padding
+	padded := bytes.Repeat([]byte{0xAA}, 2*aes.BlockSize)
+	padded[len(padded)-1] = 0x02
+	padded[len(padded)-2] = 0x01
+
+	ciphertext := make([]byte, aes.BlockSize+len(padded))
+	copy(ciphertext, iv)
+	cipher.NewCBCEncrypter(block, iv).CryptBlocks(ciphertext[aes.BlockSize:], padded)
+
+	_, err = Decrypt(hex.EncodeToString(ciphertext), key)
+	if err == nil {
+		t.Error("Decrypt should reject inconsistent padding bytes")
+	}
+}
+
+type failReader struct{}
+
+func (failReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+
+// Encrypt must surface entropy source failures instead of panicking.
+func TestEncryptRandReaderFailure(t *testing.T) {
+	orig := rand.Reader
+	rand.Reader = failReader{}
+	defer func() { rand.Reader = orig }()
+
+	_, err := Encrypt("data", []byte("secret"))
+	if err == nil {
+		t.Error("Encrypt should fail when the entropy source fails")
 	}
 }

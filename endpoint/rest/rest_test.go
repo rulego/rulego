@@ -2,13 +2,19 @@ package rest
 
 import (
 	"fmt"
+	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/components/action"
@@ -20,7 +26,19 @@ import (
 )
 
 var testdataFolder = "../../testdata/rule"
-var testServer = ":9090"
+
+// testServer uses an OS-assigned port: the historical fixed :9090 collides
+// with unrelated services on developer machines.
+var testServer = func() string {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return ":9090"
+	}
+	defer ln.Close()
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+	return ":" + port
+}()
+
 var testConfigServer = ":9091"
 
 type countingResponseWriter struct {
@@ -268,7 +286,9 @@ func sendMsg(t *testing.T, url, method string, msg types.RuleMsg, ctx types.Rule
 func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		wg.Done()
+		return
 	}
 	config := engine.NewConfig(types.WithDefaultPool())
 	//注册规则链
@@ -441,4 +461,325 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	<-stop
 	restEndpoint.Destroy()
 	wg.Done()
+}
+
+// freePort reserves an ephemeral port and releases it for the test server.
+func freePort(t *testing.T) string {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	return ln.Addr().String()
+}
+
+// Metadata methods and path conversion.
+func TestRestMetaMethods(t *testing.T) {
+	ep := &Endpoint{}
+	assert.Equal(t, "endpoint", ep.Category())
+	def := ep.Def()
+	assert.True(t, def.Desc != "")
+	assert.NotNil(t, def.RouterForm)
+	assert.NotNil(t, def.RouterForm.From)
+
+	assert.Equal(t, ":6333", ep.New().(*Rest).Config.Server)
+
+	assert.Equal(t, "/api/device/:id", ep.convertPathParams("/api/device/{id}"))
+	assert.Equal(t, "/api/files/*filepath", ep.convertPathParams("/api/files/*filepath"))
+	assert.Equal(t, "/plain", ep.convertPathParams("/plain"))
+}
+
+// Request/Response message branches driven by httptest requests.
+func TestRestMessageUnitBranches(t *testing.T) {
+	t.Run("RequestNil", func(t *testing.T) {
+		request := &RequestMessage{}
+		request.SetStatusCode(500)
+		assert.Nil(t, request.Headers())
+		assert.Equal(t, "", request.From())
+		assert.Equal(t, "", request.GetParam("k"))
+		assert.Nil(t, request.Request())
+		assert.Nil(t, request.Response())
+	})
+
+	t.Run("RequestGet", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api?aa=xx&bb=1&bb=2", nil)
+		request := &RequestMessage{
+			request:  req,
+			response: httptest.NewRecorder(),
+			Params:   httprouter.Params{{Key: "id", Value: "42"}},
+		}
+		assert.Equal(t, "/api?aa=xx&bb=1&bb=2", request.From())
+		// Path parameter wins over query string.
+		assert.Equal(t, "42", request.GetParam("id"))
+		assert.Equal(t, "xx", request.GetParam("aa"))
+		msg := request.GetMsg()
+		assert.Equal(t, types.JSON, msg.GetDataType())
+		// Query is stringified; assert on stable fragments only.
+		assert.True(t, strings.Contains(msg.GetData(), "xx"))
+		assert.True(t, strings.Contains(msg.GetData(), "bb"))
+		assert.NotNil(t, request.Request())
+		assert.NotNil(t, request.Response())
+	})
+
+	t.Run("RequestPostJson", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/api", strings.NewReader(`{"a":1}`))
+		req.Header.Set(ContentTypeKey, JsonContextType)
+		request := &RequestMessage{request: req}
+		msg := request.GetMsg()
+		assert.Equal(t, types.JSON, msg.GetDataType())
+		assert.Equal(t, `{"a":1}`, msg.GetData())
+		// Body is cached after the first read.
+		assert.Equal(t, `{"a":1}`, string(request.Body()))
+	})
+
+	t.Run("RequestPostText", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/api", strings.NewReader("plain"))
+		request := &RequestMessage{request: req}
+		msg := request.GetMsg()
+		assert.Equal(t, types.TEXT, msg.GetDataType())
+		assert.Equal(t, "plain", msg.GetData())
+	})
+
+	t.Run("ResponseNilWriter", func(t *testing.T) {
+		response := &ResponseMessage{}
+		assert.Nil(t, response.Headers())
+		assert.Equal(t, "", response.From())
+		assert.Equal(t, "", response.GetParam("k"))
+		assert.Nil(t, response.Request())
+		assert.Nil(t, response.Response())
+		// Mutators on a nil writer are no-ops.
+		response.AddHeader("a", "b")
+		response.SetHeader("a", "b")
+		response.DelHeader("a")
+		// Flush with no writer must not panic.
+		response.Flush()
+	})
+
+	t.Run("ResponseWithRecorder", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api?aa=xx", nil)
+		response := &ResponseMessage{request: req, response: recorder}
+		assert.Equal(t, "/api?aa=xx", response.From())
+		assert.Equal(t, "xx", response.GetParam("aa"))
+		assert.NotNil(t, response.Headers())
+		assert.NotNil(t, response.Request())
+		assert.NotNil(t, response.Response())
+		// Empty body must not call Write: the recorder body stays empty.
+		response.SetBody([]byte{})
+		assert.Equal(t, "", recorder.Body.String())
+		// Flush delegates to the recorder's Flusher.
+		response.Flush()
+	})
+}
+
+// CORS: the AllowCors config installs a GlobalOPTIONS preflight handler and an
+// origin header interceptor for normal requests.
+func TestRestCors(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	ep := &Endpoint{}
+	assert.Nil(t, ep.Init(config, types.Configuration{"server": freePort(t), "allowCors": true}))
+	defer ep.Destroy()
+
+	var hit bool
+	router := impl.NewRouter().From("/cors").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		hit = true
+		exchange.Out.SetBody([]byte("ok"))
+		return true
+	}).End()
+	_, err := ep.AddRouter(router, "GET")
+	assert.Nil(t, err)
+
+	// Preflight.
+	preflight := httptest.NewRequest(http.MethodOptions, "/cors", nil)
+	preflight.Header.Set(HeaderKeyAccessControlRequestMethod, http.MethodGet)
+	preflightRecorder := httptest.NewRecorder()
+	ep.Router().ServeHTTP(preflightRecorder, preflight)
+	assert.Equal(t, http.StatusNoContent, preflightRecorder.Code)
+	assert.Equal(t, "*", preflightRecorder.Header().Get(HeaderKeyAccessControlAllowOrigin))
+
+	// Normal request carries the CORS origin header via the interceptor.
+	get := httptest.NewRequest(http.MethodGet, "/cors", nil)
+	getRecorder := httptest.NewRecorder()
+	ep.Router().ServeHTTP(getRecorder, get)
+	assert.True(t, hit)
+	assert.Equal(t, "*", getRecorder.Header().Get(HeaderKeyAccessControlAllowOrigin))
+	assert.Equal(t, "ok", getRecorder.Body.String())
+}
+
+// Disabled routers return 404; a malformed route path surfaces the panic as
+// an error from AddRouter.
+func TestRestHandlerDisabledAndPanic(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	ep := &Endpoint{}
+	assert.Nil(t, ep.Init(config, types.Configuration{"server": freePort(t)}))
+	defer ep.Destroy()
+
+	router := impl.NewRouter().From("/gone").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Out.SetBody([]byte("never"))
+		return true
+	}).End()
+	routerId, err := ep.AddRouter(router, "GET")
+	assert.Nil(t, err)
+	assert.Nil(t, ep.RemoveRouter(routerId))
+
+	recorder := httptest.NewRecorder()
+	ep.Router().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/gone", nil))
+	assert.Equal(t, http.StatusNotFound, recorder.Code)
+
+	// A path without a leading slash makes httprouter panic; AddRouter recovers.
+	bad := impl.NewRouter().From("no-slash").End()
+	_, err = ep.AddRouter(bad, "GET")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "addRouter err"))
+}
+
+// Server lifecycle on an ephemeral port: Start/Started/GetServer/Restart/Close.
+func TestRestServerLifecycle(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	addr := freePort(t)
+
+	ep := &Endpoint{}
+	assert.Nil(t, ep.Init(config, types.Configuration{"server": addr, "readTimeout": 5, "writeTimeout": 5, "idleTimeout": 5, "disableKeepalive": true}))
+	// Before Start there is no server yet.
+	assert.False(t, ep.Started())
+	assert.Nil(t, ep.GetServer())
+
+	router := impl.NewRouter().From("/echo").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Out.SetBody([]byte("v1"))
+		return true
+	}).End()
+	_, err := ep.AddRouter(router, "GET")
+	assert.Nil(t, err)
+	// POST helper registers with the POST method.
+	postRouter := impl.NewRouter().From("/echo").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Out.SetBody([]byte("posted"))
+		return true
+	}).End()
+	_, _ = ep.AddRouter(postRouter, "POST")
+
+	assert.Nil(t, ep.Start())
+	assert.True(t, ep.Started())
+	server := ep.GetServer()
+	assert.NotNil(t, server)
+	assert.Equal(t, 5*time.Second, server.ReadTimeout)
+	assert.Equal(t, 5*time.Second, server.WriteTimeout)
+	assert.Equal(t, 5*time.Second, server.IdleTimeout)
+
+	getBody := func() string {
+		resp, err := http.Get("http://" + addr + "/echo")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		return string(body)
+	}
+	assert.Equal(t, "v1", getBody())
+
+	resp, err := http.Post("http://"+addr+"/echo", "text/plain", strings.NewReader("x"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+
+	// Restart keeps serving (routers re-registered, body version unchanged).
+	assert.Nil(t, ep.Restart())
+	assert.True(t, ep.Started())
+	assert.Equal(t, "v1", getBody())
+
+	// A second instance with the same plain address keeps its own (nil) server:
+	// sharing only happens through "@instanceId" style addresses.
+	ep2 := &Endpoint{}
+	assert.Nil(t, ep2.Init(config, types.Configuration{"server": addr}))
+	assert.Nil(t, ep2.GetServer())
+
+	assert.Nil(t, ep.Close())
+	assert.False(t, ep.Started())
+	ep.Destroy()
+	ep2.Destroy()
+}
+
+// Static file mappings serve directory contents and survive a restart.
+func TestRestRegisterStaticFiles(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "index.html")
+	if err := os.WriteFile(file, []byte("static content"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	config := engine.NewConfig(types.WithDefaultPool())
+	addr := freePort(t)
+	ep := &Endpoint{}
+	assert.Nil(t, ep.Init(config, types.Configuration{"server": addr}))
+	// Two mappings exercise the multi-entry split; entries without "=" are ignored.
+	ep.RegisterStaticFiles("/static=" + dir + ",/files=" + dir + ",ignored-entry")
+	router := impl.NewRouter().From("/api").End()
+	_, _ = ep.AddRouter(router, "GET")
+	assert.Nil(t, ep.Start())
+	defer ep.Destroy()
+
+	fetch := func(url string) (int, string) {
+		resp, err := http.Get(url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(body)
+	}
+	code, body := fetch("http://" + addr + "/static/index.html")
+	assert.Equal(t, http.StatusOK, code)
+	assert.Equal(t, "static content", body)
+
+	code, body = fetch("http://" + addr + "/files/index.html")
+	assert.Equal(t, http.StatusOK, code)
+	assert.Equal(t, "static content", body)
+
+	// Restart re-registers the resource mapping.
+	assert.Nil(t, ep.Restart())
+	code, body = fetch("http://" + addr + "/static/index.html")
+	assert.Equal(t, http.StatusOK, code)
+	assert.Equal(t, "static content", body)
+}
+
+// Init fails on configuration values that cannot map onto Config.
+func TestRestInitError(t *testing.T) {
+	ep := &Endpoint{}
+	err := ep.Init(engine.NewConfig(), types.Configuration{"readTimeout": "not-a-number"})
+	assert.NotNil(t, err)
+}
+
+// Listen falls back to the default HTTP/HTTPS ports when the address is empty.
+// Binding the default port may fail in restricted environments; the fallback
+// branch is covered either way.
+func TestRestListenDefaultAddr(t *testing.T) {
+	ep := &Rest{Server: &http.Server{}}
+	if ln, err := ep.Listen(); err == nil {
+		ln.Close()
+	}
+	epTLS := &Rest{Server: &http.Server{}, Config: Config{CertFile: "c.pem", CertKeyFile: "k.pem"}}
+	if ln, err := epTLS.Listen(); err == nil {
+		ln.Close()
+	}
+}
+
+// A configuration with certificate files drives the TLS branch of startServer
+// (ServeTLS fails on the bogus files but the branch and events still run).
+func TestRestStartTLSBranch(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	ep := &Endpoint{}
+	assert.Nil(t, ep.Init(config, types.Configuration{
+		"server":      freePort(t),
+		"certFile":    "no-such-cert.pem",
+		"certKeyFile": "no-such-key.pem",
+	}))
+	var events []string
+	ep.SetOnEvent(func(event string, params ...interface{}) {
+		events = append(events, event)
+	})
+	assert.Nil(t, ep.Start())
+	time.Sleep(300 * time.Millisecond)
+	assert.True(t, ep.Started())
+	ep.Destroy()
+	assert.False(t, ep.Started())
 }

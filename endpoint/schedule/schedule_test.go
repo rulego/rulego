@@ -341,3 +341,103 @@ func TestScheduleClusterOnceChainIsolation(t *testing.T) {
 	n := atomic.LoadInt64(&count)
 	assert.True(t, n >= 5 && n <= 8, fmt.Sprintf("expected 5-8 ticks for two chains, got %d", n))
 }
+
+// Metadata methods and message no-op branches.
+func TestScheduleMetaMethods(t *testing.T) {
+	ep := &Endpoint{}
+	assert.Equal(t, "endpoint", ep.Category())
+	def := ep.Def()
+	assert.True(t, def.Desc != "")
+	assert.NotNil(t, def.RouterForm)
+	assert.NotNil(t, def.RouterForm.From)
+	assert.NotNil(t, def.RouterForm.Params)
+
+	fresh := ep.New().(*Schedule)
+	assert.True(t, fresh.Id() != "")
+	assert.Equal(t, Type, fresh.Type())
+}
+
+// handler converts router params into the emitted message: body, data type
+// (typed/string/other) and metadata (all supported shapes).
+func TestScheduleHandlerParams(t *testing.T) {
+	config := types.NewConfig()
+	ep := &Endpoint{}
+	assert.Nil(t, ep.Init(config, nil))
+
+	type captured struct {
+		body string
+		dt   types.DataType
+		meta map[string]string
+	}
+	run := func(params []interface{}) captured {
+		var got captured
+		router := impl.NewRouter().From("*/1 * * * * *").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+			msg := exchange.In.GetMsg()
+			got.body = msg.GetData()
+			got.dt = msg.GetDataType()
+			got.meta = msg.Metadata.GetReadOnlyValues()
+			return true
+		}).End()
+		router.SetParams(params...)
+		ep.handler(router)
+		return got
+	}
+
+	cases := []struct {
+		name     string
+		params   []interface{}
+		wantBody string
+		wantType types.DataType
+		wantMeta map[string]string // subset that must be present
+	}{
+		{"no params", nil, "", types.JSON, nil},
+		{"nil body", []interface{}{nil}, "", types.JSON, nil},
+		{"body only", []interface{}{"B0"}, "B0", types.JSON, nil},
+		{"nil dataType", []interface{}{"B0", nil}, "B0", types.JSON, nil},
+		{"dataType string", []interface{}{"B1", "TEXT"}, "B1", types.TEXT, nil},
+		{"dataType typed", []interface{}{"B2", types.BINARY}, "B2", types.BINARY, nil},
+		{"dataType other", []interface{}{"B3", 42}, "B3", types.DataType("42"), nil},
+		{"metadata string map", []interface{}{"B4", "JSON", map[string]string{"k": "v"}}, "B4", types.JSON, map[string]string{"k": "v"}},
+		{"metadata interface map", []interface{}{"B5", "JSON", map[string]interface{}{"k2": 7}}, "B5", types.JSON, map[string]string{"k2": "7"}},
+		{"metadata json string", []interface{}{"B6", "JSON", `{"k3":"v3"}`}, "B6", types.JSON, map[string]string{"k3": "v3"}},
+		{"metadata invalid json string", []interface{}{"B7", "JSON", "not-json"}, "B7", types.JSON, nil},
+		{"metadata empty string", []interface{}{"B8", "JSON", ""}, "B8", types.JSON, nil},
+		{"nil metadata", []interface{}{"B9", "JSON", nil}, "B9", types.JSON, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := run(tc.params)
+			assert.Equal(t, tc.wantBody, got.body)
+			assert.Equal(t, tc.wantType, got.dt)
+			for k, v := range tc.wantMeta {
+				assert.Equal(t, v, got.meta[k])
+			}
+			// The trigger source is always recorded.
+			assert.Equal(t, Type, got.meta[types.KeyTriggerSource])
+		})
+	}
+}
+
+// handler must recover from panicking processors instead of killing the process.
+func TestScheduleHandlerPanicRecovered(t *testing.T) {
+	config := types.NewConfig()
+	ep := &Endpoint{}
+	assert.Nil(t, ep.Init(config, nil))
+	router := impl.NewRouter().From("*/1 * * * * *").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		panic("scheduled boom")
+	}).End()
+	ep.handler(router) // must not crash the test
+}
+
+// Routers without an explicit id use the from path as the once-guard key.
+func TestScheduleOnceJobRouterIdFallback(t *testing.T) {
+	config := types.NewConfig(types.WithLocker(types.NewLocalLocker()))
+	ep := &Endpoint{}
+	assert.Nil(t, ep.Init(config, nil))
+	router := impl.NewRouter().From("*/1 * * * * *").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		return true
+	}).End()
+	_, err := ep.AddRouter(router)
+	assert.Nil(t, err)
+	ep.Destroy()
+}

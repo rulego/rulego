@@ -18,6 +18,8 @@ package el
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -27,6 +29,7 @@ import (
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/vm"
+	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/json"
 )
 
@@ -1218,4 +1221,176 @@ func containsHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestFetchRemoteContent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/missing") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write([]byte("remote-body"))
+	}))
+	defer srv.Close()
+
+	// unreachable endpoint and non-200 responses both yield empty content
+	assert.Equal(t, "", fetchRemoteContent("http://127.0.0.1:1/unreachable"))
+	assert.Equal(t, "", fetchRemoteContent(srv.URL+"/missing"))
+
+	assert.Equal(t, "remote-body", fetchRemoteContent(srv.URL+"/ok"))
+	// the second hit is served from the TTL cache even after server shutdown
+	url := srv.URL + "/cached"
+	assert.Equal(t, "remote-body", fetchRemoteContent(url))
+	srv.Close()
+	assert.Equal(t, "remote-body", fetchRemoteContent(url))
+}
+
+func TestIncludeRemoteUrl(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("REMOTE"))
+	}))
+	defer srv.Close()
+
+	t.Run("ExprTemplate", func(t *testing.T) {
+		tmpl, err := NewTemplate(`${include(url)}`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, "REMOTE", tmpl.ExecuteAsString(map[string]any{"url": srv.URL}))
+	})
+
+	t.Run("MixedTemplate", func(t *testing.T) {
+		tmpl, err := NewTemplate(`pre-${include(url)}-post`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, "pre-REMOTE-post", tmpl.ExecuteAsString(map[string]any{"url": srv.URL}))
+	})
+}
+
+func TestFileExistsFunc(t *testing.T) {
+	tmpDir := t.TempDir()
+	existing := filepath.Join(tmpDir, "exists.txt")
+	if err := os.WriteFile(existing, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	missing := filepath.Join(tmpDir, "missing.txt")
+
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{"existing", existing, "yes"},
+		{"missing", missing, "no"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpl, err := NewTemplate(`${fileExists(p) ? "yes" : "no"}`)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, tt.want, tmpl.ExecuteAsString(map[string]any{"p": tt.path}))
+		})
+	}
+}
+
+func TestNotTemplateMethods(t *testing.T) {
+	nt := &NotTemplate{Tmpl: "raw"}
+
+	assert.Nil(t, nt.Parse())
+	got, err := nt.Execute(nil)
+	assert.Nil(t, err)
+	assert.Equal(t, "raw", got)
+
+	gotFn, err := nt.ExecuteFn(nil)
+	assert.Nil(t, err)
+	assert.Equal(t, "raw", gotFn)
+
+	assert.Equal(t, "raw", nt.ExecuteAsString(nil))
+	assert.False(t, nt.HasVar())
+}
+
+func TestAnyTemplateMethods(t *testing.T) {
+	at := &AnyTemplate{Tmpl: 42}
+
+	assert.Nil(t, at.Parse())
+	got, err := at.Execute(nil)
+	assert.Nil(t, err)
+	assert.Equal(t, 42, got)
+
+	gotFn, err := at.ExecuteFn(nil)
+	assert.Nil(t, err)
+	assert.Equal(t, 42, gotFn)
+
+	assert.Equal(t, "42", at.ExecuteAsString(nil))
+	assert.False(t, at.HasVar())
+}
+
+func TestMixedTemplateExecuteFnBranches(t *testing.T) {
+	t.Run("unclosed placeholder passthrough", func(t *testing.T) {
+		m, err := NewMixedTemplate("pre-${unclosed")
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.True(t, m.HasVar())
+		got, err := m.ExecuteFn(nil)
+		assert.Nil(t, err)
+		assert.Equal(t, "pre-${unclosed", got)
+	})
+
+	t.Run("ExecuteFn loads data lazily", func(t *testing.T) {
+		m, err := NewMixedTemplate("n=${num}")
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := m.ExecuteFn(func() map[string]any { return map[string]any{"num": 7} })
+		assert.Nil(t, err)
+		assert.Equal(t, "n=7", got)
+		assert.Equal(t, "n=8", m.ExecuteFnAsString(func() map[string]any { return map[string]any{"num": 8} }))
+	})
+
+	t.Run("ExecuteAsString swallows errors", func(t *testing.T) {
+		m, err := NewMixedTemplate("user/${user..id}")
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, "", m.ExecuteAsString(nil))
+		assert.Equal(t, "", m.ExecuteFnAsString(nil))
+	})
+}
+
+func TestExprTemplateEdgeBranches(t *testing.T) {
+	t.Run("nil program returns nil", func(t *testing.T) {
+		et := &ExprTemplate{}
+		got, err := et.Execute(nil)
+		assert.Nil(t, err)
+		assert.Nil(t, got)
+		assert.Equal(t, "", et.ExecuteAsString(nil))
+		assert.True(t, et.HasVar())
+	})
+
+	t.Run("nil config skips env helpers", func(t *testing.T) {
+		et := &ExprTemplate{Tmpl: "1+1"}
+		assert.Nil(t, et.Parse())
+		got, err := et.Execute(nil)
+		assert.Nil(t, err)
+		assert.Equal(t, 2, got)
+	})
+
+	t.Run("execute error yields empty string", func(t *testing.T) {
+		et := &ExprTemplate{Tmpl: "unknownFn()"}
+		assert.Nil(t, et.Parse())
+		assert.Equal(t, "", et.ExecuteAsString(nil))
+	})
+
+	t.Run("trailing backslash is dropped", func(t *testing.T) {
+		et, err := NewExprTemplate(`a\`)
+		if err != nil {
+			t.Fatalf("trailing backslash should be dropped before compile: %v", err)
+		}
+		got, err := et.Execute(map[string]any{"a": "ok"})
+		assert.Nil(t, err)
+		assert.Equal(t, "ok", got)
+	})
 }

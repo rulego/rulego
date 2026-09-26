@@ -1129,6 +1129,105 @@ func TestMsgHopBudget(t *testing.T) {
 	})
 }
 
+// TestProperties 测试Properties的构建、复制与读写
+func TestProperties(t *testing.T) {
+	p := NewProperties()
+	assert.Equal(t, 0, len(p))
+
+	p.PutValue("k1", "v1")
+	p.PutValue("", "ignored")
+	assert.True(t, p.Has("k1"))
+	assert.False(t, p.Has("missing"))
+	assert.Equal(t, "v1", p.GetValue("k1"))
+	assert.Equal(t, "", p.GetValue("missing"))
+	assert.Equal(t, 1, len(p.Values()))
+	assert.Equal(t, "v1", p.Values()["k1"])
+
+	empty := BuildProperties(nil)
+	assert.Equal(t, 0, len(empty))
+
+	built := BuildProperties(Properties{"a": "1"})
+	built.PutValue("b", "2")
+	assert.Equal(t, 1, len(p.Values()), "source map must stay isolated")
+	assert.Equal(t, "1", built.Copy().GetValue("a"))
+}
+
+// TestMetadataDeleteClearIteration 测试Metadata的删除、清空与零拷贝遍历
+func TestMetadataDeleteClearIteration(t *testing.T) {
+	md := BuildMetadata(map[string]string{"a": "1", "b": "2"})
+	md.Delete("a")
+	assert.False(t, md.Has("a"))
+	assert.Equal(t, 1, md.Len())
+	md.Delete("missing")
+
+	// 共享副本删除不落回原实例
+	shared := BuildMetadata(map[string]string{"a": "1"})
+	copied := shared.Copy()
+	copied.Delete("a")
+	assert.True(t, shared.Has("a"))
+	assert.False(t, copied.Has("a"))
+
+	readOnly := BuildMetadata(map[string]string{"x": "1"})
+	assert.Equal(t, map[string]string{"x": "1"}, readOnly.GetReadOnlyValues())
+
+	var seen []string
+	BuildMetadata(map[string]string{"a": "1", "b": "2"}).ForEach(func(key, value string) bool {
+		seen = append(seen, key)
+		return false
+	})
+	assert.Equal(t, 1, len(seen))
+
+	cleared := BuildMetadata(map[string]string{"a": "1"})
+	cleared.Clear()
+	assert.Equal(t, 0, cleared.Len())
+}
+
+// TestMetadataEnsureUnique 直接验证共享标记下的内部去重复制
+func TestMetadataEnsureUnique(t *testing.T) {
+	shared := BuildMetadata(map[string]string{"a": "1"})
+	copied := shared.Copy()
+	copied.ensureUnique()
+	copied.PutValue("b", "2")
+	assert.True(t, shared.Has("a"))
+	assert.False(t, shared.Has("b"))
+}
+
+// TestRuleMsgAccessors 测试RuleMsg的getter/setter与nil Data兜底
+func TestRuleMsgAccessors(t *testing.T) {
+	msg := NewMsg(1000, "T1", TEXT, nil, "d")
+	msg.SetId("id-1")
+	msg.SetTs(2000)
+	msg.SetType("T2")
+	msg.SetDataType(JSON)
+	assert.Equal(t, "id-1", msg.GetId())
+	assert.Equal(t, int64(2000), msg.GetTs())
+	assert.Equal(t, "T2", msg.GetType())
+	assert.Equal(t, JSON, msg.GetDataType())
+
+	md := NewMetadata()
+	msg.SetMetadata(md)
+	assert.Equal(t, md, msg.GetMetadata())
+	msg.SetMetadata(nil)
+	assert.NotNil(t, msg.GetMetadata())
+	assert.Equal(t, 0, msg.GetMetadata().Len())
+
+	empty := RuleMsg{}
+	assert.Equal(t, "", empty.GetData())
+	assert.Nil(t, empty.GetBytes())
+	assert.Equal(t, map[string]interface{}{}, func() interface{} {
+		v, _ := empty.GetJsonData()
+		return v
+	}())
+	empty.SetData("s")
+	assert.Equal(t, "s", empty.GetData())
+	empty.Data = nil
+	empty.SetBytes([]byte("b"))
+	assert.Equal(t, "b", string(empty.GetBytes()))
+	assert.NotNil(t, empty.GetSharedData())
+
+	assert.Equal(t, "data", NewSharedData("data").String())
+}
+
 var benchHopLimit int64
 
 func BenchmarkBumpHops(b *testing.B) {

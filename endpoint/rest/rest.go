@@ -1481,26 +1481,27 @@ func (rest *Rest) startServer() error {
 		rest.Infof("started rest server with TLS on %s", serverAddr)
 		go func() {
 			defer ln.Close()
-			err = server.ServeTLS(ln, certFile, certKeyFile)
+			// serve 局部接收：写外层 err 会与 return err 竞态
+			serveErr := server.ServeTLS(ln, certFile, certKeyFile)
 			// 安全地访问OnEvent字段
 			rest.RLock()
 			onEvent := rest.OnEvent
 			rest.RUnlock()
 			if onEvent != nil {
-				onEvent(endpoint.EventCompletedServer, err)
+				onEvent(endpoint.EventCompletedServer, serveErr)
 			}
 		}()
 	} else {
 		rest.Infof("started rest server on %s", serverAddr)
 		go func() {
 			defer ln.Close()
-			err = server.Serve(ln)
+			serveErr := server.Serve(ln)
 			// 安全地访问OnEvent字段
 			rest.RLock()
 			onEvent := rest.OnEvent
 			rest.RUnlock()
 			if onEvent != nil {
-				onEvent(endpoint.EventCompletedServer, err)
+				onEvent(endpoint.EventCompletedServer, serveErr)
 			}
 		}()
 	}

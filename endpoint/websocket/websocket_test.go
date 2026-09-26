@@ -2,14 +2,18 @@ package websocket
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/julienschmidt/httprouter"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/impl"
@@ -21,7 +25,19 @@ import (
 )
 
 var testdataFolder = "../../testdata/rule"
-var testServer = ":9090"
+
+// testServer uses an OS-assigned port: the historical fixed :9090 collides
+// with unrelated services on developer machines.
+var testServer = func() string {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return ":9090"
+	}
+	defer ln.Close()
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+	return ":" + port
+}()
+
 var testConfigServer = ":9091"
 
 // 握手来源校验：同源与无 Origin 始终放行，AllowCors 只管跨源。
@@ -206,7 +222,9 @@ func sendMsg(t *testing.T, url string) {
 func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup, isMultiplex bool) {
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		wg.Done()
+		return
 	}
 	config := engine.NewConfig(types.WithDefaultPool())
 	//注册规则链
@@ -218,8 +236,14 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup, isMultipl
 	//复用rest endpoint
 	if isMultiplex {
 		wsEndpoint = newWebsocketServe(t, restEndpoint)
+		if wsEndpoint == nil {
+			wg.Done()
+			return
+		}
 		if err := wsEndpoint.Start(); err != nil {
-			t.Fatal("error:", err)
+			t.Error("error:", err)
+			wg.Done()
+			return
 		}
 	} else {
 		wsEndpoint = newWebsocketServe(t, nil)
@@ -229,6 +253,10 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup, isMultipl
 		//复用rest endpoint
 		_ = restEndpoint.Start()
 	} else {
+		if wsEndpoint == nil {
+			wg.Done()
+			return
+		}
 		//并启动服务
 		_ = wsEndpoint.Start()
 	}
@@ -247,7 +275,8 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 	var wsEndpoint = &Endpoint{}
 	err := wsEndpoint.Init(config, nodeConfig)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		return nil
 	}
 
 	assert.Equal(t, Type, wsEndpoint.Type())
@@ -324,4 +353,187 @@ func newWebsocketServe(t *testing.T, restEndpoint *rest.Rest) endpoint.Endpoint 
 
 	assert.NotNil(t, wsEndpoint.Router())
 	return wsEndpoint
+}
+
+// wsFreePort reserves an ephemeral port and releases it for the test server.
+func wsFreePort(t *testing.T) string {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	return ln.Addr().String()
+}
+
+// Metadata methods: category, definition, instance and id.
+func TestWsMetaMethods(t *testing.T) {
+	ws := &Websocket{}
+	assert.Equal(t, "endpoint", ws.Category())
+	def := ws.Def()
+	assert.True(t, def.Desc != "")
+	assert.NotNil(t, def.RouterForm)
+	assert.NotNil(t, def.RouterForm.From)
+
+	instance, err := ws.GetInstance()
+	assert.Nil(t, err)
+	assert.True(t, instance == ws)
+
+	ws.Config.Server = ":7777"
+	assert.Equal(t, ":7777", ws.Id())
+}
+
+// Request/Response message unit branches.
+func TestWsMessageUnitBranches(t *testing.T) {
+	request := &RequestMessage{}
+	request.SetStatusCode(500)
+	assert.Nil(t, request.Headers())
+	assert.Equal(t, "", request.From())
+	assert.Equal(t, "", request.GetParam("k"))
+	assert.Nil(t, request.Request())
+
+	req := httptest.NewRequest(http.MethodGet, "/api?aa=xx", nil)
+	request = &RequestMessage{request: req, Params: httprouter.Params{{Key: "id", Value: "42"}}}
+	assert.Equal(t, "/api?aa=xx", request.From())
+	assert.Equal(t, "42", request.GetParam("id"))
+	assert.Equal(t, "xx", request.GetParam("aa"))
+	assert.NotNil(t, request.Headers())
+	assert.NotNil(t, request.Request())
+	// Binary frames map to BINARY data type.
+	binReq := &RequestMessage{request: req, body: []byte{0x01}, messageType: websocket.BinaryMessage}
+	assert.Equal(t, types.BINARY, binReq.GetMsg().GetDataType())
+
+	response := &ResponseMessage{}
+	response.SetStatusCode(500)
+	// No sender: body is stored without writing and without error.
+	response.SetBody([]byte("stored"))
+	assert.Equal(t, "stored", string(response.Body()))
+	assert.Nil(t, response.GetError())
+	assert.Equal(t, "", response.From())
+	assert.Equal(t, "", response.GetParam("k"))
+	assert.NotNil(t, response.Headers())
+}
+
+// wsSender guards against nil connections and defaults to text frames.
+func TestWsSenderUnits(t *testing.T) {
+	sender := &wsSender{}
+	assert.NotNil(t, sender.Send([]byte("x")))
+	assert.NotNil(t, sender.SendWithType([]byte("x"), websocket.TextMessage))
+	assert.Nil(t, sender.Close())
+}
+
+// wsSender over a real connection: Send writes frames and Close shuts down.
+func TestWsSenderLiveConnection(t *testing.T) {
+	upgrader := websocket.Upgrader{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}))
+	defer server.Close()
+	url := "ws" + strings.TrimPrefix(server.URL, "http")
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sender := &wsSender{conn: conn}
+	assert.Nil(t, sender.Send([]byte("text-frame")))
+	assert.Nil(t, sender.SendWithType([]byte{0x01}, websocket.BinaryMessage))
+	assert.Nil(t, sender.Close())
+	// After close, writes fail.
+	assert.NotNil(t, sender.Send([]byte("x")))
+}
+
+// Session addressing: SendToTarget pushes to the session extracted from the
+// first frame; unknown targets error.
+func TestWsSendToTarget(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	addr := wsFreePort(t)
+
+	ep := &Endpoint{}
+	assert.Nil(t, ep.Init(config, types.Configuration{
+		"server":     addr,
+		"sessionKey": "${msg.deviceId}",
+	}))
+	router := impl.NewRouter().From("/ws").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		return true
+	}).End()
+	_, err := ep.AddRouter(router)
+	assert.Nil(t, err)
+
+	var eventMu sync.Mutex
+	var events []string
+	ep.SetOnEvent(func(event string, params ...interface{}) {
+		eventMu.Lock()
+		defer eventMu.Unlock()
+		events = append(events, event)
+	})
+	eventsInclude := func(name string) bool {
+		eventMu.Lock()
+		defer eventMu.Unlock()
+		for _, e := range events {
+			if e == name {
+				return true
+			}
+		}
+		return false
+	}
+
+	assert.Nil(t, ep.Start())
+	defer ep.Destroy()
+	assert.True(t, eventsInclude(endpoint.EventInitServer))
+
+	url := "ws://" + addr + "/ws"
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := conn.WriteMessage(websocket.TextMessage, []byte(`{"deviceId":"DEV_9"}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) && len(ep.Lookup("DEV_9")) == 0 {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if len(ep.Lookup("DEV_9")) != 1 {
+		t.Fatal("session DEV_9 not registered")
+	}
+	assert.True(t, eventsInclude(endpoint.EventConnect))
+
+	sent, failed, err := ep.SendToTarget("DEV_9", []byte("PUSH"))
+	assert.Equal(t, 1, sent)
+	assert.Equal(t, 0, failed)
+	assert.Nil(t, err)
+
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	mt, data, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, websocket.TextMessage, mt)
+	assert.Equal(t, "PUSH", string(data))
+
+	_, _, err = ep.SendToTarget("NO_SUCH_TARGET", []byte("x"))
+	assert.NotNil(t, err)
+
+	// Disabling the router closes active connections on the next frame.
+	_ = ep.RemoveRouter(router.GetId())
+	_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	if err := conn.WriteMessage(websocket.TextMessage, []byte("again")); err != nil {
+		t.Fatal(err)
+	}
+	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	for {
+		if _, _, err := conn.ReadMessage(); err != nil {
+			break // server closed the connection after the router was disabled
+		}
+	}
 }

@@ -310,3 +310,109 @@ func TestExecuteClearsCtxAfterPut(t *testing.T) {
 	}
 	engine.vmPool.Put(slot)
 }
+
+func TestNewGojaJsEngineCompileError(t *testing.T) {
+	_, err := NewGojaJsEngine(types.NewConfig(), `function broken(`, nil)
+	assert.NotNil(t, err)
+}
+
+// PreCompileJs must fail on UDF entries that do not compile.
+func TestPreCompileJsErrors(t *testing.T) {
+	config := types.NewConfig()
+	config.RegisterUdf("badScript", "function broken(")
+	_, err := NewGojaJsEngine(config, `function Transform(msg){return msg}`, nil)
+	assert.NotNil(t, err)
+
+	config2 := types.NewConfig()
+	config2.RegisterUdf("badNamed", types.Script{Type: types.Js, Content: "var x = {"})
+	_, err = NewGojaJsEngine(config2, `function Transform(msg){return msg}`, nil)
+	assert.NotNil(t, err)
+}
+
+func TestExecuteNotAFunction(t *testing.T) {
+	engine, err := NewGojaJsEngine(types.NewConfig(), `var notAFunc = 1`, nil)
+	assert.Nil(t, err)
+	_, err = engine.Execute(nil, "notAFunc", "arg")
+	assert.NotNil(t, err)
+	_, err = engine.Execute(nil, "missing", "arg")
+	assert.NotNil(t, err)
+}
+
+// Infinite loop with a short ScriptMaxExecutionTime: the VM interrupt fires and
+// Execute surfaces the timeout as an error.
+func TestExecuteScriptTimeout(t *testing.T) {
+	config := types.NewConfig()
+	config.ScriptMaxExecutionTime = time.Millisecond * 50
+	engine, err := NewGojaJsEngine(config, `function Loop(msg){ while(true){} }`, nil)
+	assert.Nil(t, err)
+	_, err = engine.Execute(nil, "Loop", "x")
+	assert.NotNil(t, err)
+	engine.Stop()
+}
+
+// UDF variants in NewVm: Script of other types, precompiled programs and Go
+// functions wrapped in Script must all be reachable from the script.
+func TestNewVmUdfVariants(t *testing.T) {
+	config := types.NewConfig()
+	config.RegisterUdf("ignoredExpr", types.Script{Type: "Expr", Content: "not js"})
+	config.RegisterUdf("goHelper", types.Script{Type: types.Js, Content: func(v int) int { return v * 2 }})
+	prog, err := goja.Compile("precompiled", "function precompiledFn(){return 'from-program'}", false)
+	assert.Nil(t, err)
+	config.RegisterUdf("progScript", types.Script{Type: types.Js, Content: prog})
+
+	engine, err := NewGojaJsEngine(config, `
+		function TestVariants(msg){
+			return goHelper(21) + '|' + precompiledFn()
+		}
+	`, nil)
+	assert.Nil(t, err)
+	out, err := engine.Execute(nil, "TestVariants", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, "42|from-program", out)
+}
+
+func TestNewVmFromVars(t *testing.T) {
+	config := types.NewConfig()
+	engine, err := NewGojaJsEngine(config, `function GetVar(){ return myVar }`,
+		map[string]interface{}{"myVar": "from-outer"})
+	assert.Nil(t, err)
+	out, err := engine.Execute(nil, "GetVar")
+	assert.Nil(t, err)
+	assert.Equal(t, "from-outer", out)
+}
+
+// stubRuleContext satisfies types.RuleContext without implementing it.
+type stubRuleContext struct {
+	types.RuleContext
+}
+
+func TestExecuteWithRuleContext(t *testing.T) {
+	engine, err := NewGojaJsEngine(types.NewConfig(), `function Transform(msg){ return $ctx != null }`, nil)
+	assert.Nil(t, err)
+	out, err := engine.Execute(&stubRuleContext{}, "Transform", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, true, out)
+}
+
+// NewVm runs the main script under startTimeout: an endless top-level script is
+// interrupted and the error is logged, while a zero timeout skips the timer entirely.
+func TestNewVmScriptRunError(t *testing.T) {
+	t.Run("timeout interrupts top level script", func(t *testing.T) {
+		config := types.NewConfig()
+		config.ScriptMaxExecutionTime = time.Millisecond * 30
+		engine, err := NewGojaJsEngine(config, `while(true){}`, nil)
+		assert.Nil(t, err)
+		// the returned VM is unusable but the call must not hang or panic
+		vm := engine.NewVm(config, nil)
+		assert.NotNil(t, vm)
+	})
+
+	t.Run("zero timeout disables timer", func(t *testing.T) {
+		config := types.NewConfig()
+		config.ScriptMaxExecutionTime = 0
+		engine, err := NewGojaJsEngine(config, `null.foo`, nil)
+		assert.Nil(t, err)
+		vm := engine.NewVm(config, nil)
+		assert.NotNil(t, vm)
+	})
+}

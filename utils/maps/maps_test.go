@@ -226,10 +226,10 @@ func TestGetWithStruct(t *testing.T) {
 		{"id", "chain-001"},
 		{"name", "Test Chain"},
 		{"debugMode", true},
-		{"ID", "chain-001"},         // 大写也能匹配
-		{"NAME", "Test Chain"},      // 全大写也能匹配
-		{"debugmode", true},         // 全小写也能匹配
-		{"nonexistent", nil},        // 不存在的字段返回 nil
+		{"ID", "chain-001"},    // 大写也能匹配
+		{"NAME", "Test Chain"}, // 全大写也能匹配
+		{"debugmode", true},    // 全小写也能匹配
+		{"nonexistent", nil},   // 不存在的字段返回 nil
 	}
 
 	for _, c := range cases {

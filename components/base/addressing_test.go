@@ -17,19 +17,29 @@
 package base
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/test/assert"
 )
 
-// stubCtx 仅覆盖 GetEnv 的 RuleContext 桩：TargetResolver.Resolve 只调 ctx.GetEnv，
-// 其余方法经嵌入的接口（测试不触达）。避免 base 包为造 ctx 而反向 import engine。
+// stubCtx 仅覆盖 GetEnv/RuleChain 的 RuleContext 桩：TargetResolver.Resolve 只调 ctx.GetEnv，
+// ref:// 解析只调 ctx.RuleChain()，其余方法经嵌入的接口（测试不触达）。
+// 避免 base 包为造 ctx 而反向 import engine。
 type stubCtx struct {
 	types.RuleContext
-	env map[string]interface{}
+	env     map[string]interface{}
+	useMeta []bool        // records the useMetadata flag of each GetEnv call
+	chain   types.NodeCtx // returned by RuleChain; nil means no chain
 }
 
-func (s *stubCtx) GetEnv(_ types.RuleMsg, _ bool) map[string]interface{} { return s.env }
+func (s *stubCtx) GetEnv(_ types.RuleMsg, useMetadata bool) map[string]interface{} {
+	s.useMeta = append(s.useMeta, useMetadata)
+	return s.env
+}
+
+func (s *stubCtx) RuleChain() types.NodeCtx { return s.chain }
 
 // TestTargetResolver_Empty 空配置：IsEmpty 且 Resolve 返回空串（字面量分支不触达 ctx）。
 func TestTargetResolver_Empty(t *testing.T) {
@@ -101,4 +111,134 @@ func TestTargetResolver_NestedMsgExpression(t *testing.T) {
 	if got := r.Resolve(ctx, types.NewMsg(0, "", types.JSON, types.NewMetadata(), "")); got != "SN-99" {
 		t.Fatalf("nested msg expr Resolve got %q want SN-99", got)
 	}
+}
+
+// fakeSender records the addressing call and returns canned results.
+type fakeSender struct {
+	target string
+	data   []byte
+	sent   int
+	failed int
+	err    error
+}
+
+func (f *fakeSender) SendToTarget(target string, data []byte) (int, int, error) {
+	f.target, f.data = target, data
+	return f.sent, f.failed, f.err
+}
+
+// TestResolveResourcePoolFallback pool 回退：reg miss 后查 NodePool.Lookup。
+func TestResolveResourcePoolFallback(t *testing.T) {
+	reg := &fakeLookup{items: map[string]any{}}
+	pool := &stubNodePool{items: map[string]any{"p": "pool-v"}}
+	if v, ok := ResolveResource(reg, pool, "p"); !ok || v != "pool-v" {
+		t.Fatalf("pool fallback: got %v ok %v", v, ok)
+	}
+	if _, ok := ResolveResource(reg, pool, "missing"); ok {
+		t.Fatal("expected not found when both reg and pool miss")
+	}
+}
+
+// TestResolveResourceFromCtx 解析跟随消息链：ctx.RuleChain() 为 ChainCtx 时用链目录，
+// 否则只查 pool。
+func TestResolveResourceFromCtx(t *testing.T) {
+	chain := &stubChainCtx{reg: newStubRegistry()}
+	chain.reg.Register("k", "chain-v")
+	pool := &stubNodePool{items: map[string]any{"k": "pool-v", "p": "pool-p"}}
+
+	// chain directory wins over the pool entry with the same id
+	if v, ok := ResolveResourceFromCtx(&stubCtx{chain: chain}, pool, "k"); !ok || v != "chain-v" {
+		t.Fatalf("chain hit: got %v ok %v", v, ok)
+	}
+	// chain miss falls back to the pool
+	if v, ok := ResolveResourceFromCtx(&stubCtx{chain: chain}, pool, "p"); !ok || v != "pool-p" {
+		t.Fatalf("pool fallback: got %v ok %v", v, ok)
+	}
+	// RuleChain() returning a plain NodeCtx (not ChainCtx) skips the directory
+	plain := struct{ types.NodeCtx }{}
+	if v, ok := ResolveResourceFromCtx(&stubCtx{chain: plain}, pool, "p"); !ok || v != "pool-p" {
+		t.Fatalf("non-chain ctx: got %v ok %v", v, ok)
+	}
+	// nil RuleChain: only the pool is consulted
+	if v, ok := ResolveResourceFromCtx(&stubCtx{}, pool, "k"); !ok || v != "pool-v" {
+		t.Fatalf("nil chain should fall back to pool: got %v ok %v", v, ok)
+	}
+	if _, ok := ResolveResourceFromCtx(&stubCtx{}, nil, "p"); ok {
+		t.Fatal("expected not found when chain nil and pool nil")
+	}
+}
+
+// TestLoadConnFromCtx 连接借用跟随消息链：链目录命中 holder；非链 ctx 回退 pool。
+func TestLoadConnFromCtx(t *testing.T) {
+	a := 1
+	holder := &connHolder[*int]{}
+	holder.store(&a)
+	chain := &stubChainCtx{reg: newStubRegistry()}
+	chain.reg.Register("h", holder)
+	pool := &stubNodePool{items: map[string]any{"p": holder}}
+
+	if v, ok := LoadConnFromCtx[*int](&stubCtx{chain: chain}, nil, "h"); !ok || v != &a {
+		t.Fatalf("chain holder: got %v ok %v", v, ok)
+	}
+	if v, ok := LoadConnFromCtx[*int](&stubCtx{}, pool, "p"); !ok || v != &a {
+		t.Fatalf("pool holder: got %v ok %v", v, ok)
+	}
+	if _, ok := LoadConnFromCtx[*int](&stubCtx{}, pool, "missing"); ok {
+		t.Fatal("expected miss for unknown id")
+	}
+	chain.reg.Register("s", "not-a-holder")
+	if _, ok := LoadConnFromCtx[*int](&stubCtx{chain: chain}, nil, "s"); ok {
+		t.Fatal("expected false for non-holder chain entry")
+	}
+}
+
+// TestSendToRefTarget 按 target 寻址推送：未找到 / 非 TargetSender / 正常投递 / 投递错误。
+func TestSendToRefTarget(t *testing.T) {
+	chain := &stubChainCtx{reg: newStubRegistry()}
+	ctx := &stubCtx{chain: chain}
+
+	// not found in chain or pool
+	_, _, err := SendToRefTarget(ctx, nil, "nope", "t1", []byte("d"))
+	if !errors.Is(err, ErrResourceNotFound) {
+		t.Fatalf("miss: err=%v, want ErrResourceNotFound", err)
+	}
+
+	// found but not addressable
+	chain.reg.Register("raw", 123)
+	_, _, err = SendToRefTarget(ctx, nil, "raw", "t1", []byte("d"))
+	if !errors.Is(err, ErrNotTargetSender) {
+		t.Fatalf("non-sender: err=%v, want ErrNotTargetSender", err)
+	}
+
+	// delivery results pass through unchanged
+	fs := &fakeSender{sent: 2, failed: 1}
+	chain.reg.Register("sender", fs)
+	sent, failed, err := SendToRefTarget(ctx, nil, "sender", "dev-1", []byte("payload"))
+	if err != nil {
+		t.Fatalf("send: err=%v", err)
+	}
+	if sent != 2 || failed != 1 {
+		t.Fatalf("send counts: sent=%d failed=%d, want 2/1", sent, failed)
+	}
+	if fs.target != "dev-1" || string(fs.data) != "payload" {
+		t.Fatalf("sender args: target=%q data=%q", fs.target, fs.data)
+	}
+
+	// the sender's first error is returned
+	sendErr := errors.New("peer reset")
+	failing := &fakeSender{err: sendErr}
+	chain.reg.Register("failing", failing)
+	_, _, err = SendToRefTarget(ctx, nil, "failing", "t1", nil)
+	if !errors.Is(err, sendErr) {
+		t.Fatalf("sender error: err=%v, want %v", err, sendErr)
+	}
+}
+
+// TestSendToRefTargetPoolResolution 目标在 NodePool（非链目录）也可寻址。
+func TestSendToRefTargetPoolResolution(t *testing.T) {
+	fs := &fakeSender{sent: 1}
+	pool := &stubNodePool{items: map[string]any{"p1": fs}}
+	sent, _, err := SendToRefTarget(&stubCtx{}, pool, "p1", "*", []byte("b"))
+	assert.Nil(t, err)
+	assert.Equal(t, 1, sent)
 }

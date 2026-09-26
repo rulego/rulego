@@ -19,9 +19,9 @@ package reflect
 import (
 	"testing"
 
-	"github.com/rulego/rulego/test/assert"
-
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/test/assert"
 )
 
 // FunctionsNodeConfiguration 节点配置
@@ -535,4 +535,213 @@ func TestRefTagEmptyWhenNotSet(t *testing.T) {
 
 	assert.Equal(t, 1, len(form.Fields))
 	assert.Equal(t, "", form.Fields[0].Ref)
+}
+
+// lowerConfigNode uses the lowercase config field name, exercising the other
+// branch of GetComponentConfig.
+type lowerConfigData struct {
+	Name string `json:"name"`
+}
+
+type lowerConfigNode struct {
+	config lowerConfigData
+}
+
+func (x *lowerConfigNode) Type() string                                 { return "lowerConfig" }
+func (x *lowerConfigNode) New() types.Node                              { return &lowerConfigNode{} }
+func (x *lowerConfigNode) Init(types.Config, types.Configuration) error { return nil }
+func (x *lowerConfigNode) OnMsg(types.RuleContext, types.RuleMsg)       {}
+func (x *lowerConfigNode) Destroy()                                     {}
+
+// noConfigNode has neither config nor Config field.
+type noConfigNode struct {
+	plain string
+}
+
+func (x *noConfigNode) Type() string                                 { return "noConfig" }
+func (x *noConfigNode) New() types.Node                              { return &noConfigNode{} }
+func (x *noConfigNode) Init(types.Config, types.Configuration) error { return nil }
+func (x *noConfigNode) OnMsg(types.RuleContext, types.RuleMsg)       {}
+func (x *noConfigNode) Destroy()                                     {}
+
+func TestGetComponentConfigBranches(t *testing.T) {
+	t.Run("lowercase config field", func(t *testing.T) {
+		ty, configField, configValue := GetComponentConfig(&lowerConfigNode{})
+		assert.Equal(t, "lowerConfigNode", ty.Name())
+		assert.Equal(t, "config", configField.Name)
+		assert.True(t, configValue.IsValid())
+		form := GetComponentForm(&lowerConfigNode{})
+		// the inner anonymous struct holds one exported field
+		assert.Equal(t, 1, len(form.Fields))
+	})
+
+	t.Run("no config field", func(t *testing.T) {
+		ty, configField, configValue := GetComponentConfig(&noConfigNode{})
+		assert.Equal(t, "noConfigNode", ty.Name())
+		assert.Equal(t, "", configField.Name)
+		assert.False(t, configValue.IsValid())
+		form := GetComponentForm(&noConfigNode{})
+		assert.Equal(t, 0, len(form.Fields))
+	})
+}
+
+// typedNode carries a mutable Type value so relation-type rules keyed on the
+// type string can be exercised with one node implementation.
+type typedNode struct {
+	TestJSONTagNode
+	typ string
+}
+
+func (x *typedNode) Type() string    { return x.typ }
+func (x *typedNode) New() types.Node { return &typedNode{typ: x.typ} }
+
+// filter/switch relation rules are keyed on the struct type name (the form Label),
+// so they need dedicated types with matching names.
+type FilterNamedNode struct {
+	TestJSONTagNode
+}
+
+type SwitchNamedNode struct {
+	TestJSONTagNode
+}
+
+func TestGetComponentFormRelationTypes(t *testing.T) {
+	relationsOf := func(node types.Node) []string {
+		form := GetComponentForm(node)
+		assert.NotNil(t, form.RelationTypes)
+		return *form.RelationTypes
+	}
+
+	t.Run("iterator", func(t *testing.T) {
+		assert.Equal(t, []string{types.True, types.False, types.Success, types.Failure},
+			relationsOf(&typedNode{typ: "iterator"}))
+	})
+
+	t.Run("filter label", func(t *testing.T) {
+		assert.Equal(t, []string{types.True, types.False, types.Failure},
+			relationsOf(&FilterNamedNode{}))
+	})
+
+	t.Run("switch label", func(t *testing.T) {
+		assert.Equal(t, []string{}, relationsOf(&SwitchNamedNode{}))
+	})
+
+	t.Run("default", func(t *testing.T) {
+		assert.Equal(t, []string{types.Success, types.Failure}, relationsOf(&typedNode{typ: "plain"}))
+	})
+}
+
+// endpointLikeNode embeds the Endpoint interface so it satisfies
+// endpoint.Endpoint without implementing every method.
+type endpointLikeNode struct {
+	TestJSONTagNode
+	endpoint.Endpoint
+}
+
+// resolve the ambiguous types.Node selectors promoted from both embeddings
+func (x *endpointLikeNode) Type() string                                 { return "endpointLike" }
+func (x *endpointLikeNode) New() types.Node                              { return &endpointLikeNode{} }
+func (x *endpointLikeNode) Init(types.Config, types.Configuration) error { return nil }
+func (x *endpointLikeNode) OnMsg(types.RuleContext, types.RuleMsg)       {}
+func (x *endpointLikeNode) Destroy()                                     {}
+
+func TestGetComponentFormEndpointKind(t *testing.T) {
+	form := GetComponentForm(&endpointLikeNode{})
+	assert.Equal(t, types.ComponentKindEndpoint, form.ComponentKind)
+	assert.NotNil(t, form.RelationTypes)
+	assert.Equal(t, 0, len(*form.RelationTypes))
+}
+
+// defGetterNode overrides the generated form through Def().
+type defGetterNode struct {
+	TestJSONTagNode
+}
+
+func (x *defGetterNode) Type() string { return "defGetter" }
+func (x *defGetterNode) Def() types.ComponentForm {
+	relations := []string{"Custom1", "Custom2"}
+	return types.ComponentForm{
+		Type:          "overriddenType",
+		Category:      "overriddenCategory",
+		Order:         9,
+		Fields:        types.ComponentFormFieldList{{Name: "defField"}},
+		Label:         "overriddenLabel",
+		Desc:          "overriddenDesc",
+		RelationTypes: &relations,
+		Version:       "2.0.0",
+		ComponentKind: types.ComponentKindDynamic,
+		Icon:          "icon",
+		RouterForm:    &types.RouterForm{Hide: true},
+		Disabled:      true,
+	}
+}
+
+func TestGetComponentFormDefGetter(t *testing.T) {
+	form := GetComponentForm(&defGetterNode{})
+	assert.Equal(t, "overriddenType", form.Type)
+	assert.Equal(t, "overriddenCategory", form.Category)
+	assert.Equal(t, 9, form.Order)
+	assert.Equal(t, 1, len(form.Fields))
+	assert.Equal(t, "defField", form.Fields[0].Name)
+	assert.Equal(t, "overriddenLabel", form.Label)
+	assert.Equal(t, "overriddenDesc", form.Desc)
+	assert.NotNil(t, form.RelationTypes)
+	assert.Equal(t, []string{"Custom1", "Custom2"}, *form.RelationTypes)
+	assert.Equal(t, "2.0.0", form.Version)
+	assert.Equal(t, types.ComponentKindDynamic, form.ComponentKind)
+	assert.Equal(t, "icon", form.Icon)
+	assert.True(t, form.Disabled)
+	assert.NotNil(t, form.RouterForm)
+	assert.True(t, form.RouterForm.Hide)
+}
+
+// categoryDescNode overrides category and description via optional interfaces.
+type categoryDescNode struct {
+	TestJSONTagNode
+}
+
+func (x *categoryDescNode) Type() string     { return "categoryDesc" }
+func (x *categoryDescNode) Category() string { return "custom-category" }
+func (x *categoryDescNode) Desc() string     { return "custom-desc" }
+
+func TestGetComponentFormCategoryAndDesc(t *testing.T) {
+	form := GetComponentForm(&categoryDescNode{})
+	assert.Equal(t, "custom-category", form.Category)
+	assert.Equal(t, "custom-desc", form.Desc)
+}
+
+// richKindConfig exercises map/array/struct field classification in GetFields.
+type richKindConfig struct {
+	HeaderMap map[string]string `json:"headerMap"`
+	Tags      []string          `json:"tags"`
+	Fixed     [2]int            `json:"fixed"`
+	Sub       struct {
+		Inner string `json:"inner"`
+	} `json:"sub"`
+}
+
+type richKindNode struct {
+	Config richKindConfig
+}
+
+func (x *richKindNode) Type() string                                 { return "richKind" }
+func (x *richKindNode) New() types.Node                              { return &richKindNode{} }
+func (x *richKindNode) Init(types.Config, types.Configuration) error { return nil }
+func (x *richKindNode) OnMsg(types.RuleContext, types.RuleMsg)       {}
+func (x *richKindNode) Destroy()                                     {}
+
+func TestGetFieldsKindNames(t *testing.T) {
+	form := GetComponentForm(&richKindNode{})
+	fieldByName := func(name string) types.ComponentFormField {
+		f, ok := form.Fields.GetField(name)
+		assert.True(t, ok)
+		return f
+	}
+	assert.Equal(t, "map", fieldByName("headerMap").Type)
+	assert.Equal(t, "array", fieldByName("tags").Type)
+	assert.Equal(t, "array", fieldByName("fixed").Type)
+	sub := fieldByName("sub")
+	assert.Equal(t, "struct", sub.Type)
+	assert.Equal(t, 1, len(sub.Fields))
+	assert.Equal(t, "inner", sub.Fields[0].Name)
 }

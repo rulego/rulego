@@ -358,3 +358,77 @@ func TestMemoryCacheCapacityLRU(t *testing.T) {
 	_, err = unlimited.Get("u0")
 	assert.Nil(t, err)
 }
+
+func TestStartGCBranches(t *testing.T) {
+	t.Run("NoExpirableItemsIsNoOp", func(t *testing.T) {
+		c := NewMemoryCache(time.Millisecond)
+		// ttl "0" or empty means no expiration
+		assert.Nil(t, c.Set("k", "v", "0"))
+		c.StartGC()
+		c.mu.Lock()
+		assert.Nil(t, c.ticker)
+		c.mu.Unlock()
+	})
+
+	t.Run("SecondStartIsNoOp", func(t *testing.T) {
+		c := NewMemoryCache(time.Minute)
+		assert.Nil(t, c.Set("k", "v", "10m"))
+		c.StartGC()
+		first := c.ticker
+		assert.NotNil(t, first)
+		c.StartGC()
+		assert.Equal(t, first, c.ticker)
+		c.StopGC()
+	})
+
+	t.Run("RestartAfterStop", func(t *testing.T) {
+		c := NewMemoryCache(time.Minute)
+		assert.Nil(t, c.Set("k", "v", "10m"))
+		c.StartGC()
+		c.StopGC()
+		// wait for the GC goroutine to reset ticker to nil
+		deadline := time.Now().Add(time.Second)
+		for time.Now().Before(deadline) {
+			c.mu.Lock()
+			stopped := c.ticker == nil
+			c.mu.Unlock()
+			if stopped {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+		c.mu.Lock()
+		assert.Nil(t, c.ticker)
+		c.mu.Unlock()
+		// starting again works and returns a fresh ticker
+		c.StartGC()
+		assert.NotNil(t, c.ticker)
+		c.StopGC()
+	})
+}
+
+func TestNamespaceCacheNilSafety(t *testing.T) {
+	assert.Nil(t, NewNamespaceCache(nil, "ns:"))
+
+	var nilCache *NamespaceCache
+	assert.Equal(t, types.ErrCacheNotInitialized, nilCache.Set("k", "v", "1m"))
+	_, err := nilCache.Get("k")
+	assert.Equal(t, types.ErrCacheNotInitialized, err)
+	assert.Equal(t, types.ErrCacheNotInitialized, nilCache.Delete("k"))
+	assert.False(t, nilCache.Has("k"))
+	assert.Equal(t, types.ErrCacheNotInitialized, nilCache.DeleteByPrefix("k"))
+	assert.Equal(t, 0, len(nilCache.GetByPrefix("")))
+	for k := range nilCache.GetByPrefix("") {
+		t.Fatalf("unexpected key %s", k)
+	}
+
+	// non-nil wrapper without an underlying cache behaves the same
+	empty := &NamespaceCache{}
+	assert.Equal(t, types.ErrCacheNotInitialized, empty.Set("k", "v", "1m"))
+	_, err = empty.Get("k")
+	assert.Equal(t, types.ErrCacheNotInitialized, err)
+	assert.Equal(t, types.ErrCacheNotInitialized, empty.Delete("k"))
+	assert.False(t, empty.Has("k"))
+	assert.Equal(t, types.ErrCacheNotInitialized, empty.DeleteByPrefix("k"))
+	assert.Equal(t, 0, len(empty.GetByPrefix("")))
+}

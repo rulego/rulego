@@ -19,19 +19,36 @@ package node_pool
 import (
 	"context"
 	"fmt"
+	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/api/types/endpoint"
+	endpointApi "github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/endpoint/impl"
+	"github.com/rulego/rulego/endpoint/rest"
+	"github.com/rulego/rulego/engine"
+	"github.com/rulego/rulego/test"
+	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/json"
+	"github.com/rulego/rulego/utils/mqtt"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/rulego/rulego/api/types"
-	"github.com/rulego/rulego/endpoint/rest"
-	"github.com/rulego/rulego/engine"
-	"github.com/rulego/rulego/test/assert"
-	"github.com/rulego/rulego/utils/json"
-	"github.com/rulego/rulego/utils/mqtt"
 )
+
+// TestMain serves 127.0.0.1:1883 for the shared MQTT fixtures below: the
+// address is reused as-is when an external broker (CI mosquitto) already
+// listens on it, otherwise an embedded broker is started.
+func TestMain(m *testing.M) {
+	stop, err := test.StartBrokerOrUseExternal("127.0.0.1:1883")
+	if err != nil {
+		panic(err)
+	}
+	code := m.Run()
+	stop()
+	os.Exit(code)
+}
 
 func TestLoadFromRuleChain(t *testing.T) {
 	var dsl = []byte(`
@@ -1252,4 +1269,974 @@ func TestSharedNodeLockOptimization(t *testing.T) {
 		ruleEngine.Stop(context.Background())
 		pool.Del("shared_mqtt_rwlock")
 	})
+}
+
+// aliasTestEndpoint 模拟连接地址作为主键的 endpoint 组件（如 mqtt/rest 的 Id()=Config.Server），
+// 全程无网络依赖。
+type aliasTestEndpoint struct {
+	impl.BaseEndpoint
+	id        string
+	destroyed int32
+}
+
+func (e *aliasTestEndpoint) Type() string                                     { return "aliasTestEndpoint" }
+func (e *aliasTestEndpoint) New() types.Node                                  { return &aliasTestEndpoint{} }
+func (e *aliasTestEndpoint) Init(_ types.Config, _ types.Configuration) error { return nil }
+func (e *aliasTestEndpoint) Id() string                                       { return e.id }
+func (e *aliasTestEndpoint) Start() error                                     { return nil }
+func (e *aliasTestEndpoint) Destroy()                                         { atomic.AddInt32(&e.destroyed, 1) }
+func (e *aliasTestEndpoint) AddRouter(_ endpointApi.Router, _ ...interface{}) (string, error) {
+	return "1", nil
+}
+func (e *aliasTestEndpoint) RemoveRouter(_ string, _ ...interface{}) error { return nil }
+func (e *aliasTestEndpoint) GetInstance() (interface{}, error)             { return e, nil }
+
+// aliasTestSharedNode 供 NewFromRuleNode 路径使用，需注册进自定义组件表。
+type aliasTestSharedNode struct {
+	destroyed int32
+}
+
+func (n *aliasTestSharedNode) Type() string { return "aliasTestSharedNode" }
+func (n *aliasTestSharedNode) New() types.Node {
+	return &aliasTestSharedNode{}
+}
+func (n *aliasTestSharedNode) Init(_ types.Config, _ types.Configuration) error { return nil }
+func (n *aliasTestSharedNode) OnMsg(_ types.RuleContext, _ types.RuleMsg)       {}
+func (n *aliasTestSharedNode) Destroy()                                         { atomic.AddInt32(&n.destroyed, 1) }
+func (n *aliasTestSharedNode) GetInstance() (interface{}, error)                { return n, nil }
+
+func newAliasTestPool() (*NodePool, types.Config) {
+	registry := engine.NewCustomComponentRegistry(engine.Registry, new(engine.RuleComponentRegistry))
+	_ = registry.Register(&aliasTestSharedNode{})
+	config := engine.NewConfig(types.WithComponentsRegistry(registry))
+	pool := NewNodePool(config)
+	config.NodePool = pool
+	return pool, config
+}
+
+// 主键与别名解析到同一实例，别名不计入遍历结果。
+func TestAddNodeWithAlias(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	ep := &aliasTestEndpoint{id: "tcp://127.0.0.1:1883"}
+
+	ctx, err := pool.AddNodeWithAlias("gateway_mqtt", ep)
+	assert.Nil(t, err)
+	assert.NotNil(t, ctx)
+
+	//主键仍是组件自身 Id，而非别名
+	byPrimary, ok := pool.Get("tcp://127.0.0.1:1883")
+	assert.True(t, ok)
+	byAlias, ok := pool.Get("gateway_mqtt")
+	assert.True(t, ok)
+	assert.True(t, byPrimary == byAlias)
+
+	//GetInstance 与 Lookup（ref:// 解析路径）按主键和别名取到同一实例
+	insPrimary, err := pool.GetInstance("tcp://127.0.0.1:1883")
+	assert.Nil(t, err)
+	insAlias, err := pool.GetInstance("gateway_mqtt")
+	assert.Nil(t, err)
+	assert.True(t, insPrimary.(*aliasTestEndpoint) == ep)
+	assert.True(t, insAlias.(*aliasTestEndpoint) == ep)
+
+	ins, found := pool.Lookup("gateway_mqtt")
+	assert.True(t, found)
+	assert.True(t, ins.(*aliasTestEndpoint) == ep)
+
+	//别名不重复计入遍历与定义导出
+	assert.Equal(t, 1, len(pool.GetAll()))
+	defs, err := pool.GetAllDef()
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(defs["aliasTestEndpoint"]))
+
+	visited := 0
+	pool.Range(func(_, _ any) bool {
+		visited++
+		return true
+	})
+	assert.Equal(t, 1, visited)
+}
+
+// AddAlias 支持主键或已有别名定位节点，可批量追加。
+func TestAddAlias(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	ep := &aliasTestEndpoint{id: "tcp://127.0.0.1:1883"}
+	_, err := pool.AddNode(ep)
+	assert.Nil(t, err)
+
+	assert.Nil(t, pool.AddAlias("tcp://127.0.0.1:1883", "alias_a", "alias_b"))
+	_, ok := pool.Get("alias_a")
+	assert.True(t, ok)
+	_, ok = pool.Get("alias_b")
+	assert.True(t, ok)
+
+	//用已有别名定位同一节点，继续追加
+	assert.Nil(t, pool.AddAlias("alias_a", "alias_c"))
+	_, ok = pool.Get("alias_c")
+	assert.True(t, ok)
+
+	node, err := pool.GetInstance("alias_c")
+	assert.Nil(t, err)
+	assert.True(t, node.(*aliasTestEndpoint) == ep)
+
+	assert.Equal(t, 1, len(pool.GetAll()))
+}
+
+// 别名等于主键 no-op；重复绑同一别名 no-op。
+func TestAliasIdempotent(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	ep := &aliasTestEndpoint{id: "tcp://127.0.0.1:1883"}
+	_, err := pool.AddNodeWithAlias("gateway_mqtt", ep)
+	assert.Nil(t, err)
+
+	assert.Nil(t, pool.AddAlias("tcp://127.0.0.1:1883", "tcp://127.0.0.1:1883"))
+	assert.Nil(t, pool.AddAlias("gateway_mqtt", "gateway_mqtt"))
+
+	byAlias, ok := pool.Get("gateway_mqtt")
+	assert.True(t, ok)
+	assert.True(t, byAlias.GetNodeId().Id == "tcp://127.0.0.1:1883")
+}
+
+// 别名冲突规则：占用他人主键报错，占用他人别名报错且不影响既有绑定。
+func TestAliasConflict(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	epA := &aliasTestEndpoint{id: "server_a"}
+	epB := &aliasTestEndpoint{id: "server_b"}
+	_, err := pool.AddNodeWithAlias("shared_name", epA)
+	assert.Nil(t, err)
+	_, err = pool.AddNode(epB)
+	assert.Nil(t, err)
+
+	//别名占用另一节点主键
+	err = pool.AddAlias("server_b", "server_a")
+	assert.NotNil(t, err)
+	//别名已被其他节点占用
+	err = pool.AddAlias("server_b", "shared_name")
+	assert.NotNil(t, err)
+
+	//既有绑定不受冲突影响
+	ins, err := pool.GetInstance("shared_name")
+	assert.Nil(t, err)
+	assert.True(t, ins.(*aliasTestEndpoint) == epA)
+}
+
+// AddNodeWithAlias 别名冲突时节点保留在池中（主键可用），别名维持旧绑定。
+func TestAddNodeWithAliasConflictKeepsNode(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	epA := &aliasTestEndpoint{id: "server_a"}
+	epB := &aliasTestEndpoint{id: "server_b"}
+	_, err := pool.AddNodeWithAlias("dup", epA)
+	assert.Nil(t, err)
+
+	ctx, err := pool.AddNodeWithAlias("dup", epB)
+	assert.NotNil(t, err)
+	assert.NotNil(t, ctx) //节点已入池，返回其上下文供调用方使用
+
+	_, ok := pool.Get("server_b")
+	assert.True(t, ok)
+	ins, err := pool.GetInstance("dup")
+	assert.Nil(t, err)
+	assert.True(t, ins.(*aliasTestEndpoint) == epA)
+
+	//换绑：先解绑旧节点，B 即可占用该别名
+	pool.Del("server_a")
+	assert.Nil(t, pool.AddAlias("server_b", "dup"))
+	ins, err = pool.GetInstance("dup")
+	assert.Nil(t, err)
+	assert.True(t, ins.(*aliasTestEndpoint) == epB)
+}
+
+// 空别名直接报错且节点不入池。
+func TestAddNodeWithAliasEmpty(t *testing.T) {
+	pool, _ := newAliasTestPool()
+
+	ctx, err := pool.AddNodeWithAlias("", &aliasTestEndpoint{id: "server_a"})
+	assert.NotNil(t, err)
+	assert.Nil(t, ctx)
+	assert.Equal(t, 0, len(pool.GetAll()))
+
+	_, err = pool.AddNode(&aliasTestEndpoint{id: "server_b"})
+	assert.Nil(t, err)
+	assert.NotNil(t, pool.AddAlias("server_b", ""))
+	assert.NotNil(t, pool.AddAlias("not_found", "x"))
+}
+
+// 别名不得被新节点主键抢占（AddNode/NewFromEndpoint/NewFromRuleNode 一致拒绝）。
+func TestAliasShadowGuard(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	_, err := pool.AddNodeWithAlias("occupied", &aliasTestEndpoint{id: "server_a"})
+	assert.Nil(t, err)
+
+	_, err = pool.AddNode(&aliasTestEndpoint{id: "occupied"})
+	assert.NotNil(t, err)
+
+	_, err = pool.NewFromEndpoint(types.EndpointDsl{RuleNode: types.RuleNode{
+		Id:   "occupied",
+		Type: "endpoint/mqtt",
+		Configuration: types.Configuration{
+			"server": "127.0.0.1:1883",
+		},
+	}})
+	assert.NotNil(t, err)
+
+	_, err = pool.NewFromRuleNode(types.RuleNode{
+		Id:   "occupied",
+		Type: "aliasTestSharedNode",
+	})
+	assert.NotNil(t, err)
+
+	//既有绑定不受影响
+	ins, err := pool.GetInstance("occupied")
+	assert.Nil(t, err)
+	assert.True(t, ins.(*aliasTestEndpoint).id == "server_a")
+}
+
+// 按主键或别名 Del 均删除节点并清理全部别名；删除后别名可复用。
+func TestDelAlias(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	ep := &aliasTestEndpoint{id: "server_a"}
+	_, err := pool.AddNodeWithAlias("alias_a", ep)
+	assert.Nil(t, err)
+	assert.Nil(t, pool.AddAlias("alias_a", "alias_b"))
+
+	//按别名删除
+	pool.Del("alias_b")
+	assert.Equal(t, 0, len(pool.GetAll()))
+	_, ok := pool.Get("server_a")
+	assert.False(t, ok)
+	_, ok = pool.Get("alias_a")
+	assert.False(t, ok)
+	_, ok = pool.Get("alias_b")
+	assert.False(t, ok)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&ep.destroyed))
+
+	//删除后别名可重新绑定到新节点
+	ep2 := &aliasTestEndpoint{id: "server_b"}
+	_, err = pool.AddNodeWithAlias("alias_a", ep2)
+	assert.Nil(t, err)
+	ins, err := pool.GetInstance("alias_a")
+	assert.Nil(t, err)
+	assert.True(t, ins.(*aliasTestEndpoint) == ep2)
+
+	//按主键删除
+	pool.Del("server_b")
+	assert.Equal(t, 0, len(pool.GetAll()))
+	_, ok = pool.Get("alias_a")
+	assert.False(t, ok)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&ep2.destroyed))
+
+	//重复 Del 与删除不存在的 id 均为 no-op
+	pool.Del("server_b")
+	pool.Del("alias_a")
+	assert.Equal(t, 0, len(pool.GetAll()))
+}
+
+// Stop 释放所有节点并清空别名。
+func TestStopAliasCleanup(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	epA := &aliasTestEndpoint{id: "server_a"}
+	epB := &aliasTestEndpoint{id: "server_b"}
+	_, err := pool.AddNodeWithAlias("alias_a", epA)
+	assert.Nil(t, err)
+	_, err = pool.AddNodeWithAlias("alias_b", epB)
+	assert.Nil(t, err)
+
+	pool.Stop()
+	assert.Equal(t, 0, len(pool.GetAll()))
+	_, ok := pool.Get("alias_a")
+	assert.False(t, ok)
+	_, ok = pool.Get("alias_b")
+	assert.False(t, ok)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&epA.destroyed))
+	assert.Equal(t, int32(1), atomic.LoadInt32(&epB.destroyed))
+}
+
+// NewFromRuleNode 创建的共享节点同样可绑别名。
+func TestRuleNodeAlias(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	ctx, err := pool.NewFromRuleNode(types.RuleNode{
+		Id:   "shared_db",
+		Type: "aliasTestSharedNode",
+	})
+	assert.Nil(t, err)
+	assert.NotNil(t, ctx)
+
+	assert.Nil(t, pool.AddAlias("shared_db", "db"))
+	ins, err := pool.GetInstance("db")
+	assert.Nil(t, err)
+	assert.True(t, ins.(*aliasTestSharedNode) != nil)
+
+	nodeCtx, ok := pool.Get("db")
+	assert.True(t, ok)
+	nodeCtx.Destroy()
+	//销毁经 RuleNodeCtx 透传到底层节点
+	assert.Equal(t, int32(1), atomic.LoadInt32(&ins.(*aliasTestSharedNode).destroyed))
+}
+
+// 主键与别名读、幂等别名写并发下无 panic，结果一致。
+func TestAliasConcurrentAccess(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	ep := &aliasTestEndpoint{id: "server_a"}
+	_, err := pool.AddNodeWithAlias("alias_0", ep)
+	assert.Nil(t, err)
+	//先绑满全部别名，并发阶段只做幂等重复绑定，避免绑定前 miss 的预期窗口
+	for i := 1; i < 4; i++ {
+		assert.Nil(t, pool.AddAlias("server_a", fmt.Sprintf("alias_%d", i)))
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				alias := fmt.Sprintf("alias_%d", j%4)
+				if j%3 == 0 {
+					_ = pool.AddAlias("server_a", alias)
+				}
+				ctxP, okP := pool.Get("server_a")
+				ctxA, okA := pool.Get(alias)
+				if okP != okA {
+					t.Error("primary and alias resolved inconsistently")
+					return
+				}
+				if okP && ctxP != ctxA {
+					t.Error("primary and alias resolved to different contexts")
+					return
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	ins, err := pool.GetInstance("server_a")
+	assert.Nil(t, err)
+	assert.True(t, ins.(*aliasTestEndpoint) == ep)
+}
+
+// refTestEndpoint is a minimal ref-aware endpoint stub: RefTarget exposes its
+// ref:// borrow target for the pool's registration-time cycle check.
+type refTestEndpoint struct {
+	aliasTestEndpoint
+	id     string
+	target string
+}
+
+func (e *refTestEndpoint) Id() string                        { return e.id }
+func (e *refTestEndpoint) GetInstance() (interface{}, error) { return e, nil }
+func (e *refTestEndpoint) RefTarget() string                 { return e.target }
+
+// TestPoolRefCycleRejected: registering an entry whose ref:// chain closes a
+// cycle is rejected; the offending entry stays out of the pool.
+func TestPoolRefCycleRejected(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	epA := &refTestEndpoint{id: "pool_a", target: "ref://pool_b"}
+	epB := &refTestEndpoint{id: "pool_b", target: "ref://pool_a"}
+
+	_, err := pool.AddNode(epA)
+	assert.Nil(t, err)
+	_, err = pool.AddNode(epB)
+	if err == nil {
+		t.Fatal("cyclic ref:// registration should be rejected")
+	}
+	if !strings.Contains(err.Error(), "circular ref://") {
+		t.Fatalf("error should mention circular ref, got: %v", err)
+	}
+	// pool_b stays out of the pool; pool_a remains usable
+	if _, ok := pool.Get("pool_b"); ok {
+		t.Fatal("pool_b should not be registered after cycle rejection")
+	}
+	if _, ok := pool.Get("pool_a"); !ok {
+		t.Fatal("pool_a should remain registered")
+	}
+}
+
+// TestPoolRefChainNoCycle: a linear borrow chain (b→a) registers fine.
+func TestPoolRefChainNoCycle(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	epA := &refTestEndpoint{id: "pool_a", target: ""}
+	epB := &refTestEndpoint{id: "pool_b", target: "ref://pool_a"}
+
+	_, err := pool.AddNode(epA)
+	assert.Nil(t, err)
+	_, err = pool.AddNode(epB)
+	assert.Nil(t, err)
+	if _, ok := pool.Get("pool_b"); !ok {
+		t.Fatal("pool_b should be registered (linear chain is fine)")
+	}
+}
+
+// TestPoolSelfRefRejected: an entry referencing itself is rejected.
+func TestPoolSelfRefRejected(t *testing.T) {
+	pool, _ := newAliasTestPool()
+	ep := &refTestEndpoint{id: "pool_self", target: "ref://pool_self"}
+	if _, err := pool.AddNode(ep); err == nil {
+		t.Fatal("self ref:// should be rejected")
+	} else if !strings.Contains(err.Error(), "circular ref://") {
+		t.Fatalf("error should mention circular ref, got: %v", err)
+	}
+}
+
+// TestRestSharedNodeBasicOperations 测试REST endpoint的基本SharedNode功能和多实例共享
+func TestRestSharedNodeBasicOperations(t *testing.T) {
+	config := engine.NewConfig()
+	pool := NewNodePool(config)
+	config.NodePool = pool
+
+	// 子测试1：基本SharedNode功能
+	t.Run("BasicSharedNodeFunctionality", func(t *testing.T) {
+		var restDsl = []byte(`
+			{
+		       "id": "shared_rest_endpoint",
+		       "type": "endpoint/http",
+		       "name": "共享REST端点",
+		       "debugMode": false,
+		       "configuration": {
+		         "server": ":9080"
+		       }
+		     }`)
+
+		// 创建共享节点
+		var def types.EndpointDsl
+		err := json.Unmarshal(restDsl, &def)
+		assert.Nil(t, err)
+
+		ctx, err := pool.NewFromEndpoint(def)
+		assert.NotNil(t, ctx)
+		assert.Nil(t, err)
+
+		// 验证共享节点已创建
+		sharedCtx, ok := pool.Get("shared_rest_endpoint")
+		assert.True(t, ok)
+		assert.NotNil(t, sharedCtx)
+
+		// 获取REST实例
+		restInstance, err := pool.GetInstance("shared_rest_endpoint")
+		assert.Nil(t, err)
+		assert.NotNil(t, restInstance)
+
+		// 验证实例类型和配置
+		restEndpoint, ok := restInstance.(*rest.Rest)
+		assert.True(t, ok)
+		assert.NotNil(t, restEndpoint)
+		assert.Equal(t, ":9080", restEndpoint.Config.Server)
+
+		// 清理
+		pool.Del("shared_rest_endpoint")
+		assert.Equal(t, 0, len(pool.GetAll()))
+	})
+
+	// 子测试2：多实例共享验证
+	t.Run("MultipleInstancesSharing", func(t *testing.T) {
+		// 创建共享的REST服务器节点
+		var sharedServerDsl = []byte(`
+			{
+		       "id": "shared_rest_server",
+		       "type": "endpoint/http",
+		       "name": "共享REST服务器",
+		       "debugMode": false,
+		       "configuration": {
+		         "server": ":9081"
+		       }
+		     }`)
+
+		var sharedServerDef types.EndpointDsl
+		err := json.Unmarshal(sharedServerDsl, &sharedServerDef)
+		assert.Nil(t, err)
+		sharedCtx, err := pool.NewFromEndpoint(sharedServerDef)
+		assert.NotNil(t, sharedCtx)
+		assert.Nil(t, err)
+
+		// 验证只有一个共享服务器节点存在
+		assert.Equal(t, 1, len(pool.GetAll()))
+
+		// 获取共享服务器实例
+		sharedInstance, err := pool.GetInstance("shared_rest_server")
+		assert.Nil(t, err)
+		sharedRest, ok := sharedInstance.(*rest.Rest)
+		assert.True(t, ok)
+		assert.Equal(t, ":9081", sharedRest.Config.Server)
+
+		// 验证多次获取返回同一个实例
+		instance1, err := pool.GetInstance("shared_rest_server")
+		assert.Nil(t, err)
+		instance2, err := pool.GetInstance("shared_rest_server")
+		assert.Nil(t, err)
+		assert.Equal(t, instance1, instance2) // 应该是同一个实例
+
+		// 验证不存在的节点返回错误
+		_, err = pool.GetInstance("non_existent_node")
+		assert.NotNil(t, err)
+
+		// 清理
+		pool.Stop()
+		assert.Equal(t, 0, len(pool.GetAll()))
+	})
+}
+
+// TestRestSharedNodeLifecycleManagement 测试REST endpoint的生命周期管理（重启和注销）
+func TestRestSharedNodeLifecycleManagement(t *testing.T) {
+	config := engine.NewConfig()
+	pool := NewNodePool(config)
+	config.NodePool = pool
+
+	// 子测试1：重启功能测试
+	t.Run("RestartFunctionality", func(t *testing.T) {
+		var restDsl = []byte(`
+			{
+		       "id": "restart_test_rest",
+		       "type": "endpoint/http",
+		       "name": "重启测试REST端点",
+		       "debugMode": false,
+		       "configuration": {
+		         "server": ":9082"
+		       }
+		     }`)
+
+		// 创建共享节点
+		var def types.EndpointDsl
+		err := json.Unmarshal(restDsl, &def)
+		assert.Nil(t, err)
+
+		ctx, err := pool.NewFromEndpoint(def)
+		assert.NotNil(t, ctx)
+		assert.Nil(t, err)
+
+		// 获取REST实例
+		restInstance, err := pool.GetInstance("restart_test_rest")
+		assert.Nil(t, err)
+		_, ok := restInstance.(*rest.Rest)
+		assert.True(t, ok)
+
+		// 测试重启功能：删除旧节点并创建新节点
+		pool.Del("restart_test_rest")
+		time.Sleep(1 * time.Second)
+		// 创建更新的配置
+		var newRestDsl = []byte(`
+			{
+		       "id": "restart_test_rest",
+		       "type": "endpoint/http",
+		       "name": "重启测试REST端点-更新",
+		       "debugMode": true,
+		       "configuration": {
+		         "server": ":9082",
+		         "allowCors": true
+		       }
+		     }`)
+
+		// 重新创建节点
+		var newDef types.EndpointDsl
+		err = json.Unmarshal(newRestDsl, &newDef)
+		assert.Nil(t, err)
+		newCtx, err := pool.NewFromEndpoint(newDef)
+		assert.NotNil(t, newCtx)
+		assert.Nil(t, err)
+
+		// 验证配置已更新
+		updatedInstance, err := pool.GetInstance("restart_test_rest")
+		assert.Nil(t, err)
+		updatedRest, ok := updatedInstance.(*rest.Rest)
+		assert.True(t, ok)
+		assert.True(t, updatedRest.Config.AllowCors)
+
+		// 清理
+		pool.Del("restart_test_rest")
+	})
+
+	// 子测试2：注销影响测试
+	t.Run("UnregisterImpact", func(t *testing.T) {
+		var restDsl = []byte(`
+			{
+		       "id": "unregister_test_rest",
+		       "type": "endpoint/http",
+		       "name": "注销测试REST端点",
+		       "debugMode": false,
+		       "configuration": {
+		         "server": ":9083"
+		       }
+		     }`)
+
+		// 创建共享节点
+		var def types.EndpointDsl
+		err := json.Unmarshal(restDsl, &def)
+		assert.Nil(t, err)
+
+		ctx, err := pool.NewFromEndpoint(def)
+		assert.NotNil(t, ctx)
+		assert.Nil(t, err)
+
+		// 验证节点存在
+		_, ok := pool.Get("unregister_test_rest")
+		assert.True(t, ok)
+		assert.Equal(t, 1, len(pool.GetAll()))
+
+		// 获取实例
+		instance, err := pool.GetInstance("unregister_test_rest")
+		assert.Nil(t, err)
+		assert.NotNil(t, instance)
+
+		// 注销节点
+		pool.Del("unregister_test_rest")
+
+		// 验证节点已被删除
+		_, ok = pool.Get("unregister_test_rest")
+		assert.False(t, ok)
+		assert.Equal(t, 0, len(pool.GetAll()))
+
+		// 尝试获取已删除的实例
+		instance, err = pool.GetInstance("unregister_test_rest")
+		assert.NotNil(t, err)
+		assert.Nil(t, instance)
+	})
+
+	// 最终清理
+	pool.Stop()
+}
+
+// TestRestSharedNodeAdvancedFeatures 测试REST endpoint的高级功能（路由和并发）
+func TestRestSharedNodeAdvancedFeatures(t *testing.T) {
+	config := engine.NewConfig()
+	pool := NewNodePool(config)
+	config.NodePool = pool
+
+	// 子测试1：路由功能测试
+	t.Run("RouteFunctionality", func(t *testing.T) {
+		var restDsl = []byte(`
+			{
+		       "id": "routes_test_rest",
+		       "type": "endpoint/http",
+		       "name": "路由测试REST端点",
+		       "debugMode": false,
+		       "configuration": {
+		         "server": ":9084"
+		       }
+		     }`)
+
+		// 创建共享节点
+		var def types.EndpointDsl
+		err := json.Unmarshal(restDsl, &def)
+		assert.Nil(t, err)
+
+		ctx, err := pool.NewFromEndpoint(def)
+		assert.NotNil(t, ctx)
+		assert.Nil(t, err)
+
+		// 获取REST实例
+		restInstance, err := pool.GetInstance("routes_test_rest")
+		assert.Nil(t, err)
+		restEndpoint, ok := restInstance.(*rest.Rest)
+		assert.True(t, ok)
+
+		// 添加路由
+		router := impl.NewRouter().From("/test").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+			exchange.Out.SetBody([]byte("Hello from shared REST endpoint"))
+			return true
+		}).End()
+
+		restEndpoint.GET(router)
+
+		// 清理
+		pool.Del("routes_test_rest")
+	})
+
+	// 子测试2：并发访问测试
+	t.Run("ConcurrentAccess", func(t *testing.T) {
+		var restDsl = []byte(`
+			{
+		       "id": "concurrent_test_rest",
+		       "type": "endpoint/http",
+		       "name": "并发测试REST端点",
+		       "debugMode": false,
+		       "configuration": {
+		         "server": ":9085"
+		       }
+		     }`)
+
+		// 创建共享节点
+		var def types.EndpointDsl
+		err := json.Unmarshal(restDsl, &def)
+		assert.Nil(t, err)
+
+		ctx, err := pool.NewFromEndpoint(def)
+		assert.NotNil(t, ctx)
+		assert.Nil(t, err)
+
+		// 并发获取实例
+		const numGoroutines = 10
+		results := make(chan interface{}, numGoroutines)
+		errors := make(chan error, numGoroutines)
+
+		for i := 0; i < numGoroutines; i++ {
+			go func() {
+				instance, err := pool.GetInstance("concurrent_test_rest")
+				if err != nil {
+					errors <- err
+					return
+				}
+				results <- instance
+			}()
+		}
+
+		// 收集结果
+		var instances []interface{}
+		for i := 0; i < numGoroutines; i++ {
+			select {
+			case instance := <-results:
+				instances = append(instances, instance)
+			case err := <-errors:
+				t.Fatalf("Concurrent access failed: %v", err)
+			case <-time.After(5 * time.Second):
+				t.Fatal("Timeout waiting for concurrent access")
+			}
+		}
+
+		// 验证所有实例都是相同的（共享实例）
+		assert.Equal(t, numGoroutines, len(instances))
+		for i := 1; i < len(instances); i++ {
+			assert.Equal(t, instances[0], instances[i])
+		}
+
+		// 清理
+		pool.Del("concurrent_test_rest")
+	})
+
+	// 最终清理
+	pool.Stop()
+}
+
+// TestRestSharedNodeWithRefProtocol 测试使用ref://方式引入共享REST endpoint及其生命周期管理
+func TestRestSharedNodeWithRefProtocol(t *testing.T) {
+	config := engine.NewConfig()
+	pool := NewNodePool(config)
+	config.NodePool = pool
+
+	// 子测试1：基本ref://引用功能
+	t.Run("BasicRefProtocol", func(t *testing.T) {
+		// 创建共享节点
+		var sharedRestDsl = []byte(`
+			{
+		       "id": "shared_rest_endpoint_ref",
+		       "type": "endpoint/http",
+		       "name": "共享REST端点-ref测试",
+		       "debugMode": false,
+		       "configuration": {
+		         "server": ":9087"
+		       }
+		     }`)
+
+		var sharedDef types.EndpointDsl
+		err := json.Unmarshal(sharedRestDsl, &sharedDef)
+		assert.Nil(t, err)
+
+		sharedCtx, err := pool.NewFromEndpoint(sharedDef)
+		assert.NotNil(t, sharedCtx)
+		assert.Nil(t, err)
+
+		// 验证共享节点已创建
+		_, ok := pool.Get("shared_rest_endpoint_ref")
+		assert.True(t, ok)
+
+		// 创建使用ref://引用的配置
+		var refRestDsl = []byte(`
+			{
+		       "id": "ref_rest_endpoint",
+		       "type": "endpoint/http",
+		       "name": "引用REST端点",
+		       "debugMode": false,
+		       "configuration": {
+		         "server": "ref://shared_rest_endpoint_ref"
+		       }
+		     }`)
+
+		// 解析引用配置
+		var refDef types.EndpointDsl
+		err = json.Unmarshal(refRestDsl, &refDef)
+		assert.Nil(t, err)
+		assert.Equal(t, "ref://shared_rest_endpoint_ref", refDef.Configuration["server"])
+
+		// 测试通过ref://获取共享实例
+		serverConfig := refDef.Configuration["server"].(string)
+		if strings.HasPrefix(serverConfig, "ref://") {
+			instanceId := serverConfig[len("ref://"):]
+			assert.Equal(t, "shared_rest_endpoint_ref", instanceId)
+
+			// 从池中获取引用的实例
+			sharedInstance, err := pool.GetInstance(instanceId)
+			assert.Nil(t, err)
+			assert.NotNil(t, sharedInstance)
+
+			// 验证获取的是同一个共享实例
+			sharedRest, ok := sharedInstance.(*rest.Rest)
+			assert.True(t, ok)
+			assert.Equal(t, ":9087", sharedRest.Config.Server)
+
+		}
+
+		// 验证ref://引用不会创建新的节点实例
+		assert.Equal(t, 1, len(pool.GetAll())) // 只有一个共享节点
+	})
+
+	// 子测试2：测试共享节点重启不影响引用
+	t.Run("SharedNodeRestartIsolation", func(t *testing.T) {
+		// 获取原始共享实例的引用
+		originalInstance, err := pool.GetInstance("shared_rest_endpoint_ref")
+		assert.Nil(t, err)
+		originalRest, ok := originalInstance.(*rest.Rest)
+		assert.True(t, ok)
+		originalServer := originalRest.Config.Server
+
+		// 模拟共享节点重启：删除并重新创建
+		pool.Del("shared_rest_endpoint_ref")
+		time.Sleep(1 * time.Second)
+		// 验证共享节点已被删除
+		_, ok = pool.Get("shared_rest_endpoint_ref")
+		assert.False(t, ok)
+
+		// 重新创建共享节点（模拟重启后的新配置）
+		var restartedRestDsl = []byte(`
+			{
+		       "id": "shared_rest_endpoint_ref",
+		       "type": "endpoint/http",
+		       "name": "重启后的共享REST端点",
+		       "debugMode": true,
+		       "configuration": {
+		         "server": ":9087",
+		         "allowCors": true
+		       }
+		     }`)
+
+		var restartedDef types.EndpointDsl
+		err = json.Unmarshal(restartedRestDsl, &restartedDef)
+		assert.Nil(t, err)
+
+		_, err = pool.NewFromEndpoint(restartedDef)
+		assert.Nil(t, err)
+
+		// 验证重启后的实例配置已更新
+		restartedInstance, err := pool.GetInstance("shared_rest_endpoint_ref")
+		assert.Nil(t, err)
+		restartedRest, ok := restartedInstance.(*rest.Rest)
+		assert.True(t, ok)
+		assert.Equal(t, originalServer, restartedRest.Config.Server) // 服务器地址保持一致
+		assert.True(t, restartedRest.Config.AllowCors)               // 新配置生效
+
+		// 验证通过ref://仍然可以正常获取更新后的实例
+		refInstance, err := pool.GetInstance("shared_rest_endpoint_ref")
+		assert.Nil(t, err)
+		assert.Equal(t, restartedInstance, refInstance) // 引用获取的是同一个实例
+	})
+
+	// 子测试3：测试多个引用节点的独立性
+	t.Run("MultipleReferencesIndependence", func(t *testing.T) {
+		// 创建多个使用ref://的配置（模拟不同规则链中的引用）
+		refConfigs := []string{
+			`{"id": "ref1", "type": "endpoint/http", "configuration": {"server": "ref://shared_rest_endpoint_ref"}}`,
+			`{"id": "ref2", "type": "endpoint/http", "configuration": {"server": "ref://shared_rest_endpoint_ref"}}`,
+			`{"id": "ref3", "type": "endpoint/http", "configuration": {"server": "ref://shared_rest_endpoint_ref"}}`,
+		}
+
+		// 验证所有引用都指向同一个共享实例
+		sharedInstance, err := pool.GetInstance("shared_rest_endpoint_ref")
+		assert.Nil(t, err)
+
+		for i, configStr := range refConfigs {
+			var refDef types.EndpointDsl
+			err := json.Unmarshal([]byte(configStr), &refDef)
+			assert.Nil(t, err)
+
+			serverConfig := refDef.Configuration["server"].(string)
+			if strings.HasPrefix(serverConfig, "ref://") {
+				instanceId := serverConfig[len("ref://"):]
+				refInstance, err := pool.GetInstance(instanceId)
+				assert.Nil(t, err)
+				assert.Equal(t, sharedInstance, refInstance, "Reference %d should point to the same shared instance", i+1)
+			}
+		}
+
+		// 验证节点池中仍然只有一个共享节点
+		assert.Equal(t, 1, len(pool.GetAll()))
+	})
+
+	// 清理
+	pool.Stop()
+}
+
+// TestRestSharedNodeDynamicRestart 测试REST endpoint的动态重启是否生效
+func TestRestSharedNodeDynamicRestart(t *testing.T) {
+	var restDsl = []byte(`
+		{
+	       "id": "dynamic_restart_test",
+	       "type": "endpoint/http",
+	       "name": "动态重启测试",
+	       "debugMode": false,
+	       "configuration": {
+	         "server": ":9086",
+	         "allowCors": false
+	       }
+	     }`)
+
+	config := engine.NewConfig()
+	pool := NewNodePool(config)
+	config.NodePool = pool
+
+	// 创建共享节点
+	var def types.EndpointDsl
+	err := json.Unmarshal(restDsl, &def)
+	assert.Nil(t, err)
+
+	ctx, err := pool.NewFromEndpoint(def)
+	assert.NotNil(t, ctx)
+	assert.Nil(t, err)
+
+	// 获取初始实例
+	initialInstance, err := pool.GetInstance("dynamic_restart_test")
+	assert.Nil(t, err)
+	initialRest, ok := initialInstance.(*rest.Rest)
+	assert.True(t, ok)
+	assert.False(t, initialRest.Config.AllowCors) // 初始配置
+
+	// 动态更新配置并重启
+	var updatedRestDsl = []byte(`
+		{
+	       "id": "dynamic_restart_test",
+	       "type": "endpoint/http",
+	       "name": "动态重启测试-更新",
+	       "debugMode": false,
+	       "configuration": {
+	         "server": ":9086",
+	         "allowCors": true
+	       }
+	     }`)
+
+	// 删除旧节点并重新创建
+	pool.Del("dynamic_restart_test")
+	time.Sleep(1 * time.Second)
+	// 重新创建节点
+	var updatedDef types.EndpointDsl
+	err = json.Unmarshal(updatedRestDsl, &updatedDef)
+	assert.Nil(t, err)
+	_, err = pool.NewFromEndpoint(updatedDef)
+	assert.Nil(t, err)
+
+	// 获取更新后的实例
+	updatedInstance, err := pool.GetInstance("dynamic_restart_test")
+	assert.Nil(t, err)
+	updatedRest, ok := updatedInstance.(*rest.Rest)
+	assert.True(t, ok)
+
+	// 验证配置已更新
+	assert.True(t, updatedRest.Config.AllowCors) // 配置已更新
+
+	// 验证配置更新成功
+
+	// 添加一个简单的路由来测试功能
+	router := impl.NewRouter().From("/cors-test").Transform(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Out.SetBody([]byte("CORS enabled"))
+		return true
+	}).End()
+	updatedRest.GET(router)
+
+	// 验证路由已添加
+
+	// 清理
+	pool.Stop()
 }

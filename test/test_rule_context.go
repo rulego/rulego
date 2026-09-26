@@ -176,11 +176,16 @@ func (ctx *NodeTestRuleContext) GetEndFunc() types.OnEndFunc {
 }
 
 func (ctx *NodeTestRuleContext) SetContext(c context.Context) types.RuleContext {
+	// NodeOnMsg 并发派发多消息共享同一上下文，Set/Get 必须与 mutex 同步
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
 	ctx.context = c
 	return ctx
 }
 
 func (ctx *NodeTestRuleContext) GetContext() context.Context {
+	ctx.mutex.RLock()
+	defer ctx.mutex.RUnlock()
 	return ctx.context
 }
 

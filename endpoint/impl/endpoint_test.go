@@ -658,3 +658,295 @@ func TestToMissingPath(t *testing.T) {
 		t.Errorf("To with path should not error: %v", router2.Err())
 	}
 }
+
+// From/To accessors: configuration, wait flag, opts and variable resolution.
+func TestFromToAccessors(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	router := NewRouter(endpoint.RouterOptions.WithRuleConfig(config)).
+		From("/from", types.Configuration{"k": "v"}).
+		To("chain:${chainId}").
+		Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool { return true }).
+		End()
+
+	from := router.GetFrom()
+	assert.Equal(t, "v", from.GetConfiguration()["k"])
+
+	// GetTo returns nil before To is configured.
+	empty := NewRouter().From("/x").End()
+	assert.Nil(t, empty.GetFrom().GetTo())
+
+	to := from.GetTo().(*To)
+	assert.True(t, to.HasVars)
+	assert.Equal(t, "${chainId}", to.ToString())
+	assert.Equal(t, "aa", to.ToStringByDict(map[string]string{"chainId": "aa"}))
+	// Without vars ToStringByDict returns the path unchanged.
+	plain := NewRouter().From("/x").To("chain:abc").End()
+	assert.Equal(t, "abc", plain.GetFrom().GetTo().(*To).ToStringByDict(map[string]string{"chainId": "zz"}))
+
+	assert.False(t, to.IsWait())
+	to.SetWait(true)
+	assert.True(t, to.IsWait())
+	to.Wait()
+	assert.True(t, to.IsWait())
+
+	opt := types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {})
+	assert.Equal(t, 0, len(to.GetOpts()))
+	to.SetOpts(opt)
+	assert.Equal(t, 1, len(to.GetOpts()))
+}
+
+// Router accessors: id, definition, params and dynamic rule engine pool.
+func TestRouterAccessors(t *testing.T) {
+	// Same defaults as NewRouter: DefaultPool for the rule engine.
+	router := &Router{RuleGo: engine.DefaultPool}
+
+	// No From configured yet.
+	assert.Equal(t, "", router.FromToString())
+	assert.Nil(t, router.GetFrom())
+
+	router.From("/f")
+	assert.Equal(t, "/f", router.FromToString())
+
+	router.SetId("rid")
+	assert.Equal(t, "rid", router.GetId())
+
+	assert.Nil(t, router.Definition())
+	def := &types.RouterDsl{Id: "rid"}
+	router.SetDefinition(def)
+	assert.Equal(t, def, router.Definition())
+
+	assert.Equal(t, 0, len(router.GetParams()))
+	router.SetParams("GET", 1)
+	params := router.GetParams()
+	assert.Equal(t, "GET", params[0])
+	assert.Equal(t, 1, params[1])
+
+	// GetRuleGo prefers the dynamic pool function when set.
+	otherPool := engine.NewPool()
+	assert.Equal(t, engine.DefaultPool, router.GetRuleGo(nil))
+	router.SetRuleEnginePoolFunc(func(exchange *endpoint.Exchange) types.RuleEnginePool {
+		return otherPool
+	})
+	assert.Equal(t, otherPool, router.GetRuleGo(nil))
+	router.SetRuleEnginePoolFunc(nil)
+	router.SetRuleEnginePool(otherPool)
+	assert.Equal(t, otherPool, router.GetRuleGo(nil))
+}
+
+// BaseEndpoint utilities: event callback, log helpers, router id fallback,
+// destroy reset and rule chain definition extraction.
+func TestBaseEndpointUtilities(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	testEp := &testEndpoint{}
+
+	// Log helpers are safe with a nil logger and forward to a configured one.
+	testEp.Debugf("debug %s", "msg")
+	testEp.Infof("info %s", "msg")
+	testEp.Warnf("warn %s", "msg")
+	testEp.Errorf("error %s", "msg")
+	testEp.Logger = config.Logger
+	testEp.Debugf("debug %s", "msg")
+	testEp.Infof("info %s", "msg")
+	testEp.Warnf("warn %s", "msg")
+	testEp.Errorf("error %s", "msg")
+
+	var fired string
+	testEp.SetOnEvent(func(event string, params ...interface{}) {
+		fired = event
+	})
+	testEp.OnEvent("evt")
+	assert.Equal(t, "evt", fired)
+
+	// Empty router id falls back to the from path.
+	r1 := NewRouter().From("/a/b").End()
+	assert.Equal(t, "/a/b", testEp.CheckAndSetRouterId(r1))
+	r2 := NewRouter().SetId("keep").From("/a/b").End()
+	assert.Equal(t, "keep", testEp.CheckAndSetRouterId(r2))
+
+	// HasRouter reflects RouterStorage contents.
+	router := NewRouter().SetId("in-store").From("/x").End()
+	testEp.RouterStorage = map[string]endpoint.Router{"in-store": router}
+	assert.True(t, testEp.HasRouter("in-store"))
+	assert.False(t, testEp.HasRouter("absent"))
+
+	// Destroy resets interceptors and router storage.
+	testEp.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool { return true })
+	testEp.BaseEndpoint.Destroy()
+	assert.Equal(t, 0, len(testEp.Interceptors))
+	assert.Equal(t, 0, len(testEp.RouterStorage))
+
+	// GetRuleChainDefinition extracts only *types.RuleChain values.
+	chainDef := &types.RuleChain{}
+	configuration := types.Configuration{
+		types.NodeConfigurationKeyRuleChainDefinition: chainDef,
+		"wrongType": "not a chain",
+	}
+	assert.Equal(t, chainDef, testEp.GetRuleChainDefinition(configuration))
+	assert.Nil(t, testEp.GetRuleChainDefinition(types.Configuration{
+		types.NodeConfigurationKeyRuleChainDefinition: "wrong type",
+	}))
+	assert.Nil(t, testEp.GetRuleChainDefinition(types.Configuration{}))
+}
+
+// stagedCancelCtx reports itself cancelled only once Done() has been called
+// cancelAt times, so tests can pin which cancellation gate in DoProcess fires.
+type stagedCancelCtx struct {
+	calls    int
+	cancelAt int
+	done     chan struct{}
+}
+
+func (c *stagedCancelCtx) Deadline() (time.Time, bool) { return time.Time{}, false }
+func (c *stagedCancelCtx) Done() <-chan struct{} {
+	c.calls++
+	if c.calls >= c.cancelAt {
+		return c.done
+	}
+	return nil
+}
+func (c *stagedCancelCtx) Err() error {
+	if c.calls >= c.cancelAt {
+		return context.Canceled
+	}
+	return nil
+}
+func (c *stagedCancelCtx) Value(key interface{}) interface{} { return nil }
+
+// DoProcess aborts at each cancellation gate with a distinct error message.
+func TestDoProcessCancellationGates(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	newExchange := func() *endpoint.Exchange {
+		return &endpoint.Exchange{In: &testRequestMessage{body: []byte("{}")}, Out: &testResponseMessage{}}
+	}
+
+	// Cancelled base context aborts before anything runs.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	router := NewRouter(endpoint.RouterOptions.WithRuleConfig(config)).From("/x").To("chain:default").End()
+	exchange := newExchange()
+	(&testEndpoint{}).DoProcess(ctx, router, exchange)
+	assert.NotNil(t, exchange.Out.GetError())
+	assert.True(t, strings.Contains(exchange.Out.GetError().Error(), "processing cancelled"))
+
+	cases := []struct {
+		name     string
+		cancelAt int
+		wantMsg  string
+	}{
+		// Done() call order: interceptor gate, before-From gate, before-To gate.
+		{"duringInterceptor", 1, "cancelled during interceptor"},
+		{"beforeFrom", 1, "cancelled before From"},
+		{"beforeTo", 2, "cancelled before To"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// The done channel must be closed so select sees it as cancelled.
+			done := make(chan struct{})
+			close(done)
+			var staged context.Context = &stagedCancelCtx{cancelAt: tc.cancelAt, done: done}
+			router := NewRouter(
+				endpoint.RouterOptions.WithRuleConfig(config),
+				endpoint.RouterOptions.WithContextFunc(func(ctx context.Context, exchange *endpoint.Exchange) context.Context {
+					return staged
+				})).
+				From("/x").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+				return true
+			}).To("chain:default").End()
+			if tc.name == "beforeFrom" || tc.name == "beforeTo" {
+				// No global interceptors: the first Done() call is the before-From gate.
+				exchange := newExchange()
+				(&testEndpoint{}).DoProcess(context.Background(), router, exchange)
+				assert.NotNil(t, exchange.Out.GetError())
+				assert.True(t, strings.Contains(exchange.Out.GetError().Error(), tc.wantMsg))
+				return
+			}
+			testEp := &testEndpoint{}
+			testEp.AddInterceptors(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+				return true
+			})
+			exchange := newExchange()
+			testEp.DoProcess(context.Background(), router, exchange)
+			assert.NotNil(t, exchange.Out.GetError())
+			assert.True(t, strings.Contains(exchange.Out.GetError().Error(), tc.wantMsg))
+		})
+	}
+}
+
+// A ContextFunc returning nil must fall back to context.Background().
+func TestDoProcessContextFuncNilResult(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	router := NewRouter(
+		endpoint.RouterOptions.WithRuleConfig(config),
+		endpoint.RouterOptions.WithContextFunc(func(ctx context.Context, exchange *endpoint.Exchange) context.Context {
+			return nil
+		})).
+		From("/x").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		return true
+	}).End()
+	exchange := &endpoint.Exchange{In: &testRequestMessage{body: []byte("{}")}, Out: &testResponseMessage{}}
+	(&testEndpoint{}).DoProcess(context.Background(), router, exchange)
+	assert.Nil(t, exchange.Out.GetError())
+}
+
+// ScopedMessage keeps msg scope-local while delegating IO to the wrapped message.
+func TestScopedMessageDelegation(t *testing.T) {
+	out := &testResponseMessage{body: []byte("orig")}
+	local := types.NewMsg(0, "from", types.TEXT, types.NewMetadata(), "scoped-data")
+	scoped := &ScopedMessage{Message: out, msg: &local}
+
+	assert.Equal(t, "scoped-data", scoped.GetMsg().GetData())
+	next := types.NewMsg(0, "from2", types.TEXT, types.NewMetadata(), "next")
+	scoped.SetMsg(&next)
+	assert.Equal(t, "next", scoped.GetMsg().GetData())
+	assert.Nil(t, out.GetMsg()) // underlying message untouched
+
+	assert.Equal(t, "orig", string(scoped.Body()))
+	scoped.SetBody([]byte("written"))
+	assert.Equal(t, "written", string(out.Body()))
+	assert.NotNil(t, scoped.Headers())
+	assert.Equal(t, "", scoped.From())
+	assert.Equal(t, "", scoped.GetParam("k"))
+	scoped.SetStatusCode(200)
+	assert.Nil(t, scoped.GetError())
+	scoped.SetError(fmt.Errorf("boom"))
+	assert.Equal(t, "boom", scoped.GetError().Error())
+	// testResponseMessage implements HeaderModifier.
+	assert.NotNil(t, scoped.GetMetadata())
+	// testResponseMessage has no Response/Flush support: both degrade to no-ops.
+	assert.Nil(t, scoped.Response())
+	scoped.Flush()
+}
+
+// Header mutation on a wrapped message without HeaderModifier falls back to
+// the raw header map; GetMetadata then returns nil.
+func TestScopedMessageHeaderFallback(t *testing.T) {
+	plain := &testRequestMessage{}
+	scoped := &ScopedMessage{Message: plain}
+
+	scoped.AddHeader("X-Add", "a")
+	scoped.SetHeader("X-Set", "b")
+	assert.Equal(t, "a", plain.Headers().Get("X-Add"))
+	assert.Equal(t, "b", plain.Headers().Get("X-Set"))
+	scoped.DelHeader("X-Add")
+	assert.Equal(t, "", plain.Headers().Get("X-Add"))
+	assert.Nil(t, scoped.GetMetadata())
+}
+
+// Executors tolerate routers without a configured From/To.
+func TestExecutorNilFromAndTo(t *testing.T) {
+	exchange := &endpoint.Exchange{
+		In:  &testRequestMessage{body: []byte("{}")},
+		Out: &testResponseMessage{},
+	}
+	config := engine.NewConfig(types.WithDefaultPool())
+
+	chainExecutor, _ := DefaultExecutorFactory.New("chain")
+	routerNoTo := NewRouter(endpoint.RouterOptions.WithRuleConfig(config)).From("/x").End()
+	chainExecutor.Execute(context.TODO(), routerNoTo, exchange)
+	assert.Nil(t, exchange.Out.GetError())
+
+	componentExecutor, _ := DefaultExecutorFactory.New("component")
+	routerNoFrom := NewRouter(endpoint.RouterOptions.WithRuleConfig(config))
+	componentExecutor.Execute(context.TODO(), routerNoFrom, exchange)
+	assert.Nil(t, exchange.Out.GetError())
+}

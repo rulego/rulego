@@ -248,3 +248,15 @@ func BenchmarkConversionSizes(b *testing.B) {
 		})
 	}
 }
+
+func TestSafeConversionsEmpty(t *testing.T) {
+	if got := SafeStringFromBytes(nil); got != "" {
+		t.Errorf("SafeStringFromBytes(nil) = %q, want empty", got)
+	}
+	if got := SafeStringFromBytes([]byte{}); got != "" {
+		t.Errorf("SafeStringFromBytes(empty) = %q, want empty", got)
+	}
+	if got := SafeBytesFromString(""); got != nil {
+		t.Errorf(`SafeBytesFromString("") = %v, want nil`, got)
+	}
+}

@@ -17,15 +17,23 @@
 package external
 
 import (
+	"sync/atomic"
+	"testing"
+	"time"
+
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
-	"testing"
-	"time"
 )
 
 func TestMqttClientNode(t *testing.T) {
 	var targetNodeType = "mqttClient"
+
+	// in-process broker so the happy path works without an external mosquitto
+	broker, err := test.NewMqttBroker("127.0.0.1:0")
+	assert.Nil(t, err)
+	defer broker.Close()
+	brokerAddr := broker.Addr()
 
 	t.Run("NewNode", func(t *testing.T) {
 		test.NodeNew(t, targetNodeType, &MqttClientNode{}, types.Configuration{
@@ -67,7 +75,7 @@ func TestMqttClientNode(t *testing.T) {
 	t.Run("OnMsg", func(t *testing.T) {
 		node1, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
 			"topic":                "/device/msg",
-			"server":               "127.0.0.1:1883",
+			"server":               brokerAddr,
 			"maxReconnectInterval": -1,
 		}, Registry)
 		assert.Nil(t, err)
@@ -79,13 +87,13 @@ func TestMqttClientNode(t *testing.T) {
 		assert.Nil(t, err)
 
 		nodeClientFromPool, err := test.CreateAndInitNode(targetNodeType, types.Configuration{
-			"server":               types.NodeConfigurationPrefixInstanceId + "127.0.0.1:1883",
+			"server":               types.NodeConfigurationPrefixInstanceId + brokerAddr,
 			"topic":                "/device/msg",
 			"maxReconnectInterval": -1,
 		}, Registry)
 		assert.Nil(t, err)
 		assert.Equal(t, targetNodeType, nodeClientFromPool.(*MqttClientNode).Type())
-		assert.Equal(t, "127.0.0.1:1883", nodeClientFromPool.(*MqttClientNode).InstanceId)
+		assert.Equal(t, brokerAddr, nodeClientFromPool.(*MqttClientNode).InstanceId)
 
 		metaData := types.BuildMetadata(make(map[string]string))
 		metaData.PutValue("productType", "test")
@@ -101,33 +109,45 @@ func TestMqttClientNode(t *testing.T) {
 				Data:     "{\"temperature\":60}",
 			},
 		}
-		_ = node1
+		// count callbacks so the test waits for the dead-server node instead of
+		// letting its late failure assert fire after the test completes
+		var pending int32 = int32(len(msgList) * 3)
+		allDone := make(chan struct{})
+		expect := func(want string) func(types.RuleMsg, string, error) {
+			return func(msg types.RuleMsg, relationType string, err error) {
+				assert.Equal(t, want, relationType)
+				if atomic.AddInt32(&pending, -1) == 0 {
+					close(allDone)
+				}
+			}
+		}
 		var nodeList = []test.NodeAndCallback{
 			{
-				Node:    node1,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Success, relationType)
-				},
+				Node:     node1,
+				MsgList:  msgList,
+				Callback: expect(types.Success),
 			},
 			{
-				Node:    node2,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Failure, relationType)
-				},
+				Node:     node2,
+				MsgList:  msgList,
+				Callback: expect(types.Failure),
 			},
 			{
-				Node:    nodeClientFromPool,
-				MsgList: msgList,
-				Callback: func(msg types.RuleMsg, relationType string, err error) {
-					assert.Equal(t, types.Failure, relationType)
-				},
+				Node:     nodeClientFromPool,
+				MsgList:  msgList,
+				Callback: expect(types.Failure),
 			},
 		}
 		for _, item := range nodeList {
 			test.NodeOnMsgWithChildren(t, item.Node, item.MsgList, item.ChildrenNodes, item.Callback)
 		}
-		time.Sleep(time.Second * 2)
+		select {
+		case <-allDone:
+		case <-time.After(30 * time.Second):
+			t.Fatal("timed out waiting for node callbacks")
+		}
+		node1.Destroy()
+		node2.Destroy()
+		nodeClientFromPool.Destroy()
 	})
 }

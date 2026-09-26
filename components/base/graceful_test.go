@@ -904,3 +904,113 @@ func BenchmarkContextUtilsIsContextCancelled(b *testing.B) {
 		}
 	})
 }
+
+// TestGracefulShutdownActiveOperations tests the active operations counter
+func TestGracefulShutdownActiveOperations(t *testing.T) {
+	graceful := &GracefulShutdown{}
+	graceful.InitGracefulShutdown(&mockLogger{}, time.Second)
+
+	assert.Equal(t, int64(0), graceful.GetActiveOperations())
+	assert.Equal(t, int64(1), graceful.IncrementActiveOperations())
+	assert.Equal(t, int64(2), graceful.IncrementActiveOperations())
+	assert.Equal(t, int64(2), graceful.GetActiveOperations())
+	assert.Equal(t, int64(1), graceful.DecrementActiveOperations())
+	assert.Equal(t, int64(0), graceful.DecrementActiveOperations())
+
+	// concurrent increments/decrements keep the counter balanced
+	var wg sync.WaitGroup
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			graceful.IncrementActiveOperations()
+			graceful.DecrementActiveOperations()
+		}()
+	}
+	wg.Wait()
+	assert.Equal(t, int64(0), graceful.GetActiveOperations())
+}
+
+// TestGracefulShutdownWaitForActiveOperations tests both completion and timeout
+func TestGracefulShutdownWaitForActiveOperations(t *testing.T) {
+	graceful := &GracefulShutdown{}
+	graceful.InitGracefulShutdown(&mockLogger{}, time.Second)
+
+	// no active operations: completes well within the timeout
+	assert.True(t, graceful.WaitForActiveOperations(2*time.Second))
+
+	// one hanging operation with a timeout shorter than the 100ms poll
+	// interval: the timeout branch is taken deterministically
+	graceful.IncrementActiveOperations()
+	assert.False(t, graceful.WaitForActiveOperations(50*time.Millisecond))
+}
+
+// TestGracefulShutdownLogf tests the internal logger: formatted output via
+// Infof, and no panic when the logger is nil
+func TestGracefulShutdownLogf(t *testing.T) {
+	logger := &mockLogger{}
+	graceful := &GracefulShutdown{}
+	graceful.InitGracefulShutdown(logger, time.Second)
+
+	graceful.logf("hello %s", "world")
+	messages := logger.GetMessages()
+	assert.Equal(t, 1, len(messages))
+	assert.True(t, strings.Contains(messages[0], "hello world"))
+
+	nilLogger := &GracefulShutdown{}
+	nilLogger.InitGracefulShutdown(nil, time.Second)
+	nilLogger.logf("no logger")
+}
+
+// TestGracefulShutdownCheckSignalViaContextOnly: a cancelled context alone
+// (ForceStop without GracefulStop) is enough for CheckShutdownSignal to fail
+func TestGracefulShutdownCheckSignalViaContextOnly(t *testing.T) {
+	graceful := &GracefulShutdown{}
+	graceful.InitGracefulShutdown(&mockLogger{}, time.Second)
+
+	graceful.ForceStop()
+	select {
+	case <-graceful.GetShutdownContext().Done():
+	default:
+		t.Fatal("context should be cancelled after ForceStop")
+	}
+	// the shutdown flag is still clear: the error must come from the context
+	assert.False(t, graceful.IsShuttingDown())
+	err := graceful.CheckShutdownSignal()
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "operation cancelled"))
+}
+
+// doneNilCtx blocks the ctx.Done() case forever, so only the internal timeout
+// can fire: a deterministic way into CheckContextWithTimeout's elapsed branch.
+type doneNilCtx struct{}
+
+func (doneNilCtx) Deadline() (deadline time.Time, ok bool) { return time.Time{}, false }
+func (doneNilCtx) Done() <-chan struct{}                   { return nil }
+func (doneNilCtx) Err() error                              { return nil }
+func (doneNilCtx) Value(key interface{}) interface{}       { return nil }
+
+// TestCheckContextWithTimeoutElapsed: when the check timeout elapses without
+// cancellation, the operation is treated as not cancelled
+func TestCheckContextWithTimeoutElapsed(t *testing.T) {
+	err := ContextUtils.CheckContextWithTimeout(doneNilCtx{}, 50*time.Millisecond, "op")
+	assert.Nil(t, err)
+}
+
+// TestGracefulShutdownReloading tests reload state and its completion wait
+func TestGracefulShutdownReloading(t *testing.T) {
+	graceful := &GracefulShutdown{}
+	graceful.InitGracefulShutdown(&mockLogger{}, time.Second)
+
+	assert.False(t, graceful.IsReloading())
+
+	graceful.SetReloading(true)
+	assert.True(t, graceful.IsReloading())
+	// reload still in progress with a timeout shorter than the 10ms poll
+	// interval: the timeout branch is taken deterministically
+	assert.False(t, graceful.WaitForReloadComplete(5*time.Millisecond))
+
+	graceful.SetReloading(false)
+	assert.False(t, graceful.IsReloading())
+	assert.True(t, graceful.WaitForReloadComplete(2*time.Second))
+}

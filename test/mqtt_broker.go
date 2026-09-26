@@ -30,7 +30,8 @@ import (
 
 // MqttBroker is a minimal in-process MQTT 3.1.1 broker for tests.
 // Supports CONNECT/CONNACK, SUBSCRIBE/SUBACK, UNSUBSCRIBE/UNSUBACK,
-// bidirectional QoS0 PUBLISH, PINGREQ/PINGRESP, and DISCONNECT.
+// PUBLISH with QoS0/1/2 acks (PUBACK, PUBREC+PUBCOMP), PINGREQ/PINGRESP,
+// and DISCONNECT.
 // Use NewMqttBroker/Close to start and stop it, simulating broker deploy and outage.
 type MqttBroker struct {
 	listener net.Listener
@@ -149,17 +150,27 @@ func (b *MqttBroker) handleConn(c *brokerConn) {
 	}()
 	reader := bufio.NewReader(c.conn)
 	for {
-		pktType, body, err := readPacket(reader)
+		header, body, err := readPacket(reader)
 		if err != nil {
 			return
 		}
-		switch pktType {
+		switch header >> 4 {
 		case 1: // CONNECT -> CONNACK(rc=0)
 			_ = b.writePacket(c, 0x20, []byte{0x00, 0x00})
-		case 3: // PUBLISH (QoS0 only)
-			topic, payload, ok := parsePublish(body)
+		case 3: // PUBLISH
+			qos := (header >> 1) & 0x03
+			topic, payload, pid, ok := parsePublish(body, qos)
 			if ok {
 				b.deliver(c, topic, payload)
+			}
+			if qos == 1 && ok {
+				_ = b.writePacket(c, 0x40, pid) // PUBACK
+			} else if qos == 2 && ok {
+				_ = b.writePacket(c, 0x50, pid) // PUBREC; PUBREL->PUBCOMP below
+			}
+		case 6: // PUBREL -> PUBCOMP
+			if len(body) >= 2 {
+				_ = b.writePacket(c, 0x70, body[:2])
 			}
 		case 8: // SUBSCRIBE -> SUBACK
 			if len(body) < 2 {
@@ -292,6 +303,7 @@ func topicMatch(filter, topic string) bool {
 	return len(fs) == len(ts)
 }
 
+// readPacket reads one MQTT packet and returns its full fixed header byte.
 func readPacket(r *bufio.Reader) (byte, []byte, error) {
 	b1, err := r.ReadByte()
 	if err != nil {
@@ -317,7 +329,7 @@ func readPacket(r *bufio.Reader) (byte, []byte, error) {
 	if _, err := io.ReadFull(r, body); err != nil {
 		return 0, nil, err
 	}
-	return b1 >> 4, body, nil
+	return b1, body, nil
 }
 
 func encodeRemainingLength(n int) []byte {
@@ -335,15 +347,41 @@ func encodeRemainingLength(n int) []byte {
 	}
 }
 
-func parsePublish(body []byte) (string, []byte, bool) {
+// parsePublish splits a PUBLISH body into topic, payload and packet id.
+// For QoS>0 the packet id sits between topic and payload and is stripped.
+func parsePublish(body []byte, qos byte) (string, []byte, []byte, bool) {
 	if len(body) < 2 {
-		return "", nil, false
+		return "", nil, nil, false
 	}
 	topicLen := int(binary.BigEndian.Uint16(body[:2]))
 	if len(body) < 2+topicLen {
-		return "", nil, false
+		return "", nil, nil, false
 	}
 	topic := string(body[2 : 2+topicLen])
-	payload := body[2+topicLen:]
-	return topic, payload, true
+	rest := body[2+topicLen:]
+	if qos > 0 {
+		if len(rest) < 2 {
+			return "", nil, nil, false
+		}
+		return topic, rest[2:], rest[:2], true
+	}
+	return topic, rest, nil, true
+}
+
+// StartBrokerOrUseExternal ensures a broker is listening on addr: when the
+// address is already served (e.g. CI mosquitto) it is reused unchanged,
+// otherwise an embedded broker is bound there. The returned stop function is
+// a no-op when an external broker was found. Only one caller at a time may
+// own the embedded binding for a given addr.
+func StartBrokerOrUseExternal(addr string) (stop func(), err error) {
+	conn, dialErr := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+	if dialErr == nil {
+		_ = conn.Close()
+		return func() {}, nil
+	}
+	broker, err := NewMqttBroker(addr)
+	if err != nil {
+		return nil, err
+	}
+	return broker.Close, nil
 }

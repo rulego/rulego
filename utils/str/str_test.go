@@ -246,3 +246,18 @@ type User struct {
 type Address struct {
 	Detail string
 }
+
+func TestContains(t *testing.T) {
+	assert.True(t, Contains([]string{"a", "b"}, "a"))
+	assert.True(t, Contains([]string{"a", "b"}, "b"))
+	assert.False(t, Contains([]string{"a", "b"}, "c"))
+	assert.False(t, Contains(nil, "a"))
+	assert.False(t, Contains([]string{}, "a"))
+}
+
+func TestSprintfDictMissingKeys(t *testing.T) {
+	dict := map[string]string{"name": "Alice"}
+	// unknown key and empty-dict input keep the placeholder as-is
+	assert.Equal(t, "Hello, Alice and ${unknown}", SprintfDict("Hello, ${name} and ${unknown}", dict))
+	assert.Equal(t, "${x}", SprintfDict("${x}", nil))
+}

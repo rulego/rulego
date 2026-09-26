@@ -2,7 +2,9 @@ package net
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"reflect"
@@ -231,13 +233,13 @@ func TestNetClientConfig(t *testing.T) {
 	// 通过Configuration初始化
 	client := &NetClient{}
 	err := client.Init(config, types.Configuration{
-		"server":           "192.168.1.100:8080",
-		"protocol":         "tcp",
-		"connectTimeout":   10,
-		"readTimeout":      30,
+		"server":            "192.168.1.100:8080",
+		"protocol":          "tcp",
+		"connectTimeout":    10,
+		"readTimeout":       30,
 		"reconnectInterval": 3,
-		"packetMode":       "line",
-		"encode":           "hex",
+		"packetMode":        "line",
+		"encode":            "hex",
 	})
 	assert.Nil(t, err)
 	assert.Equal(t, "192.168.1.100:8080", client.Config.Server)
@@ -1158,3 +1160,96 @@ func TestNetClientConnectionStatus(t *testing.T) {
 	}
 }
 
+// Metadata methods and heartbeat data resolution.
+func TestNetClientMetaAndHeartbeatData(t *testing.T) {
+	client := &NetClient{}
+	assert.Equal(t, "endpoint", client.Category())
+	assert.NotNil(t, client.Def())
+
+	// resolveHeartbeatData: default, custom text, odd/even hex, invalid hex.
+	client.Config.HeartbeatData = ""
+	assert.Equal(t, "ping\n", string(client.resolveHeartbeatData()))
+	client.Config.HeartbeatData = "HB"
+	assert.Equal(t, "HB", string(client.resolveHeartbeatData()))
+	// Odd-length hex is zero-padded ("0xA" -> 0x0A).
+	client.Config.HeartbeatData = "0x0D0A"
+	assert.Equal(t, []byte{0x0D, 0x0A}, client.resolveHeartbeatData())
+	client.Config.HeartbeatData = "0xA"
+	assert.Equal(t, []byte{0x0A}, client.resolveHeartbeatData())
+	// Invalid hex falls back to the raw string.
+	client.Config.HeartbeatData = "0xZZ"
+	assert.Equal(t, []byte("0xZZ"), client.resolveHeartbeatData())
+	// Non-hex prefix returns nil from decodeHexIfMatch.
+	out, err := decodeHexIfMatch("plain")
+	assert.Nil(t, out)
+	assert.Nil(t, err)
+}
+
+// isClosedConn classification across error shapes.
+func TestNetClientIsClosedConn(t *testing.T) {
+	client := &NetClient{}
+
+	assert.True(t, client.isClosedConn(io.EOF))
+
+	closedOp := &net.OpError{Op: "read", Err: net.ErrClosed}
+	assert.True(t, client.isClosedConn(closedOp))
+
+	timeoutOp := &net.OpError{Op: "read", Err: os.ErrDeadlineExceeded}
+	assert.True(t, client.isClosedConn(timeoutOp))
+	assert.True(t, client.isClosedConn(os.ErrDeadlineExceeded))
+
+	wrapped := fmt.Errorf("read tcp: %w", errors.New("use of closed network connection"))
+	assert.True(t, client.isClosedConn(wrapped))
+
+	reset := errors.New("read: connection reset by peer")
+	assert.True(t, client.isClosedConn(reset))
+
+	pipe := errors.New("write: broken pipe")
+	assert.True(t, client.isClosedConn(pipe))
+
+	assert.False(t, client.isClosedConn(errors.New("some other error")))
+}
+
+// Send/SendBinary without a connection must return an error, not panic.
+func TestNetClientSendNotConnected(t *testing.T) {
+	client := &NetClient{}
+	assert.NotNil(t, client.Send([]byte("x")))
+}
+
+// Client message unit branches: status no-op and header accessors.
+func TestNetClientMessageUnitBranches(t *testing.T) {
+	request := &ClientRequestMessage{}
+	request.SetStatusCode(200)
+	assert.Equal(t, "", string(request.Body()))
+	assert.NotNil(t, request.Headers())
+	assert.Equal(t, "", request.Headers().Get(RemoteAddrKey))
+	assert.Equal(t, "", request.GetParam("k"))
+
+	// TEXT data type produces a string-based message.
+	textRequest := &ClientRequestMessage{body: []byte("hello"), dataType: types.TEXT, from: "f"}
+	msg := textRequest.GetMsg()
+	assert.Equal(t, types.TEXT, msg.GetDataType())
+	assert.Equal(t, "hello", msg.GetData())
+}
+
+// ClientResponseMessage is exercised separately: JSON bodies get a trailing
+// newline and writes go to the connection when present.
+func TestNetClientResponseUnitBranches(t *testing.T) {
+	response := &ClientResponseMessage{}
+	response.SetStatusCode(200)
+	// Nil conn: body is stored, error recorded.
+	response.SetBody([]byte("payload"))
+	assert.Equal(t, "payload", string(response.Body()))
+	assert.Equal(t, "write err: conn is nil", response.GetError().Error())
+	assert.Equal(t, "", response.From())
+	assert.Equal(t, "", response.GetParam("k"))
+	assert.NotNil(t, response.Headers())
+
+	// JSON message: line break appended before the write.
+	jsonMsg := types.NewMsg(0, "", types.JSON, types.NewMetadata(), `{}`)
+	response = &ClientResponseMessage{conn: nil}
+	response.SetMsg(&jsonMsg)
+	response.SetBody([]byte(`{"ok":true}`))
+	// Body() reflects the JSON-adjusted body even though the write failed.
+	assert.Equal(t, `{"ok":true}`+"\n", string(response.Body()))
+}

@@ -514,3 +514,142 @@ func TestLCACalculator_GetLCAOfNodes(t *testing.T) {
 		}
 	})
 }
+
+func TestGetLCAEmptyParentList(t *testing.T) {
+	provider := newMockParentProvider()
+	calculator := NewLCACalculator(provider)
+
+	empty := createNodeId("empty")
+	provider.parentMap[empty] = []types.RuleNodeId{}
+
+	if _, found := calculator.GetLCA(empty); found {
+		t.Error("node with an empty parent list should not have an LCA")
+	}
+}
+
+func TestGetLCAOfNodesBranches(t *testing.T) {
+	provider := newMockParentProvider()
+	calculator := NewLCACalculator(provider)
+
+	root := createNodeId("root")
+	mid := createNodeId("mid")
+	leaf := createNodeId("leaf")
+	provider.addParent(mid, root)
+	provider.addParent(leaf, mid)
+
+	if _, found := calculator.GetLCAOfNodes(nil); found {
+		t.Error("empty node list should not have an LCA")
+	}
+
+	// single node with parents returns its first parent
+	lca, found := calculator.GetLCAOfNodes([]types.RuleNodeId{leaf})
+	if !found || lca.Id != mid.Id {
+		t.Errorf("single node with parents: got (%s, %v), want (%s, true)", lca.Id, found, mid.Id)
+	}
+
+	// single root node without parents is its own anchor
+	lca, found = calculator.GetLCAOfNodes([]types.RuleNodeId{root})
+	if !found || lca.Id != root.Id {
+		t.Errorf("single root node: got (%s, %v), want (%s, true)", lca.Id, found, root.Id)
+	}
+}
+
+// Disjoint subtrees: neither parent is an ancestor of the other and they share
+// no common ancestor, so both the isCommonAncestorOfAll fast path and the
+// cross-level search must give up.
+func TestGetLCADisjointParents(t *testing.T) {
+	provider := newMockParentProvider()
+	calculator := NewLCACalculator(provider)
+
+	a1, b1, c1 := createNodeId("a1"), createNodeId("b1"), createNodeId("c1")
+	a2, b2, c2 := createNodeId("a2"), createNodeId("b2"), createNodeId("c2")
+	join := createNodeId("join")
+	provider.addParent(b1, a1)
+	provider.addParent(c1, b1)
+	provider.addParent(b2, a2)
+	provider.addParent(c2, b2)
+	provider.addParent(join, c1)
+	provider.addParent(join, c2)
+
+	if _, found := calculator.GetLCA(join); found {
+		t.Error("node with disjoint parent trees should not have an LCA")
+	}
+}
+
+func TestGetLCASingleParentWithoutAncestors(t *testing.T) {
+	provider := newMockParentProvider()
+	calculator := NewLCACalculator(provider)
+
+	node1 := createNodeId("node1")
+	node2 := createNodeId("node2")
+	provider.addParent(node2, node1)
+
+	lca, found := calculator.GetLCA(node2)
+	if !found || lca.Id != node1.Id {
+		t.Errorf("GetLCA() = (%s, %v), want (%s, true)", lca.Id, found, node1.Id)
+	}
+}
+
+// One parent dominating the others takes the isCommonAncestorOfAll fast path.
+func TestGetLCAParentDominatesSibling(t *testing.T) {
+	provider := newMockParentProvider()
+	calculator := NewLCACalculator(provider)
+
+	top := createNodeId("top")
+	mid := createNodeId("mid")
+	side := createNodeId("side")
+	join := createNodeId("join")
+	provider.addParent(mid, top)
+	provider.addParent(side, mid)
+	provider.addParent(join, mid)
+	provider.addParent(join, side)
+
+	// mid is an ancestor of side, so mid itself is the LCA of {mid, side}
+	lca, found := calculator.GetLCA(join)
+	if !found || lca.Id != mid.Id {
+		t.Errorf("GetLCA() = (%s, %v), want (%s, true)", lca.Id, found, mid.Id)
+	}
+}
+
+// A shared ancestor sitting at different depths on both branches exercises the
+// min-level update of the cross-level search.
+func TestGetLCACrossLevelCommonAncestor(t *testing.T) {
+	provider := newMockParentProvider()
+	calculator := NewLCACalculator(provider)
+
+	root := createNodeId("root")
+	x := createNodeId("x")
+	p1 := createNodeId("p1")
+	p2 := createNodeId("p2")
+	join := createNodeId("join")
+	provider.addParent(x, root)
+	provider.addParent(p1, x)
+	provider.addParent(p2, root)
+	provider.addParent(join, p1)
+	provider.addParent(join, p2)
+
+	lca, found := calculator.GetLCA(join)
+	if !found || lca.Id != root.Id {
+		t.Errorf("GetLCA() = (%s, %v), want (%s, true)", lca.Id, found, root.Id)
+	}
+}
+
+// Cycles make every common ancestor an ancestor of another one, forcing the
+// GetLCAOfNodes fallback to common[0].
+func TestGetLCAOfNodesCycleFallsBack(t *testing.T) {
+	provider := newMockParentProvider()
+	calculator := NewLCACalculator(provider)
+
+	a := createNodeId("cycleA")
+	b := createNodeId("cycleB")
+	provider.addParent(a, b)
+	provider.addParent(b, a)
+
+	lca, found := calculator.GetLCAOfNodes([]types.RuleNodeId{a, b})
+	if !found {
+		t.Fatal("expected a fallback result for cyclic nodes")
+	}
+	if lca.Id != a.Id && lca.Id != b.Id {
+		t.Errorf("fallback LCA = %s, want one of the cycle nodes", lca.Id)
+	}
+}

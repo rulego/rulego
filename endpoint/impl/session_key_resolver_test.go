@@ -137,3 +137,57 @@ func TestResolveReuseAcrossCalls(t *testing.T) {
 		}
 	}
 }
+
+// toStringSlice 归一化各类配置形态
+func TestToStringSlice(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  interface{}
+		want []string
+	}{
+		{"nil", nil, nil},
+		{"empty string", "", nil},
+		{"string", "${msg.a}", []string{"${msg.a}"}},
+		{"[]string", []string{"a", "b"}, []string{"a", "b"}},
+		{"[]interface{} keeps strings only", []interface{}{"a", 1, "b"}, []string{"a", "b"}},
+		{"unsupported type", 42, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := toStringSlice(tc.cfg)
+			if len(got) != len(tc.want) {
+				t.Fatalf("toStringSlice(%v) = %v, want %v", tc.cfg, got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("toStringSlice(%v)[%d] = %q, want %q", tc.cfg, i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}
+
+// reFind 编译失败的模式静默返回空串（不 panic）
+func TestResolveReFindInvalidPattern(t *testing.T) {
+	r := NewSessionKeyResolver(`${reFind("([invalid", data)}`)
+	if got := r.Resolve(binaryMsg(), []byte("DEV_001")); got != "" {
+		t.Fatalf("got %q, want empty for invalid pattern", got)
+	}
+}
+
+// 帧数据不是 JSON 时，env["msg"] 回退为 msg 自身的数据字符串
+func TestResolveMsgFallsBackToRawData(t *testing.T) {
+	r := NewSessionKeyResolver("${msg}")
+	msg := types.NewMsg(0, "", types.TEXT, types.NewMetadata(), "RAWBODY")
+	if got := r.Resolve(msg, []byte("not json at all")); got != "RAWBODY" {
+		t.Fatalf("got %q, want RAWBODY", got)
+	}
+}
+
+// []interface{} 配置形态端到端可用（混入的非字符串项被忽略）
+func TestResolveInterfaceSliceConfig(t *testing.T) {
+	r := NewSessionKeyResolver([]interface{}{42, "${msg.deviceId}"})
+	if got := r.Resolve(jsonMsg(`{"deviceId":"IFACE_DEV"}`), nil); got != "IFACE_DEV" {
+		t.Fatalf("got %q, want IFACE_DEV", got)
+	}
+}

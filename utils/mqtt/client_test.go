@@ -18,7 +18,16 @@ package mqtt
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,218 +35,225 @@ import (
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/rulego/rulego/test"
 	"github.com/rulego/rulego/test/assert"
 )
 
-// MockToken 模拟Token
-type MockToken struct {
-	err error
+// Embedded in-process broker shared by all tests in this package.
+var brokerServer string
+
+func TestMain(m *testing.M) {
+	broker, err := test.NewMqttBroker("127.0.0.1:0")
+	if err != nil {
+		panic(err)
+	}
+	brokerServer = "tcp://" + broker.Addr()
+	code := m.Run()
+	broker.Close()
+	os.Exit(code)
 }
 
-// Wait 模拟等待
-func (m *MockToken) Wait() bool {
-	return true
+// TestNewClient covers connect success (explicit and random client id),
+// context cancellation against an unreachable broker, and TLS material errors.
+func TestNewClient(t *testing.T) {
+	client, err := NewClient(context.Background(), Config{
+		Server:   brokerServer,
+		ClientID: "test-new-client",
+	})
+	assert.Nil(t, err)
+	assert.True(t, client.IsConnected())
+	assert.Nil(t, client.Close())
+
+	// empty ClientID falls back to a random "rulego/xxx" id
+	client, err = NewClient(context.Background(), Config{Server: brokerServer})
+	assert.Nil(t, err)
+	assert.True(t, client.IsConnected())
+	assert.Nil(t, client.Close())
+
+	// unreachable broker with a short context must abort the retry loop with ctx.Err()
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	_, err = NewClient(ctx, Config{Server: "tcp://127.0.0.1:1", ClientID: "test-ctx-abort"})
+	assert.True(t, err == context.DeadlineExceeded)
+
+	// broken TLS material fails fast without dialing
+	_, err = NewClient(context.Background(), Config{
+		Server:   brokerServer,
+		ClientID: "test-bad-tls",
+		CAFile:   "non-existent-ca.pem",
+	})
+	assert.True(t, err != nil && strings.Contains(err.Error(), "error loading mqtt certificate files"))
 }
 
-// WaitTimeout 模拟超时等待
-func (m *MockToken) WaitTimeout(timeout time.Duration) bool {
-	return true
+// TestNewTLSConfig covers the nil shortcut, CA load failure and a real key pair.
+func TestNewTLSConfig(t *testing.T) {
+	tlsConfig, err := newTLSConfig("", "", "")
+	assert.Nil(t, err)
+	assert.Nil(t, tlsConfig)
+
+	tlsConfig, err = newTLSConfig("non-existent-ca.pem", "", "")
+	assert.True(t, err != nil)
+	assert.Nil(t, tlsConfig)
+
+	caFile, certFile, keyFile := writeSelfSignedCert(t)
+	tlsConfig, err = newTLSConfig(caFile, certFile, keyFile)
+	assert.Nil(t, err)
+	assert.NotNil(t, tlsConfig)
+	assert.NotNil(t, tlsConfig.RootCAs)
+	assert.Equal(t, 1, len(tlsConfig.Certificates))
 }
 
-// Error 返回错误
-func (m *MockToken) Error() error {
-	return m.err
-}
+// TestClientPublishSubscribe drives one full lifecycle against the embedded
+// broker: subscribe, QoS0/1/2 publish, large payload, concurrent clients,
+// unsubscribe and Close.
+func TestClientPublishSubscribe(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 
-// =============================================================================
-// 单元测试
-// =============================================================================
+	publisher, err := NewClient(ctx, Config{Server: brokerServer, ClientID: "test-publisher"})
+	assert.Nil(t, err)
+	defer publisher.Close()
 
-// TestConfig_Validation 测试配置验证
-func TestConfig_Validation(t *testing.T) {
-	tests := []struct {
-		name    string
-		config  Config
-		wantErr bool
-	}{
-		{
-			name: "valid config",
-			config: Config{
-				Server:   "tcp://localhost:1883",
-				ClientID: "test-client",
-			},
-			wantErr: false,
+	subscriber, err := NewClient(ctx, Config{Server: brokerServer, ClientID: "test-subscriber"})
+	assert.Nil(t, err)
+	defer subscriber.Close()
+
+	received := make(chan string, 16)
+	topic := "test/pubsub"
+	subscriber.RegisterHandler(Handler{
+		Topic: topic,
+		Qos:   1,
+		Handle: func(c paho.Client, data paho.Message) {
+			received <- string(data.Payload())
 		},
-		{
-			name: "empty server",
-			config: Config{
-				ClientID: "test-client",
-			},
-			wantErr: true,
-		},
-		{
-			name: "empty client ID",
-			config: Config{
-				Server: "tcp://localhost:1883",
-			},
-			wantErr: true,
-		},
-		{
-			name: "invalid server format",
-			config: Config{
-				Server:   "invalid-server",
-				ClientID: "test-client",
-			},
-			wantErr: true,
-		},
+	})
+	// subscription must be visible before publishing
+	time.Sleep(500 * time.Millisecond)
+
+	for _, qos := range []byte{0, 1, 2} {
+		assert.Nil(t, publisher.Publish(topic, qos, []byte(fmt.Sprintf("qos-%d", qos))))
+	}
+	for i := 0; i < 3; i++ {
+		select {
+		case msg := <-received:
+			assert.True(t, strings.HasPrefix(msg, "qos-"))
+		case <-time.After(5 * time.Second):
+			t.Fatalf("message %d not received within timeout", i)
+		}
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// 只测试基本的配置验证，不实际创建MQTT连接
-			if tt.config.Server == "" {
-				assert.True(t, tt.wantErr, "Empty server should cause error")
-				return
-			}
-			if tt.config.ClientID == "" {
-				assert.True(t, tt.wantErr, "Empty client ID should cause error")
-				return
-			}
-			// 对于有效配置，我们假设它不会出错（避免实际连接）
-			if !tt.wantErr {
-				assert.NotEqual(t, "", tt.config.Server)
-				assert.NotEqual(t, "", tt.config.ClientID)
-			}
-		})
+	// 10KB payload survives the round trip
+	large := make([]byte, 10*1024)
+	for i := range large {
+		large[i] = byte('A' + i%26)
 	}
+	assert.Nil(t, publisher.Publish(topic, 1, large))
+	select {
+	case msg := <-received:
+		assert.Equal(t, len(large), len(msg))
+	case <-time.After(5 * time.Second):
+		t.Fatal("large message not received within timeout")
+	}
+
+	// several clients publishing concurrently
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			c, err := NewClient(ctx, Config{
+				Server:   brokerServer,
+				ClientID: fmt.Sprintf("test-concurrent-%d", id),
+			})
+			if err != nil {
+				t.Errorf("concurrent client %d: %v", id, err)
+				return
+			}
+			defer c.Close()
+			if err := c.Publish(fmt.Sprintf("test/client/%d", id), 1, []byte("hello")); err != nil {
+				t.Errorf("concurrent publish %d: %v", id, err)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// unregister stops delivery, unknown topic is a no-op
+	assert.Nil(t, subscriber.UnregisterHandler(topic))
+	assert.Nil(t, subscriber.UnregisterHandler("never/registered"))
+	assert.Nil(t, subscriber.Close())
+	assert.Nil(t, publisher.Close())
 }
 
-// TestClient_ConnectionStatus 测试连接状态管理
+// TestClientReconnect simulates a broker outage and verifies the client
+// reports disconnected, stays reconnecting for the outage window, then
+// recovers and publishes again.
+func TestClientReconnect(t *testing.T) {
+	broker, err := test.NewMqttBroker("127.0.0.1:0")
+	assert.Nil(t, err)
+	defer broker.Close()
+
+	client, err := NewClient(context.Background(), Config{
+		Server:               "tcp://" + broker.Addr(),
+		ClientID:             "test-reconnect",
+		MaxReconnectInterval: time.Second,
+	})
+	assert.Nil(t, err)
+	defer client.Close()
+	assert.True(t, client.IsConnected())
+
+	// outage keeps reconnects rejected long enough to observe the 0 state
+	broker.SimulateOutage(3 * time.Second)
+	deadline := time.Now().Add(10 * time.Second)
+	for client.IsConnected() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	assert.True(t, !client.IsConnected(), "client should observe the connection drop")
+
+	deadline = time.Now().Add(15 * time.Second)
+	for !client.IsConnected() && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	assert.True(t, client.IsConnected(), "client should reconnect after the outage ends")
+	assert.Nil(t, client.Publish("test/reconnect", 1, []byte("back")))
+}
+
+// TestClient_Publish_NotConnected covers the guard on disconnected clients.
+func TestClient_Publish_NotConnected(t *testing.T) {
+	client := &Client{isConnected: 0}
+	err := client.Publish("test/topic", 0, []byte("test message"))
+	assert.True(t, err != nil && strings.Contains(err.Error(), "MQTT client is not connected"))
+	assert.False(t, client.IsConnected())
+}
+
+// TestClient_ConnectionStatus drives the connect/lost callbacks directly.
 func TestClient_ConnectionStatus(t *testing.T) {
-	client := &Client{
-		isConnected: 0,
-	}
-
-	// 初始状态应该是未连接
+	client := &Client{isConnected: 0}
 	assert.Equal(t, int32(0), atomic.LoadInt32(&client.isConnected))
 
-	// 模拟连接成功
 	client.onConnected(nil)
 	assert.Equal(t, int32(1), atomic.LoadInt32(&client.isConnected))
 
-	// 模拟连接丢失
 	client.onConnectionLost(nil, nil)
 	assert.Equal(t, int32(0), atomic.LoadInt32(&client.isConnected))
 }
 
-// TestClient_IsConnected 测试IsConnected方法
-func TestClient_IsConnected(t *testing.T) {
-	// 创建一个未连接的客户端
-	client := &Client{
-		isConnected: 0,
-		client:      nil, // 模拟未初始化的客户端
-	}
-
-	// 测试未连接状态
-	assert.False(t, client.IsConnected())
-}
-
-// TestClient_Publish_NotConnected 测试未连接时发布
-func TestClient_Publish_NotConnected(t *testing.T) {
-	client := &Client{
-		isConnected: 0,
-	}
-
-	err := client.Publish("test/topic", 0, []byte("test message"))
-	if err == nil {
-		t.Error("Expected error but got nil")
-	}
-	if err != nil && !strings.Contains(err.Error(), "MQTT client is not connected") {
-		t.Errorf("Expected error to contain 'MQTT client is not connected', got: %v", err)
-	}
-}
-
-// TestClient_RegisterHandler 测试注册处理器 - 跳过因为需要真实MQTT客户端
-func TestClient_RegisterHandler(t *testing.T) {
-	t.Skip("RegisterHandler requires a real MQTT client connection")
-}
-
-// TestIs128Err 测试128错误检查 - 跳过因为is128Err函数签名不同
-func TestIs128Err(t *testing.T) {
-	t.Skip("is128Err function has different signature in actual implementation")
-}
-
-// TestNewTLSConfig 测试TLS配置创建
-func TestNewTLSConfig(t *testing.T) {
-	tests := []struct {
-		name     string
-		caFile   string
-		certFile string
-		keyFile  string
-		wantNil  bool
-		wantErr  bool
-	}{
-		{
-			name:     "no TLS config",
-			caFile:   "",
-			certFile: "",
-			keyFile:  "",
-			wantNil:  true,
-			wantErr:  false,
-		},
-		{
-			name:     "invalid CA file",
-			caFile:   "non-existent-ca.pem",
-			certFile: "",
-			keyFile:  "",
-			wantNil:  true,
-			wantErr:  true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tlsConfig, err := newTLSConfig(tt.caFile, tt.certFile, tt.keyFile)
-			if tt.wantErr {
-				if err == nil {
-					t.Error("Expected error but got nil")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Expected no error but got: %v", err)
-				}
-			}
-			if tt.wantNil {
-				assert.Nil(t, tlsConfig)
-			} else {
-				assert.NotNil(t, tlsConfig)
-			}
-		})
-	}
-}
-
-// TestClient_ConcurrentAccess 测试并发访问
+// TestClient_ConcurrentAccess verifies handler lookups under concurrency.
 func TestClient_ConcurrentAccess(t *testing.T) {
-	client := &Client{
-		msgHandlerMap: make(map[string]Handler),
-	}
-
+	client := &Client{msgHandlerMap: make(map[string]Handler)}
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(id int) {
 			defer wg.Done()
-			topic := fmt.Sprintf("test/topic/%d", id)
-			handler := client.GetHandlerByUpTopic(topic)
-			// 由于没有注册处理器，应该返回空的Handler
+			handler := client.GetHandlerByUpTopic(fmt.Sprintf("test/topic/%d", id))
 			assert.Equal(t, "", handler.Topic)
 		}(i)
 	}
 	wg.Wait()
 }
 
-// newUnreachableClient 构造指向不可达 broker 的客户端：不走 NewClient 的连接重试，
-// paho 对未连接客户端的 Subscribe 立即返回错误 token。
+// newUnreachableClient builds a client pointed at a dead broker without going
+// through NewClient's retry loop; paho returns an error token immediately.
 func newUnreachableClient() *Client {
 	b := &Client{
 		msgHandlerMap: make(map[string]Handler),
@@ -255,8 +271,8 @@ func newUnreachableClient() *Client {
 	return b
 }
 
-// broker 恒拒/不可达时 RegisterHandler 的订阅重试不得占住写锁，
-// 否则 GetHandlerByUpTopic/UnregisterHandler/Close 全部饿死。
+// A broker that is permanently unreachable must not let the subscribe retry
+// hold the write lock, or GetHandlerByUpTopic/UnregisterHandler/Close starve.
 func TestClient_RegisterHandlerNoLockStarvation(t *testing.T) {
 	b := newUnreachableClient()
 
@@ -267,9 +283,8 @@ func TestClient_RegisterHandlerNoLockStarvation(t *testing.T) {
 		},
 	})
 
-	// 注册的 handler 必须在订阅重试期间就可读（锁未被订阅占住）。
-	// 轮询放子协程：锁被占住时 GetHandlerByUpTopic 的 RLock 会永久阻塞，
-	// 主协程只等超时，测试才能以失败而非挂起收场。
+	// the handler must be readable while the subscribe retries; poll in a
+	// goroutine so a held lock fails the test via timeout instead of hanging.
 	found := make(chan struct{})
 	go func() {
 		for {
@@ -287,376 +302,52 @@ func TestClient_RegisterHandlerNoLockStarvation(t *testing.T) {
 	}
 }
 
-// =============================================================================
-// 真实环境测试 (需要本地MQTT Broker)
-// =============================================================================
-
-// TestReal_BasicConnection 测试基本连接功能
-func TestReal_BasicConnection(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping real MQTT test in short mode")
+// TestNormalizeConfigKeys covers legacy key case mapping.
+func TestNormalizeConfigKeys(t *testing.T) {
+	configuration := map[string]interface{}{
+		"qOS":      uint8(1),
+		"clientID": "legacy",
+		"cAFile":   "/tmp/ca.pem",
+		"other":    "keep",
 	}
+	NormalizeConfigKeys(configuration)
+	assert.Equal(t, uint8(1), configuration["qos"])
+	assert.Equal(t, "legacy", configuration["clientId"])
+	assert.Equal(t, "/tmp/ca.pem", configuration["caFile"])
+	assert.Equal(t, "keep", configuration["other"])
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	config := Config{
-		Server:               "tcp://127.0.0.1:1883",
-		Username:             "",
-		Password:             "",
-		ClientID:             "test-basic-connection",
-		MaxReconnectInterval: 5 * time.Second,
-		CleanSession:         true,
-	}
-
-	client, err := NewClient(ctx, config)
-	if err != nil {
-		t.Skipf("MQTT broker not available at 127.0.0.1:1883: %v", err)
-		return
-	}
-	defer client.Close()
-
-	// 验证连接状态
-	assert.Equal(t, int32(1), atomic.LoadInt32(&client.isConnected))
-
-	// 等待一段时间确保连接稳定
-	time.Sleep(1 * time.Second)
-	assert.Equal(t, int32(1), atomic.LoadInt32(&client.isConnected))
+	// new-style keys win over legacy ones
+	configuration = map[string]interface{}{"qOS": uint8(0), "qos": uint8(2)}
+	NormalizeConfigKeys(configuration)
+	assert.Equal(t, uint8(2), configuration["qos"])
 }
 
-// TestReal_PublishOnly 测试不同QoS级别的发布
-func TestReal_PublishOnly(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping real MQTT test in short mode")
+// writeSelfSignedCert generates a self-signed certificate and returns the
+// PEM-encoded CA, cert and key file paths.
+func writeSelfSignedCert(t *testing.T) (caFile, certFile, keyFile string) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	assert.Nil(t, err)
+	template := x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "rulego-mqtt-test"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
 	}
+	der, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
+	assert.Nil(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	config := Config{
-		Server:   "tcp://127.0.0.1:1883",
-		ClientID: "test-publish-only",
-	}
-
-	client, err := NewClient(ctx, config)
-	if err != nil {
-		t.Skipf("MQTT broker not available: %v", err)
-		return
-	}
-	defer client.Close()
-
-	// 测试不同QoS级别的发布
-	testCases := []struct {
-		qos     byte
-		topic   string
-		message string
-	}{
-		{0, "test/qos0", "QoS 0 message"},
-		{1, "test/qos1", "QoS 1 message"},
-		{2, "test/qos2", "QoS 2 message"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("QoS_%d", tc.qos), func(t *testing.T) {
-			err := client.Publish(tc.topic, tc.qos, []byte(tc.message))
-				if err != nil {
-					t.Errorf("Expected no error but got: %v", err)
-				}
-		})
-	}
+	dir := t.TempDir()
+	caFile = filepath.Join(dir, "ca.pem")
+	certFile = filepath.Join(dir, "cert.pem")
+	keyFile = filepath.Join(dir, "key.pem")
+	certPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	assert.Nil(t, os.WriteFile(caFile, certPem, 0o600))
+	assert.Nil(t, os.WriteFile(certFile, certPem, 0o600))
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	assert.Nil(t, err)
+	keyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+	assert.Nil(t, os.WriteFile(keyFile, keyPem, 0o600))
+	return
 }
-
-// TestReal_PublishSubscribe 测试发布订阅功能
-func TestReal_PublishSubscribe(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping real MQTT test in short mode")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	// 创建发布者客户端
-	pubConfig := Config{
-		Server:   "tcp://127.0.0.1:1883",
-		ClientID: "test-publisher",
-	}
-	publisher, err := NewClient(ctx, pubConfig)
-	if err != nil {
-		t.Skipf("MQTT broker not available: %v", err)
-		return
-	}
-	defer publisher.Close()
-
-	// 创建订阅者客户端
-	subConfig := Config{
-		Server:   "tcp://127.0.0.1:1883",
-		ClientID: "test-subscriber",
-	}
-	subscriber, err := NewClient(ctx, subConfig)
-	if err != nil {
-		t.Fatalf("Failed to create subscriber: %v", err)
-	}
-	defer subscriber.Close()
-
-	// 设置消息接收通道
-	messageReceived := make(chan string, 1)
-	testTopic := "test/pubsub"
-	testMessage := "Hello MQTT!"
-
-	// 注册订阅处理器
-	handler := Handler{
-		Topic: testTopic,
-		Qos:   1,
-		Handle: func(c paho.Client, data paho.Message) {
-			messageReceived <- string(data.Payload())
-		},
-	}
-
-	subscriber.RegisterHandler(handler)
-
-	// 等待订阅生效
-	time.Sleep(1 * time.Second)
-
-	// 发布消息
-	err = publisher.Publish(testTopic, 1, []byte(testMessage))
-	if err != nil {
-		t.Fatalf("Failed to publish message: %v", err)
-	}
-
-	// 验证消息接收
-	select {
-	case receivedMsg := <-messageReceived:
-		assert.Equal(t, testMessage, receivedMsg)
-	case <-time.After(5 * time.Second):
-		t.Fatal("Message not received within timeout")
-	}
-}
-
-// TestReal_ConnectionStatus 测试连接状态管理
-func TestReal_ConnectionStatus(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping real MQTT test in short mode")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
-	config := Config{
-		Server:               "tcp://127.0.0.1:1883",
-		ClientID:             "test-connection-status",
-		MaxReconnectInterval: 2 * time.Second,
-		CleanSession:         true,
-	}
-
-	client, err := NewClient(ctx, config)
-	if err != nil {
-		t.Skipf("MQTT broker not available: %v", err)
-		return
-	}
-	defer client.Close()
-
-	// 验证初始连接状态
-	assert.Equal(t, int32(1), atomic.LoadInt32(&client.isConnected))
-
-	// 测试发布功能
-	err = client.Publish("test/status", 0, []byte("test message"))
-	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
-	}
-
-	// 注意：在真实环境中很难模拟连接丢失，这里主要测试正常状态
-	time.Sleep(2 * time.Second)
-	assert.Equal(t, int32(1), atomic.LoadInt32(&client.isConnected))
-}
-
-// TestReal_MultipleClients 测试多个客户端并发连接和发布
-func TestReal_MultipleClients(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping real MQTT test in short mode")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	const numClients = 5
-	var clients []*Client
-	var wg sync.WaitGroup
-
-	// 创建多个客户端
-	for i := 0; i < numClients; i++ {
-		config := Config{
-			Server:   "tcp://127.0.0.1:1883",
-			ClientID: fmt.Sprintf("test-client-%d", i),
-		}
-		client, err := NewClient(ctx, config)
-		if err != nil {
-			t.Skipf("MQTT broker not available: %v", err)
-			return
-		}
-		clients = append(clients, client)
-	}
-
-	// 确保所有客户端都关闭
-	defer func() {
-		for _, client := range clients {
-			client.Close()
-		}
-	}()
-
-	// 并发发布消息
-	for i, client := range clients {
-		wg.Add(1)
-		go func(id int, c *Client) {
-			defer wg.Done()
-			topic := fmt.Sprintf("test/client/%d", id)
-			message := fmt.Sprintf("Message from client %d", id)
-			err := c.Publish(topic, 1, []byte(message))
-			if err != nil {
-				t.Errorf("Expected no error but got: %v", err)
-			}
-		}(i, client)
-	}
-
-	wg.Wait()
-}
-
-// TestReal_PublishTimeout 测试发布超时
-func TestReal_PublishTimeout(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping real MQTT test in short mode")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	config := Config{
-		Server:   "tcp://127.0.0.1:1883",
-		ClientID: "test-timeout",
-	}
-
-	client, err := NewClient(ctx, config)
-	if err != nil {
-		t.Skipf("MQTT broker not available: %v", err)
-		return
-	}
-	defer client.Close()
-
-	// 正常发布应该成功
-	err = client.Publish("test/timeout", 1, []byte("test message"))
-	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
-	}
-}
-
-// TestReal_LargeMessage 测试大消息发布
-func TestReal_LargeMessage(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping real MQTT test in short mode")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	config := Config{
-		Server:   "tcp://127.0.0.1:1883",
-		ClientID: "test-large-message",
-	}
-
-	client, err := NewClient(ctx, config)
-	if err != nil {
-		t.Skipf("MQTT broker not available: %v", err)
-		return
-	}
-	defer client.Close()
-
-	// 创建一个较大的消息 (10KB)
-	largeMessage := make([]byte, 10*1024)
-	for i := range largeMessage {
-		largeMessage[i] = byte('A' + (i % 26))
-	}
-
-	err = client.Publish("test/large", 1, largeMessage)
-	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
-	}
-}
-
-// TestReal_AutoReconnect 测试自动重连功能
-// 使用单一客户端进行发布和订阅，用于手动验证断开重连
-//func TestReal_AutoReconnect(t *testing.T) {
-//	if testing.Short() {
-//		t.Skip("Skipping real MQTT test in short mode")
-//	}
-//
-//	// 使用较长的超时时间以便手动测试重连
-//	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-//	defer cancel()
-//
-//	// 创建单一客户端，既用于发布也用于订阅
-//	clientConfig := Config{
-//		Server:               "tcp://127.0.0.1:1883",
-//		ClientID:             "test-client-reconnect",
-//		MaxReconnectInterval: 5 * time.Second,
-//		CleanSession:         true,
-//	}
-//	client, err := NewClient(ctx, clientConfig)
-//	if err != nil {
-//		t.Skipf("MQTT broker not available: %v", err)
-//		return
-//	}
-//	defer client.Close()
-//
-//	testTopic := "test/reconnect"
-//	messageCount := 0
-//
-//	// 注册订阅处理器，打印接收到的消息
-//	handler := Handler{
-//		Topic: testTopic,
-//		Qos:   1,
-//		Handle: func(c paho.Client, data paho.Message) {
-//			messageCount++
-//			t.Logf("[%s] 接收到消息 #%d: %s", time.Now().Format("15:04:05"), messageCount, string(data.Payload()))
-//		},
-//	}
-//
-//	client.RegisterHandler(handler)
-//
-//	// 等待订阅生效
-//	time.Sleep(1 * time.Second)
-//	t.Log("开始每秒发布数据，请手动断开网络连接测试自动重连功能...")
-//
-//	// 创建定时器，每秒发布一次数据
-//	ticker := time.NewTicker(1 * time.Second)
-//	defer ticker.Stop()
-//
-//	publishCount := 0
-//	for {
-//		select {
-//		case <-ctx.Done():
-//			t.Log("测试结束")
-//			return
-//		case <-ticker.C:
-//			publishCount++
-//			message := fmt.Sprintf("test message #%d - %s", publishCount, time.Now().Format("15:04:05"))
-//
-//			// 使用提供的IsConnected方法检查连接状态
-//			connected := client.IsConnected()
-//
-//			t.Logf("[%s] 发布消息 #%d (client status: %v)",
-//				time.Now().Format("15:04:05"), publishCount, connected)
-//
-//			err := client.Publish(testTopic, 1, []byte(message))
-//			if err != nil {
-//				t.Logf("发布失败: %v", err)
-//			} else {
-//				t.Logf("发布成功: %s", message)
-//			}
-//
-//			// 测试30秒后自动结束
-//			if publishCount >= 30 {
-//				t.Log("已发布30条消息，测试结束")
-//				return
-//			}
-//		}
-//	}
-//}

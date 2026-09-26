@@ -78,6 +78,8 @@ func TestToInt64(t *testing.T) {
 		{"uint16", uint16(123), 123, false},
 		{"uint32", uint32(123), 123, false},
 		{"uint64", uint64(123), 123, false},
+		{"float64", 1.1, 1, false},
+		{"float32", float32(1.1), 1, false},
 		{"string", "123", 123, false},
 		{"invalid string", "abc", 0, true},
 		{"invalid type", []int{1, 2, 3}, 0, true},
@@ -98,6 +100,33 @@ func TestToInt64(t *testing.T) {
 	}
 }
 
+func TestConvertIntToTime(t *testing.T) {
+	base := time.Unix(1700000000, 0)
+	tests := []struct {
+		name      string
+		timestamp int64
+		unit      time.Duration
+		expect    time.Time
+	}{
+		{"second", 1700000000, time.Second, base},
+		{"millisecond", 1700000000000, time.Millisecond, base},
+		{"microsecond", 1700000000000000, time.Microsecond, base},
+		{"nanosecond", 1700000000000000000, time.Nanosecond, base},
+		// unknown units fall back to seconds
+		{"default minute", 1700000000, time.Minute, base},
+		{"default hour", 1700000000, time.Hour, base},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ConvertIntToTime(tt.timestamp, tt.unit)
+			if !got.Equal(tt.expect) {
+				t.Errorf("ConvertIntToTime() = %v, want %v", got, tt.expect)
+			}
+		})
+	}
+}
+
 func TestToDurationE(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -107,10 +136,19 @@ func TestToDurationE(t *testing.T) {
 	}{
 		{"duration", time.Second, time.Second, false},
 		{"int", 1000, 1000, false},
+		{"int8", int8(100), 100, false},
+		{"int16", int16(1000), 1000, false},
+		{"int32", int32(1000), 1000, false},
 		{"int64", int64(1000), 1000, false},
+		{"uint", uint(1000), 1000, false},
+		{"uint8", uint8(100), 100, false},
+		{"uint16", uint16(1000), 1000, false},
+		{"uint32", uint32(1000), 1000, false},
+		{"uint64", uint64(1000), 1000, false},
 		{"string", "1s", time.Second, false},
 		{"invalid string", "abc", 0, true},
 		{"invalid type", []int{1, 2, 3}, 0, true},
+		{"float64 falls to default", 1.5, 0, true},
 	}
 
 	for _, tt := range tests {
@@ -172,11 +210,19 @@ func TestToFloat64(t *testing.T) {
 		{"float64", 3.14, 3.14, false},
 		{"float32", float32(3.14), float64(float32(3.14)), false},
 		{"int", 123, 123.0, false},
+		{"int8", int8(123), 123.0, false},
+		{"int16", int16(123), 123.0, false},
+		{"int32", int32(123), 123.0, false},
 		{"int64", int64(123), 123.0, false},
+		{"uint", uint(123), 123.0, false},
+		{"uint8", uint8(123), 123.0, false},
+		{"uint16", uint16(123), 123.0, false},
+		{"uint32", uint32(123), 123.0, false},
 		{"uint64", uint64(123), 123.0, false},
 		{"string", "3.14", 3.14, false},
 		{"invalid string", "abc", 0, true},
 		{"invalid type", []int{1, 2, 3}, 0, true},
+		{"duration is not a float", time.Second, 0, true},
 	}
 
 	for _, tt := range tests {
@@ -219,7 +265,9 @@ func TestToString(t *testing.T) {
 		{"float32", float32(3.14), "3.14", false},
 		{"[]byte", []byte("test"), "test", false},
 		{"error", fmt.Errorf("test error"), "test error", false},
+		{"stringer", time.Hour, "1h0m0s", false},
 		{"map", map[string]int{"a": 1}, "{\"a\":1}", false},
+		{"map with interface keys", map[interface{}]interface{}{"k": "v"}, "{\"k\":\"v\"}", false},
 		{"invalid type", make(chan int), "", true},
 	}
 

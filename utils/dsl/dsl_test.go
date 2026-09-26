@@ -551,3 +551,74 @@ func contains(slice []string, item string) bool {
 	}
 	return false
 }
+
+func TestProcessVariables(t *testing.T) {
+	config := types.NewConfig()
+	config.Properties.PutValue("host", "example.com")
+
+	ruleChainDef := types.RuleChain{
+		RuleChain: types.RuleChainBaseInfo{
+			Configuration: types.Configuration{
+				types.Vars: map[string]interface{}{"timeout": 30},
+			},
+		},
+	}
+
+	from := types.Configuration{
+		"url":      "http://${global.host}:${vars.timeout}/api",
+		"keep":     "http://${unknown.key}/api",
+		"plainTxt": "no vars here",
+		"count":    7,
+	}
+	to := ProcessVariables(config, ruleChainDef, from)
+
+	assert.Equal(t, "http://example.com:30/api", to["url"])
+	assert.Equal(t, "http://${unknown.key}/api", to["keep"])
+	assert.Equal(t, "no vars here", to["plainTxt"])
+	assert.Equal(t, 7, to["count"])
+}
+
+func TestGetInitNodeEnv(t *testing.T) {
+	t.Run("with properties and vars", func(t *testing.T) {
+		config := types.NewConfig()
+		config.Properties.PutValue("k", "v")
+		def := types.RuleChain{
+			RuleChain: types.RuleChainBaseInfo{
+				Configuration: types.Configuration{types.Vars: "chainVars"},
+			},
+		}
+		env := GetInitNodeEnv(config, def)
+		globalEnv, ok := env[types.Global].(map[string]string)
+		assert.True(t, ok)
+		assert.Equal(t, "v", globalEnv["k"])
+		assert.Equal(t, "chainVars", env[types.Vars])
+	})
+
+	t.Run("nil properties fall back to empty globals", func(t *testing.T) {
+		def := types.RuleChain{}
+		env := GetInitNodeEnv(types.Config{}, def)
+		globalEnv, ok := env[types.Global].(map[string]string)
+		assert.True(t, ok)
+		assert.Equal(t, 0, len(globalEnv))
+		assert.Nil(t, env[types.Vars])
+	})
+}
+
+func TestExtractNodeIdsFromValueTypes(t *testing.T) {
+	var got []string
+	unique := make(map[string]bool)
+	config := types.Configuration{
+		"nested": map[string]interface{}{"expr": "${n1.msg.field}"},
+		"list":   []interface{}{"n2.metadata.x", 42, true},
+		"typed":  types.Configuration{"expr": "n3.data"},
+		"scalar": 3.14,
+	}
+	for _, v := range config {
+		extractNodeIdsFromValue(v, unique, &got)
+	}
+	assert.Equal(t, 3, len(got))
+	joined := strings.Join(got, ",")
+	assert.True(t, strings.Contains(joined, "n1"))
+	assert.True(t, strings.Contains(joined, "n2"))
+	assert.True(t, strings.Contains(joined, "n3"))
+}

@@ -1,7 +1,9 @@
 package websocket
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -976,3 +978,176 @@ func TestWsClientConnectionStatus(t *testing.T) {
 	}
 }
 
+// wsClientFreePort reserves an ephemeral port and releases it for the test server.
+func wsClientFreePort(t *testing.T) string {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	return ln.Addr().String()
+}
+
+// Metadata methods.
+func TestWsClientMetaMethods(t *testing.T) {
+	client := &WsClient{}
+	assert.Equal(t, "endpoint", client.Category())
+	def := client.Def()
+	assert.True(t, def.Desc != "")
+	assert.NotNil(t, def.RouterForm)
+	assert.NotNil(t, def.RouterForm.From)
+}
+
+// Message unit branches: status no-ops, param access and nil-conn writes.
+func TestWsClientMessageUnitBranches(t *testing.T) {
+	request := &WsClientRequestMessage{}
+	request.SetStatusCode(500)
+	assert.NotNil(t, request.Headers())
+	assert.Equal(t, "", request.Headers().Get("remoteAddr"))
+	assert.Equal(t, "", request.From())
+	// GetParam reads from the message metadata when set.
+	assert.Equal(t, "", request.GetParam("k"))
+	msg := types.NewMsg(0, "", types.JSON, types.NewMetadata(), "data")
+	msg.Metadata.PutValue("k", "v")
+	request.SetMsg(&msg)
+	assert.Equal(t, "v", request.GetParam("k"))
+	// Binary frames map to BINARY data type.
+	binReq := &WsClientRequestMessage{body: []byte{0x01}, messageType: websocket.BinaryMessage, from: "srv"}
+	assert.Equal(t, types.BINARY, binReq.GetMsg().GetDataType())
+
+	response := &WsClientResponseMessage{}
+	response.SetStatusCode(500)
+	// No conn: the body is stored without writing.
+	response.SetBody([]byte("stored"))
+	assert.Equal(t, "stored", string(response.Body()))
+	assert.Nil(t, response.GetError())
+	assert.Equal(t, "", response.From())
+	assert.Equal(t, "", response.GetParam("k"))
+	assert.NotNil(t, response.Headers())
+}
+
+// SendBinary exchanges binary frames with an echo server.
+func TestWsClientSendBinary(t *testing.T) {
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	addr := wsClientFreePort(t)
+	go startWSEchoServerPort(t, stop, &wg, addr)
+	time.Sleep(time.Millisecond * 200)
+	defer func() {
+		close(stop)
+		wg.Wait()
+	}()
+
+	config := engine.NewConfig()
+	client := &WsClient{}
+	assert.Nil(t, client.Init(config, types.Configuration{
+		"server":            "ws://" + addr + "/ws",
+		"reconnectInterval": 0,
+	}))
+
+	frames := make(chan []byte, 4)
+	router := impl.NewRouter().From("").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		frames <- exchange.In.Body()
+		return true
+	}).End()
+	_, err := client.AddRouter(router)
+	assert.Nil(t, err)
+
+	assert.Nil(t, client.Start())
+	defer client.Destroy()
+
+	assert.Nil(t, client.SendBinary([]byte{0x01, 0x02}))
+	select {
+	case got := <-frames:
+		assert.Equal(t, "echo:"+string([]byte{0x01, 0x02}), string(got))
+	case <-time.After(3 * time.Second):
+		t.Fatal("no binary echo received")
+	}
+}
+
+// OnDial failing aborts the connection attempt with a wrapped error.
+func TestWsClientOnDialError(t *testing.T) {
+	config := engine.NewConfig()
+	client := &WsClient{}
+	assert.Nil(t, client.Init(config, types.Configuration{
+		"server":            "ws://127.0.0.1:19999/ws",
+		"reconnectInterval": 0,
+	}))
+	client.OnDial = func(header http.Header) error {
+		return errors.New("dial blocked")
+	}
+	err := client.Start()
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "OnDial callback failed"))
+	client.Destroy()
+}
+
+// readLoop filters: with AllowText=false text frames are dropped, binary
+// frames still pass.
+func TestWsClientMessageFilterBranches(t *testing.T) {
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	addr := wsClientFreePort(t)
+	go startWSEchoServerPort(t, stop, &wg, addr)
+	time.Sleep(time.Millisecond * 200)
+	defer func() {
+		close(stop)
+		wg.Wait()
+	}()
+
+	config := engine.NewConfig()
+	client := &WsClient{}
+	assert.Nil(t, client.Init(config, types.Configuration{
+		"server":            "ws://" + addr + "/ws",
+		"reconnectInterval": 0,
+		"allowText":         false,
+	}))
+
+	var textCount, binaryCount int32
+	router := impl.NewRouter().From("").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		if exchange.In.GetMsg().GetDataType() == types.TEXT {
+			atomic.AddInt32(&textCount, 1)
+		} else {
+			atomic.AddInt32(&binaryCount, 1)
+		}
+		return true
+	}).End()
+	_, err := client.AddRouter(router)
+	assert.Nil(t, err)
+
+	assert.Nil(t, client.Start())
+	defer client.Destroy()
+
+	assert.Nil(t, client.Send([]byte("text frame")))
+	assert.Nil(t, client.SendBinary([]byte{0x03}))
+	time.Sleep(500 * time.Millisecond)
+
+	assert.Equal(t, int32(0), atomic.LoadInt32(&textCount))
+	assert.True(t, atomic.LoadInt32(&binaryCount) > 0)
+}
+
+// tryReconnect keeps retrying failed connects until Destroy cancels it.
+func TestWsClientReconnectFailUntilClose(t *testing.T) {
+	config := engine.NewConfig()
+	client := &WsClient{}
+	assert.Nil(t, client.Init(config, types.Configuration{
+		"server":            "ws://127.0.0.1:19998/ws",
+		"reconnectInterval": 1,
+	}))
+	// First Start fails and arms the reconnect loop.
+	assert.NotNil(t, client.Start())
+	assert.Equal(t, types.StatusReconnecting, client.ConnectionStatus().Status)
+	// Destroy must break the retry loop promptly.
+	done := make(chan struct{})
+	go func() {
+		client.Destroy()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Destroy did not stop the reconnect loop")
+	}
+}

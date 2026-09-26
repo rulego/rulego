@@ -132,6 +132,14 @@ func (test *testEndpoint) Start() error {
 	return nil
 }
 
+// A configuration value that cannot map onto the endpoint config struct makes
+// Init fail inside Registry.New.
+func TestRegistryNewInitError(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	_, err := Registry.New("endpoint/net", config, types.Configuration{"maxPacketSize": "not-a-number"})
+	assert.NotNil(t, err)
+}
+
 func TestEndpointAliases(t *testing.T) {
 	config := engine.NewConfig(types.WithDefaultPool())
 	configuration := types.Configuration{

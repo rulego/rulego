@@ -785,7 +785,6 @@ func (c *NetClient) tryReconnect() {
 	}
 }
 
-
 // isClosedConn 判断是否是连接关闭错误
 func (c *NetClient) isClosedConn(err error) bool {
 	if err == io.EOF {

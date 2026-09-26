@@ -1,14 +1,8 @@
 package mqtt
 
 import (
+	"context"
 	"fmt"
-	"os"
-	"reflect"
-	"sync"
-	"sync/atomic"
-	"testing"
-	"time"
-
 	"github.com/rulego/rulego/api/types"
 	endpoint "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint/impl"
@@ -17,14 +11,33 @@ import (
 	"github.com/rulego/rulego/test/assert"
 	"github.com/rulego/rulego/utils/maps"
 	"github.com/rulego/rulego/utils/mqtt"
+	"os"
+	"reflect"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
 )
 
 var (
 	testdataFolder = "../../testdata/rule"
-	testServer     = "127.0.0.1:1883"
+	testServer     string
 	msgContent1    = "{\"test\":\"AA\"}"
 	msgContent2    = "{\"test\":\"BB\"}"
 )
+
+// TestMain starts an in-process MQTT broker so the endpoint tests do not
+// depend on an externally installed mosquitto.
+func TestMain(m *testing.M) {
+	broker, err := test.NewMqttBroker("127.0.0.1:0")
+	if err != nil {
+		panic(err)
+	}
+	testServer = broker.Addr()
+	code := m.Run()
+	broker.Close()
+	os.Exit(code)
+}
 
 // 测试请求/响应消息
 func TestMqttMessage(t *testing.T) {
@@ -124,7 +137,7 @@ func TestMqttEndpointGracefulShutdown(t *testing.T) {
 		// 配置较短超时时间以便更快测试
 		mqttEndpoint := &Mqtt{
 			Config: mqtt.Config{
-				Server:   "127.0.0.1:1883",
+				Server:   testServer,
 				Username: "",
 				Password: "",
 				QOS:      0,
@@ -132,7 +145,7 @@ func TestMqttEndpointGracefulShutdown(t *testing.T) {
 		}
 
 		configuration := make(types.Configuration)
-		configuration["server"] = "127.0.0.1:1883"
+		configuration["server"] = testServer
 		configuration["qos"] = 0
 
 		err = mqttEndpoint.Init(config, configuration)
@@ -261,7 +274,7 @@ func TestMqttEndpointGracefulShutdown(t *testing.T) {
 
 		mqttEndpoint := &Mqtt{
 			Config: mqtt.Config{
-				Server:   "127.0.0.1:1883",
+				Server:   testServer,
 				Username: "",
 				Password: "",
 				QOS:      0,
@@ -269,7 +282,7 @@ func TestMqttEndpointGracefulShutdown(t *testing.T) {
 		}
 
 		configuration := make(types.Configuration)
-		configuration["server"] = "127.0.0.1:1883"
+		configuration["server"] = testServer
 		configuration["qos"] = 0
 
 		err = mqttEndpoint.Init(config, configuration)
@@ -350,7 +363,7 @@ func TestMqttEndpointGracefulShutdown(t *testing.T) {
 func createClient(t *testing.T) types.Node {
 	node, _ := engine.Registry.NewNode("mqttClient")
 	var configuration = make(types.Configuration)
-	configuration["Server"] = "127.0.0.1:1883"
+	configuration["Server"] = testServer
 	configuration["Topic"] = "/device/msg"
 
 	config := engine.NewConfig()
@@ -365,7 +378,8 @@ func createClient(t *testing.T) types.Node {
 func startServer(t *testing.T, stop chan struct{}) {
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		return
 	}
 	config := engine.NewConfig(types.WithDefaultPool())
 	//注册规则链
@@ -406,7 +420,7 @@ func startServer(t *testing.T, stop chan struct{}) {
 		assert.Equal(t, receiveData, string(requestMessage.Body()))
 
 		if receiveData != msgContent1 && receiveData != msgContent2 {
-			t.Fatalf("receive data:%s,expect data:%s,%s", receiveData, msgContent1, msgContent2)
+			t.Errorf("receive data:%s,expect data:%s,%s", receiveData, msgContent1, msgContent2)
 		}
 		responseMessage.SetStatusCode(0)
 		responseMessage.Headers().Set("topic", "/device/msg/resp")
@@ -419,7 +433,7 @@ func startServer(t *testing.T, stop chan struct{}) {
 	_, err = ep.AddRouter(router1)
 
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 	ep.AddRouter(nil)
 
@@ -435,4 +449,75 @@ func startServer(t *testing.T, stop chan struct{}) {
 	ep.Infof("start server")
 	<-stop
 	ep.Destroy()
+}
+
+// waitFor polls cond until it returns true or the timeout expires; calls t.Fatal on timeout.
+func waitFor(t *testing.T, what string, timeout time.Duration, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("%s not reached within %s", what, timeout)
+}
+
+// TestMqttEndpointStatusLifecycle covers the mqtt endpoint connection-status lifecycle:
+// connect (Connected) -> message flow -> broker failure (Reconnecting) -> paho auto-reconnect (Connected).
+func TestMqttEndpointStatusLifecycle(t *testing.T) {
+	broker, err := test.NewMqttBroker("127.0.0.1:0")
+	assert.Nil(t, err)
+	defer broker.Close()
+	addr := broker.Addr()
+
+	config := engine.NewConfig()
+	ep := &Mqtt{
+		Config: mqtt.Config{
+			Server:               addr,
+			QOS:                  0,
+			MaxReconnectInterval: 2 * time.Second, // speed up paho reconnect backoff
+		},
+	}
+	// configuration only sets server/qos; MaxReconnectInterval keeps the Config value
+	assert.Nil(t, ep.Init(config, types.Configuration{"server": addr, "qos": 0}))
+
+	var received int64
+	router := impl.NewRouter().From("/status/test").Transform(func(r endpoint.Router, ex *endpoint.Exchange) bool {
+		atomic.AddInt64(&received, 1)
+		return true
+	}).End()
+	_, err = ep.AddRouter(router)
+	assert.Nil(t, err)
+
+	assert.Nil(t, ep.Start())
+	defer ep.Destroy()
+
+	// 1. connected on start
+	waitFor(t, "initial connect -> Connected", 5*time.Second, func() bool {
+		return ep.ConnectionStatus().Status == types.StatusConnected
+	})
+
+	// 2. message flow: publisher publishes, endpoint subscribes, Transform counts
+	pubCtx, pubCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer pubCancel()
+	publisher, err := mqtt.NewClient(pubCtx, mqtt.Config{Server: addr, MaxReconnectInterval: 2 * time.Second})
+	assert.Nil(t, err)
+	defer publisher.Close()
+	assert.Nil(t, publisher.Publish("/status/test", 0, []byte("hi")))
+	waitFor(t, "receive published message", 3*time.Second, func() bool {
+		return atomic.LoadInt64(&received) >= 1
+	})
+
+	// 3. broker outage (drop connections AND reject new ones for a while) -> status stably Reconnecting
+	broker.SimulateOutage(3 * time.Second)
+	waitFor(t, "disconnect -> Reconnecting", 5*time.Second, func() bool {
+		return ep.ConnectionStatus().Status == types.StatusReconnecting
+	})
+
+	// 4. outage window ends, paho auto-reconnect recovers -> Connected
+	waitFor(t, "auto-reconnect -> Connected", 12*time.Second, func() bool {
+		return ep.ConnectionStatus().Status == types.StatusConnected
+	})
 }

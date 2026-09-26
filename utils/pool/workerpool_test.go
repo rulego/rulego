@@ -17,6 +17,8 @@
 package pool
 
 import (
+	"math"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -85,4 +87,83 @@ func TestWorkerPoolWithDoubleStart(*testing.T) {
 	defer func() {
 		wp.Stop()
 	}()
+}
+
+// Benchmarks below were moved from the former workerpool_b_test.go so the
+// workerpool.go source has a single test file.
+
+var sum int64
+var runTimes = 10000
+
+var wg = sync.WaitGroup{}
+
+func demoTask2(v ...interface{}) {
+	defer wg.Done()
+	for i := 0; i < 100; i++ {
+		atomic.AddInt64(&sum, 1)
+	}
+}
+
+func BenchmarkGoroutine(b *testing.B) {
+	wg.Add(runTimes)
+	for i := 0; i < runTimes; i++ {
+		go func() {
+			demoTask2()
+		}()
+	}
+	wg.Wait()
+}
+
+func BenchmarkWorkPoolTimeLifeSetTimes(b *testing.B) {
+	wp := &WorkerPool{MaxWorkersCount: math.MaxInt32}
+	wp.Start()
+	b.ResetTimer()
+	wg.Add(runTimes)
+	for i := 0; i < runTimes; i++ {
+		wp.Submit(func() {
+			demoTask2()
+		})
+	}
+
+	wg.Wait()
+}
+
+func TestWorkerPoolSubmitWithoutQuota(t *testing.T) {
+	// zero quota on every shard: Submit must report the failure instead of blocking
+	wp := &WorkerPool{MaxWorkersCount: 0}
+	wp.Start()
+	defer wp.Stop()
+	if err := wp.Submit(func() {}); err == nil {
+		t.Fatal("expected error when no worker can be created")
+	}
+}
+
+// clean() reaps workers idle for longer than MaxIdleWorkerDuration.
+func TestWorkerPoolCleanIdleWorkers(t *testing.T) {
+	wp := &WorkerPool{MaxWorkersCount: 100, MaxIdleWorkerDuration: time.Millisecond}
+	wp.Start()
+	defer wp.Stop()
+
+	var done sync.WaitGroup
+	done.Add(1)
+	if err := wp.Submit(done.Done); err != nil {
+		t.Fatalf("cannot submit: %v", err)
+	}
+	done.Wait()
+
+	// wait for the worker to be released and reaped by the cleanup loop
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		total := 0
+		for _, sh := range wp.shards {
+			sh.lock.Lock()
+			total += len(sh.ready)
+			sh.lock.Unlock()
+		}
+		if total == 0 {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("idle workers were not cleaned up")
 }

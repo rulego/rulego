@@ -106,6 +106,31 @@ func TestRekey(t *testing.T) {
 	// Rekey nil session 不 panic
 	r.Rekey(nil, "X")
 }
+
+// Rekey 到相同 Key 时不注销旧条目（Delete(oldKey) 跳过）
+func TestRekeySameKey(t *testing.T) {
+	r := &DefaultSessionRegistry{}
+	s := endpoint.NewSession("SAME", nil)
+	r.Add(s)
+	r.Rekey(s, "SAME")
+	if got := r.Lookup("SAME"); len(got) != 1 || got[0] != s {
+		t.Fatalf("lookup SAME = %v, want [s]", got)
+	}
+}
+
+// Clear 清空全部 session
+func TestClear(t *testing.T) {
+	r := &DefaultSessionRegistry{}
+	r.Add(endpoint.NewSession("a", nil))
+	r.Add(endpoint.NewSession("b", nil))
+	r.Clear()
+	if got := r.Lookup("*"); len(got) != 0 {
+		t.Fatalf("after Clear = %d, want 0", len(got))
+	}
+	// 幂等
+	r.Clear()
+}
+
 // closerSender 测试用 Sender，记录 Close 调用次数。
 type closerSender struct {
 	closed int
@@ -198,6 +223,7 @@ func TestSession_TouchUpdatesLastSeen(t *testing.T) {
 		t.Fatal("Touch should advance lastSeen")
 	}
 }
+
 // fakeSender 记录收到的数据帧，用于验证寻址推送
 type fakeSender struct {
 	received [][]byte

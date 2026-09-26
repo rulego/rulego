@@ -2,6 +2,8 @@ package net
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"os"
@@ -222,7 +224,9 @@ func createNetClient(t *testing.T) types.Node {
 func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	buf, err := os.ReadFile(testdataFolder + "/chain_msg_type_switch.json")
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+		wg.Done()
+		return
 	}
 	config := engine.NewConfig(types.WithDefaultPool())
 	//注册规则链
@@ -277,7 +281,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		}
 
 		if receiveData != msgContent1 && receiveData != msgContent2 && receiveData != msgContent3 && receiveData != msgContent4 && receiveData != msgContent5 {
-			t.Fatalf("receive data:%s,expect data:%s,%s,%s,%s,%s", receiveData, msgContent1, msgContent2, msgContent3, msgContent4, msgContent5)
+			t.Errorf("receive data:%s,expect data:%s,%s,%s,%s,%s", receiveData, msgContent1, msgContent2, msgContent3, msgContent4, msgContent5)
 		}
 
 		assert.True(t, strings.Contains(from, "127.0.0.1"))
@@ -301,7 +305,7 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 		exchange.In.GetMsg().Type = "TEST_MSG_TYPE2"
 		receiveData := exchange.In.GetMsg().GetData()
 		if strings.HasSuffix(receiveData, "{") {
-			t.Fatalf("receive data:%s,not match data:%s", receiveData, "^{.*")
+			t.Errorf("receive data:%s,not match data:%s", receiveData, "^{.*")
 		}
 		atomic.AddInt32(&router2Count, 1)
 		return true
@@ -310,11 +314,11 @@ func startServer(t *testing.T, stop chan struct{}, wg *sync.WaitGroup) {
 	//注册路由
 	_, err = ep.AddRouter(router1)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 	_, err = ep.AddRouter(router2)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 	//启动服务
 	err = ep.Start()
@@ -2000,4 +2004,488 @@ func startProcessorTestServer(t *testing.T, stop chan struct{}, wg *sync.WaitGro
 	<-stop
 	ep.Destroy()
 	wg.Done()
+}
+
+// TestEndpointNetSessionExtraction 端到端验证 endpoint/net 的 session 维护：
+// 设备 TCP 连入 → 首帧提取 deviceId 改写 Key → 第二帧保持 → 断开注销。
+// 不启动规则链（routers 空），只验证 session 提取/寻址（在 DoProcess 之前完成）。
+func TestEndpointNetSessionExtraction(t *testing.T) {
+	ep := &Net{}
+	cfg := types.Configuration{
+		"protocol":   "tcp",
+		"server":     ":0", // 随机端口
+		"sessionKey": "${msg.deviceId}",
+	}
+	if err := ep.Init(engine.NewConfig(), cfg); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if err := ep.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer ep.Destroy()
+
+	// 取实际监听地址（随机端口）
+	ep.mu.RLock()
+	addr := ep.listener.Addr().String()
+	ep.mu.RUnlock()
+
+	// 模拟设备 TCP 连入
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+
+	// 首帧 {"deviceId":"DEV_001"}（line 模式，以 \n 结束一帧）
+	if _, err := conn.Write([]byte(`{"deviceId":"DEV_001"}` + "\n")); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(300 * time.Millisecond)
+
+	// 验证：session 已注册，Key 改写为 DEV_001，已 resolved
+	sessions := ep.Lookup("DEV_001")
+	if len(sessions) != 1 {
+		t.Fatalf("after frame1: Lookup(DEV_001) = %d, want 1", len(sessions))
+	}
+	if !sessions[0].IsResolved() {
+		t.Fatal("session should be resolved after first frame")
+	}
+
+	// 第二帧 {"temp":26}（无 deviceId）：keyResolved=true，Key 应保持 DEV_001
+	if _, err := conn.Write([]byte(`{"temp":26}` + "\n")); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(300 * time.Millisecond)
+	if sessions[0].Key() != "DEV_001" {
+		t.Fatalf("after frame2: Key = %q, want DEV_001 (should not change)", sessions[0].Key())
+	}
+
+	// 按 deviceId 寻址：Lookup 应命中，Sender 可发送（验证 Sender 通道连通）
+	if got := ep.Lookup("DEV_001"); len(got) != 1 {
+		t.Fatalf("addressing lookup = %d, want 1", len(got))
+	}
+
+	// 设备断开 → session 注销
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(400 * time.Millisecond)
+	if got := ep.Lookup("DEV_001"); len(got) != 0 {
+		t.Fatalf("after disconnect: Lookup(DEV_001) = %d, want 0 (session should be removed)", len(got))
+	}
+}
+
+// TestEndpointNetSessionDefaultKey 验证不配 sessionKey 时，Key 默认为 RemoteAddr（IP 寻址）
+func TestEndpointNetSessionDefaultKey(t *testing.T) {
+	ep := &Net{}
+	cfg := types.Configuration{
+		"protocol": "tcp",
+		"server":   ":0",
+		// 不配 sessionKey → 默认 RemoteAddr
+	}
+	if err := ep.Init(engine.NewConfig(), cfg); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if err := ep.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer ep.Destroy()
+
+	ep.mu.RLock()
+	addr := ep.listener.Addr().String()
+	ep.mu.RUnlock()
+
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer conn.Close()
+
+	if _, err := conn.Write([]byte("hello\n")); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(300 * time.Millisecond)
+
+	// 默认 Key = RemoteAddr（完整 host:port）；精确 Lookup 命中
+	fullAddr := conn.LocalAddr().String()
+	if got := ep.Lookup(fullAddr); len(got) != 1 {
+		t.Fatalf("Lookup by full RemoteAddr %q = %d, want 1", fullAddr, len(got))
+	}
+	// 按 IP（host 段）不再命中：已去除 IP 段匹配，寻址需配 sessionKey 提取稳定标识
+	host, _, _ := net.SplitHostPort(fullAddr)
+	if got := ep.Lookup(host); len(got) != 0 {
+		t.Fatalf("Lookup by IP %q = %d, want 0 (IP-segment match removed; configure sessionKey for addressing)", host, len(got))
+	}
+}
+
+// Metadata methods: category, definition, instance and listen address.
+func TestNetMetaMethods(t *testing.T) {
+	ep := &Net{}
+	assert.Equal(t, "endpoint", ep.Category())
+	def := ep.Def()
+	assert.True(t, def.Desc != "")
+	assert.NotNil(t, def.RouterForm)
+	assert.NotNil(t, def.RouterForm.From)
+
+	instance, err := ep.GetInstance()
+	assert.Nil(t, err)
+	assert.True(t, instance == ep)
+
+	// Addr is empty before listening.
+	assert.Equal(t, "", ep.Addr())
+
+	assert.Nil(t, ep.Init(engine.NewConfig(), types.Configuration{"server": ":0"}))
+	assert.Nil(t, ep.Start())
+	defer ep.Destroy()
+	addr := ep.Addr()
+	assert.True(t, addr != "")
+	_, port, err := net.SplitHostPort(addr)
+	assert.Nil(t, err)
+	assert.True(t, port != "0" && port != "")
+}
+
+// SendToTarget addresses connected sessions by key; unknown targets error.
+func TestNetSendToTarget(t *testing.T) {
+	ep := &Net{}
+	assert.Nil(t, ep.Init(engine.NewConfig(), types.Configuration{
+		"protocol": "tcp",
+		"server":   ":0",
+	}))
+	assert.Nil(t, ep.Start())
+	defer ep.Destroy()
+
+	ep.mu.RLock()
+	addr := ep.listener.Addr().String()
+	ep.mu.RUnlock()
+
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if _, err := conn.Write([]byte("hello\n")); err != nil {
+		t.Fatal(err)
+	}
+	// Wait for the session to be registered under the client address.
+	clientAddr := conn.LocalAddr().String()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) && len(ep.Lookup(clientAddr)) == 0 {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if len(ep.Lookup(clientAddr)) != 1 {
+		t.Fatalf("session for %s not registered", clientAddr)
+	}
+
+	sent, failed, err := ep.SendToTarget(clientAddr, []byte("PUSH"))
+	assert.Equal(t, 1, sent)
+	assert.Equal(t, 0, failed)
+	assert.Nil(t, err)
+
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	buf := make([]byte, 64)
+	n, err := conn.Read(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, "PUSH", string(buf[:n]))
+
+	// Unknown target: no session matched.
+	_, _, err = ep.SendToTarget("NO_SUCH_TARGET", []byte("x"))
+	assert.NotNil(t, err)
+}
+
+// RequestMessage/ResponseMessage unit branches: status no-ops, nil-conn write
+// error and header accessors.
+func TestNetMessageUnitBranches(t *testing.T) {
+	request := &RequestMessage{}
+	request.SetStatusCode(200)
+	assert.Equal(t, "", string(request.Body()))
+	// Headers materialize on first access.
+	assert.NotNil(t, request.Headers())
+	assert.Equal(t, "", request.Headers().Get(RemoteAddrKey))
+	assert.Equal(t, "", request.GetParam("any"))
+
+	response := &ResponseMessage{}
+	response.SetStatusCode(200)
+	// Writing with a nil conn records the error instead of panicking.
+	response.SetBody([]byte("payload"))
+	assert.Equal(t, "payload", string(response.Body()))
+	assert.Equal(t, "write err: conn is nil", response.GetError().Error())
+
+	// BINARY messages never get the line-break treatment.
+	c1, c2 := net.Pipe()
+	defer c1.Close()
+	defer c2.Close()
+	go func() {
+		_, _ = c2.Read(make([]byte, 64))
+	}()
+	binaryOut := &ResponseMessage{conn: c1}
+	binaryOut.SetBody([]byte("raw"))
+	assert.Nil(t, binaryOut.GetError())
+}
+
+// ResponseMessage.SetBody with a UDP target address writes via WriteToUDP;
+// a non-UDP conn with a UDP address is rejected.
+func TestNetResponseMessageUDP(t *testing.T) {
+	server, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	client, err := net.Dial("udp", server.LocalAddr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	if _, err := client.Write([]byte("probe")); err != nil {
+		t.Fatal(err)
+	}
+	_ = server.SetReadDeadline(time.Now().Add(2 * time.Second))
+	buf := make([]byte, 64)
+	n, clientAddr, err := server.ReadFromUDP(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, "probe", string(buf[:n]))
+
+	response := &ResponseMessage{conn: server, udpAddr: clientAddr}
+	response.SetBody([]byte("udp-ack"))
+	assert.Nil(t, response.GetError())
+
+	_ = client.SetReadDeadline(time.Now().Add(2 * time.Second))
+	n, err = client.Read(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, "udp-ack", string(buf[:n]))
+
+	// TCP conn paired with a UDP address must fail.
+	tcp1, tcp2 := net.Pipe()
+	defer tcp1.Close()
+	defer tcp2.Close()
+	bad := &ResponseMessage{conn: tcp1, udpAddr: clientAddr}
+	bad.SetBody([]byte("x"))
+	assert.Equal(t, "write err: conn is not udp", bad.GetError().Error())
+}
+
+// encodeData: text/string/json keep bytes and only change the data type.
+func TestEncodeDataModes(t *testing.T) {
+	cases := []struct {
+		encode   string
+		wantData string
+		wantType types.DataType
+	}{
+		{"text", "Hello", types.TEXT},
+		{"string", "Hello", types.TEXT},
+		{"json", `{"a":1}`, types.JSON},
+		{"TEXT", "Hello", types.TEXT}, // case-insensitive
+	}
+	for _, tc := range cases {
+		got, dataType := encodeData([]byte(tc.wantData), tc.encode)
+		assert.Equal(t, tc.wantData, string(got))
+		assert.Equal(t, tc.wantType, dataType)
+	}
+}
+
+// PacketMode helpers across all modes.
+func TestPacketModeHelpers(t *testing.T) {
+	validModes := []PacketMode{PacketModeLine, PacketModeFixed, PacketModeDelimiter,
+		PacketModeLengthPrefixLE, PacketModeLengthPrefixBE,
+		PacketModeLengthPrefixLEInc, PacketModeLengthPrefixBEInc}
+	for _, m := range validModes {
+		assert.True(t, m.IsValid())
+	}
+	assert.False(t, PacketMode("bogus").IsValid())
+
+	lengthPrefixModes := map[PacketMode]bool{
+		PacketModeLengthPrefixLE:    true,
+		PacketModeLengthPrefixBE:    true,
+		PacketModeLengthPrefixLEInc: true,
+		PacketModeLengthPrefixBEInc: true,
+		PacketModeLine:              false,
+		PacketModeFixed:             false,
+	}
+	for m, want := range lengthPrefixModes {
+		assert.Equal(t, want, m.IsLengthPrefixMode())
+	}
+
+	bigEndian := map[PacketMode]bool{
+		PacketModeLengthPrefixBE:    true,
+		PacketModeLengthPrefixBEInc: true,
+		PacketModeLengthPrefixLE:    false,
+		PacketModeLengthPrefixLEInc: false,
+	}
+	for m, want := range bigEndian {
+		assert.Equal(t, want, m.IsBigEndian())
+	}
+
+	includesPrefix := map[PacketMode]bool{
+		PacketModeLengthPrefixLEInc: true,
+		PacketModeLengthPrefixBEInc: true,
+		PacketModeLengthPrefixLE:    false,
+		PacketModeLengthPrefixBE:    false,
+	}
+	for m, want := range includesPrefix {
+		assert.Equal(t, want, m.IncludesPrefix())
+	}
+}
+
+// LengthPrefixSplitter round-trips prefix sizes 1-4 in both endians and
+// rejects unsupported prefix sizes.
+func TestLengthPrefixSplitterSizes(t *testing.T) {
+	payload := []byte("ABCDEFGH")
+
+	t.Run("RoundTrip", func(t *testing.T) {
+		for size := 1; size <= 4; size++ {
+			for _, bigEndian := range []bool{false, true} {
+				for _, inc := range []bool{false, true} {
+					length := len(payload)
+					if inc {
+						length += size
+					}
+					frame := make([]byte, size+len(payload))
+					switch {
+					case size == 1:
+						frame[0] = byte(length)
+					case size == 2:
+						if bigEndian {
+							binary.BigEndian.PutUint16(frame, uint16(length))
+						} else {
+							binary.LittleEndian.PutUint16(frame, uint16(length))
+						}
+					case size == 3:
+						v := uint32(length)
+						if bigEndian {
+							frame[0], frame[1], frame[2] = byte(v>>16), byte(v>>8), byte(v)
+						} else {
+							frame[0], frame[1], frame[2] = byte(v), byte(v>>8), byte(v>>16)
+						}
+					case size == 4:
+						if bigEndian {
+							binary.BigEndian.PutUint32(frame, uint32(length))
+						} else {
+							binary.LittleEndian.PutUint32(frame, uint32(length))
+						}
+					}
+					copy(frame[size:], payload)
+
+					splitter := &LengthPrefixSplitter{
+						PrefixSize: size, BigEndian: bigEndian,
+						IncludesPrefix: inc, MaxPacketSize: 1024,
+					}
+					got, err := splitter.ReadPacket(bufio.NewReader(bytes.NewReader(frame)))
+					assert.Nil(t, err)
+					assert.Equal(t, string(frame), string(got))
+				}
+			}
+		}
+	})
+
+	t.Run("UnsupportedPrefixSize", func(t *testing.T) {
+		splitter := &LengthPrefixSplitter{PrefixSize: 5, BigEndian: true, MaxPacketSize: 1024}
+		_, err := splitter.ReadPacket(bufio.NewReader(bytes.NewReader([]byte{1, 2, 3, 4, 5})))
+		assert.NotNil(t, err)
+
+		splitterLE := &LengthPrefixSplitter{PrefixSize: 5, MaxPacketSize: 1024}
+		_, err = splitterLE.ReadPacket(bufio.NewReader(bytes.NewReader([]byte{1, 2, 3, 4, 5})))
+		assert.NotNil(t, err)
+	})
+
+	t.Run("TruncatedPayload", func(t *testing.T) {
+		splitter := &LengthPrefixSplitter{PrefixSize: 2, BigEndian: true, MaxPacketSize: 1024}
+		// Declares 8 bytes of payload but provides none.
+		_, err := splitter.ReadPacket(bufio.NewReader(bytes.NewReader([]byte{0, 8})))
+		assert.NotNil(t, err)
+	})
+}
+
+// LineSplitter strips \r\n pairs; DelimiterSplitter tolerates partial
+// delimiter matches and surfaces EOF with the partial buffer.
+func TestSplitterEdgeCases(t *testing.T) {
+	t.Run("LineSplitterCRLF", func(t *testing.T) {
+		splitter := &LineSplitter{}
+		got, err := splitter.ReadPacket(bufio.NewReader(strings.NewReader("data\r\n")))
+		assert.Nil(t, err)
+		assert.Equal(t, "data", string(got))
+	})
+
+	t.Run("LineSplitterEOFWithoutNewline", func(t *testing.T) {
+		splitter := &LineSplitter{}
+		got, err := splitter.ReadPacket(bufio.NewReader(strings.NewReader("partial")))
+		assert.NotNil(t, err)
+		assert.Equal(t, "partial", string(got))
+	})
+
+	t.Run("DelimiterPartialMatchResets", func(t *testing.T) {
+		splitter := &DelimiterSplitter{Delimiter: []byte("END")}
+		// "E" then "N" then a mismatch restarts the match; the full frame
+		// including the delimiter is returned.
+		got, err := splitter.ReadPacket(bufio.NewReader(strings.NewReader("aENbEND")))
+		assert.Nil(t, err)
+		assert.Equal(t, "aENbEND", string(got))
+	})
+
+	t.Run("DelimiterEOF", func(t *testing.T) {
+		splitter := &DelimiterSplitter{Delimiter: []byte("END")}
+		got, err := splitter.ReadPacket(bufio.NewReader(strings.NewReader("no delimiter")))
+		assert.NotNil(t, err)
+		assert.Equal(t, "no delimiter", string(got))
+	})
+
+	t.Run("FixedLengthEOF", func(t *testing.T) {
+		splitter := &FixedLengthSplitter{PacketSize: 8}
+		got, err := splitter.ReadPacket(bufio.NewReader(strings.NewReader("short")))
+		assert.NotNil(t, err)
+		assert.Equal(t, 8, len(got))
+	})
+}
+
+// submitTask falls back to a plain goroutine when no worker pool is set.
+func TestNetSubmitTaskWithoutPool(t *testing.T) {
+	ep := &Net{}
+	assert.Nil(t, ep.Init(engine.NewConfig(), types.Configuration{"server": ":0"}))
+	// engine.NewConfig supplies a pool; drop it to exercise the fallback.
+	ep.RuleConfig.Pool = nil
+
+	done := make(chan struct{})
+	assert.Nil(t, ep.submitTask(func() { close(done) }))
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("submitTask did not run the task without a pool")
+	}
+}
+
+// The net endpoint rejects UDP start with an unresolvable server address.
+func TestNetStartUDPInvalidAddress(t *testing.T) {
+	ep := &Net{}
+	assert.Nil(t, ep.Init(engine.NewConfig(), types.Configuration{
+		"protocol": "udp",
+		"server":   "invalid:address:extra",
+	}))
+	assert.NotNil(t, ep.Start())
+	ep.Destroy()
+}
+
+// The connection-level handler wrapper drives a TcpHandler to completion.
+func TestNetHandlerWrapper(t *testing.T) {
+	ep := &Net{}
+	assert.Nil(t, ep.Init(engine.NewConfig(), types.Configuration{"server": ":0"}))
+
+	server, client := net.Pipe()
+	done := make(chan struct{})
+	go func() {
+		ep.handler(server)
+		close(done)
+	}()
+	if _, err := client.Write([]byte("frame\n")); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(200 * time.Millisecond)
+	_ = client.Close()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("handler did not return after connection close")
+	}
+	ep.Destroy()
 }
