@@ -2,6 +2,7 @@ package endpoint
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -117,6 +118,23 @@ func (s *Server) registerUserRoutes(ep endpointApi.HttpEndpoint) {
 			writeInternalError(exchange, err)
 			return false
 		}
+		// 自助操作也留审计：改密与重置 Key 都是安全敏感动作
+		var changes []string
+		if req.NewPassword != "" {
+			changes = append(changes, "password")
+		}
+		if req.ResetApiKey {
+			changes = append(changes, "apiKey")
+		}
+		if len(changes) > 0 {
+			s.auditRecord(exchange, model.AuditEvent{
+				Actor:  username,
+				Action: "user:write",
+				Target: "user:" + username,
+				Result: model.AuditResultOK,
+				Detail: "self-service: " + strings.Join(changes, ","),
+			})
+		}
 		writeJSON(exchange, sanitizeUser(u))
 		return true
 	}).End())
@@ -201,6 +219,17 @@ func (s *Server) registerUserRoutes(ep endpointApi.HttpEndpoint) {
 			writeInternalError(exchange, err)
 			return false
 		}
+		op := "update"
+		if !exists {
+			op = "create"
+		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "user:write",
+			Target: "user:" + req.Username,
+			Result: model.AuditResultOK,
+			Detail: fmt.Sprintf("%s roles=%s disabled=%v", op, strings.Join(req.Roles, ","), req.Disabled),
+		})
 		writeJSON(exchange, sanitizeUser(req))
 		return true
 	}).End())
@@ -240,12 +269,20 @@ func (s *Server) registerUserRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		// purge=true 时一并删数据目录；默认保留以便误删找回
-		if strings.TrimSpace(exchange.In.GetParam("purge")) == "true" {
+		purged := strings.TrimSpace(exchange.In.GetParam("purge")) == "true"
+		if purged {
 			if err := s.purgeUserData(target); err != nil {
 				writeInternalError(exchange, err)
 				return false
 			}
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  operator,
+			Action: "user:delete",
+			Target: "user:" + target,
+			Result: model.AuditResultOK,
+			Detail: fmt.Sprintf("purge=%v", purged),
+		})
 		writeJSON(exchange, map[string]interface{}{"username": target, "deleted": true})
 		return true
 	}).End())

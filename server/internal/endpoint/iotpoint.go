@@ -11,6 +11,7 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/internal/modules/iotpoint"
+	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/services"
 )
 
@@ -66,6 +67,12 @@ func (s *Server) registerIoTPointRoutes(ep endpointApi.HttpEndpoint) {
 			writeBadRequest(exchange, err)
 			return false
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "iot:write",
+			Target: "iot:" + tpl.Id,
+			Result: model.AuditResultOK,
+		})
 		writeJSON(exchange, tpl)
 		return true
 	}).End())
@@ -91,6 +98,12 @@ func (s *Server) registerIoTPointRoutes(ep endpointApi.HttpEndpoint) {
 			writeBadRequest(exchange, err)
 			return false
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "iot:write",
+			Target: "iot:" + id,
+			Result: model.AuditResultOK,
+		})
 		writeJSON(exchange, tpl)
 		return true
 	}).End())
@@ -111,6 +124,12 @@ func (s *Server) registerIoTPointRoutes(ep endpointApi.HttpEndpoint) {
 			writeBadRequest(exchange, err)
 			return false
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "iot:delete",
+			Target: "iot:" + id,
+			Result: model.AuditResultOK,
+		})
 		writeNoContent(exchange)
 		return true
 	}).End())

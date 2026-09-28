@@ -204,6 +204,7 @@ func TestDefaultAuthorizer_Roles(t *testing.T) {
 		{"admin 写 rule", []string{model.RoleAdmin}, "rule", "write", false},
 		{"admin 删 rule", []string{model.RoleAdmin}, "rule", "delete", false},
 		{"admin 管 user", []string{model.RoleAdmin}, constants.ResourceUser, "write", false},
+		{"admin 查审计", []string{model.RoleAdmin}, constants.ResourceAudit, "read", false},
 
 		// editor：普通资源读写通，user 资源拒
 		{"editor 读 rule", []string{model.RoleEditor}, "rule", "read", false},
@@ -212,6 +213,8 @@ func TestDefaultAuthorizer_Roles(t *testing.T) {
 		{"editor 执行 rule", []string{model.RoleEditor}, "rule", "execute", false},
 		{"editor 管 user 应拒", []string{model.RoleEditor}, constants.ResourceUser, "write", true},
 		{"editor 读 user 也拒", []string{model.RoleEditor}, constants.ResourceUser, "read", true},
+		// 审计是平台级数据，read 动作也不能对 editor/viewer 放行
+		{"editor 查审计应拒", []string{model.RoleEditor}, constants.ResourceAudit, "read", true},
 
 		// viewer：只读通，写类全拒
 		{"viewer 读 rule", []string{model.RoleViewer}, "rule", "read", false},
@@ -221,6 +224,7 @@ func TestDefaultAuthorizer_Roles(t *testing.T) {
 		{"viewer 执行 rule 应拒", []string{model.RoleViewer}, "rule", "execute", true},
 		{"viewer 部署 rule 应拒", []string{model.RoleViewer}, "rule", "operate", true},
 		{"viewer 管 user 应拒", []string{model.RoleViewer}, constants.ResourceUser, "read", true},
+		{"viewer 查审计应拒", []string{model.RoleViewer}, constants.ResourceAudit, "read", true},
 
 		// 无角色：视为 admin，保持升级前的开箱体验（见 default_auth.go 的 rolesOf）
 		{"无角色写 rule", nil, "rule", "write", false},

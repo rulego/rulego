@@ -3,6 +3,7 @@ package bootstrap
 
 import (
 	"github.com/rulego/rulego/server/app"
+	"github.com/rulego/rulego/server/internal/modules/audit"
 	"github.com/rulego/rulego/server/internal/modules/iotpoint"
 	"github.com/rulego/rulego/server/internal/modules/locale"
 	"github.com/rulego/rulego/server/internal/modules/marketplace"
@@ -22,6 +23,7 @@ var (
 	Rule        = func() app.Module { return rule.New() }
 	Node        = func() app.Module { return node.New() }
 	RunLog      = func() app.Module { return runlog.New() }
+	Audit       = func() app.Module { return audit.New() }
 	Locale      = func() app.Module { return locale.New() }
 	Skill       = func() app.Module { return skill.New() }
 	System      = func() app.Module { return system.New() }

@@ -100,6 +100,12 @@ func (s *Server) registerSkillRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		s.reloadBuiltInAssistant()
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "skill:write",
+			Target: "skill:" + item.Name,
+			Result: model.AuditResultOK,
+		})
 		writeJSONStatus(exchange, http.StatusCreated, item)
 		return true
 	}).End())
@@ -132,6 +138,12 @@ func (s *Server) registerSkillRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		s.reloadBuiltInAssistant()
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "skill:write",
+			Target: "skill:" + skillName,
+			Result: model.AuditResultOK,
+		})
 		writeJSON(exchange, item)
 		return true
 	}).End())
@@ -156,6 +168,12 @@ func (s *Server) registerSkillRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		s.reloadBuiltInAssistant()
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "skill:delete",
+			Target: "skill:" + skillName,
+			Result: model.AuditResultOK,
+		})
 		writeNoContent(exchange)
 		return true
 	}).End())
@@ -181,6 +199,13 @@ func (s *Server) registerSkillRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		s.reloadBuiltInAssistant()
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "skill:write",
+			Op:     "upload",
+			Target: "skill:" + archiveName,
+			Result: model.AuditResultOK,
+		})
 		writeJSON(exchange, items)
 		return true
 	}).End())

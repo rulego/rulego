@@ -13,6 +13,7 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/internal/utils/file"
+	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/services"
 )
 
@@ -94,6 +95,14 @@ func (s *Server) registerAIRoutes(ep endpointApi.HttpEndpoint) {
 			writeInternalError(exchange, err)
 			return false
 		}
+		// 提示词内容不入审计明细
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "agent:write",
+			Op:     "prompt",
+			Target: "agent:" + agentID,
+			Result: model.AuditResultOK,
+		})
 		writeJSON(exchange, map[string]interface{}{
 			"agentId": agentID,
 			"content": req.Content,
@@ -144,6 +153,14 @@ func (s *Server) registerAIRoutes(ep endpointApi.HttpEndpoint) {
 			writeInternalError(exchange, err)
 			return false
 		}
+		// 模型配置含 LLM API Key：审计只记事件，不落任何配置内容
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "agent:write",
+			Op:     "model",
+			Target: "agent:" + agentID,
+			Result: model.AuditResultOK,
+		})
 		writeJSON(exchange, map[string]interface{}{
 			"agentId": agentID,
 			"model":   modelCfg,

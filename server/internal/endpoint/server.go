@@ -202,6 +202,7 @@ func (s *Server) initRestEndpoint(ep endpointApi.HttpEndpoint) (endpointApi.Http
 	s.registerAIRoutes(ep)
 	s.registerSkillRoutes(ep)
 	s.registerLogRoutes(ep)
+	s.registerAuditRoutes(ep)
 	s.registerLocaleRoutes(ep)
 	s.registerMarketplaceRoutes(ep)
 	s.registerIoTPointRoutes(ep)

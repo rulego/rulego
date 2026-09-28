@@ -31,7 +31,8 @@ type FileStoreProvider struct {
 	userStore     store.UserStore
 	userStoreErr  error
 
-	runLogStore store.RunLogStore
+	runLogStore   store.RunLogStore
+	auditLogStore store.AuditLogStore
 }
 
 // NewFileStoreProvider 创建文件存储 Provider
@@ -153,10 +154,26 @@ func (p *FileStoreProvider) GetRunLogStore() (store.RunLogStore, error) {
 	return nil, fmt.Errorf("run log store not configured")
 }
 
-// Close 关闭可关闭的 RunLogStore（如 BBolt）
+// SetAuditLogStore 设置外部注入的 AuditLogStore
+func (p *FileStoreProvider) SetAuditLogStore(s store.AuditLogStore) {
+	p.auditLogStore = s
+}
+
+// GetAuditLogStore 实现 store.AuditLogStoreProvider 可选接口
+func (p *FileStoreProvider) GetAuditLogStore() (store.AuditLogStore, error) {
+	if p.auditLogStore != nil {
+		return p.auditLogStore, nil
+	}
+	return nil, fmt.Errorf("audit log store not configured")
+}
+
+// Close 关闭可关闭的 RunLogStore/AuditLogStore（如 BBolt）
 func (p *FileStoreProvider) Close() {
-	if p.runLogStore != nil {
-		if c, ok := p.runLogStore.(interface{ Close() error }); ok {
+	for _, s := range []any{p.runLogStore, p.auditLogStore} {
+		if s == nil {
+			continue
+		}
+		if c, ok := s.(interface{ Close() error }); ok {
 			_ = c.Close()
 		}
 	}

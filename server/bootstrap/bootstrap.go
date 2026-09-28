@@ -18,7 +18,7 @@ import (
 // DefaultModules 返回默认业务模块列表。
 // 可与 app.WithModuleOverride 配合使用，替换特定模块。
 func DefaultModules() []app.Module {
-	return Modules(User, Rule, Node, RunLog, Locale, Skill, System, Marketplace, MCP, IoTPoint)
+	return Modules(User, Rule, Node, RunLog, Audit, Locale, Skill, System, Marketplace, MCP, IoTPoint)
 }
 
 // DefaultApp 创建一个使用默认配置的应用实例。

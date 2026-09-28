@@ -3,6 +3,7 @@ package endpoint
 import (
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/services"
 )
 
@@ -48,7 +49,15 @@ func (s *Server) registerLocaleRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		if err := localeSvc.Save(lang, exchange.In.Body()); err != nil {
 			writeBadRequest(exchange, err)
+			return false
 		}
+		// 语言包内容不入审计明细（量大且非取证重点）
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "locale:write",
+			Target: "locale:" + lang,
+			Result: model.AuditResultOK,
+		})
 		return true
 	}).End())
 }

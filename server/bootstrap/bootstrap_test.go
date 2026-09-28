@@ -38,15 +38,15 @@ func initAppWithStores(t *testing.T) *app.App {
 
 func TestDefaultModules(t *testing.T) {
 	modules := DefaultModules()
-	if len(modules) != 10 {
-		t.Errorf("DefaultModules count = %d, want 10", len(modules))
+	if len(modules) != 11 {
+		t.Errorf("DefaultModules count = %d, want 11", len(modules))
 	}
 
 	names := map[string]bool{}
 	for _, m := range modules {
 		names[m.Name()] = true
 	}
-	for _, name := range []string{"user", "rule", "node", "runlog", "locale", "skill", "system", "marketplace", "mcp"} {
+	for _, name := range []string{"user", "rule", "node", "runlog", "audit", "locale", "skill", "system", "marketplace", "mcp"} {
 		if !names[name] {
 			t.Errorf("missing module: %s", name)
 		}

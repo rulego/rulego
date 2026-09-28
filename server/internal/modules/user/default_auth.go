@@ -158,6 +158,10 @@ func (a *DefaultAuthorizer) Authorize(user *model.UserContext, resource, action 
 	if user.HasRole(model.RoleAdmin) {
 		return nil
 	}
+	// 审计是平台级数据，仅 admin 可查
+	if resource == constants.ResourceAudit {
+		return &PermissionError{Resource: resource, Action: action}
+	}
 	// 用户管理只有 admin 能碰
 	if resource == constants.ResourceUser {
 		return &PermissionError{Resource: resource, Action: action}

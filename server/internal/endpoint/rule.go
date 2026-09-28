@@ -14,6 +14,7 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/internal/constants"
+	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/services"
 )
 
@@ -132,9 +133,27 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		if !ok {
 			return false
 		}
+		// 保存前取旧 DSL 生成变更摘要；取不到按新建处理，不影响保存
+		var detail string
+		if catalog, ok := getService[services.ChainCatalog](s, exchange, services.KeyRuleCatalog); ok {
+			oldDef, err := catalog.Get(metadataUsername(exchange), id)
+			if err == nil {
+				detail = ruleChangeSummary(oldDef, exchange.In.Body())
+			} else {
+				detail = ruleChangeSummary(nil, exchange.In.Body())
+			}
+		}
 		if err := admin.SaveAndLoad(metadataUsername(exchange), id, exchange.In.Body()); err != nil {
 			writeBadRequest(exchange, err)
+			return true
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "rule:write",
+			Target: "rule:" + id,
+			Result: model.AuditResultOK,
+			Detail: detail,
+		})
 		return true
 	}).End())
 
@@ -153,6 +172,12 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 			writeBadRequest(exchange, err)
 			return false
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "rule:delete",
+			Target: "rule:" + id,
+			Result: model.AuditResultOK,
+		})
 		writeNoContent(exchange)
 		return true
 	}).End())
@@ -186,7 +211,15 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		if opErr != nil {
 			writeBadRequest(exchange, opErr)
+			return true
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  username,
+			Action: "rule:operate",
+			Op:     opType,
+			Target: "rule:" + chainId,
+			Result: model.AuditResultOK,
+		})
 		return true
 	}).End())
 
@@ -272,7 +305,15 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		if err := admin.SaveBaseInfo(metadataUsername(exchange), metadataValue(exchange, constants.KeyId), baseInfo); err != nil {
 			writeBadRequest(exchange, err)
+			return true
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "rule:write",
+			Op:     "base",
+			Target: "rule:" + metadataValue(exchange, constants.KeyId),
+			Result: model.AuditResultOK,
+		})
 		return true
 	}).End())
 
@@ -294,7 +335,15 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		if err := admin.SaveConfiguration(metadataUsername(exchange), metadataValue(exchange, constants.KeyId), metadataValue(exchange, "varType"), configData); err != nil {
 			writeBadRequest(exchange, err)
+			return true
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "rule:write",
+			Op:     "config",
+			Target: "rule:" + metadataValue(exchange, constants.KeyId),
+			Result: model.AuditResultOK,
+		})
 		return true
 	}).End())
 

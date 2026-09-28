@@ -9,6 +9,7 @@ const (
 	KeyEngineManager      = "module.rule.engine_manager"
 	KeyNodeService        = "module.node.service"
 	KeyRunLogService      = "module.runlog.service"
+	KeyAuditService       = "module.audit.service"
 	KeyLocaleService      = "module.locale.service"
 	KeyMarketplaceService = "module.marketplace.service"
 	KeyMcpService         = "module.mcp.service"

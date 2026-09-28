@@ -5,6 +5,7 @@ import (
 
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/services"
 )
 
@@ -43,7 +44,15 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		if err := configSvc.UpdateConfig(req); err != nil {
 			writeBadRequest(exchange, err)
+			return false
 		}
+		// 全局配置可能含密钥类字段：审计只记事件，不落任何键名与值
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "config:write",
+			Target: "config:global",
+			Result: model.AuditResultOK,
+		})
 		return true
 	}).End())
 }

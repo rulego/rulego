@@ -9,6 +9,7 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/runlogutil"
+	"github.com/rulego/rulego/server/internal/store/auditstore"
 	"github.com/rulego/rulego/server/internal/store/bboltstore"
 	"github.com/rulego/rulego/server/internal/store/filestore"
 	"github.com/rulego/rulego/server/internal/store/jsonlstore"
@@ -55,6 +56,16 @@ func RegisterDefaultStoresHook(application *App) {
 						}
 					}
 					fp.SetRunLogStore(runLogStore)
+
+					// 审计存储：内置 JSONL 实现；宿主要落数据库时实现
+					// store.AuditLogStoreProvider 接管（audit 模块按可选接口取用）
+					if cfg.AuditEnable {
+						auditStore, auditErr := auditstore.NewAuditLogStore(*cfg, logger)
+						if auditErr != nil {
+							return fmt.Errorf("create audit log store: %w", auditErr)
+						}
+						fp.SetAuditLogStore(auditStore)
+					}
 				}
 
 				// 从 Provider 获取 UserStore 注册到容器（兼容 user 模块）

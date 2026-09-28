@@ -123,6 +123,13 @@ type Config struct {
 	AISecurity AISecurityConfig `ini:"ai_security"`
 	// SkillPath 技能存储路径
 	SkillPath string `ini:"skill_path"`
+	// AuditEnable 是否启用管理面操作审计（登录、用户管理、链生命周期等，不记数据面）。
+	// 关闭后不记录；审计文件在 <data_dir>/audit/ 按天分文件
+	AuditEnable bool `ini:"audit_enable"`
+	// AuditRetentionDays 审计日志保留天数，超期整文件删除。0 取默认 90
+	AuditRetentionDays int `ini:"audit_retention_days"`
+	// AuditMaxSizeMB 审计日志总量上限（MB），超限从最旧文件删（当天活跃文件除外）。0 取默认 200
+	AuditMaxSizeMB int `ini:"audit_max_size_mb"`
 	// UserNamePasswordMap 用户名和密码映射（运行期生成）
 	UserNamePasswordMap types.Properties `ini:"-"`
 	// ApiKeyUserNameMap API key和用户名映射（运行期生成）
@@ -262,6 +269,9 @@ func DefaultConfig() Config {
 		LogMaxSize:           100,
 		LogMaxBackups:        30,
 		LogMaxAge:            7,
+		AuditEnable:          true,
+		AuditRetentionDays:   90,
+		AuditMaxSizeMB:       200,
 		Users: types.Properties{
 			"admin": "admin,2af255ea5618467d914c67a8beeca31d",
 		},

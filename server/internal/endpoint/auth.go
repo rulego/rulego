@@ -2,6 +2,7 @@ package endpoint
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -182,7 +183,8 @@ func (s *Server) authWithPermission(resource, action string) func(endpointApi.Ro
 	}
 }
 
-// clientIP 从 exchange 提取客户端 IP
+// clientIP 从 exchange 提取客户端 IP：优先代理头，回退底层连接的 RemoteAddr。
+// In.From() 是请求 URL 而非远端地址，不能作 IP 兜底。
 func clientIP(exchange *endpointApi.Exchange) string {
 	xff := exchange.In.Headers().Get("X-Forwarded-For")
 	if xff != "" {
@@ -191,9 +193,16 @@ func clientIP(exchange *endpointApi.Exchange) string {
 		}
 		return strings.TrimSpace(xff)
 	}
-	xri := exchange.In.Headers().Get("X-Real-IP")
-	if xri != "" {
+	if xri := exchange.In.Headers().Get("X-Real-IP"); xri != "" {
 		return strings.TrimSpace(xri)
+	}
+	if reqMsg, ok := exchange.In.(interface{ Request() *http.Request }); ok {
+		if req := reqMsg.Request(); req != nil && req.RemoteAddr != "" {
+			if host, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+				return host
+			}
+			return req.RemoteAddr
+		}
 	}
 	return exchange.In.From()
 }
@@ -231,6 +240,13 @@ func (s *Server) loginRoute() endpointApi.Router {
 		user.Password = strings.TrimSpace(user.Password)
 
 		if user.Username == "" || user.Password == "" || !s.checkPassword(user.Username, user.Password) {
+			s.auditRecord(exchange, model.AuditEvent{
+				Actor:     user.Username,
+				ActorType: "user",
+				Action:    "auth:login",
+				Result:    model.AuditResultDenied,
+				Detail:    "invalid username or password",
+			})
 			exchange.Out.SetStatusCode(http.StatusUnauthorized)
 			exchange.Out.SetBody([]byte(`{"error":"invalid username or password"}`))
 			return false
@@ -257,6 +273,12 @@ func (s *Server) loginRoute() endpointApi.Router {
 			"expiresAt": expiresAt.Unix(),
 			"username":  user.Username,
 			"roles":     roles,
+		})
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:     user.Username,
+			ActorType: "user",
+			Action:    "auth:login",
+			Result:    model.AuditResultOK,
 		})
 		return true
 	}).End()

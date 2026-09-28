@@ -12,6 +12,7 @@ import (
 	"github.com/rulego/rulego/node_pool"
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/internal/constants"
+	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/services"
 )
 
@@ -79,25 +80,33 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		username := metadataUsername(exchange)
+		var saveErr error
 		if metadataValue(exchange, constants.KeyType) == "endpoint" {
 			var endpointDef types.EndpointDsl
 			if err := json.Unmarshal(exchange.In.Body(), &endpointDef); err != nil {
 				writeBadRequest(exchange, err)
 				return false
 			}
-			if err := nodeSvc.SaveNodePoolEndpoint(username, endpointDef); err != nil {
-				writeBadRequest(exchange, err)
-			}
+			saveErr = nodeSvc.SaveNodePoolEndpoint(username, endpointDef)
 		} else {
 			var node types.RuleNode
 			if err := json.Unmarshal(exchange.In.Body(), &node); err != nil {
 				writeBadRequest(exchange, err)
 				return false
 			}
-			if err := nodeSvc.SaveNodePoolNode(username, node); err != nil {
-				writeBadRequest(exchange, err)
-			}
+			saveErr = nodeSvc.SaveNodePoolNode(username, node)
 		}
+		if saveErr != nil {
+			writeBadRequest(exchange, saveErr)
+			return false
+		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  username,
+			Action: "component:write",
+			Op:     "shared-node",
+			Target: "shared-node:" + metadataValue(exchange, constants.KeyId),
+			Result: model.AuditResultOK,
+		})
 		return true
 	}).End())
 
@@ -130,6 +139,13 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 			writeBadRequest(exchange, err)
 			return false
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "component:delete",
+			Op:     "shared-node",
+			Target: "shared-node:" + metadataValue(exchange, constants.KeyId),
+			Result: model.AuditResultOK,
+		})
 		writeNoContent(exchange)
 		return true
 	}).End())
@@ -186,7 +202,15 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		if err := nodeSvc.UpgradeComponent(metadataUsername(exchange), metadataValue(exchange, constants.KeyId), exchange.In.Body()); err != nil {
 			writeBadRequest(exchange, err)
+			return false
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "component:write",
+			Op:     "component",
+			Target: "component:" + metadataValue(exchange, constants.KeyId),
+			Result: model.AuditResultOK,
+		})
 		return true
 	}).End())
 
@@ -204,6 +228,13 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 			writeBadRequest(exchange, err)
 			return false
 		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "component:delete",
+			Op:     "component",
+			Target: "component:" + metadataValue(exchange, constants.KeyId),
+			Result: model.AuditResultOK,
+		})
 		writeNoContent(exchange)
 		return true
 	}).End())

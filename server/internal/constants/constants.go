@@ -12,7 +12,9 @@ const (
 	DirSystem = "system"
 	// DirSystemAgents 系统级内置智能体目录
 	DirSystemAgents = "system/agents"
-	FileNameIndex   = "index"
+	// DirAudit 管理面操作审计目录（平台级，不进用户命名空间）
+	DirAudit      = "audit"
+	FileNameIndex = "index"
 )
 
 const (
@@ -75,9 +77,10 @@ const ServerVersion = "0.37.0"
 
 // 权限资源名（authWithPermission 的 resource 入参）
 const (
-	ResourceRule = "rule"
-	ResourceLog  = "log"
-	ResourceUser = "user"
+	ResourceRule  = "rule"
+	ResourceLog   = "log"
+	ResourceUser  = "user"
+	ResourceAudit = "audit"
 )
 
 // 消息类型

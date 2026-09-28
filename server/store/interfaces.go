@@ -73,6 +73,21 @@ type RunLogStore interface {
 	DeleteByChainId(username, chainId string) error
 }
 
+// AuditLogStore 管理面操作审计存储接口
+type AuditLogStore interface {
+	// Save 追加保存审计事件
+	Save(event model.AuditEvent) error
+	// List 按过滤条件倒序分页查询（最新的在前）
+	List(filter model.AuditFilter) ([]model.AuditEvent, int64, error)
+}
+
+// AuditLogStoreProvider 可选扩展接口：宿主 StoreProvider 实现它即可接管审计存储
+// （如落到宿主数据库）。不并入 StoreProvider——公开接口处于 v1 冻结期，新增方法
+// 会破坏外部实现方；审计模块对 provider 做类型断言，未实现则用内置文件实现。
+type AuditLogStoreProvider interface {
+	GetAuditLogStore() (AuditLogStore, error)
+}
+
 // ComponentStore 组件存储接口
 type ComponentStore interface {
 	// Save 保存组件定义
