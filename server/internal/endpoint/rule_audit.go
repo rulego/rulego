@@ -118,6 +118,9 @@ func jsonBrief(v interface{}) string {
 	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
 		s = s[1 : len(s)-1]
 	}
+	if s == "" {
+		return "空"
+	}
 	r := []rune(s)
 	if len(r) > 24 {
 		return string(r[:24]) + "…"
@@ -169,7 +172,7 @@ func ruleChangeSummary(oldDef, newDef []byte) string {
 			continue
 		}
 		if o.Name != n.Name && o.Name != "" && n.Name != "" {
-			renamed = append(renamed, fmt.Sprintf("%q 重命名为 %q", o.Name, n.Name))
+			renamed = append(renamed, fmt.Sprintf("【%s】重命名为【%s】", o.Name, n.Name))
 		}
 		for _, c := range configChanges(o.Configuration, n.Configuration) {
 			modified = append(modified, nodeLabel(n)+"："+c)
@@ -183,7 +186,7 @@ func ruleChangeSummary(oldDef, newDef []byte) string {
 
 	var parts []string
 	if oldName, newName := oldDSL.RuleChain.Name, newDSL.RuleChain.Name; newName != "" && oldName != newName {
-		parts = append(parts, fmt.Sprintf("规则链 %q 改名为 %q", oldName, newName))
+		parts = append(parts, fmt.Sprintf("规则链【%s】改名为【%s】", oldName, newName))
 	}
 	if len(added) > 0 {
 		parts = append(parts, "添加节点 "+foldItems(added))

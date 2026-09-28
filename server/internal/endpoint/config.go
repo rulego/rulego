@@ -2,6 +2,8 @@ package endpoint
 
 import (
 	"encoding/json"
+	"sort"
+	"strings"
 
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
@@ -46,12 +48,23 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 			writeBadRequest(exchange, err)
 			return false
 		}
-		// 全局配置可能含密钥类字段：审计只记事件，不落任何键名与值
+		// 全局配置可能含密钥类字段：审计只记变更了哪些键名（回答"改了什么范围"），
+		// 永不落键值。键名排序后截断，防止超长 payload 撑爆 Detail。
+		keys := make([]string, 0, len(req))
+		for k := range req {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		detail := "变更键: " + strings.Join(keys, ", ")
+		if len(detail) > 200 {
+			detail = detail[:200] + "…"
+		}
 		s.auditRecord(exchange, model.AuditEvent{
 			Actor:  metadataUsername(exchange),
 			Action: "config:write",
 			Target: "config:global",
 			Result: model.AuditResultOK,
+			Detail: detail,
 		})
 		return true
 	}).End())

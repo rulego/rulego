@@ -24,9 +24,16 @@ func newTestStore(t *testing.T, cfg config.Config) *AuditLogStore {
 	return s
 }
 
+// noonNow 返回当天正午。事件按时间戳路由进按天文件，用 time.Now 在凌晨运行时
+// 「今天」事件会跨午夜落进昨天文件，List 的跨文件顺序与窗口断言随运行时刻漂移。
+func noonNow() time.Time {
+	n := time.Now()
+	return time.Date(n.Year(), n.Month(), n.Day(), 12, 0, 0, 0, time.Local)
+}
+
 func TestSaveAndList(t *testing.T) {
 	s := newTestStore(t, config.Config{})
-	now := time.Now()
+	now := noonNow()
 	yesterday := now.AddDate(0, 0, -1)
 
 	events := []model.AuditEvent{
@@ -181,7 +188,7 @@ func TestRetentionNeverDeleteToday(t *testing.T) {
 // 250 条跨两天事件，验证倒序全局序、窗口交集、深页空页返回正确总数、超深页不溢出
 func TestListWindowAndDeepPage(t *testing.T) {
 	s := newTestStore(t, config.Config{})
-	now := time.Now()
+	now := noonNow()
 	yesterday := now.AddDate(0, 0, -1)
 	// 今天 200 条（新→旧 i=0..199），昨天 50 条
 	for i := 0; i < 200; i++ {
