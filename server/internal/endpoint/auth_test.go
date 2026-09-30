@@ -5,6 +5,8 @@ import (
 	"time"
 
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
+	"github.com/rulego/rulego/server/app"
+	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/constants"
 )
 
@@ -64,6 +66,46 @@ func TestConfigureLoginLimiter(t *testing.T) {
 			if !limiter.check("ip-b") {
 				t.Fatalf("expected unlimited attempts when disabled, blocked at %d", i+1)
 			}
+		}
+	})
+}
+
+func TestAuthWithPermission(t *testing.T) {
+	newAuthServer := func(requireAuth bool) *Server {
+		return &Server{
+			container: app.NewContainer(),
+			config: &config.Config{
+				RequireAuth:     requireAuth,
+				DefaultUsername: "admin",
+				JwtSecretKey:    "unit-test-secret",
+			},
+		}
+	}
+
+	t.Run("免鉴权下无效token按匿名放行", func(t *testing.T) {
+		srv := newAuthServer(false)
+		exchange := newTestExchange(t)
+		exchange.In.Headers().Set("Authorization", "Bearer expired-or-garbage")
+		if !srv.authWithPermission("rule", "read")(nil, exchange) {
+			t.Fatal("expected request to pass")
+		}
+		if outStatus(exchange) == 401 {
+			t.Fatal("expected no 401 when RequireAuth=false")
+		}
+		if got := metadataUsername(exchange); got != "admin" {
+			t.Fatalf("expected default username admin, got %q", got)
+		}
+	})
+
+	t.Run("鉴权开启下无效token仍401", func(t *testing.T) {
+		srv := newAuthServer(true)
+		exchange := newTestExchange(t)
+		exchange.In.Headers().Set("Authorization", "Bearer expired-or-garbage")
+		if srv.authWithPermission("rule", "read")(nil, exchange) {
+			t.Fatal("expected request to be rejected")
+		}
+		if outStatus(exchange) != 401 {
+			t.Fatalf("expected 401, got %d", outStatus(exchange))
 		}
 	})
 }

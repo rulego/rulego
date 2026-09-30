@@ -140,11 +140,10 @@ func (s *Server) authWithPermission(resource, action string) func(endpointApi.Ro
 		cfg := s.config
 		authorization := extractAuthorization(exchange)
 
-		// 匿名分支（RequireAuth=false 且无 token）：用默认用户身份放行，但仍要走
-		// Authorizer。否则 require_auth=false 下 /users 这类敏感接口会被匿名直接
-		// 调用（建/删用户、purge 数据目录）。默认用户当前是 admin 能过，但若将来
-		// 降权或收紧资源，这层校验就是防线。
-		if !cfg.RequireAuth && authorization == "" {
+		// 匿名放行（RequireAuth=false）：用默认用户身份，但仍要走 Authorizer，否则
+		// /users 这类敏感接口会被匿名直接调用（建/删用户、purge 数据目录）。默认用户
+		// 当前是 admin 能过，但若将来降权或收紧资源，这层校验就是防线。
+		anonymous := func() bool {
 			username := cfg.DefaultUsername
 			exchange.In.GetMsg().Metadata.PutValue(constants.KeyUsername, username)
 			if resource != "" && action != "" {
@@ -157,11 +156,19 @@ func (s *Server) authWithPermission(resource, action string) func(endpointApi.Ro
 			}
 			return true
 		}
+		if !cfg.RequireAuth && authorization == "" {
+			return anonymous()
+		}
 
 		// 从 Container 取认证器
 		authenticator := getAuthenticator(s.container, cfg)
 		userCtx, err := authenticator.Authenticate(authorization)
 		if err != nil {
+			// 免鉴权部署下过期/无效 token 不锁人：与不带 token 同权，按默认用户放行。
+			// 浏览器常驻已过期 token，逐请求 401 会把用户困在登录页。
+			if !cfg.RequireAuth {
+				return anonymous()
+			}
 			exchange.Out.SetStatusCode(http.StatusUnauthorized)
 			exchange.Out.SetBody([]byte(`{"error":"unauthorized"}`))
 			return false
