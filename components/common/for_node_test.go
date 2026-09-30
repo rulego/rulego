@@ -47,10 +47,11 @@ func TestForNode(t *testing.T) {
 	})
 
 	t.Run("DefaultConfig", func(t *testing.T) {
-		test.NodeInit(t, targetNodeType, types.Configuration{}, types.Configuration{
-			"range": "1..3",
-			"do":    "s3",
-		}, Registry)
+		// do 默认留空：不能用 "s3" 这类默认值把未配置状态藏起来，
+		// 未选处理节点时 Init 必须显式报错（编辑器保存前也会先拦截提示）
+		_, err := test.CreateAndInitNode(targetNodeType, types.Configuration{}, Registry)
+		// Init 的错误就是 errors.New("do is empty")，直接等值断言
+		assert.Equal(t, "do is empty", err.Error())
 	})
 
 	t.Run("OnMsg", func(t *testing.T) {

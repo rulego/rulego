@@ -216,7 +216,6 @@ func (x *ForNode) Type() string {
 func (x *ForNode) New() types.Node {
 	return &ForNode{Config: ForNodeConfiguration{
 		Range: "1..3",
-		Do:    "s3",
 	}}
 }
 
