@@ -29,6 +29,7 @@ package action
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/rulego/rulego/utils/js"
 
@@ -41,8 +42,13 @@ const (
 	// JsLogFuncName JavaScript函数名
 	JsLogFuncName = "ToString"
 
-	// JsLogFuncTemplate JavaScript函数模板
-	JsLogFuncTemplate = "function ToString(msg, metadata, msgType, dataType) { %s }"
+	// JsLogFuncTemplate JavaScript函数模板。用户脚本独立成行，goja 报错行号仅整体偏移 1 行
+	JsLogFuncTemplate = "function ToString(msg, metadata, msgType, dataType) {\n%s\n}"
+
+	// 输出位置取值
+	LogOutputBoth    = "both"
+	LogOutputConsole = "console"
+	LogOutputLogger  = "logger"
 )
 
 // JsLogReturnFormatErr JavaScript脚本必须返回字符串
@@ -58,6 +64,8 @@ type LogNodeConfiguration struct {
 	// JsScript is the JavaScript script for formatting log messages.
 	// Must return a string. Parameters: msg, metadata, msgType, dataType.
 	JsScript string `json:"jsScript" label:"Log Script" desc:"JavaScript script to format log message. Must return a string. Params: msg, metadata, msgType, dataType" required:"true"`
+	// OutputTo 输出位置：both=调试控制台与服务端日志（默认）console=仅调试控制台 logger=仅服务端日志
+	OutputTo string `json:"outputTo" label:"Output To" desc:"both (default): debug console and server log; console: debug console only; logger: server log only" component:"{\"type\":\"select\",\"options\":[{\"label\":\"both\",\"value\":\"both\"},{\"label\":\"console\",\"value\":\"console\"},{\"label\":\"logger\",\"value\":\"logger\"}]}"`
 }
 
 // LogNode 使用JavaScript格式化并记录消息的日志节点
@@ -70,6 +78,9 @@ type LogNode struct {
 
 	// logger 日志记录器
 	logger types.Logger
+
+	// outputTo 归一化后的输出位置
+	outputTo string
 }
 
 // Type 返回组件类型
@@ -90,9 +101,24 @@ func (x *LogNode) Init(ruleConfig types.Config, configuration types.Configuratio
 	if err == nil {
 		jsScript := fmt.Sprintf(JsLogFuncTemplate, x.Config.JsScript)
 		x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, base.NodeUtils.GetVars(configuration))
+		if err != nil {
+			// 编译错误行号相对函数模板，回推 1 行对齐用户脚本
+			err = js.ShiftErrorLine(err, -1)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	switch x.outputTo = strings.ToLower(strings.TrimSpace(x.Config.OutputTo)); x.outputTo {
+	case "":
+		x.outputTo = LogOutputBoth
+	case LogOutputBoth, LogOutputConsole, LogOutputLogger:
+	default:
+		return fmt.Errorf("outputTo must be '%s', '%s' or '%s', got: %s",
+			LogOutputBoth, LogOutputConsole, LogOutputLogger, x.Config.OutputTo)
 	}
 	x.logger = ruleConfig.Logger
-	return err
+	return nil
 }
 
 // OnMsg 处理消息，执行JavaScript脚本格式化并记录日志
@@ -113,15 +139,20 @@ func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.TellFailure(msg, err)
 	} else {
 		if formatData, ok := out.(string); ok {
-			x.logger.Infof(formatData)
-			// 输出同时进调试通道，前端控制台与节点日志可见；Log 类事件不受 debugMode 门控
 			chainId := ""
 			if ctx.RuleChain() != nil {
 				chainId = ctx.RuleChain().GetNodeId().Id
 			}
-			logMsg := msg.Copy()
-			logMsg.SetData(formatData)
-			ctx.OnDebug(chainId, types.Log, ctx.GetSelfId(), logMsg, types.Success, nil)
+			// 服务端日志带链与节点来源，多条 log 输出在日志文件里可溯源
+			if x.outputTo != LogOutputConsole {
+				x.logger.Infof("[chain=%s node=%s] %s", chainId, ctx.GetSelfId(), formatData)
+			}
+			// 输出进调试通道，前端控制台与节点日志可见；Log 类事件不受 debugMode 门控
+			if x.outputTo != LogOutputLogger {
+				logMsg := msg.Copy()
+				logMsg.SetData(formatData)
+				ctx.OnDebug(chainId, types.Log, ctx.GetSelfId(), logMsg, types.Success, nil)
+			}
 			ctx.TellSuccess(msg)
 		} else {
 			ctx.TellFailure(msg, JsLogReturnFormatErr)

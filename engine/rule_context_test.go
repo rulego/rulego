@@ -1475,3 +1475,68 @@ func TestCrossChainDebugInherit(t *testing.T) {
 	time.Sleep(time.Millisecond * 200)
 	assert.True(t, atomic.LoadInt32(&subInEvents) > 0, "sub chain IN debug events not found")
 }
+
+// outputToTestLogger 收集 Infof 输出，用于断言 log 节点的服务端日志行为
+type outputToTestLogger struct {
+	mu    sync.Mutex
+	lines []string
+}
+
+func (l *outputToTestLogger) Printf(format string, v ...interface{}) {}
+func (l *outputToTestLogger) Debugf(format string, v ...interface{}) {}
+func (l *outputToTestLogger) Infof(format string, v ...interface{}) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.lines = append(l.lines, fmt.Sprintf(format, v...))
+}
+func (l *outputToTestLogger) Warnf(format string, v ...interface{})  {}
+func (l *outputToTestLogger) Errorf(format string, v ...interface{}) {}
+
+// TestLogNodeOutputTo log 节点输出位置分支：默认双通道、console 免服务端日志、logger 免调试通道
+func TestLogNodeOutputTo(t *testing.T) {
+	run := func(outputTo string) (*outputToTestLogger, int32) {
+		tl := &outputToTestLogger{}
+		var logEvents int32
+		config := NewConfig(types.WithLogger(tl), types.WithOnDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+			if flowType == types.Log {
+				atomic.AddInt32(&logEvents, 1)
+			}
+		}))
+		chainId := "logOut" + outputTo
+		outputCfg := `{"jsScript":"return 'out-to-test';"`
+		if outputTo != "" {
+			outputCfg += `,"outputTo":"` + outputTo + `"`
+		}
+		outputCfg += `}`
+		chain := `{"ruleChain":{"id":"` + chainId + `","name":"t"},"metadata":{"nodes":[{"id":"n1","type":"log","name":"l","configuration":` + outputCfg + `}],"connections":[]}}`
+		ruleEngine, err := New(chainId, []byte(chain), WithConfig(config))
+		assert.Nil(t, err)
+		defer Del(chainId)
+		ruleEngine.OnMsgAndWait(types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), "{}"))
+		// OnDebug 走异步任务，等待落盘
+		time.Sleep(time.Millisecond * 200)
+		return tl, atomic.LoadInt32(&logEvents)
+	}
+
+	t.Run("DefaultBoth", func(t *testing.T) {
+		tl, logEvents := run("")
+		assert.Equal(t, 1, len(tl.lines))
+		assert.True(t, strings.Contains(tl.lines[0], "[chain=logOut node=n1] out-to-test"), "unexpected: %v", tl.lines)
+		assert.True(t, logEvents >= 1)
+	})
+	t.Run("ConsoleOnly", func(t *testing.T) {
+		tl, logEvents := run("console")
+		assert.Equal(t, 0, len(tl.lines))
+		assert.True(t, logEvents >= 1)
+	})
+	t.Run("LoggerOnly", func(t *testing.T) {
+		tl, logEvents := run("logger")
+		assert.Equal(t, 1, len(tl.lines))
+		assert.Equal(t, int32(0), logEvents)
+	})
+	t.Run("UpperCaseNormalized", func(t *testing.T) {
+		tl, logEvents := run("Console")
+		assert.Equal(t, 0, len(tl.lines))
+		assert.True(t, logEvents >= 1)
+	})
+}

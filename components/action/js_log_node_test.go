@@ -17,6 +17,7 @@
 package action
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -94,4 +95,15 @@ func TestJsLogNode(t *testing.T) {
 			})
 		}
 	})
+}
+
+// TestLogNodeOutputToInvalid 非法 outputTo 在 Init 即报错
+func TestLogNodeOutputToInvalid(t *testing.T) {
+	n := &LogNode{}
+	err := n.Init(types.NewConfig(), types.Configuration{
+		"jsScript": `return 'x';`,
+		"outputTo": "nowhere",
+	})
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "outputTo must be"), "unexpected: %v", err)
 }
