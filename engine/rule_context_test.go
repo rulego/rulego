@@ -1351,3 +1351,127 @@ func TestRestoreWithOptions(t *testing.T) {
 		}
 	})
 }
+
+// TestEndErrLocation 分支终止错误应补充链与节点定位，且不写回 metadata.errorMsg
+func TestEndErrLocation(t *testing.T) {
+	var ruleChainFile = `{
+          "ruleChain": {
+            "id": "errLoc",
+            "name": "errLoc"
+          },
+          "metadata": {
+            "nodes": [
+              {
+                "id": "bad",
+                "type": "jsTransform",
+                "name": "transform",
+                "configuration": {
+                  "jsScript": "null.x; return {'msg':msg,'metadata':metadata,'msgType':msgType};"
+                }
+              }
+            ],
+            "connections": []
+          }
+        }`
+	config := NewConfig(types.WithDefaultPool())
+	ruleEngine, err := New("errLoc", []byte(ruleChainFile), WithConfig(config))
+	assert.Nil(t, err)
+	defer Del(ruleEngine.Id())
+
+	errCh := make(chan error, 1)
+	metaCh := make(chan string, 1)
+	ruleEngine.OnMsgAndWait(types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), "{}"),
+		types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			errCh <- err
+			metaCh <- msg.Metadata.GetValue(types.KeyErrorMsg)
+		}))
+
+	select {
+	case err := <-errCh:
+		assert.True(t, strings.Contains(err.Error(), "chain=errLoc node=bad"), "unexpected err: %v", err)
+	case <-time.After(time.Second * 5):
+		t.Fatal("timeout waiting for OnEnd")
+	}
+	select {
+	case errorMsg := <-metaCh:
+		assert.False(t, strings.Contains(errorMsg, "chain="), "metadata.errorMsg should keep the raw component error, got: %s", errorMsg)
+		assert.True(t, strings.Contains(errorMsg, "TypeError"), "metadata.errorMsg should keep the raw component error, got: %s", errorMsg)
+	case <-time.After(time.Second * 5):
+		t.Fatal("timeout waiting for errorMsg metadata")
+	}
+}
+
+// TestCrossChainDebugInherit 跨链执行节点应继承发起链的调试模式，子链节点产生 IN/OUT 调试事件
+func TestCrossChainDebugInherit(t *testing.T) {
+	var subChainFile = `{
+          "ruleChain": {
+            "id": "ccSub",
+            "name": "ccSub"
+          },
+          "metadata": {
+            "nodes": [
+              {
+                "id": "subNode",
+                "type": "log",
+                "name": "sub",
+                "configuration": {
+                  "jsScript": "return 'sub out';"
+                }
+              }
+            ],
+            "connections": []
+          }
+        }`
+	var mainChainFile = `{
+          "ruleChain": {
+            "id": "ccMain",
+            "name": "ccMain"
+          },
+          "metadata": {
+            "nodes": [
+              {
+                "id": "m1",
+                "type": "functions",
+                "name": "cross",
+                "configuration": {
+                  "functionName": "ccCross"
+                }
+              }
+            ],
+            "connections": []
+          }
+        }`
+	action.Functions.Register("ccCross", func(ctx types.RuleContext, msg types.RuleMsg) {
+		ctx.TellChainNode(ctx.GetContext(), "ccSub", "subNode", msg, true, func(c types.RuleContext, m types.RuleMsg, e error, rt string) {
+			if e != nil {
+				ctx.TellFailure(m, e)
+			} else {
+				ctx.TellNext(m, rt)
+			}
+		}, nil)
+	})
+
+	var subInEvents int32
+	config := NewConfig(types.WithOnDebug(func(ruleChainId string, flowType string, nodeId string, msg types.RuleMsg, relationType string, err error) {
+		if ruleChainId == "ccSub" && flowType == types.In {
+			atomic.AddInt32(&subInEvents, 1)
+		}
+	}))
+	subEngine, err := New("ccSub", []byte(subChainFile), WithConfig(config))
+	assert.Nil(t, err)
+	defer Del(subEngine.Id())
+	ruleEngine, err := New("ccMain", []byte(mainChainFile), WithConfig(config))
+	assert.Nil(t, err)
+	defer Del(ruleEngine.Id())
+
+	msg := types.NewMsg(0, "TEST", types.JSON, types.NewMetadata(), "{}")
+	// 负对照：子链 DSL 未开 debugMode，非调试消息不产生子链 IN 事件
+	ruleEngine.OnMsg(msg)
+	time.Sleep(time.Millisecond * 200)
+	assert.Equal(t, int32(0), atomic.LoadInt32(&subInEvents))
+
+	// 发起链按消息开调试后，跨链执行的子链节点产生 IN 事件
+	ruleEngine.OnMsg(msg, types.WithDebugMode(true))
+	time.Sleep(time.Millisecond * 200)
+	assert.True(t, atomic.LoadInt32(&subInEvents) > 0, "sub chain IN debug events not found")
+}

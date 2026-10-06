@@ -166,14 +166,20 @@ func (x *DynamicNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		ctx.TellFailure(msg, errors.New("rule engine is nil"))
 		return
 	}
-	x.ruleEngine.OnMsg(msg, types.WithContext(ctx.GetContext()),
-		types.WithOnEnd(func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
-			if err != nil {
-				ctx.TellFailure(onEndMsg, err)
-			} else {
-				ctx.TellNext(onEndMsg, relationType)
-			}
-		}))
+	opts := []types.RuleContextOption{types.WithContext(ctx.GetContext())}
+	// 内嵌子链不经 TellFlow，调试模式须从父链显式带过去，否则子链节点不产生调试日志。
+	// per-message 的 debugModeOverride 只在 DefaultRuleContext 上，走类型断言读取
+	if dc, ok := ctx.(*DefaultRuleContext); ok && dc.IsDebugMode() {
+		opts = append(opts, types.WithDebugMode(true))
+	}
+	opts = append(opts, types.WithOnEnd(func(nodeCtx types.RuleContext, onEndMsg types.RuleMsg, err error, relationType string) {
+		if err != nil {
+			ctx.TellFailure(onEndMsg, err)
+		} else {
+			ctx.TellNext(onEndMsg, relationType)
+		}
+	}))
+	x.ruleEngine.OnMsg(msg, opts...)
 }
 
 // Destroy 销毁

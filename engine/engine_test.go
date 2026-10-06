@@ -1325,7 +1325,8 @@ func TestDoOnEnd(t *testing.T) {
 		atomic.AddInt32(&count, 1)
 	}))
 	time.Sleep(time.Millisecond * 100)
-	assert.Equal(t, int32(4), atomic.LoadInt32(&count))
+	// 5 = s1、s2 各 IN/OUT + log 节点输出的 Log 事件
+	assert.Equal(t, int32(5), atomic.LoadInt32(&count))
 	count = int32(0)
 	metaData2 := types.NewMetadata()
 	metaData2.PutValue("productType", "test02")

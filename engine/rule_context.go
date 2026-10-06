@@ -704,10 +704,19 @@ func (ctx *DefaultRuleContext) withCrossChainSource(msg types.RuleMsg) types.Rul
 // onEnd 查看获得最终执行结果
 // onAllNodeCompleted 所以节点执行完触发，无结果返回
 func (ctx *DefaultRuleContext) TellNode(chanCtx context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc, onAllNodeCompleted func()) {
+	ctx.tellNode(chanCtx, nodeId, msg, skipTellNext, onEnd, onAllNodeCompleted, ctx.IsDebugMode())
+}
+
+// tellNode TellNode 的实现。debugMode 由调用方判定后传入：跨链执行时目标链
+// 上下文不携带发起链的 debugModeOverride，须显式带过去，否则目标链节点不产生调试日志
+func (ctx *DefaultRuleContext) tellNode(chanCtx context.Context, nodeId string, msg types.RuleMsg, skipTellNext bool, onEnd types.OnEndFunc, onAllNodeCompleted func(), debugMode bool) {
 	startId := types.RuleNodeId{Id: nodeId}
 	if nodeCtx, ok := ctx.ruleChainCtx.GetNodeById(startId); ok {
 		rootCtxCopy := NewRuleContext(chanCtx, ctx.config, ctx.ruleChainCtx, nil, nodeCtx, ctx.pool, onEnd, ctx.ruleChainPool)
 		rootCtxCopy.onAllNodeCompleted = onAllNodeCompleted
+		if debugMode {
+			rootCtxCopy.SetDebugMode(true)
+		}
 		//Whether to only execute the current node
 		rootCtxCopy.skipTellNext = skipTellNext
 		if skipTellNext {
@@ -754,6 +763,10 @@ func (ctx *DefaultRuleContext) tellOtherChainNode(chanCtx context.Context, ruleC
 			}
 			return
 		}
+		if target, ok := rootCtx.(*DefaultRuleContext); ok {
+			target.tellNode(chanCtx, nodeId, ctx.withCrossChainSource(msg), skipTellNext, onEnd, onAllNodeCompleted, ctx.IsDebugMode())
+			return
+		}
 		rootCtx.TellNode(chanCtx, nodeId, ctx.withCrossChainSource(msg), skipTellNext, onEnd, onAllNodeCompleted)
 	} else {
 		if onEnd != nil {
@@ -786,6 +799,20 @@ func (ctx *DefaultRuleContext) SetOnAllNodeCompleted(onAllNodeCompleted func()) 
 
 func (ctx *DefaultRuleContext) HasEndNode() bool {
 	return ctx.hasEndNode
+}
+
+// wrapEndErr 给分支终止错误补充链与节点定位，跨链调用层层汇集后形成完整执行路径。
+// 只包装结束回调收到的错误，不写回当前链的 metadata.errorMsg 与 ctx.err，链内取值语义不变；
+// 跨链边界（flow/ref/DynamicNode 的 OnEnd 转发）会把包装后的错误带入父链，属预期行为
+func (ctx *DefaultRuleContext) wrapEndErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	chainId := ""
+	if ctx.ruleChainCtx != nil {
+		chainId = ctx.ruleChainCtx.Id.Id
+	}
+	return fmt.Errorf("chain=%s node=%s: %w", chainId, ctx.GetSelfId(), err)
 }
 
 // DoOnEnd  结束规则链分支执行，触发 OnEnd 回调函数
@@ -890,9 +917,12 @@ func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, node
 	// 在方法开始时就缓存runSnapshot引用，避免并发竞态条件
 	runSnapshot := ctx.runSnapshot
 
+	// Log 类事件来自组件显式输出（log/exec 节点），不受 debugMode 门控，
+	// 否则生产环境未开调试时这些输出无处可去
+	bypassDebugMode := flowType == types.Log
 	// 智能拷贝优化：只有在真正需要时才拷贝消息
-	needsAsyncDebug := ctx.IsDebugMode() && ctx.config.OnDebug != nil
-	needsSnapshotDebug := ctx.IsDebugMode() && runSnapshot != nil && runSnapshot.onDebugCustomFunc != nil
+	needsAsyncDebug := (bypassDebugMode || ctx.IsDebugMode()) && ctx.config.OnDebug != nil
+	needsSnapshotDebug := (bypassDebugMode || ctx.IsDebugMode()) && runSnapshot != nil && runSnapshot.onDebugCustomFunc != nil
 	needsSnapshot := runSnapshot != nil && runSnapshot.needCollectRunSnapshot()
 
 	// 只有在真正需要拷贝时才创建副本
@@ -901,21 +931,19 @@ func (ctx *DefaultRuleContext) OnDebug(ruleChainId string, flowType string, node
 		msgCopy = msg.Copy()
 	}
 
-	if ctx.IsDebugMode() {
-		// 在提交异步任务前捕获需要的值，避免并发访问
-		onDebugFunc := ctx.config.OnDebug
+	// 在提交异步任务前捕获需要的值，避免并发访问
+	onDebugFunc := ctx.config.OnDebug
 
-		//异步记录日志
-		if needsAsyncDebug || needsSnapshotDebug {
-			ctx.SubmitTask(func() {
-				if onDebugFunc != nil {
-					onDebugFunc(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
-				}
-				if runSnapshot != nil {
-					runSnapshot.onDebugCustom(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
-				}
-			})
-		}
+	//异步记录日志
+	if needsAsyncDebug || needsSnapshotDebug {
+		ctx.SubmitTask(func() {
+			if onDebugFunc != nil {
+				onDebugFunc(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
+			}
+			if runSnapshot != nil {
+				runSnapshot.onDebugCustom(ruleChainId, flowType, nodeId, msgCopy, relationType, err)
+			}
+		})
 	}
 	if runSnapshot != nil {
 		//记录快照
@@ -1130,7 +1158,7 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 	} else {
 		if relationTypes == nil {
 			//找不到子节点，则执行结束回调
-			ctx.DoOnEnd(msg, err, "")
+			ctx.DoOnEnd(msg, ctx.wrapEndErr(err), "")
 		} else {
 
 			relationTypeLen := len(relationTypes)
@@ -1182,7 +1210,7 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 					//调用DoOnEnd 会调用 childDone()对waitingCount会减1，所以childReady和childDone成对出现
 					ctx.childReady(msg, relationType)
 					//找不到子节点，则执行结束回调
-					ctx.DoOnEnd(msg, err, relationType)
+					ctx.DoOnEnd(msg, ctx.wrapEndErr(err), relationType)
 				}
 			}
 		}

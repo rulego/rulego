@@ -114,6 +114,14 @@ func (x *LogNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	} else {
 		if formatData, ok := out.(string); ok {
 			x.logger.Infof(formatData)
+			// 输出同时进调试通道，前端控制台与节点日志可见；Log 类事件不受 debugMode 门控
+			chainId := ""
+			if ctx.RuleChain() != nil {
+				chainId = ctx.RuleChain().GetNodeId().Id
+			}
+			logMsg := msg.Copy()
+			logMsg.SetData(formatData)
+			ctx.OnDebug(chainId, types.Log, ctx.GetSelfId(), logMsg, types.Success, nil)
 			ctx.TellSuccess(msg)
 		} else {
 			ctx.TellFailure(msg, JsLogReturnFormatErr)
