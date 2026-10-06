@@ -2240,3 +2240,38 @@ func TestRestSharedNodeDynamicRestart(t *testing.T) {
 	// 清理
 	pool.Stop()
 }
+
+func TestRangeRuleNodeDefsSkipsEndpoints(t *testing.T) {
+	config := engine.NewConfig()
+	pool := NewNodePool(config)
+	config.NodePool = pool
+
+	var epDef types.EndpointDsl
+	_ = json.Unmarshal([]byte(`{"id":"ep1","type":"endpoint/mqtt","name":"m","configuration":{"Server":"127.0.0.1:1883"}}`), &epDef)
+	if _, err := pool.NewFromEndpoint(epDef); err != nil {
+		t.Fatal(err)
+	}
+	_ = engine.Registry.Register(&rangeDefsSharedNode{})
+	if _, err := pool.NewFromRuleNode(types.RuleNode{Id: "rn1", Type: "test/rangeDefsShared"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var ids []string
+	pool.RangeRuleNodeDefs(func(def *types.RuleNode) bool {
+		ids = append(ids, def.Id)
+		return true
+	})
+	if len(ids) != 1 || ids[0] != "rn1" {
+		t.Fatalf("应只遍历 RuleNode 型，got %v", ids)
+	}
+}
+
+
+type rangeDefsSharedNode struct{}
+
+func (n *rangeDefsSharedNode) Type() string { return "test/rangeDefsShared" }
+func (n *rangeDefsSharedNode) New() types.Node { return &rangeDefsSharedNode{} }
+func (n *rangeDefsSharedNode) Init(types.Config, types.Configuration) error { return nil }
+func (n *rangeDefsSharedNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) { ctx.TellNext(msg) }
+func (n *rangeDefsSharedNode) Destroy() {}
+func (n *rangeDefsSharedNode) GetInstance() (interface{}, error) { return n, nil }

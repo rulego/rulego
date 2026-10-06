@@ -192,10 +192,12 @@ var DefaultNodePool = NewNodePool(engine.NewConfig())
 type NodePool struct {
 	// Config provides the rule engine configuration used for creating and managing shared nodes.
 	// This configuration determines how nodes are parsed, initialized, and managed.
-	//
-	// Config 提供用于创建和管理共享节点的规则引擎配置。
-	// 此配置决定节点如何解析、初始化和管理。
+	// Config is the rule engine configuration used to create and manage shared nodes.
+	// Access it via config()/SetConfig only: global properties hot update swaps
+	// this field at runtime while pool entries are being created.
 	Config types.Config
+	// configMu guards Config against concurrent swap and read during hot updates.
+	configMu sync.RWMutex
 	// entries is a thread-safe map storing shared node contexts.
 	// Key: resourceId (string) - unique identifier for the shared resource
 	// Value: *sharedNodeCtx - wrapper containing the shared node and its metadata
@@ -270,8 +272,25 @@ func NewNodePool(config types.Config) *NodePool {
 //   - Node type not found in registry  注册表中未找到节点类型
 //   - Duplicate node IDs  重复的节点ID
 //   - Component doesn't implement SharedNode interface  组件未实现SharedNode接口
+//
+// config returns a snapshot of the current rule engine configuration.
+func (n *NodePool) config() types.Config {
+	n.configMu.RLock()
+	defer n.configMu.RUnlock()
+	return n.Config
+}
+
+// SetConfig replaces the pool configuration. The Properties map inside must be
+// a freshly built one; mutating the previous map in place is never safe because
+// running JS sandboxes may still hold references to it.
+func (n *NodePool) SetConfig(cfg types.Config) {
+	n.configMu.Lock()
+	n.Config = cfg
+	n.configMu.Unlock()
+}
+
 func (n *NodePool) Load(dsl []byte) (types.NodePool, error) {
-	if def, err := n.Config.Parser.DecodeRuleChain(dsl); err != nil {
+	if def, err := n.config().Parser.DecodeRuleChain(dsl); err != nil {
 		return nil, err
 	} else {
 		return n.LoadFromRuleChain(def)
@@ -334,7 +353,7 @@ func (n *NodePool) NewFromRuleNode(def types.RuleNode) (types.SharedNodeCtx, err
 	if _, ok := n.aliases.Load(def.Id); ok {
 		return nil, fmt.Errorf("duplicate node id:%s", def.Id)
 	}
-	if ctx, err := engine.InitNetResourceNodeCtx(n.Config, nil, nil, &def); err == nil {
+	if ctx, err := engine.InitNetResourceNodeCtx(n.config(), nil, nil, &def); err == nil {
 		if _, ok := ctx.Node.(types.SharedNode); !ok {
 			return nil, ErrNotImplemented
 		} else {
@@ -563,6 +582,24 @@ func (n *NodePool) Del(id string) {
 	})
 }
 
+// RangeRuleNodeDefs iterates the raw definitions of non-endpoint shared nodes.
+// Endpoint entries are assembled by NewFromEndpoint (routers, dynamic restart)
+// and cannot be rebuilt equivalently from a RuleNode definition, so they are
+// skipped; refresh them through the save path instead.
+func (n *NodePool) RangeRuleNodeDefs(f func(def *types.RuleNode) bool) {
+	n.entries.Range(func(key, value any) bool {
+		ctx := value.(*sharedNodeCtx)
+		if ctx.IsEndpoint {
+			return true
+		}
+		def, err := n.config().Parser.DecodeRuleNode(ctx.DSL())
+		if err != nil {
+			return true
+		}
+		return f(&def)
+	})
+}
+
 // Stop stops and releases all SharedNode instances.
 func (n *NodePool) Stop() {
 	n.entries.Range(func(key, value any) bool {
@@ -586,7 +623,7 @@ func (n *NodePool) GetAllDef() (map[string][]*types.RuleNode, error) {
 	var resultErr error
 	n.entries.Range(func(key, value any) bool {
 		ctx := value.(*sharedNodeCtx)
-		def, err := n.Config.Parser.DecodeRuleNode(ctx.DSL())
+		def, err := n.config().Parser.DecodeRuleNode(ctx.DSL())
 		if err != nil {
 			resultErr = err
 			return false
