@@ -128,11 +128,13 @@ func (s *runLogServiceImpl) SaveRunLog(username string, ctx types.RuleContext, s
 	// summary 级不收集节点日志，回退到 ctx.GetErr()。
 	success := true
 	var errorMsg string
+	var errorNode string
 	if len(snapshot.Logs) > 0 {
 		for _, l := range snapshot.Logs {
 			if l.Err != "" {
 				success = false
 				errorMsg = l.Err
+				errorNode = l.Id
 				break
 			}
 		}
@@ -152,6 +154,7 @@ func (s *runLogServiceImpl) SaveRunLog(username string, ctx types.RuleContext, s
 		DurationMs:    snapshot.EndTs - snapshot.StartTs,
 		Success:       success,
 		ErrorMsg:      errorMsg,
+		ErrorNode:     errorNode,
 		TriggerSource: triggerSource,
 		Level:         level.String(),
 	}

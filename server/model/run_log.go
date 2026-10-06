@@ -20,6 +20,7 @@ type Event struct {
 	DurationMs    int64           `json:"durationMs"`
 	Success       bool            `json:"success"`
 	ErrorMsg      string          `json:"errorMsg,omitempty"`
+	ErrorNode     string          `json:"errorNode,omitempty"` // detail 级取到的出错节点 ID；summary 级无节点日志，留空
 	MsgType       string          `json:"msgType,omitempty"`
 	MsgData       string          `json:"msgData,omitempty"`
 	Logs          json.RawMessage `json:"logs,omitempty"`
