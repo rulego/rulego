@@ -78,7 +78,8 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 			writeBadRequest(exchange, err)
 			return false
 		}
-		if err := configSvc.UpdateConfig(req); err != nil {
+		reload, err := configSvc.UpdateConfig(req)
+		if err != nil {
 			writeBadRequest(exchange, err)
 			return false
 		}
@@ -100,6 +101,10 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 			Result: model.AuditResultOK,
 			Detail: detail,
 		})
+		if reload == nil {
+			reload = &services.GlobalReloadResult{}
+		}
+		writeJSON(exchange, reload)
 		return true
 	}).End())
 }

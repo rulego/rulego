@@ -85,7 +85,7 @@ func TestUpdateConfigMaskAndGlobal(t *testing.T) {
 	m.cfg.Global = types.Properties{"apiKey": "real-secret", "baseUrl": "http://a"}
 
 	// 掩码占位值跳过，真值保持
-	err := m.UpdateConfig(map[string]interface{}{"apiKey": MaskedValue, "baseUrl": "http://b"})
+	_, err := m.UpdateConfig(map[string]interface{}{"apiKey": MaskedValue, "baseUrl": "http://b"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,12 +114,12 @@ func TestUpdateConfigMaskAndGlobal(t *testing.T) {
 	}
 
 	// 空 map 拒绝
-	if err := m.UpdateConfig(map[string]interface{}{}); err == nil {
+	if _, err := m.UpdateConfig(map[string]interface{}{}); err == nil {
 		t.Error("empty update should fail")
 	}
 
 	// null 值删除键：内存与持久化文件同步移除
-	err = m.UpdateConfig(map[string]interface{}{"baseUrl": nil})
+	_, err = m.UpdateConfig(map[string]interface{}{"baseUrl": nil})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,9 +134,11 @@ func TestUpdateConfigMaskAndGlobal(t *testing.T) {
 		t.Error("deleted key should be removed from config.json")
 	}
 
-	// 全部被过滤（仅掩码占位）时报错
-	if err := m.UpdateConfig(map[string]interface{}{"apiKey": MaskedValue}); err == nil {
-		t.Error("mask-only update should fail")
+	// 全部被过滤（仅掩码占位）时按幂等成功处理，不落盘不触发热更
+	if reload, err := m.UpdateConfig(map[string]interface{}{"apiKey": MaskedValue}); err != nil {
+		t.Errorf("mask-only update should be a no-op success: %v", err)
+	} else if reload != nil && (len(reload.ReloadedChains) > 0 || len(reload.FailedChains) > 0) {
+		t.Errorf("mask-only update should not reload anything: %+v", reload)
 	}
 }
 
@@ -146,7 +148,41 @@ func TestUpdateConfigCorruptedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := &Module{cfg: &config.Config{DataDir: dir}}
-	if err := m.UpdateConfig(map[string]interface{}{"a": 1}); err == nil {
+	if _, err := m.UpdateConfig(map[string]interface{}{"a": 1}); err == nil {
 		t.Error("corrupted config.json should fail the update, not be overwritten")
+	}
+}
+
+func TestUpdateConfigSameValueAndEmptyNewKey(t *testing.T) {
+	dir := t.TempDir()
+	m := &Module{cfg: &config.Config{DataDir: dir}}
+	if _, err := m.UpdateConfig(map[string]interface{}{"k1": "v1"}); err != nil {
+		t.Fatal(err)
+	}
+	// 同值覆盖：吸收，不产生变更
+	if reload, err := m.UpdateConfig(map[string]interface{}{"k1": "v1"}); err != nil {
+		t.Fatal(err)
+	} else if reload != nil && len(reload.ReloadedChains) > 0 {
+		t.Fatalf("同值覆盖不应触发重载: %+v", reload)
+	}
+	// 新增空字符串值的键：不得被零值比对吞掉
+	if _, err := m.UpdateConfig(map[string]interface{}{"emptyKey": ""}); err != nil {
+		t.Fatal(err)
+	}
+	if m.cfg.Global["emptyKey"] != "" {
+		t.Fatalf("空值新键应写入: %q", m.cfg.Global["emptyKey"])
+	}
+	var saved map[string]interface{}
+	data, _ := os.ReadFile(filepath.Join(dir, "config.json"))
+	_ = json.Unmarshal(data, &saved)
+	if _, ok := saved["emptyKey"]; !ok {
+		t.Fatal("空值新键应落盘（键存在，值为空串）")
+	}
+	// 已有键改为空串：真变更，落盘
+	if _, err := m.UpdateConfig(map[string]interface{}{"k1": ""}); err != nil {
+		t.Fatal(err)
+	}
+	if old, ok := m.cfg.Global["k1"]; !ok || old != "" {
+		t.Fatalf("k1 应改为空串并保留键: %q ok=%v", old, ok)
 	}
 }

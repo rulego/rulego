@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,11 +35,15 @@ type UserEngine struct {
 	username   string
 	config     config.Config
 	ruleConfig types.Config
-	logger     types.Logger
-	ruleStore  store.RuleStore
-	setStore   store.SettingStore
-	container  *app.Container // 服务容器，供全局回调按需懒取 RunLogService 等服务；nil 表示不可用
-	workerPool *rulegopool.WorkerPool
+	// ruleConfigMu 保护 ruleConfig 热替换（链保存取 config 与 global 推送并发）
+	ruleConfigMu sync.RWMutex
+	logger       types.Logger
+	ruleStore    store.RuleStore
+	setStore     store.SettingStore
+	container    *app.Container // 服务容器，供全局回调按需懒取 RunLogService 等服务；nil 表示不可用
+	workerPool   *rulegopool.WorkerPool
+	// 系统注入节点 id（share_http_server 主端点），热更重建跳过
+	systemNodeId string
 }
 
 // Manager 管理多租户用户引擎池
@@ -113,6 +119,47 @@ func (m *Manager) GetOrCreate(username string) (services.UserEngine, error) {
 // Get 获取已有用户引擎
 func (m *Manager) Get(username string) (services.UserEngine, bool) {
 	return m.get(username)
+}
+
+// RangeUserEngines 遍历全部用户引擎，f 返回 false 提前终止
+func (m *Manager) RangeUserEngines(f func(ue *UserEngine) bool) {
+	m.locker.RLock()
+	engines := make([]*UserEngine, 0, len(m.pool))
+	for _, ue := range m.pool {
+		engines = append(engines, ue)
+	}
+	m.locker.RUnlock()
+	for _, ue := range engines {
+		if !f(ue) {
+			return
+		}
+	}
+}
+
+// PropagateGlobal 推送新 global 表并重载受影响的链与共享节点，单引擎失败不阻断其余
+func (m *Manager) PropagateGlobal(newGlobal map[string]string, changedKeys []string) services.GlobalReloadResult {
+	result := services.GlobalReloadResult{
+		FailedChains: map[string]string{},
+		FailedNodes:  map[string]string{},
+	}
+	if len(changedKeys) == 0 {
+		return result
+	}
+	m.RangeUserEngines(func(ue *UserEngine) bool {
+		ue.UpdateGlobalProperties(newGlobal)
+		nodes, nodeErrs := ue.ReloadSharedNodesReferencingGlobal(changedKeys)
+		result.ReloadedNodes = append(result.ReloadedNodes, nodes...)
+		for id, err := range nodeErrs {
+			result.FailedNodes[id] = err.Error()
+		}
+		chains, chainErrs := ue.ReloadChainsReferencingGlobal(changedKeys)
+		result.ReloadedChains = append(result.ReloadedChains, chains...)
+		for id, err := range chainErrs {
+			result.FailedChains[id] = err.Error()
+		}
+		return true
+	})
+	return result
 }
 
 // InitUserEngines 初始化已有用户目录的引擎，分两阶段：
@@ -229,9 +276,12 @@ func (m *Manager) newUserEngine(username string) (*UserEngine, error) {
 	poolConfig := rulego.NewConfig(types.WithComponentsRegistry(componentRegistry), types.WithLogger(logger))
 	pool := node_pool.NewNodePool(poolConfig)
 	// 将系统端点（如主 HTTP server）注入用户池，供用户规则链通过 ref:// 引用。
+	var systemNodeId string
 	if m.systemEp != nil {
-		if _, err := pool.AddNode(m.systemEp); err != nil {
+		if ctx, err := pool.AddNode(m.systemEp); err != nil {
 			m.logger.Errorf("inject system endpoint into user=%s pool error: %s", username, err)
+		} else if ctx != nil {
+			systemNodeId = ctx.GetNodeId().Id
 		}
 	}
 
@@ -262,15 +312,16 @@ func (m *Manager) newUserEngine(username string) (*UserEngine, error) {
 	}
 
 	ue := &UserEngine{
-		pool:       rulego.NewRuleGo(),
-		username:   username,
-		config:     *cfg,
-		ruleConfig: ruleConfig,
-		logger:     logger,
-		ruleStore:  ruleStore,
-		setStore:   setStore,
-		container:  m.container,
-		workerPool: workerPool,
+		pool:         rulego.NewRuleGo(),
+		username:     username,
+		config:       *cfg,
+		ruleConfig:   ruleConfig,
+		logger:       logger,
+		ruleStore:    ruleStore,
+		setStore:     setStore,
+		container:    m.container,
+		workerPool:   workerPool,
+		systemNodeId: systemNodeId,
 	}
 
 	ue.initRuleConfig()
@@ -304,7 +355,132 @@ func (ue *UserEngine) Pool() *rulego.RuleGo {
 
 // RuleConfig 返回规则引擎配置
 func (ue *UserEngine) RuleConfig() types.Config {
+	ue.ruleConfigMu.RLock()
+	defer ue.ruleConfigMu.RUnlock()
 	return ue.ruleConfig
+}
+
+// UpdateGlobalProperties 用新表全量替换 Properties。必须新建 map：旧 map 仍被
+// 运行中的 JS 沙箱持有引用，原地写会并发崩溃。newGlobal 取自 UpdateConfig 的
+// 新表——ue.config.Global 是创建期快照。
+func (ue *UserEngine) UpdateGlobalProperties(newGlobal map[string]string) {
+	props := types.Properties{}
+	for k, v := range newGlobal {
+		props.PutValue(k, v)
+	}
+	ue.applyServerKeys(props)
+	ue.ruleConfigMu.Lock()
+	cfg := ue.ruleConfig
+	cfg.Properties = props
+	ue.ruleConfig = cfg
+	ue.ruleConfigMu.Unlock()
+	// 节点池 Init 时从自己的 Config 取值，须同步换新
+	if np, ok := cfg.NodePool.(*node_pool.NodePool); ok {
+		np.SetConfig(cfg)
+	}
+}
+
+// globalJSRefPattern 匹配 DSL 中的 global.<标识符>：配置模板与 JS 运行时引用
+// 都命中；后者在 DSL 无 ${} 痕迹、定位不到具体键
+var globalJSRefPattern = regexp.MustCompile(`global\.[A-Za-z_]\w*`)
+
+// globalRefHit 判断 DSL 是否受变更键影响：模板三种写法精确匹配；DSL 含任意
+// global.<标识符> 引用时保守视为受影响——JS 运行时引用定位不到键，漏重载比
+// 多重载代价大；完全不用 global 的链不受影响。
+func globalRefHit(dsl string, keys []string) bool {
+	if globalJSRefPattern.MatchString(dsl) {
+		return true
+	}
+	for _, k := range keys {
+		if strings.Contains(dsl, "${global."+k+"}") ||
+			strings.Contains(dsl, `${global["`+k+`"]}`) ||
+			strings.Contains(dsl, "${global['"+k+"']}") {
+			return true
+		}
+	}
+	return false
+}
+
+// ReloadChainsReferencingGlobal 精准重载 DSL 里引用了变更键的已加载链。
+// 未引用的链不动（endpoint 不断、内存态不丢）；未加载的链保存时自然取新 config。
+// 返回重载成功的链名与失败明细（单链失败不阻断其余）。
+func (ue *UserEngine) ReloadChainsReferencingGlobal(keys []string) (reloaded []string, failed map[string]error) {
+	failed = map[string]error{}
+	cfg := ue.RuleConfig()
+	ue.pool.Range(func(_, v any) bool {
+		re, ok := v.(types.RuleEngine)
+		if !ok {
+			return true
+		}
+		dsl := string(re.DSL())
+		if !globalRefHit(dsl, keys) {
+			return true
+		}
+		if err := re.Reload(rulego.WithConfig(cfg)); err != nil {
+			failed[re.Id()] = err
+			return true
+		}
+		reloaded = append(reloaded, chainDisplayName(dsl, re.Id()))
+		return true
+	})
+	return reloaded, failed
+}
+
+// chainDisplayName 从 DSL 取链名展示，解析失败回退 id
+func chainDisplayName(dsl string, id string) string {
+	var def struct {
+		RuleChain struct {
+			Name string `json:"name"`
+		} `json:"ruleChain"`
+	}
+	if err := json.Unmarshal([]byte(dsl), &def); err == nil && def.RuleChain.Name != "" {
+		return def.RuleChain.Name
+	}
+	return id
+}
+
+// ReloadSharedNodesReferencingGlobal 重载引用了变更键的共享节点：共享节点在
+// 独立池内 Init，链重载覆盖不到。先用新 config 试 Init，成功才 Del+New，坏值
+// 不动池内旧实例；不落盘（定义未变）。
+func (ue *UserEngine) ReloadSharedNodesReferencingGlobal(keys []string) (reloaded []string, failed map[string]error) {
+	failed = map[string]error{}
+	np, ok := ue.RuleConfig().NodePool.(*node_pool.NodePool)
+	if !ok {
+		return
+	}
+	cfg := ue.RuleConfig()
+	np.RangeRuleNodeDefs(func(def *types.RuleNode) bool {
+		node := *def
+		// 系统注入节点只读（share_http_server 主端点），重建会拉垮共享 server
+		if node.Id == ue.systemNodeId {
+			return true
+		}
+		if !globalRefHit(defToString(&node), keys) {
+			return true
+		}
+		// 先用新 config 试 Init，坏值不动池内旧实例
+		if _, err := rulegoEngine.InitNetResourceNodeCtx(cfg, nil, nil, &node); err != nil {
+			failed[node.Id] = err
+			return true
+		}
+		np.Del(node.Id)
+		if _, err := np.NewFromRuleNode(node); err != nil {
+			failed[node.Id] = err
+			return true
+		}
+		reloaded = append(reloaded, node.Id)
+		return true
+	})
+	return reloaded, failed
+}
+
+// defToString 序列化节点定义供 global 引用扫描
+func defToString(def *types.RuleNode) string {
+	b, err := json.Marshal(def)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 // RuleStore 返回规则链存储
@@ -370,19 +546,25 @@ func (ue *UserEngine) GetSetting(key string) string {
 	return ue.setStore.Get(key)
 }
 
+// applyServerKeys 把 server 级键灌进 Properties，与 global 键共用一个 map。
+// global 热更重建 Properties 时须重放，否则 exec 白名单等配置丢失。
+func (ue *UserEngine) applyServerKeys(props types.Properties) {
+	props.PutValue(constants.LoadLuaLibs, ue.config.LoadLuaLibs)
+	props.PutValue(action.KeyExecNodeWhitelist, ue.config.CmdWhiteList)
+	props.PutValue(action.KeyExecNodeMode, ue.config.CmdMode)
+	props.PutValue(action.KeyExecNodeDeny, ue.config.CmdDenyList)
+	props.PutValue(action.KeyExecNodeDenyArgs, ue.config.CmdDenyArgs)
+	props.PutValue(action.KeyWorkDir, ue.config.DataDir)
+	if ue.config.FilePathWhiteList != "" {
+		props.PutValue(constants.KeyFilePathWhitelist, ue.config.FilePathWhiteList)
+	}
+}
+
 func (ue *UserEngine) initRuleConfig() {
 	for k, v := range ue.config.Global {
 		ue.ruleConfig.Properties.PutValue(k, fmt.Sprintf("%v", v))
 	}
-	ue.ruleConfig.Properties.PutValue(constants.LoadLuaLibs, ue.config.LoadLuaLibs)
-	ue.ruleConfig.Properties.PutValue(action.KeyExecNodeWhitelist, ue.config.CmdWhiteList)
-	ue.ruleConfig.Properties.PutValue(action.KeyExecNodeMode, ue.config.CmdMode)
-	ue.ruleConfig.Properties.PutValue(action.KeyExecNodeDeny, ue.config.CmdDenyList)
-	ue.ruleConfig.Properties.PutValue(action.KeyExecNodeDenyArgs, ue.config.CmdDenyArgs)
-	ue.ruleConfig.Properties.PutValue(action.KeyWorkDir, ue.config.DataDir)
-	if ue.config.FilePathWhiteList != "" {
-		ue.ruleConfig.Properties.PutValue(constants.KeyFilePathWhitelist, ue.config.FilePathWhiteList)
-	}
+	ue.applyServerKeys(ue.ruleConfig.Properties)
 	if ue.config.ScriptMaxExecutionTime > 0 {
 		ue.ruleConfig.ScriptMaxExecutionTime = time.Millisecond * time.Duration(ue.config.ScriptMaxExecutionTime)
 	}
