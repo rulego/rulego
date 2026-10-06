@@ -3,6 +3,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -412,7 +413,36 @@ func (a *App) loadConfig() error {
 			a.config.Global[k] = v
 		}
 	}
+	// 合并运行时变更（/config/global 写入的 DataDir/config.json，值覆盖文件值）。
+	// 已存在引擎的 Properties 在创建时已拷贝，不回溯更新，重启后生效
+	if err := a.loadRuntimeGlobal(); err != nil {
+		a.typesLog.Warnf("[config] load runtime global: %v", err)
+	}
 
+	return nil
+}
+
+// loadRuntimeGlobal 加载 DataDir/config.json 的运行时 global 变更并覆盖进 Global
+func (a *App) loadRuntimeGlobal() error {
+	filePath := filepath.Join(a.config.DataDir, "config.json")
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	var runtimeGlobal map[string]interface{}
+	if err := json.Unmarshal(data, &runtimeGlobal); err != nil {
+		return fmt.Errorf("parse %s: %w", filePath, err)
+	}
+	if a.config.Global == nil {
+		a.config.Global = make(types.Properties, len(runtimeGlobal))
+	}
+	for k, v := range runtimeGlobal {
+		a.config.Global[k] = fmt.Sprintf("%v", v)
+	}
+	a.typesLog.Infof("[config] merged runtime global from %s (%d keys)", filePath, len(runtimeGlobal))
 	return nil
 }
 

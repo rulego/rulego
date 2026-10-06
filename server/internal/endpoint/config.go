@@ -2,11 +2,13 @@ package endpoint
 
 import (
 	"encoding/json"
+	"net/http"
 	"sort"
 	"strings"
 
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
+	"github.com/rulego/rulego/server/internal/modules/system"
 	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/services"
 )
@@ -14,7 +16,7 @@ import (
 func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
-	// GET /config/global - 获取全局配置
+	// GET /config/global - 获取全局配置（敏感键值掩码显示，明文走 reveal 端点）
 	ep.GET(endpoint.NewRouter().From(base+"/config/global").Process(s.authWithPermission("config", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		configSvc, ok := getService[services.ConfigService](s, exchange, services.KeyConfigService)
 		if !ok {
@@ -25,11 +27,43 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 			writeInternalError(exchange, err)
 			return false
 		}
-		if cfg.Global != nil {
-			writeJSON(exchange, cfg.Global)
-		} else {
-			exchange.Out.SetBody([]byte("{}"))
+		result := make(map[string]string, len(cfg.Global))
+		for k, v := range cfg.Global {
+			if system.IsSensitiveKey(k) {
+				result[k] = system.MaskedValue
+			} else {
+				result[k] = v
+			}
 		}
+		writeJSON(exchange, result)
+		return true
+	}).End())
+
+	// GET /config/global/reveal/:key - 查看敏感键明文（需写权限，落审计）
+	ep.GET(endpoint.NewRouter().From(base+"/config/global/reveal/:key").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		key := metadataValue(exchange, "key")
+		configSvc, ok := getService[services.ConfigService](s, exchange, services.KeyConfigService)
+		if !ok {
+			return false
+		}
+		cfg, err := configSvc.GetConfig()
+		if err != nil {
+			writeInternalError(exchange, err)
+			return false
+		}
+		v, exists := cfg.Global[key]
+		if !exists {
+			exchange.Out.SetStatusCode(http.StatusNotFound)
+			writeJSON(exchange, map[string]string{"error": "key not found"})
+			return true
+		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "config:reveal",
+			Target: "config:global:" + key,
+			Result: model.AuditResultOK,
+		})
+		writeJSON(exchange, map[string]string{"key": key, "value": v})
 		return true
 	}).End())
 
