@@ -17,6 +17,7 @@
 package filter
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -668,4 +669,14 @@ func TestJsFilterNodeJSONArraySupport(t *testing.T) {
 		assert.Nil(t, err2)
 		assert.Equal(t, types.False, result2)
 	})
+}
+
+// TestJsFilterSyntaxErrLine 编译错误行号回推后与用户脚本行号对齐
+func TestJsFilterSyntaxErrLine(t *testing.T) {
+	n := &JsFilterNode{}
+	err := n.Init(types.NewConfig(), types.Configuration{
+		"jsScript": "return msg.a > 1;\nnull.?bad\n",
+	})
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "Line 2:"), "unexpected: %v", err)
 }

@@ -40,6 +40,8 @@ package js
 import (
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -268,4 +270,27 @@ func (g *GojaJsEngine) stopTimeout(timer *time.Timer) {
 	if timer != nil {
 		timer.Stop()
 	}
+}
+
+// gojaLinePosRe 匹配主脚本编译错误的行列号片段 "(anonymous): Line N:M"。
+// 锚定 (anonymous) 是为了与 UDF 编译错误区分（后者带 UDF key 文件名，
+// 用户脚本行号本就正确，不应平移）；运行期栈是 ":N:M" 后缀格式，同样不会命中
+var gojaLinePosRe = regexp.MustCompile(`\(anonymous\): Line (\d+):(\d+)`)
+
+// ShiftErrorLine 把编译错误中的行号平移 lines 行，用于脚本被包装进函数模板后
+// 把 goja 报的行号换算回用户脚本坐标。平移后小于 1 或不含行列号时原样返回。
+func ShiftErrorLine(err error, lines int) error {
+	if err == nil || lines == 0 {
+		return err
+	}
+	msg := err.Error()
+	m := gojaLinePosRe.FindStringSubmatch(msg)
+	if m == nil {
+		return err
+	}
+	line, convErr := strconv.Atoi(m[1])
+	if convErr != nil || line+lines < 1 {
+		return err
+	}
+	return errors.New(gojaLinePosRe.ReplaceAllString(msg, fmt.Sprintf("Line %d:$2", line+lines)))
 }

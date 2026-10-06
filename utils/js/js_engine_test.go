@@ -17,6 +17,7 @@
 package js
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -415,4 +416,25 @@ func TestNewVmScriptRunError(t *testing.T) {
 		vm := engine.NewVm(config, nil)
 		assert.NotNil(t, vm)
 	})
+}
+
+// TestShiftErrorLine 编译错误行号回推：模板包装后用户脚本整体下移 1 行
+func TestShiftErrorLine(t *testing.T) {
+	_, err := NewGojaJsEngine(types.NewConfig(), "function F() {\nnull.?bad\n}", nil)
+	assert.NotNil(t, err)
+	shifted := ShiftErrorLine(err, -1)
+	assert.True(t, strings.Contains(shifted.Error(), "Line 1:"), "unexpected: %v", shifted)
+	assert.True(t, !strings.Contains(shifted.Error(), "Line 2:"), "unexpected: %v", shifted)
+
+	// 无行列号信息的错误原样返回
+	plain := errors.New("execution timeout")
+	assert.Equal(t, plain, ShiftErrorLine(plain, -1))
+	assert.Nil(t, ShiftErrorLine(nil, -1))
+
+	// UDF 编译错误带 UDF key 文件名，行号本就正确，不应平移
+	config := types.NewConfig()
+	config.Udf = map[string]interface{}{"myudf": "function u() {\nnull.?bad\n}"}
+	_, udfErr := NewGojaJsEngine(config, "function F() {\nreturn 1;\n}", nil)
+	assert.NotNil(t, udfErr)
+	assert.Equal(t, udfErr, ShiftErrorLine(udfErr, -1))
 }

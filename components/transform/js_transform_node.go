@@ -44,8 +44,8 @@ const (
 	JsTransformDefaultScript = "return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
 	// JsTransformType 组件类型
 	JsTransformType = "jsTransform"
-	// JsTransformFuncTemplate JS函数模板
-	JsTransformFuncTemplate = "function Transform(msg, metadata, msgType, dataType) { %s }"
+	// JsTransformFuncTemplate JS函数模板。用户脚本独立成行，goja 报错行号仅整体偏移 1 行
+	JsTransformFuncTemplate = "function Transform(msg, metadata, msgType, dataType) {\n%s\n}"
 	// JsTransformFuncName JS函数名
 	JsTransformFuncName = "Transform"
 )
@@ -150,6 +150,10 @@ func (x *JsTransformNode) Init(ruleConfig types.Config, configuration types.Conf
 	// 初始化JavaScript执行引擎
 	jsScript := fmt.Sprintf(JsTransformFuncTemplate, x.Config.JsScript)
 	x.jsEngine, err = js.NewGojaJsEngine(ruleConfig, jsScript, base.NodeUtils.GetVars(configuration))
+	if err != nil {
+		// 编译错误行号相对函数模板，回推 1 行对齐用户脚本
+		err = js.ShiftErrorLine(err, -1)
+	}
 	return err
 }
 
