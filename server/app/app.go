@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -422,7 +423,9 @@ func (a *App) loadConfig() error {
 	return nil
 }
 
-// loadRuntimeGlobal 加载 DataDir/config.json 的运行时 global 变更并覆盖进 Global
+// loadRuntimeGlobal 加载 DataDir/config.json 的运行时 global 变更并覆盖进 Global。
+// 覆盖值与 config.conf 同样展开 ${VAR}/${VAR:-默认值} 引用（文件里存原始写法）；
+// 合并前留存文件值快照供「恢复文件值」回退
 func (a *App) loadRuntimeGlobal() error {
 	filePath := filepath.Join(a.config.DataDir, "config.json")
 	data, err := os.ReadFile(filePath)
@@ -439,10 +442,18 @@ func (a *App) loadRuntimeGlobal() error {
 	if a.config.Global == nil {
 		a.config.Global = make(types.Properties, len(runtimeGlobal))
 	}
-	for k, v := range runtimeGlobal {
-		a.config.Global[k] = fmt.Sprintf("%v", v)
+	base := make(types.Properties, len(a.config.Global))
+	for k, v := range a.config.Global {
+		base[k] = v
 	}
-	a.typesLog.Infof("[config] merged runtime global from %s (%d keys)", filePath, len(runtimeGlobal))
+	a.config.GlobalFileBase = base
+	keys := make([]string, 0, len(runtimeGlobal))
+	for k, v := range runtimeGlobal {
+		a.config.Global[k] = config.ExpandString(fmt.Sprintf("%v", v))
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	a.typesLog.Infof("[config] merged runtime global from %s (%d keys): %s", filePath, len(keys), strings.Join(keys, ", "))
 	return nil
 }
 

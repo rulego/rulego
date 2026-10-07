@@ -3,7 +3,9 @@ package config
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"regexp"
+	"strings"
 
 	"gopkg.in/ini.v1"
 )
@@ -23,6 +25,47 @@ func expandEnv(s string) string {
 		}
 		return defVal
 	})
+}
+
+// ExpandString 展开 ${VAR} / ${VAR:-默认值} 环境变量引用。供 data/config.json
+// 运行时覆盖等非 ini 加载路径复用，保证与 config.conf 值的处理一致
+func ExpandString(s string) string { return expandEnv(s) }
+
+// reservedServerKeys 默认段（服务级）配置键集合。/config/global 只面向 [global] 段，
+// 服务级键经界面写入不会生效，据此直接拒绝，避免「改了没反应」的错觉
+var reservedServerKeys = func() map[string]struct{} {
+	m := map[string]struct{}{}
+	t := reflect.TypeOf(Config{})
+	for i := 0; i < t.NumField(); i++ {
+		tag := t.Field(i).Tag.Get("ini")
+		if tag == "" || tag == "-" {
+			continue
+		}
+		if name := strings.Split(tag, ",")[0]; name != "" {
+			m[name] = struct{}{}
+		}
+	}
+	return m
+}()
+
+// IsReservedServerKey 键是否属于服务主配置（config.conf 默认段）
+func IsReservedServerKey(k string) bool {
+	_, ok := reservedServerKeys[k]
+	return ok
+}
+
+// SensitiveKeyWords 敏感键名子串（不区分大小写），global 常用于存放密钥类配置
+var SensitiveKeyWords = []string{"key", "secret", "token", "password", "passwd", "auth", "credential"}
+
+// IsSensitiveKey 按键名命名约定判定敏感
+func IsSensitiveKey(key string) bool {
+	k := strings.ToLower(key)
+	for _, w := range SensitiveKeyWords {
+		if strings.Contains(k, w) {
+			return true
+		}
+	}
+	return false
 }
 
 // trimQuotes 去除字符串首尾的双引号，支持 `"value"` 和 `value` 两种写法

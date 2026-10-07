@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rulego/rulego/api/types"
@@ -184,5 +185,99 @@ func TestUpdateConfigSameValueAndEmptyNewKey(t *testing.T) {
 	}
 	if old, ok := m.cfg.Global["k1"]; !ok || old != "" {
 		t.Fatalf("k1 应改为空串并保留键: %q ok=%v", old, ok)
+	}
+}
+
+func TestUpdateConfigReservedKeyRejected(t *testing.T) {
+	dir := t.TempDir()
+	m := &Module{cfg: &config.Config{DataDir: dir}}
+	m.cfg.Global = types.Properties{}
+
+	// 服务级键（config.conf 默认段）界面写入不生效，直接拒绝
+	for _, k := range []string{"server", "run_log_mode", "data_dir"} {
+		if _, err := m.UpdateConfig(map[string]interface{}{k: "1"}); err == nil {
+			t.Errorf("reserved key %s should be rejected", k)
+		}
+	}
+	// 删除保留键允许：清理历史遗留的无效覆盖
+	if _, err := m.UpdateConfig(map[string]interface{}{"server_port": nil}); err != nil {
+		t.Errorf("deleting reserved key should be allowed: %v", err)
+	}
+	if !config.IsReservedServerKey("run_log_mode") || config.IsReservedServerKey("llm_url") {
+		t.Error("IsReservedServerKey classification wrong")
+	}
+}
+
+func TestUpdateConfigEnvExpansion(t *testing.T) {
+	t.Setenv("RG_TEST_URL", "http://from-env")
+	dir := t.TempDir()
+	m := &Module{cfg: &config.Config{DataDir: dir}}
+	m.cfg.Global = types.Properties{}
+
+	// 值里的 ${VAR}/${VAR:-默认} 引用：内存生效值展开，文件留存原始写法
+	_, err := m.UpdateConfig(map[string]interface{}{
+		"svcUrl":   "${RG_TEST_URL}",
+		"fallback": "${NO_SUCH_VAR:-fb}",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := m.GetConfig()
+	if got.Global["svcUrl"] != "http://from-env" {
+		t.Errorf("svcUrl = %q, want expanded env value", got.Global["svcUrl"])
+	}
+	if got.Global["fallback"] != "fb" {
+		t.Errorf("fallback = %q, want fb", got.Global["fallback"])
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "config.json"))
+	var saved map[string]interface{}
+	_ = json.Unmarshal(data, &saved)
+	if saved["svcUrl"] != "${RG_TEST_URL}" {
+		t.Errorf("file should keep raw placeholder, got %v", saved["svcUrl"])
+	}
+}
+
+func TestGlobalOverridesAndRestore(t *testing.T) {
+	dir := t.TempDir()
+	m := &Module{cfg: &config.Config{DataDir: dir}}
+	// 模拟启动合并后的状态：fileBase 是文件值快照
+	m.cfg.Global = types.Properties{"nats_url": "nats://ov", "api_key": "k1", "fileOnly": "fv"}
+	m.cfg.GlobalFileBase = types.Properties{"nats_url": "nats://file", "api_key": "k2"}
+
+	// 掩码文件覆盖值的读取
+	if err := os.WriteFile(filepath.Join(dir, "config.json"),
+		[]byte(`{"nats_url":"nats://ov","api_key":"k1"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ov, err := m.GlobalOverrides()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ov["nats_url"] != "nats://ov" {
+		t.Errorf("nats_url override = %q", ov["nats_url"])
+	}
+	if ov["api_key"] != MaskedValue {
+		t.Errorf("sensitive override should be masked, got %q", ov["api_key"])
+	}
+
+	// 恢复文件值：有文件值的回到文件值，没有的整键删除
+	if _, err := m.RestoreGlobalKey("nats_url"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := m.GetConfig()
+	if got.Global["nats_url"] != "nats://file" {
+		t.Errorf("nats_url = %q, want file value", got.Global["nats_url"])
+	}
+	if _, err := m.RestoreGlobalKey("fileOnly"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = m.GetConfig()
+	if _, exists := got.Global["fileOnly"]; exists {
+		t.Error("key without file value should be removed after restore")
+	}
+	// 覆盖文件同步清理
+	data, _ := os.ReadFile(filepath.Join(dir, "config.json"))
+	if strings.Contains(string(data), "nats_url") {
+		t.Errorf("restored key should be removed from config.json: %s", data)
 	}
 }

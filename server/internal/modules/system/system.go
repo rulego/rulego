@@ -51,17 +51,10 @@ func (m *Module) Stop(_ context.Context) error  { return nil }
 // MaskedValue GET 脱敏返回的占位值；POST 收到该值时视为「保持原值」不落库
 const MaskedValue = "******"
 
-var sensitiveKeyWords = []string{"key", "secret", "token", "password", "passwd", "auth", "credential"}
-
-// IsSensitiveKey 按键名命名约定判定敏感（global 常用于存放密钥类配置）
+// IsSensitiveKey 按键名命名约定判定敏感（global 常用于存放密钥类配置）；
+// 词表维护在 config 包，与 /config/global 相关路径共用一份
 func IsSensitiveKey(key string) bool {
-	k := strings.ToLower(key)
-	for _, w := range sensitiveKeyWords {
-		if strings.Contains(k, w) {
-			return true
-		}
-	}
-	return false
+	return config.IsSensitiveKey(key)
 }
 
 func (m *Module) GetConfig() (*config.Config, error) {
@@ -86,9 +79,13 @@ func (m *Module) UpdateConfig(configMap map[string]interface{}) (*services.Globa
 		case newVal == MaskedValue:
 			// 掩码占位值不落库，防止前端把脱敏回显原样提交覆盖真值
 		default:
-			// 同值覆盖不进变更集，避免无谓的重载；键不存在时不比较（零值是 ""，
-			// 直接比对会把新增空值键误判成同值吞掉）
-			if old, exists := m.cfg.Global[k]; exists && old == newVal {
+			// 服务级键只认 config.conf，界面写入不会生效，直接拒绝
+			if config.IsReservedServerKey(k) {
+				return nil, fmt.Errorf("键 %s 属于服务主配置（config.conf），仅能在配置文件中修改", k)
+			}
+			// 值可含 ${VAR}/${VAR:-默认值} 引用，生效值取展开结果；文件留存原始写法。
+			// 同值比较用展开值，避免「保存展开值 ≠ 留存的占位值」被判为永远不同
+			if old, exists := m.cfg.Global[k]; exists && old == config.ExpandString(newVal) {
 				continue
 			}
 			upserts[k] = v
@@ -108,7 +105,7 @@ func (m *Module) UpdateConfig(configMap map[string]interface{}) (*services.Globa
 		delete(newGlobal, deletes[k])
 	}
 	for k, v := range upserts {
-		newGlobal[k] = fmt.Sprintf("%v", v)
+		newGlobal[k] = config.ExpandString(fmt.Sprintf("%v", v))
 	}
 	m.cfg.Global = newGlobal
 	if err := m.saveFileData(m.cfg.DataDir, upserts, deletes); err != nil {
@@ -120,6 +117,62 @@ func (m *Module) UpdateConfig(configMap map[string]interface{}) (*services.Globa
 		changedKeys = append(changedKeys, k)
 	}
 	changedKeys = append(changedKeys, deletes...)
+	return m.propagateGlobal(newGlobal, changedKeys), nil
+}
+
+// GlobalOverrides 返回 data/config.json 留存的运行时覆盖，
+// 原始写法（未展开），敏感键值掩码
+func (m *Module) GlobalOverrides() (map[string]string, error) {
+	filePath := filepath.Join(m.cfg.DataDir, "config.json")
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]string{}, nil
+		}
+		return nil, err
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", filePath, err)
+	}
+	out := make(map[string]string, len(raw))
+	for k, v := range raw {
+		if config.IsSensitiveKey(k) {
+			out[k] = MaskedValue
+		} else {
+			out[k] = fmt.Sprintf("%v", v)
+		}
+	}
+	return out, nil
+}
+
+// RestoreGlobalKey 删除某键的运行时覆盖并恢复为 config.conf 文件值
+// （文件值快照里没有该键则直接删除）。返回值同 UpdateConfig
+func (m *Module) RestoreGlobalKey(key string) (*services.GlobalReloadResult, error) {
+	if key == "" {
+		return nil, errors.New("key is required")
+	}
+	if err := fs.CreateDirs(m.cfg.DataDir); err != nil {
+		return nil, err
+	}
+	newGlobal := make(types.Properties, len(m.cfg.Global))
+	for k, v := range m.cfg.Global {
+		newGlobal[k] = v
+	}
+	// 快照里的值在留存时已展开过，直接回填
+	if fileVal, ok := m.cfg.GlobalFileBase[key]; ok {
+		newGlobal[key] = fileVal
+	} else {
+		delete(newGlobal, key)
+	}
+	m.cfg.Global = newGlobal
+	if err := m.saveFileData(m.cfg.DataDir, map[string]interface{}{}, []string{key}); err != nil {
+		return nil, err
+	}
+	return m.propagateGlobal(newGlobal, []string{key}), nil
+}
+
+func (m *Module) propagateGlobal(newGlobal types.Properties, changedKeys []string) *services.GlobalReloadResult {
 	var reload *services.GlobalReloadResult
 	if m.container != nil {
 		if svc, ok := m.container.Get(services.KeyEngineManager); ok {
@@ -129,7 +182,7 @@ func (m *Module) UpdateConfig(configMap map[string]interface{}) (*services.Globa
 			}
 		}
 	}
-	return reload, nil
+	return reload
 }
 
 func (m *Module) saveFileData(dataDir string, upserts map[string]interface{}, deletes []string) error {

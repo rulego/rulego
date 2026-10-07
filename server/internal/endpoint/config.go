@@ -2,6 +2,7 @@ package endpoint
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
@@ -64,6 +65,49 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 			Result: model.AuditResultOK,
 		})
 		writeJSON(exchange, map[string]string{"key": key, "value": v})
+		return true
+	}).End())
+
+	// GET /config/global/overrides - 运行时覆盖清单（data/config.json 留存的键，
+	// 原始写法、敏感值掩码）。前端据此标记可「恢复文件值」的键
+	ep.GET(endpoint.NewRouter().From(base+"/config/global/overrides").Process(s.authWithPermission("config", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		configSvc, ok := getService[services.ConfigService](s, exchange, services.KeyConfigService)
+		if !ok {
+			return false
+		}
+		overrides, err := configSvc.GlobalOverrides()
+		if err != nil {
+			writeInternalError(exchange, err)
+			return false
+		}
+		writeJSON(exchange, overrides)
+		return true
+	}).End())
+
+	// POST /config/global/revert/:key - 删除某键的运行时覆盖，恢复为 config.conf 文件值
+	ep.POST(endpoint.NewRouter().From(base+"/config/global/revert/:key").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		key := metadataValue(exchange, "key")
+		if key == "" {
+			writeBadRequest(exchange, fmt.Errorf("key is required"))
+			return false
+		}
+		configSvc, ok := getService[services.ConfigService](s, exchange, services.KeyConfigService)
+		if !ok {
+			return false
+		}
+		reload, err := configSvc.RestoreGlobalKey(key)
+		if err != nil {
+			writeBadRequest(exchange, err)
+			return true
+		}
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  metadataUsername(exchange),
+			Action: "config:revert",
+			Target: "config:global:" + key,
+			Result: model.AuditResultOK,
+			Detail: "恢复为 config.conf 文件值",
+		})
+		writeJSON(exchange, reload)
 		return true
 	}).End())
 
