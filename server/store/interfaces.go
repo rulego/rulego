@@ -12,6 +12,9 @@ import (
 // ErrRunLogNotFound Get 未命中时返回的可识别错误（endpoint 据此映射 404）
 var ErrRunLogNotFound = errors.New("run log not found")
 
+// ErrRuleVersionNotFound Get 未命中时返回的可识别错误（endpoint 据此映射 404）
+var ErrRuleVersionNotFound = errors.New("rule version not found")
+
 // RuleStore 规则链存储接口
 type RuleStore interface {
 	// Save 保存规则链定义
@@ -86,6 +89,24 @@ type AuditLogStore interface {
 // 会破坏外部实现方；审计模块对 provider 做类型断言，未实现则用内置文件实现。
 type AuditLogStoreProvider interface {
 	GetAuditLogStore() (AuditLogStore, error)
+}
+
+// RuleVersionStore 规则链历史版本存储接口。List 不回传 Dsl（列表轻量），Get 才带全量 DSL
+type RuleVersionStore interface {
+	// Save 保存版本快照，并按保留上限裁掉最旧的版本（上限由实现方读取配置）
+	Save(username string, v model.RuleVersion) error
+	// List 按链倒序列出版本（最新在前），分页；返回值不含 Dsl
+	List(username, chainId string, size, page int) ([]model.RuleVersion, int, error)
+	// Get 获取单个版本（含 Dsl）
+	Get(username, chainId, versionId string) (model.RuleVersion, error)
+	// DeleteByChainId 删除指定规则链的全部版本（链删除时联动清理）
+	DeleteByChainId(username, chainId string) error
+}
+
+// RuleVersionStoreProvider 可选扩展接口，语义同 AuditLogStoreProvider：
+// 宿主实现它即可接管版本存储；rule 模块做类型断言，未实现则版本功能静默关闭。
+type RuleVersionStoreProvider interface {
+	GetRuleVersionStore() (RuleVersionStore, error)
 }
 
 // ComponentStore 组件存储接口

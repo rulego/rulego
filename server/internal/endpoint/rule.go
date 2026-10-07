@@ -223,6 +223,81 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}).End())
 
+	// 历史版本三端点：rule_version_disable=true 时不注册（404）
+	if !(s.config != nil && s.config.RuleVersionDisable) {
+		// GET /rules/:id/versions - 版本列表（元数据，不含 DSL）
+		ep.GET(endpoint.NewRouter().From(base+"/rules/:id/versions").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+			chainId := metadataValue(exchange, constants.KeyId)
+			if !validateId(chainId) {
+				writeBadRequest(exchange, fmt.Errorf("invalid rule chain id"))
+				return false
+			}
+			verSvc, ok := getService[services.RuleVersionService](s, exchange, services.KeyRuleVersionService)
+			if !ok {
+				return false
+			}
+			msg := exchange.In.GetMsg()
+			size := intParam(msg, constants.KeySize, 20)
+			page := intParam(msg, constants.KeyPage, 1)
+			items, total, err := verSvc.ListVersions(metadataUsername(exchange), chainId, size, page)
+			if err != nil {
+				writeInternalError(exchange, err)
+				return false
+			}
+			writeListResult(exchange, items, total, page, size)
+			return true
+		}).End())
+
+		// GET /rules/:id/versions/:versionId - 单个版本详情（含 DSL）
+		ep.GET(endpoint.NewRouter().From(base+"/rules/:id/versions/:versionId").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+			chainId := metadataValue(exchange, constants.KeyId)
+			if !validateId(chainId) {
+				writeBadRequest(exchange, fmt.Errorf("invalid rule chain id"))
+				return false
+			}
+			verSvc, ok := getService[services.RuleVersionService](s, exchange, services.KeyRuleVersionService)
+			if !ok {
+				return false
+			}
+			ver, err := verSvc.GetVersion(metadataUsername(exchange), chainId, metadataValue(exchange, "versionId"))
+			if err != nil {
+				exchange.Out.SetStatusCode(http.StatusNotFound)
+				return false
+			}
+			writeJSON(exchange, ver)
+			return true
+		}).End())
+
+		// POST /rules/:id/versions/:versionId/rollback - 回滚到指定版本
+		// 以该版 DSL 重新走保存（保存即部署），并产生一个 source=rollback 的新快照
+		ep.POST(endpoint.NewRouter().From(base+"/rules/:id/versions/:versionId/rollback").Process(s.authWithPermission("rule", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+			chainId := metadataValue(exchange, constants.KeyId)
+			if !validateId(chainId) {
+				writeBadRequest(exchange, fmt.Errorf("invalid rule chain id"))
+				return false
+			}
+			verSvc, ok := getService[services.RuleVersionService](s, exchange, services.KeyRuleVersionService)
+			if !ok {
+				return false
+			}
+			versionId := metadataValue(exchange, "versionId")
+			username := metadataUsername(exchange)
+			if err := verSvc.RollbackVersion(username, chainId, versionId); err != nil {
+				writeBadRequest(exchange, err)
+				return true
+			}
+			s.auditRecord(exchange, model.AuditEvent{
+				Actor:  username,
+				Action: "rule:rollback",
+				Target: "rule:" + chainId,
+				Result: model.AuditResultOK,
+				Detail: "回滚到版本 " + versionId,
+			})
+			writeNoContent(exchange)
+			return true
+		}).End())
+	}
+
 	// POST /rules/:id/notify/:msgType - 执行规则链（异步，不等待结果）
 	// 运行日志由引擎层全局 OnRuleChainCompleted 回调统一记录（见 engine/manager.go），此处无需 per-call 选项。
 	ep.POST(endpoint.NewRouter(endpointApi.RouterOptions.WithRuleGoFunc(s.getRuleGoFunc)).

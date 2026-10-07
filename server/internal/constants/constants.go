@@ -111,6 +111,7 @@ const (
 	RuleChainFileSuffix = ".json"
 	RunLogFileSuffix    = ".jsonl"
 	RunLogDbFile        = "runlog.db"
+	RuleVersionDbFile   = "rule_versions.db"
 )
 
 const (

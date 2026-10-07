@@ -6,6 +6,7 @@ const (
 	KeyRuleCatalog        = "module.rule.catalog"
 	KeyRuleExecutor       = "module.rule.executor"
 	KeyRuleManager        = "module.rule.manager"
+	KeyRuleVersionService = "module.rule.versions"
 	KeyEngineManager      = "module.rule.engine_manager"
 	KeyNodeService        = "module.node.service"
 	KeyRunLogService      = "module.runlog.service"

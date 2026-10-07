@@ -53,6 +53,9 @@ type Config struct {
 	DisableGzip bool `ini:"disable_gzip"`
 	// Global 全局自定义配置
 	Global types.Properties `ini:"global"`
+	// GlobalFileBase Global 在 data/config.json 运行时覆盖合并前的文件值快照，
+	// 供「恢复文件值」回退；仅运行期使用，不从 ini 加载
+	GlobalFileBase types.Properties `ini:"-"`
 	// NodePoolFile 节点池文件
 	NodePoolFile string `ini:"node_pool_file"`
 	// RunLogMode 运行记录级别：off（不记录，默认）/ summary（摘要）/ detail（完整节点日志）
@@ -64,6 +67,11 @@ type Config struct {
 	RunLogRetentionCount int `ini:"run_log_retention_count"`
 	// RunLogRetentionDays 保留最近 N 天运行记录，0 表示不限制。默认 7
 	RunLogRetentionDays int `ini:"run_log_retention_days"`
+	// RuleVersionRetentionCount 每条规则链保留最近 N 个历史版本快照，0 表示不限制。默认 20
+	RuleVersionRetentionCount int `ini:"rule_version_retention_count"`
+	// RuleVersionDisable 关闭规则链历史版本（不快照、不注册端点）。disable 式命名
+	// 保证 bool 零值即默认开启，嵌入方不走 DefaultConfig 也不会拿到相反默认
+	RuleVersionDisable bool `ini:"rule_version_disable"`
 	// ScriptMaxExecutionTime 脚本最大执行时间（毫秒）
 	ScriptMaxExecutionTime int `ini:"script_max_execution_time"`
 	// MsgMaxHops 单条消息在引擎内允许经过的最大节点跳数（含子链），超限消息以
@@ -252,6 +260,7 @@ func DefaultConfig() Config {
 		MaxNodeLogSize:       40,
 		RunLogRetentionCount: 500,
 		RunLogRetentionDays:  7,
+		RuleVersionRetentionCount: 20,
 		MsgMaxHops:           10000,
 		WorkerPoolMaxWorkers: 5000,
 		ResourceMapping:      "/editor/*filepath=./editor,/images/*filepath=./editor/images",

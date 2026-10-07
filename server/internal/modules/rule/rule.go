@@ -35,6 +35,11 @@ type Module struct {
 	engine             *engine.Manager
 	lifecycleListeners []services.ChainLifecycleListener
 	listenersMu        sync.RWMutex
+	// versions 版本历史存储，nil 表示版本功能关闭（宿主未提供存储）
+	versions store.RuleVersionStore
+	// verPendingSource 回滚给随后的保存快照打来源标记，见 version.go
+	verSrcMu         sync.Mutex
+	verPendingSource map[string]string
 	// opLocks 按 (username, chainId) 分条串行化生命周期操作（Save/Deploy/Undeploy/Delete），
 	// 防止并发交错产生「已删链被复活」「停链未落盘」等存储态与内存态背离；
 	// 分条免清理，条内冲突概率 1/256 可忽略
@@ -92,6 +97,14 @@ func (m *Module) Init(ctx *app.ModuleContext) error {
 	}
 	if err := ctx.Container.Register(services.KeyEngineManager, services.EngineManager(m.engine)); err != nil {
 		return err
+	}
+
+	// 版本历史：存储可用时挂快照监听并注册服务；不可用则静默跳过
+	m.initVersioning(storeProvider)
+	if m.versions != nil {
+		if err := ctx.Container.Register(services.KeyRuleVersionService, services.RuleVersionService(m)); err != nil {
+			return err
+		}
 	}
 
 	return nil

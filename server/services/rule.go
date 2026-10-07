@@ -2,6 +2,7 @@ package services
 
 import (
 	"github.com/rulego/rulego/api/types"
+	"github.com/rulego/rulego/server/model"
 )
 
 // ChainCatalog 规则链目录服务接口，供其他模块（如 mcp）使用
@@ -59,4 +60,15 @@ type RuleAdminService interface {
 	GetSetting(username, key string) string
 	// AddLifecycleListener 注册链生命周期监听器，须在 App.Start() 之前调用。
 	AddLifecycleListener(listener ChainLifecycleListener)
+}
+
+// RuleVersionService 规则链版本历史服务：保存自动快照，可回滚到任意快照。
+// 仅在版本存储可用时注册到容器；未注册表示宿主未提供版本存储。
+type RuleVersionService interface {
+	// ListVersions 按链倒序列出版本（最新在前），分页；返回值不含 DSL
+	ListVersions(username, chainId string, size, page int) ([]model.RuleVersion, int, error)
+	// GetVersion 获取单个版本（含 DSL）
+	GetVersion(username, chainId, versionId string) (model.RuleVersion, error)
+	// RollbackVersion 回滚到指定版本：以该版本 DSL 重新走保存（保存即部署语义）
+	RollbackVersion(username, chainId, versionId string) error
 }

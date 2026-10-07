@@ -31,8 +31,9 @@ type FileStoreProvider struct {
 	userStore     store.UserStore
 	userStoreErr  error
 
-	runLogStore   store.RunLogStore
-	auditLogStore store.AuditLogStore
+	runLogStore      store.RunLogStore
+	auditLogStore    store.AuditLogStore
+	ruleVersionStore store.RuleVersionStore
 }
 
 // NewFileStoreProvider 创建文件存储 Provider
@@ -167,9 +168,22 @@ func (p *FileStoreProvider) GetAuditLogStore() (store.AuditLogStore, error) {
 	return nil, fmt.Errorf("audit log store not configured")
 }
 
-// Close 关闭可关闭的 RunLogStore/AuditLogStore（如 BBolt）
+// SetRuleVersionStore 设置外部注入的 RuleVersionStore
+func (p *FileStoreProvider) SetRuleVersionStore(s store.RuleVersionStore) {
+	p.ruleVersionStore = s
+}
+
+// GetRuleVersionStore 实现 store.RuleVersionStoreProvider 可选接口
+func (p *FileStoreProvider) GetRuleVersionStore() (store.RuleVersionStore, error) {
+	if p.ruleVersionStore != nil {
+		return p.ruleVersionStore, nil
+	}
+	return nil, fmt.Errorf("rule version store not configured")
+}
+
+// Close 关闭可关闭的 RunLogStore/AuditLogStore/RuleVersionStore（如 BBolt）
 func (p *FileStoreProvider) Close() {
-	for _, s := range []any{p.runLogStore, p.auditLogStore} {
+	for _, s := range []any{p.runLogStore, p.auditLogStore, p.ruleVersionStore} {
 		if s == nil {
 			continue
 		}

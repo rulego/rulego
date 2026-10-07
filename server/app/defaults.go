@@ -66,6 +66,16 @@ func RegisterDefaultStoresHook(application *App) {
 						}
 						fp.SetAuditLogStore(auditStore)
 					}
+
+					// 规则链版本存储：默认开启，rule_version_disable 可整体关闭；
+					// 宿主可经 store.RuleVersionStoreProvider 接管
+					if !cfg.RuleVersionDisable {
+						ruleVersionStore, verErr := bboltstore.NewRuleVersionStore(*cfg, logger)
+						if verErr != nil {
+							return fmt.Errorf("create rule version store: %w", verErr)
+						}
+						fp.SetRuleVersionStore(ruleVersionStore)
+					}
 				}
 
 				// 从 Provider 获取 UserStore 注册到容器（兼容 user 模块）
