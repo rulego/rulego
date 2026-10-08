@@ -119,36 +119,69 @@ type ContextObserver struct {
 	nodeInMsgList map[string][]types.WrapperMsg
 	// Map of callbacks for node completion events
 	nodeDoneEvent map[string]joinNodeCallback
+	// Set of join nodes that have fired in this run
+	firedJoins map[string]struct{}
 	// 是否注册过 join 完成事件，未注册时 executedNode 跳过加锁检查
 	hasJoinEvents int32
 	sync.RWMutex
 }
 
-// addInMsg adds an input message for a specific join node.
-func (c *ContextObserver) addInMsg(joinNodeId, fromId string, msg types.RuleMsg, errStr string) bool {
+// joinArrivalState join 节点收到一条消息后的处理结果
+type joinArrivalState int
+
+const (
+	// joinArrivalFirst 首条消息：注册完成回调，调用方阻塞等待触发
+	joinArrivalFirst joinArrivalState = iota
+	// joinArrivalWaiting 后续消息：并入等待列表，join 尚未触发
+	joinArrivalWaiting
+	// joinArrivalDropped join 已触发完成，本条消息被丢弃
+	joinArrivalDropped
+)
+
+// addInMsg 记录到达 join 的消息并推进触发判定，首条消息同时完成回调注册。
+// 注册必须在锁内完成：首条消息登记与注册之间若存在窗口，并发到达的第二条
+// 消息会因查不到完成事件而误判为"已触发"被丢弃。
+func (c *ContextObserver) addInMsg(joinNodeId, fromId, lcaNodeId string,
+	expectedFromIds map[string]struct{}, joinAncestors map[string][]string, msg types.RuleMsg, errStr string,
+	callback func([]types.WrapperMsg)) joinArrivalState {
 	c.Lock()
 	defer c.Unlock()
 	if c.nodeInMsgList == nil {
 		c.nodeInMsgList = make(map[string][]types.WrapperMsg)
 	}
-	if list, ok := c.nodeInMsgList[joinNodeId]; ok {
-		list = append(list, types.WrapperMsg{
-			Msg:    msg,
-			Err:    errStr,
-			NodeId: fromId,
-		})
-		c.nodeInMsgList[joinNodeId] = list
-		return true
-	} else {
-		c.nodeInMsgList[joinNodeId] = []types.WrapperMsg{
-			{
-				Msg:    msg,
-				Err:    errStr,
-				NodeId: fromId,
-			},
-		}
-		return false
+	if c.nodeDoneEvent == nil {
+		c.nodeDoneEvent = make(map[string]joinNodeCallback)
 	}
+	if _, registered := c.nodeDoneEvent[joinNodeId]; !registered {
+		if _, hasList := c.nodeInMsgList[joinNodeId]; hasList {
+			//列表已存在而完成事件已被消费：join 已触发过
+			return joinArrivalDropped
+		}
+	}
+	c.nodeInMsgList[joinNodeId] = append(c.nodeInMsgList[joinNodeId], types.WrapperMsg{
+		Msg:    msg,
+		Err:    errStr,
+		NodeId: fromId,
+	})
+	item, registered := c.nodeDoneEvent[joinNodeId]
+	if !registered {
+		item = joinNodeCallback{
+			lcaNodeId:       lcaNodeId,
+			joinNodeId:      joinNodeId,
+			expectedFromIds: expectedFromIds,
+			joinAncestors:   joinAncestors,
+			callback:        callback,
+		}
+		c.nodeDoneEvent[joinNodeId] = item
+		atomic.StoreInt32(&c.hasJoinEvents, 1)
+	}
+	if c.joinReady(joinNodeId, item) {
+		c.fireLocked(joinNodeId, item)
+	}
+	if !registered {
+		return joinArrivalFirst
+	}
+	return joinArrivalWaiting
 }
 
 // getInMsgList retrieves the list of input messages for a specific join node.
@@ -161,22 +194,6 @@ func (c *ContextObserver) getInMsgList(joinNodeId string) []types.WrapperMsg {
 	return c.nodeInMsgList[joinNodeId]
 }
 
-// registerNodeDoneEvent registers a callback for when a join node completes.
-func (c *ContextObserver) registerNodeDoneEvent(joinNodeId, lcaNodeId string, callback func([]types.WrapperMsg)) {
-	atomic.StoreInt32(&c.hasJoinEvents, 1)
-	c.Lock()
-	if c.nodeDoneEvent == nil {
-		c.nodeDoneEvent = make(map[string]joinNodeCallback)
-	}
-	c.nodeDoneEvent[joinNodeId] = joinNodeCallback{
-		lcaNodeId:  lcaNodeId,
-		joinNodeId: joinNodeId,
-		callback:   callback,
-	}
-	c.Unlock()
-	c.checkAndTrigger()
-}
-
 // checkNodesDone checks if all specified nodes have completed execution.
 func (c *ContextObserver) checkNodesDone(nodeIds ...string) bool {
 	for _, nodeId := range nodeIds {
@@ -185,6 +202,67 @@ func (c *ContextObserver) checkNodesDone(nodeIds ...string) bool {
 		}
 	}
 	return true
+}
+
+// joinReady 判定 join 是否满足放行条件：
+//  1. 全部前驱节点都已送达——不受不连入本节点的旁路分支影响；
+//  2. LCA 子树已排空，且未送达的前驱都不在其他 join 下游——条件分支
+//     未执行的前驱靠此兜底放行，沿用原有语义。
+func (c *ContextObserver) joinReady(joinNodeId string, item joinNodeCallback) bool {
+	if len(item.expectedFromIds) > 0 && c.allExpectedDelivered(joinNodeId, item.expectedFromIds) {
+		return true
+	}
+	if item.lcaNodeId == "" || !c.checkNodesDone(item.lcaNodeId) {
+		return false
+	}
+	delivered := c.deliveredFromIds(joinNodeId)
+	for id := range item.expectedFromIds {
+		if _, ok := delivered[id]; ok {
+			continue
+		}
+		for _, ancestorJoin := range item.joinAncestors[id] {
+			if c.joinLive(ancestorJoin) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// joinLive join 在本次执行中是否仍可能产生续流：
+// 已触发过，或已收到消息仍在等待触发。从未收到消息的 join 说明其所在
+// 分支未执行，不会再向下游投递，不阻塞 LCA 排空兜底。
+// 须持有写锁调用。
+func (c *ContextObserver) joinLive(joinNodeId string) bool {
+	if _, fired := c.firedJoins[joinNodeId]; fired {
+		return true
+	}
+	_, pending := c.nodeDoneEvent[joinNodeId]
+	return pending
+}
+
+// allExpectedDelivered join 的前驱是否全部送达
+func (c *ContextObserver) allExpectedDelivered(joinNodeId string, expected map[string]struct{}) bool {
+	delivered := c.deliveredFromIds(joinNodeId)
+	for id := range expected {
+		if _, ok := delivered[id]; ok {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+// deliveredFromIds 已送达消息的去重来源节点集合
+func (c *ContextObserver) deliveredFromIds(joinNodeId string) map[string]struct{} {
+	list := c.nodeInMsgList[joinNodeId]
+	delivered := make(map[string]struct{}, len(list))
+	for _, w := range list {
+		if w.NodeId != "" {
+			delivered[w.NodeId] = struct{}{}
+		}
+	}
+	return delivered
 }
 
 // markTrue 预装箱的 bool 值，供 sync.Map Store 复用，避免每次装箱分配
@@ -209,25 +287,39 @@ func (c *ContextObserver) checkAndTrigger() {
 
 	if c.nodeDoneEvent != nil {
 		for joinNodeId, item := range c.nodeDoneEvent {
-			if c.checkNodesDone(item.lcaNodeId) {
-				delete(c.nodeDoneEvent, joinNodeId)
-				// 获取消息列表并触发回调
-				msgList := c.nodeInMsgList[joinNodeId]
-				if msgList == nil {
-					msgList = []types.WrapperMsg{}
-				}
-				// 直接执行回调，保持原有的同步行为
-				item.callback(msgList)
+			if c.joinReady(joinNodeId, item) {
+				c.fireLocked(joinNodeId, item)
 			}
 		}
 	}
+}
+
+// fireLocked 触发 join 完成回调并消费完成事件，须持有写锁调用。
+// 回调同步执行，与原有 checkAndTrigger 的行为一致。
+func (c *ContextObserver) fireLocked(joinNodeId string, item joinNodeCallback) {
+	delete(c.nodeDoneEvent, joinNodeId)
+	if c.firedJoins == nil {
+		c.firedJoins = make(map[string]struct{})
+	}
+	c.firedJoins[joinNodeId] = struct{}{}
+	msgList := c.nodeInMsgList[joinNodeId]
+	if msgList == nil {
+		msgList = []types.WrapperMsg{}
+	}
+	item.callback(msgList)
 }
 
 // joinNodeCallback represents a callback function for when a join node completes.
 type joinNodeCallback struct {
 	lcaNodeId  string //joinNodeId 节点最近共同祖先节点
 	joinNodeId string
-	callback   func([]types.WrapperMsg)
+	//expectedFromIds join 的全部前驱节点，前驱到齐即放行，不再等待 LCA 子树排空
+	expectedFromIds map[string]struct{}
+	//joinAncestors 前驱节点 -> 其祖先链上的 join 节点列表。
+	//join 吞入消息后择机再发出，分支计数看不见这段续流；LCA 排空时若
+	//这些 join 仍可能产生续流，对应前驱不能按"条件分支未执行"提前放行
+	joinAncestors map[string][]string
+	callback      func([]types.WrapperMsg)
 }
 
 // DefaultRuleContext is the default context for message processing in the rule engine.
@@ -572,34 +664,35 @@ func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgL
 	if ctx.GetErr() != nil {
 		errStr = ctx.GetErr().Error()
 	}
-	if ctx.observer.addInMsg(selfNodeId, fromId, msg, errStr) {
-		//通知当前节点至共同祖先这分支链已经执行完。
-		if ctx.parentRuleCtx != nil {
-			ctx.parentRuleCtx.childDoneWithoutCallback()
+	var lcaNodeId string
+	var expectedFromIds map[string]struct{}
+	var joinAncestors map[string][]string
+	if ctx.ruleChainCtx != nil && ctx.self != nil {
+		// 获取LCA节点
+		if lcaNode, ok := ctx.ruleChainCtx.GetLCA(ctx.self.GetNodeId()); ok {
+			lcaNodeId = lcaNode.Id
 		}
-		return false
-	} else {
-		//通知当前节点至共同祖先这分支链已经执行完。
-		if ctx.parentRuleCtx != nil {
-			ctx.parentRuleCtx.childDoneWithoutCallback()
-		}
-		lcaNodeId := ""
-		if ctx.ruleChainCtx != nil && ctx.self != nil {
-			// 获取LCA节点
-			if lcaNode, ok := ctx.ruleChainCtx.GetLCA(ctx.self.GetNodeId()); ok {
-				lcaNodeId = lcaNode.Id
+		if parentIds, ok := ctx.ruleChainCtx.GetParentNodeIds(ctx.self.GetNodeId()); ok && len(parentIds) > 0 {
+			expectedFromIds = make(map[string]struct{}, len(parentIds))
+			for _, p := range parentIds {
+				expectedFromIds[p.Id] = struct{}{}
 			}
+			joinAncestors = ctx.ruleChainCtx.JoinAncestors(expectedFromIds)
 		}
-
-		ctx.observer.registerNodeDoneEvent(selfNodeId, lcaNodeId, func(inMsgList []types.WrapperMsg) {
-			callback(inMsgList)
-		})
-		// 注意：不再调用 executedNode(fromId)
-		// LCA节点应该通过 childDoneWithoutCallback 流程在 waitingCount 归零时被标记为完成
-		// 而不是在这里立即标记。否则当 fork 节点直接连接到 join 节点时，
-		// fork 会在所有子节点完成前就被标记为完成，导致 join 过早触发回调。
-		return true
 	}
+	state := ctx.observer.addInMsg(selfNodeId, fromId, lcaNodeId, expectedFromIds, joinAncestors, msg, errStr, callback)
+	if state == joinArrivalDropped && ctx.config.Logger != nil {
+		ctx.config.Logger.Warnf("join node %s already completed, message from %s dropped", selfNodeId, fromId)
+	}
+	//通知当前节点至共同祖先这分支链已经执行完。
+	if ctx.parentRuleCtx != nil {
+		ctx.parentRuleCtx.childDoneWithoutCallback()
+	}
+	// 注意：不调用 executedNode(fromId)
+	// LCA节点应该通过 childDoneWithoutCallback 流程在 waitingCount 归零时被标记为完成
+	// 而不是在这里立即标记。否则当 fork 节点直接连接到 join 节点时，
+	// fork 会在所有子节点完成前就被标记为完成，导致 join 过早触发回调。
+	return state == joinArrivalFirst
 }
 
 func (ctx *DefaultRuleContext) NewMsg(msgType string, metaData *types.Metadata, data string) types.RuleMsg {

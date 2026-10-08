@@ -53,7 +53,7 @@ type JoinNodeConfiguration struct {
 //
 // 核心算法：
 // Core Algorithm:
-// 1. 等待所有并行分支完成执行 - Wait for all parallel branches to complete
+// 1. 等待所有连入本节点的分支送达结果 - Wait for all incoming branches to deliver results
 // 2. 收集来自所有分支的消息 - Collect messages from all branches
 // 3. 合并所有分支的元数据 - Merge metadata from all branches
 // 4. 将收集的结果合并为JSON数组 - Combine collected results into JSON array
@@ -167,7 +167,7 @@ func (x *JoinNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 
 // Desc returns the component description
 func (x *JoinNode) Desc() string {
-	return "Wait for all fork branches to complete and merge results. mergeToMap=true creates {branchName: result} map. Routes to Success/Failure"
+	return "Wait for all incoming branches to deliver results and merge them. Branches not connected to this node do not block it; conditionally skipped branches are released when their common ancestor completes. mergeToMap=true creates {branchName: result} map. Routes to Success/Failure"
 }
 
 // Destroy 清理资源

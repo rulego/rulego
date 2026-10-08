@@ -445,6 +445,49 @@ func (rc *RuleChainCtx) GetParentNodeIds(id types.RuleNodeId) ([]types.RuleNodeI
 	return nodeIds, ok
 }
 
+// nodeTypeJoin join 组件的类型标识，用于识别 join 下游前驱
+const nodeTypeJoin = "join"
+
+// JoinAncestors 返回每个前驱节点祖先链上的 join 节点列表。
+// join 吞入消息后择机再发出，其下游前驱何时送达不受分支计数约束，
+// LCA 排空信号无法证明这类前驱不会再送达。
+func (rc *RuleChainCtx) JoinAncestors(parentIds map[string]struct{}) map[string][]string {
+	result := make(map[string][]string, len(parentIds))
+	for id := range parentIds {
+		ancestors := rc.joinAncestorsOf(types.RuleNodeId{Id: id, Type: types.NODE})
+		if len(ancestors) > 0 {
+			result[id] = ancestors
+		}
+	}
+	return result
+}
+
+// joinAncestorsOf 沿父节点链向上收集 join 类型节点
+func (rc *RuleChainCtx) joinAncestorsOf(id types.RuleNodeId) []string {
+	var joins []string
+	visited := map[types.RuleNodeId]bool{id: true}
+	queue := []types.RuleNodeId{id}
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+		parentIds, ok := rc.GetParentNodeIds(curr)
+		if !ok {
+			continue
+		}
+		for _, p := range parentIds {
+			if visited[p] {
+				continue
+			}
+			visited[p] = true
+			if nodeCtx, found := rc.GetNodeById(p); found && nodeCtx.Type() == nodeTypeJoin {
+				joins = append(joins, p.Id)
+			}
+			queue = append(queue, p)
+		}
+	}
+	return joins
+}
+
 // Statuses returns the connection status of chain nodes and metadata-declared endpoints.
 func (rc *RuleChainCtx) Statuses() map[string]types.StatusInfo {
 	result := make(map[string]types.StatusInfo)
