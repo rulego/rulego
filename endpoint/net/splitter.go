@@ -124,6 +124,7 @@ type DelimiterSplitter struct {
 func (s *DelimiterSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) {
 	var buffer []byte
 	delimiterIndex := 0
+	fallback := delimiterFallback(s.Delimiter)
 
 	for {
 		b, err := reader.ReadByte()
@@ -133,6 +134,12 @@ func (s *DelimiterSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) {
 
 		buffer = append(buffer, b)
 
+		// 不匹配时回退到已匹配前缀中最长的、同时是其后缀的位置，
+		// 并用当前字节重新比较，否则像 "\r\r\n" 这样的数据无法匹配 "\r\n"
+		for delimiterIndex > 0 && b != s.Delimiter[delimiterIndex] {
+			delimiterIndex = fallback[delimiterIndex-1]
+		}
+
 		// 检查是否匹配分隔符
 		if b == s.Delimiter[delimiterIndex] {
 			delimiterIndex++
@@ -140,10 +147,25 @@ func (s *DelimiterSplitter) ReadPacket(reader *bufio.Reader) ([]byte, error) {
 				// 找到完整分隔符，返回包含分隔符的完整数据
 				return buffer, nil
 			}
-		} else {
-			delimiterIndex = 0
 		}
 	}
+}
+
+// delimiterFallback 计算分隔符的前缀函数（KMP failure table）：
+// fallback[i] 是 delimiter[:i+1] 的最长真前缀的长度，且该前缀同时是它的后缀。
+func delimiterFallback(delimiter []byte) []int {
+	fallback := make([]int, len(delimiter))
+	matched := 0
+	for i := 1; i < len(delimiter); i++ {
+		for matched > 0 && delimiter[i] != delimiter[matched] {
+			matched = fallback[matched-1]
+		}
+		if delimiter[i] == delimiter[matched] {
+			matched++
+		}
+		fallback[i] = matched
+	}
+	return fallback
 }
 
 // LengthPrefixSplitter 长度前缀数据包分割器
