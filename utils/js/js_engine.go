@@ -64,9 +64,10 @@ type GojaJsEngine struct {
 	jsUdfProgramCache map[string]*goja.Program
 }
 
-// gojaVmSlot 池化的 VM 槽位；超时定时器不进槽位，避免迟到回调把中断锁进空闲 VM
+// gojaVmSlot 池化的 VM 槽位，绑定可复用的超时定时器，避免每次执行新建 timer
 type gojaVmSlot struct {
-	vm *goja.Runtime
+	vm    *goja.Runtime
+	timer *time.Timer
 }
 
 // NewGojaJsEngine Create a new instance of the JavaScript engine
@@ -85,7 +86,15 @@ func NewGojaJsEngine(config types.Config, jsScript string, fromVars map[string]i
 	jsEngine.vmPool = sync.Pool{
 		New: func() interface{} {
 			vm := jsEngine.NewVm(config, fromVars)
-			return &gojaVmSlot{vm: vm}
+			slot := &gojaVmSlot{vm: vm}
+			if config.ScriptMaxExecutionTime > 0 {
+				// 创建后立即停止，后续执行用 Reset 复用，回调固定绑定该 VM
+				slot.timer = time.AfterFunc(config.ScriptMaxExecutionTime, func() {
+					vm.Interrupt("execution timeout")
+				})
+				slot.timer.Stop()
+			}
+			return slot
 		},
 	}
 	return jsEngine, nil
@@ -209,11 +218,11 @@ func (g *GojaJsEngine) Execute(ctx types.RuleContext, functionName string, argum
 		vm.Set(CtxKey, ctx)
 	}
 
-	// 清除上一轮迟到定时器残留的中断，否则本次执行立刻超时失败
-	vm.ClearInterrupt()
-
-	timer := g.startTimeout(vm)
-	defer g.stopTimeout(timer)
+	// 复用槽位定时器；未配置超时时 timer 为 nil
+	if slot.timer != nil {
+		slot.timer.Reset(g.config.ScriptMaxExecutionTime)
+		defer slot.timer.Stop()
+	}
 
 	// Get function
 	f, ok := goja.AssertFunction(vm.Get(functionName))
