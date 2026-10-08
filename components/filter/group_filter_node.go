@@ -134,6 +134,12 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	var endCount int32
 	var trueCount int32 // 新增：跟踪True结果数量
 	var completed int32
+	// 组结果先于 completed 写入（各写入方值相同），drain 落空时从这里恢复
+	var resultVal int32 = -1
+	// cb1/cb2 跨 goroutine，读写须原子；仅进超时错误串
+	var tEntry, tSpawned, tCb1, tCb2 int64
+	var cbCount int32
+	tEntry = time.Now().UnixNano()
 	c := make(chan bool, 1)
 	// Init 已保证 Timeout>0，这里始终使用 WithTimeout，避免 WithCancel 导致永久阻塞。
 	// Init guarantees Timeout>0, so always use WithTimeout to avoid an uncancellable wait.
@@ -144,6 +150,11 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 	//执行节点列表逻辑
 	for _, nodeId := range x.NodeIdList {
 		ctx.TellNode(chanCtx, nodeId, msg, true, func(callbackCtx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			if n := atomic.AddInt32(&cbCount, 1); n == 1 {
+				atomic.StoreInt64(&tCb1, time.Now().UnixNano())
+			} else if n == 2 {
+				atomic.StoreInt64(&tCb2, time.Now().UnixNano())
+			}
 			// True 增量先于 end 落账、非 True 的读取在 end 之后：
 			// endCount 到齐时 True 增量必然全部可见，否则整组会被误判为 False
 			var currentTrueCount int32
@@ -180,17 +191,25 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			}
 
 			// 使用CAS确保只有一个goroutine能发送结果
-			if shouldComplete && atomic.CompareAndSwapInt32(&completed, 0, 1) {
-				// 使用非阻塞发送，防止在超时情况下channel阻塞
-				select {
-				case c <- result:
-					// 发送成功
-				default:
-					// Channel已满或无接收者（可能主函数已超时退出），放弃发送
+			if shouldComplete {
+				if result {
+					atomic.StoreInt32(&resultVal, 1)
+				} else {
+					atomic.StoreInt32(&resultVal, 0)
+				}
+				if atomic.CompareAndSwapInt32(&completed, 0, 1) {
+					// 使用非阻塞发送，防止在超时情况下channel阻塞
+					select {
+					case c <- result:
+						// 发送成功
+					default:
+						// Channel已满或无接收者（可能主函数已超时退出），放弃发送
+					}
 				}
 			}
 		}, nil)
 	}
+	tSpawned = time.Now().UnixNano()
 
 	// 等待执行结束或者超时
 	select {
@@ -198,23 +217,58 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 		// Done 与 c 同时就绪时 select 随机取分支，排空 c 防止已完成误报超时
 		select {
 		case r := <-c:
-			if r {
-				ctx.TellNext(msg, types.True)
-			} else {
-				ctx.TellNext(msg, types.False)
-			}
+			x.tellRoute(ctx, msg, r)
 			return
 		default:
 		}
-		err := fmt.Errorf("groupFilter timeout: %d/%d nodes completed in %ds: %w",
-			atomic.LoadInt32(&endCount), x.Length, x.Config.Timeout, chanCtx.Err())
+		// drain 落空但组已完成时，从 resultVal 恢复
+		if v := atomic.LoadInt32(&resultVal); v >= 0 {
+			x.logRecovered(ctx, tEntry, tSpawned, &tCb1, &tCb2, atomic.LoadInt32(&endCount), 0)
+			x.tellRoute(ctx, msg, v == 1)
+			return
+		}
+		// 部分子节点已完成但结果未定时，短暂宽限等判定
+		for i := 0; i < 10 && atomic.LoadInt32(&resultVal) < 0 && atomic.LoadInt32(&endCount) > 0; i++ {
+			time.Sleep(5 * time.Millisecond)
+			if v := atomic.LoadInt32(&resultVal); v >= 0 {
+				x.logRecovered(ctx, tEntry, tSpawned, &tCb1, &tCb2, atomic.LoadInt32(&endCount), (i+1)*5)
+				x.tellRoute(ctx, msg, v == 1)
+				return
+			}
+		}
+		err := fmt.Errorf("groupFilter timeout: %d/%d nodes completed in %ds: %w%s",
+			atomic.LoadInt32(&endCount), x.Length, x.Config.Timeout, chanCtx.Err(),
+			x.timeline(tEntry, tSpawned, &tCb1, &tCb2))
 		ctx.TellFailure(msg, err)
 	case r := <-c:
-		if r {
-			ctx.TellNext(msg, types.True)
-		} else {
-			ctx.TellNext(msg, types.False)
+		x.tellRoute(ctx, msg, r)
+	}
+}
+
+func (x *GroupFilterNode) tellRoute(ctx types.RuleContext, msg types.RuleMsg, r bool) {
+	if r {
+		ctx.TellNext(msg, types.True)
+	} else {
+		ctx.TellNext(msg, types.False)
+	}
+}
+
+// timeline 相对 OnMsg 进入时刻的毫秒：spawn=子节点派发完成，cb1/cb2=回调到达
+func (x *GroupFilterNode) timeline(tEntry, tSpawned int64, tCb1, tCb2 *int64) string {
+	ms := func(t int64) string {
+		if t == 0 {
+			return "n/a"
 		}
+		return fmt.Sprintf("%dms", (t-tEntry)/1e6)
+	}
+	return fmt.Sprintf(" (timeline: spawn=%s cb1=%s cb2=%s)", ms(tSpawned), ms(atomic.LoadInt64(tCb1)), ms(atomic.LoadInt64(tCb2)))
+}
+
+// logRecovered deadline 边界恢复结果属异常时序，输出时间线供定位
+func (x *GroupFilterNode) logRecovered(ctx types.RuleContext, tEntry, tSpawned int64, tCb1, tCb2 *int64, endCount int32, graceMs int) {
+	if config := ctx.Config(); config.Logger != nil {
+		config.Logger.Warnf("groupFilter recovered group result at deadline boundary: node=%s%s endCount=%d graceMs=%d",
+			ctx.GetSelfId(), x.timeline(tEntry, tSpawned, tCb1, tCb2), endCount, graceMs)
 	}
 }
 

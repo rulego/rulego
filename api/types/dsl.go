@@ -396,6 +396,27 @@ type RuleNode struct {
 	//     动态配置更新
 	//
 	Configuration Configuration `json:"configuration"`
+
+	// LogConfig declares business log templates rendered before/after node execution.
+	// Events carry the rendered content plus structured metadata (nodeId/phase/error/ts)
+	// and are delivered through the OnDebug Log channel and the chain-level LogHandler chain.
+	// Both templates are optional; a template with no variables costs zero rendering.
+	// LogConfig 声明节点执行前/后的业务日志模板，事件携带渲染内容和结构化元数据
+	// （nodeId/phase/error/ts），经 OnDebug Log 通道与链级 LogHandler 处理链双出口投递。
+	// 两个模板均为选填；不含变量的模板零渲染成本。
+	LogConfig *NodeLogConfig `json:"logConfig,omitempty"`
+}
+
+// NodeLogConfig defines the before/after business log templates of a rule node.
+// NodeLogConfig 定义规则节点的执行前/后业务日志模板。
+type NodeLogConfig struct {
+	// Before is rendered when a message enters the node, supports ${metadata.xx}/${msg.data}/${global.xx}.
+	// Before 在消息进入节点时渲染，支持 ${metadata.xx}/${msg.data}/${global.xx}。
+	Before string `json:"before,omitempty"`
+	// After is rendered when the node produces output, on both success and failure;
+	// on failure ${metadata.errorMsg} holds the error text.
+	// After 在节点产生输出时渲染，成功与失败都发；失败时 ${metadata.errorMsg} 为错误文本。
+	After string `json:"after,omitempty"`
 }
 
 func (n RuleNode) GetAdditionalInfo(key string) (interface{}, bool) {

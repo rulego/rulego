@@ -33,7 +33,25 @@ const (
 	// RuleChainKey ruleChain dsl key for accessing rule chain properties
 	// RuleChainKey 规则链 DSL 键，用于访问规则链属性
 	RuleChainKey = "ruleChain"
+	// LogHandler chain configuration key: business log events are dispatched to this chain id
+	// LogHandler 链级配置键：业务日志事件派发到的处理链 ID
+	LogHandler = "logHandler"
+	// LogEvents chain configuration key: auto-reported event types, values are LogEventChainEnd
+	// LogEvents 链级配置键：自动上报的事件类型，取值为 LogEventChainEnd
+	LogEvents = "logEvents"
 )
+
+// Business log auto-report event types for ruleChain.Configuration[LogEvents].
+// 业务日志自动上报事件类型，用于 ruleChain.Configuration[LogEvents]。
+const (
+	// LogEventChainEnd reports one event at each terminal branch of the chain execution
+	// LogEventChainEnd 链执行的每个终点分支各上报一条事件
+	LogEventChainEnd = "chainEnd"
+)
+
+// MsgTypeLog is the message type of business log events emitted by the built-in BusinessLog aspect.
+// MsgTypeLog 内置 BusinessLog 切面产生的业务日志事件消息类型。
+const MsgTypeLog = "log"
 
 const (
 	EndpointTypePrefix                = "endpoint/"

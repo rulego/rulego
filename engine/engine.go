@@ -121,7 +121,7 @@ var _ types.RuleEngine = (*RuleEngine)(nil)
 //	这些切面在初始化期间通过 initBuiltinsAspects() 方法自动添加到规则引擎中。
 //	如果提供了自定义切面，除非自定义列表中已存在相同类型的切面，否则仍会包含
 //	内置切面。这确保基本功能始终可用，无需显式配置。
-var BuiltinsAspects = []types.Aspect{&aspect.Validator{}, &aspect.Debug{}, &aspect.MetricsAspect{}}
+var BuiltinsAspects = []types.Aspect{&aspect.Validator{}, &aspect.Debug{}, &aspect.MetricsAspect{}, &aspect.BusinessLog{}}
 
 // aspectsHolder holds the aspects for atomic access to improve performance
 // by avoiding lock contention during high-frequency aspect operations.
