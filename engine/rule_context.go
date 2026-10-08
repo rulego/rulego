@@ -205,9 +205,9 @@ func (c *ContextObserver) checkNodesDone(nodeIds ...string) bool {
 }
 
 // joinReady 判定 join 是否满足放行条件：
-//  1. 全部前驱节点都已送达——不受不连入本节点的旁路分支影响；
-//  2. LCA 子树已排空，且未送达的前驱都不在其他 join 下游——条件分支
-//     未执行的前驱靠此兜底放行，沿用原有语义。
+//  1. 全部前驱已送达——不连入本节点的分支不参与等待；
+//  2. LCA 子树已排空，且未送达的前驱都不在其他 join 下游——
+//     条件分支未执行的前驱靠这一条放行，不必等到超时。
 func (c *ContextObserver) joinReady(joinNodeId string, item joinNodeCallback) bool {
 	if len(item.expectedFromIds) > 0 && c.allExpectedDelivered(joinNodeId, item.expectedFromIds) {
 		return true
@@ -295,7 +295,7 @@ func (c *ContextObserver) checkAndTrigger() {
 }
 
 // fireLocked 触发 join 完成回调并消费完成事件，须持有写锁调用。
-// 回调同步执行，与原有 checkAndTrigger 的行为一致。
+// 回调在锁内同步执行。
 func (c *ContextObserver) fireLocked(joinNodeId string, item joinNodeCallback) {
 	delete(c.nodeDoneEvent, joinNodeId)
 	if c.firedJoins == nil {
@@ -677,7 +677,7 @@ func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgL
 			for _, p := range parentIds {
 				expectedFromIds[p.Id] = struct{}{}
 			}
-			joinAncestors = ctx.ruleChainCtx.JoinAncestors(expectedFromIds)
+			joinAncestors = ctx.ruleChainCtx.JoinAncestors(selfNodeId, expectedFromIds)
 		}
 	}
 	state := ctx.observer.addInMsg(selfNodeId, fromId, lcaNodeId, expectedFromIds, joinAncestors, msg, errStr, callback)
@@ -1272,10 +1272,15 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 				if ok && !ctx.skipTellNext {
 					// 只有多个子节点或者并行多个关系时才需要拷贝
 					needsCopy := len(nodes) > 1 || relationTypeLen > 0
-					for _, item := range nodes {
-						tmp := item
+					// 子节点计数必须在派发任何任务前结清：已派发的分支会与本循环
+					// 并发执行，回卷扣减若插在两次自增之间，计数会瞬时为 0 并
+					// 误触发完成回调
+					for range nodes {
 						//增加一个待执行的子节点
 						ctx.childReady(msg, rt)
+					}
+					for _, item := range nodes {
+						tmp := item
 
 						var msgToPass types.RuleMsg
 						if needsCopy {

@@ -135,6 +135,10 @@ type RuleChainCtx struct {
 	// relationCache 基于传入节点和关系类型缓存传出节点列表，显著提高频繁访问路径的路由性能
 	relationCache map[RelationCache][]types.NodeCtx
 
+	// joinAncestorsCache 每个 join 的前驱->祖先 join 列表，随拓扑版本失效。
+	// 每条消息到达都会查询，遍历结果只随拓扑变化，缓存避免重复计算。
+	joinAncestorsCache map[string]joinAncestorsEntry
+
 	// topologyVersion 每次 reload 拓扑替换（copyUnsafe）时递增。GetNextNodes 在锁外
 	// 计算缓存，写回前必须核对版本：窗口内发生 reload 时旧节点已被销毁，
 	// 无条件写回会把失效节点指针永久写入新缓存。
@@ -448,17 +452,41 @@ func (rc *RuleChainCtx) GetParentNodeIds(id types.RuleNodeId) ([]types.RuleNodeI
 // nodeTypeJoin join 组件的类型标识，用于识别 join 下游前驱
 const nodeTypeJoin = "join"
 
-// JoinAncestors 返回每个前驱节点祖先链上的 join 节点列表。
+// joinAncestorsEntry joinAncestorsCache 的缓存项，版本不一致视为失效
+type joinAncestorsEntry struct {
+	version   uint64
+	ancestors map[string][]string
+}
+
+// JoinAncestors 返回 join 各前驱节点祖先链上的 join 节点列表。
 // join 吞入消息后择机再发出，其下游前驱何时送达不受分支计数约束，
-// LCA 排空信号无法证明这类前驱不会再送达。
-func (rc *RuleChainCtx) JoinAncestors(parentIds map[string]struct{}) map[string][]string {
+// LCA 排空信号无法证明这类前驱不会再送达，兜底放行判定需要该列表。
+// 计算须在锁外进行：joinAncestorsOf 内部会重复获取读锁。
+func (rc *RuleChainCtx) JoinAncestors(joinNodeId string, parentIds map[string]struct{}) map[string][]string {
+	rc.RLock()
+	if entry, ok := rc.joinAncestorsCache[joinNodeId]; ok && entry.version == rc.topologyVersion {
+		rc.RUnlock()
+		return entry.ancestors
+	}
+	topologyVersion := rc.topologyVersion
+	rc.RUnlock()
+
 	result := make(map[string][]string, len(parentIds))
 	for id := range parentIds {
-		ancestors := rc.joinAncestorsOf(types.RuleNodeId{Id: id, Type: types.NODE})
-		if len(ancestors) > 0 {
+		if ancestors := rc.joinAncestorsOf(types.RuleNodeId{Id: id, Type: types.NODE}); len(ancestors) > 0 {
 			result[id] = ancestors
 		}
 	}
+
+	rc.Lock()
+	if rc.joinAncestorsCache == nil {
+		rc.joinAncestorsCache = make(map[string]joinAncestorsEntry)
+	}
+	// 版本不一致说明计算期间发生了 reload，放弃写回，下次重算
+	if rc.topologyVersion == topologyVersion {
+		rc.joinAncestorsCache[joinNodeId] = joinAncestorsEntry{version: topologyVersion, ancestors: result}
+	}
+	rc.Unlock()
 	return result
 }
 

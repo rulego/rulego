@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -284,4 +285,69 @@ func TestJoinComplexTopologyWithFlowNodes(t *testing.T) {
 	holderAt, _ := rec.elapsed("holder")
 	assemblyAt, _ := rec.elapsed("assembly")
 	assert.True(t, assemblyAt >= holderAt, "部装区必须在两支都到齐后执行")
+}
+
+// TestJoinHighVolumeNoPartialMerge 大批量消息下 join 不得出现部分合并。
+// 分支派发与分支执行并发进行，join 的放行判定不得早于全部前驱送达，
+// 否则合并结果缺支且后到消息被丢弃。
+func TestJoinHighVolumeNoPartialMerge(t *testing.T) {
+	js := func(id string) string {
+		return fmt.Sprintf(`{"id":%q,"type":"jsTransform","name":%q,"configuration":{"jsScript":"msg='%s'; return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}}`, id, id, id)
+	}
+	nodes := []string{
+		`{"id":"fork","type":"fork","name":"fork"}`,
+		js("b1"), js("b2"), js("b3"), js("b4"),
+		`{"id":"J","type":"join","name":"J","configuration":{"mergeToMap":true,"timeout":5}}`,
+		`{"id":"tail","type":"jsTransform","name":"tail","configuration":{"jsScript":"return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}}`,
+	}
+	conns := [][2]string{
+		{"fork", "b1"}, {"fork", "b2"}, {"fork", "b3"}, {"fork", "b4"},
+		{"b1", "J"}, {"b2", "J"}, {"b3", "J"}, {"b4", "J"},
+		{"J", "tail"},
+	}
+	connList := make([]string, 0, len(conns))
+	for _, c := range conns {
+		connList = append(connList, fmt.Sprintf(`{"fromId":%q,"toId":%q,"type":"Success"}`, c[0], c[1]))
+	}
+	dsl := fmt.Sprintf(`{"ruleChain":{"id":"join_high_volume_test"},"metadata":{"nodes":[%s],"connections":[%s]}}`,
+		strings.Join(nodes, ","), strings.Join(connList, ","))
+
+	config := NewConfig(types.WithDefaultPool())
+	e, err := New("join_high_volume_test", []byte(dsl), WithConfig(config))
+	assert.Nil(t, err)
+
+	var badOutputs int32
+	var wg sync.WaitGroup
+	workers := 16
+	perWorker := 3125
+	wg.Add(workers)
+	for w := 0; w < workers; w++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < perWorker; i++ {
+				done := make(chan struct{}, 1)
+				e.OnMsg(types.NewMsg(0, "T", types.JSON, nil, "{}"),
+					types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+						if ctx.GetSelfId() != "tail" {
+							return
+						}
+						data := msg.GetData()
+						for _, k := range []string{"b1", "b2", "b3", "b4"} {
+							if !strings.Contains(data, fmt.Sprintf("%q:%q", k, k)) {
+								atomic.AddInt32(&badOutputs, 1)
+								break
+							}
+						}
+						select {
+						case done <- struct{}{}:
+						default:
+						}
+					}))
+				<-done
+			}
+		}()
+	}
+	wg.Wait()
+	assert.True(t, atomic.LoadInt32(&badOutputs) == 0,
+		"join 在高并发下出现部分合并，badOutputs=%d", atomic.LoadInt32(&badOutputs))
 }
