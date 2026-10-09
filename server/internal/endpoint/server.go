@@ -53,6 +53,7 @@ func NewServer(container *app.Container, cfg *config.Config, logger types.Logger
 	systemRulegoCfg.NodePool = systemNodePool
 
 	configureLoginLimiter(cfg.LoginMaxAttempts, cfg.LoginWindowSeconds)
+	configureChatLimiter(cfg.ChatMaxRequests, cfg.ChatWindowSeconds)
 
 	return &Server{
 		container:       container,

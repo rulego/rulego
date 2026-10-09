@@ -119,6 +119,12 @@ type Config struct {
 	LoginMaxAttempts int `ini:"login_max_attempts"`
 	// LoginWindowSeconds 登录限流的滑动窗口（秒）。0 表示使用默认值（60）
 	LoginWindowSeconds int `ini:"login_window_seconds"`
+	// ChatMaxRequests 每个用户在 ChatWindowSeconds 窗口期内允许的 AI 聊天直通调用次数，
+	// 超过返回 429。0 表示使用默认值（60）；负数表示关闭。
+	// 直通端点逐次消耗上游 LLM 配额，需要兜底；免鉴权部署下匿名请求共享默认租户配额
+	ChatMaxRequests int `ini:"chat_max_requests"`
+	// ChatWindowSeconds 聊天直通限流的滑动窗口（秒）。0 表示使用默认值（60）
+	ChatWindowSeconds int `ini:"chat_window_seconds"`
 	// ReadTimeout HTTP 读超时（秒），默认 30
 	ReadTimeout int `ini:"read_timeout"`
 	// WriteTimeout HTTP 写超时（秒），默认 300（AI 聊天需要较长超时）
@@ -271,6 +277,8 @@ func DefaultConfig() Config {
 		AllowCors:            true,
 		LoginMaxAttempts:     10,
 		LoginWindowSeconds:   60,
+		ChatMaxRequests:      60,
+		ChatWindowSeconds:    60,
 		ReadTimeout:          30,
 		WriteTimeout:         300,
 		MaxBodySize:          10,

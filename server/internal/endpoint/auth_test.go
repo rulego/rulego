@@ -119,3 +119,26 @@ func TestAuthWithPermission(t *testing.T) {
 		}
 	})
 }
+
+// 聊天直通限流：窗口期内超过阈值返回拒绝，负数配置关闭
+func TestChatLimiter(t *testing.T) {
+	configureChatLimiter(2, 60)
+	defer configureChatLimiter(defaultMaxChatRequests, int(defaultChatWindow/time.Second))
+	if !chatLimiter.check("user-a") || !chatLimiter.check("user-a") {
+		t.Fatal("expected first two requests allowed")
+	}
+	if chatLimiter.check("user-a") {
+		t.Fatal("expected third request blocked")
+	}
+	if !chatLimiter.check("user-b") {
+		t.Fatal("other user should not be affected")
+	}
+
+	configureChatLimiter(-1, 60)
+	defer configureChatLimiter(defaultMaxChatRequests, int(defaultChatWindow/time.Second))
+	for i := 0; i < 100; i++ {
+		if !chatLimiter.check("user-c") {
+			t.Fatalf("expected unlimited requests when disabled, blocked at %d", i+1)
+		}
+	}
+}

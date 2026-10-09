@@ -65,6 +65,33 @@ func configureLoginLimiter(maxAttempts, windowSeconds int) {
 	limiter.disabled = maxAttempts < 0
 }
 
+const (
+	defaultMaxChatRequests = 60              // 每个用户窗口期内最大聊天直通调用次数
+	defaultChatWindow      = 1 * time.Minute // 窗口期
+)
+
+// 聊天直通端点限速器（基于用户名），防止逐次消耗上游 LLM 配额的端点被高频刷
+var chatLimiter = &loginLimiter{
+	attempts:    make(map[string]*attemptInfo),
+	maxAttempts: defaultMaxChatRequests,
+	window:      defaultChatWindow,
+}
+
+// configureChatLimiter 按配置设置聊天直通限流参数，语义同 configureLoginLimiter
+func configureChatLimiter(maxRequests, windowSeconds int) {
+	chatLimiter.mu.Lock()
+	defer chatLimiter.mu.Unlock()
+	if maxRequests == 0 {
+		maxRequests = defaultMaxChatRequests
+	}
+	if windowSeconds == 0 {
+		windowSeconds = int(defaultChatWindow / time.Second)
+	}
+	chatLimiter.maxAttempts = maxRequests
+	chatLimiter.window = time.Duration(windowSeconds) * time.Second
+	chatLimiter.disabled = maxRequests < 0
+}
+
 // check 允许该 IP 继续登录则返回 true
 func (l *loginLimiter) check(ip string) bool {
 	l.mu.Lock()
@@ -87,15 +114,20 @@ func init() {
 	go func() {
 		for {
 			time.Sleep(5 * time.Minute)
-			limiter.mu.Lock()
-			for ip, info := range limiter.attempts {
-				if time.Since(info.lastTime) > limiter.window {
-					delete(limiter.attempts, ip)
-				}
-			}
-			limiter.mu.Unlock()
+			cleanupLimiter(limiter)
+			cleanupLimiter(chatLimiter)
 		}
 	}()
+}
+
+func cleanupLimiter(l *loginLimiter) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for key, info := range l.attempts {
+		if time.Since(info.lastTime) > l.window {
+			delete(l.attempts, key)
+		}
+	}
 }
 
 func createToken(cfg *config.Config, claim ruleGoClaim) (*string, error) {

@@ -448,6 +448,12 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 	ep.POST(endpoint.NewRouter().From(base+"/rules/:id/v1/chat/completions", types.Configuration{
 		endpointApi.ConfigKeyStreaming: true,
 	}).Process(s.authWithPermission("rule", "execute")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		// 直通端点逐次消耗上游 LLM 配额，按用户限流兜底（阈值见 config 的 chat_max_requests）
+		if !chatLimiter.check(metadataUsername(exchange)) {
+			exchange.Out.SetStatusCode(http.StatusTooManyRequests)
+			exchange.Out.SetBody([]byte(`{"error":"too many chat requests, please try again later"}`))
+			return false
+		}
 		executor, ok := getService[services.ChainExecutor](s, exchange, services.KeyRuleExecutor)
 		if !ok {
 			return false
