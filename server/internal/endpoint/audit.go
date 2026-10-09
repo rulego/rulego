@@ -3,6 +3,7 @@ package endpoint
 import (
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
@@ -61,4 +62,58 @@ func (s *Server) auditRecord(exchange *endpointApi.Exchange, event model.AuditEv
 	if svc, err := getServiceRaw[services.AuditService](s, services.KeyAuditService); err == nil {
 		svc.Record(event)
 	}
+}
+
+// deniedSampler denied 类事件的限采样：同一 key 窗口期内只放行第一条。
+// 越权探测/爆破会产生海量 denied，全量落审计会把保留窗口灌爆
+type deniedSampler struct {
+	mu     sync.Mutex
+	seen   map[string]time.Time
+	window time.Duration
+}
+
+func (s *deniedSampler) allow(key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now()
+	if t, ok := s.seen[key]; ok && now.Sub(t) < s.window {
+		return false
+	}
+	s.seen[key] = now
+	return true
+}
+
+func (s *deniedSampler) cleanup() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k, t := range s.seen {
+		if time.Since(t) > s.window {
+			delete(s.seen, k)
+		}
+	}
+}
+
+// deniedEvents 403/429 事件采样器：同键 5 分钟一条
+var deniedEvents = &deniedSampler{seen: make(map[string]time.Time), window: 5 * time.Minute}
+
+// auditDenied 记录授权拒绝/登录限流事件（限采样），Result 固定 denied
+func (s *Server) auditDenied(exchange *endpointApi.Exchange, event model.AuditEvent, sampleKey string) {
+	if !deniedEvents.allow(sampleKey) {
+		return
+	}
+	event.Result = model.AuditResultDenied
+	s.auditRecord(exchange, event)
+}
+
+// auditWriteError 记录写操作的执行失败：与成功审计同 Action/Target，Result=error。
+// 只记服务调用失败（真实意图但没写成），参数校验失败不记
+func (s *Server) auditWriteError(exchange *endpointApi.Exchange, action, op, target string, err error) {
+	s.auditRecord(exchange, model.AuditEvent{
+		Actor:  metadataUsername(exchange),
+		Action: action,
+		Op:     op,
+		Target: target,
+		Result: model.AuditResultError,
+		Detail: err.Error(),
+	})
 }

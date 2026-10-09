@@ -5,10 +5,10 @@ import (
 
 	endpointApi "github.com/rulego/rulego/api/types/endpoint"
 	"github.com/rulego/rulego/endpoint"
+	websocketEndpoint "github.com/rulego/rulego/endpoint/websocket"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/internal/modules/runlog"
 	"github.com/rulego/rulego/utils/json"
-	websocketEndpoint "github.com/rulego/rulego/endpoint/websocket"
 )
 
 // NewWebsocketEndpoint 创建 WebSocket 端点，用于实时推送调试日志。
@@ -91,7 +91,7 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 
 	// 注册 WebSocket 路由：/api/v1/logs/ws/:chainId/:clientId
 	base := s.apiBasePath()
-	_, _ = wsEp.AddRouter(endpoint.NewRouter().From(base+"/logs/ws/:chainId/:clientId").
+	_, _ = wsEp.AddRouter(endpoint.NewRouter().From(base + "/logs/ws/:chainId/:clientId").
 		Process(s.authProcess()).
 		Process(func(router endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			return true

@@ -11,7 +11,7 @@ func (s *Server) registerLocaleRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
 	// GET /locales - 获取语言包
-	ep.GET(endpoint.NewRouter().From(base+"/locales").Process(s.authWithPermission("locale", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/locales").Process(s.authWithPermission("locale", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		localeSvc, ok := getService[services.LocaleService](s, exchange, services.KeyLocaleService)
 		if !ok {
 			return false
@@ -38,7 +38,7 @@ func (s *Server) registerLocaleRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// POST /locales - 保存语言包
-	ep.POST(endpoint.NewRouter().From(base+"/locales").Process(s.authWithPermission("locale", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.POST(endpoint.NewRouter().From(base + "/locales").Process(s.authWithPermission("locale", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		localeSvc, ok := getService[services.LocaleService](s, exchange, services.KeyLocaleService)
 		if !ok {
 			return false

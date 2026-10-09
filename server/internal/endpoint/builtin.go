@@ -15,7 +15,7 @@ func (s *Server) registerBuiltinRoutes(ep endpointApi.HttpEndpoint) {
 
 	// POST /builtins/:name - 动态组件配置查询（body 为查询参数）。
 	// 属组件配置辅助查询，挂 component:read 保持 editor/viewer 可用
-	ep.POST(endpoint.NewRouter().From(base+"/builtins/:name").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.POST(endpoint.NewRouter().From(base + "/builtins/:name").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		name := strings.TrimSpace(metadataValue(exchange, "name"))
 		var params map[string]interface{}
 		if len(exchange.In.Body()) > 0 {

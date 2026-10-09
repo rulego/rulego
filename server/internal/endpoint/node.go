@@ -20,7 +20,7 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
 	// GET /shared-nodes - 获取共享节点列表
-	ep.GET(endpoint.NewRouter().From(base+"/shared-nodes").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/shared-nodes").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -74,7 +74,7 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// POST /shared-nodes/:id/:type - 添加/更新共享节点
-	ep.POST(endpoint.NewRouter().From(base+"/shared-nodes/:id/:type").Process(s.authWithPermission("component", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.POST(endpoint.NewRouter().From(base + "/shared-nodes/:id/:type").Process(s.authWithPermission("component", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -97,6 +97,7 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 			saveErr = nodeSvc.SaveNodePoolNode(username, node)
 		}
 		if saveErr != nil {
+			s.auditWriteError(exchange, "component:write", "shared-node", "shared-node:"+metadataValue(exchange, constants.KeyId), saveErr)
 			writeBadRequest(exchange, saveErr)
 			return false
 		}
@@ -111,7 +112,7 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// GET /shared-nodes/:id/:type - 获取共享节点
-	ep.GET(endpoint.NewRouter().From(base+"/shared-nodes/:id/:type").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/shared-nodes/:id/:type").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -130,12 +131,13 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// DELETE /shared-nodes/:id/:type - 删除共享节点
-	ep.DELETE(endpoint.NewRouter().From(base+"/shared-nodes/:id/:type").Process(s.authWithPermission("component", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.DELETE(endpoint.NewRouter().From(base + "/shared-nodes/:id/:type").Process(s.authWithPermission("component", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
 		}
 		if err := nodeSvc.DeleteNodePool(metadataUsername(exchange), metadataValue(exchange, constants.KeyId), metadataValue(exchange, constants.KeyType)); err != nil {
+			s.auditWriteError(exchange, "component:delete", "shared-node", "shared-node:"+metadataValue(exchange, constants.KeyId), err)
 			writeBadRequest(exchange, err)
 			return false
 		}
@@ -151,7 +153,7 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// GET /dynamic-components - 获取动态组件列表
-	ep.GET(endpoint.NewRouter().From(base+"/dynamic-components").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/dynamic-components").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		nodeSvc, ok := getService[services.NodeService](s, exchange, services.KeyNodeService)
 		if !ok {
 			return false
@@ -172,7 +174,7 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// GET /dynamic-components/:id - 获取动态组件 DSL
-	ep.GET(endpoint.NewRouter().From(base+"/dynamic-components/:id").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/dynamic-components/:id").Process(s.authWithPermission("component", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		if !validateId(metadataValue(exchange, constants.KeyId)) {
 			writeBadRequest(exchange, fmt.Errorf("invalid component id"))
 			return false
@@ -191,7 +193,7 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// POST /dynamic-components/:id - 安装/升级动态组件
-	ep.POST(endpoint.NewRouter().From(base+"/dynamic-components/:id").Process(s.authWithPermission("component", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.POST(endpoint.NewRouter().From(base + "/dynamic-components/:id").Process(s.authWithPermission("component", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		if !validateId(metadataValue(exchange, constants.KeyId)) {
 			writeBadRequest(exchange, fmt.Errorf("invalid component id"))
 			return false
@@ -201,6 +203,7 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		if err := nodeSvc.UpgradeComponent(metadataUsername(exchange), metadataValue(exchange, constants.KeyId), exchange.In.Body()); err != nil {
+			s.auditWriteError(exchange, "component:write", "component", "component:"+metadataValue(exchange, constants.KeyId), err)
 			writeBadRequest(exchange, err)
 			return false
 		}
@@ -215,7 +218,7 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// DELETE /dynamic-components/:id - 卸载动态组件
-	ep.DELETE(endpoint.NewRouter().From(base+"/dynamic-components/:id").Process(s.authWithPermission("component", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.DELETE(endpoint.NewRouter().From(base + "/dynamic-components/:id").Process(s.authWithPermission("component", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		if !validateId(metadataValue(exchange, constants.KeyId)) {
 			writeBadRequest(exchange, fmt.Errorf("invalid component id"))
 			return false
@@ -225,6 +228,7 @@ func (s *Server) registerNodeRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		if err := nodeSvc.UninstallComponent(metadataUsername(exchange), metadataValue(exchange, constants.KeyId)); err != nil {
+			s.auditWriteError(exchange, "component:delete", "component", "component:"+metadataValue(exchange, constants.KeyId), err)
 			writeBadRequest(exchange, err)
 			return false
 		}

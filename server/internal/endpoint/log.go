@@ -94,6 +94,7 @@ func (s *Server) registerLogRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		if err != nil {
+			s.auditWriteError(exchange, "log:delete", "", target, err)
 			writeInternalError(exchange, err)
 			return false
 		}

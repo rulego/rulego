@@ -216,6 +216,7 @@ func (s *Server) registerUserRoutes(ep endpointApi.HttpEndpoint) {
 			req.Roles = []string{model.RoleEditor}
 		}
 		if err := svc.Save(req); err != nil {
+			s.auditWriteError(exchange, "user:write", "", "user:"+req.Username, err)
 			writeInternalError(exchange, err)
 			return false
 		}
@@ -256,6 +257,7 @@ func (s *Server) registerUserRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		if err := svc.Delete(target); err != nil {
+			s.auditWriteError(exchange, "user:delete", "", "user:"+target, err)
 			writeInternalError(exchange, err)
 			return false
 		}

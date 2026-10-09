@@ -17,7 +17,7 @@ func (s *Server) registerMarketplaceRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
 	// GET /marketplace/components - 获取市场组件
-	ep.GET(endpoint.NewRouter().From(base+"/marketplace/components").Process(s.authWithPermission("marketplace", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/marketplace/components").Process(s.authWithPermission("marketplace", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		marketplaceSvc, ok := getService[*marketplace.Module](s, exchange, services.KeyMarketplaceService)
 		if !ok {
 			return false
@@ -52,7 +52,7 @@ func (s *Server) registerMarketplaceRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// GET /marketplace/chains - 获取市场规则链
-	ep.GET(endpoint.NewRouter().From(base+"/marketplace/chains").Process(s.authWithPermission("marketplace", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/marketplace/chains").Process(s.authWithPermission("marketplace", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		marketplaceSvc, ok := getService[*marketplace.Module](s, exchange, services.KeyMarketplaceService)
 		if !ok {
 			return false

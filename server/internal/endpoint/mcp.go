@@ -63,9 +63,9 @@ func (s *Server) registerMCPRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}
 
-	ep.GET(endpoint.NewRouter().From(base+"/mcp/:apiKey").Process(mcpHandler).End())
-	ep.POST(endpoint.NewRouter().From(base+"/mcp/:apiKey").Process(mcpHandler).End())
-	ep.DELETE(endpoint.NewRouter().From(base+"/mcp/:apiKey").Process(mcpHandler).End())
+	ep.GET(endpoint.NewRouter().From(base + "/mcp/:apiKey").Process(mcpHandler).End())
+	ep.POST(endpoint.NewRouter().From(base + "/mcp/:apiKey").Process(mcpHandler).End())
+	ep.DELETE(endpoint.NewRouter().From(base + "/mcp/:apiKey").Process(mcpHandler).End())
 
 	// GET/POST/DELETE /mcp/:apiKey/group/:group - MCP 分组 StreamableHTTP 端点
 	mcpGroupHandler := func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
@@ -95,7 +95,7 @@ func (s *Server) registerMCPRoutes(ep endpointApi.HttpEndpoint) {
 		return true
 	}
 
-	ep.GET(endpoint.NewRouter().From(base+"/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
-	ep.POST(endpoint.NewRouter().From(base+"/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
-	ep.DELETE(endpoint.NewRouter().From(base+"/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
+	ep.GET(endpoint.NewRouter().From(base + "/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
+	ep.POST(endpoint.NewRouter().From(base + "/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
+	ep.DELETE(endpoint.NewRouter().From(base + "/mcp/:apiKey/group/:group").Process(mcpGroupHandler).End())
 }

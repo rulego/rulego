@@ -18,7 +18,7 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
 	// GET /config/global - 获取全局配置（敏感键值掩码显示，明文走 reveal 端点）
-	ep.GET(endpoint.NewRouter().From(base+"/config/global").Process(s.authWithPermission("config", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/config/global").Process(s.authWithPermission("config", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		configSvc, ok := getService[services.ConfigService](s, exchange, services.KeyConfigService)
 		if !ok {
 			return false
@@ -41,7 +41,7 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// GET /config/global/reveal/:key - 查看敏感键明文（需写权限，落审计）
-	ep.GET(endpoint.NewRouter().From(base+"/config/global/reveal/:key").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/config/global/reveal/:key").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		key := metadataValue(exchange, "key")
 		configSvc, ok := getService[services.ConfigService](s, exchange, services.KeyConfigService)
 		if !ok {
@@ -70,7 +70,7 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 
 	// GET /config/global/overrides - 运行时覆盖清单（data/config.json 留存的键，
 	// 原始写法、敏感值掩码）。前端据此标记可「恢复文件值」的键
-	ep.GET(endpoint.NewRouter().From(base+"/config/global/overrides").Process(s.authWithPermission("config", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/config/global/overrides").Process(s.authWithPermission("config", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		configSvc, ok := getService[services.ConfigService](s, exchange, services.KeyConfigService)
 		if !ok {
 			return false
@@ -85,7 +85,7 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// POST /config/global/revert/:key - 删除某键的运行时覆盖，恢复为 config.conf 文件值
-	ep.POST(endpoint.NewRouter().From(base+"/config/global/revert/:key").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.POST(endpoint.NewRouter().From(base + "/config/global/revert/:key").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		key := metadataValue(exchange, "key")
 		if key == "" {
 			writeBadRequest(exchange, fmt.Errorf("key is required"))
@@ -97,6 +97,7 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		reload, err := configSvc.RestoreGlobalKey(key)
 		if err != nil {
+			s.auditWriteError(exchange, "config:revert", "", "config:global:"+key, err)
 			writeBadRequest(exchange, err)
 			return true
 		}
@@ -112,7 +113,7 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// POST /config/global - 更新全局配置
-	ep.POST(endpoint.NewRouter().From(base+"/config/global").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.POST(endpoint.NewRouter().From(base + "/config/global").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		configSvc, ok := getService[services.ConfigService](s, exchange, services.KeyConfigService)
 		if !ok {
 			return false
@@ -124,6 +125,7 @@ func (s *Server) registerConfigRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		reload, err := configSvc.UpdateConfig(req)
 		if err != nil {
+			s.auditWriteError(exchange, "config:write", "", "config:global", err)
 			writeBadRequest(exchange, err)
 			return false
 		}

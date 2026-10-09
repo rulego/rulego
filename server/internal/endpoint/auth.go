@@ -28,7 +28,7 @@ type ruleGoClaim struct {
 type loginLimiter struct {
 	mu          sync.Mutex
 	attempts    map[string]*attemptInfo
-	maxAttempts int       // 窗口期内最大尝试次数；负数表示关闭限流
+	maxAttempts int           // 窗口期内最大尝试次数；负数表示关闭限流
 	window      time.Duration // 滑动窗口
 	disabled    bool
 }
@@ -116,6 +116,7 @@ func init() {
 			time.Sleep(5 * time.Minute)
 			cleanupLimiter(limiter)
 			cleanupLimiter(chatLimiter)
+			deniedEvents.cleanup()
 		}
 	}()
 }
@@ -181,6 +182,11 @@ func (s *Server) authWithPermission(resource, action string) func(endpointApi.Ro
 			if resource != "" && action != "" {
 				userCtx := &model.UserContext{Username: username, Roles: s.rolesOfUser(username)}
 				if err := getAuthorizer(s.container).Authorize(userCtx, resource, action); err != nil {
+					s.auditDenied(exchange, model.AuditEvent{
+						Actor:     username,
+						ActorType: "anonymous",
+						Action:    resource + ":" + action,
+					}, "anon|"+clientIP(exchange)+"|"+resource+":"+action)
 					exchange.Out.SetStatusCode(http.StatusForbidden)
 					exchange.Out.SetBody([]byte(`{"error":"forbidden"}`))
 					return false
@@ -213,6 +219,11 @@ func (s *Server) authWithPermission(resource, action string) func(endpointApi.Ro
 		if resource != "" && action != "" {
 			authorizer := getAuthorizer(s.container)
 			if err := authorizer.Authorize(userCtx, resource, action); err != nil {
+				s.auditDenied(exchange, model.AuditEvent{
+					Actor:     userCtx.Username,
+					ActorType: "user",
+					Action:    resource + ":" + action,
+				}, userCtx.Username+"|"+clientIP(exchange)+"|"+resource+":"+action)
 				exchange.Out.SetStatusCode(http.StatusForbidden)
 				exchange.Out.SetBody([]byte(`{"error":"forbidden"}`))
 				return false
@@ -262,6 +273,11 @@ func (s *Server) loginRoute() endpointApi.Router {
 		// 登录速率限制
 		ip := clientIP(exchange)
 		if !limiter.check(ip) {
+			s.auditDenied(exchange, model.AuditEvent{
+				ActorType: "anonymous",
+				Action:    "auth:login",
+				Op:        "rate-limited",
+			}, "login|"+ip)
 			exchange.Out.SetStatusCode(http.StatusTooManyRequests)
 			exchange.Out.SetBody([]byte(`{"error":"too many login attempts, please try again later"}`))
 			return false

@@ -144,6 +144,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 			}
 		}
 		if err := admin.SaveAndLoad(metadataUsername(exchange), id, exchange.In.Body()); err != nil {
+			s.auditWriteError(exchange, "rule:write", "", "rule:"+id, err)
 			writeBadRequest(exchange, err)
 			return true
 		}
@@ -169,6 +170,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		if err := admin.Delete(metadataUsername(exchange), id); err != nil {
+			s.auditWriteError(exchange, "rule:delete", "", "rule:"+id, err)
 			writeBadRequest(exchange, err)
 			return false
 		}
@@ -210,6 +212,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		if opErr != nil {
+			s.auditWriteError(exchange, "rule:operate", opType, "rule:"+chainId, opErr)
 			writeBadRequest(exchange, opErr)
 			return true
 		}
@@ -226,7 +229,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 	// 历史版本三端点：rule_version_disable=true 时不注册（404）
 	if !(s.config != nil && s.config.RuleVersionDisable) {
 		// GET /rules/:id/versions - 版本列表（元数据，不含 DSL）
-		ep.GET(endpoint.NewRouter().From(base+"/rules/:id/versions").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		ep.GET(endpoint.NewRouter().From(base + "/rules/:id/versions").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			chainId := metadataValue(exchange, constants.KeyId)
 			if !validateId(chainId) {
 				writeBadRequest(exchange, fmt.Errorf("invalid rule chain id"))
@@ -249,7 +252,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		}).End())
 
 		// GET /rules/:id/versions/:versionId - 单个版本详情（含 DSL）
-		ep.GET(endpoint.NewRouter().From(base+"/rules/:id/versions/:versionId").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		ep.GET(endpoint.NewRouter().From(base + "/rules/:id/versions/:versionId").Process(s.authWithPermission("rule", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			chainId := metadataValue(exchange, constants.KeyId)
 			if !validateId(chainId) {
 				writeBadRequest(exchange, fmt.Errorf("invalid rule chain id"))
@@ -270,7 +273,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 
 		// POST /rules/:id/versions/:versionId/rollback - 回滚到指定版本
 		// 以该版 DSL 重新走保存（保存即部署），并产生一个 source=rollback 的新快照
-		ep.POST(endpoint.NewRouter().From(base+"/rules/:id/versions/:versionId/rollback").Process(s.authWithPermission("rule", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		ep.POST(endpoint.NewRouter().From(base + "/rules/:id/versions/:versionId/rollback").Process(s.authWithPermission("rule", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 			chainId := metadataValue(exchange, constants.KeyId)
 			if !validateId(chainId) {
 				writeBadRequest(exchange, fmt.Errorf("invalid rule chain id"))
@@ -283,6 +286,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 			versionId := metadataValue(exchange, "versionId")
 			username := metadataUsername(exchange)
 			if err := verSvc.RollbackVersion(username, chainId, versionId); err != nil {
+				s.auditWriteError(exchange, "rule:rollback", "", "rule:"+chainId, err)
 				writeBadRequest(exchange, err)
 				return true
 			}
@@ -379,6 +383,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		if err := admin.SaveBaseInfo(metadataUsername(exchange), metadataValue(exchange, constants.KeyId), baseInfo); err != nil {
+			s.auditWriteError(exchange, "rule:write", "base", "rule:"+metadataValue(exchange, constants.KeyId), err)
 			writeBadRequest(exchange, err)
 			return true
 		}
@@ -409,6 +414,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		if err := admin.SaveConfiguration(metadataUsername(exchange), metadataValue(exchange, constants.KeyId), metadataValue(exchange, "varType"), configData); err != nil {
+			s.auditWriteError(exchange, "rule:write", "config", "rule:"+metadataValue(exchange, constants.KeyId), err)
 			writeBadRequest(exchange, err)
 			return true
 		}

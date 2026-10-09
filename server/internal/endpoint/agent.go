@@ -88,10 +88,12 @@ func (s *Server) registerAIRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		if err := writeAssistantPrompt(s.config.DataDir, agentID, req.Content); err != nil {
+			s.auditWriteError(exchange, "agent:write", "prompt", "agent:"+agentID, err)
 			writeInternalError(exchange, err)
 			return false
 		}
 		if err := reloadAssistantRuleChain(s.config.DataDir, s.config.DefaultUsername, agentID, admin); err != nil {
+			s.auditWriteError(exchange, "agent:write", "reload", "agent:"+agentID, err)
 			writeInternalError(exchange, err)
 			return false
 		}
@@ -150,6 +152,7 @@ func (s *Server) registerAIRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		modelCfg, err := writeAssistantModelConfig(s.config.DataDir, s.config.DefaultUsername, agentID, req, admin)
 		if err != nil {
+			s.auditWriteError(exchange, "agent:write", "model", "agent:"+agentID, err)
 			writeInternalError(exchange, err)
 			return false
 		}

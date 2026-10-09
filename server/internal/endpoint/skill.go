@@ -96,6 +96,7 @@ func (s *Server) registerSkillRoutes(ep endpointApi.HttpEndpoint) {
 		req.Scope = scope
 		item, err := skillSvc.CreateSkill(metadataUsername(exchange), req)
 		if err != nil {
+			s.auditWriteError(exchange, "skill:write", "", "skill:"+req.Name, err)
 			writeBadRequest(exchange, err)
 			return false
 		}
@@ -134,6 +135,7 @@ func (s *Server) registerSkillRoutes(ep endpointApi.HttpEndpoint) {
 		req.Name = skillName
 		item, err := skillSvc.UpdateSkill(metadataUsername(exchange), skillName, req)
 		if err != nil {
+			s.auditWriteError(exchange, "skill:write", "", "skill:"+skillName, err)
 			writeBadRequest(exchange, err)
 			return false
 		}
@@ -164,6 +166,7 @@ func (s *Server) registerSkillRoutes(ep endpointApi.HttpEndpoint) {
 			return false
 		}
 		if err := skillSvc.DeleteSkill(metadataUsername(exchange), skillName, scope); err != nil {
+			s.auditWriteError(exchange, "skill:delete", "", "skill:"+skillName, err)
 			writeBadRequest(exchange, err)
 			return false
 		}
@@ -195,6 +198,7 @@ func (s *Server) registerSkillRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		items, err := skillSvc.ImportSkills(metadataUsername(exchange), scope, archiveName, archive)
 		if err != nil {
+			s.auditWriteError(exchange, "skill:write", "upload", "skill:"+archiveName, err)
 			writeBadRequest(exchange, err)
 			return false
 		}
