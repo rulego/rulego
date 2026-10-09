@@ -1540,3 +1540,31 @@ func TestLogNodeOutputTo(t *testing.T) {
 		assert.True(t, logEvents >= 1)
 	})
 }
+
+// TestCreateRuleChainRunLog_LogsSortedByStartTs: node logs come from a map,
+// the snapshot must expose them as an execution timeline ordered by start
+// time; log-only entries without an In flow sort last.
+func TestCreateRuleChainRunLog_LogsSortedByStartTs(t *testing.T) {
+	chainCtx := &RuleChainCtx{SelfDefinition: &types.RuleChain{}}
+	r := NewRunSnapshot("sort-test", chainCtx, 1)
+	r.onRuleChainCompletedFunc = func(types.RuleContext, types.RuleChainRunSnapshot) {}
+	mkMsg := func(ts int64) types.RuleMsg {
+		return types.NewMsg(ts, "TEST", types.JSON, nil, "{}")
+	}
+	// Feed out of order: later node first, plus a log-only entry with no In flow.
+	r.collectRunSnapshot(nil, types.In, "node-late", mkMsg(30), "", nil)
+	r.logs["node-late"].StartTs = 300
+	r.collectRunSnapshot(nil, types.In, "node-early", mkMsg(10), "", nil)
+	r.logs["node-early"].StartTs = 100
+	r.collectRunSnapshot(nil, types.In, "node-mid", mkMsg(20), "", nil)
+	r.logs["node-mid"].StartTs = 200
+	r.collectRunSnapshot(nil, types.Log, "node-logonly", mkMsg(0), "", nil)
+
+	snapshot := r.createRuleChainRunLog(999)
+	got := make([]string, 0, len(snapshot.Logs))
+	for _, l := range snapshot.Logs {
+		got = append(got, l.Id)
+	}
+	want := []string{"node-early", "node-mid", "node-late", "node-logonly"}
+	assert.Equal(t, want, got)
+}

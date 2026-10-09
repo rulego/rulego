@@ -19,6 +19,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -564,6 +565,23 @@ func (r *RunSnapshot) createRuleChainRunLog(endTs int64) types.RuleChainRunSnaps
 		logs = append(logs, *item)
 	}
 	r.lock.RUnlock()
+	// Map iteration order is random, while consumers (run history, run diff)
+	// read Logs as an execution timeline: sort by node start time. Entries
+	// without an In flow (log-only) carry no StartTs and sort last; msg ts
+	// and node id break ties so the order is deterministic.
+	sort.SliceStable(logs, func(i, j int) bool {
+		ti, tj := logs[i].StartTs, logs[j].StartTs
+		if (ti == 0) != (tj == 0) {
+			return tj == 0
+		}
+		if ti != tj {
+			return ti < tj
+		}
+		if logs[i].InMsg.Ts != logs[j].InMsg.Ts {
+			return logs[i].InMsg.Ts < logs[j].InMsg.Ts
+		}
+		return logs[i].Id < logs[j].Id
+	})
 	ruleChainRunLog := types.RuleChainRunSnapshot{
 		RuleChain: *r.chainCtx.SelfDefinition,
 		Id:        r.msgId,
