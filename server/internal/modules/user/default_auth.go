@@ -33,6 +33,9 @@ type UserStateReader interface {
 // errUserDisabled 停用账号的认证拒绝。消息不含内部细节，可回给客户端。
 var errUserDisabled = errors.New("user is disabled")
 
+// errUserNotFound 账号不存在的认证拒绝（如已删除用户的存量 JWT）。
+var errUserNotFound = errors.New("user not found")
+
 // DefaultAuthenticator 默认认证器，使用 JWT + API Key 认证。
 type DefaultAuthenticator struct {
 	cfg   *config.Config
@@ -46,15 +49,16 @@ func NewDefaultAuthenticator(cfg *config.Config, roles RoleReader) *DefaultAuthe
 }
 
 // rolesOf 查询角色。无 RoleReader 时回退 admin，保证单用户部署行为不变。
-func (a *DefaultAuthenticator) rolesOf(username string) []string {
+// RoleReader 查不到角色说明账号已不存在（config 内置账号由 RoleReader 自行兜底），
+// 必须拒绝认证：宽松回退会让已删除账号的存量 JWT 反而拿到 admin。
+func (a *DefaultAuthenticator) rolesOf(username string) ([]string, error) {
 	if a.roles == nil {
-		return []string{model.RoleAdmin}
+		return []string{model.RoleAdmin}, nil
 	}
 	if r := a.roles.RolesOf(username); len(r) > 0 {
-		return r
+		return r, nil
 	}
-	// 认证通过但查不到角色（如 config 内置账号未落 store）：给 admin，不锁死管理员
-	return []string{model.RoleAdmin}
+	return nil, errUserNotFound
 }
 
 // Authenticate 从 authorization 头识别用户，并回填角色供授权器判权
@@ -64,7 +68,11 @@ func (a *DefaultAuthenticator) Authenticate(authorization string) (*model.UserCo
 		if a.isDisabled(username) {
 			return nil, errUserDisabled
 		}
-		return &model.UserContext{Username: username, Roles: a.rolesOf(username)}, nil
+		roles, err := a.rolesOf(username)
+		if err != nil {
+			return nil, err
+		}
+		return &model.UserContext{Username: username, Roles: roles}, nil
 	}
 	// 尝试 JWT
 	claim, err := parseToken(a.cfg, authorization)
@@ -76,7 +84,10 @@ func (a *DefaultAuthenticator) Authenticate(authorization string) (*model.UserCo
 		return nil, errUserDisabled
 	}
 	// JWT 里带的 role 只作参考，权威来源是 store（避免旧 token 携带过期角色）
-	roles := a.rolesOf(claim.Username)
+	roles, err := a.rolesOf(claim.Username)
+	if err != nil {
+		return nil, err
+	}
 	return &model.UserContext{Username: claim.Username, Roles: roles}, nil
 }
 

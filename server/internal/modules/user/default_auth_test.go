@@ -162,6 +162,32 @@ func TestDefaultAuthenticator_DisabledUser_JWT(t *testing.T) {
 	}
 }
 
+// 已删除账号（RolesOf 返回空且未停用）的存量 JWT 必须拒绝认证，
+// 不能落回宽泛的 admin 回退反被提权
+func TestDefaultAuthenticator_DeletedUser_JWT(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.InitUserMap()
+
+	stub := &stubUserState{disabled: map[string]bool{}, roles: map[string][]string{}}
+	auth := NewDefaultAuthenticator(&cfg, stub)
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, ruleGoClaim{
+		Username: "deleted-user",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+			Issuer:    cfg.JwtIssuer,
+		},
+	})
+	tokenStr, err := token.SignedString([]byte(cfg.JwtSecretKey))
+	if err != nil {
+		t.Fatalf("failed to create token: %v", err)
+	}
+
+	if _, err := auth.Authenticate("Bearer " + tokenStr); err == nil {
+		t.Error("已删除账号的 JWT 不应能认证")
+	}
+}
+
 // 未停用账号两条路径都要正常放行，停用检查不能误伤
 func TestDefaultAuthenticator_EnabledUser_StillPasses(t *testing.T) {
 	cfg := config.DefaultConfig()
