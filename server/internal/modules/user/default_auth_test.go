@@ -241,6 +241,10 @@ func TestDefaultAuthorizer_Roles(t *testing.T) {
 		{"editor 读 user 也拒", []string{model.RoleEditor}, constants.ResourceUser, "read", true},
 		// 审计是平台级数据，read 动作也不能对 editor/viewer 放行
 		{"editor 查审计应拒", []string{model.RoleEditor}, constants.ResourceAudit, "read", true},
+		// 全局配置同为平台级数据（含敏感键 reveal），仅 admin 可碰
+		{"editor 读全局配置应拒", []string{model.RoleEditor}, constants.ResourceConfig, "read", true},
+		{"editor 写全局配置应拒", []string{model.RoleEditor}, constants.ResourceConfig, "write", true},
+		{"viewer reveal 敏感键应拒", []string{model.RoleViewer}, constants.ResourceConfig, "write", true},
 
 		// viewer：只读通，写类全拒
 		{"viewer 读 rule", []string{model.RoleViewer}, "rule", "read", false},
@@ -251,6 +255,11 @@ func TestDefaultAuthorizer_Roles(t *testing.T) {
 		{"viewer 部署 rule 应拒", []string{model.RoleViewer}, "rule", "operate", true},
 		{"viewer 管 user 应拒", []string{model.RoleViewer}, constants.ResourceUser, "read", true},
 		{"viewer 查审计应拒", []string{model.RoleViewer}, constants.ResourceAudit, "read", true},
+		// iot 点位模板是租户内业务数据，权限与 rule 同档
+		{"editor 写点位模板", []string{model.RoleEditor}, constants.ResourceIot, "write", false},
+		{"editor 删点位模板", []string{model.RoleEditor}, constants.ResourceIot, "delete", false},
+		{"viewer 读点位模板", []string{model.RoleViewer}, constants.ResourceIot, "read", false},
+		{"viewer 写点位模板应拒", []string{model.RoleViewer}, constants.ResourceIot, "write", true},
 
 		// 无角色：视为 admin，保持升级前的开箱体验（见 default_auth.go 的 rolesOf）
 		{"无角色写 rule", nil, "rule", "write", false},

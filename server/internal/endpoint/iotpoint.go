@@ -19,7 +19,7 @@ func (s *Server) registerIoTPointRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
 	// GET /iot/point-templates - 模板列表（?protocol=&category= 筛选）
-	ep.GET(endpoint.NewRouter().From(base+"/iot/point-templates").Process(s.authWithPermission("config", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base+"/iot/point-templates").Process(s.authWithPermission(constants.ResourceIot, "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		svc, ok := getService[*iotpoint.Module](s, exchange, services.KeyIoTPointService)
 		if !ok {
 			return false
@@ -32,7 +32,7 @@ func (s *Server) registerIoTPointRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// GET /iot/point-templates/:id - 模板详情
-	ep.GET(endpoint.NewRouter().From(base+"/iot/point-templates/:id").Process(s.authWithPermission("config", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base+"/iot/point-templates/:id").Process(s.authWithPermission(constants.ResourceIot, "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		svc, ok := getService[*iotpoint.Module](s, exchange, services.KeyIoTPointService)
 		if !ok {
 			return false
@@ -53,7 +53,7 @@ func (s *Server) registerIoTPointRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// POST /iot/point-templates - 创建模板
-	ep.POST(endpoint.NewRouter().From(base+"/iot/point-templates").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.POST(endpoint.NewRouter().From(base+"/iot/point-templates").Process(s.authWithPermission(constants.ResourceIot, "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		svc, ok := getService[*iotpoint.Module](s, exchange, services.KeyIoTPointService)
 		if !ok {
 			return false
@@ -78,7 +78,7 @@ func (s *Server) registerIoTPointRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// PUT /iot/point-templates/:id - 更新模板
-	ep.PUT(endpoint.NewRouter().From(base+"/iot/point-templates/:id").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.PUT(endpoint.NewRouter().From(base+"/iot/point-templates/:id").Process(s.authWithPermission(constants.ResourceIot, "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		svc, ok := getService[*iotpoint.Module](s, exchange, services.KeyIoTPointService)
 		if !ok {
 			return false
@@ -109,7 +109,7 @@ func (s *Server) registerIoTPointRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// DELETE /iot/point-templates/:id - 删除模板（内置模板不可删）
-	ep.DELETE(endpoint.NewRouter().From(base+"/iot/point-templates/:id").Process(s.authWithPermission("config", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.DELETE(endpoint.NewRouter().From(base+"/iot/point-templates/:id").Process(s.authWithPermission(constants.ResourceIot, "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		svc, ok := getService[*iotpoint.Module](s, exchange, services.KeyIoTPointService)
 		if !ok {
 			return false

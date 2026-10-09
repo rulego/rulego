@@ -177,6 +177,10 @@ func (a *DefaultAuthorizer) Authorize(user *model.UserContext, resource, action 
 	if resource == constants.ResourceUser {
 		return &PermissionError{Resource: resource, Action: action}
 	}
+	// 全局配置是平台级数据（含敏感键 reveal），仅 admin 可碰
+	if resource == constants.ResourceConfig {
+		return &PermissionError{Resource: resource, Action: action}
+	}
 	if readOnlyActions[action] {
 		return nil
 	}

@@ -81,6 +81,8 @@ const (
 	ResourceLog   = "log"
 	ResourceUser  = "user"
 	ResourceAudit = "audit"
+	ResourceConfig = "config"
+	ResourceIot    = "iot"
 )
 
 // 消息类型
