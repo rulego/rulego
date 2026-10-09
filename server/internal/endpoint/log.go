@@ -11,6 +11,7 @@ import (
 	"github.com/rulego/rulego/endpoint"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/internal/modules/runlog"
+	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/services"
 )
 
@@ -18,7 +19,7 @@ func (s *Server) registerLogRoutes(ep endpointApi.HttpEndpoint) {
 	base := s.apiBasePath()
 
 	// GET /logs/runs - 获取运行日志
-	ep.GET(endpoint.NewRouter().From(base+"/logs/runs").Process(s.authWithPermission("log", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/logs/runs").Process(s.authWithPermission("log", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		runLogSvc, ok := getService[services.RunLogService](s, exchange, services.KeyRunLogService)
 		if !ok {
 			return false
@@ -66,7 +67,7 @@ func (s *Server) registerLogRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// DELETE /logs/runs - 删除运行日志
-	ep.DELETE(endpoint.NewRouter().From(base+"/logs/runs").Process(s.authWithPermission("log", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.DELETE(endpoint.NewRouter().From(base + "/logs/runs").Process(s.authWithPermission("log", "delete")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		runLogSvc, ok := getService[services.RunLogService](s, exchange, services.KeyRunLogService)
 		if !ok {
 			return false
@@ -80,26 +81,35 @@ func (s *Server) registerLogRoutes(ep endpointApi.HttpEndpoint) {
 		logId := strings.TrimSpace(exchange.In.GetParam("id"))
 
 		var err error
+		target := ""
 		switch {
 		case logId != "":
 			err = runLogSvc.Delete(username, logId)
+			target = "log:" + logId
 		case chainId != "":
 			err = runLogSvc.DeleteByChainId(username, chainId)
+			target = "log:runs:" + chainId
 		default:
-			exchange.Out.SetStatusCode(http.StatusBadRequest)
-			exchange.Out.SetBody([]byte("chainId or id is required"))
+			writeBadRequest(exchange, fmt.Errorf("chainId or id is required"))
 			return false
 		}
 		if err != nil {
 			writeInternalError(exchange, err)
 			return false
 		}
+		// 删除运行日志本身就是清痕动作，必须留审计
+		s.auditRecord(exchange, model.AuditEvent{
+			Actor:  username,
+			Action: "log:delete",
+			Target: target,
+			Result: model.AuditResultOK,
+		})
 		writeNoContent(exchange)
 		return true
 	}).End())
 
 	// GET /logs/debug - 获取节点调试日志（从内存存储读取）
-	ep.GET(endpoint.NewRouter().From(base+"/logs/debug").Process(s.authWithPermission("log", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+	ep.GET(endpoint.NewRouter().From(base + "/logs/debug").Process(s.authWithPermission("log", "read")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		msg := exchange.In.GetMsg()
 		chainId := msg.Metadata.GetValue(constants.KeyChainId)
 		if chainId != "" && !validateId(chainId) {
