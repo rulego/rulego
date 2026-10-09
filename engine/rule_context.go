@@ -346,6 +346,11 @@ type DefaultRuleContext struct {
 	// joinArrivalSettled 标记本上下文到父节点的边已在 TellCollect 到达时提前
 	// 结清。本子树（join 续流）完成后的向上传递只能通知，不得再扣减父链计数
 	joinArrivalSettled int32
+	// settlePending 置 1 表示 join 续流的完成传播曾在本上下文因 waitingCount>0
+	// 停下（有分支边未结清）。之后边结清路径把计数归零时据此补触发完成块。
+	// 没有它，续流传播与最后到达分支的结清交错时两条路径都不会触发完成回调：
+	// 传播侧停在计数>0，结清侧（childDoneWithoutCallback）按设计不触发完成
+	settlePending int32
 	// Parent rule context.
 	parentRuleCtx *DefaultRuleContext
 	// Event that triggers once when all child nodes have completed, executed only once.
@@ -1192,10 +1197,15 @@ func (ctx *DefaultRuleContext) onSubtreeCompleted(propagate bool) {
 // 到达 join 时已提前结清，向上不得再扣减计数。同一条边被结清两次会让祖先计数
 // 提前归零，LCA 节点被过早标记完成，下游 join 的排空兜底将带不完整集合提前放行。
 // 沿途只对计数已归零（全部边已结清）的祖先补触发完成块，遇到计数>0 的祖先即止。
+// 停下时置位该祖先的 settlePending 并复查计数：若随后到达分支的结清恰好归零，
+// 由结清路径补触发（见 childDoneWithoutCallback），否则完成回调不会被任何路径触发
 func (ctx *DefaultRuleContext) notifySettledAncestors() {
 	for p := ctx; p != nil; p = p.parentRuleCtx {
 		if atomic.LoadInt32(&p.waitingCount) > 0 {
-			return
+			atomic.StoreInt32(&p.settlePending, 1)
+			if atomic.LoadInt32(&p.waitingCount) > 0 {
+				return
+			}
 		}
 		if atomic.CompareAndSwapInt32(&p.onAllNodeCompletedDone, 0, 1) {
 			p.onSubtreeCompleted(false)
@@ -1240,15 +1250,25 @@ func (ctx *DefaultRuleContext) childDoneWithoutCallback() {
 			//记录当前节点执行完成
 			observer.executedNode(selfId)
 		}
+
+		// join 续流的完成传播曾在本节点因计数>0 停下并置位 settlePending：此刻
+		// 本分支边结清归零，续流必然已经跑完，由这里补触发完成块并继续向上
+		if atomic.LoadInt32(&ctx.settlePending) == 1 {
+			ctx.notifySettledAncestors()
+		}
 	}
 }
 
 // replaySettledAncestors join 续流的到达结清重放：只对计数已归零的祖先补
-// executedNode，不扣减计数、不触发 onAllNodeCompleted，遇到计数>0 的祖先即止
+// executedNode，不扣减计数、不触发 onAllNodeCompleted，遇到计数>0 的祖先即止。
+// 停下时的置位与复查同 notifySettledAncestors
 func (ctx *DefaultRuleContext) replaySettledAncestors() {
 	for p := ctx; p != nil; p = p.parentRuleCtx {
 		if atomic.LoadInt32(&p.waitingCount) > 0 {
-			return
+			atomic.StoreInt32(&p.settlePending, 1)
+			if atomic.LoadInt32(&p.waitingCount) > 0 {
+				return
+			}
 		}
 		parentRuleCtx := p.parentRuleCtx
 		selfId := p.GetSelfId()

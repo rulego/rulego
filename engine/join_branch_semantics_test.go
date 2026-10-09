@@ -528,3 +528,62 @@ func TestJoinHighVolumeNoPartialMerge(t *testing.T) {
 	assert.True(t, atomic.LoadInt32(&badOutputs) == 0,
 		"join 在高并发下出现部分合并，badOutputs=%d", atomic.LoadInt32(&badOutputs))
 }
+
+// TestJoinHighVolumeWaitModeNoHang OnMsgAndWait 高压版。wait 模式阻塞在链完成
+// 回调上，异步 OnMsg 版（上方用例）观测不到回调丢失。回归场景：join 续流的
+// 完成传播与最后到达分支的边结清交错时，完成回调不会被任何路径触发，wait 永久挂死
+func TestJoinHighVolumeWaitModeNoHang(t *testing.T) {
+	js := func(id string) string {
+		return fmt.Sprintf(`{"id":%q,"type":"jsTransform","name":%q,"configuration":{"jsScript":"msg='%s'; return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}}`, id, id, id)
+	}
+	nodes := []string{
+		`{"id":"fork","type":"fork","name":"fork"}`,
+		js("b1"), js("b2"), js("b3"), js("b4"),
+		`{"id":"J","type":"join","name":"J","configuration":{"mergeToMap":true,"timeout":5}}`,
+		`{"id":"tail","type":"jsTransform","name":"tail","configuration":{"jsScript":"return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}}`,
+	}
+	conns := [][2]string{
+		{"fork", "b1"}, {"fork", "b2"}, {"fork", "b3"}, {"fork", "b4"},
+		{"b1", "J"}, {"b2", "J"}, {"b3", "J"}, {"b4", "J"},
+		{"J", "tail"},
+	}
+	connList := make([]string, 0, len(conns))
+	for _, c := range conns {
+		connList = append(connList, fmt.Sprintf(`{"fromId":%q,"toId":%q,"type":"Success"}`, c[0], c[1]))
+	}
+	dsl := fmt.Sprintf(`{"ruleChain":{"id":"join_wait_high_volume_test"},"metadata":{"nodes":[%s],"connections":[%s]}}`,
+		strings.Join(nodes, ","), strings.Join(connList, ","))
+
+	config := NewConfig(types.WithDefaultPool())
+	e, err := New("join_wait_high_volume_test", []byte(dsl), WithConfig(config))
+	assert.Nil(t, err)
+
+	// 每条消息限时：join 兜底超时 5s，正常完成在毫秒级，10s 仍不返回即视为挂死
+	const waitTimeout = 10 * time.Second
+	var hangs int32
+	var wg sync.WaitGroup
+	workers := 8
+	perWorker := 500
+	wg.Add(workers)
+	for w := 0; w < workers; w++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < perWorker; i++ {
+				done := make(chan struct{})
+				go func() {
+					defer close(done)
+					e.OnMsgAndWait(types.NewMsg(0, "T", types.JSON, nil, "{}"))
+				}()
+				select {
+				case <-done:
+				case <-time.After(waitTimeout):
+					atomic.AddInt32(&hangs, 1)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	assert.True(t, atomic.LoadInt32(&hangs) == 0,
+		"wait 模式挂死 %d 次（链完成回调丢失）", atomic.LoadInt32(&hangs))
+}
