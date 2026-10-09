@@ -371,7 +371,7 @@ func TestRuleModule_DeployUndeploy(t *testing.T) {
 		"metadata": {"nodes": [], "connections": []}
 	}`
 	if err := m.SaveAndLoad("admin", "deploy-test", []byte(chainDef)); err != nil {
-		t.Fatal(err)
+		t.Fatalf("SaveAndLoad: %v", err)
 	}
 
 	// Undeploy
@@ -382,6 +382,57 @@ func TestRuleModule_DeployUndeploy(t *testing.T) {
 	// 重新 Deploy
 	if err := m.Deploy("admin", "deploy-test"); err != nil {
 		t.Fatalf("Deploy: %v", err)
+	}
+}
+
+// 已下线的链不在引擎池：基础信息/链配置保存必须落在存储 DSL 副本上，
+// 保留全部节点与下线状态，不能按新链重建清空并悄悄上线
+func TestRuleModule_SaveBaseInfo_UndeployedChain(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	chainDef := `{
+		"ruleChain": {"id": "offline-base", "name": "Offline Base"},
+		"metadata": {"nodes": [{"id": "n1", "type": "jsFilter", "name": "keep-me"}], "connections": []}
+	}`
+	if err := m.SaveAndLoad("admin", "offline-base", []byte(chainDef)); err != nil {
+		t.Fatalf("SaveAndLoad: %v", err)
+	}
+	if err := m.Undeploy("admin", "offline-base"); err != nil {
+		t.Fatalf("Undeploy: %v", err)
+	}
+
+	if err := m.SaveBaseInfo("admin", "offline-base", types.RuleChainBaseInfo{Name: "Renamed"}); err != nil {
+		t.Fatalf("SaveBaseInfo on undeployed chain: %v", err)
+	}
+	if err := m.SaveConfiguration("admin", "offline-base", "myVar", "v1"); err != nil {
+		t.Fatalf("SaveConfiguration on undeployed chain: %v", err)
+	}
+
+	def, err := m.Get("admin", "offline-base")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	var saved types.RuleChain
+	if err := json.Unmarshal(def, &saved); err != nil {
+		t.Fatalf("unmarshal saved def: %v", err)
+	}
+	if saved.RuleChain.Name != "Renamed" {
+		t.Errorf("name = %q, want Renamed", saved.RuleChain.Name)
+	}
+	if len(saved.Metadata.Nodes) != 1 || saved.Metadata.Nodes[0].Id != "n1" {
+		t.Errorf("nodes = %v, want single node n1 to survive", saved.Metadata.Nodes)
+	}
+	if v, ok := saved.RuleChain.Configuration["myVar"]; !ok || v != "v1" {
+		t.Errorf("configuration[myVar] = %v,%v want v1", v, ok)
+	}
+	if !saved.RuleChain.Disabled {
+		t.Error("chain should stay disabled after base info / configuration save")
+	}
+	if _, ok := m.GetEngine("admin", "offline-base"); ok {
+		t.Error("chain should not be redeployed by base info / configuration save")
 	}
 }
 

@@ -423,21 +423,7 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 		if err != nil {
 			return err
 		}
-		// 保留原有 systemAgent 标记（系统智能体编辑后仍保持受保护），其余以提交的 additionalInfo 为准
-		sysAgent, _ := def.RuleChain.GetAdditionalInfo(constants.KeySystemAgent)
-		def.RuleChain.AdditionalInfo = baseInfo.AdditionalInfo
-		if def.RuleChain.AdditionalInfo == nil {
-			def.RuleChain.AdditionalInfo = make(map[string]interface{})
-		}
-		if sysAgent != nil {
-			def.RuleChain.AdditionalInfo[constants.KeySystemAgent] = sysAgent
-		}
-		// Keep the chain ID aligned with the storage key.
-		def.RuleChain.ID = chainId
-		def.RuleChain.Name = baseInfo.Name
-		def.RuleChain.Root = baseInfo.Root
-		def.RuleChain.DebugMode = baseInfo.DebugMode
-		_ = maps.Map2Struct(baseInfo.Configuration, &def.RuleChain.Configuration)
+		m.applyBaseInfo(def, chainId, baseInfo)
 		m.fillAdditionalInfo(ue, def)
 		defBytes, err := json.Marshal(def)
 		if err != nil {
@@ -451,6 +437,27 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 			return err
 		}
 		return ue.RuleStore().Save(username, chainId, formatted)
+	}
+	// 引擎未命中不等于链不存在：已下线的链不在引擎池里。存储已有该链时
+	// 在存储 DSL 副本上合并基础信息，保持下线状态，不重新上线
+	if stored, err := ue.RuleStore().Get(username, chainId); err == nil {
+		var def types.RuleChain
+		if err := json.Unmarshal(stored, &def); err != nil {
+			return err
+		}
+		m.applyBaseInfo(&def, chainId, baseInfo)
+		m.fillAdditionalInfo(ue, &def)
+		defBytes, err := json.Marshal(def)
+		if err != nil {
+			return err
+		}
+		formatted, err := json.Format(defBytes)
+		if err != nil {
+			return err
+		}
+		return ue.RuleStore().Save(username, chainId, formatted)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 	def := types.RuleChain{RuleChain: baseInfo}
 	// Keep the chain ID aligned with the storage key.
@@ -466,6 +473,25 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 	return ue.RuleStore().Save(username, chainId, defBytes)
 }
 
+// applyBaseInfo 把基础信息合并进链定义：保留定义里已有的 systemAgent 标记
+// （系统智能体编辑后仍保持受保护），其余字段以提交的 baseInfo 为准
+func (m *Module) applyBaseInfo(def *types.RuleChain, chainId string, baseInfo types.RuleChainBaseInfo) {
+	sysAgent, _ := def.RuleChain.GetAdditionalInfo(constants.KeySystemAgent)
+	def.RuleChain.AdditionalInfo = baseInfo.AdditionalInfo
+	if def.RuleChain.AdditionalInfo == nil {
+		def.RuleChain.AdditionalInfo = make(map[string]interface{})
+	}
+	if sysAgent != nil {
+		def.RuleChain.AdditionalInfo[constants.KeySystemAgent] = sysAgent
+	}
+	// Keep the chain ID aligned with the storage key.
+	def.RuleChain.ID = chainId
+	def.RuleChain.Name = baseInfo.Name
+	def.RuleChain.Root = baseInfo.Root
+	def.RuleChain.DebugMode = baseInfo.DebugMode
+	_ = maps.Map2Struct(baseInfo.Configuration, &def.RuleChain.Configuration)
+}
+
 func (m *Module) SaveConfiguration(username, chainId string, key string, configuration interface{}) error {
 	if chainId == "" {
 		return errors.New("chainId is empty")
@@ -479,7 +505,7 @@ func (m *Module) SaveConfiguration(username, chainId string, key string, configu
 	_ = ue.SaveSetting(constants.SettingKeyLatestChainId, chainId)
 	ruleEngine, ok := ue.GetEngine(chainId)
 	if !ok {
-		return errors.New("chain not found: " + chainId)
+		return m.saveConfigurationToStore(ue, username, chainId, key, configuration)
 	}
 	self, err := snapshotDefinition(ruleEngine)
 	if err != nil {
@@ -495,6 +521,36 @@ func (m *Module) SaveConfiguration(username, chainId string, key string, configu
 		return err
 	}
 	if err := ruleEngine.ReloadSelf(defBytes); err != nil {
+		return err
+	}
+	formatted, err := json.Format(defBytes)
+	if err != nil {
+		return err
+	}
+	return ue.RuleStore().Save(username, chainId, formatted)
+}
+
+// saveConfigurationToStore 在存储 DSL 副本上落链配置。已下线的链不在引擎池，
+// 直接改存储并保持下线状态，避免「改个变量把链改没/悄悄上线」
+func (m *Module) saveConfigurationToStore(ue services.UserEngine, username, chainId, key string, configuration interface{}) error {
+	stored, err := ue.RuleStore().Get(username, chainId)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return errors.New("chain not found: " + chainId)
+		}
+		return err
+	}
+	var self types.RuleChain
+	if err := json.Unmarshal(stored, &self); err != nil {
+		return err
+	}
+	if self.RuleChain.Configuration == nil {
+		self.RuleChain.Configuration = make(types.Configuration)
+	}
+	self.RuleChain.Configuration[key] = configuration
+	m.fillAdditionalInfo(ue, &self)
+	defBytes, err := json.Marshal(self)
+	if err != nil {
 		return err
 	}
 	formatted, err := json.Format(defBytes)
