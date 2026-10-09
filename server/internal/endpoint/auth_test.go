@@ -97,6 +97,16 @@ func TestAuthWithPermission(t *testing.T) {
 		}
 	})
 
+	t.Run("免鉴权匿名默认admin可写全局配置", func(t *testing.T) {
+		srv := newAuthServer(false)
+		srv.config.Users = map[string]string{"admin": "pass,admin-key"}
+		srv.config.InitUserMap()
+		exchange := newTestExchange(t)
+		if !srv.authWithPermission("config", "write")(nil, exchange) {
+			t.Fatalf("expected anonymous admin to pass config:write, got status %d", outStatus(exchange))
+		}
+	})
+
 	t.Run("鉴权开启下无效token仍401", func(t *testing.T) {
 		srv := newAuthServer(true)
 		exchange := newTestExchange(t)

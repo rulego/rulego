@@ -6,6 +6,8 @@ import (
 
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
+	"github.com/rulego/rulego/server/internal/modules/user"
+	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/utils/str"
 )
@@ -46,7 +48,6 @@ func TestMcpModuleStartStop(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
 
 func TestRegisterTool(t *testing.T) {
 	m := New()
@@ -123,5 +124,38 @@ func TestRegisterTool_ListDefinitions(t *testing.T) {
 	}
 	if len(defs) != 2 {
 		t.Errorf("ListToolDefinitions returned %d defs, want 2", len(defs))
+	}
+}
+
+type stubUserAdmin struct {
+	roles map[string][]string
+}
+
+func (s *stubUserAdmin) List() []model.User                     { return nil }
+func (s *stubUserAdmin) Get(username string) (model.User, bool) { return model.User{}, false }
+func (s *stubUserAdmin) Save(user model.User) error             { return nil }
+func (s *stubUserAdmin) Delete(username string) error           { return nil }
+func (s *stubUserAdmin) RolesOf(username string) []string       { return s.roles[username] }
+
+// mcpAuthorize 走与 REST 同一套授权器：viewer 拒写、admin 放行；
+// 宿主未注册授权器（嵌入模式）时放行
+func TestMcpAuthorize(t *testing.T) {
+	m := New()
+	m.container = app.NewContainer()
+	m.container.Register(services.KeyAuthorizer, user.NewDefaultAuthorizer())
+	m.container.Register(services.KeyUserAdmin, &stubUserAdmin{
+		roles: map[string][]string{"viewer1": {"viewer"}, "admin1": {"admin"}},
+	})
+	if err := m.mcpAuthorize("viewer1", "rule", "write"); err == nil {
+		t.Error("viewer should be denied on rule:write")
+	}
+	if err := m.mcpAuthorize("admin1", "rule", "delete"); err != nil {
+		t.Errorf("admin should pass rule:delete, got %v", err)
+	}
+
+	bare := New()
+	bare.container = app.NewContainer()
+	if err := bare.mcpAuthorize("anyone", "rule", "delete"); err != nil {
+		t.Errorf("no authorizer registered should allow, got %v", err)
 	}
 }
