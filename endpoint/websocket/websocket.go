@@ -222,6 +222,15 @@ func (r *ResponseMessage) GetError() error {
 	return r.err
 }
 
+// Close closes the underlying websocket connection. Intended for EventConnect
+// handlers that must reject a connection (e.g. failed authentication): without
+// an explicit close the handler keeps the connection in its read loop.
+func (r *ResponseMessage) Close() {
+	if r.sender != nil {
+		_ = r.sender.Close()
+	}
+}
+
 // Config Websocket 服务配置
 // Config 是 ws endpoint 的配置，嵌入 rest.Config（HTTP server）+ ws 专属的会话字段。
 // 嵌入 rest.Config（squash 平铺）让 reflect 表单和 Map2Struct 同时覆盖 HTTP 字段和会话字段。
