@@ -246,17 +246,8 @@ func (s *Server) registerUserRoutes(ep endpointApi.HttpEndpoint) {
 		}
 		target := metadataValue(exchange, "targetUsername")
 		operator := metadataUsername(exchange)
-		if target == "" {
-			writeBadRequest(exchange, errInvalidUsername)
-			return false
-		}
-		if target == operator {
-			writeError(exchange, http.StatusBadRequest, errCannotDeleteSelf)
-			return false
-		}
-		// 默认租户是 require_auth=false 的匿名兜底身份，删了系统会失去登录入口
-		if du := s.defaultUsername(); du != "" && target == du {
-			writeError(exchange, http.StatusBadRequest, errCannotDeleteDefault)
+		if err := s.validateDeleteTarget(target, operator); err != nil {
+			writeError(exchange, http.StatusBadRequest, err)
 			return false
 		}
 		// 先停引擎再清数据：否则残留引擎继续跑 endpoint 占端口

@@ -19,6 +19,9 @@ var (
 	errCannotDeleteSelf     = errors.New("cannot delete the current user")
 	// errCannotDeleteDefault 默认租户是 require_auth=false 的匿名兜底身份，删了系统会失去登录入口。
 	errCannotDeleteDefault = errors.New("cannot delete the default tenant")
+	// errCannotDeleteConfigUser config.conf 定义的账号：store 删除是假成功（无键可删），
+	// 密码仍在配置里可登录， purge 还会清掉其数据目录
+	errCannotDeleteConfigUser = errors.New("cannot delete a config.conf account, remove it from the config file instead")
 )
 
 // maxUsernameLen username 长度上限
@@ -75,4 +78,24 @@ func (s *Server) stopUserEngine(username string) error {
 		return nil
 	}
 	return mgr.Remove(username)
+}
+
+// validateDeleteTarget 删除用户的目标守卫：操作者自身、默认租户、config.conf
+// 内置账号都不可删。返回的错误可直接回给客户端（400）
+func (s *Server) validateDeleteTarget(target, operator string) error {
+	if target == "" {
+		return errInvalidUsername
+	}
+	if target == operator {
+		return errCannotDeleteSelf
+	}
+	// 默认租户是 require_auth=false 的匿名兜底身份，删了系统会失去登录入口
+	if du := s.defaultUsername(); du != "" && target == du {
+		return errCannotDeleteDefault
+	}
+	// config.conf 定义的账号：store 无键可删返回假成功，密码仍在配置里可登录
+	if s.config != nil && s.config.CheckUserExists(target) {
+		return errCannotDeleteConfigUser
+	}
+	return nil
 }
