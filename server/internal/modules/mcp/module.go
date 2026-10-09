@@ -125,6 +125,7 @@ import (
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/constants"
 	"github.com/rulego/rulego/server/internal/registry"
+	"github.com/rulego/rulego/server/model"
 	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/utils/dsl"
 	"github.com/rulego/rulego/utils/str"
@@ -757,6 +758,28 @@ func (m *Module) ruleChainToolHandler(chainId string) func(ctx context.Context, 
 
 // --- Management API Tools ---
 
+// mcpAuthorize 对 MCP 工具的管理面操作判权，走与 REST 路由同一套授权器，
+// 避免 apiKey 通道绕过三档角色模型。宿主未装授权器（嵌入模式裁掉 user 模块）时放行。
+func (m *Module) mcpAuthorize(username, resource, action string) error {
+	authorizer, err := app.GetAs[services.Authorizer](m.container, services.KeyAuthorizer)
+	if err != nil {
+		return nil
+	}
+	roles := []string{}
+	if ua, err := app.GetAs[services.UserAdmin](m.container, services.KeyUserAdmin); err == nil {
+		roles = ua.RolesOf(username)
+	}
+	return authorizer.Authorize(&model.UserContext{Username: username, Roles: roles}, resource, action)
+}
+
+// mcpAudit 记录 MCP 通道的管理面变更审计。工具层拿不到 HTTP exchange，
+// IP/UA 留空，Op 标记来源 mcp；审计未启用时静默跳过（与 REST 侧一致）。
+func (m *Module) mcpAudit(event model.AuditEvent) {
+	if svc, err := app.GetAs[services.AuditService](m.container, services.KeyAuditService); err == nil {
+		svc.Record(event)
+	}
+}
+
 // addRuleApiTools 添加规则链管理 API 工具
 func (m *Module) addRuleApiTools(state *userMcpState, username string) {
 	m.addListRuleChainsTool(state.mcpServer, username)
@@ -869,10 +892,20 @@ func (m *Module) addSaveRuleChainTool(mcpServer *mcpserver.MCPServer, username s
 			return mcp.NewToolResultText(warnMsg), nil
 		}
 
+		if err := m.mcpAuthorize(username, constants.ResourceRule, "write"); err != nil {
+			return nil, err
+		}
 		err = m.admin.SaveAndLoad(username, idStr, b)
 		if err != nil {
 			return nil, err
 		}
+		m.mcpAudit(model.AuditEvent{
+			Actor:  username,
+			Action: "rule:write",
+			Op:     "mcp",
+			Target: "rule:" + idStr,
+			Result: model.AuditResultOK,
+		})
 		return mcp.NewToolResultText("save ok"), nil
 	})
 }
@@ -929,10 +962,20 @@ func (m *Module) addDeleteRuleChainTool(mcpServer *mcpserver.MCPServer, username
 		if !constants.IsValidId(idStr) {
 			return nil, errors.New("invalid id")
 		}
+		if err := m.mcpAuthorize(username, constants.ResourceRule, "delete"); err != nil {
+			return nil, err
+		}
 		err := m.admin.Delete(username, idStr)
 		if err != nil {
 			return nil, err
 		}
+		m.mcpAudit(model.AuditEvent{
+			Actor:  username,
+			Action: "rule:delete",
+			Op:     "mcp",
+			Target: "rule:" + idStr,
+			Result: model.AuditResultOK,
+		})
 		return mcp.NewToolResultText("delete ok"), nil
 	})
 }
@@ -951,6 +994,9 @@ func (m *Module) addOperateRuleChainTool(mcpServer *mcpserver.MCPServer, usernam
 			return nil, errors.New("invalid id")
 		}
 		action := strings.ToLower(str.ToString(request.GetArguments()["action"]))
+		if err := m.mcpAuthorize(username, constants.ResourceRule, "operate"); err != nil {
+			return nil, err
+		}
 		var err error
 		var msg string
 		switch action {
@@ -966,6 +1012,13 @@ func (m *Module) addOperateRuleChainTool(mcpServer *mcpserver.MCPServer, usernam
 		if err != nil {
 			return nil, err
 		}
+		m.mcpAudit(model.AuditEvent{
+			Actor:  username,
+			Action: "rule:operate",
+			Op:     "mcp:" + action,
+			Target: "rule:" + id,
+			Result: model.AuditResultOK,
+		})
 		return mcp.NewToolResultText(msg), nil
 	})
 }
@@ -979,6 +1032,9 @@ func (m *Module) addExecuteRuleChainTool(mcpServer *mcpserver.MCPServer, usernam
 		id := str.ToString(request.GetArguments()["id"])
 		if id == "" {
 			return nil, errors.New("id is required")
+		}
+		if err := m.mcpAuthorize(username, constants.ResourceRule, "execute"); err != nil {
+			return nil, err
 		}
 		ruleMsg := types.NewMsgWithJsonData(str.ToString(request.GetArguments()["message"]))
 		wg := sync.WaitGroup{}
