@@ -287,6 +287,183 @@ func TestJoinComplexTopologyWithFlowNodes(t *testing.T) {
 	assert.True(t, assemblyAt >= holderAt, "部装区必须在两支都到齐后执行")
 }
 
+// TestJoinBypassSlowPredNotReleasedEarly 二级 join 的未送达前驱是纯旁路慢支
+// （不在任何 join 下游）时，不得被提前放行。join 续流消息的到达级联若把已
+// 结清的边再扣一次，fork 会被提前标记完成，二级 join 的 LCA 排空兜底就会
+// 带不完整集合提前放行、慢支后到消息被丢弃：
+//
+//	fork → A1 → J1        fork → Bd(800ms) → B → J2
+//	fork → A2 → J1        J1 → M → J2
+func TestJoinBypassSlowPredNotReleasedEarly(t *testing.T) {
+	js := func(id string) string {
+		return fmt.Sprintf(`{"id":%q,"type":"jsTransform","name":%q,"configuration":{"jsScript":"msg='%s'; return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}}`, id, id, id)
+	}
+	nodes := []string{
+		`{"id":"fork","type":"fork","name":"fork"}`,
+		js("A1"), js("A2"),
+		`{"id":"J1","type":"join","name":"J1","configuration":{"mergeToMap":false,"timeout":5}}`,
+		js("M"),
+		`{"id":"Bd","type":"delay","name":"Bd","configuration":{"delayMs":"800"}}`,
+		js("B"),
+		`{"id":"J2","type":"join","name":"J2","configuration":{"mergeToMap":true,"timeout":5}}`,
+		js("out"),
+	}
+	conns := [][2]string{
+		{"fork", "A1"}, {"fork", "A2"}, {"fork", "Bd"},
+		{"A1", "J1"}, {"A2", "J1"},
+		{"J1", "M"}, {"M", "J2"},
+		{"Bd", "B"}, {"B", "J2"},
+		{"J2", "out"},
+	}
+	connList := make([]string, 0, len(conns))
+	for _, c := range conns {
+		connList = append(connList, fmt.Sprintf(`{"fromId":%q,"toId":%q,"type":"Success"}`, c[0], c[1]))
+	}
+	dsl := fmt.Sprintf(`{"ruleChain":{"id":"join_bypass_slow_pred_test"},"metadata":{"nodes":[%s],"connections":[%s]}}`,
+		strings.Join(nodes, ","), strings.Join(connList, ","))
+
+	rec := runJoinBranchChain(t, "join_bypass_slow_pred_test", []byte(dsl), 2*time.Second)
+
+	j2At, ok := rec.elapsed("J2")
+	assert.True(t, ok, "二级 join 应完成")
+	assert.True(t, j2At >= 500*time.Millisecond, "J2 必须等纯旁路慢支 B(800ms) 送达才放行，实际 %v", j2At)
+	merged := parseMergeMap(t, rec.output("J2"))
+	_, hasM := merged["M"]
+	assert.True(t, hasM, "一级 join 续流数据应进入二级合并")
+	_, hasB := merged["B"]
+	assert.True(t, hasB, "旁路慢支数据不得因提前放行被丢弃")
+	_, ok = rec.elapsed("out")
+	assert.True(t, ok, "二级 join 下游应执行")
+}
+
+// 循环体每轮迭代经 TellNode 全新 observer 执行，体内 join 的等待与触发
+// 不跨迭代残留，也不会阻塞迭代推进。TellNode 子执行不携带 runSnapshot，
+// 体内节点对 WithOnNodeCompleted 不可见，断言走 for 节点 mode=1 收集的
+// 各轮结果（join 合并输出经循环体终点汇入 out 节点）。
+
+// runLoopJoinChain 执行循环+join 链，返回 out 节点（for 下游）的输出数组
+func runLoopJoinChain(t *testing.T, chainId string, dsl string) ([]map[string]interface{}, time.Duration) {
+	t.Helper()
+	rec := newJoinBranchRecorder()
+	config := NewConfig(types.WithDefaultPool())
+	ruleEngine, err := New(chainId, []byte(dsl), WithConfig(config))
+	assert.Nil(t, err)
+	ruleEngine.OnMsg(types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, nil, `{}`),
+		types.WithOnNodeCompleted(rec.onComplete))
+	time.Sleep(2 * time.Second)
+
+	outAt, ok := rec.elapsed("out")
+	assert.True(t, ok, "循环完成后下游 out 应执行")
+	var list []interface{}
+	assert.Nil(t, json.Unmarshal([]byte(rec.output("out")), &list))
+	merged := make([]map[string]interface{}, 0, len(list))
+	for _, item := range list {
+		m, ok := item.(map[string]interface{})
+		assert.True(t, ok, "每轮结果应为对象，实际 %v", item)
+		merged = append(merged, m)
+	}
+	return merged, outAt
+}
+
+// TestForLoopBodyJoinPerIteration 循环体内 fork/join 每轮独立合并：
+//
+//	for(1..3, mode=1) → bodyFork → bA → J_body → tail
+//	                         └───→ bB → J_body
+//	for → out
+//
+// 每轮 J_body 必须集齐当轮的 bA、bB（值带当轮 _loopItem），不得跨轮混数或丢支
+func TestForLoopBodyJoinPerIteration(t *testing.T) {
+	js := func(id string) string {
+		return fmt.Sprintf(`{"id":%q,"type":"jsTransform","name":%q,"configuration":{"jsScript":"msg='%s'+metadata._loopItem; return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}}`, id, id, id)
+	}
+	dsl := fmt.Sprintf(`{
+	  "ruleChain": {"id": "join_loop_body_test", "name": "join_loop_body"},
+	  "metadata": {
+	    "nodes": [
+	      {"id":"forNode","type":"for","name":"循环","configuration":{"range":"1..3","do":"bodyFork","mode":1}},
+	      {"id":"bodyFork","type":"fork","name":"循环体分支"},
+	      %s,%s,
+	      {"id":"J_body","type":"join","name":"体内合并","configuration":{"mergeToMap":true,"timeout":5}},
+	      {"id":"tail","type":"jsTransform","name":"tail","configuration":{"jsScript":"return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}},
+	      {"id":"out","type":"jsTransform","name":"out","configuration":{"jsScript":"return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}}
+	    ],
+	    "connections": [
+	      {"fromId":"bodyFork","toId":"bA","type":"Success"},
+	      {"fromId":"bodyFork","toId":"bB","type":"Success"},
+	      {"fromId":"bA","toId":"J_body","type":"Success"},
+	      {"fromId":"bB","toId":"J_body","type":"Success"},
+	      {"fromId":"J_body","toId":"tail","type":"Success"},
+	      {"fromId":"forNode","toId":"out","type":"Success"}
+	    ]
+	  }
+	}`, js("bA"), js("bB"))
+
+	mergedList, outAt := runLoopJoinChain(t, "join_loop_body_test", dsl)
+
+	assert.True(t, len(mergedList) == 3, "三轮迭代应各产出一次合并，实际 %d 次", len(mergedList))
+	seen := make(map[string]bool)
+	for _, m := range mergedList {
+		a, hasA := m["bA"]
+		b, hasB := m["bB"]
+		assert.True(t, hasA && hasB, "每轮合并必须集齐 bA、bB 两支，实际 %v", m)
+		seen[fmt.Sprintf("%v|%v", a, b)] = true
+	}
+	assert.True(t, len(seen) == 3, "三轮合并值应各不相同（各带当轮 item），实际 %v", seen)
+	assert.True(t, outAt < 1500*time.Millisecond, "循环不应阻塞等待 join 超时，实际 %v", outAt)
+}
+
+// TestForLoopBodyJoinConditionalFallback 循环体内条件分支只有一路执行时，
+// join 靠 LCA 排空兜底当轮放行，不得等超时、不得跨轮残留：
+//
+//	for(1..3, mode=1) → swich ─True→ tA → J_body2 → tail2
+//	                   └─False→ tB → J_body2
+//	for → out
+func TestForLoopBodyJoinConditionalFallback(t *testing.T) {
+	js := func(id string) string {
+		return fmt.Sprintf(`{"id":%q,"type":"jsTransform","name":%q,"configuration":{"jsScript":"msg='%s'+metadata._loopItem; return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}}`, id, id, id)
+	}
+	dsl := fmt.Sprintf(`{
+	  "ruleChain": {"id": "join_loop_cond_test", "name": "join_loop_cond"},
+	  "metadata": {
+	    "nodes": [
+	      {"id":"forNode","type":"for","name":"循环","configuration":{"range":"1..3","do":"swich","mode":1}},
+	      {"id":"swich","type":"jsFilter","name":"按item分流","configuration":{"jsScript":"return Number(metadata._loopItem) %% 2 == 1;"}},
+	      %s,%s,
+	      {"id":"J_body2","type":"join","name":"体内合并","configuration":{"mergeToMap":true,"timeout":5}},
+	      {"id":"tail2","type":"jsTransform","name":"tail2","configuration":{"jsScript":"return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}},
+	      {"id":"out","type":"jsTransform","name":"out","configuration":{"jsScript":"return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}}
+	    ],
+	    "connections": [
+	      {"fromId":"swich","toId":"tA","type":"True"},
+	      {"fromId":"swich","toId":"tB","type":"False"},
+	      {"fromId":"tA","toId":"J_body2","type":"Success"},
+	      {"fromId":"tB","toId":"J_body2","type":"Success"},
+	      {"fromId":"J_body2","toId":"tail2","type":"Success"},
+	      {"fromId":"forNode","toId":"out","type":"Success"}
+	    ]
+	  }
+	}`, js("tA"), js("tB"))
+
+	mergedList, outAt := runLoopJoinChain(t, "join_loop_cond_test", dsl)
+
+	assert.True(t, len(mergedList) == 3, "三轮迭代应各产出一次合并，实际 %d 次", len(mergedList))
+	found := map[string]bool{}
+	for _, m := range mergedList {
+		_, hasA := m["tA"]
+		_, hasB := m["tB"]
+		assert.True(t, hasA != hasB, "每轮只有一路进入合并，实际 %v", m)
+		if hasA {
+			found[fmt.Sprintf("%v", m["tA"])] = true
+		}
+		if hasB {
+			found[fmt.Sprintf("%v", m["tB"])] = true
+		}
+	}
+	assert.True(t, found["tA1"] && found["tB2"] && found["tA3"],
+		"item=1,3 走 True 支、item=2 走 False 支，实际 %v", found)
+	assert.True(t, outAt < 1500*time.Millisecond, "条件分支兜底应当轮即时放行，不等超时，实际 %v", outAt)
+}
+
 // TestJoinHighVolumeNoPartialMerge 大批量消息下 join 不得出现部分合并。
 // 分支派发与分支执行并发进行，join 的放行判定不得早于全部前驱送达，
 // 否则合并结果缺支且后到消息被丢弃。

@@ -342,6 +342,9 @@ type DefaultRuleContext struct {
 	onEnd types.OnEndFunc
 	// Count of child nodes that have not yet completed execution.
 	waitingCount int32
+	// joinArrivalSettled 标记本上下文到父节点的边已在 TellCollect 到达时提前
+	// 结清。本子树（join 续流）完成后的向上传递只能通知，不得再扣减父链计数
+	joinArrivalSettled int32
 	// Parent rule context.
 	parentRuleCtx *DefaultRuleContext
 	// Event that triggers once when all child nodes have completed, executed only once.
@@ -687,6 +690,8 @@ func (ctx *DefaultRuleContext) TellCollect(msg types.RuleMsg, callback func(msgL
 	//通知当前节点至共同祖先这分支链已经执行完。
 	if ctx.parentRuleCtx != nil {
 		ctx.parentRuleCtx.childDoneWithoutCallback()
+		// 父边已结清，本子树（join 续流）完成后的向上传递改为通知，不再扣减
+		atomic.StoreInt32(&ctx.joinArrivalSettled, 1)
 	}
 	// 注意：不调用 executedNode(fromId)
 	// LCA节点应该通过 childDoneWithoutCallback 流程在 waitingCount 归零时被标记为完成
@@ -1127,30 +1132,55 @@ func (ctx *DefaultRuleContext) childReady(msg types.RuleMsg, relationType string
 func (ctx *DefaultRuleContext) childDone() {
 	if atomic.AddInt32(&ctx.waitingCount, -1) <= 0 {
 		if atomic.CompareAndSwapInt32(&ctx.onAllNodeCompletedDone, 0, 1) {
-			// 在进行任何异步操作前捕获需要的值，避免并发问题
-			parentRuleCtx := ctx.parentRuleCtx
-			selfId := ctx.GetSelfId()
-			var parentSelfId string
-			if parentRuleCtx != nil {
-				parentSelfId = parentRuleCtx.GetSelfId()
-			}
-			observer := ctx.observer
-			onAllNodeCompleted := ctx.onAllNodeCompleted
+			ctx.onSubtreeCompleted(true)
+		}
+	}
+}
 
-			//该节点已经执行完成，通知父节点
-			if parentRuleCtx != nil {
-				parentRuleCtx.childDone()
-			}
+// onSubtreeCompleted 子树完成块：记录节点完成、向上传递并触发完成回调。
+// propagate=false 时由已结清祖先通知链调用，向上传递由调用链自行推进。
+func (ctx *DefaultRuleContext) onSubtreeCompleted(propagate bool) {
+	// 在进行任何异步操作前捕获需要的值，避免并发问题
+	parentRuleCtx := ctx.parentRuleCtx
+	selfId := ctx.GetSelfId()
+	var parentSelfId string
+	if parentRuleCtx != nil {
+		parentSelfId = parentRuleCtx.GetSelfId()
+	}
+	observer := ctx.observer
+	onAllNodeCompleted := ctx.onAllNodeCompleted
 
-			// 只有在observer存在时才记录节点执行完成（通常是join节点场景）
-			if observer != nil && (parentRuleCtx == nil || selfId != parentSelfId) {
-				//记录当前节点执行完成
-				observer.executedNode(selfId)
-			}
-			//完成回调
-			if onAllNodeCompleted != nil {
-				onAllNodeCompleted()
-			}
+	//该节点已经执行完成，通知父节点
+	if propagate && parentRuleCtx != nil {
+		if atomic.LoadInt32(&ctx.joinArrivalSettled) == 1 {
+			parentRuleCtx.notifySettledAncestors()
+		} else {
+			parentRuleCtx.childDone()
+		}
+	}
+
+	// 只有在observer存在时才记录节点执行完成（通常是join节点场景）
+	if observer != nil && (parentRuleCtx == nil || selfId != parentSelfId) {
+		//记录当前节点执行完成
+		observer.executedNode(selfId)
+	}
+	//完成回调
+	if onAllNodeCompleted != nil {
+		onAllNodeCompleted()
+	}
+}
+
+// notifySettledAncestors 本子树的完成来自 join 续流排空：其到父节点的边在消息
+// 到达 join 时已提前结清，向上不得再扣减计数。同一条边被结清两次会让祖先计数
+// 提前归零，LCA 节点被过早标记完成，下游 join 的排空兜底将带不完整集合提前放行。
+// 沿途只对计数已归零（全部边已结清）的祖先补触发完成块，遇到计数>0 的祖先即止。
+func (ctx *DefaultRuleContext) notifySettledAncestors() {
+	for p := ctx; p != nil; p = p.parentRuleCtx {
+		if atomic.LoadInt32(&p.waitingCount) > 0 {
+			return
+		}
+		if atomic.CompareAndSwapInt32(&p.onAllNodeCompletedDone, 0, 1) {
+			p.onSubtreeCompleted(false)
 		}
 	}
 }
@@ -1179,13 +1209,37 @@ func (ctx *DefaultRuleContext) childDoneWithoutCallback() {
 
 		//有子节点执行完成，通知父节点
 		if parentRuleCtx != nil {
-			parentRuleCtx.childDoneWithoutCallback()
+			if atomic.LoadInt32(&ctx.joinArrivalSettled) == 1 {
+				// 父边已在到达时结清：只补 executedNode（LCA 排空信号），不扣减
+				parentRuleCtx.replaySettledAncestors()
+			} else {
+				parentRuleCtx.childDoneWithoutCallback()
+			}
 		}
 
 		// 只有在observer存在时才记录节点执行完成（通常是join节点场景）
 		if observer != nil && (parentRuleCtx == nil || selfId != parentSelfId) {
 			//记录当前节点执行完成
 			observer.executedNode(selfId)
+		}
+	}
+}
+
+// replaySettledAncestors join 续流的到达结清重放：只对计数已归零的祖先补
+// executedNode，不扣减计数、不触发 onAllNodeCompleted，遇到计数>0 的祖先即止
+func (ctx *DefaultRuleContext) replaySettledAncestors() {
+	for p := ctx; p != nil; p = p.parentRuleCtx {
+		if atomic.LoadInt32(&p.waitingCount) > 0 {
+			return
+		}
+		parentRuleCtx := p.parentRuleCtx
+		selfId := p.GetSelfId()
+		var parentSelfId string
+		if parentRuleCtx != nil {
+			parentSelfId = parentRuleCtx.GetSelfId()
+		}
+		if p.observer != nil && (parentRuleCtx == nil || selfId != parentSelfId) {
+			p.observer.executedNode(selfId)
 		}
 	}
 }
