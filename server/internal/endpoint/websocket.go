@@ -26,8 +26,7 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 	}
 
 	// 按 clientId 跟踪已注册的客户端，用于断开时清理
-	var clientMu sync.Mutex
-	clientMap := make(map[string]*runlog.DebugDataClient)
+	registry := newWsClientRegistry()
 
 	wsEp.SetOnEvent(func(eventName string, params ...interface{}) {
 		switch eventName {
@@ -45,6 +44,8 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 			if s.config.RequireAuth {
 				userCtx, err := getAuthenticator(s.container, s.config).Authenticate(extractAuthorization(exchange))
 				if err != nil {
+					// 不断开会留下「看似已连接但永远收不到数据」的连接，前端无从感知
+					closeWsConnection(exchange)
 					return
 				}
 				username = userCtx.Username
@@ -56,13 +57,10 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 				DataCh:   make(chan map[string]interface{}, 100),
 			}
 			// 同 clientId 重连：先注销旧客户端，否则永久滞留广播列表（泄漏+死通道）
-			clientMu.Lock()
-			if old, ok := clientMap[clientId]; ok {
+			if old := registry.replace(clientId, client, exchange); old != nil {
 				runlog.UnregisterDebugClient(old)
 				close(old.DataCh)
 			}
-			clientMap[clientId] = client
-			clientMu.Unlock()
 			runlog.RegisterDebugClient(client)
 
 			go func() {
@@ -81,12 +79,7 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 		case endpointApi.EventDisconnect:
 			exchange := params[0].(*endpointApi.Exchange)
 			clientId := exchange.In.GetParam(constants.KeyClientId)
-			clientMu.Lock()
-			client, ok := clientMap[clientId]
-			if ok {
-				delete(clientMap, clientId)
-			}
-			clientMu.Unlock()
+			client, ok := registry.remove(clientId, exchange)
 			if ok {
 				// close 必须在 Unregister 之后：发送方持读锁发送，写锁移除完成后
 				// 不再有并发发送者，close 才安全
@@ -105,4 +98,54 @@ func (s *Server) NewWebsocketEndpoint(restEp endpointApi.HttpEndpoint) (endpoint
 		}).End())
 
 	return wsEp, nil
+}
+
+// closeWsConnection 关闭 websocket 连接（鉴权失败等拒绝场景）。用结构化接口
+// 断言而非具体类型：core 旧版本无 Close 方法时退化为不关（与历史行为一致），
+// pin 升级后自动生效
+func closeWsConnection(exchange *endpointApi.Exchange) {
+	if out, ok := exchange.Out.(interface{ Close() }); ok {
+		out.Close()
+	}
+}
+
+// wsClientRegistry 按 clientId 跟踪调试客户端。同一连接的 Connect/Disconnect
+// 事件携带同一 exchange 指针，断开清理须核对指针：同 clientId 重连后，旧连接
+// 迟到的断开事件不能误删新连接
+type wsClientRegistry struct {
+	mu      sync.Mutex
+	entries map[string]*wsClientEntry
+}
+
+type wsClientEntry struct {
+	client   *runlog.DebugDataClient
+	exchange *endpointApi.Exchange
+}
+
+func newWsClientRegistry() *wsClientRegistry {
+	return &wsClientRegistry{entries: make(map[string]*wsClientEntry)}
+}
+
+// replace 登记新客户端并返回被顶替的旧客户端（无则 nil），调用方负责注销旧客户端
+func (r *wsClientRegistry) replace(clientId string, client *runlog.DebugDataClient, exchange *endpointApi.Exchange) *runlog.DebugDataClient {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var old *runlog.DebugDataClient
+	if e, ok := r.entries[clientId]; ok {
+		old = e.client
+	}
+	r.entries[clientId] = &wsClientEntry{client: client, exchange: exchange}
+	return old
+}
+
+// remove 注销客户端，仅当登记的 exchange 与断开事件的一致时生效（防迟到断开误杀重连）
+func (r *wsClientRegistry) remove(clientId string, exchange *endpointApi.Exchange) (*runlog.DebugDataClient, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	e, ok := r.entries[clientId]
+	if !ok || e.exchange != exchange {
+		return nil, false
+	}
+	delete(r.entries, clientId)
+	return e.client, true
 }
