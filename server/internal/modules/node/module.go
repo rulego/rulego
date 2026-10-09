@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"sort"
@@ -329,12 +330,23 @@ func (s *UserComponentService) Get(nodeType string) ([]byte, error) {
 }
 
 func (s *UserComponentService) Install(id string, dsl []byte) error {
+	// 注册键与存储键都以路径 id 为准，重启加载却按 DSL 内的 ruleChain.id 注册：
+	// 两者不一致会让组件在重启后换类型，引用路径 id 的规则链节点找不到组件
+	var def types.RuleChain
+	if err := json.Unmarshal(dsl, &def); err != nil {
+		return err
+	}
+	if def.RuleChain.ID != id {
+		return fmt.Errorf("component id mismatch: body ruleChain.id=%s, path id=%s", def.RuleChain.ID, id)
+	}
 	dynamicNode := engine.NewDynamicNode(id, string(dsl))
 	err := s.ComponentsRegistry().Register(dynamicNode)
 	if err != nil {
 		return err
 	}
 	if err = s.store.Save(s.username, dynamicNode.Type(), []byte(dynamicNode.Dsl)); err != nil {
+		// 落盘失败回滚注册，否则组件重启前可用、重启后消失
+		_ = s.ComponentsRegistry().Unregister(id)
 		return err
 	}
 	if s.mcpSvc != nil {

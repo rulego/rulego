@@ -3,6 +3,8 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -10,6 +12,8 @@ import (
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/node_pool"
+	"github.com/rulego/rulego/server/config"
+	"github.com/rulego/rulego/server/internal/store/filestore"
 	"github.com/rulego/rulego/test/assert"
 )
 
@@ -561,4 +565,29 @@ func TestSystemNodeProtection_NormalNodeUnaffected(t *testing.T) {
 
 	_, ok := svc.nodePool.Get("normal_mqtt")
 	assert.True(t, ok, "普通节点应正常保存")
+}
+
+// 组件 id 与 DSL 内 ruleChain.id 不一致必须拒绝：重启加载按 DSL 内 id 注册，
+// 不一致会让组件在重启后换类型，引用路径 id 的规则链节点找不到组件
+func TestInstall_RejectsIdMismatch(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "workflows", "admin", "components"), 0755)
+	cs, err := filestore.NewComponentStore(config.Config{DataDir: dir}, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := &UserComponentService{
+		username:   "admin",
+		ruleConfig: engine.NewConfig(),
+		store:      cs,
+	}
+	dsl := func(id string) []byte {
+		return []byte(fmt.Sprintf(`{"ruleChain":{"id":%q,"name":"t"},"metadata":{"nodes":[],"connections":[]}}`, id))
+	}
+	if err := svc.Install("mismatch-test", dsl("other-id")); err == nil {
+		t.Fatal("expected id mismatch error")
+	}
+	if err := svc.Install("mismatch-test", dsl("mismatch-test")); err != nil {
+		t.Fatalf("matching id should install: %v", err)
+	}
 }
