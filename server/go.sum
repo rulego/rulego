@@ -680,6 +680,12 @@ github.com/rulego/rulego v0.38.1-0.20261007161825-930074e94f54 h1:ptllLbkTts7EKU
 github.com/rulego/rulego v0.38.1-0.20261007161825-930074e94f54/go.mod h1:C+5ohZtTIBNB4l1UY3aVLX+OKAXOHbryRn0I3+no8cs=
 github.com/rulego/rulego v0.38.1-0.20261008102336-4adb224f8b7b h1:mOMb9GIX5dllRvoCQJdNFywDdNVktu1aybTQt1nwnXM=
 github.com/rulego/rulego v0.38.1-0.20261008102336-4adb224f8b7b/go.mod h1:C+5ohZtTIBNB4l1UY3aVLX+OKAXOHbryRn0I3+no8cs=
+github.com/rulego/rulego v0.38.1-0.20261008121532-7ecad47eb47c h1:RGt826RM92xaYDwnb/2GyM/4MD5MnjrjowOieBDO7Go=
+github.com/rulego/rulego v0.38.1-0.20261008121532-7ecad47eb47c/go.mod h1:C+5ohZtTIBNB4l1UY3aVLX+OKAXOHbryRn0I3+no8cs=
+github.com/rulego/rulego v0.38.1-0.20261009012657-501dc2eecc58 h1:AGEzuLSyzAI4HI/ihFSoECfGgKVw4wWQ+Dk3GeDX8m8=
+github.com/rulego/rulego v0.38.1-0.20261009012657-501dc2eecc58/go.mod h1:C+5ohZtTIBNB4l1UY3aVLX+OKAXOHbryRn0I3+no8cs=
+github.com/rulego/rulego v0.38.1-0.20261009024253-eddd040804e3 h1:PrLG41UrThFQhD7al2Vk8BpSPMI+7lLUyKo32OepSC8=
+github.com/rulego/rulego v0.38.1-0.20261009024253-eddd040804e3/go.mod h1:C+5ohZtTIBNB4l1UY3aVLX+OKAXOHbryRn0I3+no8cs=
 github.com/rulego/rulego-components v0.37.1-0.20260930012142-fbbef88b3e66 h1:W0PfwNOKMQzMRUa0h/bBY834Z2wWi/giKGmCty/SYoE=
 github.com/rulego/rulego-components v0.37.1-0.20260930012142-fbbef88b3e66/go.mod h1:py05eJkTdc1QWOlW7/vCX0c4DoOO6OZpbpu0PhkKqS0=
 github.com/rulego/rulego-components-ai v0.37.1-0.20260922023540-1b835118b365 h1:wZHWpGeuoAE5mjj5O0kSHmj612NorQkQKcOBuHe2kKc=
