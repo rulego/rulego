@@ -25,6 +25,10 @@ func ver(id, chainId string, ts int64, dsl string) model.RuleVersion {
 	return model.RuleVersion{Id: id, ChainId: chainId, Ts: ts, Source: "save", Dsl: []byte(dsl)}
 }
 
+func verSrc(id, chainId string, ts int64, dsl, source string) model.RuleVersion {
+	return model.RuleVersion{Id: id, ChainId: chainId, Ts: ts, Source: source, Dsl: []byte(dsl)}
+}
+
 func TestRuleVersionStore_Roundtrip(t *testing.T) {
 	s := newTestVersionStore(t, 0)
 
@@ -79,7 +83,7 @@ func TestRuleVersionStore_Roundtrip(t *testing.T) {
 func TestRuleVersionStore_Retention(t *testing.T) {
 	s := newTestVersionStore(t, 3)
 	for i := 0; i < 6; i++ {
-		v := ver("v"+strconv.Itoa(i), "chainA", int64(1000+i), `{}`)
+		v := verSrc("v"+strconv.Itoa(i), "chainA", int64(1000+i), `{}`, "mark")
 		if err := s.Save("admin", v); err != nil {
 			t.Fatal(err)
 		}
@@ -96,6 +100,39 @@ func TestRuleVersionStore_Retention(t *testing.T) {
 		if it.Id == "v0" || it.Id == "v1" || it.Id == "v2" {
 			t.Errorf("old version %s kept", it.Id)
 		}
+	}
+}
+
+func TestRuleVersionStore_TrimByClass(t *testing.T) {
+	// 手动档（mark/rollback）与草稿档（save）分别按各自上限裁
+	cfg := config.Config{DataDir: t.TempDir(), RuleVersionRetentionCount: 2, RuleVersionDraftRetention: 3}
+	s, err := NewRuleVersionStore(cfg, types.DefaultLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+
+	ts := int64(1000)
+	for i := 0; i < 4; i++ { // 草稿 4 条，上限 3
+		_ = s.Save("admin", ver("d"+strconv.Itoa(i), "chainA", ts, `{}`))
+		ts++
+	}
+	for i := 0; i < 3; i++ { // 手动 3 条，上限 2
+		_ = s.Save("admin", verSrc("m"+strconv.Itoa(i), "chainA", ts, `{}`, "mark"))
+		ts++
+	}
+	_ = s.Save("admin", verSrc("r1", "chainA", ts, `{}`, "rollback")) // 手动类含 rollback
+
+	items, total, _ := s.List("admin", "chainA", 50, 1)
+	if total != 3+2 {
+		t.Fatalf("total = %d, want 5 (3 drafts + 2 manual)", total)
+	}
+	bySrc := map[string]int{}
+	for _, it := range items {
+		bySrc[it.Source]++
+	}
+	if bySrc["save"] != 3 || bySrc["mark"] != 1 || bySrc["rollback"] != 1 {
+		t.Errorf("by source = %v, want save=3 mark=1 rollback=1", bySrc)
 	}
 }
 
@@ -139,10 +176,10 @@ func TestRuleVersionStore_Seq(t *testing.T) {
 		t.Errorf("chainB seq = %d, want 1", bItems[0].Seq)
 	}
 
-	// 保留裁剪后新版本号继续递增，不回收重排
+	// 保留裁剪后新版本号继续递增，不回收重排（手动档裁剪）
 	s2 := newTestVersionStore(t, 2)
 	for i := 0; i < 4; i++ {
-		_ = s2.Save("admin", ver("v"+strconv.Itoa(i+1), "chainC", int64(1000+i), `{}`))
+		_ = s2.Save("admin", verSrc("v"+strconv.Itoa(i+1), "chainC", int64(1000+i), `{}`, "mark"))
 	}
 	cItems, total, _ := s2.List("admin", "chainC", 20, 1)
 	if total != 2 || cItems[0].Seq != 4 || cItems[1].Seq != 3 {

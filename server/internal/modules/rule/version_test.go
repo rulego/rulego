@@ -19,9 +19,12 @@ func setupRuleModuleWithVersions(t *testing.T) *Module {
 	return m
 }
 
-func setupRuleModuleVersionsOpts(t *testing.T, disable bool) (*Module, *app.Container) {
+// setupRuleModuleVersionsCfg 在默认配置基础上改版本相关配置后再建模块
+func setupRuleModuleVersionsCfg(t *testing.T, mutate func(*config.Config)) (*Module, *app.Container) {
 	t.Helper()
-	cfg := config.Config{DataDir: t.TempDir(), DefaultUsername: "admin", RuleVersionDisable: disable}
+	cfg := config.Config{DataDir: t.TempDir(), DefaultUsername: "admin",
+		RuleVersionRetentionCount: 50, RuleVersionDraftRetention: 5}
+	mutate(&cfg)
 	cfg.InitUserMap()
 
 	container := app.NewContainer()
@@ -43,6 +46,10 @@ func setupRuleModuleVersionsOpts(t *testing.T, disable bool) (*Module, *app.Cont
 		t.Fatalf("Start: %v", err)
 	}
 	return m, container
+}
+
+func setupRuleModuleVersionsOpts(t *testing.T, disable bool) (*Module, *app.Container) {
+	return setupRuleModuleVersionsCfg(t, func(c *config.Config) { c.RuleVersionDisable = disable })
 }
 
 func chainDefV(name string) string {
@@ -137,6 +144,113 @@ func TestRuleVersion_RollbackNotFound(t *testing.T) {
 	_ = m.SaveAndLoad("admin", "ver-chain", []byte(chainDefV("A")))
 	if err := m.RollbackVersion("admin", "ver-chain", "no-such-version"); err == nil {
 		t.Error("rollback to missing version should fail")
+	}
+}
+
+func TestRuleVersion_SaveVersionMark(t *testing.T) {
+	m := setupRuleModuleWithVersions(t)
+
+	if err := m.SaveVersion("admin", "ver-chain", []byte(chainDefV("A"))); err != nil {
+		t.Fatal(err)
+	}
+	items, total, _ := m.ListVersions("admin", "ver-chain", 20, 1)
+	if total != 1 {
+		t.Fatalf("total = %d, want 1", total)
+	}
+	if items[0].Source != "mark" {
+		t.Errorf("Source = %q, want mark", items[0].Source)
+	}
+
+	// 手动版本不去重：同内容再存一条 mark 仍留档
+	if err := m.SaveVersion("admin", "ver-chain", []byte(chainDefV("A"))); err != nil {
+		t.Fatal(err)
+	}
+	// 同内容草稿保存被去重跳过（与最新 mark 快照相同）
+	if err := m.SaveAndLoad("admin", "ver-chain", []byte(chainDefV("A"))); err != nil {
+		t.Fatal(err)
+	}
+	items, total, _ = m.ListVersions("admin", "ver-chain", 20, 1)
+	if total != 2 {
+		t.Fatalf("total = %d, want 2 (mark x2, draft deduped)", total)
+	}
+	if items[0].Source != "mark" {
+		t.Errorf("newest Source = %q, want mark", items[0].Source)
+	}
+
+	// 手动版本后普通保存的 source 不残留 mark
+	if err := m.SaveAndLoad("admin", "ver-chain", []byte(chainDefV("B"))); err != nil {
+		t.Fatal(err)
+	}
+	items, _, _ = m.ListVersions("admin", "ver-chain", 20, 1)
+	if items[0].Source != "save" {
+		t.Errorf("after mark, draft save Source = %q, want save", items[0].Source)
+	}
+}
+
+func TestRuleVersion_DraftDedup(t *testing.T) {
+	m := setupRuleModuleWithVersions(t)
+
+	_ = m.SaveAndLoad("admin", "ver-chain", []byte(chainDefV("A")))
+	_ = m.SaveAndLoad("admin", "ver-chain", []byte(chainDefV("A")))
+	_, total, _ := m.ListVersions("admin", "ver-chain", 20, 1)
+	if total != 1 {
+		t.Fatalf("total = %d after identical draft saves, want 1", total)
+	}
+	_ = m.SaveAndLoad("admin", "ver-chain", []byte(chainDefV("B")))
+	_, total, _ = m.ListVersions("admin", "ver-chain", 20, 1)
+	if total != 2 {
+		t.Fatalf("total = %d after changed draft save, want 2", total)
+	}
+}
+
+func TestRuleVersion_DraftRetentionTrim(t *testing.T) {
+	m, _ := setupRuleModuleVersionsCfg(t, func(c *config.Config) { c.RuleVersionDraftRetention = 2 })
+
+	for _, name := range []string{"A", "B", "C"} {
+		if err := m.SaveAndLoad("admin", "ver-chain", []byte(chainDefV(name))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	items, total, _ := m.ListVersions("admin", "ver-chain", 20, 1)
+	if total != 2 {
+		t.Fatalf("total = %d, want 2 (draft cap)", total)
+	}
+	// 新在前：留下 B、C，最旧的 A 被裁
+	if items[0].ChainName != "C" || items[1].ChainName != "B" {
+		t.Errorf("kept = %q,%q, want C,B", items[1].ChainName, items[0].ChainName)
+	}
+}
+
+func TestRuleVersion_ManualRetentionTrim(t *testing.T) {
+	// 手动版本按 RuleVersionRetentionCount 裁，草稿档不受影响
+	m, _ := setupRuleModuleVersionsCfg(t, func(c *config.Config) {
+		c.RuleVersionRetentionCount = 3
+		c.RuleVersionDraftRetention = 5
+	})
+	for _, name := range []string{"A", "B", "C", "D"} {
+		if err := m.SaveVersion("admin", "ver-chain", []byte(chainDefV(name))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, total, _ := m.ListVersions("admin", "ver-chain", 20, 1)
+	if total != 3 {
+		t.Fatalf("total = %d, want 3 (manual cap)", total)
+	}
+}
+
+func TestRuleVersion_DraftDisabled(t *testing.T) {
+	// 草稿档 0：普通保存不留快照，手动版本与回滚不受影响
+	m, _ := setupRuleModuleVersionsCfg(t, func(c *config.Config) { c.RuleVersionDraftRetention = 0 })
+
+	_ = m.SaveAndLoad("admin", "ver-chain", []byte(chainDefV("A")))
+	if _, total, _ := m.ListVersions("admin", "ver-chain", 20, 1); total != 0 {
+		t.Fatalf("draft saves should not snapshot when draft retention is 0, got %d", total)
+	}
+	if err := m.SaveVersion("admin", "ver-chain", []byte(chainDefV("A"))); err != nil {
+		t.Fatal(err)
+	}
+	if _, total, _ := m.ListVersions("admin", "ver-chain", 20, 1); total != 1 {
+		t.Fatalf("manual save version should snapshot, got %d", total)
 	}
 }
 

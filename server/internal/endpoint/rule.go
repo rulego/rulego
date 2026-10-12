@@ -123,6 +123,7 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 	}).End())
 
 	// POST /rules/:id - 保存规则链
+	// 缺省为保存草稿（仅滚动留草稿自动快照）；?versionMark=1 记为手动版本
 	ep.POST(endpoint.NewRouter().From(base + "/rules/:id").Process(s.authWithPermission("rule", "write")).Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
 		id := metadataValue(exchange, constants.KeyId)
 		if !validateId(id) {
@@ -133,24 +134,41 @@ func (s *Server) registerRuleRoutes(ep endpointApi.HttpEndpoint) {
 		if !ok {
 			return false
 		}
+		username := metadataUsername(exchange)
+		body := exchange.In.Body()
 		// 保存前取旧 DSL 生成变更摘要；取不到按新建处理，不影响保存
 		var detail string
 		if catalog, ok := getService[services.ChainCatalog](s, exchange, services.KeyRuleCatalog); ok {
-			oldDef, err := catalog.Get(metadataUsername(exchange), id)
+			oldDef, err := catalog.Get(username, id)
 			if err == nil {
-				detail = ruleChangeSummary(oldDef, exchange.In.Body())
+				detail = ruleChangeSummary(oldDef, body)
 			} else {
-				detail = ruleChangeSummary(nil, exchange.In.Body())
+				detail = ruleChangeSummary(nil, body)
 			}
 		}
-		if err := admin.SaveAndLoad(metadataUsername(exchange), id, exchange.In.Body()); err != nil {
-			s.auditWriteError(exchange, "rule:write", "", "rule:"+id, err)
-			writeBadRequest(exchange, err)
+		var op string
+		var saveErr error
+		if metadataValue(exchange, "versionMark") == "1" {
+			op = "save-version"
+			// 版本功能关闭时 RuleVersionService 未注册，退回普通保存（保存主流程不受影响）
+			if verSvc, ok := getService[services.RuleVersionService](s, exchange, services.KeyRuleVersionService); ok {
+				saveErr = verSvc.SaveVersion(username, id, body)
+			} else {
+				saveErr = admin.SaveAndLoad(username, id, body)
+			}
+		} else {
+			op = "save-draft"
+			saveErr = admin.SaveAndLoad(username, id, body)
+		}
+		if saveErr != nil {
+			s.auditWriteError(exchange, "rule:write", op, "rule:"+id, saveErr)
+			writeBadRequest(exchange, saveErr)
 			return true
 		}
 		s.auditRecord(exchange, model.AuditEvent{
-			Actor:  metadataUsername(exchange),
+			Actor:  username,
 			Action: "rule:write",
+			Op:     op,
 			Target: "rule:" + id,
 			Result: model.AuditResultOK,
 			Detail: detail,

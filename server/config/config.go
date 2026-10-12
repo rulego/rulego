@@ -67,8 +67,11 @@ type Config struct {
 	RunLogRetentionCount int `ini:"run_log_retention_count"`
 	// RunLogRetentionDays 保留最近 N 天运行记录，0 表示不限制。默认 7
 	RunLogRetentionDays int `ini:"run_log_retention_days"`
-	// RuleVersionRetentionCount 每条规则链保留最近 N 个历史版本快照，0 表示不限制。默认 20
+	// RuleVersionRetentionCount 每条规则链保留最近 N 个版本记录（手动版本与回滚），0 表示不限制。默认 50
 	RuleVersionRetentionCount int `ini:"rule_version_retention_count"`
+	// RuleVersionDraftRetention 每条规则链保留最近 N 条草稿自动快照（保存草稿的兜底回退点），
+	// 0 表示不写草稿快照（已有的不清除）。默认 5
+	RuleVersionDraftRetention int `ini:"rule_version_draft_retention"`
 	// RuleVersionDisable 关闭规则链历史版本（不快照、不注册端点）。disable 式命名
 	// 保证 bool 零值即默认开启，嵌入方不走 DefaultConfig 也不会拿到相反默认
 	RuleVersionDisable bool `ini:"rule_version_disable"`
@@ -255,40 +258,41 @@ func (c *Config) GetApiKeyByUsername(username string) string {
 // DefaultConfig 返回默认配置
 func DefaultConfig() Config {
 	cfg := Config{
-		DataDir:              "./data",
-		SkillPath:            "./skills",
-		CmdWhiteList:         "cp,scp,mvn,npm,yarn,git,make,cmake,docker,kubectl,helm,ansible,puppet,pytest,python,python3,pip,go,java,dotnet,gcc,g++,ctest",
-		CmdMode:              "allow",
-		FilePathWhiteList:    "/tmp",
-		LoadLuaLibs:          "true",
-		Server:               ":9090",
-		DefaultUsername:      "admin",
-		MaxNodeLogSize:       40,
-		RunLogRetentionCount: 500,
-		RunLogRetentionDays:  7,
-		RuleVersionRetentionCount: 20,
-		MsgMaxHops:           10000,
-		WorkerPoolMaxWorkers: 5000,
-		ResourceMapping:      "/editor/*filepath=./editor,/images/*filepath=./editor/images",
-		JwtSecretKey:         "r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1",
-		JwtExpireTime:        43200000,
-		JwtIssuer:            "rulego.cc",
-		ShareHttpServer:      false,
-		AllowCors:            true,
-		LoginMaxAttempts:     10,
-		LoginWindowSeconds:   60,
-		ChatMaxRequests:      60,
-		ChatWindowSeconds:    60,
-		ReadTimeout:          30,
-		WriteTimeout:         300,
-		MaxBodySize:          10,
-		LogLevel:             "info",
-		LogMaxSize:           100,
-		LogMaxBackups:        30,
-		LogMaxAge:            7,
-		AuditEnable:          true,
-		AuditRetentionDays:   90,
-		AuditMaxSizeMB:       200,
+		DataDir:                   "./data",
+		SkillPath:                 "./skills",
+		CmdWhiteList:              "cp,scp,mvn,npm,yarn,git,make,cmake,docker,kubectl,helm,ansible,puppet,pytest,python,python3,pip,go,java,dotnet,gcc,g++,ctest",
+		CmdMode:                   "allow",
+		FilePathWhiteList:         "/tmp",
+		LoadLuaLibs:               "true",
+		Server:                    ":9090",
+		DefaultUsername:           "admin",
+		MaxNodeLogSize:            40,
+		RunLogRetentionCount:      500,
+		RunLogRetentionDays:       7,
+		RuleVersionRetentionCount: 50,
+		RuleVersionDraftRetention: 5,
+		MsgMaxHops:                10000,
+		WorkerPoolMaxWorkers:      5000,
+		ResourceMapping:           "/editor/*filepath=./editor,/images/*filepath=./editor/images",
+		JwtSecretKey:              "r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1",
+		JwtExpireTime:             43200000,
+		JwtIssuer:                 "rulego.cc",
+		ShareHttpServer:           false,
+		AllowCors:                 true,
+		LoginMaxAttempts:          10,
+		LoginWindowSeconds:        60,
+		ChatMaxRequests:           60,
+		ChatWindowSeconds:         60,
+		ReadTimeout:               30,
+		WriteTimeout:              300,
+		MaxBodySize:               10,
+		LogLevel:                  "info",
+		LogMaxSize:                100,
+		LogMaxBackups:             30,
+		LogMaxAge:                 7,
+		AuditEnable:               true,
+		AuditRetentionDays:        90,
+		AuditMaxSizeMB:            200,
 		Users: types.Properties{
 			"admin": "admin,2af255ea5618467d914c67a8beeca31d",
 		},

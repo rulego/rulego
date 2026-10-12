@@ -103,10 +103,14 @@ func (s *RuleVersionStore) Save(username string, v model.RuleVersion) error {
 	return s.trimLocked(username, v.ChainId)
 }
 
-// trimLocked 裁掉保留上限之外的旧版本。key 升序=新在前，从尾部删
+// trimLocked 按类别裁掉保留上限之外的旧快照：source=save 的草稿自动快照按
+// RuleVersionDraftRetention 裁，其余（手动版本/回滚）按 RuleVersionRetentionCount 裁。
+// key 升序=新在前，各类分别计数、从尾部删；上限<=0 表示该类不限制
+// （草稿档 0 还表示不写新快照，见 version.go；已有的不清除）
 func (s *RuleVersionStore) trimLocked(username, chainId string) error {
-	maxCount := s.cfg.RuleVersionRetentionCount
-	if maxCount <= 0 {
+	manualMax := s.cfg.RuleVersionRetentionCount
+	draftMax := s.cfg.RuleVersionDraftRetention
+	if manualMax <= 0 && draftMax <= 0 {
 		return nil
 	}
 	bName := versionBucketName(username)
@@ -116,15 +120,34 @@ func (s *RuleVersionStore) trimLocked(username, chainId string) error {
 		if bucket == nil {
 			return nil
 		}
+		draftKept, manualKept := 0, 0
+		var delKeys [][]byte
 		c := bucket.Cursor()
-		var keys [][]byte
-		for k, _ := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, _ = c.Next() {
-			keys = append(keys, k)
+		for k, val := c.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, val = c.Next() {
+			source := ""
+			var old model.RuleVersion
+			if json.Unmarshal(val, &old) == nil {
+				source = old.Source
+			}
+			if source == "save" || source == "" {
+				if draftMax <= 0 {
+					continue
+				}
+				draftKept++
+				if draftKept > draftMax {
+					delKeys = append(delKeys, k)
+				}
+			} else {
+				if manualMax <= 0 {
+					continue
+				}
+				manualKept++
+				if manualKept > manualMax {
+					delKeys = append(delKeys, k)
+				}
+			}
 		}
-		if len(keys) <= maxCount {
-			return nil
-		}
-		for _, k := range keys[maxCount:] {
+		for _, k := range delKeys {
 			_ = bucket.Delete(k)
 		}
 		return nil
