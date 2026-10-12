@@ -176,16 +176,13 @@ func (x *GroupActionNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			}
 			msgsMutex.Unlock()
 
-			// 匹配增量先于 end 落账、非匹配的读取在 end 之后：
-			// endCount 到齐时匹配增量必然全部可见，否则整组会被误判为 Failure
-			var currentMatchCount int32
+			// 同 groupFilter：匹配计数须在 endCount 写满后重新 Load，
+			// 本回调 Add 的返回值可能是滞后值
 			if x.Config.MatchRelationType == relationType {
-				currentMatchCount = atomic.AddInt32(&currentMatchedCount, 1)
+				atomic.AddInt32(&currentMatchedCount, 1)
 			}
 			currentEndCount := atomic.AddInt32(&endCount, 1)
-			if x.Config.MatchRelationType != relationType {
-				currentMatchCount = atomic.LoadInt32(&currentMatchedCount)
-			}
+			currentMatchCount := atomic.LoadInt32(&currentMatchedCount)
 
 			// 判断是否应该结束并发送结果
 			var shouldComplete bool

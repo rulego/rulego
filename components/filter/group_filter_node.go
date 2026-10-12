@@ -155,16 +155,14 @@ func (x *GroupFilterNode) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
 			} else if n == 2 {
 				atomic.StoreInt64(&tCb2, time.Now().UnixNano())
 			}
-			// True 增量先于 end 落账、非 True 的读取在 end 之后：
-			// endCount 到齐时 True 增量必然全部可见，否则整组会被误判为 False
-			var currentTrueCount int32
+			// 本回调 Add(trueCount) 的返回值只是自己的写入位次，不含其他回调
+			// 的增量；须在 endCount 写满后重新 Load，否则末位回调拿着滞后值
+			// 判定，两个回调可能都不满足完成条件
 			if relationType == types.True {
-				currentTrueCount = atomic.AddInt32(&trueCount, 1)
+				atomic.AddInt32(&trueCount, 1)
 			}
 			currentEndCount := atomic.AddInt32(&endCount, 1)
-			if relationType != types.True {
-				currentTrueCount = atomic.LoadInt32(&trueCount)
-			}
+			currentTrueCount := atomic.LoadInt32(&trueCount)
 
 			// 判断是否应该结束并发送结果
 			var shouldComplete bool

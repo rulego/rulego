@@ -836,6 +836,48 @@ func TestExecuteNode(t *testing.T) {
 	wg.Wait()
 }
 
+// TestGroupFilterAllMatchesStress allMatches=true 且全部 True 时，两个子节点
+// 回调并发落账，完成判定对计数读取顺序敏感（读序错误会双双不满足完成条件，
+// 空等到超时）。压测该组合，确保组结果及时到达且恒为 True。
+func TestGroupFilterAllMatchesStress(t *testing.T) {
+	config := NewConfig()
+	chainId := "group_all_true_stress"
+	var chainJson = `{
+      "ruleChain": {"id": "group_all_true_stress", "name": "stress", "root": true},
+      "metadata": {
+        "firstNodeIndex": 2,
+        "nodes": [
+          {"id": "s1", "type": "jsFilter", "configuration": {"jsScript": "return msg.temperature > 50;"}},
+          {"id": "s2", "type": "jsFilter", "configuration": {"jsScript": "return msg.humidity > 80;"}},
+          {"id": "group1", "type": "groupFilter", "configuration": {"allMatches": true, "nodeIds": "s1,s2", "timeout": 10}},
+          {"id": "s3", "type": "jsTransform", "configuration": {"jsScript": "metadata['result']='true';return {'msg':msg,'metadata':metadata,'msgType':msgType};"}},
+          {"id": "s4", "type": "jsTransform", "configuration": {"jsScript": "metadata['result']='false';return {'msg':msg,'metadata':metadata,'msgType':msgType};"}}
+        ],
+        "connections": [
+          {"fromId": "group1", "toId": "s3", "type": "True"},
+          {"fromId": "group1", "toId": "s4", "type": "False"}
+        ]
+      }
+    }`
+	ruleEngine, err := New(chainId, []byte(chainJson), WithConfig(config))
+	assert.Nil(t, err)
+	defer Del(chainId)
+
+	metaData := types.NewMetadata()
+	metaData.PutValue("productType", "test01")
+	for i := 0; i < 60; i++ {
+		msg := types.NewMsg(0, "TEST_MSG_TYPE1", types.JSON, metaData, `{"temperature":51,"humidity":90}`)
+		var wg sync.WaitGroup
+		wg.Add(1)
+		ruleEngine.OnMsg(msg, types.WithOnEnd(func(ctx types.RuleContext, msg types.RuleMsg, err error, relationType string) {
+			defer wg.Done()
+			assert.Equal(t, "true", msg.Metadata.GetValue("result"),
+				fmt.Sprintf("iter=%d err=%v relationType=%s errorMsg=%s", i, err, relationType, msg.Metadata.GetValue(types.KeyErrorMsg)))
+		}))
+		wg.Wait()
+	}
+}
+
 // TestTellNextNodePanic 节点 panic 须以 Failure 结束分支并触发 OnEnd
 func TestTellNextNodePanic(t *testing.T) {
 	action.Functions.Register("panicFn", func(ctx types.RuleContext, msg types.RuleMsg) {
