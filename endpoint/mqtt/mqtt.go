@@ -155,10 +155,12 @@ package mqtt
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/textproto"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rulego/rulego/utils/mqtt"
@@ -233,6 +235,8 @@ type RequestMessage struct {
 	body []byte
 	//转换后的规则消息，缓存以避免重复转换  Converted rule message, cached to avoid re-conversion  转换后的规则消息
 	msg *types.RuleMsg
+	//消息数据类型，消息到达时按 endpoint 配置解析（空=自动探测）  Data type resolved from endpoint config at message arrival (empty = auto detect)
+	dataType types.DataType
 	//处理过程中的错误信息  Error information during processing  处理错误信息
 	err error
 }
@@ -319,25 +323,46 @@ func (r *RequestMessage) SetMsg(msg *types.RuleMsg) {
 	r.msg = msg
 }
 
+// resolveDataType 解析消息数据类型：配置显式指定（JSON/TEXT/BINARY）优先；
+// 空=按 payload 自动探测，合法 JSON 记 JSON、否则 TEXT
+func resolveDataType(configured string, body []byte) types.DataType {
+	switch strings.ToUpper(strings.TrimSpace(configured)) {
+	case string(types.JSON):
+		return types.JSON
+	case string(types.TEXT):
+		return types.TEXT
+	case string(types.BINARY):
+		return types.BINARY
+	}
+	if json.Valid(body) {
+		return types.JSON
+	}
+	return types.TEXT
+}
+
 // GetMsg converts the MQTT message to a RuleMsg for rule chain processing.
-// The conversion includes automatic JSON data type assignment and metadata population.
+// The conversion includes data type resolution (see resolveDataType) and metadata population.
 // The MQTT topic is automatically added to the message metadata for routing purposes.
 //
-// GetMsg 将 MQTT 消息转换为 RuleMsg 以进行规则链处理。
-// 转换包括自动 JSON 数据类型分配和元数据填充。
-// MQTT 主题自动添加到消息元数据中用于路由目的。
+// GetMsg 将 MQTT 消息转换为 RuleMsg 以供规则链处理。
+// 转换包含数据类型解析（见 resolveDataType，endpoint 配置可显式指定，缺省按 payload 自动探测）
+// 与元数据填充。MQTT 主题自动添加到消息元数据中用于路由目的。
 //
 // Returns / 返回：
 // • *types.RuleMsg: Converted rule message ready for processing  转换后的规则消息，可供处理
-//
-// Conversion Details / 转换详情：
-// • Data Type: Always set to JSON for flexible processing  数据类型：总是设置为 JSON 以便灵活处理
-// • Source: Set to MQTT topic name  来源：设置为 MQTT 主题名称
-// • Payload: MQTT message payload as string  载荷：MQTT 消息载荷作为字符串
-// • Metadata: Includes original topic information  元数据：包含原始主题信息
 func (r *RequestMessage) GetMsg() *types.RuleMsg {
 	if r.msg == nil {
-		ruleMsg := types.NewMsg(0, r.From(), types.JSON, types.NewMetadata(), string(r.Body()))
+		dataType := r.dataType
+		if dataType == "" {
+			// 未经过 handler 构造（如直接构造的测试）时兜底自动探测
+			dataType = resolveDataType("", r.Body())
+		}
+		var ruleMsg types.RuleMsg
+		if dataType == types.BINARY {
+			ruleMsg = types.NewMsgFromBytes(0, r.From(), dataType, types.NewMetadata(), r.Body())
+		} else {
+			ruleMsg = types.NewMsg(0, r.From(), dataType, types.NewMetadata(), string(r.Body()))
+		}
 		ruleMsg.Metadata.PutValue(KeyRequestTopic, r.From())
 		r.msg = &ruleMsg
 	}
@@ -818,7 +843,8 @@ func (x *Mqtt) handler(router endpoint.Router) func(c paho.Client, data paho.Mes
 
 		exchange := &endpoint.Exchange{
 			In: &RequestMessage{
-				request: data,
+				request:  data,
+				dataType: resolveDataType(x.Config.DataType, data.Payload()),
 			},
 			Out: &ResponseMessage{
 				request:  data,

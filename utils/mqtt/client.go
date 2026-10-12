@@ -74,6 +74,9 @@ type Config struct {
 	CAFile               string        `json:"caFile" label:"CA File" desc:"CA certificate file path for TLS" ref:"shared"`
 	CertFile             string        `json:"certFile" label:"Cert File" desc:"TLS client certificate file path" ref:"shared"`
 	CertKeyFile          string        `json:"certKeyFile" label:"Cert Key File" desc:"TLS client private key file path" ref:"shared"`
+	// DataType 订阅消息的数据类型，仅 endpoint 消费（发布客户端忽略）：
+	// 空=按 payload 自动探测（合法 JSON 记 JSON，否则 TEXT）；可显式指定 JSON/TEXT/BINARY
+	DataType string `json:"dataType" label:"Data Type" desc:"empty = auto (JSON if payload is valid JSON, else TEXT); BINARY for binary device streams, TEXT to force text" component:"{\"type\":\"select\",\"clearable\":true,\"options\":[{\"label\":\"\",\"value\":\"\"},{\"label\":\"JSON\",\"value\":\"JSON\"},{\"label\":\"TEXT\",\"value\":\"TEXT\"},{\"label\":\"BINARY\",\"value\":\"BINARY\"}]}"`
 }
 
 // Client mqtt客户端

@@ -521,3 +521,29 @@ func TestMqttEndpointStatusLifecycle(t *testing.T) {
 		return ep.ConnectionStatus().Status == types.StatusConnected
 	})
 }
+
+// 不依赖 broker：直接构造 RequestMessage 验证数据类型解析与 GetMsg 行为
+func TestRequestMessageDataType(t *testing.T) {
+	// 配置显式指定优先，大小写/空白容错
+	assert.Equal(t, types.JSON, resolveDataType("JSON", []byte("not-json")))
+	assert.Equal(t, types.TEXT, resolveDataType(" text ", nil))
+	assert.Equal(t, types.BINARY, resolveDataType("binary", nil))
+	// 空=自动探测：合法 JSON 记 JSON、否则 TEXT
+	assert.Equal(t, types.JSON, resolveDataType("", []byte(`{"a":1}`)))
+	assert.Equal(t, types.JSON, resolveDataType("", []byte(`[1,2]`)))
+	assert.Equal(t, types.TEXT, resolveDataType("", []byte("hello")))
+	assert.Equal(t, types.TEXT, resolveDataType("", []byte(`{invalid`)))
+
+	// GetMsg：未带解析结果（非 handler 构造）时兜底自动探测
+	r := &RequestMessage{body: []byte(`{"a":1}`)}
+	assert.Equal(t, types.JSON, r.GetMsg().GetDataType())
+	r = &RequestMessage{body: []byte("hello")}
+	assert.Equal(t, types.TEXT, r.GetMsg().GetDataType())
+	// 显式 JSON 时 payload 非法也按配置走
+	r = &RequestMessage{body: []byte("not-json"), dataType: types.JSON}
+	assert.Equal(t, types.JSON, r.GetMsg().GetDataType())
+	assert.Equal(t, "not-json", r.GetMsg().GetData())
+	// BINARY 走字节消息
+	r = &RequestMessage{body: []byte{0x01, 0x02}, dataType: types.BINARY}
+	assert.Equal(t, types.BINARY, r.GetMsg().GetDataType())
+}

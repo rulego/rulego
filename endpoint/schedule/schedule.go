@@ -427,6 +427,10 @@ func (schedule *Schedule) handler(router endpoint.Router) {
 			}
 		}
 	}
+	// 编辑器未选消息类型时 params[1] 存了空串，与缺省一致按 JSON 处理
+	if msgType == "" {
+		msgType = types.JSON
+	}
 	// 处理第三个参数作为 metadata
 	if len(params) > 2 && params[2] != nil {
 		switch v := params[2].(type) {
