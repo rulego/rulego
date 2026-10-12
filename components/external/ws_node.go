@@ -49,17 +49,17 @@ type WsNodeConfiguration struct {
 
 	// 以下为出站客户端配置（仅 server 为 ws://wss:// 即拨号模式时生效，ref:// 模式忽略）
 	// Headers 握手时的 HTTP 请求头，如 Authorization
-	Headers map[string]string `json:"headers" label:"Headers" desc:"Handshake HTTP headers, e.g. Authorization"`
+	Headers map[string]string `json:"headers" label:"Headers" desc:"Handshake HTTP headers, e.g. Authorization" ref:"shared"`
 	// Subprotocol Sec-WebSocket-Protocol 子协议（拨号模式），如 mqtt / ocpp1.6。留空不协商
-	Subprotocol string `json:"subprotocol" label:"Subprotocol" desc:"Sec-WebSocket-Protocol, e.g. mqtt / ocpp1.6. Leave empty to skip"`
+	Subprotocol string `json:"subprotocol" label:"Subprotocol" desc:"Sec-WebSocket-Protocol, e.g. mqtt / ocpp1.6. Leave empty to skip" ref:"shared"`
 	// ConnectTimeout 拨号握手超时（秒），0 用默认
-	ConnectTimeout int `json:"connectTimeout" label:"Connect Timeout (s)" desc:"Dial handshake timeout in seconds, 0=default"`
+	ConnectTimeout int `json:"connectTimeout" label:"Connect Timeout (s)" desc:"Dial handshake timeout in seconds, 0=default" ref:"shared"`
 	// InsecureSkipVerify 跳过 TLS 证书验证（wss:// 自签证书场景），与 restApiCall 一致
-	InsecureSkipVerify bool `json:"insecureSkipVerify" label:"Skip TLS Verify" desc:"Set to true to skip HTTPS certificate verification"`
+	InsecureSkipVerify bool `json:"insecureSkipVerify" label:"Skip TLS Verify" desc:"Set to true to skip HTTPS certificate verification" ref:"shared"`
 	// MessageType 发送的消息类型：text/binary（默认 text）
 	MessageType string `json:"messageType" label:"Message Type" desc:"text or binary (default text)"`
 	// HeartbeatInterval 心跳间隔（秒）。>0 定期发 PingMessage 保活，连接断开自动重连；0=禁用心跳与重连
-	HeartbeatInterval int `json:"heartbeatInterval" label:"Heartbeat Interval (s)" desc:"Heartbeat interval in seconds. 0=disable heartbeat and reconnect"`
+	HeartbeatInterval int `json:"heartbeatInterval" label:"Heartbeat Interval (s)" desc:"Heartbeat interval in seconds. 0=disable heartbeat and reconnect" ref:"shared"`
 }
 
 // WsNode 是 WebSocket 客户端节点，对称 NetNode：出站拨号（ws://）+ ref:// 寻址推送（endpoint/ws）。

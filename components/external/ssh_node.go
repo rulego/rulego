@@ -71,19 +71,19 @@ func init() {
 // SshConfiguration defines SSH node configuration.
 type SshConfiguration struct {
 	// Host is the SSH server address.
-	Host string `json:"host" label:"Host" desc:"SSH server host address" required:"true"`
+	Host string `json:"host" label:"Host" desc:"SSH server host address" required:"true" ref:"primary"`
 	// Port is the SSH server port.
-	Port int `json:"port" label:"Port" desc:"SSH server port, default 22" required:"true"`
+	Port int `json:"port" label:"Port" desc:"SSH server port, default 22" required:"true" ref:"shared"`
 	// Username is the SSH login username.
-	Username string `json:"username" label:"Username" desc:"SSH login username" required:"true"`
+	Username string `json:"username" label:"Username" desc:"SSH login username" required:"true" ref:"shared"`
 	// Password is the SSH login password.
 	// When CertKeyFile is set (public key auth), it is used as the passphrase of the encrypted private key.
 	// Password and CertKeyFile are mutually exclusive.
-	Password string `json:"password" label:"Password" desc:"SSH login password; when certKeyFile is set, used as the passphrase of the encrypted private key"`
+	Password string `json:"password" label:"Password" desc:"SSH login password; when certKeyFile is set, used as the passphrase of the encrypted private key" ref:"shared"`
 	// CertKeyFile is the SSH private key: PEM content (e.g. -----BEGIN OPENSSH PRIVATE KEY-----) or a file path (e.g. /root/.ssh/id_rsa).
 	// Auto-detected: content starting with -----BEGIN is treated as PEM content, otherwise as a file path.
 	// Mutually exclusive with Password; when set, Password acts as the private key passphrase.
-	CertKeyFile string `json:"certKeyFile,omitempty" label:"Cert Key File" desc:"SSH private key PEM content or file path, auto-detected; mutually exclusive with password"`
+	CertKeyFile string `json:"certKeyFile,omitempty" label:"Cert Key File" desc:"SSH private key PEM content or file path, auto-detected; mutually exclusive with password" ref:"shared"`
 	// Cmd is the shell command. Supports ${metadata.key} and ${msg.key} substitution.
 	Cmd string `json:"cmd" label:"Command" desc:"Shell command to execute. Supports ${metadata.key} and ${msg.key} substitution" required:"true"`
 }

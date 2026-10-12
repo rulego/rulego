@@ -96,10 +96,10 @@ type MqttClientNodeConfiguration struct {
 	Username             string `json:"username" label:"Username" desc:"MQTT authentication username" ref:"shared"`
 	Password             string `json:"password" label:"Password" desc:"MQTT authentication password" ref:"shared"`
 	Topic                string `json:"topic" desc:"Publish topic, supports ${metadata.key} and ${msg.key} substitution" label:"Topic" required:"true"`
-	MaxReconnectInterval int    `json:"maxReconnectInterval" label:"Max Reconnect Interval (ms)" desc:"Max reconnection interval in milliseconds"`
+	MaxReconnectInterval int    `json:"maxReconnectInterval" label:"Max Reconnect Interval (ms)" desc:"Max reconnection interval in milliseconds" ref:"shared"`
 	QOS                  uint8  `json:"qos" label:"QoS" desc:"Quality of Service level: 0(at most once), 1(at least once), 2(exactly once)"`
-	CleanSession         bool   `json:"cleanSession" label:"Clean Session" desc:"Whether to clear previous session state"`
-	ClientID             string `json:"clientId" label:"Client ID" desc:"MQTT client unique identifier"`
+	CleanSession         bool   `json:"cleanSession" label:"Clean Session" desc:"Whether to clear previous session state" ref:"shared"`
+	ClientID             string `json:"clientId" label:"Client ID" desc:"MQTT client unique identifier" ref:"shared"`
 	CAFile               string `json:"caFile" label:"CA File" desc:"CA certificate file path" ref:"shared"`
 	CertFile             string `json:"certFile" label:"Cert File" desc:"TLS client certificate file path" ref:"shared"`
 	CertKeyFile          string `json:"certKeyFile" label:"Cert Key File" desc:"TLS client private key file path" ref:"shared"`

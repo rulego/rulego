@@ -41,10 +41,11 @@ func init() {
 
 // NetNodeConfiguration 组件的配置
 type NetNodeConfiguration struct {
-	Protocol          string `json:"protocol" label:"Protocol" desc:"Network protocol: tcp, udp, default is tcp"`
+	// Protocol/ConnectTimeout/HeartbeatInterval 仅建连时读，借 ref:// 共享连接时无效
+	Protocol          string `json:"protocol" label:"Protocol" desc:"Network protocol: tcp, udp, default is tcp" ref:"shared"`
 	Server            string `json:"server" label:"Server" desc:"Server address, format: host:port" required:"true" ref:"primary"`
-	ConnectTimeout    int    `json:"connectTimeout" label:"Connect Timeout (s)" desc:"Connection timeout in seconds"`
-	HeartbeatInterval int    `json:"heartbeatInterval" label:"Heartbeat Interval (s)" desc:"Heartbeat interval in seconds"`
+	ConnectTimeout    int    `json:"connectTimeout" label:"Connect Timeout (s)" desc:"Connection timeout in seconds" ref:"shared"`
+	HeartbeatInterval int    `json:"heartbeatInterval" label:"Heartbeat Interval (s)" desc:"Heartbeat interval in seconds" ref:"shared"`
 	// Target 寻址目标。仅 server 为 ref://（指向服务端 endpoint）时生效。
 	// 支持 rulego ${} 表达式，如 ${metadata.deviceId}；值为 IP / deviceId / *（广播）/ 空。
 	Target string `json:"target" label:"Target" desc:"Addressing target when server is ref://. Supports ${metadata.xxx}; IP/deviceId/* (broadcast)"`
