@@ -246,6 +246,7 @@ github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDD
 github.com/dop251/goja v0.0.0-20211022113120-dc8c55024d06/go.mod h1:R9ET47fwRVRPZnOGvHxxhuZcbrMCuiqOz3Rlrh4KSnk=
 github.com/dop251/goja v0.0.0-20231024180952-594410467bc6 h1:U9bRrSlYCu0P8hMulhIdYpr5HUao66tKPdNgD88Zi5M=
 github.com/dop251/goja v0.0.0-20231024180952-594410467bc6/go.mod h1:QMWlm50DNe14hD7t24KEqZuUdC9sOTy8W6XbCU1mlw4=
+github.com/dop251/goja v0.0.0-20261011204819-0c9fae1b959d/go.mod h1:Cp9NYOLrEKg/ypIRkUWYXWLuKAyyFGkDmGeJ95Sw0zI=
 github.com/dop251/goja_nodejs v0.0.0-20210225215109-d91c329300e7/go.mod h1:hn7BA7c8pLvoGndExHudxTDKZ84Pyvv+90pbBjbTz0Y=
 github.com/dop251/goja_nodejs v0.0.0-20211022123610-8dd9abb0616d/go.mod h1:DngW8aVqWbuLRMHItjPUyqdj+HWPvnQe8V8y1nDpIbM=
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
@@ -678,8 +679,12 @@ github.com/rogpeppe/go-internal v1.14.1/go.mod h1:MaRKkUm5W0goXpeCfT7UZI6fk/L7L7
 github.com/rollbar/rollbar-go v1.0.2/go.mod h1:AcFs5f0I+c71bpHlXNNDbOWJiKwjFDtISeXco0L5PKQ=
 github.com/rulego/rulego v0.38.1-0.20261009085634-f3ebbcbeaaf6 h1:lQFmSBd+cdPdxHEfm5rvMM9TqDs19kMU3N02SqP+JZ4=
 github.com/rulego/rulego v0.38.1-0.20261009085634-f3ebbcbeaaf6/go.mod h1:C+5ohZtTIBNB4l1UY3aVLX+OKAXOHbryRn0I3+no8cs=
+github.com/rulego/rulego v0.38.1-0.20261012050318-19ddb917dee3 h1:NpfVLAh8MB0CDDVn9DoH2FIrf4cV+87/VYvOP2lBBSs=
+github.com/rulego/rulego v0.38.1-0.20261012050318-19ddb917dee3/go.mod h1:C+5ohZtTIBNB4l1UY3aVLX+OKAXOHbryRn0I3+no8cs=
 github.com/rulego/rulego-components v0.37.1-0.20261012023530-e259a1654be5 h1:GeAOX5RHik2OpzKbmij7qwQnSFs5ptpGIsXcVnoeb2U=
 github.com/rulego/rulego-components v0.37.1-0.20261012023530-e259a1654be5/go.mod h1:py05eJkTdc1QWOlW7/vCX0c4DoOO6OZpbpu0PhkKqS0=
+github.com/rulego/rulego-components v0.37.1-0.20261012042414-cff5e3c7a12d h1:dHi+wLNC19pLLb+XpTcQye2XGBf9LeD6N2+QzP5hqDY=
+github.com/rulego/rulego-components v0.37.1-0.20261012042414-cff5e3c7a12d/go.mod h1:py05eJkTdc1QWOlW7/vCX0c4DoOO6OZpbpu0PhkKqS0=
 github.com/rulego/rulego-components-ai v0.37.1-0.20260922023540-1b835118b365 h1:wZHWpGeuoAE5mjj5O0kSHmj612NorQkQKcOBuHe2kKc=
 github.com/rulego/rulego-components-ai v0.37.1-0.20260922023540-1b835118b365/go.mod h1:fTdJtIlBuuFnsJuWYMsEOSRjTFPhrllOsAcD32itUMM=
 github.com/rulego/rulego-components-ci v0.36.1-0.20260918062335-475a10a11d04 h1:hhZFnmXXo7Wo0ewt0U75aQXFlP8886FWir+ahWsFv9I=
