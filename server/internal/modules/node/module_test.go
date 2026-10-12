@@ -3,16 +3,23 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/node_pool"
+	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
+	serverEngine "github.com/rulego/rulego/server/internal/engine"
 	"github.com/rulego/rulego/server/internal/store/filestore"
 	"github.com/rulego/rulego/test/assert"
 )
@@ -589,5 +596,194 @@ func TestInstall_RejectsIdMismatch(t *testing.T) {
 	}
 	if err := svc.Install("mismatch-test", dsl("mismatch-test")); err != nil {
 		t.Fatalf("matching id should install: %v", err)
+	}
+}
+
+// 冷启动回归：endpoint 引用 ref:// 共享节点的链在池为空时会整链初始化失败且无重试，
+// 引擎创建 hook 必须保证 GetOrCreate 返回时全局池与用户池都已就绪。
+func TestEngineCreatedHook_LoadsPoolAtEngineCreation(t *testing.T) {
+	dir := t.TempDir()
+
+	// 全局池文件：一个共享节点
+	globalPoolFile := filepath.Join(dir, "node_pool_global.json")
+	globalDsl := poolWithNodesJSON(1, 0)
+	if err := os.WriteFile(globalPoolFile, globalDsl, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 用户池 store：预置一个私有共享节点（store 存的是 saveState 产出的完整池 DSL）
+	userStore, err := filestore.NewNodePoolStore(config.Config{DataDir: dir}, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	userPoolDsl := `{"ruleChain":{"id":"node_pool","name":"Shared Node Pool"},"metadata":{"endpoints":[],"nodes":[` +
+		string(mqttNodeJSON("hook_user_mqtt", "用户共享节点")) + `]}}`
+	if err := userStore.Save([]byte(userPoolDsl)); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{DataDir: dir, DefaultUsername: "admin", NodePoolFile: globalPoolFile}
+	logger := types.DefaultLogger()
+	provider := filestore.NewFileStoreProvider(*cfg, logger)
+	mgr := serverEngine.NewManager(cfg, logger, provider)
+
+	m := New()
+	m.cfg = cfg
+	m.logger = logger
+	m.storeProvider = provider
+	m.container = app.NewContainer()
+	m.engineMgr = mgr
+	m.globalPoolData = globalDsl
+	m.registerEngineHook()
+
+	ue, err := mgr.GetOrCreate("admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool, ok := ue.RuleConfig().NodePool.(*node_pool.NodePool)
+	if !ok {
+		t.Fatal("NodePool 类型不符")
+	}
+	if _, ok := pool.Get("pool_node_0"); !ok {
+		t.Error("全局池节点未在引擎创建时加载")
+	}
+	if _, ok := pool.Get("hook_user_mqtt"); !ok {
+		t.Error("用户私有池节点未在引擎创建时加载")
+	}
+
+	// 运行期懒创建的引擎同样走 hook：第二个用户创建即有全局池内容
+	ue2, err := mgr.GetOrCreate("lateuser")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool2, ok := ue2.RuleConfig().NodePool.(*node_pool.NodePool)
+	if !ok {
+		t.Fatal("NodePool 类型不符")
+	}
+	if _, ok := pool2.Get("pool_node_0"); !ok {
+		t.Error("运行期创建的引擎未加载全局池")
+	}
+}
+
+// coldstartEcho 测试探针节点：记录被路由命中
+type coldstartEcho struct{}
+
+var coldstartHits atomic.Int32
+
+func (n *coldstartEcho) Type() string { return "coldstartEcho" }
+func (n *coldstartEcho) New() types.Node {
+	return &coldstartEcho{}
+}
+func (n *coldstartEcho) Init(_ types.Config, _ types.Configuration) error { return nil }
+func (n *coldstartEcho) OnMsg(ctx types.RuleContext, msg types.RuleMsg) {
+	coldstartHits.Add(1)
+	ctx.TellNext(msg)
+}
+func (n *coldstartEcho) Destroy() {}
+
+func init() {
+	_ = rulego.Registry.Register(&coldstartEcho{})
+}
+
+// 端到端复现 A 类冷启动故障场景：链的 endpoint 引用 ref:// 共享端点，
+// 走真实 InitUserEngines 启动路径，断言链加载成功且共享端点能服务请求。
+// 修复前（池在链之后加载）：endpoint Start 报 node resource not found，
+// NewRuleChainEndpoint 回滚 → 整链初始化失败且无重试。
+func TestColdStart_EndpointChainWithRefSharedEndpoint(t *testing.T) {
+	dir := t.TempDir()
+	port := nextPort()
+	const chainId = "coldstart_e2e"
+
+	// 预置：用户池 store 里一个共享 REST 端点
+	userStore, err := filestore.NewNodePoolStore(config.Config{DataDir: dir}, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	userPoolDsl := `{"ruleChain":{"id":"node_pool","name":"Shared Node Pool"},"metadata":{"endpoints":[{"id":"hook_shared_rest","type":"endpoint/http","name":"共享REST","configuration":{"server":"` + port + `"}}],"nodes":[]}}`
+	if err := userStore.Save([]byte(userPoolDsl)); err != nil {
+		t.Fatal(err)
+	}
+
+	// 预置：一条规则链，endpoint 的 server 指向 ref:// 共享端点
+	provider := filestore.NewFileStoreProvider(config.Config{DataDir: dir}, types.DefaultLogger())
+	ruleStore, err := provider.GetRuleStore("admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	chainDsl := `{
+		"ruleChain": {"id":"` + chainId + `","name":"ColdStartE2E","root":true},
+		"metadata": {
+			"nodes": [{"id":"s1","type":"coldstartEcho","name":"ok"}],
+			"connections": [],
+			"endpoints": [{
+				"id":"ep_coldstart","type":"endpoint/http","name":"ref-rest",
+				"configuration":{"server":"ref://hook_shared_rest"},
+				"routers":[{"id":"r1","params":["GET"],"from":{"path":"/coldstart-e2e"},"to":{"path":"` + chainId + `","wait":true}}]
+			}]
+		}
+	}`
+	if err := ruleStore.Save("admin", chainId, []byte(chainDsl)); err != nil {
+		t.Fatal(err)
+	}
+
+	// 冷启动：manager + 引擎创建 hook + InitUserEngines（与 app 启动同路径）
+	cfg := &config.Config{DataDir: dir, DefaultUsername: "admin"}
+	logger := types.DefaultLogger()
+	mgr := serverEngine.NewManager(cfg, logger, provider)
+	m := New()
+	m.cfg = cfg
+	m.logger = logger
+	m.storeProvider = provider
+	m.container = app.NewContainer()
+	m.engineMgr = mgr
+	m.globalPoolData = nil
+	m.registerEngineHook()
+	if err := mgr.InitUserEngines(); err != nil {
+		t.Fatal(err)
+	}
+	defer mgr.Stop()
+
+	ueX, err := mgr.GetOrCreate("admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ue := ueX.(*serverEngine.UserEngine)
+
+	// 断言 1：链已加载进引擎池
+	loaded := false
+	ue.Pool().Range(func(k, v any) bool {
+		if k == chainId {
+			loaded = true
+		}
+		return true
+	})
+	if !loaded {
+		t.Fatal("endpoint 引用 ref:// 共享端点的链未加载（冷启动顺序回归）")
+	}
+
+	// 断言 2：共享端点在服务，且请求真的路由进了链（探针节点被命中）
+	var resp *http.Response
+	for i := 0; i < 20; i++ {
+		r, err := http.Get("http://127.0.0.1" + port + "/coldstart-e2e")
+		if err == nil {
+			resp = r
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if resp == nil {
+		t.Fatal("共享 REST 端点未在监听，无法服务 ref:// 引用它的链")
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && coldstartHits.Load() == 0 {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if coldstartHits.Load() == 0 {
+		t.Fatal("请求未路由进链（探针节点未命中）")
 	}
 }

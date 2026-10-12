@@ -18,6 +18,7 @@ import (
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/constants"
+	serverEngine "github.com/rulego/rulego/server/internal/engine"
 	"github.com/rulego/rulego/server/services"
 	"github.com/rulego/rulego/server/store"
 	"github.com/rulego/rulego/utils/fs"
@@ -35,6 +36,8 @@ type Module struct {
 	engineMgr     services.EngineManager
 	storeProvider store.StoreProvider
 	container     *app.Container
+	// globalPoolData 全局节点池文件内容，Init 时读入，由引擎创建 hook 分发给每个用户池
+	globalPoolData []byte
 }
 
 // New 创建 node 模块
@@ -62,56 +65,60 @@ func (m *Module) Init(ctx *app.ModuleContext) error {
 	m.storeProvider = storeProvider
 	m.container = ctx.Container
 
+	if m.cfg.NodePoolFile != "" {
+		if buf, err := os.ReadFile(m.cfg.NodePoolFile); err == nil {
+			m.globalPoolData = buf
+		} else if !os.IsNotExist(err) {
+			m.logger.Errorf("load node pool file error: %s", err)
+		}
+	}
+
+	// 规则链由 rule 模块 Start 加载，早于本模块 Start；共享节点池与动态组件必须
+	// 在引擎创建时就位，否则 endpoint 引用 ref:// 共享节点的链会初始化失败且无重试。
+	m.registerEngineHook()
+
 	if err := ctx.Container.Register(services.KeyNodeService, services.NodeService(m)); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (m *Module) Start(_ context.Context) error {
-	var globalData []byte
-	if m.cfg.NodePoolFile != "" {
-		if buf, err := os.ReadFile(m.cfg.NodePoolFile); err == nil {
-			globalData = buf
-		} else if !os.IsNotExist(err) {
-			m.logger.Errorf("load node pool file error: %s", err)
-		}
+func (m *Module) registerEngineHook() {
+	if mgr, ok := m.engineMgr.(*serverEngine.Manager); ok {
+		mgr.SetEngineCreatedHook(m.loadEngineResources)
 	}
-	for username := range m.cfg.Users {
-		m.initUserPool(username, globalData)
-	}
-	if m.cfg.DefaultUsername != "" {
-		if _, ok := m.cfg.Users[m.cfg.DefaultUsername]; !ok {
-			m.initUserPool(m.cfg.DefaultUsername, globalData)
-		}
-	}
-	return nil
 }
 
-// initUserPool 为用户初始化节点池：先加载全局池，再加载用户私有池
-func (m *Module) initUserPool(username string, globalData []byte) {
-	ue, err := m.engineMgr.GetOrCreate(username)
-	if err != nil {
-		return
-	}
+// Start 无操作：共享节点池与动态组件在引擎创建时由 hook 加载，见 Init。
+func (m *Module) Start(_ context.Context) error { return nil }
+
+// loadEngineResources 加载全局池、用户私有池与动态组件到引擎。hook 在 Manager 写锁内
+// 执行，禁止回调 GetOrCreate（重入死锁），资源全部来自入参 ue。
+func (m *Module) loadEngineResources(ue *serverEngine.UserEngine) {
 	pool, ok := ue.RuleConfig().NodePool.(*node_pool.NodePool)
 	if !ok {
 		return
 	}
-	if len(globalData) > 0 {
-		if _, err := pool.Load(globalData); err != nil {
-			m.logger.Errorf("load global node pool for user=%s error: %s", username, err)
+	if len(m.globalPoolData) > 0 {
+		if _, err := pool.Load(m.globalPoolData); err != nil {
+			m.logger.Errorf("load global node pool for user=%s error: %s", ue.Username(), err)
 		}
 	}
-	svc, err := m.getUserService(username)
-	if err == nil {
-		if err := svc.UserNodePoolService.Load(); err != nil {
-			m.logger.Errorf("load user node pool for user=%s error: %s", username, err)
-		}
-		svc.UserComponentService.LoadComponents()
+	var mcpSvc services.McpToolService
+	if svc, ok := m.container.Get(constants.SvcMcpService); ok {
+		mcpSvc, _ = svc.(services.McpToolService)
 	}
+	svc, err := m.ForUser(ue.Username(), ue.RuleConfig(), pool, mcpSvc)
+	if err != nil {
+		m.logger.Errorf("create node service for user=%s error: %s", ue.Username(), err)
+		return
+	}
+	if err := svc.UserNodePoolService.Load(); err != nil {
+		m.logger.Errorf("load user node pool for user=%s error: %s", ue.Username(), err)
+	}
+	svc.UserComponentService.LoadComponents()
 }
-func (m *Module) Stop(_ context.Context) error  { return nil }
+func (m *Module) Stop(_ context.Context) error { return nil }
 
 // getUserService 获取用户级节点服务
 func (m *Module) getUserService(username string) (*UserNodeService, error) {
@@ -370,7 +377,7 @@ func (s *UserComponentService) Uninstall(nodeType string) error {
 
 // UserNodePoolService 用户级共享节点池服务（从原 nodepool 模块合并）。
 // 注意：开启 share_http_server 后，主 HTTP server 端点会被注入用户池作为「系统只读节点」
-//（id = config.Server）。该节点禁止改/删/持久化，相关写操作（SaveNode/SaveEndpoint/Delete/saveState）
+// （id = config.Server）。该节点禁止改/删/持久化，相关写操作（SaveNode/SaveEndpoint/Delete/saveState）
 // 均通过 isSystemNode 拦截。未来新增任何 node_pool 写操作必须同步加此保护，否则会拉垮共享 server。
 type UserNodePoolService struct {
 	store        store.NodePoolStore

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/rulego/rulego/api/types"
@@ -466,5 +467,40 @@ func TestManager_LockerInjection(t *testing.T) {
 	}
 	if ue2.RuleConfig().Owner != "" {
 		t.Fatalf("owner should be empty when no Locker is injected, got %q", ue2.RuleConfig().Owner)
+	}
+}
+
+// 引擎创建回调只在创建时触发一次；Get 与重复 GetOrCreate 不再触发。
+// node 模块借此在任何规则链加载前加载共享节点池与动态组件。
+func TestEngineCreatedHook(t *testing.T) {
+	mgr, _ := setupTestManager(t)
+
+	var mu sync.Mutex
+	fired := make(map[string]int)
+	mgr.SetEngineCreatedHook(func(ue *UserEngine) {
+		mu.Lock()
+		fired[ue.Username()]++
+		mu.Unlock()
+	})
+
+	if _, err := mgr.GetOrCreate("hookuser"); err != nil {
+		t.Fatalf("GetOrCreate: %v", err)
+	}
+	if _, err := mgr.GetOrCreate("hookuser2"); err != nil {
+		t.Fatalf("GetOrCreate second user: %v", err)
+	}
+	// 已存在引擎的 Get / GetOrCreate 不应触发
+	mgr.Get("hookuser")
+	if _, err := mgr.GetOrCreate("hookuser"); err != nil {
+		t.Fatalf("GetOrCreate existing: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if fired["hookuser"] != 1 {
+		t.Errorf("hookuser 触发次数 = %d, want 1", fired["hookuser"])
+	}
+	if fired["hookuser2"] != 1 {
+		t.Errorf("hookuser2 触发次数 = %d, want 1", fired["hookuser2"])
 	}
 }

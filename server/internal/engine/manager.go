@@ -55,6 +55,10 @@ type Manager struct {
 	storeProvider store.StoreProvider
 	systemEp      types.Node     // 共享给用户池的系统端点（如主 HTTP server），由 SetSystemEndpoint 注入；nil 表示不注入
 	container     *app.Container // 服务容器，由 SetContainer 注入，供全局回调懒取 RunLogService
+	// engineCreatedHook 用户引擎创建完成后同步调用（含运行期懒创建）。node 模块借此在
+	// 任何规则链加载前把共享节点池与动态组件装入引擎；在 Manager 写锁内执行，hook 内
+	// 禁止回调 GetOrCreate（重入死锁）。
+	engineCreatedHook func(ue *UserEngine)
 }
 
 // NewManager 创建引擎管理器
@@ -77,6 +81,11 @@ func (m *Manager) SetSystemEndpoint(ep types.Node) {
 // 应在 InitUserEngines 之前调用（由 rule 模块在 Init 阶段注入）。
 func (m *Manager) SetContainer(c *app.Container) {
 	m.container = c
+}
+
+// SetEngineCreatedHook 注册用户引擎创建回调。执行时机与约束见 engineCreatedHook 字段注释。
+func (m *Manager) SetEngineCreatedHook(hook func(ue *UserEngine)) {
+	m.engineCreatedHook = hook
 }
 
 // userExists 判断用户是否仍有效，用于在 InitUserEngines 时识别已删用户的残留目录。
@@ -163,7 +172,8 @@ func (m *Manager) PropagateGlobal(newGlobal map[string]string, changedKeys []str
 }
 
 // InitUserEngines 初始化已有用户目录的引擎，分两阶段：
-//  1. 创建所有用户引擎但不加载规则链，让 MCP 等模块在 Start 阶段先注册 UDF；
+//  1. 创建所有用户引擎但不加载规则链，让 MCP 等模块在 Start 阶段先注册 UDF
+//     （创建回调同步加载该用户的共享节点池与动态组件）；
 //  2. 再统一加载规则链——此时 mcp_tool_provider 等 UDF 已就绪，含 AI/agent 节点的链才能正确解析。
 func (m *Manager) InitUserEngines() error {
 	userPath := path.Join(m.cfg.DataDir, constants.DirWorkflows)
@@ -334,6 +344,9 @@ func (m *Manager) newUserEngine(username string) (*UserEngine, error) {
 	// 注意：不在创建阶段加载规则链。
 	// 规则链由 InitUserEngines() 统一加载，确保 MCP 等模块的 UDF（如 mcp_tool_provider）
 	// 在规则链初始化之前完成注册。
+	if m.engineCreatedHook != nil {
+		m.engineCreatedHook(ue)
+	}
 
 	return ue, nil
 }
