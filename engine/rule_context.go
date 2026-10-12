@@ -230,11 +230,15 @@ func (c *ContextObserver) joinReady(joinNodeId string, item joinNodeCallback) bo
 	return true
 }
 
-// joinLive join 在本次执行中是否仍可能产生续流：
-// 已触发过，或已收到消息仍在等待触发。从未收到消息的 join 说明其所在
-// 分支未执行，不会再向下游投递，不阻塞 LCA 排空兜底。
+// joinLive join 是否仍可能产生续流：已收到消息仍在等待触发，或已触发/已超时
+// 但子树（含超时后的 Failure 续流）尚未排空。续流对祖先计数不可见（到达即
+// 结清），子树排空前不能判死，executedNodes 即排空标记。从未收到消息的
+// join 说明其所在分支未执行，不会再向下游投递，不阻塞 LCA 排空兜底。
 // 须持有写锁调用。
 func (c *ContextObserver) joinLive(joinNodeId string) bool {
+	if _, drained := c.executedNodes.Load(joinNodeId); drained {
+		return false
+	}
 	if _, fired := c.firedJoins[joinNodeId]; fired {
 		return true
 	}

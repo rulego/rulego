@@ -587,3 +587,72 @@ func TestJoinHighVolumeWaitModeNoHang(t *testing.T) {
 	assert.True(t, atomic.LoadInt32(&hangs) == 0,
 		"wait 模式挂死 %d 次（链完成回调丢失）", atomic.LoadInt32(&hangs))
 }
+
+// TestJoinTimeoutDoesNotBlockDownstreamFallback 上游 join 超时后，其 Success 路上
+// 永远不会送达的前驱不把下游 join 堵到自身超时：join 子树（含超时后的
+// Failure 续流）排空后即不再阻塞下游的 LCA 排空兜底
+//
+//	fork → A1 ───────────────→ J1(timeout=1)
+//	fork → DLY(2s) → A2 ─────→ J1（迟到，超时后到达）
+//	fork → B2 ───────────────→ J2
+//	J1 --Failure→ F1 → outF            （超时续流，~1s 排空）
+//	J1 --Success→ X → J2 / Y → J2      （超时后永不执行）
+//	J2(timeout=6) --Success→ outJ
+//
+//	J2 在 ~2s 放行（fork 随 A2 排空、J1 已排空判死）；若 J1 恒判活，J2 只能
+//	等自身 6s 超时，且超时走无连接的 Failure 边，outJ 不会执行
+func TestJoinTimeoutDoesNotBlockDownstreamFallback(t *testing.T) {
+	js := func(id string) string {
+		return fmt.Sprintf(`{"id":%q,"type":"jsTransform","name":%q,"configuration":{"jsScript":"msg='%s'; return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"}}`, id, id, id)
+	}
+	nodes := []string{
+		`{"id":"fork","type":"fork","name":"fork"}`,
+		js("A1"),
+		`{"id":"DLY","type":"delay","name":"DLY","configuration":{"delayMs":"2000"}}`,
+		js("A2"),
+		js("B2"),
+		`{"id":"J1","type":"join","name":"J1","configuration":{"mergeToMap":true,"timeout":1}}`,
+		js("F1"),
+		js("outF"),
+		js("X"),
+		js("Y"),
+		`{"id":"J2","type":"join","name":"J2","configuration":{"mergeToMap":true,"timeout":6}}`,
+		js("outJ"),
+	}
+	conns := [][3]string{
+		{"fork", "A1", "Success"}, {"fork", "DLY", "Success"}, {"fork", "B2", "Success"},
+		{"A1", "J1", "Success"}, {"A2", "J1", "Success"},
+		{"J1", "F1", "Failure"}, {"F1", "outF", "Success"},
+		{"J1", "X", "Success"}, {"J1", "Y", "Success"},
+		{"X", "J2", "Success"}, {"Y", "J2", "Success"}, {"B2", "J2", "Success"},
+		{"J2", "outJ", "Success"},
+	}
+	connList := make([]string, 0, len(conns))
+	for _, c := range conns {
+		connList = append(connList, fmt.Sprintf(`{"fromId":%q,"toId":%q,"type":%q}`, c[0], c[1], c[2]))
+	}
+	dsl := fmt.Sprintf(`{"ruleChain":{"id":"join_timeout_fallback_test"},"metadata":{"nodes":[%s],"connections":[%s]}}`,
+		strings.Join(nodes, ","), strings.Join(connList, ","))
+
+	rec := runJoinBranchChain(t, "join_timeout_fallback_test", []byte(dsl), 5*time.Second)
+
+	outFAt, ok := rec.elapsed("outF")
+	assert.True(t, ok, "J1 超时续流应执行 outF")
+	assert.True(t, outFAt >= 800*time.Millisecond && outFAt < 1800*time.Millisecond,
+		"J1 应在 1s 超时走 Failure 续流，实际 %v", outFAt)
+
+	outJAt, ok := rec.elapsed("outJ")
+	assert.True(t, ok, "J2 应放行并执行 outJ")
+	assert.True(t, outJAt < 4500*time.Millisecond,
+		"J2 不应等到自身 6s 超时（J1 应已判死），实际 %v", outJAt)
+	assert.True(t, outJAt > 1800*time.Millisecond,
+		"J2 应等 fork 随 A2(2s) 排空后才放行，实际 %v", outJAt)
+
+	merged := parseMergeMap(t, rec.output("J2"))
+	_, hasB2 := merged["B2"]
+	assert.True(t, hasB2, "J2 合并结果应含 B2")
+	_, hasX := merged["X"]
+	assert.False(t, hasX, "超时 join 的 Success 路前驱不应出现")
+	_, hasY := merged["Y"]
+	assert.False(t, hasY, "超时 join 的 Success 路前驱不应出现")
+}
