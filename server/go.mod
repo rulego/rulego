@@ -9,7 +9,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/mark3labs/mcp-go v0.44.0
 	github.com/rulego/rulego v0.38.1-0.20261012072347-d2e195f93219
-	github.com/rulego/rulego-components v0.37.1-0.20261012072158-1600be6c9d65
+	github.com/rulego/rulego-components v0.37.1-0.20261013031311-2ebf89d31709
 	github.com/rulego/rulego-components-ai v0.37.1-0.20260922023540-1b835118b365
 	github.com/rulego/rulego-components-ci v0.36.1-0.20260918062335-475a10a11d04
 	github.com/rulego/rulego-components-discovery v0.37.1-0.20260816080205-93ee3de7886f
