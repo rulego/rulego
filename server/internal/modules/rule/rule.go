@@ -462,12 +462,12 @@ func (m *Module) SaveBaseInfo(username, chainId string, baseInfo types.RuleChain
 	def := types.RuleChain{RuleChain: baseInfo}
 	// Keep the chain ID aligned with the storage key.
 	def.RuleChain.ID = chainId
+	// 新建只落库不进引擎池：引擎池只收运行中的链（initChain 拒绝 disabled DSL），
+	// 上线走显式 Deploy
+	def.RuleChain.Disabled = true
 	m.fillAdditionalInfo(ue, &def)
 	defBytes, err := json.Marshal(def)
 	if err != nil {
-		return err
-	}
-	if _, err := ue.Pool().New(chainId, defBytes, rulego.WithConfig(ue.RuleConfig())); err != nil {
 		return err
 	}
 	return ue.RuleStore().Save(username, chainId, defBytes)

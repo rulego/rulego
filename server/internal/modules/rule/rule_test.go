@@ -436,6 +436,36 @@ func TestRuleModule_SaveBaseInfo_UndeployedChain(t *testing.T) {
 	}
 }
 
+// /base 新建链只落库不进引擎池：落库 DSL 带 disabled=true，Deploy 后才可执行
+func TestRuleModule_SaveBaseInfo_NewChainNotDeployed(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := m.SaveBaseInfo("admin", "fresh-base", types.RuleChainBaseInfo{Name: "Fresh"}); err != nil {
+		t.Fatalf("SaveBaseInfo new chain: %v", err)
+	}
+
+	def, err := m.Get("admin", "fresh-base")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	var saved types.RuleChain
+	if err := json.Unmarshal(def, &saved); err != nil {
+		t.Fatalf("unmarshal saved def: %v", err)
+	}
+	if !saved.RuleChain.Disabled {
+		t.Error("new chain created via base info should be stored disabled (not auto-deployed)")
+	}
+	if _, ok := m.GetEngine("admin", "fresh-base"); ok {
+		t.Error("new chain should not enter the engine pool on creation")
+	}
+	if err := m.Deploy("admin", "fresh-base"); err != nil {
+		t.Fatalf("Deploy after create: %v", err)
+	}
+}
+
 func TestRuleModule_ExecuteOnDeployedChain(t *testing.T) {
 	m, _ := setupRuleModule(t)
 	if err := m.Start(context.Background()); err != nil {
