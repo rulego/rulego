@@ -1352,59 +1352,65 @@ func (ctx *DefaultRuleContext) tellOrElse(msg types.RuleMsg, err error, defaultR
 
 			relationTypeLen := len(relationTypes)
 
+			// 子节点计数必须在派发任何任务前、对本次调用的全部关系一次性结清：
+			// 已派发的分支会与计数逻辑并发执行，回卷扣减若插在两次自增之间，计数
+			// 会瞬时为 0 并误触发完成回调；按关系逐段结清挡不住多关系 TellNext
+			// （如 inclusive 多 case 命中）里先派发分支同步回卷命中的同一窗口
+			type relationDispatch struct {
+				rt    string
+				nodes []types.NodeCtx
+				ok    bool
+				msg   types.RuleMsg
+			}
+			items := make([]relationDispatch, 0, relationTypeLen)
+			m := msg
 			for _, relationType := range relationTypes {
-				//创建局部副本，避免闭包捕获循环变量导致数据竞争
-				rt := relationType
-				//执行After aop
-				msg = ctx.executeAfterAop(msg, err, rt)
-				var ok = false
-				var nodes []types.NodeCtx
-				//根据relationType查找子节点列表
-				nodes, ok = ctx.getNextNodes(rt)
+				//执行After aop，各关系的变换沿上一关系的结果链式进行
+				m = ctx.executeAfterAop(m, err, relationType)
+				nodes, ok := ctx.getNextNodes(relationType)
 				//根据默认关系查找节点
 				if defaultRelationType != "" && (!ok || len(nodes) == 0) && !ctx.skipTellNext {
 					nodes, ok = ctx.getNextNodes(defaultRelationType)
 				}
-				if ok && !ctx.skipTellNext {
-					// 只有多个子节点或者并行多个关系时才需要拷贝
-					needsCopy := len(nodes) > 1 || relationTypeLen > 0
-					// 子节点计数必须在派发任何任务前结清：已派发的分支会与本循环
-					// 并发执行，回卷扣减若插在两次自增之间，计数会瞬时为 0 并
-					// 误触发完成回调
-					for range nodes {
+				items = append(items, relationDispatch{rt: relationType, nodes: nodes, ok: ok && !ctx.skipTellNext, msg: m})
+			}
+			for _, it := range items {
+				if it.ok {
+					for range it.nodes {
 						//增加一个待执行的子节点
-						ctx.childReady(msg, rt)
-					}
-					for _, item := range nodes {
-						tmp := item
-
-						var msgToPass types.RuleMsg
-						if needsCopy {
-							//除1个节点和并行多个关系外的其他节点创建拷贝
-							msgToPass = msg.Copy()
-						} else {
-							//唯一节点可以直接使用原消息
-							msgToPass = msg
-						}
-
-						//通知执行子节点
-						// stream 为保证流块顺序；syncWait 下严格线性段（单关系单子节点）
-						// 内联执行，省掉每跳一次协程池穿越。扇出或多关系仍交池保持并行。
-						inline := rt == types.Stream ||
-							(ctx.syncWait && len(nodes) == 1 && relationTypeLen == 1)
-						if inline {
-							ctx.tellNext(msgToPass, tmp, rt)
-						} else {
-							ctx.SubmitTask(func() {
-								ctx.tellNext(msgToPass, tmp, rt)
-							})
-						}
+						ctx.childReady(it.msg, it.rt)
 					}
 				} else {
 					//调用DoOnEnd 会调用 childDone()对waitingCount会减1，所以childReady和childDone成对出现
-					ctx.childReady(msg, relationType)
+					ctx.childReady(it.msg, it.rt)
+				}
+			}
+			for _, it := range items {
+				if !it.ok {
 					//找不到子节点，则执行结束回调
-					ctx.DoOnEnd(msg, ctx.wrapEndErr(err), relationType)
+					ctx.DoOnEnd(it.msg, ctx.wrapEndErr(err), it.rt)
+					continue
+				}
+				//创建局部副本，避免闭包捕获循环变量导致数据竞争
+				rt := it.rt
+				for _, item := range it.nodes {
+					tmp := item
+
+					// 子节点一律拿拷贝：父级 ctx.out 仍持有原消息，避免子节点原地改写污染父节点输出
+					msgToPass := it.msg.Copy()
+
+					//通知执行子节点
+					// stream 为保证流块顺序；syncWait 下严格线性段（单关系单子节点）
+					// 内联执行，省掉每跳一次协程池穿越。扇出或多关系仍交池保持并行。
+					inline := rt == types.Stream ||
+						(ctx.syncWait && len(it.nodes) == 1 && relationTypeLen == 1)
+					if inline {
+						ctx.tellNext(msgToPass, tmp, rt)
+					} else {
+						ctx.SubmitTask(func() {
+							ctx.tellNext(msgToPass, tmp, rt)
+						})
+					}
 				}
 			}
 		}

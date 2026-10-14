@@ -11,6 +11,7 @@ import (
 
 	"github.com/rulego/rulego/api/types"
 	"github.com/rulego/rulego/test/assert"
+	"github.com/rulego/rulego/utils/pool"
 )
 
 // joinBranchRecorder 记录节点完成时刻与 join 输出，用于断言放行时机与合并内容
@@ -655,4 +656,64 @@ func TestJoinTimeoutDoesNotBlockDownstreamFallback(t *testing.T) {
 	assert.False(t, hasX, "超时 join 的 Success 路前驱不应出现")
 	_, hasY := merged["Y"]
 	assert.False(t, hasY, "超时 join 的 Success 路前驱不应出现")
+}
+
+// TestInclusiveMultiRelationNoEarlyCompletion 多关系派发的提前收链回归：tellOrElse
+// 若按关系逐段结清计数，多关系 TellNext 中先派发关系的分支同步跑完回卷时，后续
+// 关系的分支尚未计数，计数瞬时归零提前触发链完成回调，后续分支游离于计数外。
+//
+//	s → inc（两 case 全命中，then Case1/Case2）
+//	inc --Case1--> fastB（立即完成）
+//	inc --Case2--> slowB（100ms 忙等）
+//
+// pool=1 使 inc 的分支派发走 caller-runs 同步执行，该窗口成为确定性复现。
+// 断言：链完成回调触发时，慢分支 slowB 必须已经执行完成。
+func TestInclusiveMultiRelationNoEarlyCompletion(t *testing.T) {
+	js := func(id, script string) string {
+		return fmt.Sprintf(`{"id":%q,"type":"jsTransform","name":%q,"configuration":{"jsScript":%q}}`, id, id, script)
+	}
+	fast := "msg='fast'; return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
+	slow := "var s=Date.now(); while(Date.now()-s<100){}; msg='slow'; return {'msg':msg,'metadata':metadata,'msgType':msgType,'dataType':dataType};"
+	nodes := []string{
+		js("s", fast),
+		`{"id":"inc","type":"inclusive","name":"并行命中","configuration":{"cases":[{"case":"metadata.route == 'all'","then":"Case1"},{"case":"metadata.route == 'all'","then":"Case2"}]}}`,
+		js("fastB", fast),
+		js("slowB", slow),
+	}
+	conns := [][3]string{
+		{"s", "inc", "Success"},
+		{"inc", "fastB", "Case1"},
+		{"inc", "slowB", "Case2"},
+	}
+	connList := make([]string, 0, len(conns))
+	for _, c := range conns {
+		connList = append(connList, fmt.Sprintf(`{"fromId":%q,"toId":%q,"type":%q}`, c[0], c[1], c[2]))
+	}
+	dsl := fmt.Sprintf(`{"ruleChain":{"id":"inclusive_multi_relation_test"},"metadata":{"nodes":[%s],"connections":[%s]}}`,
+		strings.Join(nodes, ","), strings.Join(connList, ","))
+
+	wp := &pool.WorkerPool{MaxWorkersCount: 1}
+	wp.Start()
+	config := NewConfig()
+	config.Pool = wp
+
+	rec := newJoinBranchRecorder()
+	completed := make(chan struct{})
+	e, err := New("inclusive_multi_relation_test", []byte(dsl), WithConfig(config))
+	assert.Nil(t, err)
+	md := types.NewMetadata()
+	md.PutValue("route", "all")
+	e.OnMsg(types.NewMsg(0, "TEST_MSG_TYPE", types.JSON, md, `{"temperature":60}`),
+		types.WithOnNodeCompleted(rec.onComplete),
+		types.WithOnAllNodeCompleted(func() { close(completed) }))
+	select {
+	case <-completed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("链未在 5s 内完成")
+	}
+
+	_, ok := rec.elapsed("fastB")
+	assert.True(t, ok, "快分支 fastB 应已执行")
+	_, ok = rec.elapsed("slowB")
+	assert.True(t, ok, "链完成回调触发时慢分支 slowB 尚未完成：完成回调被提前触发，后续分支游离于计数外")
 }
