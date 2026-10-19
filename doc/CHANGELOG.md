@@ -1,5 +1,89 @@
 # CHANGELOG
 
+# [v1.0.0] 2026/10/14
+> 首个 1.0 大版本，包含 v0.37.2、v0.37.3、v0.38.0 三个中间版本的累积更新
+### rulego-core
+- refactor!: 移除全部废弃 API——`WithEndFunc`/`OnMsgWithEndFunc`/`OnMsgWithOptions`（改用 `WithOnEnd`/`OnMsg`）、`SubmitTack`、iterator 迭代节点组件（由 for 节点取代）、`utils/str` 字符串模板（`NewTemplate`/`ExecuteTemplate`/`Template` 接口，统一迁移到 `utils/el` 表达式模板）
+- feat(api): 新增 `types.Version` 版本常量与哨兵错误（规则链/节点不存在等）；日志全面迁移到分级方法，`Logger.Printf` 移除计划公示
+- feat: 新增业务日志事件——内置 BusinessLog 切面，节点日志模板上报进调试通道与运行记录
+- feat(engine): 消息 hop 预算防失控循环（`msg_max_hops` 可配），worker 池打满同步降级兜底
+- feat(engine): join 语义重做——等待直接入边分支完成，不再等待整个 fork 子树；修复分支竞态导致的提前完成与误放行
+- feat(flow,ref): flow 节点支持 `chainId:nodeId` 跨链起点与 `${}` 动态 targetId（msg/metadata/global/vars），跨链调用带上 fromChainId/fromNodeId 溯源
+- feat(node_pool): 新增分布式原语 Locker/OnceGuard/ActiveGuard——schedule endpoint 多副本仅触发一次、endpoint 主备选主；共享节点支持别名查找 (#96)；SetConfig 锁内热更换配置
+- feat(endpoint): 链内 `ref://` 引用从 endpoint 解析到同链节点/端点（两阶段部署 + 连接池成环守卫）；mqtt 消息数据类型可配置（留空自动探测/JSON/TEXT/BINARY）；schedule 空 msgType 归一 JSON；mqtt/net/ws/ssh 连接态字段补 ref 标签；EventConnect 支持关闭 websocket 连接
+- feat(engine): 运行记录事件补 msgType/msgData/耗时并按开始时间排序，全局运行日志级别与规则链完成回调；端点回调错误携带链/节点定位；debug 模式跨链继承；日志节点输出进调试通道；节点/endpoint 实时连接状态；endpoint 触发消息带 `_triggerSource` 元数据
+- feat(log): 日志输出位置 outputTo（both/console/logger）可配；服务端日志带链/节点前缀
+- feat(el): 新增一次性 ExecuteTemplate 帮助函数，语义兼容旧 str 模板
+- perf(engine): 同步等待 hop 内联、节点切面解析缓存、worker 池分片，降低每消息分配
+- fix(engine): 修复组节点计数竞态与 panic 吞没、for/while 取消传播、Join/Group 节点 goroutine 泄漏
+- fix(js): 每次执行独立超时定时器并清理池化 VM 残留中断；编译错误行号对齐用户脚本
+- fix(endpoint): 修复重叠分隔符匹配 (#128)、延迟路由清理与部署失败回滚、池重载目标与并发创建竞争
+- fix(filter): 组过滤到期边界恢复已有结果，不再误报超时
+- fix: 路由缓存重载安全；pool/ssh/cache/mqtt/exec 一轮加固；AES 解密对非法密文加固
+- test: 聚合覆盖率提升到 88.4%
+### rulego-components
+- feat(streamsql): 流-流 JOIN（WITHIN 窗口）经 streamKey 路由支持，streamsql 升级 v1.3.0；columns 输入格式支持透视
+- feat(endpoint): fasthttp 流式性能重构——非 SSE 请求零开销惰性门控、非流式路由同步路径、惰性请求快照；fasthttp 升级 v1.73.0
+- feat(endpoint): kafka 共享连接 (#9)；redis/rabbitmq 多副本单活消费者选主；Redis Locker 支撑跨副本仅一次执行
+- feat: 消息组件重连循环与实时连接状态（redis/redis_stream/rabbitmq/mongodb/nsq 等 endpoint 与客户端）
+- feat(rabbitmq): 消费端 queueName/exclusive 可配置，客户端节点消息持久化发布
+- feat(redis): outputTo 选项把命令结果写入 metadata；内联命令引号感知切分（`SET key ""` 正确存空串）
+- feat: 构造期字段标 `ref:shared`（redis/kafka/otel/wukongim/email），借用模式自动隐藏；endpoint 与外部客户端节点支持借用同链连接
+- refactor(components)!: SSH 认证字段合并——私钥统一 `certKeyFile`，password/key 互斥；支持私钥内容、文件路径与 passphrase
+- perf(restApiCall): 默认连接池 200 → 2000
+- fix: beanstalkd 死锁与失败任务无限重投、kafka/rabbitmq 重连复活已删路由、nsq/nats/pulsar/grpc_stream 数据竞争与生命周期幂等、lua nil 处理、otel 模板值解析、redis psubscribe 等待确认
+### rulego-components-ai
+- feat: 新增轻量 ReAct 组件 ai/agent（纯标准库，32 位可编译）；多轮工具调用 token 用量元数据累加、透传链上下文
+- feat: 新增 ai/jev 决策节点与 ai/jevFilter 过滤节点
+- feat: lite 工具配置复用 config.Tool，承接 mcp/builtin skill 并支持远程 MCP
+- feat: 图片处理注册 BMP/WebP 解码器；流式 delta 按帧合批转发，LLM 客户端补传输层超时
+- feat(agent): MCP 工具返回的图片不再降级占位符，透传给视觉模型识别
+- fix(agent): 流式工具调用误判为纯文本时自动升级 drain 并重跑本轮，检测放宽到流中任意 chunk
+- fix(mcp): structuredContent 透传到工具文本，跨轮句柄不丢失
+- fix: 丢弃空 assistant 消息避免 LLM 端点 400
+- chore: eino 升级 v0.9.19；browseruse 改用 encoding/json 去除 sonic 直接依赖
+### rulego-components-iot
+- feat: 新增 BACnet/IP 协议采集，工业协议族扩展到 11 个
+- feat(modbus)!: 校验位取值支持 N/O/E 字母并以其为规范形态，修复校验位解码
+- feat(iot): 共享重试/重连 runner 与连接状态上报；重连退避；tsdb 初始化与操作锁有界化
+- feat(snmp,iec104): 读点位应用缩放/偏移系数，ScaleValue 全协议补齐
+- feat(tsdb): 扁平 map 输入保留 timestamp/window_id 保留键
+- perf: 批量读——modbus 连续寄存器合并、S7 按 area/DB 合并区间读、SNMP 批量 GET、FINS 0x0104 批量读（STRING 类型与点位级字节序）
+- fix: 客户端泄漏、串口请求串扰、OPC UA 名称批量化、snmp walk 上限；静默设备超时跳过逐点回退与重试；iec104 内嵌 go-iecp5 修复竞态；旧版 x/modbus 读输出补 JSON dataType；paho.mqtt/prometheus CVE 升级
+### rulego-components-discovery
+- feat: nacos 组件连接状态上报与初始化软失败
+- feat: nacos SDK 日志经 WithLogger 路由进 rulego 日志，服务不可达时抑制重复刷屏
+### rulego-server
+- feat: 多租户用户管理（角色、API Key）；管理面审计日志——可插拔存储、拒绝请求采样、MCP 规则链变更工具 RBAC 与审计
+- feat: 规则链版本快照与回滚；保存双轨——保存记版本（滚动保留上限）、保存草稿去重快照；新建链只落库不上线
+- feat: 全局配置热更新（精准重载）、环境变量引用展开与运行时覆盖/恢复；敏感项掩码持久化
+- feat: 可嵌入 bridge 模式——auth SPI、信封包装、无独立监听，嵌入模式注册调试 websocket
+- feat: 概览/版本/规则链分类端点；规则列表索引化摘要（含分类计数与 ai/agent 标记）与磁盘对账；分类过滤 `none` 匹配未分类
+- feat: 运行日志分级（off/summary/detail）异步写；运行记录事件记录失败节点 ID
+- feat: 规则链市场支持本地目录模式
+- feat: 用户引擎注入 Locker/owner——schedule 多副本去重、ActiveGuard 选主
+- feat: chat completions 按用户限流；登录限流可配置；消息 hop 上限与 worker 池上限可配置
+- feat: 静态资源与 JSON API gzip 压缩与缓存头
+- fix(security): 一轮加固——拒绝已删除用户认证、config 资源仅管理员、iotpoint/builtin 独立资源、MCP 资源 id 校验、请求体上限与市场拉取超时、调试数据与 ws 广播按用户隔离、JWT 算法白名单、模型 key 掩码、拒绝删除 config.conf 内置账号、内置智能体防 Undeploy 与标记丢失
+- fix: 冷启动按序预加载共享节点池与动态组件；已停链/未部署链保存保持状态；动态组件安装 dsl id 与路径不一致拒绝并回滚注册
+- chore(server): 依赖工具链要求 Go 1.25+
+### rulego-editor
+- feat: 保存双轨与版本管理——保存=记版本+上线（新建不上线）、保存草稿；历史版本按来源分档、回滚、超 50 条加载更早、顶栏版本号
+- feat: 调试体验大版本——运行耗时瀑布图、运行记录对比（消息 diff/差异定位）、调试表单记忆、右键插入日志节点、错误定位、未部署链发送守卫
+- feat: 全局配置面板与环境变量引用/运行时覆盖标记；`${vars.}`/`${global.}` 变量联想补全
+- feat: 业务日志事件——节点日志模板、日志上报设置与角标
+- feat: endpoint 连线绑定多条路由；子规则链连线自定义路由标签
+- feat: 循环分组边界守卫（组内外连线互禁、入组带回 parentGroupId、分组框尺寸入 DSL）；循环起点伪节点与悬浮快捷加号；while 死循环检测
+- feat: ref/flow 引用开放同链节点/endpoint 与跨链两步选择器，支持 `${}` 表达式手填；kafka 共享连接池下拉与跨类型引用
+- feat: AI 集成——ai/jev 节点、零依赖 AIChat 对话组件、openChat API、flashNodes 落图高亮、extractRuleChainFromToolCalls 导出、AI 设置 extra-panes 插槽
+- feat: 宿主集成 API——registerPropertyComponent 自定义属性控件、exportDataTransform 导出钩子、addRequestInterceptor 请求拦截器、resolveApiPrefix 子路径挂载、动态下拉数据源与字段联动、连线端点拖拽重连、SharedNodeManager 页面级复用；readonly 档升级完整预览形态、capabilities 深合并
+- feat: 组件配置体验优化——密码掩码、枚举下拉化、高级字段折叠、认证字段条件显隐、placeholder 示例回退
+- feat: 定时调度可视化 Cron 选择器与消息内容双模式编辑、频率中文可读化
+- feat: 流组件表单内联元数据表、JOIN 关键词联想；mqtt 消息数据类型、rabbitmq 队列字段、redis outputTo 表单支持
+- feat: dock 面板体系——「面板」子菜单三形态可用、资源树展开记忆、组件库分组默认折叠、面板空态统一；连接状态轮询自适应降频
+- feat: 深色主题全量令牌化，LogicFlow 画布文字随主题切换；内置用户使用手册（PDF 随产物分发）
+- fix: LogicFlow 升级 2.1.11/2.1.15 修复框选后画布无法拖动；401 令牌竞态修复退出重登录卡死；保存按钮脏态语义统一
+
 # [v0.37.0] 2026/08/02
 ### rulego-core
 - feat: 增加同链连接池——连接型组件可在链内按源节点 ID（`ref://节点ID`）复用连接，零引用计数；db/mqtt/net/ws 等组件完成适配
