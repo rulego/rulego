@@ -47,6 +47,9 @@ jobs:
           npm run build:editor:same-origin
           mkdir -p ../server/cmd/server/editor
           cp -r dist/. ../server/cmd/server/editor/
+          # 手册 PDF 不随发布包分发（16MB×14 包≈185MB）：server 无 go:embed，删文件即全链路剥离；
+          # 线上未放置时「使用手册」菜单 404，在线阅读走官网
+          rm -f ../server/cmd/server/editor/user-manual.pdf
       - name: Build for Linux and Windows and Macos
         run: |
           cd server/cmd/server
