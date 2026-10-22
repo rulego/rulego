@@ -73,8 +73,9 @@ const (
 )
 
 // ServerVersion 服务端版本号，由 GET /api/v1/version 返回。
-// var 以便发布流水线经 -ldflags -X 注入真实 tag，默认值仅本地构建生效
-var ServerVersion = "0.37.0"
+// var 以便发布流水线经 -ldflags -X 注入真实 tag；这里的默认值跟随仓库最新 tag，
+// 仅本地/未注入构建生效
+var ServerVersion = "1.0.0"
 
 // 权限资源名（authWithPermission 的 resource 入参）
 const (

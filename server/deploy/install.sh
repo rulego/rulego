@@ -110,9 +110,9 @@ fetch() {
   _url="${RULEGO_MIRROR:-}$1"
   _out="$2"
   if command -v curl >/dev/null 2>&1; then
-    curl -fSL --retry 3 -o "$_out" "$_url"
+    curl -fSL --retry 3 --retry-delay 2 --connect-timeout 15 -o "$_out" "$_url"
   elif command -v wget >/dev/null 2>&1; then
-    wget -q -O "$_out" "$_url"
+    wget -q --timeout=30 -O "$_out" "$_url"
   else
     die "需要 curl 或 wget 之一"
   fi

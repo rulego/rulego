@@ -230,15 +230,24 @@ jobs:
           registry: ${{ secrets.ALIYUN_REGISTRY }}
           username: ${{ secrets.ALIYUN_USERNAME }}
           password: ${{ secrets.ALIYUN_PASSWORD }}
-      - name: Merge manifests
+      - name: Merge manifests (Docker Hub)
+        # 与 docker job 的 push targets 同一门控：未配 Hub Secrets 时只推 GHCR
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
         env:
           VERSION: ${{ github.ref_name }}
         run: |
-          # tag 口径：完整版号 / 次版本 / latest（去 v 前缀，与文档一致）
           V="${VERSION#v}"
           MINOR="${V%.*}"
           for TAG in "${V}" "${MINOR}" "latest"; do
             docker buildx imagetools create -t "${IMAGE_HUB}:${TAG}" $(ls /tmp/digests | xargs -I{} echo "${IMAGE_HUB}@sha256:{}")
+          done
+      - name: Merge manifests (GHCR)
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          V="${VERSION#v}"
+          MINOR="${V%.*}"
+          for TAG in "${V}" "${MINOR}" "latest"; do
             docker buildx imagetools create -t "${IMAGE_GHCR}:${TAG}" $(ls /tmp/digests | xargs -I{} echo "${IMAGE_GHCR}@sha256:{}")
           done
       - name: Merge manifests (Aliyun)
@@ -253,7 +262,9 @@ jobs:
             docker buildx imagetools create -t "${ALI}:${TAG}" $(ls /tmp/digests | xargs -I{} echo "${ALI}@sha256:{}")
           done
       - name: Inspect image
-        run: docker buildx imagetools inspect "${IMAGE_GHCR}:${{ github.ref_name }}"
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: docker buildx imagetools inspect "${IMAGE_GHCR}:${VERSION#v}"
 
   chart:
     needs: build

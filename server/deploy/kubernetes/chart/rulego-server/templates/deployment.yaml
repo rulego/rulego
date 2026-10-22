@@ -8,7 +8,8 @@ spec:
   # bbolt 文件锁 + RWO 卷：不能滚动更新，替换 Pod 必须先停旧的
   strategy:
     type: Recreate
-  replicas: 1
+  # 内置存储为单写者模型，replicaCount 高于 1 会卷冲突 + 数据损坏
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       {{- include "rulego-server.selectorLabels" . | nindent 6 }}

@@ -54,6 +54,12 @@ data:
     read_timeout = 30
     write_timeout = 300
     max_body_size = 10
+    
+    [mcp]
+    enable = true
+    
+    [mcp.groups]
+    manager = preview_rule_chain,save_rule_chain,list_rule_chains,get_rule_chain,delete_rule_chain,operate_rule_chain,execute_rule_chain,list_components,get_component_doc
 ---
 # Source: rulego-server/templates/pvc.yaml
 apiVersion: v1
@@ -110,6 +116,7 @@ spec:
   # bbolt 文件锁 + RWO 卷：不能滚动更新，替换 Pod 必须先停旧的
   strategy:
     type: Recreate
+  # 内置存储为单写者模型，replicaCount 高于 1 会卷冲突 + 数据损坏
   replicas: 1
   selector:
     matchLabels:

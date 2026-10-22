@@ -115,6 +115,12 @@ config: |-
   write_timeout = 300
   max_body_size = 10
 
+  [mcp]
+  enable = true
+
+  [mcp.groups]
+  manager = preview_rule_chain,save_rule_chain,list_rule_chains,get_rule_chain,delete_rule_chain,operate_rule_chain,execute_rule_chain,list_components,get_component_doc
+
 # 引用已有 ConfigMap 提供 config.conf（键名 config.conf），设置后忽略上面的 config
 existingConfigMap: ""
 
