@@ -1,0 +1,11 @@
+{{- if not .Values.existingConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "rulego-server.fullname" . }}
+  labels:
+    {{- include "rulego-server.labels" . | nindent 4 }}
+data:
+  config.conf: |-
+{{ .Values.config | indent 4 }}
+{{- end }}

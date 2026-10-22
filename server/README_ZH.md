@@ -153,6 +153,33 @@ defer b.Stop()
 handler := b.Handler() // 标准 http.Handler
 ```
 
+## 部署
+
+三种目标环境的一键安装（详见 `deploy/` 目录）：
+
+**Docker / Docker Compose**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rulego/rulego/main/server/deploy/docker/docker-compose.yml -o docker-compose.yml
+docker compose up -d
+```
+
+**Kubernetes** —— Helm chart（`oci://ghcr.io/rulego/charts/rulego-server`）或每次 Release 附带的单文件清单：
+
+```bash
+kubectl apply -f rulego-server-all-in-one.yaml   # 从 Releases 下载
+# 或
+helm install rulego-server oci://ghcr.io/rulego/charts/rulego-server
+```
+
+注意：内置存储（bbolt）为单写者模型，chart 固定 1 副本 + `Recreate` 更新策略。
+
+**Linux 裸机** —— 下载 release 归档，安装到 `/opt/rulego-server`，创建 `rulego` 系统用户与加固的 systemd 服务：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rulego/rulego/main/server/deploy/install.sh | bash
+```
+
 ## 可视化编辑器
 
 RuleGo-Editor 是 RuleGo-Server 的可视化 UI 界面，可以对规则链进行可视化管理、调试和部署。

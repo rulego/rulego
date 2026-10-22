@@ -1,0 +1,21 @@
+# RuleGo Server 一键启动。
+#   curl -fsSL https://raw.githubusercontent.com/rulego/rulego/main/server/deploy/docker/docker-compose.yml -o docker-compose.yml
+#   docker compose up -d
+# 打开 http://<主机IP>:9090/editor/ （默认账号 admin/admin；生产环境请改密或开启 require_auth）
+services:
+  rulego-server:
+    image: rulego/rulego-server:latest
+    container_name: rulego-server
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./data:/app/data
+    environment:
+      # JWT 签名密钥，生产环境务必换成随机长字符串
+      JWT_SECRET_KEY: "please-change-me-in-production"
+      # 常用配置可用 RULEGO_* 环境变量覆盖 config.conf（规则：RULEGO_ + 键名大写），例如：
+      # RULEGO_SERVER: ":9090"
+      # RULEGO_REQUIRE_AUTH: "true"
+      # RULEGO_LOG_LEVEL: "debug"
+      # RULEGO_DATA_DIR: "/app/data"
+    restart: unless-stopped

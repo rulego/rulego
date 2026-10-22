@@ -1,0 +1,123 @@
+# Default values for rulego-server.
+
+# 必须保持 1：bbolt 单文件存储不支持多写者，扩副本会卷冲突 + 数据损坏
+replicaCount: 1
+
+image:
+  repository: rulego/rulego-server
+  # 留空取 .Chart.AppVersion
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: false
+  # 不创建时留空，使用 default
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  # 数据卷组写权限（/app/data 归组 1000）
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  allowPrivilegeEscalation: false
+
+service:
+  type: ClusterIP
+  port: 9090
+  # endpoint 类组件（mqtt/tcp 监听器等）按链配置监听额外端口，在此追加暴露：
+  # extraPorts:
+  #   - name: mqtt
+  #     port: 1883
+  #     targetPort: 1883
+  extraPorts: []
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: rulego.example.com
+  tls: []
+  #  - secretName: rulego-tls
+  #    hosts:
+  #      - rulego.example.com
+
+persistence:
+  enabled: true
+  # 已有 PVC 时直接填名字，忽略下面的 size/storageClass
+  existingClaim: ""
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 5Gi
+
+resources: {}
+# requests:
+#   cpu: 250m
+#   memory: 256Mi
+# limits:
+#   memory: 2Gi
+
+# JWT 签名密钥。为空时用 config.conf 内置默认值（仅评估可用，生产必须设置）
+jwtSecretKey: ""
+
+# 附加环境变量（RULEGO_* 配置覆盖、代理、时区等）：
+# env:
+#   - name: RULEGO_LOG_LEVEL
+#     value: debug
+#   - name: TZ
+#     value: Asia/Shanghai
+env: []
+
+# 内置默认 config.conf。整体替换：helm 安装时 --set-file config=your-config.conf。
+# 关键路径约定：data_dir=./data（容器内 /app/data，已挂卷）、resource_mapping 指向 /app/editor
+config: |-
+  # RuleGo Server Configuration
+  data_dir = ./data
+  skill_path = ./data/skills
+  server = :9090
+  default_username = admin
+  cmd_mode = allow
+  cmd_white_list = cp,scp,mvn,npm,yarn,git,make,cmake,docker,kubectl,helm,ansible,puppet,pytest,python,python3,pip,go,java,dotnet,gcc,g++,ctest
+  cmd_deny_list =
+  cmd_deny_args =
+  file_path_white_list = /tmp
+  load_lua_libs = true
+  jwt_secret_key = ${JWT_SECRET_KEY:-r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1}
+  jwt_expire_time = 43200000
+  jwt_issuer = rulego.cc
+  debug = true
+  max_node_log_size = 40
+  log_file = ./data/logs/rulego.log
+  script_max_execution_time = 5000
+  msg_max_hops = 10000
+  worker_pool_max_workers = 5000
+  run_log_mode = summary
+  run_log_store_type = bbolt
+  run_log_retention_count = 500
+  run_log_retention_days = 7
+  audit_enable = true
+  audit_retention_days = 90
+  audit_max_size_mb = 200
+  resource_mapping = /editor/=./editor,/images/=./editor/images
+  node_pool_file = ./node_pool.json
+  share_http_server = false
+  allow_cors = true
+  read_timeout = 30
+  write_timeout = 300
+  max_body_size = 10
+
+# 引用已有 ConfigMap 提供 config.conf（键名 config.conf），设置后忽略上面的 config
+existingConfigMap: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

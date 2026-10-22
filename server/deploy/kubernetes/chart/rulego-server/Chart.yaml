@@ -1,0 +1,19 @@
+apiVersion: v2
+name: rulego-server
+description: RuleGo Server — lightweight iPaas rule engine with visual editor
+type: application
+# 发布时由 CI 用 helm package --version/--app-version 覆盖为真实 tag
+version: 0.1.0
+appVersion: "v1.0.0"
+home: https://rulego.cc
+icon: https://rulego.cc/images/logo.png
+sources:
+  - https://github.com/rulego/rulego
+keywords:
+  - rule-engine
+  - iot
+  - ipaas
+  - rulego
+maintainers:
+  - name: rulego
+    url: https://rulego.cc

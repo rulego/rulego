@@ -153,6 +153,33 @@ defer b.Stop()
 handler := b.Handler() // standard http.Handler
 ```
 
+## Deployment
+
+One-click install for three targets (details in `deploy/`):
+
+**Docker / Docker Compose**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rulego/rulego/main/server/deploy/docker/docker-compose.yml -o docker-compose.yml
+docker compose up -d
+```
+
+**Kubernetes** — Helm chart (`oci://ghcr.io/rulego/charts/rulego-server`) or the single-file manifest attached to each release:
+
+```bash
+kubectl apply -f rulego-server-all-in-one.yaml   # download from Releases
+# or
+helm install rulego-server oci://ghcr.io/rulego/charts/rulego-server
+```
+
+Note: the embedded store (bbolt) is single-writer — the chart pins 1 replica with a `Recreate` strategy.
+
+**Linux bare metal** — downloads the release archive, installs to `/opt/rulego-server`, creates a `rulego` system user and a hardened systemd unit:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rulego/rulego/main/server/deploy/install.sh | bash
+```
+
 ## Visual Editor
 
 RuleGo-Editor is the visual UI for RuleGo-Server, allowing visual management, debugging and deployment of rule chains.

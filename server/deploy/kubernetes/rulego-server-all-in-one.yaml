@@ -1,0 +1,171 @@
+# RuleGo Server 单文件部署（kubectl apply -f rulego-server-all-in-one.yaml）
+# 本文件由 CI 在每次发版时用 helm template 重新生成；手工定制请改用 Helm chart：
+#   helm install rulego-server oci://ghcr.io/rulego/charts/rulego-server
+# 镜像 tag 锁定为构建时版本，升级请重新下载对应版本的本文件。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rulego
+---
+# Source: rulego-server/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rulego-server
+  labels:
+    helm.sh/chart: rulego-server-0.1.0
+    app.kubernetes.io/name: rulego-server
+    app.kubernetes.io/instance: rulego-server
+    app.kubernetes.io/version: "v1.0.0"
+    app.kubernetes.io/managed-by: Helm
+data:
+  config.conf: |-
+    # RuleGo Server Configuration
+    data_dir = ./data
+    skill_path = ./data/skills
+    server = :9090
+    default_username = admin
+    cmd_mode = allow
+    cmd_white_list = cp,scp,mvn,npm,yarn,git,make,cmake,docker,kubectl,helm,ansible,puppet,pytest,python,python3,pip,go,java,dotnet,gcc,g++,ctest
+    cmd_deny_list =
+    cmd_deny_args =
+    file_path_white_list = /tmp
+    load_lua_libs = true
+    jwt_secret_key = ${JWT_SECRET_KEY:-r6G7qZ8xk9P0y1Q2w3E4r5T6y7U8i9O0pL7z8x9CvBnM3k2l1}
+    jwt_expire_time = 43200000
+    jwt_issuer = rulego.cc
+    debug = true
+    max_node_log_size = 40
+    log_file = ./data/logs/rulego.log
+    script_max_execution_time = 5000
+    msg_max_hops = 10000
+    worker_pool_max_workers = 5000
+    run_log_mode = summary
+    run_log_store_type = bbolt
+    run_log_retention_count = 500
+    run_log_retention_days = 7
+    audit_enable = true
+    audit_retention_days = 90
+    audit_max_size_mb = 200
+    resource_mapping = /editor/=./editor,/images/=./editor/images
+    node_pool_file = ./node_pool.json
+    share_http_server = false
+    allow_cors = true
+    read_timeout = 30
+    write_timeout = 300
+    max_body_size = 10
+---
+# Source: rulego-server/templates/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rulego-server
+  labels:
+    helm.sh/chart: rulego-server-0.1.0
+    app.kubernetes.io/name: rulego-server
+    app.kubernetes.io/instance: rulego-server
+    app.kubernetes.io/version: "v1.0.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+# Source: rulego-server/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: rulego-server
+  labels:
+    helm.sh/chart: rulego-server-0.1.0
+    app.kubernetes.io/name: rulego-server
+    app.kubernetes.io/instance: rulego-server
+    app.kubernetes.io/version: "v1.0.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 9090
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: rulego-server
+    app.kubernetes.io/instance: rulego-server
+---
+# Source: rulego-server/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rulego-server
+  labels:
+    helm.sh/chart: rulego-server-0.1.0
+    app.kubernetes.io/name: rulego-server
+    app.kubernetes.io/instance: rulego-server
+    app.kubernetes.io/version: "v1.0.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  # bbolt 文件锁 + RWO 卷：不能滚动更新，替换 Pod 必须先停旧的
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rulego-server
+      app.kubernetes.io/instance: rulego-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: rulego-server
+        app.kubernetes.io/instance: rulego-server
+    spec:
+      serviceAccountName: default
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: rulego-server
+          image: rulego/rulego-server:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 9090
+              protocol: TCP
+          # startup 用 tcpSocket：首启部署内置智能体/建库可能慢于 HTTP 就绪
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/v1/ping
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/ping
+              port: http
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: config
+              mountPath: /app/config.conf
+              subPath: config.conf
+              readOnly: true
+          env:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: rulego-server
+        - name: config
+          configMap:
+            name: rulego-server
+            items:
+              - key: config.conf
+                path: config.conf
