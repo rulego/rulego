@@ -18,10 +18,9 @@ permissions:
 env:
   IMAGE_HUB: docker.io/rulego/rulego-server
   IMAGE_GHCR: ghcr.io/rulego/rulego-server
-  # 阿里云公共镜像（国内可达）：给仓库配 DOCKERHUB_USERNAME/DOCKERHUB_TOKEN 之外的
-  # ALIYUN_REGISTRY/ALIYUN_USERNAME/ALIYUN_PASSWORD 三个 Secrets 并在 docker 与
-  # docker-merge 两个 job 里比照 GHCR 的三步（login / outputs 追加 type=image / merge
-  # 追加一次 imagetools create）即可启用；镜像仓需在阿里云控制台预先创建一次。
+  # 阿里云公共镜像（国内可达）：配 ALIYUN_REGISTRY（如 registry.cn-hangzhou.aliyuncs.com）、
+  # ALIYUN_USERNAME、ALIYUN_PASSWORD 三个 Secrets 即自动启用；镜像仓（rulego/rulego-server）
+  # 需先在阿里云容器镜像服务控制台手动创建并设为公开（个人实例不支持首推自动建仓）。
 
 jobs:
   build:
@@ -157,6 +156,28 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to Aliyun Registry
+        if: ${{ secrets.ALIYUN_USERNAME != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ALIYUN_REGISTRY }}
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+      - name: Compose push targets
+        id: targets
+        env:
+          HAS_HUB: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+          HAS_ALIYUN: ${{ secrets.ALIYUN_USERNAME != '' }}
+        run: |
+          # GHCR 恒推；Docker Hub/阿里云按 Secrets 是否配置门控，未配自动降级
+          TARGETS="type=image,name=${IMAGE_GHCR},push-by-digest=true,name-canonical=true,push=true"
+          if [ "${HAS_HUB}" = "true" ]; then
+            TARGETS="type=image,name=${IMAGE_HUB},push-by-digest=true,name-canonical=true,push=true,${TARGETS}"
+          fi
+          if [ "${HAS_ALIYUN}" = "true" ]; then
+            TARGETS="${TARGETS},type=image,name=${{ secrets.ALIYUN_REGISTRY }}/rulego/rulego-server,push-by-digest=true,name-canonical=true,push=true"
+          fi
+          echo "outputs=${TARGETS}" >> "$GITHUB_OUTPUT"
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v6
@@ -164,7 +185,7 @@ jobs:
           context: context
           file: server/deploy/docker/Dockerfile
           platforms: ${{ matrix.platform }}
-          outputs: type=image,name=${{ env.IMAGE_HUB }},push-by-digest=true,name-canonical=true,push=true,type=image,name=${{ env.IMAGE_GHCR }},push-by-digest=true,name-canonical=true,push=true
+          outputs: ${{ steps.targets.outputs.outputs }}
       - name: Export digest
         run: |
           mkdir -p /tmp/digests
@@ -202,6 +223,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to Aliyun Registry
+        if: ${{ secrets.ALIYUN_USERNAME != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ALIYUN_REGISTRY }}
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
       - name: Merge manifests
         env:
           VERSION: ${{ github.ref_name }}
@@ -212,6 +240,17 @@ jobs:
           for TAG in "${V}" "${MINOR}" "latest"; do
             docker buildx imagetools create -t "${IMAGE_HUB}:${TAG}" $(ls /tmp/digests | xargs -I{} echo "${IMAGE_HUB}@sha256:{}")
             docker buildx imagetools create -t "${IMAGE_GHCR}:${TAG}" $(ls /tmp/digests | xargs -I{} echo "${IMAGE_GHCR}@sha256:{}")
+          done
+      - name: Merge manifests (Aliyun)
+        if: ${{ secrets.ALIYUN_USERNAME != '' }}
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          V="${VERSION#v}"
+          MINOR="${V%.*}"
+          ALI="${{ secrets.ALIYUN_REGISTRY }}/rulego/rulego-server"
+          for TAG in "${V}" "${MINOR}" "latest"; do
+            docker buildx imagetools create -t "${ALI}:${TAG}" $(ls /tmp/digests | xargs -I{} echo "${ALI}@sha256:{}")
           done
       - name: Inspect image
         run: docker buildx imagetools inspect "${IMAGE_GHCR}:${{ github.ref_name }}"
