@@ -169,4 +169,14 @@ func (s *Server) registerOverviewRoutes(ep endpointApi.HttpEndpoint) {
 		})
 		return true
 	}).End())
+
+	// GET /ping 无鉴权探活，供容器 HEALTHCHECK / K8s 探针 / LB 使用。
+	// 只确认 HTTP 栈存活，不碰存储与鉴权，认证开启时也保持 200。
+	ep.GET(endpoint.NewRouter().From(base + "/ping").Process(func(_ endpointApi.Router, exchange *endpointApi.Exchange) bool {
+		writeJSON(exchange, map[string]interface{}{
+			"pong":    true,
+			"version": constants.ServerVersion,
+		})
+		return true
+	}).End())
 }

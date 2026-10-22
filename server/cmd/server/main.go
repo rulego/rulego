@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/rulego/rulego/server/bootstrap"
+	"github.com/rulego/rulego/server/internal/constants"
 )
 
 var (
@@ -13,16 +14,15 @@ var (
 	version    = flag.Bool("v", false, "显示版本")
 )
 
-var (
-	Version   = "dev"
-	BuildTime = "unknown"
-)
+// BuildTime 由发布流水线经 -ldflags -X 注入；版本号取 constants.ServerVersion，
+// 同样支持 -ldflags -X 注入，本地构建显示默认值
+var BuildTime = "unknown"
 
 func main() {
 	flag.Parse()
 
 	if *version {
-		fmt.Printf("rulego-server %s (built %s)\n", Version, BuildTime)
+		fmt.Printf("rulego-server %s (built %s)\n", constants.ServerVersion, BuildTime)
 		return
 	}
 

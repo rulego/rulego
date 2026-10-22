@@ -5,6 +5,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"gopkg.in/ini.v1"
@@ -84,6 +85,67 @@ func expandProperties(m map[string]string) {
 	}
 }
 
+// envPrefix 主段标量配置的环境变量覆盖前缀，键名 = RULEGO_ + ini 键大写，
+// 如 RULEGO_SERVER、RULEGO_DATA_DIR。供 Docker/K8s 免改 config.conf 调整常用项
+const envPrefix = "RULEGO_"
+
+// applyEnvOverrides 用 RULEGO_<KEY> 环境变量覆盖主段标量配置，环境变量优先于 config.conf。
+// 结构体/映射等复合配置（global/pprof/mcp 等）不支持覆盖，静默跳过；标量解析失败报错，
+// 避免错误的部署配置被静默吞掉
+func applyEnvOverrides(cfg *Config) error {
+	v := reflect.ValueOf(cfg).Elem()
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		tag := t.Field(i).Tag.Get("ini")
+		if tag == "" || tag == "-" {
+			continue
+		}
+		name := strings.Split(tag, ",")[0]
+		if name == "" {
+			continue
+		}
+		envKey := envPrefix + strings.ToUpper(name)
+		val, ok := os.LookupEnv(envKey)
+		if !ok {
+			continue
+		}
+		if err := setScalarField(v.Field(i), envKey, val); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func setScalarField(field reflect.Value, envKey, val string) error {
+	switch field.Kind() {
+	case reflect.String:
+		field.SetString(val)
+	case reflect.Bool:
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			return fmt.Errorf("%s=%q: %w", envKey, val, err)
+		}
+		field.SetBool(b)
+	case reflect.Int, reflect.Int64:
+		n, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return fmt.Errorf("%s=%q: %w", envKey, val, err)
+		}
+		if field.OverflowInt(n) {
+			return fmt.Errorf("%s=%q: out of range for %s", envKey, val, field.Type())
+		}
+		field.SetInt(n)
+	case reflect.Pointer:
+		if field.IsNil() {
+			field.Set(reflect.New(field.Type().Elem()))
+		}
+		return setScalarField(field.Elem(), envKey, val)
+	default:
+		return nil
+	}
+	return nil
+}
+
 // Load 从 INI 文件加载配置，INI 文件中的值覆盖 cfg 中的已有值。
 // 调用方可先用 DefaultConfig() 初始化 cfg 以获取默认值。
 func Load(path string, cfg *Config) error {
@@ -120,6 +182,11 @@ func Load(path string, cfg *Config) error {
 	// JWT 密钥支持环境变量
 	cfg.JwtSecretKey = trimQuotes(expandEnv(cfg.JwtSecretKey))
 	cfg.SkillPath = trimQuotes(expandEnv(cfg.SkillPath))
+
+	// RULEGO_<KEY> 环境变量覆盖主段键（优先级最高）
+	if err := applyEnvOverrides(cfg); err != nil {
+		return err
+	}
 
 	cfg.ConfigFile = path
 	cfg.SyncDerivedGlobals()

@@ -343,6 +343,79 @@ func TestLoadSyncsSkillPathToGlobal(t *testing.T) {
 	}
 }
 
+// ========== RULEGO_<KEY> 环境变量覆盖测试 ==========
+
+func TestApplyEnvOverrides(t *testing.T) {
+	content := []byte("server = :9090\n" +
+		"debug = false\n" +
+		"jwt_secret_key = file-secret\n")
+
+	tmpFile, err := os.CreateTemp("", "config_env_override_test_*.conf")
+	if err != nil {
+		t.Fatalf("create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	if _, err := tmpFile.Write(content); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	t.Setenv("RULEGO_SERVER", ":8080")
+	t.Setenv("RULEGO_DEBUG", "true")
+	t.Setenv("RULEGO_MSG_MAX_HOPS", "9999")
+	t.Setenv("RULEGO_ENDPOINT_ENABLED", "false")
+	t.Setenv("RULEGO_JWT_SECRET_KEY", "env-secret")
+	// 复合配置段不支持覆盖，设置环境变量不应导致加载失败
+	t.Setenv("RULEGO_GLOBAL", "unexpected")
+
+	cfg := DefaultConfig()
+	if err := Load(tmpFile.Name(), &cfg); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.Server != ":8080" {
+		t.Errorf("Server = %q, want %q (env should win over file)", cfg.Server, ":8080")
+	}
+	if cfg.Debug != true {
+		t.Errorf("Debug = %v, want true", cfg.Debug)
+	}
+	if cfg.MsgMaxHops != 9999 {
+		t.Errorf("MsgMaxHops = %d, want 9999", cfg.MsgMaxHops)
+	}
+	if cfg.EndpointEnabled == nil || *cfg.EndpointEnabled != false {
+		t.Errorf("EndpointEnabled = %v, want false", cfg.EndpointEnabled)
+	}
+	if cfg.JwtSecretKey != "env-secret" {
+		t.Errorf("JwtSecretKey = %q, want %q (RULEGO_ override should win)", cfg.JwtSecretKey, "env-secret")
+	}
+	// 未设置 RULEGO_DATA_DIR，文件中的值保持不变
+	if cfg.DataDir != "./data" {
+		t.Errorf("DataDir = %q, want %q", cfg.DataDir, "./data")
+	}
+}
+
+func TestApplyEnvOverridesInvalidValue(t *testing.T) {
+	content := []byte("server = :9090\n")
+
+	tmpFile, err := os.CreateTemp("", "config_env_invalid_test_*.conf")
+	if err != nil {
+		t.Fatalf("create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	if _, err := tmpFile.Write(content); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	t.Setenv("RULEGO_DEBUG", "not-a-bool")
+
+	cfg := DefaultConfig()
+	err = Load(tmpFile.Name(), &cfg)
+	if err == nil {
+		t.Fatal("Load should fail on invalid bool env override, got nil error")
+	}
+}
+
 func TestTrimQuotes(t *testing.T) {
 	tests := []struct {
 		input string
