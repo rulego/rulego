@@ -537,3 +537,44 @@ func TestWsSendToTarget(t *testing.T) {
 		}
 	}
 }
+
+// Restart 与启动后追加路由都不得把升级路由降级成消息路由：升级 handler 注册在
+// extraHandlers，重建回放必须让它在 RouterStorage 的同 key 条目之上生效
+func TestWsRestartKeepsUpgradeHandler(t *testing.T) {
+	config := engine.NewConfig(types.WithDefaultPool())
+	var nodeConfig = make(types.Configuration)
+	_ = maps.Map2Struct(&Config{Config: rest.Config{Server: testServer}}, &nodeConfig)
+	ws := &Endpoint{}
+	if err := ws.Init(config, nodeConfig); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ws.AddRouter(impl.NewRouter().From("/ws/restart-check").End(), "GET"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ws.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer ws.Destroy()
+	time.Sleep(200 * time.Millisecond)
+
+	upgradeProbe := func(path string) int {
+		resp, err := http.Get("http://localhost" + testServer + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		return resp.StatusCode
+	}
+
+	if err := ws.Restart(); err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, http.StatusBadRequest, upgradeProbe("/ws/restart-check"))
+
+	// 启动后追加路由触发重建，已有升级路由不得被 storage 回放降级
+	if _, err := ws.AddRouter(impl.NewRouter().From("/ws/restart-second").End(), "GET"); err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, http.StatusBadRequest, upgradeProbe("/ws/restart-check"))
+	assert.Equal(t, http.StatusBadRequest, upgradeProbe("/ws/restart-second"))
+}

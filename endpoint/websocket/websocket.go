@@ -384,6 +384,40 @@ func (ws *Websocket) checkOrigin(r *http.Request) bool {
 	return ws.Config.AllowCors
 }
 
+// Close 先摘除本端点的升级路由再走内嵌 rest 的关闭流程，避免关闭后路由仍可握手
+func (ws *Websocket) Close() error {
+	ws.unregisterOwnHandlers()
+	return ws.Rest.Close()
+}
+
+func (ws *Websocket) unregisterOwnHandlers() {
+	var paths []string
+	ws.RLock()
+	for _, item := range ws.RouterStorage {
+		paths = append(paths, item.FromToString())
+	}
+	ws.RUnlock()
+	//锁外注销：非共享场景 UnregisterHandler 与这里加的是同一把锁（内嵌 rest）
+	for _, path := range paths {
+		ws.UnregisterHandler("GET", path)
+	}
+}
+
+// Restart 覆盖内嵌 rest.Rest 的提升方法。RouterStorage 里的升级路由若经
+// rest.Restart 的 AddRouter 重放会被注册成消息处理路由，这里只重放升级 handler
+func (ws *Websocket) Restart() error {
+	var items []endpoint.Router
+	ws.RLock()
+	for _, item := range ws.RouterStorage {
+		items = append(items, item)
+	}
+	ws.RUnlock()
+	for _, item := range items {
+		ws.RegisterHandler("GET", item.FromToString(), ws.handler(item))
+	}
+	return nil
+}
+
 func (ws *Websocket) Start() error {
 	if ws.OnEvent != nil {
 		ws.OnEvent(endpoint.EventInitServer, ws.Rest.Server)
@@ -403,9 +437,13 @@ func (ws *Websocket) Start() error {
 
 // addRouter 注册1个或者多个路由
 func (ws *Websocket) addRouter(routers ...endpoint.Router) *Websocket {
-	ws.Lock()
-	defer ws.Unlock()
+	type handlerEntry struct {
+		path    string
+		handler httprouter.Handle
+	}
+	var entries []handlerEntry
 
+	ws.Lock()
 	if ws.RouterStorage == nil {
 		ws.RouterStorage = make(map[string]endpoint.Router)
 	}
@@ -414,8 +452,14 @@ func (ws *Websocket) addRouter(routers ...endpoint.Router) *Websocket {
 		ws.CheckAndSetRouterId(item)
 		//存储路由
 		ws.RouterStorage[item.GetId()] = item
-		//添加到http路由器
-		ws.Router().Handle("GET", item.FromToString(), ws.handler(item))
+		entries = append(entries, handlerEntry{path: item.FromToString(), handler: ws.handler(item)})
+	}
+	ws.Unlock()
+
+	//锁外注册：非共享场景 RegisterHandler 与本方法加同一把锁（内嵌 rest），锁内调用会自锁死。
+	//且必须经 RegisterHandler 进回放清单，裸写的路由会在重建换表时丢失
+	for _, e := range entries {
+		ws.RegisterHandler("GET", e.path, e.handler)
 	}
 
 	return ws

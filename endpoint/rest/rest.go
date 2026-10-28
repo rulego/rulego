@@ -155,6 +155,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
@@ -817,6 +818,42 @@ type Config struct {
 	DisableKeepalive bool `json:"disableKeepalive" label:"Disable Keepalive" desc:"Disable HTTP keep-alive connections, each request uses a new connection"`
 }
 
+// handlerHolder 是 http.Server.Handler 的稳定代理：服务运行期只原子更换内部
+// mux 指针，不能直接改写 Server.Handler（每请求读取该字段，存在 data race）。
+// handlerHolder is the stable http.Server.Handler proxy: the internal mux
+// pointer is swapped atomically; rewriting Server.Handler itself while serving
+// would be a data race.
+type handlerHolder struct {
+	// atomic.Value 而非 atomic.Pointer：CI 矩阵含 Go 1.18，后者 1.19 才有
+	h atomic.Value
+}
+
+func (hh *handlerHolder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if router, ok := hh.h.Load().(*httprouter.Router); ok && router != nil {
+		router.ServeHTTP(w, r)
+	}
+}
+
+// corsInterceptor 为所有响应补 Access-Control-Allow-Origin 头。
+// 在 Init 装配一次；不能放 newRouter（Restart/重建会反复调用导致重复追加）。
+// corsInterceptor adds Access-Control-Allow-Origin to every response.
+// Assembled once in Init; newRouter is called repeatedly on restart/rebuild.
+var corsInterceptor = func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+	exchange.Out.Headers().Set(HeaderKeyAccessControlAllowOrigin, HeaderValueAll)
+	return true
+}
+
+// corsGlobalOptions 处理 CORS 预检请求
+var corsGlobalOptions = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get(HeaderKeyAccessControlRequestMethod) != "" {
+		header := w.Header()
+		header.Set(HeaderKeyAccessControlAllowMethods, HeaderValueAll)
+		header.Set(HeaderKeyAccessControlAllowHeaders, HeaderValueAll)
+		header.Set(HeaderKeyAccessControlAllowOrigin, HeaderValueAll)
+	}
+	w.WriteHeader(http.StatusNoContent)
+})
+
 // Rest represents an HTTP/REST endpoint implementation for the RuleGo framework.
 // It provides a complete HTTP server solution with dynamic routing, request processing,
 // and integration with RuleGo's rule chains and components.
@@ -898,6 +935,11 @@ type Rest struct {
 	started bool
 	// resourceMapping is the resource mapping for static file serving
 	resourceMapping string
+	// handlerHolder is the stable Server.Handler proxy, swapped atomically on rebuild
+	handlerHolder *handlerHolder
+	// extraHandlers 记录绕过 RouterStorage 的自定义 handler 路由（如 WebSocket 升级），
+	// 重建路由表时随 RouterStorage 一并回放，否则这些路由会在重建时丢失
+	extraHandlers map[string]httprouter.Handle
 }
 
 // Type 组件类型
@@ -947,6 +989,9 @@ func (rest *Rest) Init(ruleConfig types.Config, configuration types.Configuratio
 	}
 	rest.RuleConfig = ruleConfig
 	rest.Logger = ruleConfig.Logger
+	if rest.Config.AllowCors {
+		rest.Interceptors = append(rest.Interceptors, corsInterceptor)
+	}
 	return rest.SharedNode.InitWithClose(rest.RuleConfig, rest.Type(), rest.Config.Server, false, func() (*Rest, error) {
 		return rest.initServer()
 	}, func(server *Rest) error {
@@ -1017,7 +1062,23 @@ func (rest *Rest) Restart() error {
 
 	if rest.SharedNode.InstanceId != "" {
 		if shared, err := rest.SharedNode.GetSafely(); err == nil {
-			return shared.Restart()
+			// 只重注册自有路由，addRouter 运行期会原位重建共享路由表；
+			// 不能调 shared.Restart()，那会断开共享 server 上的全部在途连接
+			rest.RLock()
+			routers := make([]endpoint.Router, 0, len(rest.RouterStorage))
+			for _, item := range rest.RouterStorage {
+				routers = append(routers, item)
+			}
+			rest.RUnlock()
+			for _, item := range routers {
+				if len(item.GetParams()) == 0 {
+					item.SetParams("GET")
+				}
+				if _, err := shared.AddRouter(item, item.GetParams()...); err != nil {
+					rest.Errorf("rest add router path:=%s error:%v", item.FromToString(), err)
+				}
+			}
+			return nil
 		} else {
 			return err
 		}
@@ -1057,7 +1118,13 @@ func (rest *Rest) Restart() error {
 		}
 
 	}
-	if rest.resourceMapping != "" {
+	// 启动态 AddRouter 已逐条重建回放静态文件，尾部直接注册会重复注册 panic；
+	// 空路由表时也靠这次重建补回静态文件
+	if rest.Started() {
+		rest.Lock()
+		rest.rebuildRouterLocked()
+		rest.Unlock()
+	} else if rest.resourceMapping != "" {
 		rest.RegisterStaticFiles(rest.resourceMapping)
 	}
 	return nil
@@ -1080,12 +1147,16 @@ func (rest *Rest) Close() error {
 			for key := range rest.RouterStorage {
 				shared.deleteRouter(key)
 			}
-			//如果共享服务已经停止，则不需要重启
+			//如果共享服务已经停止，则不需要重建
 			if !shared.Started() {
 				return nil
 			}
-			//重启共享服务
-			return shared.Restart()
+			//删除自有路由后原位重建共享路由表并原子换入，listener 不动
+			shared.Lock()
+			snapshot := shared.rebuildRouterLocked()
+			shared.Unlock()
+			shared.fireRestartEvent(snapshot)
+			return nil
 		}
 	}
 
@@ -1191,15 +1262,15 @@ func (rest *Rest) addRouter(method string, routers ...endpoint.Router) error {
 			if rest.router == nil {
 				rest.newRouter()
 			}
-			isWait := false
-			if from := item.GetFrom(); from != nil {
-				if to := from.GetTo(); to != nil {
-					isWait = to.IsWait()
-				}
+			// 未启动时原地注册（避免启动期逐条重建整表）；启动后重建换表，
+			// 否则与并发 ServeHTTP 读路由树构成 httprouter 写读竞态
+			if rest.started {
+				rest.rebuildRouterLocked()
+			} else {
+				// 转换路径参数格式：将 {id} 格式转换为 :id 格式
+				path = rest.convertPathParams(path)
+				rest.router.Handle(method, path, rest.handler(item, routerIsWait(item)))
 			}
-			// 转换路径参数格式：将 {id} 格式转换为 :id 格式
-			path = rest.convertPathParams(path)
-			rest.router.Handle(method, path, rest.handler(item, isWait))
 		}
 
 	}
@@ -1249,32 +1320,46 @@ func (rest *Rest) GlobalOPTIONS(handler http.Handler) endpoint.HttpEndpoint {
 func (rest *Rest) RegisterStaticFiles(resourceMapping string) endpoint.HttpEndpoint {
 	if resourceMapping != "" {
 		rest.resourceMapping = resourceMapping
-		mapping := strings.Split(resourceMapping, ",")
-		for _, item := range mapping {
-			files := strings.Split(item, "=")
-			if len(files) == 2 {
-				urlPath := strings.TrimSpace(files[0])
-				localDir := strings.TrimSpace(files[1])
-
-				// 移除 /*filepath 后缀以获取基础路径
-				basePath := urlPath
-				if strings.HasSuffix(urlPath, "/*filepath") {
-					basePath = urlPath[:len(urlPath)-10]
-				}
-
-				// 确保路径以 /{filepath:*} 结尾，这是 fasthttp router 的要求
-				if !strings.HasSuffix(urlPath, "/*filepath") {
-					if strings.HasSuffix(basePath, "/") {
-						urlPath = basePath + "*filepath"
-					} else {
-						urlPath = basePath + "/*filepath"
-					}
-				}
-				rest.Router().ServeFiles(strings.TrimSpace(urlPath), http.Dir(strings.TrimSpace(localDir)))
-			}
-		}
+		rest.serveStaticFiles(rest.Router(), resourceMapping)
 	}
 	return rest
+}
+
+// serveStaticFiles 在指定路由表上注册静态文件映射
+func (rest *Rest) serveStaticFiles(router *httprouter.Router, resourceMapping string) {
+	mapping := strings.Split(resourceMapping, ",")
+	for _, item := range mapping {
+		files := strings.Split(item, "=")
+		if len(files) == 2 {
+			urlPath := strings.TrimSpace(files[0])
+			localDir := strings.TrimSpace(files[1])
+
+			// 移除 /*filepath 后缀以获取基础路径
+			basePath := urlPath
+			if strings.HasSuffix(urlPath, "/*filepath") {
+				basePath = urlPath[:len(urlPath)-10]
+			}
+
+			// 确保路径以 /{filepath:*} 结尾，这是 fasthttp router 的要求
+			if !strings.HasSuffix(urlPath, "/*filepath") {
+				if strings.HasSuffix(basePath, "/") {
+					urlPath = basePath + "*filepath"
+				} else {
+					urlPath = basePath + "/*filepath"
+				}
+			}
+			// 重建回放与 Restart 尾部都会注册同一映射，重复注册在 httprouter 是
+			// 注册期 panic，按已存在处理
+			func() {
+				defer func() {
+					if e := recover(); e != nil {
+						rest.Errorf("register static files %s: %v", urlPath, e)
+					}
+				}()
+				router.ServeFiles(strings.TrimSpace(urlPath), http.Dir(strings.TrimSpace(localDir)))
+			}()
+		}
+	}
 }
 
 func (rest *Rest) checkIsInitSharedNode() error {
@@ -1381,30 +1466,153 @@ func (rest *Rest) GetServer() *http.Server {
 
 func (rest *Rest) newRouter() *httprouter.Router {
 	rest.router = httprouter.New()
-	//设置跨域
+	//设置跨域预检响应
 	if rest.Config.AllowCors {
-		// 直接设置 GlobalOPTIONS 而不调用 Router() 方法，避免递归锁
-		// Set GlobalOPTIONS directly without calling Router() method to avoid recursive lock
-		// 直接设置 GlobalOPTIONS 避免递归锁
-		rest.router.GlobalOPTIONS = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Header.Get(HeaderKeyAccessControlRequestMethod) != "" {
-				// 设置 CORS 相关的响应头
-				header := w.Header()
-				header.Set(HeaderKeyAccessControlAllowMethods, HeaderValueAll)
-				header.Set(HeaderKeyAccessControlAllowHeaders, HeaderValueAll)
-				header.Set(HeaderKeyAccessControlAllowOrigin, HeaderValueAll)
-			}
-			// 返回 204 状态码
-			w.WriteHeader(http.StatusNoContent)
-		})
-		// 直接操作 Interceptors 字段，避免调用 AddInterceptors 造成递归锁
-		corsInterceptor := func(router endpoint.Router, exchange *endpoint.Exchange) bool {
-			exchange.Out.Headers().Set(HeaderKeyAccessControlAllowOrigin, HeaderValueAll)
-			return true
-		}
-		rest.Interceptors = append(rest.Interceptors, corsInterceptor)
+		rest.router.GlobalOPTIONS = corsGlobalOptions
 	}
 	return rest.router
+}
+
+// routerIsWait 判断路由的 To 目标是否同步等待处理结果
+func routerIsWait(item endpoint.Router) bool {
+	if from := item.GetFrom(); from != nil {
+		if to := from.GetTo(); to != nil {
+			return to.IsWait()
+		}
+	}
+	return false
+}
+
+// rebuildRouterLocked 依据 RouterStorage 重建路由表并原子换入 handlerHolder，
+// 调用方必须已持有 rest.Lock。listener 与 Server 实例不动，在途请求在旧表上自然跑完。
+// 返回非 disabled 路由快照（对齐 Restart 的 EventRestart 载荷），未启动时返回 nil。
+// rebuildRouterLocked rebuilds the router from RouterStorage and swaps it into
+// handlerHolder atomically; caller must hold rest.Lock. The listener and Server
+// instance stay untouched, so in-flight requests finish on the old table.
+// Returns the non-disabled router snapshot for EventRestart, nil when not started.
+func (rest *Rest) rebuildRouterLocked() map[string]endpoint.Router {
+	if !rest.started || rest.Server == nil {
+		return nil
+	}
+	old := rest.router
+	fresh := rest.newRouter()
+	if old != nil {
+		//保留宿主自定义或 CORS 默认的 GlobalOPTIONS/NotFound
+		fresh.GlobalOPTIONS = old.GlobalOPTIONS
+		fresh.NotFound = old.NotFound
+	}
+	snapshot := make(map[string]endpoint.Router)
+	for _, item := range rest.RouterStorage {
+		if item.IsDisable() {
+			continue
+		}
+		snapshot[item.GetId()] = item
+		if len(item.GetParams()) == 0 {
+			item.SetParams("GET")
+		}
+		method := strings.ToUpper(str.ToString(item.GetParams()[0]))
+		path := rest.convertPathParams(item.FromToString())
+		//RegisterHandler 的路由（如 WebSocket 升级）同 key 也留在 RouterStorage，
+		//其 handler 不是消息处理器，回放交给 extraHandlers 版本
+		if _, ok := rest.extraHandlers[rest.RouterKey(method, path)]; ok {
+			continue
+		}
+		func() {
+			// httprouter 重复注册/通配冲突在注册期 panic，逐条兜底避免拖垮整表
+			defer func() {
+				if e := recover(); e != nil {
+					rest.Errorf("rebuild router %s: %v", item.FromToString(), e)
+				}
+			}()
+			fresh.Handle(method, path, rest.handler(item, routerIsWait(item)))
+		}()
+	}
+	// 静态文件必须在换指针之前挂到 fresh 上，否则会注册到已卸下的旧表
+	if rest.resourceMapping != "" {
+		rest.serveStaticFiles(fresh, rest.resourceMapping)
+	}
+	for key, handler := range rest.extraHandlers {
+		method, path, ok := strings.Cut(key, ":")
+		if !ok {
+			continue
+		}
+		func() {
+			defer func() {
+				if e := recover(); e != nil {
+					rest.Errorf("rebuild handler %s: %v", key, e)
+				}
+			}()
+			fresh.Handle(method, path, handler)
+		}()
+	}
+	rest.handlerHolder.h.Store(fresh)
+	return snapshot
+}
+
+// RegisterHandler 注册不经 DoProcess 消息管线的自定义 handler 路由（如 WebSocket 升级）。
+// 借用模式下路由落在共享实例上；路由表重建时随 extraHandlers 回放。
+// RegisterHandler registers a custom-handler route (e.g. WebSocket upgrade) that
+// bypasses the DoProcess message pipeline. Under ref:// borrowing the route is
+// stored on the shared instance and replayed across router rebuilds.
+func (rest *Rest) RegisterHandler(method, path string, handler httprouter.Handle) {
+	if err := rest.checkIsInitSharedNode(); err != nil {
+		rest.Errorf("register handler %s %s: %v", method, path, err)
+		return
+	}
+	target := rest
+	if fromPool, err := rest.SharedNode.GetSafely(); err == nil {
+		target = fromPool
+	}
+	method = strings.ToUpper(method)
+	path = rest.convertPathParams(strings.TrimSpace(path))
+	target.Lock()
+	defer target.Unlock()
+	if target.extraHandlers == nil {
+		target.extraHandlers = make(map[string]httprouter.Handle)
+	}
+	key := target.RouterKey(method, path)
+	if target.started {
+		target.extraHandlers[key] = handler
+		target.rebuildRouterLocked()
+		return
+	}
+	if target.router == nil {
+		target.newRouter()
+	}
+	target.extraHandlers[key] = handler
+	//未启动时 panic 直接冒泡（对齐 AddRouter 的重复注册报错契约），由调用方 recover
+	target.router.Handle(method, path, handler)
+}
+
+// UnregisterHandler 移除 RegisterHandler 注册的路由。httprouter 不支持运行期删路由：
+// 已启动时经重建换表生效；未启动时仅移除回放记录，live 表残留由下次重建清除
+func (rest *Rest) UnregisterHandler(method, path string) {
+	if !rest.SharedNode.IsInit() {
+		return
+	}
+	target := rest
+	if fromPool, err := rest.SharedNode.GetSafely(); err == nil {
+		target = fromPool
+	}
+	method = strings.ToUpper(method)
+	path = rest.convertPathParams(strings.TrimSpace(path))
+	target.Lock()
+	defer target.Unlock()
+	key := target.RouterKey(method, path)
+	if _, ok := target.extraHandlers[key]; !ok {
+		return
+	}
+	delete(target.extraHandlers, key)
+	if target.started {
+		target.rebuildRouterLocked()
+	}
+}
+
+// fireRestartEvent 重建路径补发 EventRestart，载荷与 Restart 一致（非 disabled 路由快照）
+func (rest *Rest) fireRestartEvent(snapshot map[string]endpoint.Router) {
+	if rest.OnEvent != nil && snapshot != nil {
+		rest.OnEvent(endpoint.EventRestart, snapshot)
+	}
 }
 
 func (rest *Rest) initServer() (*Rest, error) {
@@ -1424,9 +1632,16 @@ func (rest *Rest) startServer() error {
 	var err error
 
 	// 创建HTTP服务器并应用超时配置
+	if rest.handlerHolder == nil {
+		rest.handlerHolder = &handlerHolder{}
+	}
+	// atomic.Value 不接受 nil，router 未初始化时保持空代理（每请求 404 由 nil 检查兜底）
+	if rest.router != nil {
+		rest.handlerHolder.h.Store(rest.router)
+	}
 	rest.Server = &http.Server{
 		Addr:    rest.Config.Server,
-		Handler: rest.router,
+		Handler: rest.handlerHolder,
 	}
 
 	// 应用读取超时配置

@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -782,4 +783,269 @@ func TestRestStartTLSBranch(t *testing.T) {
 	assert.True(t, ep.Started())
 	ep.Destroy()
 	assert.False(t, ep.Started())
+}
+
+// 起一个带 /api/ping 路由的 owner 端点
+func newStartedRest(t *testing.T) (rest *Rest, addr string) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr = ln.Addr().String()
+	_ = ln.Close()
+
+	rest = &Rest{}
+	if err := rest.Init(types.NewConfig(), types.Configuration{"server": addr}); err != nil {
+		t.Fatal(err)
+	}
+	addRoute(t, rest, "/api/ping", "pong")
+	if err := rest.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = rest.Close() })
+	return
+}
+
+func httpGet(t *testing.T, url string) int {
+	t.Helper()
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return -1
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode
+}
+
+func addRoute(t *testing.T, ep *Rest, path, body string) {
+	t.Helper()
+	if _, err := ep.AddRouter(impl.NewRouter().From(path).Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Out.SetStatusCode(http.StatusOK)
+		exchange.Out.SetBody([]byte(body))
+		return false
+	}).End(), "GET"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// 运行期路由增删改经原位重建即时生效，不重启 server
+func TestRebuildRouterLiveEffect(t *testing.T) {
+	rest, addr := newStartedRest(t)
+	base := "http://" + addr
+
+	serverBefore := rest.GetServer()
+
+	// 增：启动后注册即生效
+	addRoute(t, rest, "/api/chain", "v1")
+	if code := httpGet(t, base+"/api/chain"); code != http.StatusOK {
+		t.Fatalf("route after add: status %d", code)
+	}
+
+	// 改：同 id 重新注册，新逻辑生效
+	addRoute(t, rest, "/api/chain", "v2")
+	resp, err := http.Get(base + "/api/chain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := make([]byte, 8)
+	n, _ := resp.Body.Read(body)
+	_ = resp.Body.Close()
+	if string(body[:n]) != "v2" {
+		t.Fatalf("route body = %q, want v2", string(body[:n]))
+	}
+
+	// 删：删除路由后重建换表，旧路径 404，其余路由正常，server 实例不变
+	rest.deleteRouter(rest.RouterKey("GET", "/api/chain"))
+	rest.Lock()
+	rest.rebuildRouterLocked()
+	rest.Unlock()
+	if code := httpGet(t, base+"/api/chain"); code != http.StatusNotFound {
+		t.Fatalf("route after delete: status %d, want 404", code)
+	}
+	if code := httpGet(t, base+"/api/ping"); code != http.StatusOK {
+		t.Fatalf("unrelated route after delete: status %d", code)
+	}
+	if rest.GetServer() != serverBefore {
+		t.Fatal("server instance replaced during route rebuild")
+	}
+}
+
+// 重建回放跳过 disabled 路由，快照与 live 表一致
+func TestRebuildSkipsDisabledRouters(t *testing.T) {
+	rest, addr := newStartedRest(t)
+
+	addRoute(t, rest, "/api/dis", "ok")
+	if err := rest.RemoveRouter(rest.RouterKey("GET", "/api/dis")); err != nil {
+		t.Fatal(err)
+	}
+	rest.Lock()
+	snapshot := rest.rebuildRouterLocked()
+	rest.Unlock()
+	if snapshot == nil {
+		t.Fatal("rebuild skipped on a started server")
+	}
+	if _, ok := snapshot[rest.RouterKey("GET", "/api/dis")]; ok {
+		t.Fatal("snapshot contains disabled router")
+	}
+	if _, ok := snapshot[rest.RouterKey("GET", "/api/ping")]; !ok {
+		t.Fatal("snapshot missing enabled router")
+	}
+	if code := httpGet(t, "http://"+addr+"/api/dis"); code != http.StatusNotFound {
+		t.Fatalf("disabled route after rebuild: status %d, want 404", code)
+	}
+}
+
+// 重建后静态文件与自定义 GlobalOPTIONS 存活
+func TestRebuildKeepsStaticFilesAndGlobalOPTIONS(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("<h1>hello</h1>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	_ = ln.Close()
+
+	rest := &Rest{}
+	if err := rest.Init(types.NewConfig(), types.Configuration{"server": addr}); err != nil {
+		t.Fatal(err)
+	}
+	rest.RegisterStaticFiles("/static=" + dir)
+	rest.GlobalOPTIONS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Custom-Options", "yes")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	if err := rest.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer rest.Close()
+	base := "http://" + addr
+
+	// 运行期注册触发重建
+	addRoute(t, rest, "/api/late", "ok")
+
+	if code := httpGet(t, base+"/static/index.html"); code != http.StatusOK {
+		t.Fatalf("static file after rebuild: status %d", code)
+	}
+	// httprouter 仅在路径命中其他方法路由时才调 GlobalOPTIONS，用已注册路径探测
+	req, _ := http.NewRequest(http.MethodOptions, base+"/api/late", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.Header.Get("X-Custom-Options") != "yes" {
+		t.Fatal("custom GlobalOPTIONS lost after rebuild")
+	}
+}
+
+// RouterStorage 中的坏路由（注册期冲突）被逐条 recover，不影响其余路由
+func TestRebuildBadRouterRecovered(t *testing.T) {
+	rest, addr := newStartedRest(t)
+	base := "http://" + addr
+
+	addRoute(t, rest, "/api/x/:id", "ok")
+	// /api/x/:name 与已注册的 /api/x/:id 同位通配冲突，直接注入 RouterStorage
+	// 模拟「注册失败但已落库」的坏条目
+	bad := impl.NewRouter().From("/api/x/:name").Process(func(router endpoint.Router, exchange *endpoint.Exchange) bool {
+		exchange.Out.SetStatusCode(http.StatusOK)
+		return false
+	}).End()
+	bad.SetId(rest.RouterKey("GET", "/api/x/:name"))
+	bad.SetParams("GET")
+	rest.Lock()
+	rest.RouterStorage[bad.GetId()] = bad
+	rest.rebuildRouterLocked()
+	rest.Unlock()
+	if code := httpGet(t, base+"/api/ping"); code != http.StatusOK {
+		t.Fatalf("unrelated route after rebuild with bad router: status %d", code)
+	}
+	if code := httpGet(t, base+"/api/x/123"); code != http.StatusOK {
+		t.Fatalf("valid route after rebuild with bad router: status %d", code)
+	}
+	if code := httpGet(t, base+"/api/x/123/detail"); code != http.StatusNotFound {
+		t.Fatalf("bad route after rebuild: status %d, want 404", code)
+	}
+}
+
+// RegisterHandler 注册的自定义 handler 路由（如 WS 升级）在路由表重建后存活
+func TestRegisterHandlerSurvivesRebuild(t *testing.T) {
+	rest, addr := newStartedRest(t)
+	base := "http://" + addr
+
+	rest.RegisterHandler("GET", "/ws/custom/{id}", func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+		w.Header().Set("X-Custom-Handler", "yes")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("upgraded:" + params.ByName("id")))
+	})
+	if code := httpGet(t, base+"/ws/custom/42"); code != http.StatusOK {
+		t.Fatalf("custom handler route: status %d", code)
+	}
+
+	// 触发路由表重建（started 后 AddRouter 走重建换表），自定义路由必须还在
+	addRoute(t, rest, "/api/another", "ok")
+	resp, err := http.Get(base + "/ws/custom/42")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := make([]byte, 32)
+	n, _ := resp.Body.Read(body)
+	_ = resp.Body.Close()
+	if resp.Header.Get("X-Custom-Handler") != "yes" || string(body[:n]) != "upgraded:42" {
+		t.Fatalf("custom handler lost after rebuild: status %d header %q body %q",
+			resp.StatusCode, resp.Header.Get("X-Custom-Handler"), string(body[:n]))
+	}
+}
+
+// 并发流量下反复增删路由（保存/下线链的等价操作），-race 下无告警、请求不断
+func TestConcurrentTrafficWithRouterRebuild(t *testing.T) {
+	rest, addr := newStartedRest(t)
+	base := "http://" + addr
+	addRoute(t, rest, "/api/chain", "ok")
+	routerId := rest.RouterKey("GET", "/api/chain")
+
+	// int32 + 原子读写而非 atomic.Bool：CI 矩阵含 Go 1.18，后者 1.19 才有
+	var stop int32
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			client := &http.Client{Timeout: 2 * time.Second}
+			for atomic.LoadInt32(&stop) == 0 {
+				for _, path := range []string{"/api/ping", "/api/chain"} {
+					resp, err := client.Get(base + path)
+					if err != nil {
+						t.Errorf("request %s failed: %v", path, err)
+						return
+					}
+					code := resp.StatusCode
+					_ = resp.Body.Close()
+					// 路由被删到重注册的窗口内 404 是合法的
+					if code != http.StatusOK && code != http.StatusNotFound {
+						t.Errorf("request %s: status %d", path, code)
+						return
+					}
+				}
+			}
+		}()
+	}
+
+	for i := 0; i < 20; i++ {
+		rest.deleteRouter(routerId)
+		rest.Lock()
+		rest.rebuildRouterLocked()
+		rest.Unlock()
+		addRoute(t, rest, "/api/chain", "ok")
+	}
+	atomic.StoreInt32(&stop, 1)
+	wg.Wait()
+
+	if code := httpGet(t, base+"/api/chain"); code != http.StatusOK {
+		t.Fatalf("route after churn: status %d", code)
+	}
 }
