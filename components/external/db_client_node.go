@@ -423,11 +423,12 @@ func (x *DbClientNode) initClient() (*sql.DB, error) {
 
 // getOpType 获取SQL语句的操作类型
 // 支持识别 WITH AS 开头的 ETL 表达式和各种 DDL 语句
-// 如果配置了OpType，则优先使用配置的类型
+// 如果配置了OpType，则优先使用配置的类型；AUTO 表示根据SQL自动检测
 func (x *DbClientNode) getOpType(sql string) string {
-	// 如果配置了OpType，则优先使用配置的类型
-	if x.Config.OpType != "" {
-		return x.Config.OpType
+	// 如果配置了明确的OpType，则优先使用配置的类型。AUTO 与不配置一样，需要自动检测，
+	// 不能原样返回，否则 SELECT 会被当成未知类型走 Exec 分支，查询结果被丢弃
+	if opType := strings.ToUpper(strings.TrimSpace(x.Config.OpType)); opType != "" && opType != AUTO {
+		return opType
 	}
 
 	if sql == "" {
