@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -382,6 +383,42 @@ func TestRuleModule_DeployUndeploy(t *testing.T) {
 	// 重新 Deploy
 	if err := m.Deploy("admin", "deploy-test"); err != nil {
 		t.Fatalf("Deploy: %v", err)
+	}
+}
+
+// 部署失败的保存不得落库:坏 DSL(未注册组件)被拒后,存储保持旧链,
+// 重启不会加载坏链;引擎内旧链不受影响
+func TestRuleModule_SaveAndLoad_RejectsBadDSLWithoutPollutingStore(t *testing.T) {
+	m, _ := setupRuleModule(t)
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	good := `{
+		"ruleChain": {"id": "pollute-test", "name": "Good"},
+		"metadata": {"nodes": [], "connections": []}
+	}`
+	if err := m.SaveAndLoad("admin", "pollute-test", []byte(good)); err != nil {
+		t.Fatalf("SaveAndLoad good: %v", err)
+	}
+
+	bad := `{
+		"ruleChain": {"id": "pollute-test", "name": "Bad"},
+		"metadata": {"nodes": [{"id": "n1", "type": "no.such.component", "name": "ghost"}], "connections": []}
+	}`
+	if err := m.SaveAndLoad("admin", "pollute-test", []byte(bad)); err == nil {
+		t.Fatal("SaveAndLoad with unregistered component should fail")
+	}
+
+	def, err := m.Get("admin", "pollute-test")
+	if err != nil {
+		t.Fatalf("Get after rejected save: %v", err)
+	}
+	if strings.Contains(string(def), "no.such.component") {
+		t.Error("rejected save polluted store: ghost node persisted")
+	}
+	if !strings.Contains(string(def), `"Good"`) {
+		t.Errorf("store should keep previous good chain, got: %s", def)
 	}
 }
 

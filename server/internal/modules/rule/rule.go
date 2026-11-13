@@ -12,6 +12,7 @@ import (
 
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
+	rulegoengine "github.com/rulego/rulego/engine"
 	"github.com/rulego/rulego/server/app"
 	"github.com/rulego/rulego/server/config"
 	"github.com/rulego/rulego/server/internal/constants"
@@ -241,6 +242,11 @@ func (m *Module) SaveAndLoad(username, chainId string, def []byte) error {
 	if err != nil {
 		return err
 	}
+	// 落库前构建校验:节点未注册/Init 失败在此拦截,部署失败不再污染存储
+	// (否则坏 DSL 落库,旧链继续跑但重启加载失败)。
+	if err = validateChainBuild(b); err != nil {
+		return fmt.Errorf("validate chain: %w", err)
+	}
 	if err = ue.RuleStore().Save(username, chainId, b); err != nil {
 		return err
 	}
@@ -249,6 +255,18 @@ func (m *Module) SaveAndLoad(username, chainId string, def []byte) error {
 		return m.undeployLocked(username, chainId)
 	}
 	return m.deployLocked(username, chainId)
+}
+
+// validateChainBuild 用不入池的独立引擎实例完整构建 DSL:节点注册与 Init
+// 错误在此暴露;校验通过即释放,无运行副作用(窗口类节点的后台 goroutine
+// 由 Stop 收敛)。
+func validateChainBuild(def []byte) error {
+	eng, err := rulegoengine.NewRuleEngine("validate-chain-build", def)
+	if err != nil {
+		return err
+	}
+	eng.Stop(context.Background())
+	return nil
 }
 
 func (m *Module) Deploy(username, chainId string) error {
