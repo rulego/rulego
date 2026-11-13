@@ -232,3 +232,57 @@ func TestChainConnectionRefresh(t *testing.T) {
 	}
 	t.Logf("PASS: borrower saw refresh src(seq %d -> %d)", srcConn1.seq, srcConn2.seq)
 }
+
+// TestChainConnectionRegistrySurvivesReload NodeClientInitNow=true 时，连接节点在
+// reload 构建新 ctx 的 Init 期间即注册进自己的 lazy 目录；reload 交接必须把该目录
+// 并入旧目录而非整体覆盖，否则这批注册成孤儿（isRegistered 已置位，借用方无法再
+// 经 ①' 惰性路径触发注册，ref:// 借用在 reload 后失效）。
+func TestChainConnectionRegistrySurvivesReload(t *testing.T) {
+	config := rulego.NewConfig()
+	config.NodeClientInitNow = true
+	chain := `{
+  "ruleChain": {"id": "test_chain_conn_reload", "name": "chain connection registry reload", "root": true},
+  "metadata": {
+    "firstNodeIndex": 0,
+    "nodes": [
+      {"id":"src","type":"test/conn","configuration":{"server":"deviceA"}},
+      {"id":"borrower","type":"test/conn","configuration":{"server":"ref://src"}}
+    ]
+  }
+}`
+	eng, err := rulego.New("test_chain_conn_reload", []byte(chain), engine.WithConfig(config))
+	if err != nil {
+		t.Fatalf("load chain: %v", err)
+	}
+	defer rulego.Del("test_chain_conn_reload")
+	ruleEng := eng.(*engine.RuleEngine)
+
+	// initNow：src 在 Init 期间已建连并注册进链目录
+	if _, found := ruleEng.RootRuleChainCtx().Resources().Lookup("src"); !found {
+		t.Fatal("src not registered before reload")
+	}
+
+	if err := eng.ReloadSelf([]byte(chain)); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+
+	// reload 后注册必须仍在（并入而非覆盖）
+	if _, found := ruleEng.RootRuleChainCtx().Resources().Lookup("src"); !found {
+		t.Fatal("src registration orphaned after reload")
+	}
+
+	// 借用方复用 reload 后 src 实例的同一连接
+	src := getTestNode(t, ruleEng, "src")
+	borrower := getTestNode(t, ruleEng, "borrower")
+	srcConn, err := src.conn()
+	if err != nil {
+		t.Fatalf("src conn after reload: %v", err)
+	}
+	borrowerConn, err := borrower.conn()
+	if err != nil {
+		t.Fatalf("borrower conn after reload: %v", err)
+	}
+	if borrowerConn != srcConn {
+		t.Fatalf("borrower not reusing src after reload: src=%+v borrower=%+v", srcConn, borrowerConn)
+	}
+}

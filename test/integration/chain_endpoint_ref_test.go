@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/rulego/rulego"
 	"github.com/rulego/rulego/api/types"
 	netep "github.com/rulego/rulego/endpoint/net"
@@ -143,5 +144,63 @@ func TestChainEndpointRefReload(t *testing.T) {
 	// reload 后：OnReload 应重新注册 ep_net，ref:// 同链解析不失效
 	if _, found := ruleEng.RootRuleChainCtx().Resources().Lookup("ep_net"); !found {
 		t.Fatal("ep_net not registered after reload (OnReload syncResources failed)")
+	}
+}
+
+// TestChainEndpointRefPushAfterReload reload 后从消息路径验证 ref:// 推送仍可用。
+// 注册侧目录仍在不代表消息侧可解析，必须真实收帧断言。
+func TestChainEndpointRefPushAfterReload(t *testing.T) {
+	config := rulego.NewConfig(types.WithEndpointEnabled(true))
+	chain := `{
+  "ruleChain": {"id": "test_chain_ep_push_reload", "name": "chain endpoint ref push after reload", "root": true},
+  "metadata": {
+    "firstNodeIndex": 0,
+    "endpoints": [
+      {"id": "ep_sched", "type": "endpoint/schedule", "routers": [{"params":["{}","JSON"],"from":{"path":"* * * * * *"},"to":{"path":"test_chain_ep_push_reload:build"}}]},
+      {"id": "ep_ws", "type": "endpoint/ws", "configuration": {"server": ":18334"}, "routers": [{"params": [], "from": {"path": "/web"}, "to": {"path": "test_chain_ep_push_reload:nop"}}]}
+    ],
+    "nodes": [
+      {"id":"build","type":"jsTransform","configuration":{"jsScript":"return {msg:'tick-'+Math.floor(Date.now()/1000),metadata:metadata,msgType:msgType};"}},
+      {"id":"push","type":"ws","configuration":{"server":"ref://ep_ws","target":"*"}},
+      {"id":"nop","type":"log","configuration":{"jsScript":"return msg;"}}
+    ],
+    "connections": [{"fromId": "build", "toId": "push", "type": "Success"}]
+  }
+}`
+
+	eng, err := rulego.New("test_chain_ep_push_reload", []byte(chain), engine.WithConfig(config))
+	if err != nil {
+		t.Fatalf("load chain: %v", err)
+	}
+	defer rulego.Del("test_chain_ep_push_reload")
+
+	readFrame := func() (string, error) {
+		conn, _, err := websocket.DefaultDialer.Dial("ws://127.0.0.1:18334/web", nil)
+		if err != nil {
+			return "", err
+		}
+		defer conn.Close()
+		_ = conn.SetReadDeadline(time.Now().Add(4 * time.Second))
+		_, data, err := conn.ReadMessage()
+		if err != nil {
+			return "", err
+		}
+		return string(data), nil
+	}
+
+	if s, err := readFrame(); err != nil {
+		t.Fatalf("push before reload: %v", err)
+	} else {
+		t.Logf("push before reload: %q", s)
+	}
+
+	if err := eng.ReloadSelf([]byte(chain)); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+
+	if s, err := readFrame(); err != nil {
+		t.Fatalf("push after reload: %v", err)
+	} else {
+		t.Logf("push after reload: %q", s)
 	}
 }

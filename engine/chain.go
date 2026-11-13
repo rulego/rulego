@@ -798,6 +798,22 @@ func (rc *RuleChainCtx) ReloadSelfFromDef(def types.RuleChain) error {
 	if ctx, err := InitRuleChainCtx(rc.config, rc.aspects, &def, rc.ruleChainPool); err == nil {
 		// First, execute destroy operations without holding locks to avoid deadlock
 		rc.RLock()
+		// Reload 不触发 OnCreated，endpoint 等链级资源只注册在 rc 的资源目录；
+		// 消息路径绑定的是新 ctx，必须共用同一目录，否则 ref:// 同链寻址落空。
+		// 新 ctx Init 期间连接型节点（NodeClientInitNow=true）可能已在自己的
+		// lazy 目录注册，先并入旧目录再交接；直接覆盖会让这批注册成孤儿。
+		switch {
+		case rc.resources == nil:
+			// 旧链无可继承注册，保留新 ctx 自己的目录
+		case ctx.resources == nil:
+			ctx.resources = rc.resources
+		default:
+			ctx.resources.items.Range(func(k, v any) bool {
+				rc.resources.items.Store(k, v)
+				return true
+			})
+			ctx.resources = rc.resources
+		}
 		oldNodes := make(map[types.RuleNodeId]types.NodeCtx)
 		for k, v := range rc.nodes {
 			oldNodes[k] = v
